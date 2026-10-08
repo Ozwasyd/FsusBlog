@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const { digestJson } = await import(new URL('../perf/app-config-catalog.mjs', import.meta.url));
 
@@ -184,4 +186,44 @@ export function requireProductionAuthority()
 {
     reject('upstream-verification-unavailable', '#1944',
         'No independently verified terminal-verdict/resource binding is installed; caller flags are not authority');
+}
+
+/** Consume the exact published #1944 source capability without promoting its adapter facts to native authority. */
+export async function inspectPerformancePrerequisite({ capabilityRoot, root, verdictRefs, expectedBinding, correctnessFailure = null })
+{
+    const sourceCommit = '89b27fe9557c3b16948a61b7f58b997537f31fb9';
+    const sourceDigests = {
+        'production-fresh-contract.mjs': '1d0ecf6f3613b8932361d3e30b5163c61b8b20555babce5a396b10c700476088',
+        'production-fresh-verdict.mjs': 'c960cdd3496a7b3f6ab119c0ad02c5d71e8807149dd621cb41560b2bfe99d331'
+    };
+    let sourceRoot;
+    try
+    {
+        sourceRoot = fs.realpathSync(capabilityRoot);
+        for (const [file, expected] of Object.entries(sourceDigests))
+        {
+            const actual = path.join(sourceRoot, 'tools', 'perf', file);
+            requireCondition(fs.lstatSync(actual).isFile() && fs.realpathSync(actual) === actual,
+                'invalid-performance-capability-file', file);
+            requireCondition(createHash('sha256').update(fs.readFileSync(actual)).digest('hex') === expected,
+                'performance-capability-drift', file);
+        }
+    }
+    catch (error)
+    {
+        if (error.evidenceRef)
+        {
+            throw error;
+        }
+        reject('performance-capability-unavailable', '#1944', error.code ?? error.name);
+    }
+    const { consumePerformanceVerdicts } = await import(pathToFileURL(path.join(sourceRoot,
+        'tools', 'perf', 'production-fresh-verdict.mjs')).href);
+    const consumption = consumePerformanceVerdicts({ root, verdictRefs, expectedBinding, correctnessFailure });
+    return seal({
+        schema: 'fsusblog.adaptive.performance-prerequisite-candidate.v1', authority: 'DATA_ONLY',
+        sourceCommit, sourceDigests, verdictRefs: structuredClone(verdictRefs),
+        expectedBinding: structuredClone(expectedBinding), consumption, nativeEnrollmentEligible: false,
+        missingCapabilities: ['independently-held-native-resource-calibration-binding', 'scheduler-and-required-catalog-integration']
+    });
 }

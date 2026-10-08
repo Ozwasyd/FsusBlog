@@ -51,6 +51,11 @@ export function validateModelBundle(model, identity)
     const { cpu, memory, startup } = model.recommendations;
     const defaults = sortedDefaults(model.defaults);
     requireCondition(model.defaultsDigest === digestJson(defaults), 'defaults-drift', 'model.defaults');
+    requireCondition(Number.isSafeInteger(model.ledgerHead?.count) && model.ledgerHead.count >= 0
+        && Array.isArray(model.learningRunIds) && model.learningRunIds.length === model.ledgerHead.count
+        && new Set(model.learningRunIds).size === model.learningRunIds.length
+        && model.learningRunIds.every((runId) => typeof runId === 'string' && runId.length > 0),
+    'invalid-learning-membership', 'model');
     for (const [key, document, schema] of [
         ['cpu', cpu, cpuSchema], ['memory', memory, memorySchema], ['startup', startup, startupSchema]
     ])
@@ -63,6 +68,12 @@ export function validateModelBundle(model, identity)
             && digestJson(document.learningRunIds) === digestJson(model.learningRunIds)
             && digestJson(document.capacity) === identity.capacityDigest,
         'recommendation-source-drift', schema);
+        for (const row of document.recommendations)
+        {
+            finite(row.confidence, 'recommendation.confidence');
+            requireCondition(row.confidence <= 1 && Number.isSafeInteger(row.sampleCount)
+                && row.sampleCount === model.ledgerHead.count, 'invalid-confidence', schema);
+        }
     }
     const ids = defaults.map((item) => item.producerId);
     requireCondition(new Set(ids).size === ids.length && digestJson([...ids].sort()) === identity.producerMembershipDigest,
@@ -363,6 +374,8 @@ export function selectCandidateModel({ directory, identity, defaults, planSealed
             return fallback('no-active-candidate');
         }
         sameIdentity(pointer.identity, identity, 'candidate-active.json');
+        requireCondition(/^sha256:[a-f0-9]{64}$/u.test(pointer.evaluationDigest),
+            'invalid-terminal-digest', 'candidate-active.json');
         const terminal = verifySeal(JSON.parse(fs.readFileSync(path.join(directory,
             `terminal-${pointer.evaluationDigest.slice(7)}.json`), 'utf8')), terminalSchema);
         requireCondition(terminal.digest === pointer.evaluationDigest && terminal.modelDigest === pointer.modelDigest

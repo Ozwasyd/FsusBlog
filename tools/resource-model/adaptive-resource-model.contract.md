@@ -140,3 +140,18 @@ held defaults, fixed benchmark windows and proven hard-ready/concurrency envelop
 the #1686 owner's canonical test/matrix registration. Actual clean Production
 samples, independently confirmed performance runs, scheduler shadow integration,
 runtime defaults and full required matrix evidence remain unverified.
+
+The #1944 owner has now published source capability
+`89b27fe9557c3b16948a61b7f58b997537f31fb9` in draft PR3960. The exported
+`inspectPerformancePrerequisite` accepts an explicit source `capabilityRoot`,
+byte-checks the two complete verdict/contract dependency files against that exact
+commit, and calls the original `consumePerformanceVerdicts` with its native
+`{root, verdictRefs: [{locator, sha256}], expectedBinding, correctnessFailure}`
+API. This preserves upstream byte locators and binding rather than translating
+them into the DATA_ONLY observation-input format or reimplementing verdict logic.
+Missing or drifted source refuses consumption. Each call rechecks bytes even
+when Node has cached the module. The returned projection remains DATA_ONLY with
+`nativeEnrollmentEligible: false`: upstream adapter validation is usable source,
+but independently held native resource/calibration binding and Production
+catalog/scheduler consumption remain missing. Neither upstream source nor its
+tests are copied into this partition or its draft PR.

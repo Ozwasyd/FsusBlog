@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-const { digestJson } = await import(new URL('../../tools/resource-model/contract.mjs', import.meta.url));
+const { digestJson, inspectPerformancePrerequisite } = await import(new URL('../../tools/resource-model/contract.mjs', import.meta.url));
 const {
     appendSampleCandidate, createSampleCandidate, enrollProductionSample, readSampleLedger, validateSampleCandidate
 } = await import(new URL('../../tools/resource-model/sample-ledger.mjs', import.meta.url));
@@ -241,4 +241,15 @@ test('adaptive CLI publishes explicit samples and refuses ambiguous arguments an
     const runtime = run(['production-enroll', '--input', input]);
     assert.equal(runtime.status, 1);
     assert.equal(JSON.parse(runtime.stderr).code, 'upstream-verification-unavailable');
+});
+
+test('adaptive performance prerequisite refuses absent and byte drifted upstream capabilities', async (context) =>
+{
+    const data = fixture(context, { count: 0 });
+    const input = { capabilityRoot: data.root, root: data.evidenceRoot, verdictRefs: [], expectedBinding: {} };
+    await assert.rejects(() => inspectPerformancePrerequisite(input), { code: 'performance-capability-unavailable' });
+    const source = path.join(data.root, 'tools', 'perf');
+    fs.mkdirSync(source, { recursive: true });
+    fs.writeFileSync(path.join(source, 'production-fresh-contract.mjs'), 'export const verified = true;\n');
+    await assert.rejects(() => inspectPerformancePrerequisite(input), { code: 'performance-capability-drift' });
 });

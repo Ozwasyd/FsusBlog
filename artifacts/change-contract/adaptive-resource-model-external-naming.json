@@ -1,0 +1,18 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/resource-model/cli.mjs",
+                "tools/resource-model/contract.mjs",
+                "tools/resource-model/cpu-recommendations.mjs",
+                "tools/resource-model/memory-recommendations.mjs",
+                "tools/resource-model/model-lifecycle.mjs",
+                "tools/resource-model/sample-ledger.mjs",
+                "tools/resource-model/startup-recommendations.mjs"
+            ],
+            "reason": "Bind only the seven new owned resource-model modules to the existing tools/**/*.mjs environment-variable naming surface. Existing Node process environment spellings remain external; internal options, evidence adapters and exports use camelCase. No environment key, shared registry or authority permission is added."
+        }
+    ]
+}

@@ -278,6 +278,39 @@ test('adaptive lifecycle falls back deterministically on corrupt low confidence 
     assert.deepEqual(firstFallback.defaults, data.defaults);
 });
 
+test('adaptive lifecycle low confidence candidate storage falls back and invalid metadata cannot authorize selection', (context) =>
+{
+    const data = modelFixture(context, { count: 1 });
+    const evaluated = evaluateActivationCandidate(publication(data));
+    assert.equal(evaluated.state, 'reject');
+    assert.ok(evaluated.reasons.some((row) => row.code === 'low-confidence'));
+    // Synthetic DATA_ONLY storage proves even a claimed active state cannot bypass confidence checks.
+    fs.mkdirSync(data.modelDirectory);
+    const terminal = seal({ schema: 'fsusblog.adaptive.lifecycle-terminal.v1', authority: 'DATA_ONLY',
+        identity: data.identity, modelDigest: data.model.digest, state: 'active-candidate' });
+    fs.writeFileSync(path.join(data.modelDirectory, `terminal-${terminal.digest.slice(7)}.json`), JSON.stringify(terminal));
+    fs.writeFileSync(path.join(data.modelDirectory, `${data.model.digest.slice(7)}.json`), JSON.stringify(data.model));
+    const pointer = seal({ schema: 'fsusblog.adaptive.candidate-pointer.v1', authority: 'DATA_ONLY',
+        identity: data.identity, modelDigest: data.model.digest, evaluationDigest: terminal.digest });
+    const pointerFile = path.join(data.modelDirectory, 'candidate-active.json');
+    fs.writeFileSync(pointerFile, JSON.stringify(pointer));
+    const fallback = selectCandidateModel(selection(data));
+    assert.equal(fallback.selection, 'defaults');
+    assert.equal(fallback.reason, 'low-confidence');
+    const payload = { ...pointer };
+    delete payload.digest;
+    fs.writeFileSync(pointerFile, JSON.stringify(seal({ ...payload, evaluationDigest: 'sha256:../foreign' })));
+    assert.equal(selectCandidateModel(selection(data)).reason, 'invalid-terminal-digest');
+    const malformed = structuredClone(data.model);
+    const cpu = { ...malformed.recommendations.cpu };
+    delete cpu.digest;
+    cpu.recommendations[0].confidence = 100;
+    malformed.recommendations.cpu = seal(cpu);
+    malformed.recommendationDigests.cpu = malformed.recommendations.cpu.digest;
+    delete malformed.digest;
+    assert.throws(() => validateModelBundle(seal(malformed), data.identity), { code: 'invalid-confidence' });
+});
+
 test('adaptive lifecycle benchmark shadow never changes CPU or memory during measurement', (context) =>
 {
     const data = modelFixture(context, { defaults: { alpha: { benchmark: true, cpuUnits: 3 } } });
