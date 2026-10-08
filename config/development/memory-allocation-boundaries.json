@@ -2092,6 +2092,40 @@
             ]
         },
         {
+            "id": "managed-memory-backing",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "ManagedMemoryBacking physical array owner and exact role/read/pin/operation tokens",
+            "producer": "TryCreate reserves array capacity before new byte[capacity], initializes logical payload, and commits one fresh allocation/block identity",
+            "consumers": "Current/LastGood/Sticky/Overlay role tokens, host reader views and actual ConsumeAsync consumer; GCHandle pin tokens retain the same allocation independently",
+            "releaseEvent": "Explicit Close rejects new independent acquisitions and removes root role; final role, reader, operation and GCHandle pin release detach backing and dispose its one committed allocation charge outside the lifetime gate",
+            "capacityModel": "Capacity is exact byte-array Length; exposed views are bounded by LogicalLength. All retained views/roles/pins share one charged capacity, including a small overlay slice. CLR object/header and hold metadata are not represented as payload bytes",
+            "frequency": "Per admitted backing creation, lease/role/pin acquisition and asynchronous operation; no request-path sampler or actual production rate is claimed",
+            "asyncEscape": "ConsumeAsync awaits the actual consumer ValueTask once; an independently canceled outer waiter cannot dispose its source or reserved operation slot; role and pin tokens may survive root/read disposal",
+            "classification": "unclassified",
+            "eligibilityOwner": "Existing product content authority must supply classification before any integration; this generic backing grants no publication or migration permission",
+            "migrationDisposition": "Managed-only lifetime protocol; payload migration and serving integration are not authorized by this family",
+            "exclusionReason": "No disk/device tier or content eligibility owner is introduced here; unclassified payloads remain nonmigratable",
+            "observationHeadroom": "Keep exact payload capacity charged through retirement; observe separately bounded holdLimit metadata, GC headers, pin overhead and diagnostic snapshots without calling them exact process RAM",
+            "testOwner": "tests/backend/Unit/ManagedMemoryBackingTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+                    "anchor": "public sealed class ManagedMemoryBacking"
+                }
+            ]
+        },
+        {
             "id": "memory-ledger-metadata",
             "sourcePaths": [
                 "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs"

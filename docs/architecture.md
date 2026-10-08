@@ -168,8 +168,28 @@ bounds. A shrink keeps all existing charges; converted reservations cannot relea
 allocation charge. Expanded backing is rejected before allocation when it exceeds its grant.
 The event ring records ownership identities and charge deltas; after rotation its window
 explicitly ceases to claim complete history. Metadata headroom, pool retention/trim,
-backing descriptors, role/read/pin accounting and actual reclaim remain incomplete; the
-coordinator is not integrated into live allocation or capability activation.
+cross-tier descriptors and measured process reclaim remain incomplete; the coordinator
+is not integrated into product serving or capability activation.
+
+`Infrastructure/Memory/Lifetime/ManagedMemoryBacking` exercises the lease protocol on
+one initialized managed array. It reserves exact payload capacity before allocation,
+commits one physical charge and exposes only the logical range. Current, last-good,
+sticky and overlay roles, readers, pins and actual asynchronous operations hold the same
+charged backing. A small live slice retains the full allocation. `Close` stops new
+independent acquisitions and removes the root role; existing readers may finish and pin
+their storage. Its bounded snapshot reports each remaining hold class, and `Drained`
+completes only after the last hold releases the allocation charge. There is no forced
+free, owning-token pool, thread affinity or asynchronous finalizer.
+
+`ConsumeAsync` reserves an operation slot and awaits the consumer ValueTask exactly once.
+Canceling a separate outer wait does not release that slot or its source. Unexpected
+consumer failures propagate while structured cleanup retains the same completion rule.
+Pin handles share an idempotent token owning the actual GCHandle, so a copied BCL handle
+does not free the backing twice. This owner grants no content eligibility, revocation,
+publication or delivery authority and remains unused by serving paths. Releasing its
+array charge records the end of explicit ownership, not an observed GC or working-set
+reduction; object headers, bounded control metadata and pin overhead need separate
+headroom. Native, platform and product drain integration require their own evidence.
 
 The canonical mode values are Auto = 0, Disabled = 1 and Required = 2. Omission normalizes
 to Auto. Invalid enum values, numeric strings, legacy Preferred and misspelled modes
