@@ -3008,3 +3008,59 @@ test('independent verifier rejects resealed partial, reordered and group-substit
         assert.match(rejected.stderr, /timeline sealed references|terminal classifications/u);
     }
 });
+
+test('seven controlled fixture producers publish exact bound payloads for independent receipt verification', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    const producer = path.join(repositoryRoot, 'tests/tools/helpers/controlled-reliability-producer.mjs');
+    const observations = [];
+    for (const reference of fixture.receipt.scenarios)
+    {
+        const result = JSON.parse(fs.readFileSync(path.join(fixture.root, reference.resultPath), 'utf8'));
+        const paths = [...new Set([
+            result.authoritativeEvidence.path,
+            ...result.lifecycle.actions.flatMap(action => [action.receipt.path, action.processTreeReceipt.path]),
+            reference.resultPath
+        ])];
+        const documents = paths.map(relative => ({
+            path: relative,
+            document: JSON.parse(fs.readFileSync(path.join(fixture.root, relative), 'utf8'))
+        }));
+        for (const relative of paths)
+        {
+            fs.unlinkSync(path.join(fixture.root, relative));
+        }
+        const startedAt = new Date().toISOString();
+        const child = spawnSync(process.execPath, [producer], {
+            input: JSON.stringify({ root: fixture.root, scenarioId: reference.scenarioId, documents }),
+            encoding: 'utf8'
+        });
+        assert.equal(child.status, 0, child.stderr);
+        const observed = JSON.parse(child.stdout);
+        assert.equal(observed.scenarioId, reference.scenarioId);
+        assert.equal(observed.fixtureOnly, true);
+        assert.equal(observed.runtimeQualificationEligible, false);
+        assert.ok(Number.isInteger(observed.pid) && observed.pid > 0);
+        assert.equal(observed.executable, process.execPath);
+        for (const entry of observed.observations)
+        {
+            assert.equal(entry.digest, bytesDigest(fs.readFileSync(path.join(fixture.root, entry.path))));
+        }
+        assert.equal(observed.observations.find(entry => entry.path === reference.resultPath).contentDigest,
+            reference.resultContentDigest);
+        assert.equal(observed.observations.find(entry => entry.path === reference.evidencePath).digest,
+            reference.evidenceDigest);
+        observations.push({ ...observed, startedAt, finishedAt: new Date().toISOString(), exitCode: child.status });
+    }
+    assert.deepEqual(observations.map(entry => entry.scenarioId).sort(), [...scenarioIds].sort());
+    assert.equal(new Set(observations.map(entry => entry.pid)).size, 7);
+    writeJson(path.join(fixture.root, '.tmp/controlled-producer-observations.json'), observations);
+    verifyCliPreflight(fixture);
+    assert.equal(finalizeCli(fixture).status, 0);
+    assert.equal(verifyTerminalCli(fixture).status, 0);
+    const omittedResult = fixture.receipt.scenarios[0].resultPath;
+    const document = JSON.parse(fs.readFileSync(path.join(fixture.root, omittedResult), 'utf8'));
+    delete document.producerSpawned;
+    writeJson(path.join(fixture.root, omittedResult), sealDocument(document));
+    assert.notEqual(verifyCli(fixture).status, 0);
+});
