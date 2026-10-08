@@ -43,7 +43,9 @@ public sealed record UserSessionValidationCacheState(
     string AuthenticationStrength = "",
     DateTime? AuthenticatedAtUtc = null,
     UserSessionMode SessionMode = UserSessionMode.Normal,
-    string AccountRowVersion = "");
+    string AccountRowVersion = "",
+    int? CredentialRowId = null,
+    string DurationPolicy = "");
 
 public interface IUserSessionDbFallbackGate
 {
@@ -149,7 +151,7 @@ public sealed class UserSessionValidationCache(
     IConfiguration configuration) : IUserSessionValidationCache
 {
     internal const string DistributedCacheEnabledKey = "Security:UserSessionValidation:DistributedCacheEnabled";
-    private const string PayloadVersion = "v3";
+    private const string PayloadVersion = "v4";
     private static readonly TimeSpan s_snapshotTtl = TimeSpan.FromMinutes(2);
     public async Task<UserSessionValidationCacheState?> ReadAsync(
         string sessionId,
@@ -264,59 +266,51 @@ public sealed class UserSessionValidationCache(
             state.AuthenticationStrength,
             ToTicks(state.AuthenticatedAtUtc),
             ((int)state.SessionMode).ToString(CultureInfo.InvariantCulture),
-            string.IsNullOrWhiteSpace(state.AccountRowVersion) ? state.RowVersion : state.AccountRowVersion);
+            string.IsNullOrWhiteSpace(state.AccountRowVersion) ? state.RowVersion : state.AccountRowVersion,
+            state.CredentialRowId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+            state.DurationPolicy);
 
     internal static UserSessionValidationCacheState? Decode(string payload, string expectedSessionId)
     {
         string[] fields = payload.Split('|');
-        bool legacyV2 = fields.Length == 12 && string.Equals(fields[0], "v2", StringComparison.Ordinal);
-        if ((!legacyV2 && fields.Length != 14) ||
-            (!legacyV2 && !string.Equals(fields[0], PayloadVersion, StringComparison.Ordinal)) ||
-            string.IsNullOrWhiteSpace(fields[1]) ||
-            !int.TryParse(fields[2], NumberStyles.None, CultureInfo.InvariantCulture, out int accountId) ||
-            accountId <= 0 ||
-            !TryParseNullableUtc(fields[3], out DateTime? revokedAtUtc) ||
-            !TryParseRequiredUtc(fields[4], out DateTime idleExpiresAtUtc) ||
-            !TryParseRequiredUtc(fields[5], out DateTime absoluteExpiresAtUtc) ||
-            !int.TryParse(fields[6], NumberStyles.Integer, CultureInfo.InvariantCulture, out int accountStatus) ||
-            !TryParseNullableUtc(fields[7], out DateTime? accountDeletedAtUtc) ||
-            string.IsNullOrWhiteSpace(fields[8]) ||
-            !TryParseNullableUtc(fields[11], out DateTime? authenticatedAtUtc) ||
-            (!legacyV2 && (!int.TryParse(fields[12], NumberStyles.Integer, CultureInfo.InvariantCulture, out int sessionModeValue)
-                || !Enum.IsDefined((UserSessionMode)sessionModeValue)
-                || string.IsNullOrWhiteSpace(fields[13]))))
+        if (fields.Length != 16 || !string.Equals(fields[0], PayloadVersion, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(fields[1])
+            || !int.TryParse(fields[2], NumberStyles.None, CultureInfo.InvariantCulture, out int accountId)
+            || accountId <= 0
+            || !TryParseNullableUtc(fields[3], out DateTime? revokedAtUtc)
+            || !TryParseRequiredUtc(fields[4], out DateTime idleExpiresAtUtc)
+            || !TryParseRequiredUtc(fields[5], out DateTime absoluteExpiresAtUtc)
+            || !int.TryParse(fields[6], NumberStyles.Integer, CultureInfo.InvariantCulture, out int accountStatus)
+            || !TryParseNullableUtc(fields[7], out DateTime? accountDeletedAtUtc)
+            || string.IsNullOrWhiteSpace(fields[8])
+            || !TryParseNullableUtc(fields[11], out DateTime? authenticatedAtUtc)
+            || !int.TryParse(fields[12], NumberStyles.Integer, CultureInfo.InvariantCulture, out int sessionModeValue)
+            || !Enum.IsDefined((UserSessionMode)sessionModeValue)
+            || string.IsNullOrWhiteSpace(fields[13]))
         {
             return null;
         }
 
-        bool validAuthenticationContext = UserSessionAuthenticationMethods.IsValid(fields[9])
-            && UserSessionAuthenticationStrengths.IsValid(fields[10])
-            && authenticatedAtUtc.HasValue;
-        if (!revokedAtUtc.HasValue && !validAuthenticationContext)
+        int? credentialRowId = null;
+        if (fields[14].Length > 0)
+        {
+            if (!int.TryParse(fields[14], NumberStyles.None, CultureInfo.InvariantCulture, out int parsedCredential) || parsedCredential <= 0)
+            {
+                return null;
+            }
+            credentialRowId = parsedCredential;
+        }
+        if (!revokedAtUtc.HasValue && (!authenticatedAtUtc.HasValue
+            || !UserSessionAuthenticationContract.IsValid(fields[9], fields[10], credentialRowId)
+            || !UserSessionDurationPolicies.IsValid(fields[15])))
         {
             return null;
         }
 
-        UserSessionMode sessionMode = legacyV2
-            ? revokedAtUtc.HasValue
-                ? UserSessionMode.Revoked
-                : accountStatus == 1 ? UserSessionMode.Restricted : UserSessionMode.Normal
-            : (UserSessionMode)int.Parse(fields[12], CultureInfo.InvariantCulture);
         return new UserSessionValidationCacheState(
-            expectedSessionId,
-            accountId,
-            revokedAtUtc,
-            idleExpiresAtUtc,
-            absoluteExpiresAtUtc,
-            fields[1],
-            accountStatus,
-            accountDeletedAtUtc,
-            fields[8],
-            fields[9],
-            fields[10],
-            authenticatedAtUtc,
-            sessionMode,
-            legacyV2 ? string.Empty : fields[13]);
+            expectedSessionId, accountId, revokedAtUtc, idleExpiresAtUtc, absoluteExpiresAtUtc,
+            fields[1], accountStatus, accountDeletedAtUtc, fields[8], fields[9], fields[10],
+            authenticatedAtUtc, (UserSessionMode)sessionModeValue, fields[13], credentialRowId, fields[15]);
     }
 
     private static string NormalizeSessionIdentity(string sessionId)
@@ -562,7 +556,9 @@ public sealed class UserSessionValidationService(
                    u.xmin::text AS account_row_version,
                    s.authentication_method,
                    s.authentication_strength,
-                   s.authenticated_at_utc
+                   s.authenticated_at_utc,
+                   s.authenticated_credential_row_id,
+                   s.duration_policy
             FROM sys_user_session s
             JOIN sys_user u ON u.id = s.userid
             WHERE s.sessionid = @SessionId;
@@ -587,9 +583,11 @@ public sealed class UserSessionValidationService(
             reader.IsNull("authentication_strength") ? string.Empty : reader.ReadString("authentication_strength"),
             reader.IsNull("authenticated_at_utc") ? null : AsUtc(reader.ReadDateTime("authenticated_at_utc")),
             reader.IsNull("session_mode")
-                ? UserSessionMode.Normal
+                ? (UserSessionMode)(-1)
                 : (UserSessionMode)reader.ReadInt32("session_mode"),
-            reader.ReadString("account_row_version"));
+            reader.ReadString("account_row_version"),
+            reader.IsNull("authenticated_credential_row_id") ? null : reader.ReadInt32("authenticated_credential_row_id"),
+            reader.IsNull("duration_policy") ? string.Empty : reader.ReadString("duration_policy"));
     }
 
     private static UserSessionValidationResult ValidateState(
@@ -633,17 +631,19 @@ public sealed class UserSessionValidationService(
             return UserSessionValidationResult.Invalid("user_session_identity_kind_mismatch");
         }
 
-        if (!UserSessionAuthenticationMethods.IsValid(state.AuthenticationMethod) ||
-            !UserSessionAuthenticationStrengths.IsValid(state.AuthenticationStrength) ||
+        if (!UserSessionAuthenticationContract.IsValid(state.AuthenticationMethod, state.AuthenticationStrength, state.CredentialRowId) ||
+            !UserSessionDurationPolicies.IsValid(state.DurationPolicy) ||
             !state.AuthenticatedAtUtc.HasValue ||
-            !string.Equals(principal.FindFirst("auth_method")?.Value, state.AuthenticationMethod, StringComparison.Ordinal) ||
-            !string.Equals(principal.FindFirst("auth_strength")?.Value, state.AuthenticationStrength, StringComparison.Ordinal) ||
+            !string.Equals(principal.FindFirst(CurrentAuthSessionClaims.AuthenticationMethod)?.Value, state.AuthenticationMethod, StringComparison.Ordinal) ||
+            !string.Equals(principal.FindFirst(CurrentAuthSessionClaims.AuthenticationStrength)?.Value, state.AuthenticationStrength, StringComparison.Ordinal) ||
             !long.TryParse(
-                principal.FindFirst("auth_time")?.Value,
+                principal.FindFirst(CurrentAuthSessionClaims.AuthenticatedAt)?.Value,
                 NumberStyles.Integer,
                 CultureInfo.InvariantCulture,
                 out long tokenAuthTime) ||
-            tokenAuthTime != new DateTimeOffset(AsUtc(state.AuthenticatedAtUtc.Value)).ToUnixTimeSeconds())
+            tokenAuthTime != new DateTimeOffset(AsUtc(state.AuthenticatedAtUtc.Value)).ToUnixTimeSeconds() ||
+            !string.Equals(principal.FindFirst(CurrentAuthSessionClaims.DurationPolicy)?.Value, state.DurationPolicy, StringComparison.Ordinal) ||
+            !Enum.IsDefined(state.SessionMode))
         {
             return UserSessionValidationResult.Invalid("user_session_authentication_context_mismatch");
         }
@@ -652,9 +652,10 @@ public sealed class UserSessionValidationService(
             ? UserSessionMode.Restricted
             : UserSessionMode.Normal;
         string? tokenModeClaim = principal.FindFirst(UserSessionModes.ClaimType)?.Value;
-        UserSessionMode tokenMode = UserSessionModes.TryParseClaim(tokenModeClaim, out UserSessionMode parsedTokenMode)
-            ? parsedTokenMode
-            : UserSessionMode.Normal;
+        if (!UserSessionModes.TryParseClaim(tokenModeClaim, out UserSessionMode tokenMode))
+        {
+            return UserSessionValidationResult.Invalid("user_session_mode_claim_invalid");
+        }
         if (tokenMode == UserSessionMode.Revoked)
         {
             return UserSessionValidationResult.Invalid("user_session_token_revoked");

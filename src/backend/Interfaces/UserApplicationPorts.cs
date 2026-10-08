@@ -102,9 +102,7 @@ public interface IUserLoginWorkflowService
         string clientIp,
         string? deviceFingerprint,
         string? userAgent,
-        bool mfaVerified,
-        bool rememberMe,
-        UserSessionAuthenticationContext? authenticationContext = null,
+        UserSessionAuthenticationContext authenticationContext,
         CancellationToken cancellationToken = default);
 
     Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent, CancellationToken cancellationToken = default);
@@ -126,8 +124,6 @@ public interface IUserSessionFixtureLoginWorkflow
             string clientIp,
             string? deviceFingerprint,
             string? userAgent,
-            bool mfaVerified,
-            bool rememberMe,
             UserSessionAuthenticationContext authenticationContext,
             UserSessionFixtureIdentity fixtureIdentity,
             CancellationToken cancellationToken = default);

@@ -45,12 +45,14 @@ public sealed partial class UserLoginWorkflowService(
         string clientIp,
         string? deviceFingerprint,
         string? userAgent,
-        bool mfaVerified,
-        bool rememberMe,
-        UserSessionAuthenticationContext? authenticationContext = null,
+        UserSessionAuthenticationContext authenticationContext,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!authenticationContext.IsValid())
+        {
+            return (false, "登录认证上下文无效", null, null);
+        }
         User? user = await db.Queryable<User>().InSingleAsync(userId);
         if (user is null)
         {
@@ -62,8 +64,6 @@ public sealed partial class UserLoginWorkflowService(
             clientIp,
             deviceFingerprint,
             userAgent,
-            mfaVerified,
-            rememberMe,
             authenticationContext);
         return (
             result.Success,
@@ -89,13 +89,15 @@ public sealed partial class UserLoginWorkflowService(
             string clientIp,
             string? deviceFingerprint,
             string? userAgent,
-            bool mfaVerified,
-            bool rememberMe,
             UserSessionAuthenticationContext authenticationContext,
             UserSessionFixtureIdentity fixtureIdentity,
             CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!authenticationContext.IsValid())
+        {
+            return (false, "登录认证上下文无效", null, null);
+        }
         ValidateFixtureIdentity(fixtureIdentity);
         User? user = await db.Queryable<User>().InSingleAsync(userId);
         if (user is null)
@@ -107,8 +109,6 @@ public sealed partial class UserLoginWorkflowService(
             clientIp,
             deviceFingerprint,
             userAgent,
-            mfaVerified,
-            rememberMe,
             authenticationContext,
             fixtureIdentity);
         return (
@@ -129,11 +129,14 @@ public sealed partial class UserLoginWorkflowService(
         string clientIp,
         string? deviceFingerprint,
         string? userAgent,
-        bool mfaVerified,
-        bool rememberMe,
-        UserSessionAuthenticationContext? authenticationContext = null,
+        UserSessionAuthenticationContext authenticationContext,
         UserSessionFixtureIdentity? fixtureIdentity = null)
     {
+        if (!authenticationContext.IsValid())
+        {
+            return (false, "登录认证上下文无效", null, null);
+        }
+
         if (!AccountRegistrationStates.IsActive(user.RegistrationState))
         {
             return (false, "账户尚未完成首枚通行密钥绑定", null, null);
@@ -155,23 +158,13 @@ public sealed partial class UserLoginWorkflowService(
             LogBannedAccountLogin(accountSubject);
         }
 
-        DateTime authenticatedAtUtc = UtcNow;
-        UserSessionAuthenticationContext sessionAuthentication = authenticationContext
-            ?? UserSessionAuthenticationContext.FromLegacy(mfaVerified, rememberMe, authenticatedAtUtc);
-        sessionAuthentication = sessionAuthentication with
+        UserSessionAuthenticationContext sessionAuthentication = authenticationContext with
         {
-            AuthenticatedAtUtc = DateTime.SpecifyKind(sessionAuthentication.AuthenticatedAtUtc, DateTimeKind.Utc),
-            DurationPolicy = UserSessionDurationPolicies.FromRememberMe(rememberMe),
             SessionMode = user.Status == UserStatusBanned
                 ? UserSessionMode.Restricted
                 : UserSessionMode.Normal
         };
-        if (!UserSessionAuthenticationMethods.IsValid(sessionAuthentication.Method) ||
-            !UserSessionAuthenticationStrengths.IsValid(sessionAuthentication.Strength) ||
-            sessionAuthentication.AuthenticatedAtUtc == default)
-        {
-            return (false, "登录认证上下文无效", null, null);
-        }
+        bool rememberMe = UserSessionDurationPolicies.IsPersistent(sessionAuthentication.DurationPolicy);
 
         string refreshToken = jwt.GenerateRefreshToken();
         string refreshTokenHash = HashToken(refreshToken);
@@ -207,7 +200,7 @@ public sealed partial class UserLoginWorkflowService(
             IdleExpiresAt = idleExpiresAt,
             AbsoluteExpiresAt = absoluteExpiresAt,
             SessionMode = sessionAuthentication.SessionMode,
-            MfaVerified = UserSessionAuthenticationStrengths.IsCoarseMfa(sessionAuthentication.Strength),
+            MfaVerified = UserSessionAuthenticationContract.IsCoarseMfa(sessionAuthentication.Method, sessionAuthentication.Strength, sessionAuthentication.CredentialRowId),
             RememberMe = rememberMe,
             AuthenticationMethod = sessionAuthentication.Method,
             AuthenticationStrength = sessionAuthentication.Strength,

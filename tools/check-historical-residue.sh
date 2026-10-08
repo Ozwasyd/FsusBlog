@@ -243,6 +243,13 @@ RunResidueCheck \
     src/backend/Infrastructure/Helpers/Security tests/backend
 
 RunResidueCheck \
+    "current session authentication and signing compatibility" \
+    "current session authentication or signing compatibility residue detected" \
+    '\blegacy_(?:verified|unverified)\b|\bUserSessionAuthenticationMethods[.]Other\b|\bFromLegacy\b|\bLegacyNoKidAcceptUntilUtc\b|\bPreviousKeys\b|\bJwtPreviousKeySettings\b|"other"' \
+    '' \
+    src/backend/Entities/UserSessionAuthenticationContext.cs src/backend/Entities/UserSession.cs src/backend/Infrastructure/Helpers/JwtHelper.cs src/backend/Services/UserLoginWorkflowService.cs src/backend/Services/UserSessionCommandService.cs src/backend/Models/JwtSettings.cs src/shared/Contracts/AuthSystem/user-session-authentication-contract.json src/shared/Contracts/AuthSystem/UserSessionAuthenticationContract.generated.cs src/frontend/src/contracts/binaryApi.ts src/frontend/src/generated/authSessionContract.ts
+
+RunResidueCheck \
     "current auth mode and password compatibility" \
     "current auth mode or password compatibility residue detected" \
     '\bFSUSBLOG_ANONYMOUS_IDENTITY_MODE\b|\b(?:ModeEnvironmentVariable|IsAnonymousIdentityModeEnabled|LegacyPasswordDisabledMessage|MfaPasswordProofRequest(?:Pod|CoreModel)?|(?:Write|Encode|TryDecode)MfaPasswordProofRequest)\b' \
@@ -253,7 +260,7 @@ RunResidueCheck \
     "current auth identity catalog copies" \
     "current auth identity catalog copy detected" \
     '(?:const[[:space:]]+string[[:space:]]+\w+|IdentityKind|identityKind|identity_kind)[^;\n]*=[^;\n]*["'\''](?:anonymous_account|admin_principal)["'\'']|\b(?:is|or)[[:space:]]+["'\'']anonymous_account["'\'']' \
-    '^src/shared/Contracts/AuthSystem/CurrentIdentityKinds[.]cs$' \
+    '^src/shared/Contracts/AuthSystem/UserSessionAuthenticationContract[.]generated[.]cs$' \
     src/backend/Services src/backend/Modules/Endpoints src/backend/Infrastructure/Auth src/core/Cache/PodBinaryCodec.User.cs
 
 RunResidueCheck \

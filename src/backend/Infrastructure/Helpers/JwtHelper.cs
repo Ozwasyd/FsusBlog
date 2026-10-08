@@ -22,27 +22,11 @@ namespace FsusBlog.Server.Infrastructure.Helpers;
 
 public class JwtSettings
 {
-    public string KeyVersion { get; set; } = "legacy-current";
+    public string KeyVersion { get; set; } = string.Empty;
     public string SecretKey { get; set; } = string.Empty;
     public string Issuer { get; set; } = string.Empty;
     public string Audience { get; set; } = string.Empty;
     public int AccessTokenExpiresMinutes { get; set; } = 15;
-    public int RotationWindowDays { get; set; } = 30;
-    public DateTimeOffset? LegacyNoKidAcceptUntilUtc
-    {
-        get; set;
-    }
-    public List<JwtPreviousKeySettings> PreviousKeys { get; set; } = [];
-}
-
-public sealed class JwtPreviousKeySettings
-{
-    public string Version { get; set; } = string.Empty;
-    public string Key { get; set; } = string.Empty;
-    public DateTimeOffset AcceptUntilUtc
-    {
-        get; set;
-    }
 }
 
 public readonly record struct IssuedAccessToken(string Token, DateTimeOffset ExpiresAtUtc)
@@ -52,9 +36,8 @@ public readonly record struct IssuedAccessToken(string Token, DateTimeOffset Exp
 
 public interface IJwtHelper
 {
-    IssuedAccessToken GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false);
     IssuedAccessToken GenerateAccessToken(User user, string? sessionId, UserSessionAuthenticationContext authenticationContext);
-    IssuedAccessToken GenerateAdminAccessToken(AdminPrincipal principal, AdminSession session, IReadOnlyCollection<string> permissions, bool stepUpVerified = false);
+    IssuedAccessToken GenerateAdminAccessToken(AdminPrincipal principal, AdminSession session, IReadOnlyCollection<string> permissions);
     string GenerateRefreshToken();
 }
 
@@ -81,19 +64,18 @@ public class JwtHelper : IJwtHelper
         _settings = options.Value;
         _configuration = configuration;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        IReadOnlyList<string> signingKeyErrors = CurrentJwtSigningKey.Validate(_settings, enforceProductionRules: false);
+        if (signingKeyErrors.Count > 0)
+        {
+            throw new InvalidOperationException("JWT current signing key configuration is invalid: " + string.Join("; ", signingKeyErrors));
+        }
 
         // The configured key material is parsed once during singleton construction.
-        SymmetricSecurityKey key = JwtSigningKeyRing.CreateKey(_settings.KeyVersion, _settings.SecretKey);
+        SymmetricSecurityKey key = CurrentJwtSigningKey.CreateKey(_settings.KeyVersion, _settings.SecretKey);
         _credentials = new SigningCredentials(
             key,
             SecurityAlgorithms.HmacSha256Signature);
     }
-
-    public IssuedAccessToken GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false)
-        => GenerateAccessToken(
-            user,
-            sessionId,
-            UserSessionAuthenticationContext.FromLegacy(mfaVerified, rememberMe: false));
 
     public IssuedAccessToken GenerateAccessToken(
         User user,
@@ -105,22 +87,22 @@ public class JwtHelper : IJwtHelper
             throw new InvalidOperationException("Formal access tokens may only be issued for active accounts.");
         }
 
-        string identityKind = string.IsNullOrWhiteSpace(user.IdentityKind)
-            ? AnonymousIdentityRuntime.AnonymousAccountKind
-            : user.IdentityKind.Trim();
-        if (!UserSessionAuthenticationMethods.IsValid(authenticationContext.Method) ||
-            !UserSessionAuthenticationStrengths.IsValid(authenticationContext.Strength) ||
-            authenticationContext.AuthenticatedAtUtc == default)
+        if (!AnonymousIdentityRuntime.TryParse(user.IdentityKind, out CurrentIdentityKind identityKind) ||
+            identityKind != CurrentIdentityKind.AnonymousAccount)
+        {
+            throw new InvalidOperationException("Ordinary access tokens require the exact current account identity kind.");
+        }
+        if (!authenticationContext.IsValid())
         {
             throw new InvalidOperationException("Session authentication context is invalid.");
         }
 
-        var claims = new List<Claim>(9)
+        var claims = new List<Claim>(string.IsNullOrWhiteSpace(sessionId) ? 9 : 10)
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new("identity_kind", identityKind),
+            new(CurrentAuthSessionClaims.IdentityKind, AnonymousIdentityRuntime.ToWireValue(identityKind)),
             new(
-                AccountSubjectHasher.ClaimType,
+                CurrentAuthSessionClaims.AccountSubjectHash,
                 AccountSubjectHashRequirement.Require(user.AccountSubjectHash, "access-token-issuance"))
         };
         if (!string.IsNullOrWhiteSpace(sessionId))
@@ -129,15 +111,19 @@ public class JwtHelper : IJwtHelper
         }
         claims.Add(new Claim(
             "mfa",
-            UserSessionAuthenticationStrengths.IsCoarseMfa(authenticationContext.Strength) ? "1" : "0"));
-        claims.Add(new Claim("auth_method", authenticationContext.Method));
-        claims.Add(new Claim("auth_strength", authenticationContext.Strength));
+            UserSessionAuthenticationContract.IsCoarseMfa(
+                authenticationContext.Method,
+                authenticationContext.Strength,
+                authenticationContext.CredentialRowId) ? "1" : "0"));
+        claims.Add(new Claim(CurrentAuthSessionClaims.AuthenticationMethod, authenticationContext.Method));
+        claims.Add(new Claim(CurrentAuthSessionClaims.AuthenticationStrength, authenticationContext.Strength));
+        claims.Add(new Claim(CurrentAuthSessionClaims.DurationPolicy, authenticationContext.DurationPolicy));
         claims.Add(new Claim(
-            UserSessionModes.ClaimType,
+            CurrentAuthSessionClaims.SessionMode,
             UserSessionModes.ToClaimValue(authenticationContext.SessionMode)));
         claims.Add(new Claim(
-            "auth_time",
-            new DateTimeOffset(DateTime.SpecifyKind(authenticationContext.AuthenticatedAtUtc, DateTimeKind.Utc))
+            CurrentAuthSessionClaims.AuthenticatedAt,
+            new DateTimeOffset(authenticationContext.AuthenticatedAtUtc)
                 .ToUnixTimeSeconds()
                 .ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
@@ -161,20 +147,19 @@ public class JwtHelper : IJwtHelper
     public IssuedAccessToken GenerateAdminAccessToken(
         AdminPrincipal principal,
         AdminSession session,
-        IReadOnlyCollection<string> permissions,
-        bool stepUpVerified = false)
+        IReadOnlyCollection<string> permissions)
     {
         var claims = new List<Claim>(9 + permissions.Count)
         {
             new(ClaimTypes.NameIdentifier, principal.Id.ToString()),
             new(ClaimTypes.Name, principal.Handle),
-            new("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+            new(CurrentAuthSessionClaims.IdentityKind, AnonymousIdentityRuntime.AdminPrincipalKind),
             new("admin_id", principal.Id.ToString()),
             new("admin_handle", principal.Handle),
             new("admin_sid", session.SessionId),
             new("sid", session.SessionId),
-            new("admin_step_up", stepUpVerified ? "1" : "0"),
-            new("mfa", stepUpVerified ? "1" : "0")
+            new("admin_step_up", session.StepUpVerified ? "1" : "0"),
+            new("mfa", session.StepUpVerified ? "1" : "0")
         };
 
         foreach (string permission in permissions.Where(static permission => !string.IsNullOrWhiteSpace(permission)).Distinct(StringComparer.Ordinal))
@@ -238,7 +223,7 @@ public static class JwtServiceExtensions
 
         services.AddSingleton<IJwtHelper, JwtHelper>();
 
-        var settings = jwtSection.Get<JwtSettings>();
+        var settings = jwtSection.Get<JwtSettings>(static binder => binder.ErrorOnUnknownConfiguration = true);
         if (settings == null ||
             string.IsNullOrEmpty(settings.SecretKey) ||
             string.IsNullOrEmpty(settings.Issuer) ||
@@ -247,14 +232,12 @@ public static class JwtServiceExtensions
             throw new InvalidOperationException("JWT 配置缺失：请检查 appsettings.json 中的 SecretKey, Issuer, Audience");
         }
 
-        IReadOnlyList<string> keyRingErrors = JwtSigningKeyRing.Validate(
-            settings,
-            enforceProductionRules: false,
-            timeProvider.GetUtcNow());
-        if (keyRingErrors.Count > 0)
+        IReadOnlyList<string> signingKeyErrors = CurrentJwtSigningKey.Validate(settings, enforceProductionRules: false);
+        if (signingKeyErrors.Count > 0)
         {
-            throw new InvalidOperationException("JWT key ring configuration is invalid: " + string.Join("; ", keyRingErrors));
+            throw new InvalidOperationException("JWT current signing key configuration is invalid: " + string.Join("; ", signingKeyErrors));
         }
+        SymmetricSecurityKey currentSigningKey = CurrentJwtSigningKey.CreateKey(settings.KeyVersion, settings.SecretKey);
 
         services.AddAuthentication(x =>
         {
@@ -278,8 +261,9 @@ public static class JwtServiceExtensions
                 ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
                 // Business wall clock is injectable for correctness tests via the
                 // registration-time TimeProvider (see AddFsusApiFoundation).
-                IssuerSigningKeyResolver = (_, _, kid, _) =>
-                    JwtSigningKeyRing.ResolveValidationKeys(settings, kid, timeProvider.GetUtcNow()),
+                IssuerSigningKey = currentSigningKey,
+                IssuerSigningKeyValidator = (key, token, _) =>
+                    CurrentJwtSigningKey.HasExactCurrentKeyId(key, token, settings.KeyVersion),
                 LifetimeValidator = (notBefore, expires, _, validationParameters) =>
                     ValidateLifetimeAgainstBusinessClock(
                         notBefore,
@@ -359,6 +343,19 @@ public static class JwtServiceExtensions
                         context.Fail(userResult.Reason);
                     }
                 },
+                OnAuthenticationFailed = context =>
+                {
+                    var authCookies = context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>();
+                    if (ShouldPreferAdminCookie(context.HttpContext))
+                    {
+                        authCookies.ClearAdminSessionCookies(context.HttpContext);
+                    }
+                    else
+                    {
+                        authCookies.ClearUserSessionCookies(context.HttpContext);
+                    }
+                    return Task.CompletedTask;
+                },
                 OnForbidden = async context =>
                 {
                     await RecordRejectedAuthSelfServicePrincipalAsync(context.HttpContext);
@@ -401,7 +398,7 @@ public static class JwtServiceExtensions
             {
                 ["path"] = path,
                 ["method"] = httpContext.Request.Method,
-                ["identityKind"] = httpContext.User.FindFirst("identity_kind")?.Value
+                ["identityKind"] = httpContext.User.FindFirst(CurrentAuthSessionClaims.IdentityKind)?.Value
             },
             IsHighValue: true),
             httpContext.RequestAborted);
@@ -476,10 +473,9 @@ public static class JwtServiceExtensions
     }
 }
 
-internal static class JwtSigningKeyRing
+internal static class CurrentJwtSigningKey
 {
     private const int MinimumKeyBytes = 32;
-    private const int MaximumRotationWindowDays = 90;
     private static readonly char[] s_versionSeparators = ['.', '_', '-'];
 
     internal static SymmetricSecurityKey CreateKey(string version, string secret)
@@ -488,40 +484,19 @@ internal static class JwtSigningKeyRing
             KeyId = version
         };
 
-    internal static IReadOnlyList<SecurityKey> ResolveValidationKeys(
-        JwtSettings settings,
-        string? keyId,
-        DateTimeOffset now)
+    internal static bool HasExactCurrentKeyId(SecurityKey key, SecurityToken token, string currentVersion)
     {
-        if (!string.IsNullOrWhiteSpace(keyId))
+        string? keyId = token switch
         {
-            if (string.Equals(keyId, settings.KeyVersion, StringComparison.Ordinal))
-            {
-                return [CreateKey(settings.KeyVersion, settings.SecretKey)];
-            }
-
-            JwtPreviousKeySettings? previous = settings.PreviousKeys.FirstOrDefault(candidate =>
-                string.Equals(candidate.Version, keyId, StringComparison.Ordinal) &&
-                candidate.AcceptUntilUtc > now);
-            return previous is null ? [] : [CreateKey(previous.Version, previous.Key)];
-        }
-
-        if (settings.LegacyNoKidAcceptUntilUtc is not { } legacyDeadline || legacyDeadline <= now)
-        {
-            return [];
-        }
-
-        List<SecurityKey> legacyKeys = [CreateKey(settings.KeyVersion, settings.SecretKey)];
-        legacyKeys.AddRange(settings.PreviousKeys
-            .Where(previous => previous.AcceptUntilUtc > now)
-            .Select(previous => (SecurityKey)CreateKey(previous.Version, previous.Key)));
-        return legacyKeys;
+            JwtSecurityToken jwtToken => jwtToken.Header.Kid,
+            JsonWebToken jsonToken => jsonToken.Kid,
+            _ => null
+        };
+        return string.Equals(key.KeyId, currentVersion, StringComparison.Ordinal)
+            && string.Equals(keyId, currentVersion, StringComparison.Ordinal);
     }
 
-    internal static IReadOnlyList<string> Validate(
-        JwtSettings settings,
-        bool enforceProductionRules,
-        DateTimeOffset now)
+    internal static IReadOnlyList<string> Validate(JwtSettings settings, bool enforceProductionRules)
     {
         List<string> errors = [];
         if (!IsValidVersion(settings.KeyVersion))
@@ -532,57 +507,7 @@ internal static class JwtSigningKeyRing
         {
             errors.Add("Jwt:KeyVersion must not use a development version in production.");
         }
-
         ValidateKeyMaterial("Jwt:SecretKey", settings.SecretKey, errors);
-        if (settings.RotationWindowDays is < 1 or > MaximumRotationWindowDays)
-        {
-            errors.Add($"Jwt:RotationWindowDays must be between 1 and {MaximumRotationWindowDays}.");
-        }
-
-        DateTimeOffset maximumDeadline = now.AddDays(Math.Clamp(settings.RotationWindowDays, 1, MaximumRotationWindowDays));
-        HashSet<string> versions = new(StringComparer.Ordinal) { settings.KeyVersion };
-        HashSet<string> secrets = new(StringComparer.Ordinal) { settings.SecretKey };
-        for (int index = 0; index < settings.PreviousKeys.Count; index++)
-        {
-            JwtPreviousKeySettings previous = settings.PreviousKeys[index];
-            string prefix = $"Jwt:PreviousKeys:{index}";
-            if (!IsValidVersion(previous.Version))
-            {
-                errors.Add($"{prefix}:Version must contain 3-64 safe version characters.");
-            }
-            else if (!versions.Add(previous.Version))
-            {
-                errors.Add($"{prefix}:Version must be unique and differ from Jwt:KeyVersion.");
-            }
-
-            ValidateKeyMaterial($"{prefix}:Key", previous.Key, errors);
-            if (!string.IsNullOrEmpty(previous.Key) && !secrets.Add(previous.Key))
-            {
-                errors.Add($"{prefix}:Key must be independent from every other JWT signing key.");
-            }
-
-            if (previous.AcceptUntilUtc <= now)
-            {
-                errors.Add($"{prefix}:AcceptUntilUtc must be in the future while the key is configured.");
-            }
-            else if (previous.AcceptUntilUtc > maximumDeadline)
-            {
-                errors.Add($"{prefix}:AcceptUntilUtc must not exceed Jwt:RotationWindowDays.");
-            }
-        }
-
-        if (settings.LegacyNoKidAcceptUntilUtc is { } legacyDeadline)
-        {
-            if (legacyDeadline <= now)
-            {
-                errors.Add("Jwt:LegacyNoKidAcceptUntilUtc must be removed after it expires.");
-            }
-            else if (legacyDeadline > maximumDeadline)
-            {
-                errors.Add("Jwt:LegacyNoKidAcceptUntilUtc must not exceed Jwt:RotationWindowDays.");
-            }
-        }
-
         return errors;
     }
 

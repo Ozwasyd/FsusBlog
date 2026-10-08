@@ -1,3 +1,4 @@
+import { isCurrentSessionAuthentication } from '@/generated/authSessionContract';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
 import type {
     AuthLoginFlow,
@@ -243,12 +244,19 @@ export const refreshToken = async (config?: ApiRequestConfig) =>
     });
 };
 
-export const listSessions = (config?: ApiRequestConfig) =>
-    requestBinaryOnly<UserSessionSummary[]>({
+export const listSessions = async (config?: ApiRequestConfig) =>
+{
+    const response = await requestBinaryOnly<UserSessionSummary[]>({
         binaryRoute: { operationId: 'binary_get_auth_sessions' },
         frameType: FrameType.AuthSessionList,
         signal: config?.signal
     });
+    if (!Array.isArray(response.data) || !response.data.every(isCurrentSessionAuthentication))
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'Invalid current session authentication contract');
+    }
+    return response;
+};
 
 export const revokeSession = (sessionId: string, config?: ApiRequestConfig) =>
     requestBinaryOnly<null>({

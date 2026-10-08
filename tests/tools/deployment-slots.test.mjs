@@ -669,7 +669,7 @@ function createProductionEnv(directory, assetStore)
     fs.writeFileSync(envFile, [
         'EXTERNAL_DB_HOST=db', 'EXTERNAL_REDIS_HOST=redis', 'DB_USER=fsus', 'DB_PASSWORD=database-password',
         'DB_NAME=fsusblog', 'REDIS_PASSWORD=redis-password', 'Jwt__SecretKey=0123456789abcdef0123456789abcdef',
-        'Jwt__KeyVersion=v2-2026-07', 'Jwt__RotationWindowDays=30',
+        'Jwt__KeyVersion=v2-2026-07',
         'SITE_BASEURL=https://example.com', 'CORS_ALLOWED_HOSTS=https://example.com', 'APP_ALLOWED_HOSTS=example.com',
         'FIDO2_SERVER_DOMAIN=example.com', 'REVERSE_PROXY_KNOWN_PROXIES=127.0.0.1',
         'FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME=fsusblog-public-assets-fixture',

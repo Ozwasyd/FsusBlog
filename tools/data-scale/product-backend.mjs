@@ -87,7 +87,6 @@ export function buildProductBackendEnvironment({
         Jwt__Issuer: 'FsusBlogServer',
         Jwt__Audience: 'FsusBlogClient',
         Jwt__AccessTokenExpiresMinutes: '1440',
-        Jwt__RotationWindowDays: '30',
         Security__Pow__SigningKey: 'local-development-pow-signing-key-change-before-shared-use-2026',
         Security__Pow__BaseDifficulty: '8',
         Security__Pow__MaxDifficulty: '8',

@@ -254,7 +254,6 @@ export Jwt__SecretKey="${FSUSBLOG_DEV_JWT_SECRET:-local-development-jwt-secret-c
 export Jwt__Issuer="${FSUSBLOG_DEV_JWT_ISSUER:-FsusBlogServer}"
 export Jwt__Audience="${FSUSBLOG_DEV_JWT_AUDIENCE:-FsusBlogClient}"
 export Jwt__AccessTokenExpiresMinutes="${FSUSBLOG_DEV_JWT_ACCESS_TOKEN_EXPIRES_MINUTES:-1440}"
-export Jwt__RotationWindowDays="${FSUSBLOG_DEV_JWT_ROTATION_WINDOW_DAYS:-30}"
 export Security__Pow__SigningKey="${FSUSBLOG_DEV_POW_SIGNING_KEY:-local-development-pow-signing-key-change-before-shared-use-2026}"
 export Security__Pow__BaseDifficulty="${FSUSBLOG_DEV_POW_BASE_DIFFICULTY:-8}"
 export Security__Pow__MaxDifficulty="${FSUSBLOG_DEV_POW_MAX_DIFFICULTY:-8}"

@@ -1,3 +1,4 @@
+import { isCurrentSessionAuthentication, sessionModeFromWire } from '../../../src/frontend/src/generated/authSessionContract.ts';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -2012,10 +2013,11 @@ function decodeUserSessions(payload)
     for (let i = 0; i < count; i += 1)
     {
         const offset = 4 + i * USER_SESSION_SUMMARY_POD_SIZE;
-        sessions.push({
+        const session = {
             createdAt: new Date(readInt64Number(view, offset)).toISOString(),
             lastSeenAt: payload[offset + 17] === 1 ? new Date(readInt64Number(view, offset + 8)).toISOString() : null,
             isCurrent: payload[offset + 16] === 1,
+            sessionMode: sessionModeFromWire(payload[offset + 19]) ?? (() => { throw new Error('auth_session_mode_invalid'); })(),
             sessionId: readFixedUtf8(payload, offset + 20, 64),
             deviceLabel: readFixedUtf8(payload, offset + 84, 64),
             authenticationMethod: readFixedUtf8(payload, offset + 148, 32),
@@ -2024,7 +2026,13 @@ function decodeUserSessions(payload)
             passkeyFriendlyName: payload[offset + 18] === 1
                 ? readFixedUtf8(payload, offset + 244, 256)
                 : null
-        });
+        };
+        if (payload[offset + 16] > 1 || payload[offset + 17] > 1 || payload[offset + 18] > 1
+            || !isCurrentSessionAuthentication(session))
+        {
+            throw new Error('auth_session_context_invalid');
+        }
+        sessions.push(session);
     }
     return sessions;
 }

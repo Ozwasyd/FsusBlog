@@ -75,6 +75,7 @@ public sealed class MfaLoginEndpointPostgresTests(
         using HttpResponseMessage pendingResponse = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
         Assert.Equal(HttpStatusCode.OK, pendingResponse.StatusCode);
         AuthLoginFlowDto pending = await ReadLoginFlowAsync(pendingResponse);
+        UserSessionAuthenticationContext initialAuthentication = await host.ReadInitialAuthenticationAsync(pending.ChallengeToken!, DeviceA);
         Assert.Equal("mfa_required", pending.AuthPhase);
         Assert.Equal("standard", pending.MfaMode);
         Assert.False(string.IsNullOrWhiteSpace(pending.ChallengeToken));
@@ -114,6 +115,7 @@ public sealed class MfaLoginEndpointPostgresTests(
         Assert.Equal(HashToken(refreshToken), stored.RefreshTokenHash);
         Assert.True(stored.MfaVerified);
         Assert.Equal(UserSessionAuthenticationStrengths.Mfa, stored.AuthenticationStrength);
+        AssertInitialAuthenticationRetained(initialAuthentication, stored);
         Assert.NotEqual(DeviceA, stored.DeviceSignalHash);
         await host.AssertAccessTokenMatchesSessionAsync(completedResponse, stored);
         Assert.False(await host.ContinuationExistsAsync(pending.ChallengeToken!));
@@ -293,12 +295,14 @@ public sealed class MfaLoginEndpointPostgresTests(
         string beforeHashes = await host.ReadRecoveryHashesAsync(host.MfaUser.Id);
         string expectedHashes = host.ConsumeRecoveryHash(beforeHashes, codes[0]);
         var continuations = new List<string>();
+        var initialAuthentications = new List<UserSessionAuthenticationContext>();
         for (int index = 0; index < participants; index++)
         {
             using HttpResponseMessage login = await host.PasskeyLoginAsync(host.MfaUser.Id, DeviceA);
             AuthLoginFlowDto pending = await ReadLoginFlowAsync(login);
             Assert.False(login.Headers.TryGetValues("Set-Cookie", out _));
             continuations.Add(pending.ChallengeToken!);
+            initialAuthentications.Add(await host.ReadInitialAuthenticationAsync(pending.ChallengeToken!, DeviceA));
         }
         Assert.Equal(0, await host.CountActiveSessionsAsync(host.MfaUser.Id));
         using var barrier = new Barrier(participants);
@@ -315,7 +319,8 @@ public sealed class MfaLoginEndpointPostgresTests(
             int winnerIndex = Array.IndexOf(responses, winner);
             Assert.Equal(host.MfaUser.Id, (await ReadMfaResultAsync(winner)).User?.AccountId);
             UserSession stored = Assert.Single(await host.GetActiveSessionsAsync(host.MfaUser.Id));
-            Assert.Equal(UserSessionAuthenticationStrengths.Recovery, stored.AuthenticationStrength);
+            Assert.Equal(UserSessionAuthenticationStrengths.Mfa, stored.AuthenticationStrength);
+            AssertInitialAuthenticationRetained(initialAuthentications[winnerIndex], stored);
             await host.AssertAccessTokenMatchesSessionAsync(winner, stored);
             Assert.False(await host.ContinuationExistsAsync(continuations[winnerIndex]));
             foreach (HttpResponseMessage loser in responses.Where(response => response != winner))
@@ -569,6 +574,16 @@ public sealed class MfaLoginEndpointPostgresTests(
         }
     }
 
+    private static void AssertInitialAuthenticationRetained(UserSessionAuthenticationContext initial, UserSession session)
+    {
+        Assert.True(initial.IsValid());
+        Assert.Equal(UserSessionAuthenticationMethods.Passkey, session.AuthenticationMethod);
+        Assert.Equal(initial.CredentialRowId, session.AuthenticatedCredentialRowId);
+        // PostgreSQL timestamps retain microseconds; continuation must retain the original assertion instant.
+        Assert.Equal(initial.AuthenticatedAtUtc.Ticks / 10, session.AuthenticatedAtUtc.Ticks / 10);
+        Assert.Equal(initial.DurationPolicy, session.DurationPolicy);
+    }
+
     private static void AssertRefreshFailureAudit(MfaLoginTestHost host, int previousCount, string reason)
     {
         LogEvent audit = Assert.Single(host.AuthAuditEvents.Skip(previousCount));
@@ -756,6 +771,7 @@ public sealed class MfaLoginEndpointPostgresTests(
             PostgresSqlSugarTestClient.InitTables(
                 db,
                 typeof(User),
+                typeof(PasskeyCredential),
                 typeof(UserSession),
                 typeof(UserRefreshTokenTombstone),
                 typeof(UserMfaProfile));
@@ -763,6 +779,9 @@ public sealed class MfaLoginEndpointPostgresTests(
             User mfaUser = SeedUser(db, mfaEnabled: true, 'a');
             User otherMfaUser = SeedUser(db, mfaEnabled: true, 'b');
             User nonMfaUser = SeedUser(db, mfaEnabled: false, 'c');
+            UserSessionAuthenticationContext mfaAuthentication = await VerifiedPasskeyTestAuthentication.CreateAsync(db, mfaUser);
+            UserSessionAuthenticationContext otherMfaAuthentication = await VerifiedPasskeyTestAuthentication.CreateAsync(db, otherMfaUser);
+            UserSessionAuthenticationContext nonMfaAuthentication = await VerifiedPasskeyTestAuthentication.CreateAsync(db, nonMfaUser);
             var totp = new TotpService(
                 new EphemeralDataProtectionProvider(),
                 TimeProvider.System,
@@ -785,7 +804,12 @@ public sealed class MfaLoginEndpointPostgresTests(
                         _ => throw new InvalidOperationException("Unknown test credential.")
                     };
                     return Task.FromResult<(bool Success, string Message, User? User, int? CredentialRowId)>(
-                        (true, "ok", user, 41));
+                        (true, "ok", user, request.Id switch
+                        {
+                            "mfa-credential" => mfaAuthentication.CredentialRowId,
+                            "other-mfa-credential" => otherMfaAuthentication.CredentialRowId,
+                            _ => nonMfaAuthentication.CredentialRowId
+                        }));
                 });
 
             RedisMfaCache cacheContext = await RedisMfaCache.CreateAsync(redis);
@@ -900,6 +924,14 @@ public sealed class MfaLoginEndpointPostgresTests(
                 mfaSecret,
                 otherMfaSecret,
                 audit);
+        }
+
+        public async Task<UserSessionAuthenticationContext> ReadInitialAuthenticationAsync(string ticketId, string deviceSignal)
+        {
+            await using AsyncServiceScope scope = _application.Services.CreateAsyncScope();
+            MfaChallengeTicket ticket = Assert.IsType<MfaChallengeTicket>(await scope.ServiceProvider
+                .GetRequiredService<IMfaChallengeService>().GetChallengeAsync(ticketId, deviceSignal));
+            return Assert.IsType<UserSessionAuthenticationContext>(ticket.InitialAuthentication);
         }
 
         public Task<HttpResponseMessage> PasskeyLoginAsync(int accountId, string deviceSignal)

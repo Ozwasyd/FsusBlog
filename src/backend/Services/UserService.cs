@@ -100,8 +100,8 @@ public partial class UserService(
         string issuer,
         UserMfaStepUpContext context)
     {
-        if (context is null || (!context.IsValidFor(userId, UserMfaManagementAction.Setup)
-            && !context.IsValidFor(userId, UserMfaManagementAction.SetupRebind)))
+        if (!context.IsValidFor(userId, UserMfaManagementAction.Setup)
+            && !context.IsValidFor(userId, UserMfaManagementAction.SetupRebind))
         {
             return (false, null, "MFA_STEP_UP_REQUIRED");
         }
@@ -230,7 +230,7 @@ public partial class UserService(
 
     public async Task<(bool Success, string Message)> DisableMfaAsync(int userId, UserMfaStepUpContext context)
     {
-        if (context is null || !context.IsValidFor(userId, UserMfaManagementAction.Disable))
+        if (!context.IsValidFor(userId, UserMfaManagementAction.Disable))
         {
             return (false, "MFA_STEP_UP_REQUIRED");
         }
@@ -287,7 +287,7 @@ public partial class UserService(
         int userId,
         UserMfaStepUpContext context)
     {
-        if (context is null || !context.IsValidFor(userId, UserMfaManagementAction.RecoveryCodesRegenerate))
+        if (!context.IsValidFor(userId, UserMfaManagementAction.RecoveryCodesRegenerate))
         {
             return (false, null, "MFA_STEP_UP_REQUIRED");
         }

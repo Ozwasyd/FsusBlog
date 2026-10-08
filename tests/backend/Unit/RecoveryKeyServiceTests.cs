@@ -327,6 +327,8 @@ public sealed class RecoveryKeyServiceTests
         }
 
         Assert.Empty(typeof(UserMfaStepUpContext).GetConstructors());
+        Assert.True(typeof(UserMfaStepUpContext).IsValueType);
+        Assert.False(default(UserMfaStepUpContext).IsValidFor(0, UserMfaManagementAction.Setup));
         Assert.All(typeof(UserMfaStepUpContext).GetProperties(), static property => Assert.False(property.CanWrite));
     }
 

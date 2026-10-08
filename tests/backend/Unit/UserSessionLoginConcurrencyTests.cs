@@ -27,24 +27,23 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     public async Task CompleteLoginAsync_TwoDeviceLoginsRemainActive()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(db, typeof(User), typeof(UserSession));
+        PostgresSqlSugarTestClient.InitTables(db, typeof(User), typeof(UserSession), typeof(PasskeyCredential));
         UserLoginWorkflowService service = CreateService(db);
         User user = await SeedAccountAsync(db);
+        UserSessionAuthenticationContext authentication = await VerifiedPasskeyTestAuthentication.CreateAsync(db, user);
 
         var first = await service.CompleteLoginAsync(
             user,
             "203.0.113.10",
             deviceFingerprint: "device-a",
             userAgent: "agent-a",
-            mfaVerified: true,
-            rememberMe: false);
+            authenticationContext: authentication);
         var second = await service.CompleteLoginAsync(
             user,
             "203.0.113.11",
             deviceFingerprint: "device-b",
             userAgent: "agent-b",
-            mfaVerified: true,
-            rememberMe: false);
+            authenticationContext: authentication);
 
         Assert.True(first.Success, first.Message);
         Assert.True(second.Success, second.Message);
@@ -67,15 +66,16 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     public async Task CompleteLoginAsync_ActiveSessionLimitEvictsLeastRecentlyUsedSession()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(db, typeof(User), typeof(UserSession));
+        PostgresSqlSugarTestClient.InitTables(db, typeof(User), typeof(UserSession), typeof(PasskeyCredential));
         User user = await SeedAccountAsync(db);
+        UserSessionAuthenticationContext authentication = await VerifiedPasskeyTestAuthentication.CreateAsync(db, user);
         UserLoginWorkflowService service = CreateService(db, maxActiveSessions: 2);
 
-        var first = await service.CompleteLoginAsync(user, "203.0.113.10", "device-a", "agent-a", true, false);
+        var first = await service.CompleteLoginAsync(user, "203.0.113.10", "device-a", "agent-a", authentication);
         await Task.Delay(5);
-        var second = await service.CompleteLoginAsync(user, "203.0.113.11", "device-b", "agent-b", true, false);
+        var second = await service.CompleteLoginAsync(user, "203.0.113.11", "device-b", "agent-b", authentication);
         await Task.Delay(5);
-        var third = await service.CompleteLoginAsync(user, "203.0.113.12", "device-c", "agent-c", true, false);
+        var third = await service.CompleteLoginAsync(user, "203.0.113.12", "device-c", "agent-c", authentication);
 
         Assert.True(first.Success, first.Message);
         Assert.True(second.Success, second.Message);
@@ -99,8 +99,9 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     public async Task CompleteLoginAsync_ConcurrentDevicesUnderLimitReturnActiveSessions()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User), typeof(UserSession));
+        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User), typeof(UserSession), typeof(PasskeyCredential));
         User user = await SeedAccountAsync(setupDb);
+        UserSessionAuthenticationContext authentication = await VerifiedPasskeyTestAuthentication.CreateAsync(setupDb, user);
         string connectionString = setupDb.CurrentConnectionConfig.ConnectionString;
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
@@ -108,8 +109,8 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         UserLoginWorkflowService secondService = CreateService(secondDb);
 
         var results = await RealConcurrencyHarness.RunAsync(
-            () => firstService.CompleteLoginAsync(user, "203.0.113.20", "device-concurrent-a", "agent-a", true, false),
-            () => secondService.CompleteLoginAsync(user, "203.0.113.21", "device-concurrent-b", "agent-b", true, false));
+            () => firstService.CompleteLoginAsync(user, "203.0.113.20", "device-concurrent-a", "agent-a", authentication),
+            () => secondService.CompleteLoginAsync(user, "203.0.113.21", "device-concurrent-b", "agent-b", authentication));
 
         Assert.All(results, result => Assert.True(result.Success, result.Message));
         string[] issuedSessionIds = results.Select(result => result.Data?.SessionId).OfType<string>().ToArray();
@@ -127,15 +128,16 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     public async Task CompleteLoginAsync_ConcurrentSameDeviceCreatesIndependentSessions()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User), typeof(UserSession));
+        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User), typeof(UserSession), typeof(PasskeyCredential));
         User user = await SeedAccountAsync(setupDb);
+        UserSessionAuthenticationContext authentication = await VerifiedPasskeyTestAuthentication.CreateAsync(setupDb, user);
         string connectionString = setupDb.CurrentConnectionConfig.ConnectionString;
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
 
         var results = await RealConcurrencyHarness.RunAsync(
-            () => CreateService(firstDb).CompleteLoginAsync(user, "203.0.113.25", "same-device", "agent", true, false),
-            () => CreateService(secondDb).CompleteLoginAsync(user, "203.0.113.25", "same-device", "agent", true, false));
+            () => CreateService(firstDb).CompleteLoginAsync(user, "203.0.113.25", "same-device", "agent", authentication),
+            () => CreateService(secondDb).CompleteLoginAsync(user, "203.0.113.25", "same-device", "agent", authentication));
 
         Assert.All(results, result => Assert.True(result.Success, result.Message));
         string[] issuedSessionIds = results.Select(result => result.Data?.SessionId).OfType<string>().ToArray();
@@ -152,17 +154,18 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     public async Task CompleteLoginAsync_ConcurrentAdmissionsNeverExceedActiveSessionLimit()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User), typeof(UserSession));
+        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User), typeof(UserSession), typeof(PasskeyCredential));
         User user = await SeedAccountAsync(setupDb);
+        UserSessionAuthenticationContext authentication = await VerifiedPasskeyTestAuthentication.CreateAsync(setupDb, user);
         string connectionString = setupDb.CurrentConnectionConfig.ConnectionString;
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient thirdDb = PostgresSqlSugarTestClient.Create(connectionString);
 
         var results = await RealConcurrencyHarness.RunAsync(
-            () => CreateService(firstDb, 2).CompleteLoginAsync(user, "203.0.113.26", "limit-a", "agent-a", true, false),
-            () => CreateService(secondDb, 2).CompleteLoginAsync(user, "203.0.113.27", "limit-b", "agent-b", true, false),
-            () => CreateService(thirdDb, 2).CompleteLoginAsync(user, "203.0.113.28", "limit-c", "agent-c", true, false));
+            () => CreateService(firstDb, 2).CompleteLoginAsync(user, "203.0.113.26", "limit-a", "agent-a", authentication),
+            () => CreateService(secondDb, 2).CompleteLoginAsync(user, "203.0.113.27", "limit-b", "agent-b", authentication),
+            () => CreateService(thirdDb, 2).CompleteLoginAsync(user, "203.0.113.28", "limit-c", "agent-c", authentication));
 
         Assert.All(results, result => Assert.True(result.Success, result.Message));
         List<UserSession> sessions = await setupDb.Queryable<UserSession>()
@@ -178,15 +181,15 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     public async Task CompleteLoginAsync_ConcurrentRevokeOthersDoesNotRevokeNewSession()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User), typeof(UserSession));
+        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(User), typeof(UserSession), typeof(PasskeyCredential));
         User user = await SeedAccountAsync(setupDb);
+        UserSessionAuthenticationContext authentication = await VerifiedPasskeyTestAuthentication.CreateAsync(setupDb, user);
         var current = await CreateService(setupDb).CompleteLoginAsync(
             user,
             "203.0.113.30",
             "device-current",
             "agent-current",
-            true,
-            false);
+            authentication);
         Assert.True(current.Success, current.Message);
 
         string connectionString = setupDb.CurrentConnectionConfig.ConnectionString;
@@ -204,8 +207,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
                     "203.0.113.31",
                     "device-new",
                     "agent-new",
-                    true,
-                    false);
+                    authentication);
                 await Task.WhenAll(revokeTask, loginTask);
 
                 var login = await loginTask;
@@ -216,7 +218,9 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
                 Assert.Contains(active, session => session.SessionId == current.Data.Value.SessionId);
                 Assert.Contains(active, session => session.SessionId == login.Data!.Value.SessionId);
             },
-            static () => { });
+            static () =>
+            {
+            });
     }
 
     [Fact]
@@ -234,6 +238,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
             typeof(AnonymousCredential),
             typeof(UserMfaProfile));
         User user = await SeedAccountAsync(setupDb);
+        UserSessionAuthenticationContext authentication = await VerifiedPasskeyTestAuthentication.CreateAsync(setupDb, user);
         string connectionString = setupDb.CurrentConnectionConfig.ConnectionString;
         using SqlSugarClient deleteDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient loginDb = PostgresSqlSugarTestClient.Create(connectionString);
@@ -251,8 +256,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
                     "203.0.113.40",
                     "device-delete-race",
                     "agent-delete-race",
-                    true,
-                    false);
+                    authentication);
                 await Task.WhenAll(deleteTask, loginTask);
 
                 Assert.True((await deleteTask).Success);
@@ -263,7 +267,9 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
                     .Where(session => session.UserId == user.Id && session.RevokedAt == null)
                     .ToListAsync());
             },
-            static () => { });
+            static () =>
+            {
+            });
     }
 
     private static async Task<User> SeedAccountAsync(SqlSugarClient db)
@@ -284,8 +290,6 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     {
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns(_ => $"refresh-token-{Guid.NewGuid():N}");
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns(
-            new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<UserSessionAuthenticationContext>()).Returns(
             new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
 

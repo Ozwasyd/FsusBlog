@@ -1,0 +1,54 @@
+{
+    "schema": "fsusblog.current-auth-session-contract.v1",
+    "methods": {
+        "Passkey": "passkey",
+        "Enrollment": "enrollment"
+    },
+    "strengths": {
+        "WebAuthnUv": "webauthn_uv",
+        "Mfa": "mfa"
+    },
+    "durationPolicies": {
+        "BrowserSession": "browser_session",
+        "Persistent30Days": "persistent_30d"
+    },
+    "modes": {
+        "Normal": "normal",
+        "Restricted": "restricted",
+        "Revoked": "revoked"
+    },
+    "claims": {
+        "AuthenticationMethod": "auth_method",
+        "AuthenticationStrength": "auth_strength",
+        "AuthenticatedAt": "auth_time",
+        "DurationPolicy": "duration_policy",
+        "SessionMode": "session_mode",
+        "IdentityKind": "identity_kind",
+        "AccountSubjectHash": "account_subject_hash"
+    },
+    "combinations": [
+        {
+            "method": "Passkey",
+            "strength": "WebAuthnUv"
+        },
+        {
+            "method": "Passkey",
+            "strength": "Mfa"
+        },
+        {
+            "method": "Enrollment",
+            "strength": "WebAuthnUv"
+        }
+    ],
+    "requiresCredentialRowId": true,
+    "identityKinds": {
+        "AnonymousAccount": "anonymous_account",
+        "AdminPrincipal": "admin_principal"
+    },
+    "registrationStates": {
+        "Provisional": "provisional",
+        "Active": "active",
+        "Suspended": "suspended",
+        "Closed": "closed"
+    }
+}

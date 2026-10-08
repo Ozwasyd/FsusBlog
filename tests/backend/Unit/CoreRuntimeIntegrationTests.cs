@@ -20,6 +20,7 @@ public sealed class CoreRuntimeIntegrationTests
         var settings = new JwtSettings
         {
             SecretKey = TestSecrets.IntegrationJwtSigningKey,
+            KeyVersion = "core-test-current",
             Issuer = "fsusblog-tests",
             Audience = "fsusblog-tests",
             AccessTokenExpiresMinutes = 10
@@ -32,7 +33,11 @@ public sealed class CoreRuntimeIntegrationTests
             AccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         };
 
-        string token = helper.GenerateAccessToken(user, "session-1", mfaVerified: true);
+        string token = helper.GenerateAccessToken(user, "session-1", new UserSessionAuthenticationContext(
+                UserSessionAuthenticationMethods.Passkey,
+                UserSessionAuthenticationStrengths.WebAuthnUv,
+                DateTime.UtcNow,
+                CredentialRowId: 17));
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
 
         Assert.Equal("42", jwt.Claims.First(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "nameid").Value);

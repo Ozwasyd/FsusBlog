@@ -166,7 +166,7 @@ public sealed class AuthFixturePrivateProjectionTests
         var authority = new AdminSessionProjectionSessionUpdate(session.SessionId, 7, new byte[32], null,
             s_now.AddHours(8), s_now.AddHours(12), 1, 1, authorityPrincipal);
         string[] permissions = [.. AdminPermissions.All.Order(StringComparer.Ordinal)];
-        var token = provider.GetRequiredService<IJwtHelper>().GenerateAdminAccessToken(principal, session, permissions, false);
+        var token = provider.GetRequiredService<IJwtHelper>().GenerateAdminAccessToken(principal, session, permissions);
         AuthFixturePrivatePayload payload = Payload() with
         {
             Credentials = new(token.Token, token.ExpiresAtUtc, session.SessionId, session.IdleExpiresAtUtc)
@@ -200,8 +200,9 @@ public sealed class AuthFixturePrivateProjectionTests
                 principal.Id = 8;
             if (drift == "session")
                 session.SessionId = "foreign";
+            session.StepUpVerified = drift == "step-up";
             token = new JwtHelper(Options.Create(settings), timeProvider: clock).GenerateAdminAccessToken(principal, session,
-                drift == "permission" ? [] : permissions, drift == "step-up");
+                drift == "permission" ? [] : permissions);
             payload = payload with
             {
                 Credentials = payload.Credentials with
