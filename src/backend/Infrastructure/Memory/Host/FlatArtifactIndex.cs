@@ -80,11 +80,11 @@ internal sealed unsafe class FlatArtifactIndex : IDisposable
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(limits);
         content.Validate();
-        if (!limits.IsValid || entries.Count < 0 || entries.Count > limits.MaximumEntries)
+        int count = entries.Count;
+        if (!limits.IsValid || count < 0 || count > limits.MaximumEntries)
         {
             return MemoryOperationResult<FlatArtifactIndex>.Reject(MemoryFailure.BoundsViolation);
         }
-        int count = entries.Count;
         // ADMISSION: Reserve a bounded worst-case destination plus build workspace
         // before taking the immutable entry snapshot. Managed headers/normalization
         // temporaries are estimated overhead, not claims of exact GC control.
@@ -186,14 +186,16 @@ internal sealed unsafe class FlatArtifactIndex : IDisposable
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(mutations);
         ArgumentNullException.ThrowIfNull(limits);
-        if (!limits.IsValid || source.Count > limits.MaximumEntries || mutations.Count > limits.MaximumEntries)
+        int mutationCount = mutations.Count;
+        if (!limits.IsValid || source.Count > limits.MaximumEntries
+            || mutationCount < 0 || mutationCount > limits.MaximumEntries)
         {
             return MemoryOperationResult<FlatArtifactIndex>.Reject(MemoryFailure.BoundsViolation);
         }
         // ACCOUNTING: The source lease retains its original physical charge while
         // the update workspace and complete new build are admitted simultaneously.
         // Copy-on-write avoids an overlay pinning a small slice of a large old block.
-        long scratchEstimate = checked(64L + ((long)source.Count + mutations.Count)
+        long scratchEstimate = checked(64L + ((long)source.Count + mutationCount)
             * (256L + limits.MaximumKeyBytes * 8L));
         MemoryOperationResult<MemoryReservation> admission = ledger.TryReserve([
             new(domain, MemoryResourceUnit.Bytes, scratchEstimate)
@@ -205,7 +207,7 @@ internal sealed unsafe class FlatArtifactIndex : IDisposable
         using MemoryReservation scratch = admission.Value!;
         Dictionary<long, FlatArtifactIndexEntry> next = source.CopyEntries()
             .ToDictionary(entry => entry.Descriptor.Id);
-        for (int index = 0; index < mutations.Count; index++)
+        for (int index = 0; index < mutationCount; index++)
         {
             FlatArtifactIndexMutation? mutation = mutations[index];
             if (mutation is null || mutation.Id <= 0

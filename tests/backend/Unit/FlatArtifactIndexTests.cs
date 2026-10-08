@@ -386,6 +386,22 @@ public sealed class FlatArtifactIndexTests
         Assert.Equal(Used(ledger), observed);
     }
 
+    [Fact]
+    public void BuildAndUpdateCaptureOneFiniteCountBeforeReadingCallerCollections()
+    {
+        var (ledger, domain) = Ledger();
+        var entries = new ChangingCountList<FlatArtifactIndexEntry>([Entry(1, "original")]);
+        using FlatArtifactIndex index = Build(ledger, domain, entries);
+        Assert.Equal(1, entries.CountReads);
+        using FlatArtifactIndexLease source = Acquire(index);
+        var mutations = new ChangingCountList<FlatArtifactIndexMutation>([new(1, Entry(1, "replacement"))]);
+        using FlatArtifactIndex next = FlatArtifactIndex.TryUpdate(ledger, domain, Content(), source, mutations, s_limits).Value!;
+        Assert.Equal(1, mutations.CountReads);
+        using FlatArtifactIndexLease updated = Acquire(next);
+        Assert.True(updated.TryGetRoute("replacement", out _));
+        Assert.True(source.TryGetRoute("original", out _));
+    }
+
     private static void Compare(ReferenceArtifactIndex reference, FlatArtifactIndexLease flat,
         IReadOnlyList<FlatArtifactIndexEntry> entries)
     {
@@ -434,4 +450,14 @@ public sealed class FlatArtifactIndexTests
     }
 
     private readonly record struct ManagedField(string Value);
+
+    private sealed class ChangingCountList<T>(T[] values) : IReadOnlyList<T>
+    {
+        private int _countReads;
+        public int CountReads => _countReads;
+        public int Count => ++_countReads == 1 ? values.Length : int.MaxValue;
+        public T this[int index] => values[index];
+        public IEnumerator<T> GetEnumerator() => ((IEnumerable<T>)values).GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
 }
