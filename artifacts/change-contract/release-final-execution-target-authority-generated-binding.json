@@ -2,13 +2,18 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "tests/tools/required-evidence-dependencies.test.mjs",
+        "tests/tools/support/esm-fixture-materializer-contracts.mjs",
+        "tests/tools/support/locked-schema-validator-fixture.mjs",
         "tests/tools/test-matrix-scheduler.test.mjs",
+        "tests/tools/workflow-fixture-needs.test.mjs",
+        "tools/check-test-matrix.mjs",
         "tools/ci/check-job-summaries.mjs",
         "tools/ci/run-stage.mjs",
         "tools/run-test-matrix.mjs",
         "tools/test-matrix/release-final-evidence-contract.mjs",
         "tools/test-matrix/required-evidence-dependencies.mjs",
         "tools/test-matrix/scheduler.mjs",
+        "tools/test-matrix/workflow-fixture-needs.mjs",
         "tools/test/correctness-attempt-migration.mjs",
         "tools/test/lanes/static-governance.sh"
     ],
@@ -23,7 +28,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "a09382c75f65f15d1257db2c57909e2d2461d7430cd1e1c942423ad999cccd00"
+            "sha256": "ee1061e4b72309208f26cb714ca07e5e8fadae41211640fda0fddf2b48518203"
         }
     ]
 }

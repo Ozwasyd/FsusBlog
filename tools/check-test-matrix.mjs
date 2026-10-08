@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { parseMatrix, tierExecutionDependencies } from './test-matrix/parse-matrix.mjs';
 import { loadCanonicalReleaseFinalEvidenceInputs } from './test-matrix/release-final-evidence-contract.mjs';
+import { appendWorkflowNeedToJob } from './test-matrix/workflow-fixture-needs.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const docsOutputRoot = path.resolve(process.env.FSUSBLOG_DOCS_EVIDENCE_DIR || path.join(root, '.tmp/docs'));
@@ -351,19 +352,7 @@ function mutateWorkflowJob(workflowText, jobId, transform)
 
 function appendWorkflowNeed(workflowText, jobId, need)
 {
-    return mutateWorkflowJob(workflowText, jobId, (source, job) =>
-    {
-        const lines = source.split('\n');
-        const pattern = new RegExp(`^\\s{${job.fieldIndent}}needs:\\s*$`, 'u');
-        const index = lines.findIndex((line) => pattern.test(line));
-        if (index < 0)
-        {
-            throw new Error(`workflow job ${jobId} does not use block needs`);
-        }
-        const childIndent = job.fieldIndent + (job.fieldIndent - job.jobIndent);
-        lines.splice(index + 1, 0, `${' '.repeat(childIndent)}- ${need}`);
-        return lines.join('\n');
-    });
+    return mutateWorkflowJob(workflowText, jobId, (source, job) => appendWorkflowNeedToJob(source, job, need));
 }
 
 function writeTempMatrix(matrixText)
