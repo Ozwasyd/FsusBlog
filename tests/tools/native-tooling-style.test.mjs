@@ -866,6 +866,42 @@ function ActualMarkdownlintEnvironment()
     return { FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0' };
 }
 
+test('generated fact table literals pass actual CLI while ordinary prose HTML remains refused', async () =>
+{
+    const { RendererRegistry } = await import(new URL('../../tools/docs/generated-fact-sections/renderers.mjs', import.meta.url));
+    WithFixture((fixtureRoot) =>
+    {
+        const file = 'sample/Rendered.md';
+        const environment = ActualMarkdownlintEnvironment();
+        const body = RendererRegistry.render('key-value-table', {
+            handler: 'compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.SecurityEndpoints+<>c.<MapSecurityEndpoints>b__6_7:2',
+            literal: '<script>alert(1)</script>',
+            nested: { literal: '<a href="/literal?a=1&b=2">value</a>' },
+            entity: '&lt;script&gt;'
+        }, { emptyPolicy: 'fail', orderPolicy: 'ordinal' });
+        const document = `# Generated fact literals\n\n${body}\n`;
+        const RawCli = () => spawnSync('markdownlint-cli2', [
+            '--config', '.markdownlint-cli2.jsonc', '--no-globs', `:${file}`
+        ], { cwd: fixtureRoot, env: { ...process.env, ...environment }, encoding: 'utf8', timeout: 60_000 });
+        WriteFile(fixtureRoot, file, document);
+        const raw = RawCli();
+        assert.equal(raw.status, 0, Output(raw));
+        const checked = RunChecker(fixtureRoot, [file], ['--require-tools'], environment);
+        assert.equal(checked.status, 0, Output(checked));
+        for (const prose of ['<script>alert(1)</script>', '<a href="https://example.invalid/">link</a>', '<div>content</div>'])
+        {
+            WriteFile(fixtureRoot, file, `${document}\n${prose}\n`);
+            const refused = RawCli();
+            assert.equal(refused.status, 1, Output(refused));
+            assert.match(refused.stderr, / error MD033\//u);
+            const classified = RunChecker(fixtureRoot, [file], ['--require-tools'], environment);
+            assert.equal(classified.status, 1, Output(classified));
+            assert.match(Output(classified), /markdownlint-md033/u);
+        }
+        assert.equal(fs.readFileSync(path.join(fixtureRoot, '.markdownlint-cli2.jsonc'), 'utf8'), fs.readFileSync(path.join(root, '.markdownlint-cli2.jsonc'), 'utf8'));
+    });
+});
+
 test('native fragment compatibility retains nine raw actual CLI findings while binding complete parser spans', () =>
 {
     WithFixture((fixtureRoot) =>
