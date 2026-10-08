@@ -39,7 +39,8 @@ public sealed record BlockTargetArticleCoordinate(
     ArticleRelationLifecycleState Lifecycle,
     ArticleRelationPermissionState Permission,
     ArticleRelationPermissionState EditPermission,
-    string ContentDigest);
+    string ContentDigest,
+    string CanonicalSlug);
 
 /// <summary>All producer generations that invalidate a cursor or selected target on drift.</summary>
 public sealed record BlockTargetQueryCoordinate(

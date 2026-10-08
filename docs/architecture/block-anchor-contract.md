@@ -77,6 +77,8 @@ allowed; a public publication target may be read-only to its caller.
 Requests bind actor/site, permission context and revision, query/index/route
 generations, request sequence, search and page limit, plus the existing anchor
 contract version/digest. A changed coordinate invalidates cursors and tokens.
+The selected article coordinate includes its authoritative current canonical slug;
+even a resealed token with another slug is rejected against that coordinate.
 
 `BlockTargetQueryToken` carries the existing `ArticleBlockTarget`, selected source
 revision, canonical source node/range, block kind, bounded snippet and current slug.

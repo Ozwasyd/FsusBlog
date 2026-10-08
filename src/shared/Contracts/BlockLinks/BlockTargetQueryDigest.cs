@@ -86,6 +86,7 @@ public static class BlockTargetQueryDigest
         writer.Add((int)article.Permission);
         writer.Add((int)article.EditPermission);
         writer.Add(article.ContentDigest);
+        writer.Add(article.CanonicalSlug);
     }
 
     private static void AddLong(BlockAnchorContractDigest.CanonicalWriter writer, long value)

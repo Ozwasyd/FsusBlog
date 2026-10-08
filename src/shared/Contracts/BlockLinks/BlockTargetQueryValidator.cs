@@ -75,6 +75,7 @@ public static class BlockTargetQueryValidator
             || !IsText(token.BlockKind, 64, false)
             || !IsText(token.ContextSnippet, BlockTargetQuerySchemas.MaximumSnippetLength, true)
             || !BlockAnchorContractValidator.IsCanonicalSlug(token.CanonicalSlug)
+            || token.CanonicalSlug != token.Article.CanonicalSlug
             || !BlockAnchorContractDigest.IsSha256(token.TokenDigest))
         {
             return BlockTargetQueryValidationResult.Invalid("block_target_token_invalid");
@@ -168,6 +169,7 @@ public static class BlockTargetQueryValidator
                 article.RevisionIdentity, article.RevisionNumber, article.RevisionKind,
                 article.Lifecycle, article.Permission)).IsValid
             && BlockAnchorContractDigest.IsSha256(article.ContentDigest)
+            && BlockAnchorContractValidator.IsCanonicalSlug(article.CanonicalSlug)
             && Enum.IsDefined(article.EditPermission)
             && (scope == BlockTargetQueryScope.AuthoringCurrent
                 ? article.RevisionKind is ArticleRelationRevisionKind.Draft or ArticleRelationRevisionKind.Current

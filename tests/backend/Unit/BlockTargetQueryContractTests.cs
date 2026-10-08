@@ -108,6 +108,7 @@ public sealed class BlockTargetQueryContractTests
             request with { Coordinate = request.Coordinate with { PermissionContextDigest = new string('b', 64) } },
             request with { Coordinate = request.Coordinate with { PermissionRevision = 2 } },
             request with { Coordinate = request.Coordinate with { RouteRevision = 2 } },
+            request with { Article = request.Article! with { CanonicalSlug = "other-slug" } },
             request with { Coordinate = request.Coordinate with { QueryRevision = 2 } },
             request with { Coordinate = request.Coordinate with { IndexRevision = 2 } },
             request with { RequestSequence = 2 },
@@ -175,7 +176,13 @@ public sealed class BlockTargetQueryContractTests
     [InlineData("release-notes")]
     public void Token_UsesStableArticleAnchorAndExistingUrlMapping(string anchor)
     {
-        BlockTargetQueryRequest request = Request();
+        BlockTargetQueryRequest request = Seal(Request() with
+        {
+            Article = Request().Article! with
+            {
+                CanonicalSlug = "版本 notes"
+            }
+        });
         BlockTargetQueryToken token = Seal(Token(request) with
         {
             Target = ArticleBlockTarget.Create(Article, BlockAnchorId.Create(anchor)),
@@ -189,6 +196,17 @@ public sealed class BlockTargetQueryContractTests
         {
             CanonicalSlug = "new-slug"
         }).Target);
+    }
+
+    [Fact]
+    public void Token_RejectsResealedRouteSwapAgainstCurrentProjection()
+    {
+        BlockTargetQueryRequest request = Request();
+        BlockTargetQueryToken token = Seal(Token(request) with
+        {
+            CanonicalSlug = "different-slug"
+        });
+        Assert.False(BlockTargetQueryValidator.Validate(token, request).IsValid);
     }
 
     [Theory]
@@ -371,14 +389,14 @@ public sealed class BlockTargetQueryContractTests
             BlockTargetQueryScope.AuthoringCurrent,
             new BlockTargetArticleCoordinate(Article, "revision:current", 1, ArticleRelationRevisionKind.Current,
                 ArticleRelationLifecycleState.Draft, ArticleRelationPermissionState.Allowed,
-                ArticleRelationPermissionState.Allowed, s_digest),
+                ArticleRelationPermissionState.Allowed, s_digest, "slug"),
             string.Empty, 100, 1, string.Empty));
 
     private static BlockTargetQueryToken Token(BlockTargetQueryRequest request)
         => Seal(new BlockTargetQueryToken(
             BlockTargetQuerySchemas.Token, BlockTargetQuerySchemas.Version, request.RequestDigest,
             ArticleBlockTarget.Create(Article, BlockAnchorId.Create("a")), request.Article!,
-            "node:canonical", 0, 10, "paragraph", "context", "slug", string.Empty));
+            "node:canonical", 0, 10, "paragraph", "context", request.Article!.CanonicalSlug, string.Empty));
 
     private static BlockTargetQueryCursor Cursor(BlockTargetQueryRequest request)
         => Seal(new BlockTargetQueryCursor(BlockTargetQuerySchemas.Cursor, BlockTargetQuerySchemas.Version,
