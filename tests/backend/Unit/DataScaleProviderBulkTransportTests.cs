@@ -56,6 +56,33 @@ public sealed class DataScaleProviderBulkTransportTests : IDisposable
     }
 
     [Fact]
+    public async Task DuplicateRerun_PreservesPreviouslyCommittedProjection()
+    {
+        await using SqliteConnection connection = await OpenAsync();
+        string expected = ExpectedDigest(2);
+        DataScaleBulkExecution first = await DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
+            connection, DataScaleBulkProvider.Sqlite, Tables(2), expected, ObserveAsync, _cancellation.Token);
+        Assert.Equal(DataScaleBulkCommitState.Committed, first.State);
+        DataScaleBulkExecution repeated = await DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
+            connection, DataScaleBulkProvider.Sqlite, Tables(2), expected, ObserveAsync, _cancellation.Token);
+        Assert.Equal(DataScaleBulkCommitState.RolledBack, repeated.State);
+        Assert.Equal(expected, (await ObserveAsync(connection, null, _cancellation.Token)).SemanticDigest);
+        Assert.Equal(3, await CountAsync(connection));
+    }
+
+    [Fact]
+    public async Task ViolationWithMatchingDigest_StillRollsBackAllRows()
+    {
+        await using SqliteConnection connection = await OpenAsync();
+        string expected = ExpectedDigest(2);
+        DataScaleBulkExecution result = await DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
+            connection, DataScaleBulkProvider.Sqlite, Tables(2), expected,
+            (_, _, _) => Task.FromResult(new DataScaleBulkPostconditions(expected, ["orphan_relation"])), _cancellation.Token);
+        Assert.Equal(DataScaleBulkCommitState.RolledBack, result.State);
+        Assert.Equal(0, await CountAsync(connection));
+    }
+
+    [Fact]
     public async Task ForeignKeyOrderFailure_LeavesNoPartialRows()
     {
         await using SqliteConnection connection = await OpenAsync();
