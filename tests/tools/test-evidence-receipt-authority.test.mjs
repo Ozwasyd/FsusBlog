@@ -16,6 +16,7 @@ const {
     validateBrowserlessCorrectnessReceipt
 } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
 const { parseMatrix } = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
+const { writeCanonicalSchedulerFixture } = await import(new URL('./support/canonical-scheduler-fixture.mjs', import.meta.url));
 
 const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
 const buildReceiptDigest = `sha256:${'c'.repeat(64)}`;
@@ -85,7 +86,7 @@ test('scheduler authority keeps dependency success provisional while the aggrega
     const runId = 'production-correctness-1151';
     const checkpointFile = path.join(root, '.tmp/test-runs', runId, 'checkpoint.json');
     fs.mkdirSync(path.dirname(checkpointFile), { recursive: true });
-    fs.writeFileSync(checkpointFile, `${JSON.stringify({
+    writeCanonicalSchedulerFixture(checkpointFile, {
         runId,
         sourceState,
         authoritative: true,
@@ -93,7 +94,7 @@ test('scheduler authority keeps dependency success provisional while the aggrega
             unit: { status: 'success', resourceUtilization: { peakBrowserProcessCount: 0 } },
             'production-correctness': { status: 'running' }
         }
-    })}\n`);
+    });
 
     const authority = schedulerAuthority(runId, ['unit', 'production-correctness'], sourceState, { repositoryRoot: root });
     assert.equal(authority.status, 'provisional');
@@ -105,6 +106,9 @@ test('scheduler authority keeps dependency success provisional while the aggrega
     const failed = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'));
     failed.tiers.unit.status = 'failure';
     fs.writeFileSync(checkpointFile, `${JSON.stringify(failed)}\n`);
+    assert.equal(schedulerAuthority(runId, ['unit', 'production-correctness'], sourceState, { repositoryRoot: root }).status,
+        'provisional', 'mutable JSON cannot replace canonical dependency state');
+    writeCanonicalSchedulerFixture(checkpointFile, failed);
     assert.throws(
         () => schedulerAuthority(runId, ['unit', 'production-correctness'], sourceState, { repositoryRoot: root }),
         /incomplete correctness tiers: unit/u
@@ -147,13 +151,13 @@ test('scheduler receipt generation rejects stale summaries and cannot seal a run
 
     const checkpointFile = path.join(fixture, '.tmp/test-runs/current-run/checkpoint.json');
     fs.mkdirSync(path.dirname(checkpointFile), { recursive: true });
-    fs.writeFileSync(checkpointFile, `${JSON.stringify({
+    writeCanonicalSchedulerFixture(checkpointFile, {
         runId: 'current-run', sourceState, authoritative: true,
         tiers: {
             unit: { status: 'success', resourceUtilization: { peakBrowserProcessCount: 0 } },
             'production-correctness': { status: 'running' }
         }
-    })}\n`);
+    });
     const summaryFile = path.join(fixture, '.tmp/release-evidence/jobs/unit.json');
     fs.mkdirSync(path.dirname(summaryFile), { recursive: true });
     const stale = sealDocument({
