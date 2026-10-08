@@ -135,6 +135,11 @@ render eligibility. This event hookup does not yet present a retained result on
 the native editor surface, invoke automatic rendering, acknowledge viewport offset,
 or complete surface/tool continuity acceptance.
 
+The canonical producer retains one frozen render/projection pair per admitted
+entry. Each guarded resolve returns the same pair by reference while that entry
+is retained. The pair shares the original public FsusUI objects and follows the
+existing result verification, replacement and release lifecycle.
+
 Initialization uses a public selection-only transaction with the current document
 identity and expected revision. A fresh FsusUI editor at revision zero cannot bind
 a retained advanced document owner and fails closed. This composition neither

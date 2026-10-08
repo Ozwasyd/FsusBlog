@@ -65,6 +65,26 @@ describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
         cache.dispose();
         expect(producer.resolve(result)).toBeNull();
     });
+    it('retains one frozen public pair per admitted entry and releases it when replaced', async () => {
+        const { cache, producer, update } = setup('# Article');
+        expect((await cache.refresh()).status).toBe('committed');
+        const firstResult = cache.state.content!.result;
+        const firstPair = producer.resolve(firstResult)!;
+        expect(Object.isFrozen(firstPair)).toBe(true);
+        expect(producer.resolve(firstResult)).toBe(firstPair);
+        expect(producer.resolve({ ...firstResult })).toBe(firstPair);
+        expect(producer.resolve({ ...firstResult, resultDigest: 'f'.repeat(64) })).toBeNull();
+        update('# Next article');
+        expect((await cache.refresh()).status).toBe('committed');
+        const nextResult = cache.state.content!.result;
+        const nextPair = producer.resolve(nextResult)!;
+        expect(nextPair).not.toBe(firstPair);
+        expect(producer.resolve(nextResult)).toBe(nextPair);
+        expect(firstPair.render.rawSource).toBe('# Article');
+        expect(producer.resolve(firstResult)).toBeNull();
+        cache.dispose();
+        expect(producer.resolve(nextResult)).toBeNull();
+    });
     it('keeps same-document stale canonical content and never exposes A to same-source B', async () => {
         const { cache, producer, adapter, update } = setup('# Article', 2000000);
         expect((await cache.refresh()).status).toBe('committed');
