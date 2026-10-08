@@ -11,7 +11,8 @@ namespace FsusBlog.Shared.Contracts.ArticleVault;
 
 /// <summary>
 /// One explicit current-draft route projection change, consumed after canonical relation
-/// resolution. The target is supplied by the canonical portable graph and is never inferred from a slug.
+/// resolution. CurrentRelations must be supplied by the canonical relation authority,
+/// not reconstructed from caller ranges, routes or graph membership. A seal is not authorization.
 /// </summary>
 public sealed record ArticleVaultBlockLinkRefactorInput(
     ArticleVaultArticleManifest Manifest,
@@ -23,7 +24,8 @@ public sealed record ArticleVaultBlockLinkRefactorInput(
     ArticleRelationSourceRange SourceRange,
     ArticleBlockRouteProjection Before,
     ArticleBlockRouteProjection After,
-    long ExpectedRevision);
+    long ExpectedRevision,
+    ArticleRelationSet? CurrentRelations = null);
 
 /// <summary>
 /// An ephemeral expected-text replacement for a later canonical transaction. No source
@@ -89,6 +91,42 @@ public static class ArticleVaultBlockLinkRefactor
         {
             return Reject("vault_block_link_target_unavailable");
         }
+
+        ArticleRelationSet? relations = input.CurrentRelations;
+        if (!ArticleRelationContractValidator.Validate(relations).IsValid
+            || relations!.SetDigest != input.CurrentRelationSha256
+            || relations.Source.ArticleIdentity != manifest.PortableArticleIdentity
+            || relations.Source.RevisionNumber != input.ExpectedRevision
+            || relations.Source.ContentDigest != server.Source!.Sha256
+            || relations.Source.RevisionKind is not (ArticleRelationRevisionKind.Draft or ArticleRelationRevisionKind.Current)
+            || relations.Source.Lifecycle != ArticleRelationLifecycleState.Draft
+            || relations.Source.Permission != ArticleRelationPermissionState.Allowed
+            || relations.Source.SourceActor.SiteIdentity != manifest.SiteIdentity)
+        {
+            return Reject("vault_block_link_occurrence_authority_unavailable");
+        }
+
+        ArticleRelationRecord[] occurrences = relations.Relations
+            .Where(record => record.Kind == ArticleRelationKind.Outgoing
+                && (record.Occurrence.First == input.SourceRange || record.Occurrence.Last == input.SourceRange))
+            .ToArray();
+        if (occurrences.Length != 1)
+        {
+            return Reject("vault_block_link_occurrence_authority_mismatch");
+        }
+        ArticleRelationRecord occurrence = occurrences[0];
+        ArticleRelationTargetIdentity? target = occurrence.Target.TargetIdentity;
+        if (occurrence.Resolution != ArticleRelationResolutionStatus.Resolved
+            || occurrence.Target.Permission != ArticleRelationPermissionState.Allowed
+            || occurrence.Visibility.QueryScope != ArticleRelationQueryScope.Authoring
+            || occurrence.Visibility.PublicContext != ArticleRelationPublicContext.AuthoringActor
+            || occurrence.Visibility.QueryActor.SiteIdentity != manifest.SiteIdentity
+            || target is null || target.Kind != ArticleRelationTargetKind.Block
+            || target.ArticleIdentity != input.Before.Target.ArticleIdentity
+            || target.BlockAnchorIdentity != input.Before.Target.AnchorId.Value)
+        {
+            return Reject("vault_block_link_occurrence_authority_mismatch");
+        }
         string source;
         try
         {
@@ -119,6 +157,8 @@ public static class ArticleVaultBlockLinkRefactor
         {
             writer.Add(manifest.ContentSha256);
             writer.Add(input.Graph.ContentSha256);
+            writer.Add(relations.SetDigest);
+            writer.Add(occurrence.RecordDigest);
             writer.Add(input.ExpectedRevision.ToString(CultureInfo.InvariantCulture));
             writer.Add(input.Before.CanonicalSlug);
             writer.Add(input.After.CanonicalSlug);
@@ -137,7 +177,7 @@ public static class ArticleVaultBlockLinkRefactor
         ArticleVaultBlockLinkRefactorInput input,
         ReadOnlySpan<byte> sourceBytes,
         ArticleVaultBlockLinkRewriteCandidate candidate)
-        => Propose(input, sourceBytes) == candidate;
+        => candidate is { Permitted: true } && Propose(input, sourceBytes) == candidate;
 
     private static ArticleVaultBlockLinkRewriteCandidate Reject(string reasonCode)
     {

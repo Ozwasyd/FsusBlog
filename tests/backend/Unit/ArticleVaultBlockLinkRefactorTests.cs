@@ -65,6 +65,60 @@ public sealed class ArticleVaultBlockLinkRefactorTests
     }
 
     [Fact]
+    public void CanonicalOccurrencesDisambiguateIdenticalRoutesWithoutARouteWinner()
+    {
+        (ArticleVaultBlockLinkRefactorInput input, byte[] bytes) = Input("new", qaSource: true, collision: true);
+        ArticleVaultBlockLinkRewriteCandidate first = ArticleVaultBlockLinkRefactor.Propose(input, bytes);
+        Assert.True(first.Permitted);
+        Assert.Equal(Target, first.Target!.ArticleIdentity);
+        ArticleRelationRecord secondRelation = input.CurrentRelations!.Relations[1];
+        ArticleBlockTarget second = ArticleBlockTarget.Create(CollidingTarget, BlockAnchorId.Create("stable"));
+        input = input with
+        {
+            SourceRange = secondRelation.Occurrence.First,
+            Before = new ArticleBlockRouteProjection(second, "old"),
+            After = new ArticleBlockRouteProjection(second, "new")
+        };
+        ArticleVaultBlockLinkRewriteCandidate candidate = ArticleVaultBlockLinkRefactor.Propose(input, bytes);
+        Assert.True(candidate.Permitted);
+        Assert.Equal(CollidingTarget, candidate.Target!.ArticleIdentity);
+        Assert.True(ArticleVaultBlockLinkRefactor.Verify(input, bytes, candidate));
+        Assert.NotEqual(first.Start, candidate.Start);
+    }
+
+    [Fact]
+    public void MissingOrTamperedCanonicalOccurrenceAuthorityNeverAdmitsAGraphOnlyCandidate()
+    {
+        (ArticleVaultBlockLinkRefactorInput input, byte[] bytes) = Input("new");
+        AssertRejected(input with
+        {
+            CurrentRelations = null
+        }, bytes, "vault_block_link_occurrence_authority_unavailable");
+        AssertRejected(input with
+        {
+            CurrentRelations = input.CurrentRelations! with
+            {
+                SetDigest = Digest
+            }
+        }, bytes, "vault_block_link_occurrence_authority_unavailable");
+        ArticleRelationRecord relation = input.CurrentRelations!.Relations[0];
+        ArticleRelationRecord forged = ArticleRelationContractValidator.Seal(relation with
+        {
+            Occurrence = relation.Occurrence with
+            {
+                First = new ArticleRelationSourceRange(0, relation.Occurrence.First.End, relation.Occurrence.LinkText)
+            }
+        });
+        AssertRejected(input with
+        {
+            CurrentRelations = ArticleRelationContractValidator.Seal(input.CurrentRelations with
+            {
+                Relations = [forged]
+            })
+        }, bytes, "vault_block_link_occurrence_authority_unavailable");
+    }
+
+    [Fact]
     public void StaleRevisionAndHistoricalSourceAreNeverRewritten()
     {
         (ArticleVaultBlockLinkRefactorInput input, byte[] bytes) = Input("new");
@@ -201,6 +255,30 @@ public sealed class ArticleVaultBlockLinkRefactorTests
             : $"\uFEFF前文 😀\r\n{markdown}\r\n";
         byte[] bytes = Encoding.UTF8.GetBytes(raw);
         VaultSourceByteIdentity sourceBytes = ArticleVaultManifestCodec.CaptureSourceBytes(bytes);
+        int start = raw.IndexOf(markdown, StringComparison.Ordinal);
+        var range = new ArticleRelationSourceRange(start, start + markdown.Length, markdown);
+        var actor = new ArticleRelationActorContext("actor:01991e72-dbed-74bd-a467-027699b78ad8", "site:primary", Digest);
+        var source = new ArticleRelationSourceFacts(Host, "revision:01991e72-aaaa-7a86-bc95-5518cf8bd7dc", 8,
+            ArticleRelationRevisionKind.Draft, ArticleRelationLifecycleState.Draft,
+            ArticleRelationPermissionState.Allowed, actor, sourceBytes.Sha256);
+        var visibility = new ArticleRelationVisibilityFacts(actor, actor, ArticleRelationQueryScope.Authoring,
+            ArticleRelationPublicContext.AuthoringActor, Digest);
+        ArticleRelationRecord Relation(string articleIdentity, ArticleRelationSourceRange occurrenceRange)
+            => ArticleRelationContractValidator.Seal(new ArticleRelationRecord(ArticleRelationSchemas.Relation,
+                ArticleRelationSchemas.Version, string.Empty, 1, ArticleRelationKind.Outgoing, source,
+                new ArticleRelationOccurrence(markdown, occurrenceRange, occurrenceRange, 1),
+                new ArticleRelationTargetFacts(new ArticleRelationTargetIdentity(articleIdentity, ArticleRelationTargetKind.Block, null, "stable"),
+                    "revision:01991e72-bbbb-7a86-bc95-5518cf8bd7dc", 9, ArticleRelationRevisionKind.Published,
+                    ArticleRelationLifecycleState.Published, ArticleRelationPermissionState.Allowed),
+                visibility, ArticleRelationResolutionStatus.Resolved, new ArticleRelationContractCoordinate(1, 1, 1, 1, 1), string.Empty));
+        ArticleRelationRecord[] records = collision
+            ? [Relation(Target, range), Relation(CollidingTarget, new ArticleRelationSourceRange(
+                raw.LastIndexOf(markdown, StringComparison.Ordinal), raw.LastIndexOf(markdown, StringComparison.Ordinal) + markdown.Length, markdown))]
+            : [Relation(Target, range)];
+        ArticleRelationSet relations = ArticleRelationContractValidator.Seal(new ArticleRelationSet(
+            ArticleRelationSchemas.RelationSet, ArticleRelationSchemas.Version, source, records, string.Empty));
+        Assert.True(ArticleRelationContractValidator.Validate(relations).IsValid);
+        string relationSha256 = relations.SetDigest;
         var coordinate = new VaultArticleCoordinate(ArticleVaultSchemas.Coordinate, ArticleVaultSchemas.Version,
             true, false, 8, sourceBytes, Digest, Digest, "draft", Digest, string.Empty);
         coordinate = coordinate with
@@ -239,7 +317,7 @@ public sealed class ArticleVaultBlockLinkRefactorTests
             : [node];
         var graph = new PortableDependencyManifest(PortableDependencySchemas.Manifest, PortableDependencySchemas.Version,
             binding, manifest.ServerArticleIdentity, manifest.Coordinates, VaultDependencySourceSide.Server,
-            sourceBytes, Digest, nodes, [], string.Empty, string.Empty);
+            sourceBytes, relationSha256, nodes, [], string.Empty, string.Empty);
         string graphSha256 = PortableDependencyCodec.GraphDigest(graph);
         coordinate = coordinate with
         {
@@ -262,12 +340,10 @@ public sealed class ArticleVaultBlockLinkRefactorTests
             Coordinates = manifest.Coordinates,
             GraphSha256 = graphSha256
         });
-        int start = Encoding.UTF8.GetString(bytes).IndexOf(markdown, StringComparison.Ordinal);
-        var range = new ArticleRelationSourceRange(start, start + markdown.Length, markdown);
         var budgets = new ArticleEmbedResolutionBudgetLimits(8, 64, 1_048_576, 60_000, 128);
         Assert.True(ArticleVaultManifestValidator.Validate(manifest).IsValid);
-        Assert.True(PortableDependencyVerifier.VerifyCurrent(graph, manifest, bytes, nodes, [], Digest, budgets).IsValid);
-        return (new ArticleVaultBlockLinkRefactorInput(manifest, graph, nodes, [], Digest, budgets, range,
-            new ArticleBlockRouteProjection(target, "old"), new ArticleBlockRouteProjection(target, slug), 8), bytes);
+        Assert.True(PortableDependencyVerifier.VerifyCurrent(graph, manifest, bytes, nodes, [], relationSha256, budgets).IsValid);
+        return (new ArticleVaultBlockLinkRefactorInput(manifest, graph, nodes, [], relationSha256, budgets, range,
+            new ArticleBlockRouteProjection(target, "old"), new ArticleBlockRouteProjection(target, slug), 8, relations), bytes);
     }
 }
