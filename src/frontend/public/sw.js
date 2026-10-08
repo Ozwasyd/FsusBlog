@@ -178,15 +178,15 @@ async function handleControlMessage(message)
     switch (message.type)
     {
         case 'shell.invalidate':
-            {
-                const result = await invalidateShellCache(message.scope ?? null);
-                await broadcast({
-                    type: 'shell-updated',
-                    scope: message.scope ?? null,
-                    deletedCount: result.deletedCount
-                });
-            }
+        {
+            const result = await invalidateShellCache(message.scope ?? null);
+            await broadcast({
+                type: 'shell-updated',
+                scope: message.scope ?? null,
+                deletedCount: result.deletedCount
+            });
             return result;
+        }
         case 'search-index.updated':
             await ensureLatestSearchIndex({ force: true });
             return { updated: true };
