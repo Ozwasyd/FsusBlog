@@ -185,6 +185,18 @@ bridge. Expected-vector equality is structural DATA_ONLY validation. It cannot
 promote caller-owned material to semantic evidence or qualification. Interruption
 messages are omitted; the original vector ref preserves their source identity.
 
+`collectCanonicalLaneAtomicTerminalMaterial` accepts the canonical lane source
+input together with that same complete-vector collection input. Its third argument
+retains the original frontend admission contexts. Original lane bindings select
+executable members from the one complete vector; each lane retains source receipt
+digests, exact terminal-state lists, primary failures and blocked roots. Shared
+prerequisites may appear in multiple lane indexes but remain one receipt in the
+whole collection. Coordination receipts stay in the complete collection. Unconsumed
+producer IDs remain explicit; no lane membership is invented. This read-only
+DATA_ONLY index invokes no executor or receipt writer. It is usable operator
+material, while original domain terminal authentication and semantic navigation
+publication remain pending with their owners.
+
 The graph input is an extracted **DATA_ONLY view**, not a declaration catalog or
 compiler. Its explicit `graphRef` and `dagDigest` identify the upstream compiled
 graph. Nodes retain IDs, logical parents, closed execution kind, evidence class,

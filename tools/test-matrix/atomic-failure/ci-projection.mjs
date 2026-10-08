@@ -520,6 +520,41 @@ export async function collectCompiledAtomicTerminalMaterial(input, hostLimits)
         qualificationEligible: false, terminalAcceptancePending: true, materializedTransport: false });
 }
 
+/** Index the same complete vector by original lane memberships, without another execution or receipt writer. */
+export async function collectCanonicalLaneAtomicTerminalMaterial(input, hostLimits, frontendContexts = {})
+{
+    const material = admitMaterial(input, hostLimits);
+    const runtimeFields = Object.hasOwn(material, 'runtimeAuthority') ? ['runtimeAuthority'] : [];
+    const laneFields = [...compiledCiFields, 'worktreeFingerprint', 'lanes', ...runtimeFields];
+    const terminalFields = [...compiledCiFields, 'vector', 'expectedVector', 'terminalVectorRef',
+        'worktreeFingerprint', 'repositoryRoot', ...runtimeFields];
+    exactFields(material, [...new Set([...laneFields, ...terminalFields])], 'canonical lane terminal input');
+    const laneInput = Object.fromEntries(laneFields.map((field) => [field, material[field]]));
+    const terminalInput = Object.fromEntries(terminalFields.map((field) => [field, material[field]]));
+    const ciMaterial = await projectCanonicalLaneAtomicCiMaterial(laneInput, hostLimits, frontendContexts);
+    const terminalCollection = await collectCompiledAtomicTerminalMaterial(terminalInput, hostLimits);
+    sameFact(terminalCollection.ciProjectionDigest, ciMaterial.ciProjection.contentDigest, 'lane terminal CI projection');
+    const receipts = new Map(terminalCollection.receipts.map((receipt) => [receipt.producerId, receipt]));
+    const laneCollections = ciMaterial.laneBindings.map((binding) =>
+    {
+        const members = binding.producerIds.map((id) => receipts.get(id));
+        requireFact(members.every(Boolean), 'original lane terminal member missing');
+        const terminalStates = Object.fromEntries(['success', 'failed', 'timed-out', 'internal-error', 'blocked', 'cancelled']
+            .map((state) => [state, members.filter((receipt) => receipt.terminalState === state).map((receipt) => receipt.producerId)]));
+        return { id: binding.id, kind: binding.kind, originalBindingDigest: binding.originalBindingDigest,
+            producerIds: binding.producerIds,
+            receiptReferences: members.map((receipt) => ({ producerId: receipt.producerId,
+                sourceReceiptDigest: receipt.sourceReceiptDigest })), terminalStates,
+            primaryFailureRefs: [...new Set(members.flatMap((receipt) => receipt.primaryFailureRefs))].sort(),
+            blockedBy: [...new Set(members.flatMap((receipt) => receipt.blockedBy))].sort() };
+    });
+    return sealProjection({ schema: 'fsusblog.canonical-lane-atomic-terminal-material.v1', context: material.context,
+        compiledDagDigest: terminalCollection.compiledDagDigest, ciMaterialDigest: ciMaterial.contentDigest,
+        terminalCollection, laneCollections, unconsumedProducerIds: ciMaterial.unconsumedProducerIds,
+        completeSourceCoverage: ciMaterial.completeSourceCoverage, qualificationEligible: false,
+        terminalAcceptancePending: true, materializedTransport: false });
+}
+
 /**
  * Derive a non-executable CI transport/job projection from explicit compiled facts.
  * Job dependencies settle even on failure: the canonical invocation must decide

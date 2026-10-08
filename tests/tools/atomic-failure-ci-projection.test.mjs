@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const { checkAtomicWorkflowMaterial, collectCompiledAtomicTerminalMaterial, createCompiledAtomicRuntimeCiBinding, projectAtomicCiMaterial, projectCompiledAtomicCiMaterial, projectCompiledAtomicRuntimeCiMaterial, projectCanonicalLaneAtomicCiMaterial, prepareCanonicalAtomicCiGroup, executeCanonicalAtomicCiGroup } = await import(new URL('../../tools/test-matrix/atomic-failure/ci-projection.mjs', import.meta.url));
+const { checkAtomicWorkflowMaterial, collectCompiledAtomicTerminalMaterial, collectCanonicalLaneAtomicTerminalMaterial, createCompiledAtomicRuntimeCiBinding, projectAtomicCiMaterial, projectCompiledAtomicCiMaterial, projectCompiledAtomicRuntimeCiMaterial, projectCanonicalLaneAtomicCiMaterial, prepareCanonicalAtomicCiGroup, executeCanonicalAtomicCiGroup } = await import(new URL('../../tools/test-matrix/atomic-failure/ci-projection.mjs', import.meta.url));
 const { compileAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/compiler.mjs', import.meta.url));
 const { AtomicProducerExecutionError, executeCompiledAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/execution.mjs', import.meta.url));
 const { digestCanonical, sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
@@ -612,6 +612,71 @@ test('one global CI invocation executes original coverage input preparation alon
     assert.equal(result.terminalVector.receipts.length, material.compiled.steps.length);
     assert.equal(result.ciMaterial.laneBindings.length, 2);
     assert.equal(fs.readdirSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId, 'atomic-dag')).length, 1);
+});
+
+async function collectedLaneTerminals(t, scenarios = {})
+{
+    const fixture = coverageFrontendExecutionFixture(t, scenarios);
+    const { material, options, coverage, frontendContexts } = fixture;
+    let vector;
+    try
+    {
+        vector = (await executeCanonicalAtomicCiGroup(material, laneHostLimits, options)).terminalVector;
+    }
+    catch (error)
+    {
+        assert.ok(error instanceof AtomicProducerExecutionError);
+        vector = error.terminalVector;
+    }
+    const repositoryRoot = coverage.lane.input.root;
+    const vectorPath = path.join(options.context.evidenceRoot, vector.schedulerRunId, 'atomic-dag',
+        material.compiled.contentDigest.slice(7), 'terminal-vector.json');
+    const filesBefore = fs.readdirSync(path.dirname(vectorPath));
+    const result = await collectCanonicalLaneAtomicTerminalMaterial({ ...material, repositoryRoot,
+        vector, expectedVector: vector, terminalVectorRef: {
+            path: path.relative(repositoryRoot, vectorPath).replaceAll(path.sep, '/'), objectDigest: vector.contentDigest
+        } }, laneHostLimits, frontendContexts);
+    assert.deepEqual(fs.readdirSync(path.dirname(vectorPath)), filesBefore);
+    assert.equal(fs.readdirSync(path.dirname(path.dirname(vectorPath))).length, 1);
+    return { result, vector, material, repositoryRoot };
+}
+
+test('canonical lane terminal collection indexes one successful coverage and frontend vector by original bindings', async (t) =>
+{
+    const { result, vector, material } = await collectedLaneTerminals(t);
+    assert.equal(result.terminalCollection.sourceStatus, 'success');
+    assert.equal(result.terminalCollection.receipts.length, material.compiled.steps.length);
+    assert.equal(result.laneCollections.length, 2);
+    for (const lane of result.laneCollections)
+    {
+        assert.deepEqual(lane.terminalStates.success, lane.producerIds);
+        assert.deepEqual(lane.primaryFailureRefs, []);
+        for (const reference of lane.receiptReferences)
+        {
+            assert.equal(reference.sourceReceiptDigest,
+                vector.receipts.find((receipt) => receipt.producerId === reference.producerId).contentDigest);
+        }
+    }
+    assert.equal(result.completeSourceCoverage, true);
+    assert.equal(result.materializedTransport, false);
+    assert.equal(result.qualificationEligible, false);
+    assert.equal(result.verificationStatus, 'unverified');
+});
+
+test('canonical lane terminal collection preserves coverage failure and blocked roots alongside independent frontend success', async (t) =>
+{
+    const { result, vector, repositoryRoot } = await collectedLaneTerminals(t, { failedDomain: 'backend' });
+    const coverage = result.laneCollections.find((lane) => lane.kind === 'coverage');
+    const frontend = result.laneCollections.find((lane) => lane.kind === 'frontend');
+    assert.deepEqual(coverage.terminalStates.failed, ['coverage-backend']);
+    assert.ok(coverage.terminalStates.blocked.includes('coverage-merge'));
+    assert.deepEqual(coverage.primaryFailureRefs, ['coverage-backend']);
+    assert.ok(coverage.blockedBy.includes('coverage-backend'));
+    assert.deepEqual(frontend.terminalStates.success, frontend.producerIds);
+    assert.deepEqual(frontend.primaryFailureRefs, []);
+    const original = vector.receipts.find((receipt) => receipt.producerId === 'coverage-backend');
+    assert.deepEqual(result.terminalCollection.receipts.find((receipt) => receipt.producerId === 'coverage-backend').attemptRef,
+        { path: path.relative(repositoryRoot, original.attemptRef.path), contentDigest: original.attemptRef.contentDigest });
 });
 
 test('separate canonical CI runner groups require the absent original job-scoped executor port', async (t) =>
