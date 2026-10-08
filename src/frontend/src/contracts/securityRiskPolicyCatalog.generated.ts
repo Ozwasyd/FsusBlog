@@ -5,7 +5,7 @@ export const SecuritySystemModes = {
     Observe: "observe",
     Enforce: "enforce",
     Strict: "strict",
-    Lockdown: "lockdown",
+    Lockdown: "lockdown"
 } as const;
 
 export type SecuritySystemModesValue = typeof SecuritySystemModes[keyof typeof SecuritySystemModes];
@@ -18,7 +18,7 @@ export const SecurityRiskPolicyOutcomes = {
     Queue: "queue",
     Throttle: "throttle",
     Block: "block",
-    LockdownBlock: "lockdown_block",
+    LockdownBlock: "lockdown_block"
 } as const;
 
 export type SecurityRiskPolicyOutcomesValue = typeof SecurityRiskPolicyOutcomes[keyof typeof SecurityRiskPolicyOutcomes];
@@ -31,7 +31,7 @@ export const SecurityRiskPolicyCatalog = {
     QueueScore: 80,
     BlockScore: 90,
     MaximumBandScore: 1000,
-    DefaultStrictRiskMultiplierPercent: 125,
+    DefaultStrictRiskMultiplierPercent: 125
 } as const;
 
 export type SecurityRiskPolicyCatalogValue = typeof SecurityRiskPolicyCatalog[keyof typeof SecurityRiskPolicyCatalog];
@@ -56,7 +56,7 @@ export const SecurityRiskPolicyReasons = {
     PerceptionSealedV2PublicReadThrottle: "perception_sealed_v2_public_read_throttle",
     PerceptionSealedV2RecoveryThrottle: "perception_sealed_v2_recovery_throttle",
     RecoveryKeyMandatoryCharacter: "recovery_key_mandatory_character",
-    RecoveryKeyMandatoryPowFallback: "recovery_key_mandatory_pow_fallback",
+    RecoveryKeyMandatoryPowFallback: "recovery_key_mandatory_pow_fallback"
 } as const;
 
 export type SecurityRiskPolicyReasonsValue = typeof SecurityRiskPolicyReasons[keyof typeof SecurityRiskPolicyReasons];
@@ -73,5 +73,5 @@ export const securityChallengeKindWireNames = {
     9: 'zkAnonymousCommentProofV1',
     11: 'perceptionLocalizationV2',
     12: 'perceptionMicroInteractionV2',
-    14: 'perceptionCharacterV3',
+    14: 'perceptionCharacterV3'
 } as const;
