@@ -1247,6 +1247,10 @@ export async function resolvePublicShellLocaleSceneAuthority(request)
     {
         fail('PublicShell scene negotiation/cookie production authority is ambiguous');
     }
+    if (negotiation.preferencePreparation !== null)
+    {
+        fail('PublicShell account/device preference requires verified login/refresh or explicit-auto cookie preparation');
+    }
     return {
         scene,
         authority: {

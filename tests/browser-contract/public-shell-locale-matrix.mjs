@@ -110,7 +110,12 @@ async function loadAuthorities(root)
         'tests/browser-contract/fixture.mjs',
         'docs/frontend/public-shell-ownership.md',
         matrixPath,
-        'tests/browser-contract/public-shell-finite-input-owner.mjs'
+        'tests/browser-contract/public-shell-finite-input-owner.mjs',
+        'src/backend/Infrastructure/PublicAot/LocaleResolver.cs',
+        'src/backend/Infrastructure/PublicAot/LocalePreferenceCookieService.cs',
+        'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs',
+        'src/backend/Services/UserLocalePreferenceService.cs',
+        'src/backend/Entities/UserLocalePreference.cs'
     ])
     {
         await source(relativePath);
@@ -139,30 +144,60 @@ function copyReference(authorities, locale, key)
     return { key, artifactRef: artifact.ref, valueDigest: digest(value) };
 }
 
-function negotiationCases(descriptors, defaultCode)
+function negotiationCases(descriptors, defaultCode, disabledDescriptors)
 {
     const cases = [];
     for (const [index, item] of descriptors.entries())
     {
         const other = descriptors[(index + 1) % descriptors.length].code;
-        const add = (kind, header, cookie, locale, source) => cases.push({
-            id: `${item.code}/${kind}`, header, cookie, locale, source
+        const add = (kind, header, cookie, locale, source, matchedRange, preferencePreparation = null) => cases.push({
+            id: `${item.code}/${kind}`, header, cookie, locale, source, matchedRange, preferencePreparation
         });
-        add('exact', item.code, null, item.code, 'accept-language');
+        add('exact', item.code, null, item.code, 'accept-language', item.code);
         for (const alias of item.aliases)
         {
-            add(`alias/${alias}`, alias, null, item.code, 'accept-language');
+            add(`alias/${alias}`, alias, null, item.code, 'accept-language', alias);
         }
-        add('q-priority', `${other};q=0.4,${item.code};q=0.9`, null, item.code, 'accept-language');
-        add('equal-q-order', `${item.code};q=0.8,${other};q=0.8`, null, item.code, 'accept-language');
-        add('duplicate-invalid', `???;q=oops,${item.code};q=0.9,${item.code};q=0.4`, null, item.code, 'accept-language');
-        add('cookie-over-header', other, item.code, item.code, 'explicit-cookie');
-        add('invalid-cookie', item.code, 'unsupported-locale', item.code, 'accept-language');
-        add('q-zero', `${item.code};q=0`, null, defaultCode, 'default');
+        add('q-priority', `${other};q=0.4,${item.code};q=0.9`, null, item.code, 'accept-language', item.code);
+        add('equal-q-order', `${item.code};q=0.8,${other};q=0.8`, null, item.code, 'accept-language', item.code);
+        add('duplicate-invalid', `???;q=oops,${item.code};q=0.9,${item.code};q=0.4`, null, item.code, 'accept-language', item.code);
+        add('cookie-over-header', other, item.code, item.code, 'explicit-cookie', item.code);
+        add('invalid-cookie', item.code, 'unsupported-locale', item.code, 'accept-language', item.code);
+        add('q-zero', `${item.code};q=0`, null, defaultCode, 'default', '');
+        add('corrupt-cookie', item.code, '???', item.code, 'accept-language', item.code);
+        for (const alias of item.aliases)
+        {
+            add(`alias-cookie/${alias}`, other, alias, other, 'accept-language', other);
+        }
+        for (const disabled of disabledDescriptors)
+        {
+            add(`disabled-header/${disabled.code}`, `${disabled.code},${item.code};q=0.5`, null,
+                item.code, 'accept-language', item.code);
+            add(`disabled-cookie/${disabled.code}`, item.code, disabled.code,
+                item.code, 'accept-language', item.code);
+        }
+        // Login/refresh syncs only account-fixed. Account-auto preserves the incoming
+        // device cookie; an explicit auto command instead clears both cookie variants.
+        // These are preparation requirements, never evidence that an account was seeded.
+        for (const deviceCookie of [null, other])
+        {
+            const deviceMode = deviceCookie === null ? 'auto' : 'fixed';
+            add(`account-fixed/device-${deviceMode}`, other, item.code, item.code, 'explicit-cookie', item.code,
+                { operation: 'login-refresh', accountMode: 'fixed', fixedLocale: item.code, incomingDeviceCookie: deviceCookie });
+            add(`account-auto/device-${deviceMode}`, item.code, deviceCookie, deviceCookie ?? item.code,
+                deviceCookie === null ? 'accept-language' : 'explicit-cookie', deviceCookie ?? item.code,
+                { operation: 'login-refresh', accountMode: 'auto', fixedLocale: null, incomingDeviceCookie: deviceCookie });
+        }
+        add('device-explicit-auto', item.code, null, item.code, 'accept-language', item.code,
+            { operation: 'explicit-auto', accountMode: null, fixedLocale: null, incomingDeviceCookie: other });
+
     }
     for (const [kind, header] of [['missing', null], ['unknown', 'zz-ZZ'], ['wildcard', '*'], ['invalid', '???;q=oops']])
     {
-        cases.push({ id: `default/${kind}`, header, cookie: null, locale: defaultCode, source: 'default' });
+        cases.push({ id: `default/${kind}`, header, cookie: null,
+            locale: kind === 'wildcard' ? descriptors[0].code : defaultCode,
+            source: kind === 'wildcard' ? 'accept-language' : 'default',
+            matchedRange: kind === 'wildcard' ? '*' : '', preferencePreparation: null });
     }
     return cases;
 }
@@ -175,7 +210,8 @@ export async function createPublicShellLocaleMatrix(root = defaultRoot)
     const worktreeFingerprint = resolveWorktreeFingerprint(root);
     const authorities = await loadAuthorities(root);
     const descriptors = authorities.projection.ENABLED_LOCALES;
-    const cases = negotiationCases(descriptors, authorities.catalog.defaultCode);
+    const disabledDescriptors = authorities.catalog.locales.filter((item) => item.status !== 'enabled');
+    const cases = negotiationCases(descriptors, authorities.catalog.defaultCode, disabledDescriptors);
     const routes = ['Home', 'ArticleDetail', 'Archive', 'About', 'Privacy', 'Guidelines', 'Copyright', 'Filter'];
     const stages = [
         { issue: 2083, names: ['first-response'] },
@@ -201,7 +237,8 @@ export async function createPublicShellLocaleMatrix(root = defaultRoot)
         {
             for (const route of group.issue === 2083 ? routes : ['Home', 'ArticleDetail'])
             {
-                for (const auth of ['anonymous', 'authenticated', 'admin'])
+                for (const auth of negotiation.preferencePreparation?.accountMode
+                    ? ['authenticated', 'admin'] : ['anonymous', 'authenticated', 'admin'])
                 {
                     for (const viewport of [390, 1440])
                     {
@@ -231,7 +268,10 @@ export async function createPublicShellLocaleMatrix(root = defaultRoot)
                                 const id = `${group.issue}/${negotiation.id}/${route}/${auth}/${viewport}/${stage}${failureMode ? `/${failureMode}` : ''}`;
                                 scenes.push({
                                     id, issue: group.issue, negotiationId: group.issue >= 2086 ? `${sourceLocale}/exact` : negotiation.id, locale,
-                                    source: negotiation.source, route, surface: 'PublicShell', authActionContext: auth,
+                                    source: negotiation.source,
+                                    expectedResolution: { source: { 'accept-language': 'AcceptLanguage', 'explicit-cookie': 'ExplicitCookie', default: 'Default' }[negotiation.source],
+                                        matchedRange: negotiation.matchedRange },
+                                    route, surface: 'PublicShell', authActionContext: auth,
                                     viewport: { width: viewport, height: 900 }, stage,
                                     transition: group.issue >= 2086 ? {
                     sourceLocale,
@@ -296,6 +336,10 @@ export async function createPublicShellLocaleMatrix(root = defaultRoot)
         defaultLocale: authorities.catalog.defaultCode,
         locales: descriptors,
         negotiationCases: cases,
+        negotiationCoverage: { disabledLocales: disabledDescriptors.map((item) => item.code),
+            disabledLocaleGate: disabledDescriptors.length === 0 ? 'no-disabled-entry-in-current-catalog' : 'planned',
+            preferencePreparationGate: 'requires-verified-cookie-sync',
+            resolutionObservationGate: 'requires-original-request-resolver-result' },
         fontPlan,
         scenes
     };

@@ -92,6 +92,42 @@ test('matrix covers each issue, viewport, PublicShell auth action and negotiatio
     }
 });
 
+test('negotiation plans bind canonical wildcard and account/device cookie semantics without fabricating disabled locales', () =>
+{
+    const wildcard = matrix.negotiationCases.find((item) => item.id === 'default/wildcard');
+    assert.equal(wildcard.source, 'accept-language');
+    assert.equal(wildcard.matchedRange, '*');
+    assert.equal(wildcard.locale, matrix.locales[0].code);
+    assert.deepEqual(matrix.negotiationCoverage.disabledLocales, []);
+    assert.equal(matrix.negotiationCoverage.disabledLocaleGate, 'no-disabled-entry-in-current-catalog');
+    for (const locale of matrix.locales)
+    {
+        const cases = matrix.negotiationCases.filter((item) => item.id.startsWith(`${locale.code}/`));
+        for (const deviceMode of ['fixed', 'auto'])
+        {
+            const fixed = cases.find((item) => item.id.endsWith(`account-fixed/device-${deviceMode}`));
+            assert.equal(fixed.locale, locale.code);
+            assert.equal(fixed.cookie, locale.code);
+            assert.equal(fixed.preferencePreparation.fixedLocale, locale.code);
+            assert.equal(fixed.preferencePreparation.operation, 'login-refresh');
+            const auto = cases.find((item) => item.id.endsWith(`account-auto/device-${deviceMode}`));
+            assert.equal(auto.cookie, auto.preferencePreparation.incomingDeviceCookie);
+            assert.equal(auto.source, deviceMode === 'fixed' ? 'explicit-cookie' : 'accept-language');
+            assert.equal(auto.preferencePreparation.fixedLocale, null);
+            assert.ok(matrix.scenes.filter((scene) => scene.negotiationId === auto.id)
+                .every((scene) => scene.authActionContext !== 'anonymous'));
+        }
+        const explicitAuto = cases.find((item) => item.id.endsWith('device-explicit-auto'));
+        assert.equal(explicitAuto.cookie, null);
+        assert.ok(explicitAuto.preferencePreparation.incomingDeviceCookie);
+        assert.equal(cases.find((item) => item.id.endsWith('corrupt-cookie')).source, 'accept-language');
+    }
+    for (const ref of ['LocaleResolver.cs', 'LocalePreferenceCookieService.cs', 'BinaryEndpoints.Auth.cs', 'UserLocalePreferenceService.cs'])
+    {
+        assert.ok(matrix.identity.refs.some((item) => item.path.endsWith(ref)));
+    }
+});
+
 test('transition plans retain old copy during preparation and failure, and enumerate resource fault modes', () =>
 {
     for (const scene of matrix.scenes.filter((item) => item.transition))
@@ -164,6 +200,15 @@ const mutations = {
     {
         value.scenes[0].selectorItems[0].selected = false;
     },
+    'forged wildcard source': (value) =>
+    {
+        value.negotiationCases.find((item) => item.id === 'default/wildcard').source = 'default';
+    },
+    'missing account precondition': (value) =>
+    {
+        value.negotiationCases.find((item) => item.preferencePreparation).preferencePreparation = null;
+    },
+    'invented disabled locale': (value) => value.negotiationCoverage.disabledLocales.push('zz-ZZ'),
     'missing alias case': (value) =>
     {
         value.negotiationCases = value.negotiationCases.filter((item) => !item.id.includes('/alias/'));

@@ -34,9 +34,9 @@ function escapeHtml(value)
         .replaceAll("'", '&#39;');
 }
 
-function selectorMarkup()
+function selectorMarkup(selectedScene = scene)
 {
-    return scene.selectorItems.map((item) =>
+    return selectedScene.selectorItems.map((item) =>
     {
         const label = item.englishName && item.englishName !== item.nativeName
             ? `${item.nativeName} ${item.englishName}` : item.nativeName;
@@ -47,27 +47,33 @@ function selectorMarkup()
 }
 
 async function buildResponse({
-    identity = defaultExpected.identity,
-    language = scene.document.language,
-    renderLocale = scene.locale,
+    caseScene = scene,
+    caseCopy = copy,
+    expected = defaultExpected,
+    identity = expected.identity,
+    language = caseScene.document.language,
+    renderLocale = caseScene.locale,
     bootstrapOverrides = {},
     bootOverrides = {},
     bodyOverrides = {},
     headers = {}
 } = {})
 {
+    const scene = caseScene;
+    const copy = caseCopy;
+    const authKey = scene.authActionContext === 'anonymous' ? 'login' : scene.authActionContext === 'admin' ? 'dashboard' : 'account';
     const codec = await loadPublicShellFirstResponseCodec();
     const bootstrap = codec.encodePublicAotPayload({
         renderLocale,
         kind: scene.route,
-        localeCatalogDigest: defaultExpected.bootstrap.localeCatalogDigest,
-        rendererVersion: defaultExpected.bootstrap.rendererVersion,
-        renderTimestamp: defaultExpected.bootstrap.renderTimestamp,
-        routeKey: defaultExpected.bootstrap.routeKey,
+        localeCatalogDigest: expected.bootstrap.localeCatalogDigest,
+        rendererVersion: expected.bootstrap.rendererVersion,
+        renderTimestamp: expected.bootstrap.renderTimestamp,
+        routeKey: expected.bootstrap.routeKey,
         ...bootstrapOverrides
     });
-    const documentTitle = bodyOverrides.title ?? defaultExpected.metadata.title;
-    const description = bodyOverrides.description ?? defaultExpected.metadata.description;
+    const documentTitle = bodyOverrides.title ?? expected.metadata.title;
+    const description = bodyOverrides.description ?? expected.metadata.description;
     const shellLocale = bodyOverrides.shellLocale ?? renderLocale;
     const activeLocale = bodyOverrides.activeLocale ?? renderLocale;
     const body = `<!doctype html><html lang="${escapeHtml(language)}" dir="${escapeHtml(scene.document.direction)}">`
@@ -76,21 +82,21 @@ async function buildResponse({
         + `<meta property="og:title" content="${escapeHtml(documentTitle)}">`
         + `<meta property="og:description" content="${escapeHtml(description)}">`
         + `<meta property="og:locale" content="${escapeHtml(scene.document.openGraphLocale)}">`
-        + `<link rel="canonical" href="${escapeHtml(defaultExpected.metadata.canonicalUrl)}"></head>`
+        + `<link rel="canonical" href="${escapeHtml(expected.metadata.canonicalUrl)}"></head>`
         + `<body><div id="fsus-aot-shell" data-public-render-locale="${escapeHtml(shellLocale)}" `
-        + `data-public-auth-message-key="public.shell.login">`
+        + `data-public-auth-message-key="public.shell.${authKey}">`
         + `<a data-public-nav="home">brand</a>`
         + `<a data-public-nav="home">${escapeHtml(copy['public.shell.home'])}</a>`
         + `<a data-public-nav="archive">${escapeHtml(copy['public.shell.archive'])}</a>`
         + `<a data-public-nav="about">${escapeHtml(copy['public.shell.about'])}</a>`
-        + `<a data-public-nav="auth">${escapeHtml(copy['public.shell.login'])}</a>`
+        + `<a data-public-nav="auth">${escapeHtml(copy[`public.shell.${authKey}`])}</a>`
         + `<a href="#main-content">${escapeHtml(copy['public.shell.skipToMain'])}</a>`
         + `<a href="/search" aria-controls="search">${escapeHtml(copy['public.shell.search'])}</a>`
-        + `<div data-locale-selector data-active-locale="${escapeHtml(activeLocale)}">${selectorMarkup()}</div>`
+        + `<div data-locale-selector data-active-locale="${escapeHtml(activeLocale)}">${selectorMarkup(scene)}</div>`
         + `</div><script id="fsus-aot-bootstrap" type="application/octet-stream">${bootstrap}</script>`
         + `<script id="fsus-public-boot-config" type="application/json">${JSON.stringify({
             schema: 'fsusblog.public-boot-config.v1',
-            frontendBuildIdentity: defaultExpected.frontendBuildIdentity,
+            frontendBuildIdentity: expected.frontendBuildIdentity,
             ...bootOverrides
         })}</script></body></html>`;
     return {
@@ -98,7 +104,7 @@ async function buildResponse({
         headers: {
             'content-type': 'text/html; charset=utf-8',
             'content-language': language,
-            'cache-control': defaultExpected.cacheControl,
+            'cache-control': expected.cacheControl,
             ...headers
         },
         body: Buffer.from(body),
@@ -144,6 +150,33 @@ test('first navigation checks immutable HTML, typed copy, security domain select
     assert.equal(JSON.stringify(evidence).includes(response.body.toString('utf8')), false);
 });
 
+// These are checker models, never admitted server/AOT or browser observations.
+// Reuse canonical scenes and typed copy; keep auth/route coverage bounded.
+for (const [index, descriptor] of matrix.locales.entries())
+{
+    const route = index % 2 === 0 ? 'Home' : 'ArticleDetail';
+    const authActionContext = ['anonymous', 'authenticated', 'admin'][index % 3];
+    const caseScene = matrix.scenes.find(item => item.issue === 2083 && item.stage === 'first-response'
+        && item.locale === descriptor.code && item.route === route && item.authActionContext === authActionContext
+        && item.negotiationId === `${descriptor.code}/exact` && item.viewport.width === 390);
+    assert.ok(caseScene, 'catalog locale requires a canonical first-response model scene');
+    test(`first navigation checker accepts typed ${descriptor.code}/${route}/${authActionContext} facts`, async () =>
+    {
+        const caseCopy = await resolvePublicShellLocaleCopy(matrix, caseScene.id);
+        const expected = {
+            ...defaultExpected,
+            metadata: { ...defaultExpected.metadata,
+                title: caseCopy['layout.siteHeader.fallbackTitle'],
+                description: caseCopy['layout.siteHeader.fallbackDescription'] },
+            bootstrap: { ...defaultExpected.bootstrap, routeKey: `model/${route}` }
+        };
+        const response = await buildResponse({ caseScene, caseCopy, expected });
+        const evidence = await assertPublicShellLocaleFirstResponse({ response, scene: caseScene, copy: caseCopy, expected });
+        assert.equal(evidence.observed.locale, descriptor.code);
+        assert.equal(evidence.qualificationEligible, false);
+    });
+}
+
 for (const [label, mutate] of [
     ['status', (response) =>
     {
@@ -168,6 +201,25 @@ for (const [label, mutate] of [
     ['frontend build identity', (response) =>
     {
         response.body = Buffer.from(response.body.toString().replace('release-test-build', 'stale-build'));
+    }],
+    ['OpenGraph locale', response =>
+    {
+        response.body = Buffer.from(response.body.toString().replace(
+            `content="${scene.document.openGraphLocale}"`, 'content="wrong-locale"'));
+    }],
+    ['selector active', response =>
+    {
+        response.body = Buffer.from(response.body.toString().replace(
+            `data-active-locale="${scene.locale}"`, 'data-active-locale="unsupported-locale"'));
+    }],
+    ['selector selected', response =>
+    {
+        response.body = Buffer.from(response.body.toString().replace('data-selected="true"', 'data-selected="false"'));
+    }],
+    ['selector order', response =>
+    {
+        response.body = Buffer.from(response.body.toString().replace(
+            `data-locale-code="${scene.selectorItems[0].code}"`, 'data-locale-code="unsupported-locale"'));
     }],
     ['typed copy', (response) =>
     {
@@ -198,6 +250,17 @@ for (const [label, mutate] of [
         );
     });
 }
+
+test('first navigation rejects invalid UTF8 in original response bytes', async () =>
+{
+    const response = await buildResponse();
+    // An invalid byte in non-copy markup must fail before DOMParser can replace it.
+    response.body = Buffer.concat([response.body, Buffer.from([0xff])]);
+    await assert.rejects(
+        assertPublicShellLocaleFirstResponse({ response, scene, copy, expected: defaultExpected }),
+        /first response UTF8 is invalid/u
+    );
+});
 
 test('first navigation rejects identity and cache/build receipt drift before parsing copy', async () =>
 {
@@ -480,3 +543,24 @@ for (const [expected, observed] of [['', 'nonempty-scope'], ['nonempty-scope', '
         await assert.rejects(firstResponseOwner.readPublicShellLocalePublishedArtifact(model.args));
     });
 }
+
+
+test('diagnostic receipt keeps resolver Source and MatchedRange separate from HTML observations', async () =>
+{
+    const response = await buildResponse();
+    const missing = await assertPublicShellLocaleFirstResponse({ response, scene, copy, expected: defaultExpected });
+    assert.equal(missing.observed.resolution, null);
+    assert.equal(missing.observed.resolutionCaptureState, 'not-captured');
+    const resolverResult = { locale: { code: scene.locale }, source: scene.expectedResolution.source,
+        matchedRange: scene.expectedResolution.matchedRange, catalogDigest: defaultExpected.bootstrap.localeCatalogDigest };
+    const supplied = await assertPublicShellLocaleFirstResponse({ response, scene, copy, expected: defaultExpected, resolverResult });
+    assert.deepEqual(supplied.observed.resolution, { locale: scene.locale, source: resolverResult.source,
+        matchedRange: resolverResult.matchedRange, catalogDigest: resolverResult.catalogDigest });
+    assert.equal(supplied.observed.resolutionCaptureState, 'caller-supplied-diagnostic');
+    assert.equal(supplied.qualificationEligible, false);
+    for (const [key, value] of [['source', 'Default'], ['matchedRange', 'forged'], ['catalogDigest', 'stale']])
+    {
+        await assert.rejects(assertPublicShellLocaleFirstResponse({ response, scene, copy, expected: defaultExpected,
+            resolverResult: { ...resolverResult, [key]: value } }), /resolver .*mismatch/u);
+    }
+});
