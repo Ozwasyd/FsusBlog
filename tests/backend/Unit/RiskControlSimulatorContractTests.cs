@@ -41,7 +41,7 @@ public sealed class RiskControlSimulatorContractTests
         Assert.Equal(expectedDecision, response.Decision);
         Assert.Equal(expectedKind.ToString(), response.DecisionKind);
         Assert.Equal(riskScore, response.RiskScore);
-        Assert.Equal(SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion, response.PolicyVersion);
+        Assert.Equal(SecurityRiskPolicyFactory.DefaultPolicyVersion, response.PolicyVersion);
         Assert.Equal(RiskActionNames.CommentCreate, response.Action);
         Assert.Equal("comment.create", response.RouteKey);
         if (expectedKind == RiskDecisionKind.Challenge)
@@ -94,7 +94,7 @@ public sealed class RiskControlSimulatorContractTests
         return context;
     }
 
-    private static SecurityRiskPolicySnapshotV2 CreatePolicy()
+    private static SecurityRiskPolicy CreatePolicy()
     {
         var defaultPolicy = new SecurityRiskActionPolicy(
             "*",
@@ -104,9 +104,9 @@ public sealed class RiskControlSimulatorContractTests
             null,
             AnonymousWriteAllowed: true);
 
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "risk:test",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            SecurityRiskPolicyFactory.DefaultPolicyVersion,
             DateTimeOffset.UnixEpoch,
             SecuritySystemModes.Enforce,
             200,
@@ -156,10 +156,8 @@ public sealed class RiskControlSimulatorContractTests
         }
     }
 
-    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy) : ISecurityRiskPolicyProvider
+    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicy policy) : ISecurityRiskPolicyProvider
     {
-        public SecurityRiskPolicySnapshot CurrentRiskPolicy => SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
-
-        public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+        public SecurityRiskPolicy CurrentRiskPolicy => policy;
     }
 }

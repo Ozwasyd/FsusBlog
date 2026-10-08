@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute, fsusBinaryRouteDescriptors } from '@/generated/fsusBinaryRoutes'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
@@ -37,9 +38,9 @@ describe('security challenge binary API', () => {
     })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/security/challenge')
+    expect(routeUrl(call)).toBe('/api/binary/security/challenge')
     expect(call?.frameType).toBe(FrameType.SecurityChallengeIssueResponse)
-    expect(call?.requestOptions?.method).toBe('POST')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('POST')
     expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-challenge-test')
     expectAedsPodBody(call?.requestOptions?.body, FrameType.SecurityChallengeIssueRequest, (payload) => {
       const blob = readPodBlob(payload, 40)
@@ -67,9 +68,9 @@ describe('security challenge binary API', () => {
     })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/security/challenge/verify')
+    expect(routeUrl(call)).toBe('/api/binary/security/challenge/verify')
     expect(call?.frameType).toBe(FrameType.SecurityChallengeVerifyResponse)
-    expect(call?.requestOptions?.method).toBe('POST')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('POST')
     expectAedsPodBody(call?.requestOptions?.body, FrameType.SecurityChallengeVerifyRequest, (payload) => {
       const blob = readPodBlob(payload, 44)
       expect(payload[0]).toBe(SecurityChallengeKind.PerceptionLocalizationV2)
@@ -92,9 +93,9 @@ describe('security challenge binary API', () => {
     })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/security/challenge/cancel')
+    expect(routeUrl(call)).toBe('/api/binary/security/challenge/cancel')
     expect(call?.frameType).toBe(FrameType.EmptySuccess)
-    expect(call?.requestOptions).toMatchObject({ method: 'POST', credentials: 'include', keepalive: true })
+    expect(call?.requestOptions).toMatchObject({ keepalive: true })
     expectAedsPodBody(call?.requestOptions?.body, FrameType.SecurityChallengeCancelRequest, (payload) => {
       const blob = readPodBlob(payload, 40)
       expect(readSlice(payload, blob, 0)).toBe('01900000-0000-7000-8000-000000000001')
@@ -142,4 +143,9 @@ function readSlice(payload: Uint8Array, blob: Uint8Array, sliceOffset: number): 
   const offset = view.getInt32(sliceOffset, true)
   const length = view.getInt32(sliceOffset + 4, true)
   return decoder.decode(blob.subarray(offset, offset + length))
+}
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
 }

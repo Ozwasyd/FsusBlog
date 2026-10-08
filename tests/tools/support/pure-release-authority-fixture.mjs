@@ -30,7 +30,7 @@ export function createPureReleaseAuthorityFixture(semanticDigest)
   }
   const manifest = {
     ref: reference('manifest'),
-    value: { schemaCompatibility: { minimum: 1, maximum: 2 } }
+    value: { currentSchema: { receiptContentDigest: semanticDigest('current-schema-receipt') } }
   }
   return {
     plan: {

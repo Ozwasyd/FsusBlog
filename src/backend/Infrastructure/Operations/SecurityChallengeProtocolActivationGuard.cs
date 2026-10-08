@@ -94,7 +94,7 @@ public sealed class SecurityChallengeProtocolActivationGuard(
             if (!FixedEquals(pool.GenerationId, marker.PoolGeneration)
                 || !FixedEquals(pool.ManifestDigest, marker.PoolManifestDigest)
                 || !FixedEquals(pool.ContractDigest, marker.ContractDigest)
-                || !FixedEquals(policyProvider.CurrentRiskPolicyV2.PolicyVersion, marker.PolicySnapshotVersion))
+                || !FixedEquals(policyProvider.CurrentRiskPolicy.PolicyVersion, marker.PolicySnapshotVersion))
             {
                 return false;
             }

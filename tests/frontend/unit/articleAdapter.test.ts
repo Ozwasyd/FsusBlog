@@ -1,3 +1,4 @@
+import { ARTICLE_LIST_WIRE } from '@/generated/aedsArticleListWire'
 import { describe, expect, it } from 'vitest'
 import {
   mapArticleDetailFromPodPayload,
@@ -852,7 +853,7 @@ describe('mapArticleDetailFromPodPayload', () => {
 
 describe('mapArticlePageFromPodPayload', () => {
   /**
-   * Compact ArticleList record (56B):
+   * Current ArticleList record (100B):
    * id, views, createTimeMs, categoryId, categoryName slice, title slice,
    * summary slice, tagStart, tagCount, isDeleted, hasIsDeleted, reserved.
    */
@@ -862,7 +863,7 @@ describe('mapArticlePageFromPodPayload', () => {
     categoryName: string
     title: string
   }>, nextCursor: string | null = null): Uint8Array {
-    const ITEM_RECORD_SIZE = 56
+    const ITEM_RECORD_SIZE = ARTICLE_LIST_WIRE.recordBytes
     const summary = 'sum'
     const blobParts: Uint8Array[] = []
     const slices: Array<{ category: [number, number], title: [number, number], summary: [number, number] }> = []
@@ -909,6 +910,11 @@ describe('mapArticlePageFromPodPayload', () => {
       edv.setInt32(recordOffset + 40, slice.summary[1], true)
       edv.setInt32(recordOffset + 44, 0, true)
       edv.setInt32(recordOffset + 48, 0, true)
+      edv.setInt32(recordOffset + 56, 2, true)
+      edv.setBigInt64(recordOffset + 76, 99n, true)
+      edv.setInt32(recordOffset + 84, 3, true)
+      edv.setBigInt64(recordOffset + 88, 88n, true)
+      edv.setInt32(recordOffset + 96, 2, true)
     })
     pos += items.length * ITEM_RECORD_SIZE
     if (pos !== envelope.byteLength) {
@@ -990,7 +996,7 @@ describe('mapArticleSearchFromPodPayload', () => {
     appendU32(bytes, ref.length)
   }
 
-  it('decodes compact search result v3 payload', () => {
+  it('rejects complete retired compact search result v3 payload', () => {
     const blob: number[] = []
     const category = pushText(blob, '技术')
     const title = pushText(blob, 'Search v3')
@@ -1022,17 +1028,7 @@ describe('mapArticleSearchFromPodPayload', () => {
     appendU32(header, blobOffset)
 
     const payload = new Uint8Array([...header, ...records, ...tagRecords, ...blob])
-    const result = mapArticleSearchFromPodPayload(payload)
-
-    expect(result.total).toBe(1)
-    expect(result.items[0]).toMatchObject({
-      id: 42,
-      views: 7,
-      title: 'Search v3',
-      summary: '更小的搜索结果',
-      category: { id: 3, name: '技术' },
-      tags: [{ id: 9, name: 'wasm' }]
-    })
+    expect(() => mapArticleSearchFromPodPayload(payload)).toThrow('search_result_version_invalid')
   })
 
   it('decodes exact publication coordinates from compact search result v4', () => {
@@ -1064,7 +1060,18 @@ describe('mapArticleSearchFromPodPayload', () => {
     appendU32(header, tagOffset)
     appendU32(header, tagOffset)
 
-    const result = mapArticleSearchFromPodPayload(new Uint8Array([...header, ...records, ...blob]))
+    const payload = new Uint8Array([...header, ...records, ...blob])
+    const result = mapArticleSearchFromPodPayload(payload)
+    for (const offset of [52, 60, 72]) {
+      const invalid = payload.slice()
+      new DataView(invalid.buffer).setInt32(24 + offset, 0, true)
+      expect(() => mapArticleSearchFromPodPayload(invalid)).toThrow('article_version_coordinates_invalid')
+    }
+    const oldSize = payload.slice()
+    new DataView(oldSize.buffer).setInt32(16, 24 + 52, true)
+    expect(() => mapArticleSearchFromPodPayload(oldSize)).toThrow()
+    expect(() => mapArticleSearchFromPodPayload(payload.subarray(8))).toThrow('search_result_version_invalid')
+    expect(() => mapArticleSearchFromPodPayload(new Uint8Array([...payload, 0]))).toThrow('search_result_trailing_bytes_invalid')
 
     expect(result.items[0]).toMatchObject({
       id: 42,

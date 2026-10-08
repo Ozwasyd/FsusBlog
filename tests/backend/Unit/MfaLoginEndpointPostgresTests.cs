@@ -1183,7 +1183,7 @@ public sealed class MfaLoginEndpointPostgresTests(
             services.AddSingleton(instance);
         }
 
-        private static SecurityRiskPolicySnapshotV2 CreateRiskPolicy()
+        private static SecurityRiskPolicy CreateRiskPolicy()
         {
             var defaultPolicy = new SecurityRiskActionPolicy(
                 "*",
@@ -1192,9 +1192,9 @@ public sealed class MfaLoginEndpointPostgresTests(
                 1,
                 null,
                 AnonymousWriteAllowed: false);
-            return new SecurityRiskPolicySnapshotV2(
+            return new SecurityRiskPolicy(
                 "risk:issue-2348",
-                SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+                SecurityRiskPolicyFactory.DefaultPolicyVersion,
                 DateTimeOffset.UnixEpoch,
                 SecuritySystemModes.Enforce,
                 200,
@@ -1316,20 +1316,17 @@ public sealed class MfaLoginEndpointPostgresTests(
             => Task.CompletedTask;
     }
 
-    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy)
+    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicy policy)
         : ISecurityRiskPolicyProvider
     {
-        public SecurityRiskPolicySnapshot CurrentRiskPolicy =>
-            SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
-
-        public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+        public SecurityRiskPolicy CurrentRiskPolicy => policy;
     }
 
     private sealed class AlwaysAllowRiskDecisionService : IRiskDecisionService
     {
         public RiskDecision Decide(
             RiskControlContext context,
-            SecurityRiskPolicySnapshotV2 policy,
+            SecurityRiskPolicy policy,
             int currentRiskScore)
             => new(
                 RiskDecisionKind.Allow,

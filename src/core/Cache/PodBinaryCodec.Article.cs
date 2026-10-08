@@ -10,6 +10,7 @@ using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Primitives;
+using FsusBlog.Shared.Contracts.Validation;
 
 namespace FsusBlog.Core.Cache;
 
@@ -82,8 +83,8 @@ public static partial class PodBinaryCodec
     internal const int ArticlePageStackScratchByteBudget = 4 * 1024;
     internal const int ArticleDetailDirectCharThreshold = 8 * 1024;
     // COMPATIBILITY: The wire prefix is ASCII FSPA in little-endian storage order.
-    private const int ArticlePageCursorEnvelopeMagic = 0x41535046;
-    private const int ArticlePageCursorEnvelopeVersion = 2;
+    private const int ArticlePageCursorEnvelopeMagic = AedsArticleListWire.CursorMagic;
+    private const int ArticlePageCursorEnvelopeVersion = AedsArticleListWire.CursorVersion;
     // COMPATIBILITY: Existing payloads retain the ARD3 and ARD4 wire identifiers.
     private const uint ArticleDetailV3PayloadMagic = 0x41524433;
     private const int ArticleDetailV3PayloadVersion = 3;
@@ -91,9 +92,6 @@ public static partial class PodBinaryCodec
     private const int ArticleDetailV4PayloadVersion = 4;
     private const uint ArticleDetailV5PayloadMagic = 0x41524435;
     private const int ArticleDetailV5PayloadVersion = 5;
-    // COMPATIBILITY: The wire prefix is ASCII FAS4 in little-endian storage order.
-    private const int ArticleSearchV4PayloadMagic = 0x34534146;
-    private const int ArticleSearchV4PayloadVersion = 4;
     private const int LegacyArticleWriteRequestVersion = 3;
     private const int LegacyArticleWriteRequestVersion4 = 4;
     private const int ArticleWriteRequestVersion = 5;
@@ -443,6 +441,11 @@ public static partial class PodBinaryCodec
         for (int itemIndex = 0; itemIndex < itemCount; itemIndex++)
         {
             ArticleListCoreModel item = page.Items[itemIndex];
+            if (!ValidArticleVersionCoordinates(item.CurrentRevisionId, item.RevisionNo,
+                item.CurrentPublicationId.GetValueOrDefault(), item.PublicationNo.GetValueOrDefault()))
+            {
+                throw new InvalidOperationException("Article page current version coordinates are invalid.");
+            }
             tagRecordCount = checked(tagRecordCount + item.Tags.Count);
             foreach (TagCoreModel tag in item.Tags)
             {
@@ -646,12 +649,8 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        int itemRecordBytes = reader.Remaining - tagRecordCount * 12;
-        int itemRecordSize = count == 0 ? 76 : itemRecordBytes / count;
-        if (itemRecordBytes < 0 ||
-            count > 0 && itemRecordBytes % count != 0 ||
-            itemRecordSize is not 56 and not 76 and not 100 ||
-            reader.Remaining != count * itemRecordSize + tagRecordCount * 12)
+        if (total < 0 || (long)reader.Remaining != (long)count * AedsArticleListWire.RecordBytes
+            + (long)tagRecordCount * AedsArticleListWire.TagRecordBytes)
         {
             page = default;
             return false;
@@ -666,41 +665,22 @@ public static partial class PodBinaryCodec
                 return false;
             }
 
-            int status = 2;
-            DateTime? scheduledPublishAt = null;
-            DateTime? publishedAt = null;
-            long currentRevisionId = 0;
-            int revisionNo = 0;
-            long? currentPublicationId = null;
-            int? publicationNo = null;
-            if (itemRecordSize >= 76)
+            if (!reader.TryReadInt32(out int status) ||
+                !reader.TryReadInt64(out long scheduledPublishAtUnixMs) ||
+                !reader.TryReadInt64(out long publishedAtUnixMs) ||
+                !reader.TryReadInt64(out long currentRevisionId) ||
+                !reader.TryReadInt32(out int revisionNo) ||
+                !reader.TryReadInt64(out long publicationId) ||
+                !reader.TryReadInt32(out int decodedPublicationNo) ||
+                !ValidArticleVersionCoordinates(currentRevisionId, revisionNo, publicationId, decodedPublicationNo))
             {
-                if (!reader.TryReadInt32(out status) ||
-                    !reader.TryReadInt64(out long scheduledPublishAtUnixMs) ||
-                    !reader.TryReadInt64(out long publishedAtUnixMs))
-                {
-                    page = default;
-                    return false;
-                }
-
-                scheduledPublishAt = FromUnixMsOrNull(scheduledPublishAtUnixMs);
-                publishedAt = FromUnixMsOrNull(publishedAtUnixMs);
+                page = default;
+                return false;
             }
-
-            if (itemRecordSize == 100)
-            {
-                if (!reader.TryReadInt64(out currentRevisionId) ||
-                    !reader.TryReadInt32(out revisionNo) ||
-                    !reader.TryReadInt64(out long publicationId) ||
-                    !reader.TryReadInt32(out int decodedPublicationNo))
-                {
-                    page = default;
-                    return false;
-                }
-
-                currentPublicationId = publicationId > 0 ? publicationId : null;
-                publicationNo = decodedPublicationNo > 0 ? decodedPublicationNo : null;
-            }
+            DateTime? scheduledPublishAt = FromUnixMsOrNull(scheduledPublishAtUnixMs);
+            DateTime? publishedAt = FromUnixMsOrNull(publishedAtUnixMs);
+            long? currentPublicationId = publicationId == 0 ? null : publicationId;
+            int? publicationNo = decodedPublicationNo == 0 ? null : decodedPublicationNo;
 
             pending.Add((header.Id, header.Views, header.CreateTimeUnixMs, header.CategoryId, header.CategoryName, header.Title, header.Summary, header.TagStart, header.TagCount, header.IsDeleted, status, scheduledPublishAt, publishedAt, currentRevisionId, revisionNo, currentPublicationId, publicationNo));
         }
@@ -751,6 +731,10 @@ public static partial class PodBinaryCodec
         page = new CorePageResult<ArticleListCoreModel>(items, total, nextCursor, hasMore);
         return reader.IsConsumed;
     }
+
+    private static bool ValidArticleVersionCoordinates(long revisionId, int revisionNo, long publicationId, int publicationNo)
+        => revisionId > 0 && revisionNo > 0 && publicationId >= 0 && publicationNo >= 0
+            && (publicationId == 0) == (publicationNo == 0);
 
     private static bool TryDecodeArticleListCursorUtf8(ReadOnlySpan<byte> cursorBytes, out string? cursor)
     {
@@ -1624,63 +1608,166 @@ public static partial class PodBinaryCodec
     /// </summary>
     public static void WriteArticleSearch(IReadOnlyList<ArticleListCoreModel> items, IBufferWriter<byte> destination)
     {
-        var writer = new BinaryPodWriter(destination);
-        writer.WriteInt32(ArticleSearchV4PayloadMagic);
-        writer.WriteInt32(ArticleSearchV4PayloadVersion);
-        writer.WriteInt32(items.Count);
+        int tagCount = 0;
         foreach (ArticleListCoreModel item in items)
         {
-            WriteArticleListItem(ref writer, item, includeVersionCoordinates: true);
+            if (!ValidArticleVersionCoordinates(item.CurrentRevisionId, item.RevisionNo,
+                item.CurrentPublicationId.GetValueOrDefault(), item.PublicationNo.GetValueOrDefault()))
+            {
+                throw new InvalidOperationException("Article search current version coordinates are invalid.");
+            }
+            tagCount = checked(tagCount + item.Tags.Count);
+        }
+        ArticlePageItemSlicePlan[]? rentedPlans = null;
+        Utf8SliceRef[]? rentedTags = null;
+        try
+        {
+            bool small = (long)items.Count * Unsafe.SizeOf<ArticlePageItemSlicePlan>()
+                + (long)tagCount * Unsafe.SizeOf<Utf8SliceRef>() <= ArticlePageStackScratchByteBudget;
+            Span<ArticlePageItemSlicePlan> plans = small ? stackalloc ArticlePageItemSlicePlan[items.Count]
+                : (rentedPlans = ArrayPool<ArticlePageItemSlicePlan>.Shared.Rent(items.Count)).AsSpan(0, items.Count);
+            Span<Utf8SliceRef> tags = small ? stackalloc Utf8SliceRef[tagCount]
+                : (rentedTags = ArrayPool<Utf8SliceRef>.Shared.Rent(tagCount)).AsSpan(0, tagCount);
+            int blobLength = 0;
+            int tagIndex = 0;
+            for (int index = 0; index < items.Count; index++)
+            {
+                ArticleListCoreModel item = items[index];
+                Utf8SliceRef category = PlanUtf8Slice(item.Category.Name, ref blobLength);
+                Utf8SliceRef title = PlanUtf8Slice(item.Title, ref blobLength);
+                Utf8SliceRef summary = PlanUtf8Slice(item.Summary, ref blobLength);
+                int tagStart = tagIndex;
+                foreach (TagCoreModel tag in item.Tags)
+                {
+                    tags[tagIndex++] = PlanUtf8Slice(tag.Name, ref blobLength);
+                }
+                plans[index] = new ArticlePageItemSlicePlan(category, title, summary, tagStart, item.Tags.Count);
+            }
+            int tagOffset = checked(AedsArticleSearchWire.HeaderBytes + items.Count * AedsArticleSearchWire.RecordBytes);
+            int blobOffset = checked(tagOffset + tagCount * AedsArticleSearchWire.TagRecordBytes);
+            var writer = new BinaryPodWriter(destination);
+            writer.WriteInt32(AedsArticleSearchWire.Magic);
+            writer.WriteInt32(AedsArticleSearchWire.Version);
+            writer.WriteInt32(items.Count);
+            writer.WriteInt32(items.Count);
+            writer.WriteInt32(tagOffset);
+            writer.WriteInt32(blobOffset);
+            for (int index = 0; index < items.Count; index++)
+            {
+                ArticleListCoreModel item = items[index];
+                ArticlePageItemSlicePlan plan = plans[index];
+                writer.WriteInt32(item.Id);
+                writer.WriteInt32(item.Views);
+                writer.WriteInt64(PodTimeCodec.ToUnixMs(item.CreateTime));
+                writer.WriteInt32(item.Category.Id);
+                writer.WriteSliceRef(plan.CategoryName);
+                writer.WriteSliceRef(plan.Title);
+                writer.WriteSliceRef(plan.Summary);
+                writer.WriteInt32(plan.TagStart);
+                writer.WriteInt32(plan.TagCount);
+                writer.WriteInt64(item.CurrentRevisionId);
+                writer.WriteInt32(item.RevisionNo);
+                writer.WriteInt64(item.CurrentPublicationId.GetValueOrDefault());
+                writer.WriteInt32(item.PublicationNo.GetValueOrDefault());
+            }
+            tagIndex = 0;
+            foreach (ArticleListCoreModel item in items)
+            {
+                foreach (TagCoreModel tag in item.Tags)
+                {
+                    writer.WriteInt32(tag.Id);
+                    writer.WriteSliceRef(tags[tagIndex++]);
+                }
+            }
+            int written = 0;
+            tagIndex = 0;
+            for (int index = 0; index < items.Count; index++)
+            {
+                ArticleListCoreModel item = items[index];
+                ArticlePageItemSlicePlan plan = plans[index];
+                WritePlannedUtf8Slice(item.Category.Name, plan.CategoryName, destination, ref written);
+                WritePlannedUtf8Slice(item.Title, plan.Title, destination, ref written);
+                WritePlannedUtf8Slice(item.Summary, plan.Summary, destination, ref written);
+                foreach (TagCoreModel tag in item.Tags)
+                {
+                    WritePlannedUtf8Slice(tag.Name, tags[tagIndex++], destination, ref written);
+                }
+            }
+        }
+        finally
+        {
+            if (rentedPlans is not null)
+                ArrayPool<ArticlePageItemSlicePlan>.Shared.Return(rentedPlans);
+            if (rentedTags is not null)
+                ArrayPool<Utf8SliceRef>.Shared.Return(rentedTags);
         }
     }
 
-    /// <summary>
-    /// Encodes the <c>ArticleSearch</c> contract into a new binary payload.
-    /// </summary>
+    /// <summary>Encodes the current ArticleSearch payload.</summary>
     public static byte[] EncodeArticleSearch(IReadOnlyList<ArticleListCoreModel> items)
         => EncodeToArray(1024, writer => WriteArticleSearch(items, writer));
 
-    /// <summary>
-    /// Attempts to decode the <c>ArticleSearch</c> contract from a binary payload.
-    /// </summary>
+    /// <summary>Decodes only the current packed ArticleSearch layout.</summary>
     public static bool TryDecodeArticleSearch(ReadOnlyMemory<byte> bytes, out IReadOnlyList<ArticleListCoreModel> items)
     {
+        items = Array.Empty<ArticleListCoreModel>();
         var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadInt32(out int countOrMagic))
+        if (!reader.TryReadInt32(out int magic) || magic != AedsArticleSearchWire.Magic
+            || !reader.TryReadInt32(out int version) || version != AedsArticleSearchWire.Version
+            || !reader.TryReadInt32(out int total) || total < 0
+            || !reader.TryReadInt32(out int count) || count < 0 || total < count
+            || !reader.TryReadInt32(out int tagOffset)
+            || !reader.TryReadInt32(out int blobOffset)
+            || (long)tagOffset != AedsArticleSearchWire.HeaderBytes + (long)count * AedsArticleSearchWire.RecordBytes
+            || blobOffset < tagOffset || blobOffset > bytes.Length
+            || (blobOffset - tagOffset) % AedsArticleSearchWire.TagRecordBytes != 0)
         {
-            items = Array.Empty<ArticleListCoreModel>();
             return false;
         }
-        bool hasVersionCoordinates = countOrMagic == ArticleSearchV4PayloadMagic;
-        int count = countOrMagic;
-        if (hasVersionCoordinates &&
-            (!reader.TryReadInt32(out int version) ||
-             version != ArticleSearchV4PayloadVersion ||
-             !reader.TryReadInt32(out count)))
-        {
-            items = Array.Empty<ArticleListCoreModel>();
+        int tagCount = (blobOffset - tagOffset) / AedsArticleSearchWire.TagRecordBytes;
+        ReadOnlySpan<byte> blob = bytes.Span[blobOffset..];
+        var tagReader = new BinaryPodReader(bytes.Span[tagOffset..blobOffset]);
+        if (!TryReadArticleListTags(ref tagReader, tagCount, blob, out List<TagCoreModel> tags))
             return false;
-        }
-        if (count < 0)
+        int usedTags = 0;
+        int blobEnd = 0;
+        for (int index = 0; index < tagCount; index++)
         {
-            items = Array.Empty<ArticleListCoreModel>();
-            return false;
+            ReadOnlySpan<byte> tag = bytes.Span.Slice(tagOffset + index * AedsArticleSearchWire.TagRecordBytes, AedsArticleSearchWire.TagRecordBytes);
+            blobEnd = Math.Max(blobEnd, System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(tag[4..])
+                + System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(tag[8..]));
         }
-
         var list = new List<ArticleListCoreModel>(count);
-        for (int i = 0; i < count; i++)
+        for (int index = 0; index < count; index++)
         {
-            if (!TryReadArticleListItem(ref reader, hasVersionCoordinates, out ArticleListCoreModel item))
-            {
-                items = Array.Empty<ArticleListCoreModel>();
+            if (!reader.TryReadInt32(out int id) || !reader.TryReadInt32(out int views)
+                || !reader.TryReadInt64(out long created) || !reader.TryReadInt32(out int categoryId)
+                || !reader.TryReadSliceRef(out Utf8SliceRef category) || !reader.TryReadSliceRef(out Utf8SliceRef title)
+                || !reader.TryReadSliceRef(out Utf8SliceRef summary) || !reader.TryReadInt32(out int tagStart)
+                || !reader.TryReadInt32(out int itemTagCount) || tagStart != usedTags || itemTagCount < 0
+                || tagStart > tagCount || itemTagCount > tagCount - tagStart
+                || !reader.TryReadInt64(out long revisionId) || !reader.TryReadInt32(out int revisionNo)
+                || !reader.TryReadInt64(out long publicationId) || !reader.TryReadInt32(out int publicationNo)
+                || !ValidArticleVersionCoordinates(revisionId, revisionNo, publicationId, publicationNo)
+                || !TryReadStrictSlice(category, blob, out string categoryName)
+                || !TryReadStrictSlice(title, blob, out string decodedTitle)
+                || !TryReadStrictSlice(summary, blob, out string decodedSummary))
                 return false;
-            }
-
-            list.Add(item);
+            usedTags += itemTagCount;
+            blobEnd = Math.Max(blobEnd, Math.Max(category.Offset + category.Length,
+                Math.Max(title.Offset + title.Length, summary.Offset + summary.Length)));
+            var pod = PodProjector.ProjectArticleList(id, views, PodTimeCodec.FromUnixMs(created), categoryId,
+                categoryName, decodedTitle, decodedSummary, null, out _);
+            list.Add(new ArticleListCoreModel(pod, id, decodedTitle, decodedSummary, null, null, views,
+                PodTimeCodec.FromUnixMs(created), new ArticleCategoryCoreModel(categoryId, categoryName),
+                tags.GetRange(tagStart, itemTagCount), IsDeleted: null, CurrentRevisionId: revisionId, RevisionNo: revisionNo,
+                CurrentPublicationId: publicationId == 0 ? null : publicationId,
+                PublicationNo: publicationNo == 0 ? null : publicationNo));
         }
-
+        if (usedTags != tagCount || blobEnd != blob.Length)
+            return false;
         items = list;
-        return reader.IsConsumed;
+        return true;
     }
 
     /// <summary>

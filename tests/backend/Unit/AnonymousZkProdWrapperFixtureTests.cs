@@ -23,7 +23,6 @@ using FsusBlog.Shared.Contracts.Validation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 using NSubstitute;
 
@@ -193,7 +192,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         var nativeLibrary = new HashingNativeGroth16FixtureLibrary();
         IZkAnonymousProofService proofService = CreateProofService(temp, nativeLibrary, zkProdEnabled: false);
 
-        ZkProdPolicySnapshot policy = proofService.CurrentZkProdPolicy;
+        ZkCommentPolicySnapshot policy = proofService.CurrentZkCommentPolicy;
 
         Assert.False(policy.Enabled);
         Assert.Equal("disabled", policy.UnavailableReason);
@@ -206,7 +205,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         RecordingNullifierService? nullifiers = null)
     {
         var time = new MutableTimeProvider(DateTimeOffset.UtcNow);
-        IConfiguration configuration = BuildConfiguration(temp.VerifyingKeySha256);
+        IConfiguration configuration = BuildConfiguration(temp);
         CapturingUnifiedCache ticketCache = cache ?? new CapturingUnifiedCache(time);
         return new AnonymousCommentTicketService(
             ticketCache,
@@ -236,7 +235,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         HashingNativeGroth16FixtureLibrary nativeLibrary,
         bool zkProdEnabled = true)
     {
-        IConfiguration configuration = BuildConfiguration(temp.VerifyingKeySha256, zkProdEnabled);
+        IConfiguration configuration = BuildConfiguration(temp, zkProdEnabled);
         var rootReader = new FixedRootReader(Hex(s_credentialRoot), CredentialEpoch);
         var backend = new NativeGroth16ZkProofBackend(
             new NativeGroth16ZkProofBackendOptions(
@@ -254,7 +253,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         return new ZkAnonymousProofService(
             configuration,
             verifier,
-            new StaticOptionsMonitor<ZkProdOptions>(ZkProdOptions.FromConfiguration(configuration)),
+            new ZkCommentPolicyAuthority(configuration),
+            new ZkVerifierReadiness(ZkVerifierOptions.FromConfiguration(configuration), verifier),
             rootReader,
             new ConfiguredBlindCredentialSigner(),
             new EnabledBlindCredentialGate());
@@ -281,7 +281,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             NullLogger<CommentModerationService>.Instance,
             anonymousPolicy: CreatePolicyService());
         IAnonymousCommentPolicyService policy = CreatePolicyService();
-        IConfiguration configuration = BuildConfiguration(temp.VerifyingKeySha256);
+        IConfiguration configuration = BuildConfiguration(temp);
         var attribution = new CommentAttributionPrivacyService(
             NullLogger<CommentAttributionPrivacyService>.Instance,
             policy: policy,
@@ -402,7 +402,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             RevocationRoot: s_revocationRoot,
             CircuitMetadata: Encoding.UTF8.GetBytes("{\"anonymity_sets\":[{\"is_eligible\":true,\"may_comment\":true,\"rate_class\":\"common\",\"requires_moderation\":false,\"size\":20}]}"));
 
-    private static IConfiguration BuildConfiguration(string verifyingKeyHash, bool zkProdEnabled = true)
+    private static IConfiguration BuildConfiguration(TempNativeZkFixture temp, bool zkProdEnabled = true)
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -412,19 +412,17 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
                 ["AnonymousIdentity:AnonymousCommentTicketTtlSeconds"] = "120",
                 ["AnonymousIdentity:ZkVerifier:Enabled"] = "true",
                 ["AnonymousIdentity:ZkVerifier:CircuitId"] = AnonymousPrivacyContract.CircuitId,
-                ["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"] = verifyingKeyHash,
+                ["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"] = temp.VerifyingKeySha256,
+                ["AnonymousIdentity:ZkVerifier:TrustedSetupManifestPath"] = temp.ManifestPath,
+                ["AnonymousIdentity:ZkVerifier:VerifyingKeyManifestPath"] = temp.ManifestPath,
                 ["AnonymousIdentity:ZkVerifier:PublicInputLayoutVersion"] = AnonymousPrivacyContract.PublicInputLayoutVersion.ToString(),
                 ["AnonymousIdentity:ZkVerifier:MaxProofBytes"] = "4096",
-                ["AnonymousIdentity:ZkVerifier:Backend"] = ZkProdOptions.NativeGroth16Backend,
+                ["AnonymousIdentity:ZkVerifier:Backend"] = ZkVerifierOptions.NativeGroth16Backend,
                 ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "1000",
                 ["AnonymousIdentity:ZkVerifier:MaxConcurrentVerifications"] = "2",
-                ["AnonymousIdentity:ZkProd:Enabled"] = zkProdEnabled.ToString(),
-                ["AnonymousIdentity:ZkProd:RequireTrustedSetupVerified"] = "true",
-                ["AnonymousIdentity:ZkProd:RequireCredential"] = "true",
-                ["AnonymousIdentity:ZkProd:VerifierBackend"] = ZkProdOptions.NativeGroth16Backend,
-                ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = verifyingKeyHash,
-                ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
-                ["AnonymousIdentity:ZkProd:CredentialReady"] = "true",
+                ["AnonymousIdentity:ZkCommentPolicy:Enabled"] = zkProdEnabled.ToString(),
+                ["AnonymousIdentity:ZkCommentPolicy:RequireTrustedSetupVerified"] = "true",
+                ["AnonymousIdentity:ZkCommentPolicy:RequireCredential"] = "true",
                 ["Moderation:Pepper"] = "unit-test-moderation-pepper-with-at-least-thirty-two-chars"
             })
             .Build();
@@ -750,15 +748,6 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
-    private sealed class StaticOptionsMonitor<TOptions>(TOptions value) : IOptionsMonitor<TOptions>
-    {
-        public TOptions CurrentValue { get; } = value;
-
-        public TOptions Get(string? name) => CurrentValue;
-
-        public IDisposable? OnChange(Action<TOptions, string?> listener) => null;
-    }
-
     private sealed class TempNativeZkFixture : IDisposable
     {
         private TempNativeZkFixture(string directoryPath, byte[] verifyingKeyBytes)
@@ -770,7 +759,15 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             VerifyingKeySha256 = Hex(SHA256.HashData(verifyingKeyBytes));
             Directory.CreateDirectory(directoryPath);
             File.WriteAllBytes(VerifyingKeyPath, verifyingKeyBytes);
+            ManifestPath = Path.Combine(directoryPath, "fixture-manifest.json");
+            File.WriteAllText(ManifestPath, System.Text.Json.JsonSerializer.Serialize(new
+            {
+                production_usable = true,
+                verifying_key_hash = VerifyingKeySha256
+            }));
         }
+
+        public string ManifestPath { get; }
 
         public string DirectoryPath
         {

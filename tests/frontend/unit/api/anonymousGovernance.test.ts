@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
@@ -36,7 +37,7 @@ describe('anonymous governance admin API', () => {
     await getAnonymousGovernanceStatus({ mfaProofToken: 'proof-status' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/admin/anonymous-governance/status')
+    expect(routeUrl(call)).toBe('/api/binary/admin/anonymous-governance/status')
     expect(call?.frameType).toBe(FrameType.AnonymousGovernanceActionResponse)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-status')
     expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-governance')
@@ -56,7 +57,7 @@ describe('anonymous governance admin API', () => {
     await listAnonymousGovernanceNullifiers({ mfaProofToken: 'proof-nullifiers' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/admin/anonymous-governance/nullifiers')
+    expect(routeUrl(call)).toBe('/api/binary/admin/anonymous-governance/nullifiers')
     expect(call?.frameType).toBe(FrameType.AnonymousGovernanceActionResponse)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-nullifiers')
   })
@@ -71,7 +72,7 @@ describe('anonymous governance admin API', () => {
     }, { mfaProofToken: 'proof-block' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/admin/anonymous-governance/nullifiers/block')
+    expect(routeUrl(call)).toBe('/api/binary/admin/anonymous-governance/nullifiers/block')
     expect(call?.frameType).toBe(FrameType.AnonymousGovernanceActionResponse)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-block')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.AnonymousGovernanceActionRequest, {
@@ -93,7 +94,7 @@ describe('anonymous governance admin API', () => {
     }, { mfaProofToken: 'proof-revoke' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/admin/anonymous-governance/credentials/revoke')
+    expect(routeUrl(call)).toBe('/api/binary/admin/anonymous-governance/credentials/revoke')
     expect(call?.frameType).toBe(FrameType.AnonymousGovernanceActionResponse)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-revoke')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.AnonymousGovernanceActionRequest, {
@@ -117,4 +118,9 @@ function expectAedsJsonBody(body: BodyInit | null | undefined, frameType: FrameT
   expect(payload).not.toHaveProperty('userId')
   expect(payload).not.toHaveProperty('credentialCommitment')
   expect(payload).not.toHaveProperty('proof')
+}
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
 }

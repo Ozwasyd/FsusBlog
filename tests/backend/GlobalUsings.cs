@@ -1,3 +1,4 @@
+global using FsusBlog.Shared.Contracts.Security;
 global using FsusBlog.Core.Cache;
 global using FsusBlog.Server.Entities;
 global using FsusBlog.Server.Infrastructure.Auth;

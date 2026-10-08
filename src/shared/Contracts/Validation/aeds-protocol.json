@@ -1009,7 +1009,7 @@
             "goldenOrder": 158
         },
         {
-            "name": "CommentCreateV2Request",
+            "name": "CommentCreateRequest",
             "value": 166,
             "goldenFamily": "comment-request",
             "goldenOrder": 159
@@ -1526,5 +1526,326 @@
             "tests/backend/Unit/PodBinaryCodecTests.cs",
             "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
         ]
+    },
+    "payloadLayouts": {
+        "ArticleList": {
+            "cursorMagic": 1095979078,
+            "cursorVersion": 2,
+            "recordBytes": 100,
+            "tagRecordBytes": 12,
+            "offsets": {
+                "id": 0,
+                "views": 4,
+                "createTimeUnixMs": 8,
+                "categoryId": 16,
+                "categoryName": 20,
+                "title": 28,
+                "summary": 36,
+                "tagStart": 44,
+                "tagCount": 48,
+                "isDeleted": 52,
+                "hasIsDeleted": 53,
+                "reserved0": 54,
+                "reserved1": 55,
+                "status": 56,
+                "scheduledPublishAtUnixMs": 60,
+                "publishedAtUnixMs": 68,
+                "currentRevisionId": 76,
+                "revisionNo": 84,
+                "currentPublicationId": 88,
+                "publicationNo": 96
+            }
+        },
+        "ArticleSearch": {
+            "magic": 877810502,
+            "version": 4,
+            "headerBytes": 24,
+            "recordBytes": 76,
+            "tagRecordBytes": 12,
+            "offsets": {
+                "id": 0,
+                "views": 4,
+                "createTimeUnixMs": 8,
+                "categoryId": 16,
+                "categoryName": 20,
+                "title": 28,
+                "summary": 36,
+                "tagStart": 44,
+                "tagCount": 48,
+                "currentRevisionId": 52,
+                "revisionNo": 60,
+                "currentPublicationId": 64,
+                "publicationNo": 72
+            }
+        },
+        "CommentPolicySnapshot": {
+            "podBytes": 41,
+            "minMaxChars": 100,
+            "hardMaxChars": 3000,
+            "minMaxUtf8Bytes": 1024,
+            "hardMaxUtf8Bytes": 12288,
+            "authorModes": [
+                3,
+                4
+            ],
+            "fields": [
+                {
+                    "name": "anonymousCommentsEnabled",
+                    "offset": 0,
+                    "type": "byte"
+                },
+                {
+                    "name": "publicCommentsEnabled",
+                    "offset": 1,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkAnonymousEnabled",
+                    "offset": 2,
+                    "type": "byte"
+                },
+                {
+                    "name": "defaultAuthorMode",
+                    "offset": 3,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkProdEnabled",
+                    "offset": 4,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkProdNativeVerifierConfigured",
+                    "offset": 5,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkProdTrustedSetupVerified",
+                    "offset": 6,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkProdCredentialRequired",
+                    "offset": 7,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkProdCredentialRootReady",
+                    "offset": 8,
+                    "type": "byte"
+                },
+                {
+                    "name": "commentMaxChars",
+                    "offset": 9,
+                    "type": "int32"
+                },
+                {
+                    "name": "commentMaxUtf8Bytes",
+                    "offset": 13,
+                    "type": "int32"
+                },
+                {
+                    "name": "supportedDisplayLanguages",
+                    "offset": 17,
+                    "type": "slice"
+                },
+                {
+                    "name": "snapshotHash",
+                    "offset": 25,
+                    "type": "slice"
+                },
+                {
+                    "name": "zkProdUnavailableReason",
+                    "offset": 33,
+                    "type": "slice"
+                }
+            ],
+            "booleanMaxByte": 1,
+            "publicAuthorMode": 3,
+            "zkAnonymousAuthorMode": 4
+        },
+        "CommentCreateRequest": {
+            "podBytes": 73,
+            "fields": [
+                {
+                    "name": "articleId",
+                    "type": "int32",
+                    "offset": 0
+                },
+                {
+                    "name": "hasParentId",
+                    "type": "byte",
+                    "offset": 4
+                },
+                {
+                    "name": "hasRootId",
+                    "type": "byte",
+                    "offset": 5
+                },
+                {
+                    "name": "hasReplyToCommentId",
+                    "type": "byte",
+                    "offset": 6
+                },
+                {
+                    "name": "authorMode",
+                    "type": "byte",
+                    "offset": 7
+                },
+                {
+                    "name": "publicSendExplicitlySelected",
+                    "type": "byte",
+                    "offset": 8
+                },
+                {
+                    "name": "parentId",
+                    "type": "int64",
+                    "offset": 9
+                },
+                {
+                    "name": "rootId",
+                    "type": "int64",
+                    "offset": 17
+                },
+                {
+                    "name": "replyToCommentId",
+                    "type": "int64",
+                    "offset": 25
+                },
+                {
+                    "name": "anonymousScope",
+                    "type": "slice",
+                    "offset": 33
+                },
+                {
+                    "name": "displayLanguage",
+                    "type": "slice",
+                    "offset": 41
+                },
+                {
+                    "name": "proofToken",
+                    "type": "slice",
+                    "offset": 49
+                },
+                {
+                    "name": "zkProof",
+                    "type": "slice",
+                    "offset": 57
+                },
+                {
+                    "name": "content",
+                    "type": "slice",
+                    "offset": 65
+                }
+            ],
+            "coreFields": [
+                [
+                    "articleId",
+                    "int"
+                ],
+                [
+                    "content",
+                    "string"
+                ],
+                [
+                    "parentId",
+                    "string?"
+                ],
+                [
+                    "rootId",
+                    "string?"
+                ],
+                [
+                    "replyToCommentId",
+                    "string?"
+                ],
+                [
+                    "authorMode",
+                    "string"
+                ],
+                [
+                    "publicSendExplicitlySelected",
+                    "bool"
+                ],
+                [
+                    "anonymousScope",
+                    "string?"
+                ],
+                [
+                    "displayLanguage",
+                    "string?"
+                ],
+                [
+                    "proofToken",
+                    "string?"
+                ],
+                [
+                    "zkProof",
+                    "byte[]"
+                ]
+            ],
+            "frontendFields": [
+                [
+                    "clientMutationId?",
+                    "string"
+                ],
+                [
+                    "articleId",
+                    "number"
+                ],
+                [
+                    "content",
+                    "string"
+                ],
+                [
+                    "parentId?",
+                    "string | null"
+                ],
+                [
+                    "rootId?",
+                    "string | null"
+                ],
+                [
+                    "replyToCommentId?",
+                    "string | null"
+                ],
+                [
+                    "authorMode",
+                    "'public'"
+                ],
+                [
+                    "publicSendExplicitlySelected",
+                    "boolean"
+                ],
+                [
+                    "displayLanguage",
+                    "'zh-CN' | 'en'"
+                ],
+                [
+                    "powSalt?",
+                    "string"
+                ],
+                [
+                    "powSignature?",
+                    "string"
+                ],
+                [
+                    "powTimestamp?",
+                    "number"
+                ],
+                [
+                    "difficulty?",
+                    "number"
+                ],
+                [
+                    "powNonce?",
+                    "string"
+                ],
+                [
+                    "browserFp?",
+                    "string"
+                ]
+            ]
+        }
     }
 }

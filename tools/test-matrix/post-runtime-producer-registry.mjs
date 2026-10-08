@@ -20,6 +20,7 @@ import { createRequire, isBuiltin } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { validateRuntimeRoleCurrentSchemaContract } from '../contracts/lib/runtime-role-current-schema-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
@@ -1873,7 +1874,7 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
             `${label} runtime-role deployment observation`
         );
         const buildReceipt = artifact.buildReceipt;
-        if (observation.value.schema !== 'fsusblog.runtime-role-observation.v2'
+        if (!validateRuntimeRoleCurrentSchemaContract(observation.value, { sourceCommit: sourceState.sourceCommit })
             || buildReceipt.schema
                 !== 'fsusblog.runtime-role-observation-build-receipt.v3'
             || observation.value.ownership?.claimEligible !== true
@@ -1886,7 +1887,7 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
             || deployment.fileDigest
                 !== `sha256:${artifact.deploymentArtifactDigest}`)
         {
-            fail(`${label} runtime-role v2 observation authority is stale or incomplete`);
+            fail(`${label} runtime-role current-only compiled-contract authority is stale or incomplete`);
         }
     }
     else if (current.value.schema !== contract.schema

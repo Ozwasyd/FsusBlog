@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decode } from '@wasm/aeds'
+import { fsusBinaryRouteDescriptors } from '@/generated/fsusBinaryRoutes'
 import { FrameType } from '@wasm/protocol/frame'
 import { binaryRequest, buildBinaryPowHeaders } from '@/api/binaryApiClient'
 import { SecurityChallengeKind } from '@/contracts/binaryApi'
@@ -173,6 +174,8 @@ describe('binaryApiClient pow abort handling', () => {
     const fetchMock = vi.mocked(fetch)
     const [, init] = fetchMock.mock.calls[0]
     expect(init?.signal).toBeDefined()
+    expect(init?.method).toBe(fsusBinaryRouteDescriptors.binary_get_auth_pow_challenge.method)
+    expect(init?.credentials).toBe(fsusBinaryRouteDescriptors.binary_get_auth_pow_challenge.credentialPolicy)
     expect(powMocks.calculate.mock.calls[0][4]).toBe(init?.signal)
   })
 

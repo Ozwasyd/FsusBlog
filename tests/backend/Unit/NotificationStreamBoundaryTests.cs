@@ -644,7 +644,7 @@ public class NotificationStreamBoundaryTests
     public async Task Handshake_MultiChallengePolicyConsumesOneAggregateProofWithOrderedMembers()
     {
         var proof = new CapturingProofService();
-        SecurityRiskPolicySnapshotV2 policy = CreateNotificationRiskPolicy();
+        SecurityRiskPolicy policy = CreateNotificationRiskPolicy();
         SecurityRiskActionPolicy notification = policy.ActionOverrides[RiskActionNames.NotificationSubscribe] with
         {
             Thresholds = new SecurityRiskActionThresholds(0, 0, 0, 100, 100),
@@ -1133,7 +1133,7 @@ public class NotificationStreamBoundaryTests
         CapturingRiskSink? riskSink = null,
         DeploymentRuntimeState? deploymentRuntime = null,
         INotificationStreamPreflightGrantService? preflightGrantService = null,
-        SecurityRiskPolicySnapshotV2? riskPolicy = null)
+        SecurityRiskPolicy? riskPolicy = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(settings.Select(static item =>
@@ -1237,7 +1237,7 @@ public class NotificationStreamBoundaryTests
         offset += value.Length;
     }
 
-    private static SecurityRiskPolicySnapshotV2 CreateNotificationRiskPolicy()
+    private static SecurityRiskPolicy CreateNotificationRiskPolicy()
     {
         var defaultAction = new SecurityRiskActionPolicy(
             "*",
@@ -1252,9 +1252,9 @@ public class NotificationStreamBoundaryTests
             Thresholds = new SecurityRiskActionThresholds(0, 0, 100, 100, 100)
         };
 
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "risk:notification-test",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            SecurityRiskPolicyFactory.DefaultPolicyVersion,
             DateTimeOffset.UnixEpoch,
             SecuritySystemModes.Enforce,
             200,
@@ -1334,11 +1334,9 @@ public class NotificationStreamBoundaryTests
             => Task.CompletedTask;
     }
 
-    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy) : ISecurityRiskPolicyProvider
+    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicy policy) : ISecurityRiskPolicyProvider
     {
-        public SecurityRiskPolicySnapshot CurrentRiskPolicy => SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
-
-        public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+        public SecurityRiskPolicy CurrentRiskPolicy => policy;
     }
 
     private sealed class CapturingRiskSink : ISecurityRiskSignalSink

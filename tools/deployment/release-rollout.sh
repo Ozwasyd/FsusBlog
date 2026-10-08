@@ -1420,6 +1420,13 @@ StageCompatibilitySmoke() {
 }
 
 StageGatewaySwitch() {
+    node "$ROOT_DIR/tools/release/check-release-manifest.mjs" \
+        --manifest "$RELEASE_MANIFEST" --verify-artifacts true --activation-preflight true \
+        --activation-plan "${FSUSBLOG_CURRENT_ACTIVATION_PLAN:?explicit current activation plan required}" \
+        --activation-plan-sha256 "${FSUSBLOG_CURRENT_ACTIVATION_PLAN_SHA256:?explicit current activation plan digest required}" \
+        --trust-policy "${FSUSBLOG_RELEASE_TRUST_POLICY:?explicit independent trust policy required}" \
+        --trust-policy-sha256 "${FSUSBLOG_RELEASE_TRUST_POLICY_SHA256:?explicit independent trust digest required}" ||
+        RolloutFail "current activation admission failed before gateway switch"
     VerifyPublicAotWarmEvidence
     WaitForTrafficBaseline
     WaitForAssetCheckpoint

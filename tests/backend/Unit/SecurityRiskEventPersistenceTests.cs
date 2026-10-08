@@ -164,6 +164,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             .Returns(8L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
+        policy.CurrentRiskPolicy.Returns(SecurityRiskPolicyFactory.Create(new SecurityRiskPolicyInputs(
+            CreatePolicySnapshot().Options.Mode, true, CreatePolicySnapshot().Options.MaxRiskScore)).Seal());
         var hotPath = new CrawlerRiskService(cache, cache, cache, cache, policy, new CapturingLogger<CrawlerRiskService>());
         using ServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore, ThrowingRiskEventStore>()
@@ -227,6 +229,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             .Returns(8L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
+        policy.CurrentRiskPolicy.Returns(SecurityRiskPolicyFactory.Create(new SecurityRiskPolicyInputs(
+            CreatePolicySnapshot().Options.Mode, true, CreatePolicySnapshot().Options.MaxRiskScore)).Seal());
         var hotPath = new CrawlerRiskService(cache, cache, cache, cache, policy, new CapturingLogger<CrawlerRiskService>());
         using ServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore, NeverCompletingRiskEventStore>()
@@ -471,6 +475,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             .Returns((string?)null);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
+        policy.CurrentRiskPolicy.Returns(SecurityRiskPolicyFactory.Create(new SecurityRiskPolicyInputs(
+            CreatePolicySnapshot().Options.Mode, true, CreatePolicySnapshot().Options.MaxRiskScore)).Seal());
         var hotPath = new CrawlerRiskService(cache, cache, cache, cache, policy, new CapturingLogger<CrawlerRiskService>());
         using ServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore>(_ => new SecurityRiskEventStore(db))
@@ -559,6 +565,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             .Returns(5L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
+        policy.CurrentRiskPolicy.Returns(SecurityRiskPolicyFactory.Create(new SecurityRiskPolicyInputs(
+            CreatePolicySnapshot().Options.Mode, true, CreatePolicySnapshot().Options.MaxRiskScore)).Seal());
         var hotPath = new CrawlerRiskService(cache, cache, cache, cache, policy, new CapturingLogger<CrawlerRiskService>());
         return new SecurityRiskEventSink(
             hotPath,

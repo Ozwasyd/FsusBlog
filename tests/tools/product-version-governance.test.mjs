@@ -53,7 +53,7 @@ test('governance does not confuse protocol, schema, runtime, dependency, or prov
 {
     const exemptEvidence = [
         'AEDS v2',
-        'fsusblog.release-manifest.v2',
+        'fsusblog.release-manifest.v3',
         'schema version 2',
         '.NET 10',
         'Node.js 20',

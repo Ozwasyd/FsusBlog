@@ -1,13 +1,15 @@
 import { BinaryReader, readBlobText, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readInt64String, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import type { ArticleDetailResponse, ArticleListItemResponse, ArticleRightsResponse, BinaryPageResponse as PageResponse, FeaturedArticleItem, PopularArticleSummaryResponse, RelatedReadingItemResponse, RelatedReadingResponse, TrashClearResponse } from '@/contracts/binaryApi';
+import { ARTICLE_SEARCH_WIRE } from '@/generated/aedsArticleSearchWire';
+import { ARTICLE_LIST_WIRE } from '@/generated/aedsArticleListWire';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
 import { readArrayEnvelope } from './envelopeReaders';
 import { readCategoryPod, readFeaturedArticleItem, readTagList } from './podReaders';
 import { ARTICLE_LIST_ITEM_POD_SIZE, RELATED_READING_HEADER_POD_SIZE, RELATED_READING_ITEM_POD_SIZE } from './types';
 
-const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046;
-const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 2;
+const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = ARTICLE_LIST_WIRE.cursorMagic;
+const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = ARTICLE_LIST_WIRE.cursorVersion;
 const ARTICLE_DETAIL_V3_MAGIC = 0x41524433;
 const ARTICLE_DETAIL_V3_VERSION = 3;
 const ARTICLE_DETAIL_V4_MAGIC = 0x41524434;
@@ -18,8 +20,6 @@ const ARTICLE_DETAIL_V3_HEADER_SIZE = 44;
 const ARTICLE_DETAIL_V3_RECORD_SIZE = 84;
 const ARTICLE_DETAIL_V4_RECORD_SIZE = 92;
 const ARTICLE_DETAIL_V5_RECORD_SIZE = 116;
-const ARTICLE_SEARCH_V4_MAGIC = 0x34534146;
-const ARTICLE_SEARCH_V4_VERSION = 4;
 const ARTICLE_DETAIL_TAG_V3_RECORD_SIZE = 12;
 const ARTICLE_RIGHTS_V3_RECORD_SIZE = 112;
 const ARTICLE_DETAIL_RIGHTS_KNOWN_FLAGS = (1 << 11) - 1;
@@ -34,6 +34,33 @@ const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_ATTRIBUTION_TEMPLATE = 1 << 7;
 const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_CANONICAL_URL = 1 << 8;
 const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_URL = 1 << 9;
 const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_STATUS = 1 << 10;
+
+const articleUtf8 = new TextDecoder('utf-8', { fatal: true });
+
+export function readArticleStrictSlice(blob: Uint8Array, slice: { offset: number; length: number; }): string
+{
+    if (slice.offset < 0 || slice.length < 0 || slice.offset > blob.length || slice.length > blob.length - slice.offset)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_payload_slice_invalid');
+    }
+    try
+    {
+        return articleUtf8.decode(blob.subarray(slice.offset, slice.offset + slice.length));
+    }
+    catch
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_payload_utf8_invalid');
+    }
+}
+
+export function validateArticleVersionCoordinates(revisionId: string, revisionNo: number, publicationId: string, publicationNo: number): void
+{
+    if (BigInt(revisionId) <= 0n || revisionNo <= 0 || BigInt(publicationId) < 0n || publicationNo < 0
+        || (publicationId === '0') !== (publicationNo === 0))
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_version_coordinates_invalid');
+    }
+}
 
 export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse>
 {
@@ -86,9 +113,8 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     const count = readCountChecked(reader, 'article_page_count_invalid');
     const tagRecordCount = readCountChecked(reader, 'article_page_tag_count_invalid');
     const blob = reader.readBlob();
-    const itemRecordBytes = reader.remaining() - tagRecordCount * 12;
-    const itemRecordSize = count === 0 ? 100 : itemRecordBytes / count;
-    if (itemRecordBytes < 0 || (count > 0 && itemRecordBytes % count !== 0) || (itemRecordSize !== 56 && itemRecordSize !== 76 && itemRecordSize !== 100))
+    const itemRecordSize = ARTICLE_LIST_WIRE.recordBytes;
+    if (total < 0 || reader.remaining() !== count * itemRecordSize + tagRecordCount * ARTICLE_LIST_WIRE.tagRecordBytes)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_record_layout_invalid');
     }
@@ -110,42 +136,46 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     const statuses = new Int32Array(count);
     const scheduledPublishAtUnixMs = new Float64Array(count);
     const publishedAtUnixMs = new Float64Array(count);
-    const currentRevisionIds: string[] = new Array<string>(count).fill('0');
+    const currentRevisionIds: string[] = new Array<string>(count);
     const revisionNos = new Int32Array(count);
-    const currentPublicationIds: (string | null)[] = new Array<string | null>(count).fill(null);
-    const publicationNos: (number | null)[] = new Array<number | null>(count).fill(null);
-    const hasPublicationTail = itemRecordSize >= 76;
-    const hasVersionCoordinates = itemRecordSize === 100;
+    const currentPublicationIds: (string | null)[] = new Array<string | null>(count);
+    const publicationNos: (number | null)[] = new Array<number | null>(count);
+    const o = ARTICLE_LIST_WIRE.offsets;
 
     for (let i = 0; i < count; i += 1)
     {
         const record = reader.readSpan(itemRecordSize);
-        const categoryName = readSliceRef(record, 20);
-        const title = readSliceRef(record, 28);
-        const summary = readSliceRef(record, 36);
-        ids[i] = readInt32(record, 0);
-        views[i] = readInt32(record, 4);
-        createTimeUnixMs[i] = readInt64Number(record, 8);
-        categoryIds[i] = readInt32(record, 16);
+        const categoryName = readSliceRef(record, o.categoryName);
+        const title = readSliceRef(record, o.title);
+        const summary = readSliceRef(record, o.summary);
+        ids[i] = readInt32(record, o.id);
+        views[i] = readInt32(record, o.views);
+        createTimeUnixMs[i] = readInt64Number(record, o.createTimeUnixMs);
+        categoryIds[i] = readInt32(record, o.categoryId);
         categoryNameOffsets[i] = categoryName.offset;
         categoryNameLengths[i] = categoryName.length;
         titleOffsets[i] = title.offset;
         titleLengths[i] = title.length;
         summaryOffsets[i] = summary.offset;
         summaryLengths[i] = summary.length;
-        tagStarts[i] = readInt32(record, 44);
-        tagCounts[i] = readInt32(record, 48);
-        isDeletedFlags[i] = record[52] ?? 0;
-        hasIsDeletedFlags[i] = record[53] ?? 0;
-        statuses[i] = hasPublicationTail ? readInt32(record, 56) : 2;
-        scheduledPublishAtUnixMs[i] = hasPublicationTail ? readInt64Number(record, 60) : 0;
-        publishedAtUnixMs[i] = hasPublicationTail ? readInt64Number(record, 68) : 0;
-        if (hasVersionCoordinates)
+        tagStarts[i] = readInt32(record, o.tagStart);
+        tagCounts[i] = readInt32(record, o.tagCount);
+        isDeletedFlags[i] = record[o.isDeleted]!;
+        hasIsDeletedFlags[i] = record[o.hasIsDeleted]!;
+        statuses[i] = readInt32(record, o.status);
+        scheduledPublishAtUnixMs[i] = readInt64Number(record, o.scheduledPublishAtUnixMs);
+        publishedAtUnixMs[i] = readInt64Number(record, o.publishedAtUnixMs);
         {
-            currentRevisionIds[i] = readInt64String(record, 76);
-            revisionNos[i] = readInt32(record, 84);
-            const publicationId = readInt64String(record, 88);
-            const publicationNo = readInt32(record, 96);
+            currentRevisionIds[i] = readInt64String(record, o.currentRevisionId);
+            revisionNos[i] = readInt32(record, o.revisionNo);
+            const publicationId = readInt64String(record, o.currentPublicationId);
+            const publicationNo = readInt32(record, o.publicationNo);
+            validateArticleVersionCoordinates(currentRevisionIds[i], revisionNos[i], publicationId, publicationNo);
+            if (tagStarts[i] < 0 || tagCounts[i] < 0 || tagStarts[i] > tagRecordCount || tagCounts[i] > tagRecordCount - tagStarts[i]
+                || isDeletedFlags[i] > 1 || hasIsDeletedFlags[i] > 1 || record[o.reserved0] !== 0 || record[o.reserved1] !== 0)
+            {
+                throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_record_semantics_invalid');
+            }
             currentPublicationIds[i] = publicationId === '0' ? null : publicationId;
             publicationNos[i] = publicationNo > 0 ? publicationNo : null;
         }
@@ -154,10 +184,10 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     const tagRecords: ArticleListItemResponse['tags'] = [];
     for (let i = 0; i < tagRecordCount; i += 1)
     {
-        const record = reader.readSpan(12);
+        const record = reader.readSpan(ARTICLE_LIST_WIRE.tagRecordBytes);
         tagRecords.push({
             id: readInt32(record, 0),
-            name: readSliceText(blob, readSliceRef(record, 4))
+            name: readArticleStrictSlice(blob, readSliceRef(record, 4))
         });
     }
 
@@ -167,30 +197,29 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
         const tags: ArticleListItemResponse['tags'] = new Array<ArticleListItemResponse['tags'][number]>(tagCounts[i] ?? 0);
         for (let tagIndex = 0; tagIndex < tags.length; tagIndex += 1)
         {
-            tags[tagIndex] = tagRecords[(tagStarts[i] ?? 0) + tagIndex] ?? { id: 0, name: '' };
+            tags[tagIndex] = tagRecords[tagStarts[i] + tagIndex]!;
         }
 
         const item: ArticleListItemResponse = {
             id: ids[i] ?? 0,
-            title: readSliceText(blob, { offset: titleOffsets[i] ?? 0, length: titleLengths[i] ?? 0 }),
-            summary: readSliceText(blob, { offset: summaryOffsets[i] ?? 0, length: summaryLengths[i] ?? 0 }),
+            title: readArticleStrictSlice(blob, { offset: titleOffsets[i] ?? 0, length: titleLengths[i] ?? 0 }),
+            summary: readArticleStrictSlice(blob, { offset: summaryOffsets[i] ?? 0, length: summaryLengths[i] ?? 0 }),
             views: views[i] ?? 0,
             createTime: new Date(createTimeUnixMs[i] ?? 0).toISOString(),
             category: {
                 id: categoryIds[i] ?? 0,
-                name: readSliceText(blob, { offset: categoryNameOffsets[i] ?? 0, length: categoryNameLengths[i] ?? 0 })
+                name: readArticleStrictSlice(blob, { offset: categoryNameOffsets[i] ?? 0, length: categoryNameLengths[i] ?? 0 })
             },
             tags,
-            currentRevisionId: currentRevisionIds[i] ?? '0',
-            revisionNo: revisionNos[i] ?? 0,
-            currentPublicationId: currentPublicationIds[i] ?? null,
-            publicationNo: publicationNos[i] ?? null
+            currentRevisionId: currentRevisionIds[i],
+            revisionNo: revisionNos[i],
+            currentPublicationId: currentPublicationIds[i]!,
+            publicationNo: publicationNos[i]!
         };
-        if (hasPublicationTail && hasIsDeletedFlags[i] === 1)
+        if (hasIsDeletedFlags[i] === 1)
         {
             item.isDeleted = isDeletedFlags[i] === 1;
         }
-        if (hasPublicationTail)
         {
             item.status = (statuses[i] ?? 2) as ArticleListItemResponse['status'];
             item.scheduledPublishAt = unixMsToIsoOrNull(scheduledPublishAtUnixMs[i] ?? 0);
@@ -199,6 +228,10 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
         items[i] = item;
     }
 
+    if (reader.remaining() !== 0)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_trailing_bytes');
+    }
     return {
         items,
         total,
@@ -209,14 +242,8 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
 
 export function mapArticleSearchFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse>
 {
-    const magic = payload.byteLength >= 4 ? readInt32(payload, 0) : 0;
-    if (payload.byteLength < 24 || (magic !== 0x33525346 && magic !== 0x34525346))
-    {
-        return mapArticleSearchListPayload(payload);
-    }
-
-    const version = readInt32(payload, 4);
-    if (version !== 3 && version !== 4)
+    if (payload.byteLength < ARTICLE_SEARCH_WIRE.headerBytes || readInt32(payload, 0) !== ARTICLE_SEARCH_WIRE.magic
+        || readInt32(payload, 4) !== ARTICLE_SEARCH_WIRE.version)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'search_result_version_invalid');
     }
@@ -225,121 +252,86 @@ export function mapArticleSearchFromPodPayload(payload: Uint8Array): PageRespons
     const count = readCountChecked(new BinaryReader(payload.subarray(12, 16)), 'article_search_count_invalid');
     const tagOffset = readInt32(payload, 16);
     const blobOffset = readInt32(payload, 20);
-    const hasVersionCoordinates = version === 4;
-    const itemRecordSize = hasVersionCoordinates ? 76 : 52;
-    const tagRecordSize = 12;
-    const itemStart = 24;
+    const itemRecordSize = ARTICLE_SEARCH_WIRE.recordBytes;
+    const tagRecordSize = ARTICLE_SEARCH_WIRE.tagRecordBytes;
+    const itemStart = ARTICLE_SEARCH_WIRE.headerBytes;
     const itemEnd = itemStart + count * itemRecordSize;
-    if (count < 0 || total < 0 || tagOffset < itemEnd || blobOffset < tagOffset || blobOffset > payload.byteLength)
+    if (count < 0 || total < count || tagOffset !== itemEnd || blobOffset < tagOffset || blobOffset > payload.byteLength || (blobOffset - tagOffset) % tagRecordSize !== 0)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'search_result_layout_invalid');
     }
 
     const blob = payload.subarray(blobOffset);
+    const o = ARTICLE_SEARCH_WIRE.offsets;
     const items: ArticleListItemResponse[] = [];
+    let usedTags = 0;
+    let blobEnd = 0;
     for (let i = 0; i < count; i++)
     {
         const offset = itemStart + i * itemRecordSize;
-        const tagStart = readInt32(payload, offset + 44);
-        const tagCount = readInt32(payload, offset + 48);
-        if (tagStart < 0 || tagCount < 0 || tagOffset + (tagStart + tagCount) * tagRecordSize > blobOffset)
+        const tagStart = readInt32(payload, offset + o.tagStart);
+        const tagCount = readInt32(payload, offset + o.tagCount);
+        if (tagStart !== usedTags || tagCount < 0 || tagOffset + (tagStart + tagCount) * tagRecordSize > blobOffset)
         {
             throw createAppError(AppErrorCode.ProtocolFailure, 'search_result_tag_layout_invalid');
         }
 
+        usedTags += tagCount;
+        blobEnd = Math.max(blobEnd,
+            readInt32(payload, offset + o.categoryName) + readInt32(payload, offset + o.categoryName + 4),
+            readInt32(payload, offset + o.title) + readInt32(payload, offset + o.title + 4),
+            readInt32(payload, offset + o.summary) + readInt32(payload, offset + o.summary + 4));
         const tags: ArticleListItemResponse['tags'] = [];
         for (let tagIndex = 0; tagIndex < tagCount; tagIndex++)
         {
             const tagRecordOffset = tagOffset + (tagStart + tagIndex) * tagRecordSize;
+            blobEnd = Math.max(blobEnd, readInt32(payload, tagRecordOffset + 4) + readInt32(payload, tagRecordOffset + 8));
             tags.push({
                 id: readInt32(payload, tagRecordOffset),
-                name: readSliceText(blob, {
+                name: readArticleStrictSlice(blob, {
                     offset: readInt32(payload, tagRecordOffset + 4),
                     length: readInt32(payload, tagRecordOffset + 8)
                 })
             });
         }
 
+        const revisionId = readInt64String(payload, offset + o.currentRevisionId);
+        const revisionNo = readInt32(payload, offset + o.revisionNo);
+        const publicationId = readInt64String(payload, offset + o.currentPublicationId);
+        const publicationNo = readInt32(payload, offset + o.publicationNo);
+        validateArticleVersionCoordinates(revisionId, revisionNo, publicationId, publicationNo);
         items.push({
             id: readInt32(payload, offset),
-            views: readInt32(payload, offset + 4),
-            createTime: new Date(readInt64Number(payload, offset + 8)).toISOString(),
+            views: readInt32(payload, offset + o.views),
+            createTime: new Date(readInt64Number(payload, offset + o.createTimeUnixMs)).toISOString(),
             category: {
-                id: readInt32(payload, offset + 16),
-                name: readSliceText(blob, {
-                    offset: readInt32(payload, offset + 20),
-                    length: readInt32(payload, offset + 24)
+                id: readInt32(payload, offset + o.categoryId),
+                name: readArticleStrictSlice(blob, {
+                    offset: readInt32(payload, offset + o.categoryName),
+                    length: readInt32(payload, offset + o.categoryName + 4)
                 })
             },
-            title: readSliceText(blob, {
-                offset: readInt32(payload, offset + 28),
-                length: readInt32(payload, offset + 32)
+            title: readArticleStrictSlice(blob, {
+                offset: readInt32(payload, offset + o.title),
+                length: readInt32(payload, offset + o.title + 4)
             }),
-            summary: readSliceText(blob, {
-                offset: readInt32(payload, offset + 36),
-                length: readInt32(payload, offset + 40)
+            summary: readArticleStrictSlice(blob, {
+                offset: readInt32(payload, offset + o.summary),
+                length: readInt32(payload, offset + o.summary + 4)
             }),
             tags,
-            currentRevisionId: hasVersionCoordinates ? readInt64String(payload, offset + 52) : '0',
-            revisionNo: hasVersionCoordinates ? readInt32(payload, offset + 60) : 0,
-            currentPublicationId: hasVersionCoordinates && readInt64String(payload, offset + 64) !== '0'
-                ? readInt64String(payload, offset + 64)
-                : null,
-            publicationNo: hasVersionCoordinates && readInt32(payload, offset + 72) > 0
-                ? readInt32(payload, offset + 72)
-                : null
+            currentRevisionId: revisionId,
+            revisionNo,
+            currentPublicationId: publicationId === '0' ? null : publicationId,
+            publicationNo: publicationNo === 0 ? null : publicationNo
         });
     }
 
+    if (usedTags * tagRecordSize !== blobOffset - tagOffset || blobEnd !== blob.length)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'search_result_trailing_bytes_invalid');
+    }
     return { items, total };
-}
-
-function mapArticleSearchListPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse>
-{
-    const hasVersionCoordinates = payload.byteLength >= 12 && readInt32(payload, 0) === ARTICLE_SEARCH_V4_MAGIC;
-    if (hasVersionCoordinates && readInt32(payload, 4) !== ARTICLE_SEARCH_V4_VERSION)
-    {
-        throw createAppError(AppErrorCode.ProtocolFailure, 'article_search_version_invalid');
-    }
-    const reader = new BinaryReader(hasVersionCoordinates ? payload.subarray(8) : payload);
-    const count = readCountChecked(reader, 'article_search_count_invalid');
-    const items: ArticleListItemResponse[] = [];
-    for (let i = 0; i < count; i += 1)
-    {
-        const pod = reader.readSpan(ARTICLE_LIST_ITEM_POD_SIZE);
-        const tags = readTagList(reader);
-        const blob = reader.readBlob();
-        const item: ArticleListItemResponse = {
-            id: readInt32(pod, 0),
-            views: readInt32(pod, 4),
-            createTime: readIsoDate64(pod, 8),
-            category: readCategoryPod(pod, 16, 20, 128),
-            title: readFixedUtf8(pod, 148, 256),
-            summary: readBlobText(pod, blob, 404),
-            tags,
-            currentRevisionId: '0',
-            revisionNo: 0,
-            currentPublicationId: null,
-            publicationNo: null
-        };
-        if (hasVersionCoordinates)
-        {
-            item.currentRevisionId = readInt64String(reader.readSpan(8), 0);
-            item.revisionNo = reader.readInt32();
-            const publicationId = readInt64String(reader.readSpan(8), 0);
-            const publicationNo = reader.readInt32();
-            item.currentPublicationId = publicationId === '0' ? null : publicationId;
-            item.publicationNo = publicationNo > 0 ? publicationNo : null;
-        }
-        items.push(item);
-    }
-
-    if (reader.remaining() !== 0)
-    {
-        throw createAppError(AppErrorCode.ProtocolFailure, 'article_search_trailing_payload_invalid');
-    }
-
-    return { items, total: count };
 }
 
 export function mapArticleHotFromPodPayload(payload: Uint8Array): PopularArticleSummaryResponse[]

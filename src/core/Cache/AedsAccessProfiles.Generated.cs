@@ -11,31 +11,3 @@ public enum AedsAccessProfileId
     NotificationArticlePreview = 3,
     ArticleSearchRankingCandidate = 4,
 }
-
-internal static class AedsArticleListAccessProfile
-{
-    internal const int CursorMagic = 1095979078;
-    internal const int TagRecordBytes = 12;
-    internal static ReadOnlySpan<int> SupportedPublicCardRecordBytes => [76, 100];
-    internal static ReadOnlySpan<int> FallbackPublicCardRecordBytes => [56];
-    internal const int IdOffset = 0;
-    internal const int ViewsOffset = 4;
-    internal const int CreateTimeUnixMsOffset = 8;
-    internal const int CategoryIdOffset = 16;
-    internal const int CategoryNameOffset = 20;
-    internal const int TitleOffset = 28;
-    internal const int SummaryOffset = 36;
-    internal const int TagStartOffset = 44;
-    internal const int TagCountOffset = 48;
-    internal const int IsDeletedOffset = 52;
-    internal const int HasIsDeletedOffset = 53;
-    internal const int Reserved0Offset = 54;
-    internal const int Reserved1Offset = 55;
-    internal const int StatusOffset = 56;
-    internal const int ScheduledPublishAtUnixMsOffset = 60;
-    internal const int PublishedAtUnixMsOffset = 68;
-    internal const int CurrentRevisionIdOffset = 76;
-    internal const int RevisionNoOffset = 84;
-    internal const int CurrentPublicationIdOffset = 88;
-    internal const int PublicationNoOffset = 96;
-}

@@ -18,20 +18,22 @@ namespace FsusBlog.Core.Cache;
 public static partial class PodBinaryCodec
 {
     private const int AnonymousPrivacyMaxPayloadBytes = 16 * 1024;
-    private const int CommentDefaultMaxChars = 1000;
-    private const int CommentDefaultMaxUtf8Bytes = 4096;
-    private const int CommentMinMaxChars = 100;
-    private const int CommentHardMaxChars = 3000;
-    private const int CommentMinMaxUtf8Bytes = 1024;
-    private const int CommentHardMaxUtf8Bytes = 12288;
+    private const int CommentMinMaxChars = CommentPolicySnapshotWire.MinMaxChars;
+    private const int CommentHardMaxChars = CommentPolicySnapshotWire.HardMaxChars;
+    private const int CommentMinMaxUtf8Bytes = CommentPolicySnapshotWire.MinMaxUtf8Bytes;
+    private const int CommentHardMaxUtf8Bytes = CommentPolicySnapshotWire.HardMaxUtf8Bytes;
 
     /// <summary>
     /// Writes the <c>CommentPolicySnapshot</c> contract to the supplied binary destination.
     /// </summary>
     public static void WriteCommentPolicySnapshot(CommentPolicySnapshotCoreModel snapshot, IBufferWriter<byte> destination)
     {
+        if (!IsCommentMaxCharsValid(snapshot.CommentMaxChars) || !IsCommentMaxUtf8BytesValid(snapshot.CommentMaxUtf8Bytes))
+        {
+            throw new ArgumentOutOfRangeException(nameof(snapshot), "comment_policy_snapshot_limits_invalid");
+        }
         var payload = new ArrayBufferWriter<byte>(128);
-        var mutable = new MutableCommentPolicySnapshotPod
+        var mutable = new CommentPolicySnapshotPod
         {
             AnonymousCommentsEnabled = snapshot.AnonymousCommentsEnabled ? (byte)1 : (byte)0,
             PublicCommentsEnabled = snapshot.PublicCommentsEnabled ? (byte)1 : (byte)0,
@@ -42,15 +44,15 @@ public static partial class PodBinaryCodec
             ZkProdTrustedSetupVerified = snapshot.ZkProdTrustedSetupVerified ? (byte)1 : (byte)0,
             ZkProdCredentialRequired = snapshot.ZkProdCredentialRequired ? (byte)1 : (byte)0,
             ZkProdCredentialRootReady = snapshot.ZkProdCredentialRootReady ? (byte)1 : (byte)0,
-            CommentMaxChars = NormalizeCommentMaxChars(snapshot.CommentMaxChars),
-            CommentMaxUtf8Bytes = NormalizeCommentMaxUtf8Bytes(snapshot.CommentMaxUtf8Bytes),
+            CommentMaxChars = snapshot.CommentMaxChars,
+            CommentMaxUtf8Bytes = snapshot.CommentMaxUtf8Bytes,
             SupportedDisplayLanguages = PodUtf8Codec.AppendSlice(JoinDisplayLanguages(snapshot.SupportedDisplayLanguages), payload),
             SnapshotHash = PodUtf8Codec.AppendSlice(NormalizePolicySnapshotHash(snapshot.SnapshotHash), payload),
             ZkProdUnavailableReason = PodUtf8Codec.AppendSlice(NormalizeZkProdUnavailableReason(snapshot.ZkProdUnavailableReason), payload)
         };
 
         var writer = new BinaryPodWriter(destination);
-        WriteCommentPolicySnapshotPod(ref writer, in mutable);
+        writer.WritePod(in mutable);
         writer.WriteBytes(payload.WrittenSpan);
     }
 
@@ -66,19 +68,33 @@ public static partial class PodBinaryCodec
     public static bool TryDecodeCommentPolicySnapshot(ReadOnlyMemory<byte> bytes, out CommentPolicySnapshotCoreModel snapshot)
     {
         var reader = new BinaryPodReader(bytes.Span);
-        if (!TryReadCommentPolicySnapshotPod(ref reader, out var pod) ||
-            pod.AnonymousCommentsEnabled > 1 ||
-            pod.PublicCommentsEnabled > 1 ||
-            pod.ZkAnonymousEnabled > 1 ||
-            pod.ZkProdEnabled > 1 ||
-            pod.ZkProdNativeVerifierConfigured > 1 ||
-            pod.ZkProdTrustedSetupVerified > 1 ||
-            pod.ZkProdCredentialRequired > 1 ||
-            pod.ZkProdCredentialRootReady > 1 ||
+        if (!reader.TryReadPod(out CommentPolicySnapshotPod pod) ||
+            pod.AnonymousCommentsEnabled > CommentPolicySnapshotWire.BooleanMaxByte ||
+            pod.PublicCommentsEnabled > CommentPolicySnapshotWire.BooleanMaxByte ||
+            pod.ZkAnonymousEnabled > CommentPolicySnapshotWire.BooleanMaxByte ||
+            pod.ZkProdEnabled > CommentPolicySnapshotWire.BooleanMaxByte ||
+            pod.ZkProdNativeVerifierConfigured > CommentPolicySnapshotWire.BooleanMaxByte ||
+            pod.ZkProdTrustedSetupVerified > CommentPolicySnapshotWire.BooleanMaxByte ||
+            pod.ZkProdCredentialRequired > CommentPolicySnapshotWire.BooleanMaxByte ||
+            pod.ZkProdCredentialRootReady > CommentPolicySnapshotWire.BooleanMaxByte ||
             !IsCommentMaxCharsValid(pod.CommentMaxChars) ||
             !IsCommentMaxUtf8BytesValid(pod.CommentMaxUtf8Bytes) ||
+            pod.DefaultAuthorMode is not (CommentPolicySnapshotWire.PublicAuthorMode or CommentPolicySnapshotWire.ZkAnonymousAuthorMode) ||
             !TryDecodeCommentAuthorMode(pod.DefaultAuthorMode, out string defaultAuthorMode) ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            snapshot = default;
+            return false;
+        }
+
+        if (!reader.IsConsumed || pod.SupportedDisplayLanguages.Offset != 0 || pod.SupportedDisplayLanguages.Length <= 0
+            || pod.SnapshotHash.Offset != pod.SupportedDisplayLanguages.Length || pod.SnapshotHash.Length != 64
+            || pod.ZkProdUnavailableReason.Offset != pod.SnapshotHash.Offset + pod.SnapshotHash.Length
+            || pod.ZkProdUnavailableReason.Length != payload.Length - pod.ZkProdUnavailableReason.Offset
+            || !TryReadStrictSlice(pod.SupportedDisplayLanguages, payload, out string languages)
+            || !TryReadStrictSlice(pod.SnapshotHash, payload, out string hash)
+            || !TryReadStrictSlice(pod.ZkProdUnavailableReason, payload, out string reason)
+            || hash.Any(character => character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f')))
         {
             snapshot = default;
             return false;
@@ -89,8 +105,8 @@ public static partial class PodBinaryCodec
             pod.PublicCommentsEnabled == 1,
             pod.ZkAnonymousEnabled == 1,
             defaultAuthorMode,
-            SplitDisplayLanguages(PodProjector.ReadSlice(pod.SupportedDisplayLanguages, payload)),
-            PodProjector.ReadSlice(pod.SnapshotHash, payload),
+            SplitDisplayLanguages(languages),
+            hash,
             pod.CommentMaxChars,
             pod.CommentMaxUtf8Bytes,
             pod.ZkProdEnabled == 1,
@@ -98,7 +114,7 @@ public static partial class PodBinaryCodec
             pod.ZkProdTrustedSetupVerified == 1,
             pod.ZkProdCredentialRequired == 1,
             pod.ZkProdCredentialRootReady == 1,
-            PodProjector.ReadSlice(pod.ZkProdUnavailableReason, payload));
+            reason);
         return reader.IsConsumed;
     }
 
@@ -177,33 +193,32 @@ public static partial class PodBinaryCodec
     }
 
     /// <summary>
-    /// Writes the <c>CommentCreateV2Request</c> contract to the supplied binary destination.
+    /// Writes the <c>CommentCreateRequest</c> contract to the supplied binary destination.
     /// </summary>
-    public static void WriteCommentCreateV2Request(CommentCreateV2RequestCoreModel request, IBufferWriter<byte> destination)
+    public static void WriteCommentCreateRequest(CommentCreateRequestCoreModel request, IBufferWriter<byte> destination)
     {
-        CommentCreateV2RequestPod pod = CreateCommentCreateV2RequestPod(request, out ReadOnlyMemory<byte> payload);
+        CommentCreateRequestPod pod = CreateCommentCreateRequestPod(request, out ReadOnlyMemory<byte> payload);
         var writer = new BinaryPodWriter(destination);
         writer.WritePod(pod);
         writer.WriteBytes(payload.Span);
     }
 
     /// <summary>
-    /// Encodes the <c>CommentCreateV2Request</c> contract into a new binary payload.
+    /// Encodes the <c>CommentCreateRequest</c> contract into a new binary payload.
     /// </summary>
-    public static byte[] EncodeCommentCreateV2Request(CommentCreateV2RequestCoreModel request)
-        => EncodeToArray(640 + (request.Content?.Length ?? 0) + (request.ZkProof?.Length ?? 0), writer => WriteCommentCreateV2Request(request, writer));
+    public static byte[] EncodeCommentCreateRequest(CommentCreateRequestCoreModel request)
+        => EncodeToArray(640 + (request.Content?.Length ?? 0) + (request.ZkProof?.Length ?? 0), writer => WriteCommentCreateRequest(request, writer));
 
     /// <summary>
-    /// Attempts to decode the <c>CommentCreateV2Request</c> contract from a binary payload.
+    /// Attempts to decode the <c>CommentCreateRequest</c> contract from a binary payload.
     /// </summary>
-    public static bool TryDecodeCommentCreateV2Request(ReadOnlyMemory<byte> bytes, out CommentCreateV2RequestCoreModel request)
+    public static bool TryDecodeCommentCreateRequest(ReadOnlyMemory<byte> bytes, out CommentCreateRequestCoreModel request)
     {
         var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadPod(out CommentCreateV2RequestPod pod) ||
+        if (!reader.TryReadPod(out CommentCreateRequestPod pod) ||
             pod.HasParentId > 1 ||
             pod.HasRootId > 1 ||
             pod.HasReplyToCommentId > 1 ||
-            pod.HasReplyToUserId > 1 ||
             pod.PublicSendExplicitlySelected > 1 ||
             !TryDecodeCommentAuthorMode(pod.AuthorMode, out string authorMode) ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
@@ -212,18 +227,37 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        request = new CommentCreateV2RequestCoreModel(
+        if (!reader.IsConsumed || pod.AnonymousScope.Offset != 0
+            || pod.DisplayLanguage.Offset != pod.AnonymousScope.Length
+            || pod.ProofToken.Offset != pod.DisplayLanguage.Offset + pod.DisplayLanguage.Length
+            || pod.ZkProof.Offset != pod.ProofToken.Offset + pod.ProofToken.Length
+            || pod.Content.Offset != pod.ZkProof.Offset + pod.ZkProof.Length
+            || pod.Content.Length != payload.Length - pod.Content.Offset
+            || !TryReadStrictSlice(pod.AnonymousScope, payload, out string anonymousScope)
+            || !TryReadStrictSlice(pod.DisplayLanguage, payload, out string displayLanguage)
+            || !TryReadStrictSlice(pod.ProofToken, payload, out string proofToken)
+            || !TryReadStrictSlice(pod.Content, payload, out string content)
+            || pod.ZkProof.Offset < 0 || pod.ZkProof.Length < 0 || pod.ZkProof.Offset > payload.Length
+            || pod.ZkProof.Length > payload.Length - pod.ZkProof.Offset
+            || (pod.HasParentId == 0 ? pod.ParentId != 0 : pod.ParentId <= 0)
+            || (pod.HasRootId == 0 ? pod.RootId != 0 : pod.RootId <= 0)
+            || (pod.HasReplyToCommentId == 0 ? pod.ReplyToCommentId != 0 : pod.ReplyToCommentId <= 0))
+        {
+            request = default;
+            return false;
+        }
+
+        request = new CommentCreateRequestCoreModel(
             pod.ArticleId,
-            PodProjector.ReadSlice(pod.Content, payload),
+            content,
             pod.HasParentId == 1 ? pod.ParentId.ToString() : null,
             pod.HasRootId == 1 ? pod.RootId.ToString() : null,
             pod.HasReplyToCommentId == 1 ? pod.ReplyToCommentId.ToString() : null,
-            pod.HasReplyToUserId == 1 ? pod.ReplyToUserId : null,
             authorMode,
             pod.PublicSendExplicitlySelected == 1,
-            NullCommentFieldIfEmpty(PodProjector.ReadSlice(pod.AnonymousScope, payload)),
-            NullCommentFieldIfEmpty(PodProjector.ReadSlice(pod.DisplayLanguage, payload)),
-            NullCommentFieldIfEmpty(PodProjector.ReadSlice(pod.ProofToken, payload)),
+            NullCommentFieldIfEmpty(anonymousScope),
+            NullCommentFieldIfEmpty(displayLanguage),
+            NullCommentFieldIfEmpty(proofToken),
             ReadBytes(pod.ZkProof, payload));
         return reader.IsConsumed;
     }
@@ -1577,8 +1611,8 @@ public static partial class PodBinaryCodec
             author.Badge,
             author.ScopeLabel);
 
-    private static CommentCreateV2RequestPod CreateCommentCreateV2RequestPod(
-        CommentCreateV2RequestCoreModel request,
+    private static CommentCreateRequestPod CreateCommentCreateRequestPod(
+        CommentCreateRequestCoreModel request,
         out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(512);
@@ -1586,17 +1620,14 @@ public static partial class PodBinaryCodec
         bool hasRootId = TryParsePositive(request.RootId, out long rootId);
         bool hasReplyToCommentId = TryParsePositive(request.ReplyToCommentId, out long replyToCommentId);
         ReadOnlySpan<byte> zkProof = request.ZkProof ?? Array.Empty<byte>();
-        var mutable = new MutableCommentCreateV2RequestPod
+        var mutable = new CommentCreateRequestPod
         {
             ArticleId = request.ArticleId,
-            ReplyToUserId = 0,
             HasParentId = hasParentId ? (byte)1 : (byte)0,
             HasRootId = hasRootId ? (byte)1 : (byte)0,
             HasReplyToCommentId = hasReplyToCommentId ? (byte)1 : (byte)0,
-            HasReplyToUserId = 0,
             AuthorMode = EncodeCommentAuthorMode(request.AuthorMode),
             PublicSendExplicitlySelected = request.PublicSendExplicitlySelected ? (byte)1 : (byte)0,
-            Reserved0 = 0,
             ParentId = parentId,
             RootId = rootId,
             ReplyToCommentId = replyToCommentId,
@@ -1608,7 +1639,7 @@ public static partial class PodBinaryCodec
         };
 
         payload = bytes.WrittenMemory;
-        return MemoryMarshal.Read<CommentCreateV2RequestPod>(MemoryMarshal.AsBytes(new MutableCommentCreateV2RequestPod[] { mutable }));
+        return MemoryMarshal.Read<CommentCreateRequestPod>(MemoryMarshal.AsBytes(new CommentCreateRequestPod[] { mutable }));
     }
 
     private static bool TryParsePositive(string? value, out long parsed)
@@ -1708,76 +1739,11 @@ public static partial class PodBinaryCodec
     private static string? NullCommentFieldIfEmpty(string value)
         => value.Length == 0 ? null : value;
 
-    private static int NormalizeCommentMaxChars(int value)
-        => IsCommentMaxCharsValid(value) ? value : CommentDefaultMaxChars;
-
-    private static int NormalizeCommentMaxUtf8Bytes(int value)
-        => IsCommentMaxUtf8BytesValid(value) ? value : CommentDefaultMaxUtf8Bytes;
-
     private static bool IsCommentMaxCharsValid(int value)
         => value is >= CommentMinMaxChars and <= CommentHardMaxChars;
 
     private static bool IsCommentMaxUtf8BytesValid(int value)
         => value is >= CommentMinMaxUtf8Bytes and <= CommentHardMaxUtf8Bytes;
-
-    private static void WriteCommentPolicySnapshotPod(ref BinaryPodWriter writer, in MutableCommentPolicySnapshotPod pod)
-    {
-        writer.WriteByte(pod.AnonymousCommentsEnabled);
-        writer.WriteByte(pod.PublicCommentsEnabled);
-        writer.WriteByte(pod.ZkAnonymousEnabled);
-        writer.WriteByte(pod.DefaultAuthorMode);
-        writer.WriteByte(pod.ZkProdEnabled);
-        writer.WriteByte(pod.ZkProdNativeVerifierConfigured);
-        writer.WriteByte(pod.ZkProdTrustedSetupVerified);
-        writer.WriteByte(pod.ZkProdCredentialRequired);
-        writer.WriteByte(pod.ZkProdCredentialRootReady);
-        writer.WriteInt32(pod.CommentMaxChars);
-        writer.WriteInt32(pod.CommentMaxUtf8Bytes);
-        writer.WriteSliceRef(pod.SupportedDisplayLanguages);
-        writer.WriteSliceRef(pod.SnapshotHash);
-        writer.WriteSliceRef(pod.ZkProdUnavailableReason);
-    }
-
-    private static bool TryReadCommentPolicySnapshotPod(ref BinaryPodReader reader, out MutableCommentPolicySnapshotPod pod)
-    {
-        if (!reader.TryReadByte(out byte anonymousCommentsEnabled) ||
-            !reader.TryReadByte(out byte publicCommentsEnabled) ||
-            !reader.TryReadByte(out byte zkAnonymousEnabled) ||
-            !reader.TryReadByte(out byte defaultAuthorMode) ||
-            !reader.TryReadByte(out byte zkProdEnabled) ||
-            !reader.TryReadByte(out byte zkProdNativeVerifierConfigured) ||
-            !reader.TryReadByte(out byte zkProdTrustedSetupVerified) ||
-            !reader.TryReadByte(out byte zkProdCredentialRequired) ||
-            !reader.TryReadByte(out byte zkProdCredentialRootReady) ||
-            !reader.TryReadInt32(out int commentMaxChars) ||
-            !reader.TryReadInt32(out int commentMaxUtf8Bytes) ||
-            !reader.TryReadSliceRef(out var supportedDisplayLanguages) ||
-            !reader.TryReadSliceRef(out var snapshotHash) ||
-            !reader.TryReadSliceRef(out var zkProdUnavailableReason))
-        {
-            pod = default;
-            return false;
-        }
-
-        pod = new MutableCommentPolicySnapshotPod
-        {
-            AnonymousCommentsEnabled = anonymousCommentsEnabled,
-            PublicCommentsEnabled = publicCommentsEnabled,
-            ZkAnonymousEnabled = zkAnonymousEnabled,
-            DefaultAuthorMode = defaultAuthorMode,
-            ZkProdEnabled = zkProdEnabled,
-            ZkProdNativeVerifierConfigured = zkProdNativeVerifierConfigured,
-            ZkProdTrustedSetupVerified = zkProdTrustedSetupVerified,
-            ZkProdCredentialRequired = zkProdCredentialRequired,
-            ZkProdCredentialRootReady = zkProdCredentialRootReady,
-            CommentMaxChars = commentMaxChars,
-            CommentMaxUtf8Bytes = commentMaxUtf8Bytes,
-            SupportedDisplayLanguages = supportedDisplayLanguages,
-            SnapshotHash = snapshotHash,
-            ZkProdUnavailableReason = zkProdUnavailableReason
-        };
-        return true;
-    }
 
     private static void WriteCommentPolicyUpdateRequestPod(ref BinaryPodWriter writer, in MutableCommentPolicyUpdateRequestPod pod)
     {
@@ -1836,25 +1802,6 @@ public static partial class PodBinaryCodec
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableCommentPolicySnapshotPod
-    {
-        public byte AnonymousCommentsEnabled;
-        public byte PublicCommentsEnabled;
-        public byte ZkAnonymousEnabled;
-        public byte DefaultAuthorMode;
-        public byte ZkProdEnabled;
-        public byte ZkProdNativeVerifierConfigured;
-        public byte ZkProdTrustedSetupVerified;
-        public byte ZkProdCredentialRequired;
-        public byte ZkProdCredentialRootReady;
-        public int CommentMaxChars;
-        public int CommentMaxUtf8Bytes;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SupportedDisplayLanguages;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SnapshotHash;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ZkProdUnavailableReason;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableCommentPolicyUpdateRequestPod
     {
         public byte HasAnonymousCommentsEnabled;
@@ -1870,28 +1817,6 @@ public static partial class PodBinaryCodec
         public int CommentMaxChars;
         public int CommentMaxUtf8Bytes;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SupportedDisplayLanguages;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableCommentCreateV2RequestPod
-    {
-        public int ArticleId;
-        public int ReplyToUserId;
-        public byte HasParentId;
-        public byte HasRootId;
-        public byte HasReplyToCommentId;
-        public byte HasReplyToUserId;
-        public byte AuthorMode;
-        public byte PublicSendExplicitlySelected;
-        public ushort Reserved0;
-        public long ParentId;
-        public long RootId;
-        public long ReplyToCommentId;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousScope;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef DisplayLanguage;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ProofToken;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ZkProof;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Content;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

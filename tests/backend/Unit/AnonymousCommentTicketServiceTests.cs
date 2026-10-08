@@ -34,14 +34,14 @@ public sealed class AnonymousCommentTicketServiceTests
     private static readonly string s_verifyingKeyHash = new('e', 64);
     private static readonly string s_policyHash = new('9', 64);
     private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
-    private static readonly ZkProdPolicySnapshot s_readyZkProdPolicy = new(
+    private static readonly ZkCommentPolicySnapshot s_readyZkProdPolicy = new(
         true,
         true,
         true,
         true,
         true,
         string.Empty);
-    private static readonly ZkProdPolicySnapshot s_disabledZkProdPolicy = new(
+    private static readonly ZkCommentPolicySnapshot s_disabledZkProdPolicy = new(
         false,
         false,
         false,
@@ -387,7 +387,7 @@ public sealed class AnonymousCommentTicketServiceTests
     public async Task BinaryEndpoint_ZkProdUnavailableFailsClosedBeforePayloadDecodeOrTicketIssue()
     {
         var aeds = new AedsEncoder();
-        DefaultHttpContext context = CreateContext(aeds, AedsFrameType.CommentCreateV2Request, "not-ticket"u8.ToArray());
+        DefaultHttpContext context = CreateContext(aeds, AedsFrameType.CommentCreateRequest, "not-ticket"u8.ToArray());
         var proofService = new RecordingProofService(ZkProofVerificationResult.Success(), s_disabledZkProdPolicy);
 
         BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCommentTicketAsync(
@@ -421,7 +421,7 @@ public sealed class AnonymousCommentTicketServiceTests
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
             typeof(BinaryEndpoints),
             nameof(BinaryEndpoints.HandleAnonymousCommentTicketAsync));
-        Assert.Contains("CurrentZkProdPolicy", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("CurrentZkCommentPolicy", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("anonymous_comment_ticket_unavailable", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("TryDecodeAnonymousCommentTicketRequest", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("WriteAnonymousCommentTicketResponse", runtimeShape, StringComparison.Ordinal);
@@ -634,7 +634,7 @@ public sealed class AnonymousCommentTicketServiceTests
 
     private sealed class RecordingProofService(
         ZkProofVerificationResult result,
-        ZkProdPolicySnapshot? zkProdPolicy = null) : IZkAnonymousProofService
+        ZkCommentPolicySnapshot? zkProdPolicy = null) : IZkAnonymousProofService
     {
         public List<ZkProofVerificationRequest> Requests { get; } = [];
 
@@ -645,7 +645,7 @@ public sealed class AnonymousCommentTicketServiceTests
 
         public ZkAnonymousPolicySnapshot CurrentZkPolicy => new(true, true, "comment.create", []);
 
-        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = zkProdPolicy ?? s_readyZkProdPolicy;
+        public ZkCommentPolicySnapshot CurrentZkCommentPolicy { get; } = zkProdPolicy ?? s_readyZkProdPolicy;
 
         public Task<ZkProofVerificationResult> VerifyCommentProofAsync(
             ZkProofVerificationRequest request,

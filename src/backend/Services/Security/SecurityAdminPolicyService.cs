@@ -11,18 +11,45 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     private const int MaxRuntimeEvents = 512;
     private const int MaxRuntimeSnapshots = 512;
     private readonly object _gate = new();
-    private readonly IConfiguration _configuration;
     private readonly ISecurityRandomSource _randomSource;
     private readonly bool _perceptionCharacterV3Enabled;
     private AntiCrawlerPolicySnapshot _currentAntiCrawler;
-    private AntiCrawlerPolicySnapshot? _previousAntiCrawler;
     private PowPolicySnapshot _currentPow;
-    private PowPolicySnapshot? _previousPow;
-    private SecurityRiskPolicySnapshotV2 _currentRiskPolicy;
-    private SecurityRiskPolicySnapshotV2? _previousRiskPolicy;
+    private SecurityRiskPolicy _currentRiskPolicy;
     private PerceptionSealedV2PolicySnapshot _currentPerceptionV2;
-    private PerceptionSealedV2PolicySnapshot? _previousPerceptionV2;
-    private bool _riskPolicyExplicitlyManaged;
+    private PolicyCheckpoint? _previous;
+    private long _policyBuildCount;
+
+    private sealed record PolicyCheckpoint(
+        SecurityRiskPolicy Policy,
+        AntiCrawlerPolicySnapshot AntiCrawler,
+        PowPolicySnapshot Pow,
+        PerceptionSealedV2PolicySnapshot Perception);
+
+    public long PolicyBuildCount => Interlocked.Read(ref _policyBuildCount);
+
+    private PolicyCheckpoint CaptureCheckpoint()
+        => new(_currentRiskPolicy, _currentAntiCrawler, _currentPow, _currentPerceptionV2);
+
+    private void RestoreCheckpoint()
+    {
+        PolicyCheckpoint current = CaptureCheckpoint();
+        PolicyCheckpoint rollback = _previous ?? current;
+        Volatile.Write(ref _currentAntiCrawler, rollback.AntiCrawler);
+        Volatile.Write(ref _currentPow, rollback.Pow);
+        Volatile.Write(ref _currentPerceptionV2, rollback.Perception);
+        Volatile.Write(ref _currentRiskPolicy, rollback.Policy);
+        _previous = current;
+    }
+
+    private void PublishPolicy(SecurityRiskPolicy policy)
+        => PublishSealedPolicy(policy.Seal());
+
+    private void PublishSealedPolicy(SecurityRiskPolicy policy)
+    {
+        Volatile.Write(ref _currentRiskPolicy, policy);
+        Interlocked.Increment(ref _policyBuildCount);
+    }
     private readonly RiskEventRingBuffer _riskEvents = new(MaxRuntimeEvents);
     private readonly Dictionary<string, SecurityRiskSnapshotResponse> _riskSnapshots = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<AntiCrawlerRuleResponse> _rules;
@@ -33,7 +60,6 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         IConfiguration configuration,
         ISecurityRandomSource? randomSource = null)
     {
-        _configuration = configuration;
         _randomSource = randomSource ?? CryptographicSecurityRandomSource.Instance;
         _perceptionCharacterV3Enabled = SecuritySystemModes.IsEnforcing(
             SecuritySystemModes.Normalize(
@@ -60,14 +86,20 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             "startup",
             null,
             BuildDefaultPerceptionV2Options(configuration));
-        _currentRiskPolicy = ApplyRiskControlConfigurationFallbacks(
-            SecurityRiskPolicySnapshotV2Adapter.FromLegacy(
-                _currentAntiCrawler,
-                _currentPow,
-                _perceptionCharacterV3Enabled),
+        _currentRiskPolicy = ApplyCurrentRiskControlConfiguration(
+            SecurityRiskPolicyFactory.Create(
+                new SecurityRiskPolicyInputs(
+                    ReadRequiredCurrentRiskMode(configuration),
+                    configuration.GetValue("Security:RiskControl:PublicReadChallenge:Enabled", true),
+                    configuration.GetValue("Security:RiskControl:MaxRiskScore", 200),
+                    _currentPow.Options.Mode,
+                    _perceptionCharacterV3Enabled),
+                CreateSnapshotId("risk-control", now),
+                now),
             configuration,
             now);
-        _currentRiskPolicy = ApplyPerceptionV2Projection(_currentRiskPolicy, _currentPerceptionV2, now);
+        _currentRiskPolicy = ApplyPerceptionV2Projection(_currentRiskPolicy, _currentPerceptionV2, now).Seal();
+        _policyBuildCount = 1;
         _rules =
         [
             CreateRule("fake-crawler", "伪造搜索引擎爬虫", true, "user-agent", "Googlebot|bingbot|Baiduspider|Sogou", "block", 30, "搜索引擎 UA 必须通过 CIDR 或 DNS 验证。", "configuration", now),
@@ -81,28 +113,11 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     public PowPolicySnapshot CurrentPow => Volatile.Read(ref _currentPow);
 
-    public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2
+    public SecurityRiskPolicy CurrentRiskPolicy
         => Volatile.Read(ref _currentRiskPolicy);
 
     public PerceptionSealedV2PolicySnapshot CurrentPerceptionSealedV2
         => Volatile.Read(ref _currentPerceptionV2);
-
-    public SecurityRiskPolicySnapshot CurrentRiskPolicy
-    {
-        get
-        {
-            AntiCrawlerPolicySnapshot current = Current;
-            SecurityRiskPolicySnapshot legacy = SecurityRiskPolicySnapshotV2Adapter.ToLegacy(
-                SecurityRiskPolicySnapshotV2Adapter.FromLegacy(
-                    current,
-                    CurrentPow,
-                    _perceptionCharacterV3Enabled));
-            return legacy with
-            {
-                RiskScoringEnabled = current.Options.RiskScoringEnabled
-            };
-        }
-    }
 
     public SecurityOverviewResponse BuildSecurityOverview(CrawlerRangeStatus ranges, CrawlerRangesAdminStatus syncStatus)
         => new(
@@ -178,9 +193,9 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
                 NormalizeActor(changedBy),
                 NormalizeReason(request.Reason),
                 next);
-            _previousAntiCrawler = current;
+            _previous = CaptureCheckpoint();
             Volatile.Write(ref _currentAntiCrawler, snapshot);
-            RefreshDerivedRiskPolicyIfImplicit(now);
+            RefreshSubsystemPolicy(now, request.PublicReadChallengeEnabled);
             return snapshot;
         }
     }
@@ -189,19 +204,8 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         lock (_gate)
         {
-            AntiCrawlerPolicySnapshot rollback = _previousAntiCrawler ?? _currentAntiCrawler;
-            DateTimeOffset now = DateTimeOffset.UtcNow;
-            var snapshot = rollback with
-            {
-                SnapshotId = CreateSnapshotId("anti-crawler", now),
-                UpdatedAtUtc = now,
-                UpdatedBy = NormalizeActor(changedBy),
-                Reason = "rollback"
-            };
-            _previousAntiCrawler = _currentAntiCrawler;
-            Volatile.Write(ref _currentAntiCrawler, snapshot);
-            RefreshDerivedRiskPolicyIfImplicit(now);
-            return snapshot;
+            RestoreCheckpoint();
+            return Current;
         }
     }
 
@@ -218,9 +222,9 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
                 NormalizeActor(changedBy),
                 NormalizeReason(request.Reason),
                 next);
-            _previousPow = current;
+            _previous = CaptureCheckpoint();
             Volatile.Write(ref _currentPow, snapshot);
-            RefreshDerivedRiskPolicyIfImplicit(now);
+            RefreshSubsystemPolicy(now);
             return snapshot;
         }
     }
@@ -229,24 +233,21 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         lock (_gate)
         {
-            PowPolicySnapshot rollback = _previousPow ?? _currentPow;
-            DateTimeOffset now = DateTimeOffset.UtcNow;
-            var snapshot = rollback with
-            {
-                SnapshotId = CreateSnapshotId("pow", now),
-                UpdatedAtUtc = now,
-                UpdatedBy = NormalizeActor(changedBy),
-                Reason = "rollback"
-            };
-            _previousPow = _currentPow;
-            Volatile.Write(ref _currentPow, snapshot);
-            RefreshDerivedRiskPolicyIfImplicit(now);
-            return snapshot;
+            RestoreCheckpoint();
+            return CurrentPow;
         }
     }
 
-    public SecurityRiskPolicySnapshotV2 UpdateRiskControlPolicy(RiskControlPolicyUpdateRequest request, string changedBy)
+    public SecurityRiskPolicy UpdateRiskControlPolicy(RiskControlPolicyUpdateRequest request, string changedBy)
     {
+        if (request.GlobalMode is not null && request.GlobalMode is not (SecuritySystemModes.Disabled or SecuritySystemModes.Observe or SecuritySystemModes.Enforce or SecuritySystemModes.Strict or SecuritySystemModes.Lockdown))
+        {
+            throw new ArgumentException("Only current catalog risk modes are admitted.", nameof(request));
+        }
+        if (request.StrictRiskMultiplierPercent is < 100 or > 1000)
+        {
+            throw new ArgumentException("Current strict risk multiplier must be between 100 and 1000.", nameof(request));
+        }
         EnsurePolicyCapability(
             request.PoSpaceV1Enabled == true,
             SecurityChallengeKind.Argon2IdPoSpaceV1,
@@ -254,38 +255,26 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             nameof(request.PoSpaceV1Enabled));
         lock (_gate)
         {
-            SecurityRiskPolicySnapshotV2 current = _currentRiskPolicy;
+            SecurityRiskPolicy current = _currentRiskPolicy;
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            SecurityRiskPolicySnapshotV2 snapshot = ApplyRiskControlUpdate(
+            SecurityRiskPolicy snapshot = ApplyRiskControlUpdate(
                 current,
                 request,
                 now,
                 NormalizeActor(changedBy));
             snapshot = ApplyPerceptionV2Projection(snapshot, _currentPerceptionV2, now);
-            _previousRiskPolicy = current;
-            _riskPolicyExplicitlyManaged = true;
-            Volatile.Write(ref _currentRiskPolicy, snapshot);
-            return snapshot;
+            _previous = CaptureCheckpoint();
+            PublishPolicy(snapshot);
+            return CurrentRiskPolicy;
         }
     }
 
-    public SecurityRiskPolicySnapshotV2 RollbackRiskControlPolicy(string changedBy)
+    public SecurityRiskPolicy RollbackRiskControlPolicy(string changedBy)
     {
         lock (_gate)
         {
-            SecurityRiskPolicySnapshotV2 rollback = _previousRiskPolicy ?? _currentRiskPolicy;
-            DateTimeOffset now = DateTimeOffset.UtcNow;
-            var snapshot = rollback with
-            {
-                SnapshotId = CreateSnapshotId("risk-control", now),
-                PolicyVersion = CreateSnapshotId("risk-policy-v2", now),
-                UpdatedAtUtc = now,
-                LastKnownGoodSnapshotId = rollback.SnapshotId
-            };
-            _previousRiskPolicy = _currentRiskPolicy;
-            _riskPolicyExplicitlyManaged = true;
-            Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(snapshot, _currentPerceptionV2, now));
-            return snapshot;
+            RestoreCheckpoint();
+            return CurrentRiskPolicy;
         }
     }
 
@@ -309,9 +298,13 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
                 NormalizeReason(request.Reason),
                 current.SnapshotId,
                 next);
-            _previousPerceptionV2 = current;
+            _previous = CaptureCheckpoint();
             Volatile.Write(ref _currentPerceptionV2, snapshot);
-            Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(_currentRiskPolicy, snapshot, now));
+            PublishPolicy(ApplyPerceptionV2Projection(_currentRiskPolicy, snapshot, now) with
+            {
+                SnapshotId = CreateSnapshotId("risk-control", now),
+                LastKnownGoodSnapshotId = _currentRiskPolicy.SnapshotId
+            });
             return snapshot;
         }
     }
@@ -340,7 +333,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     }
 
     internal static void ValidateChallengePolicy(
-        SecurityRiskPolicySnapshotV2 snapshot,
+        SecurityRiskPolicy snapshot,
         bool perceptionCharacterV3Enabled = true)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -437,21 +430,8 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         lock (_gate)
         {
-            PerceptionSealedV2PolicySnapshot rollback = _previousPerceptionV2 ?? _currentPerceptionV2;
-            DateTimeOffset now = DateTimeOffset.UtcNow;
-            var snapshot = rollback with
-            {
-                SnapshotId = CreateSnapshotId("perception-v2", now),
-                PolicyVersion = CreateSnapshotId("perception-v2-policy", now),
-                UpdatedAtUtc = now,
-                UpdatedBy = NormalizeActor(changedBy),
-                Reason = "rollback",
-                LastKnownGoodSnapshotId = rollback.SnapshotId
-            };
-            _previousPerceptionV2 = _currentPerceptionV2;
-            Volatile.Write(ref _currentPerceptionV2, snapshot);
-            Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(_currentRiskPolicy, snapshot, now));
-            return snapshot;
+            RestoreCheckpoint();
+            return CurrentPerceptionSealedV2;
         }
     }
 
@@ -459,9 +439,9 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         lock (_gate)
         {
-            _previousAntiCrawler = _currentAntiCrawler;
+            _previous = CaptureCheckpoint();
             Volatile.Write(ref _currentAntiCrawler, snapshot);
-            RefreshDerivedRiskPolicyIfImplicit(snapshot.UpdatedAtUtc);
+            RefreshSubsystemPolicy(snapshot.UpdatedAtUtc, snapshot.Options.PublicReadChallengeEnabled);
         }
     }
 
@@ -469,20 +449,24 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         lock (_gate)
         {
-            _previousPow = _currentPow;
+            _previous = CaptureCheckpoint();
             Volatile.Write(ref _currentPow, snapshot);
-            RefreshDerivedRiskPolicyIfImplicit(snapshot.UpdatedAtUtc);
+            RefreshSubsystemPolicy(snapshot.UpdatedAtUtc);
         }
     }
 
-    public void ApplyRiskControlPolicySnapshot(SecurityRiskPolicySnapshotV2 snapshot)
+    public void ApplyRiskControlPolicySnapshot(SecurityRiskPolicy snapshot)
     {
         ValidateChallengePolicy(snapshot, _perceptionCharacterV3Enabled);
+        SecurityRiskPolicy sealedPolicy = snapshot.Seal();
+        if (snapshot.Digest.Length > 0 && !string.Equals(snapshot.Digest, sealedPolicy.Digest, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Canonical risk policy digest does not match its current snapshot.", nameof(snapshot));
+        }
         lock (_gate)
         {
-            _previousRiskPolicy = _currentRiskPolicy;
-            _riskPolicyExplicitlyManaged = true;
-            Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(snapshot, _currentPerceptionV2, snapshot.UpdatedAtUtc));
+            _previous = CaptureCheckpoint();
+            PublishSealedPolicy(sealedPolicy);
         }
     }
 
@@ -490,44 +474,82 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         lock (_gate)
         {
-            _previousPerceptionV2 = _currentPerceptionV2;
+            _previous = CaptureCheckpoint();
             Volatile.Write(ref _currentPerceptionV2, snapshot);
-            Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(_currentRiskPolicy, snapshot, snapshot.UpdatedAtUtc));
+            PublishPolicy(ApplyPerceptionV2Projection(_currentRiskPolicy, snapshot, snapshot.UpdatedAtUtc) with
+            {
+                SnapshotId = CreateSnapshotId("risk-control", snapshot.UpdatedAtUtc),
+                LastKnownGoodSnapshotId = _currentRiskPolicy.SnapshotId
+            });
         }
     }
 
-    private void RefreshDerivedRiskPolicyIfImplicit(DateTimeOffset updatedAtUtc)
+    private void RefreshSubsystemPolicy(DateTimeOffset updatedAtUtc, bool? publicReadEnabled = null)
     {
-        if (_riskPolicyExplicitlyManaged)
+        var modes = new Dictionary<string, string>(_currentRiskPolicy.SubsystemModes, StringComparer.Ordinal)
         {
-            return;
-        }
-
-        SecurityRiskPolicySnapshotV2 snapshot = ApplyRiskControlConfigurationFallbacks(
-            SecurityRiskPolicySnapshotV2Adapter.FromLegacy(
-                _currentAntiCrawler,
-                _currentPow,
-                _perceptionCharacterV3Enabled),
-            _configuration,
-            updatedAtUtc);
-        Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(snapshot, _currentPerceptionV2, updatedAtUtc));
+            [SecurityRiskSources.AntiCrawler] = SecuritySystemModes.Normalize(_currentAntiCrawler.Options.Mode),
+            [SecurityRiskSources.Pow] = SecuritySystemModes.Normalize(_currentPow.Options.Mode)
+        };
+        var actions = new Dictionary<string, SecurityRiskActionPolicy>(_currentRiskPolicy.ActionOverrides, StringComparer.Ordinal);
+        ApplySubsystemSwitch(modes, SecurityRiskSources.PublicRead, publicReadEnabled);
+        ApplyActionSwitch(actions, _currentRiskPolicy, RiskActionNames.PublicRead, publicReadEnabled);
+        PublishPolicy(_currentRiskPolicy with
+        {
+            ActionOverrides = actions,
+            SnapshotId = CreateSnapshotId("risk-control", updatedAtUtc),
+            UpdatedAtUtc = updatedAtUtc,
+            LastKnownGoodSnapshotId = _currentRiskPolicy.SnapshotId,
+            SubsystemModes = modes
+        });
     }
 
-    private SecurityRiskPolicySnapshotV2 ApplyRiskControlConfigurationFallbacks(
-        SecurityRiskPolicySnapshotV2 snapshot,
+    private static string ReadRequiredCurrentRiskMode(IConfiguration configuration)
+    {
+        string? mode = configuration["Security:RiskControl:GlobalMode"];
+        if (mode is not (SecuritySystemModes.Disabled or SecuritySystemModes.Observe or SecuritySystemModes.Enforce or SecuritySystemModes.Strict or SecuritySystemModes.Lockdown))
+        {
+            throw new ArgumentException("Security:RiskControl:GlobalMode is required and must use a current catalog mode.", nameof(configuration));
+        }
+        int maximum = configuration.GetValue("Security:RiskControl:MaxRiskScore", 200);
+        if (maximum is < 90 or > 2000)
+        {
+            throw new ArgumentException("Security:RiskControl:MaxRiskScore must be between 90 and 2000.", nameof(configuration));
+        }
+        return mode;
+    }
+
+    private SecurityRiskPolicy ApplyCurrentRiskControlConfiguration(
+        SecurityRiskPolicy snapshot,
         IConfiguration configuration,
         DateTimeOffset updatedAtUtc)
     {
         var request = new RiskControlPolicyUpdateRequest(
-            ReadConfigurationValue(configuration, "Security:RiskControl:GlobalMode", "RiskControl:GlobalMode"),
-            ReadConfigurationBoolean(configuration, "Security:RiskControl:PoSpaceV1:Enabled", "Security:RiskControl:PoSpaceV1Enabled", "RiskControl:PoSpaceV1Enabled"),
-            ReadConfigurationBoolean(configuration, "Security:RiskControl:PublicReadChallenge:Enabled", "Security:RiskControl:PublicReadChallengeEnabled", "RiskControl:PublicReadChallengeEnabled"),
-            ReadConfigurationBoolean(configuration, "Security:RiskControl:CommentRiskControl:Enabled", "Security:RiskControl:CommentRiskControlEnabled", "RiskControl:CommentRiskControlEnabled"),
-            ReadConfigurationBoolean(configuration, "Security:RiskControl:AuthRiskControl:Enabled", "Security:RiskControl:AuthRiskControlEnabled", "RiskControl:AuthRiskControlEnabled"),
-            ReadConfigurationInt(configuration, "Security:RiskControl:StrictRiskMultiplierPercent", "RiskControl:StrictRiskMultiplierPercent"),
+            ReadConfigurationValue(configuration, "Security:RiskControl:GlobalMode"),
+            ReadConfigurationBoolean(configuration, "Security:RiskControl:PoSpaceV1:Enabled"),
+            ReadConfigurationBoolean(configuration, "Security:RiskControl:PublicReadChallenge:Enabled"),
+            ReadConfigurationBoolean(configuration, "Security:RiskControl:CommentRiskControl:Enabled"),
+            ReadConfigurationBoolean(configuration, "Security:RiskControl:AuthRiskControl:Enabled"),
+            ReadConfigurationInt(configuration, "Security:RiskControl:StrictRiskMultiplierPercent"),
             "configuration");
+        if (configuration.GetSection("RiskControl").Exists()
+            || configuration.GetSection("Security:RiskControl").GetChildren().Any(static child =>
+                child.Key is not ("GlobalMode" or "MaxRiskScore" or "StrictRiskMultiplierPercent" or "PoSpaceV1" or "PublicReadChallenge" or "CommentRiskControl" or "AuthRiskControl")
+                || (child.Key is "PoSpaceV1" or "PublicReadChallenge" or "CommentRiskControl" or "AuthRiskControl")
+                    && child.GetChildren().Any(static option => option.Key != "Enabled")))
+        {
+            throw new ArgumentException("Only the current Security:RiskControl configuration contract is accepted.", nameof(configuration));
+        }
+        if (request.GlobalMode is not null && request.GlobalMode is not (SecuritySystemModes.Disabled or SecuritySystemModes.Observe or SecuritySystemModes.Enforce or SecuritySystemModes.Strict or SecuritySystemModes.Lockdown))
+        {
+            throw new ArgumentException("Security:RiskControl:GlobalMode is invalid.", nameof(configuration));
+        }
+        if (request.StrictRiskMultiplierPercent is < 100 or > 1000)
+        {
+            throw new ArgumentException("Security:RiskControl:StrictRiskMultiplierPercent must be between 100 and 1000.", nameof(configuration));
+        }
 
-        SecurityRiskPolicySnapshotV2 updated = ApplyRiskControlUpdate(snapshot, request, updatedAtUtc, "configuration");
+        SecurityRiskPolicy updated = ApplyRiskControlUpdate(snapshot, request, updatedAtUtc, "configuration");
         return updated with
         {
             SnapshotId = snapshot.SnapshotId,
@@ -536,14 +558,14 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         };
     }
 
-    private SecurityRiskPolicySnapshotV2 ApplyRiskControlUpdate(
-        SecurityRiskPolicySnapshotV2 current,
+    private SecurityRiskPolicy ApplyRiskControlUpdate(
+        SecurityRiskPolicy current,
         RiskControlPolicyUpdateRequest request,
         DateTimeOffset updatedAtUtc,
         string changedBy)
     {
         string snapshotId = CreateSnapshotId("risk-control", updatedAtUtc);
-        string policyVersion = CreateSnapshotId("risk-policy-v2", updatedAtUtc);
+        string policyVersion = CreateSnapshotId("risk-policy", updatedAtUtc);
         string globalMode = string.IsNullOrWhiteSpace(request.GlobalMode)
             ? SecuritySystemModes.Normalize(current.GlobalMode)
             : SecuritySystemModes.Normalize(request.GlobalMode);
@@ -579,8 +601,8 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         };
     }
 
-    private static SecurityRiskPolicySnapshotV2 ApplyPerceptionV2Projection(
-        SecurityRiskPolicySnapshotV2 current,
+    private static SecurityRiskPolicy ApplyPerceptionV2Projection(
+        SecurityRiskPolicy current,
         PerceptionSealedV2PolicySnapshot perception,
         DateTimeOffset updatedAtUtc)
     {
@@ -612,7 +634,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         SecurityRiskActionPolicy action,
         PerceptionSealedV2PolicyOptions options)
     {
-        if (!string.Equals(action.DecisionMatrix, SecurityRiskPolicySnapshotV2Adapter.PerceptionSealedV2Matrix, StringComparison.Ordinal)
+        if (!string.Equals(action.DecisionMatrix, SecurityRiskPolicyFactory.PerceptionSealedV2Matrix, StringComparison.Ordinal)
             || action.DecisionBands.Count == 0)
         {
             return action;
@@ -672,7 +694,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     private static void ApplyActionSwitch(
         IDictionary<string, SecurityRiskActionPolicy> actionOverrides,
-        SecurityRiskPolicySnapshotV2 current,
+        SecurityRiskPolicy current,
         string actionName,
         bool? enabled)
     {
@@ -875,7 +897,9 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         AntiCrawlerPolicySnapshot policy = Current;
         AntiCrawlerPolicyOptions options = policy.Options;
-        string mode = SecuritySystemModes.Normalize(options.Mode);
+        SecurityRiskPolicy riskPolicy = CurrentRiskPolicy;
+        SecurityRiskActionPolicy actionPolicy = riskPolicy.ResolveActionPolicy(RiskActionNames.PublicRead);
+        string mode = SecuritySystemModes.Normalize(actionPolicy.ModeOverride ?? riskPolicy.GlobalMode);
         var matchedRules = new List<string>();
         var matchedLists = new List<string>();
         int scoreDelta = 0;
@@ -918,13 +942,13 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             }
         }
 
-        int resultingRiskScore = Math.Clamp(request.CurrentRiskScore + scoreDelta, 0, options.MaxRiskScore);
+        int resultingRiskScore = Math.Clamp(request.CurrentRiskScore + scoreDelta, 0, riskPolicy.MaxRiskScore);
         bool wouldRequireChallenge = options.PublicReadChallengeEnabled
             && SecuritySystemModes.IsEnforcing(mode)
-            && resultingRiskScore >= options.RequireChallengeScore
-            && resultingRiskScore < options.BlockScore;
+            && resultingRiskScore >= actionPolicy.Thresholds.ChallengeScore
+            && resultingRiskScore < actionPolicy.Thresholds.BlockScore;
         bool wouldBlock = blocklisted
-            || (SecuritySystemModes.IsEnforcing(mode) && resultingRiskScore >= options.BlockScore);
+            || (SecuritySystemModes.IsEnforcing(mode) && resultingRiskScore >= actionPolicy.Thresholds.BlockScore);
         string finalAction = ResolveSimulationAction(mode, allowlisted, wouldBlock, wouldRequireChallenge, matchedRules.Count > 0);
 
         return new AntiCrawlerSimulationResult(
@@ -979,7 +1003,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             snapshots,
             hour,
             day,
-            Current.Options.RequireChallengeScore);
+            CurrentRiskPolicy.ResolveActionPolicy(RiskActionNames.PublicRead).Thresholds.ChallengeScore);
         return new SecurityRiskOverviewResponse(
             counters.LastHourEvents,
             counters.LastDayEvents,
@@ -1545,20 +1569,22 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             return null;
         }
 
-        return (TextHelpers.LowerTrimmed(value) ?? string.Empty) switch
-        {
-            "1" or "true" or "enabled" or "enable" or "on" or "yes" => true,
-            "0" or "false" or "disabled" or "disable" or "off" or "no" => false,
-            _ => null
-        };
+        return bool.TryParse(value, out bool parsed)
+            ? parsed
+            : throw new ArgumentException("The current risk-control boolean configuration value is invalid.", nameof(configuration));
     }
 
     private static int? ReadConfigurationInt(IConfiguration configuration, params string[] keys)
     {
         string? value = ReadConfigurationValue(configuration, keys);
+        if (value is null)
+        {
+            return null;
+        }
+
         return int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int parsed)
             ? parsed
-            : null;
+            : throw new ArgumentException("The current risk-control integer configuration value is invalid.", nameof(configuration));
     }
 
     private string CreateSnapshotId(string prefix, DateTimeOffset timestamp)

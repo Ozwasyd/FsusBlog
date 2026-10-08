@@ -25,10 +25,11 @@ for (const file of listSourceFiles(viewContractsRoot))
 }
 
 const commentApi = readFileSync(commentApiPath, 'utf8');
-const createV2 = commentApi.match(/export interface CommentCreateV2Dto(?: extends [^{]+)? \{[\s\S]*?\n\}/u)?.[0] ?? '';
-if (!/@deprecated[^\n]*匿名模式不应设置 replyToUserId/u.test(createV2) || !createV2.includes('replyToUserId?: number | null'))
+const generatedCreate = readFileSync(join(repoRoot, 'src/frontend/src/generated/commentCreateWire.ts'), 'utf8');
+if (!/export type CommentCreateDto = CommentCreateContractDto/u.test(commentApi)
+    || /replyToUserId|ReplyToUserId|CommentCreateV2/u.test(commentApi + generatedCreate))
 {
-    violations.push('src/frontend/src/api/comment.ts must keep replyToUserId explicitly deprecated during anonymous migration');
+    violations.push('comment creation must use the canonical generated input without account-target fields or version aliases');
 }
 
 if (violations.length > 0)

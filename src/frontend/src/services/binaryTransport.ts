@@ -28,7 +28,6 @@ import {
 } from '@/generated/fsusBinaryRoutes';
 import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime';
 import { privateRequestRuntime } from '@/services/privateRequestRuntime';
-import type { BinaryFailureRouteClass } from '@/services/telemetryPrivacy';
 import { emitRumMetric, emitTelemetry, recordBinaryFailureTelemetry } from '@/services/telemetryService';
 import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
 import { isAbortError } from '@/utils/errors';
@@ -564,7 +563,8 @@ async function loadBinaryAndDecode<T>(
     frameType: FrameType,
     accessProfile?: AedsAccessProfileId,
     requestOptions?: BinaryRequestOptions,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    decodeWorkerEnabled = true
 ): Promise<T>
 {
     if (!isBinaryEnabled())
@@ -574,11 +574,13 @@ async function loadBinaryAndDecode<T>(
         });
     }
 
-    const buffer = await binaryRequest(url, {
-        ...(requestOptions ?? {}),
-        ...(signal ? { signal } : {})
-    });
-    if (buffer.byteLength <= MAIN_THREAD_DECODE_MAX_BYTES || !canUseDecodeWorker())
+    // Resolver and PoW retry own this per-request object; attach the lease signal without a second copy.
+    if (requestOptions && signal)
+    {
+        requestOptions.signal = signal;
+    }
+    const buffer = await binaryRequest(url, requestOptions);
+    if (buffer.byteLength <= MAIN_THREAD_DECODE_MAX_BYTES || !decodeWorkerEnabled || !canUseDecodeWorker())
     {
         const decodeStartedAt = typeof performance !== 'undefined' ? performance.now() : 0;
         const frame = decode(buffer);
@@ -636,10 +638,11 @@ async function loadBinaryAndDecodeSafe<T>(
     frameType: FrameType,
     accessProfile?: AedsAccessProfileId,
     requestOptions?: BinaryRequestOptions,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    decodeWorkerEnabled = true
 ): Promise<BinaryDecodeResult<T>>
 {
-    return loadBinaryAndDecode<T>(decodeFramePayload, url, frameType, accessProfile, requestOptions, signal)
+    return loadBinaryAndDecode<T>(decodeFramePayload, url, frameType, accessProfile, requestOptions, signal, decodeWorkerEnabled)
         .then((value): BinaryDecodeSuccess<T> => ({ ok: true, value }))
         .catch(async (error: unknown) =>
         {
@@ -769,18 +772,19 @@ function decodeApiErrorPayload(payloadView: Uint8Array): {
 
 async function requestBinaryOnlyWithDecoder<T>(
     decodeFramePayload: BinaryFramePayloadDecoder,
-    options: BinaryTransportRequest
+    options: BinaryTransportRequest,
+    decodeWorkerEnabled: boolean
 ): Promise<T>
 {
     const resolved = resolveBinaryRequest(options);
     const { requestOptions } = resolved;
     const requestSignal = options.signal ?? requestOptions?.signal ?? undefined;
-    const lease = privateRequestRuntime.open(resolved.privateScope, requestSignal, {
+    const lease = privateRequestRuntime.open(resolved.scope, requestSignal, {
         abortOnGenerationChange: resolved.abortOnGenerationChange
     });
     try
     {
-        const value = await executeBinaryRequest<T>(decodeFramePayload, options, resolved, lease.signal);
+        const value = await executeBinaryRequest<T>(decodeFramePayload, options, resolved, lease.signal, decodeWorkerEnabled);
         lease.assertCurrent();
         return value;
     }
@@ -794,31 +798,34 @@ async function executeBinaryRequest<T>(
     decodeFramePayload: BinaryFramePayloadDecoder,
     options: BinaryTransportRequest,
     resolved: ReturnType<typeof resolveBinaryRequest>,
-    requestSignal?: AbortSignal
+    requestSignal: AbortSignal | undefined,
+    decodeWorkerEnabled: boolean
 ): Promise<T>
 {
-    const { binaryUrl, requestOptions } = resolved;
+    const { requestUrl, requestOptions } = resolved;
     let binaryResult = await loadBinaryAndDecodeSafe<T>(
         decodeFramePayload,
-        binaryUrl,
+        requestUrl,
         options.frameType,
         options.accessProfile,
         requestOptions,
-        requestSignal
+        requestSignal,
+        decodeWorkerEnabled
     );
     if (shouldRetryPublicReadWithPow(binaryResult, resolved))
     {
         binaryResult = await loadBinaryAndDecodeSafe<T>(
             decodeFramePayload,
-            binaryUrl,
+            requestUrl,
             options.frameType,
             options.accessProfile,
             {
                 ...(requestOptions ?? {}),
                 requiresPow: true,
-                powScope: requestOptions?.powScope ?? `public-read:${binaryUrl}`
+                powScope: requestOptions?.powScope ?? `public-read:${requestUrl}`
             },
-            requestSignal
+            requestSignal,
+            decodeWorkerEnabled
         );
     }
     if (binaryResult.ok)
@@ -850,7 +857,6 @@ async function executeBinaryRequest<T>(
     {
         recordBinaryFailureTelemetry({
             operationId: resolved.operationId,
-            routeClass: resolved.routeClass,
             status,
             backendCode,
             kind,
@@ -957,104 +963,68 @@ function riskChallengeHandoffFromResponse(status: number, headers: Headers): Ris
     return { decision, action, routeKey, policyVersion };
 }
 
-export function createBinaryTransport(decodeFramePayload: BinaryFramePayloadDecoder): {
+export function createBinaryTransport(
+    decodeFramePayload: BinaryFramePayloadDecoder,
+    decodeWorkerEnabled = true
+): {
     requestBinaryOnly<T>(options: BinaryTransportRequest): Promise<T>;
 }
 {
     return {
         requestBinaryOnly: async <T>(options: BinaryTransportRequest): Promise<T> =>
-            await requestBinaryOnlyWithDecoder<T>(decodeFramePayload, options)
+            await requestBinaryOnlyWithDecoder<T>(decodeFramePayload, options, decodeWorkerEnabled)
     };
 }
 
-function resolveBinaryRequest(options: {
-    binaryUrl?: string;
-    binaryRoute?: {
-        operationId: FsusBinaryOperationId;
-        params?: Record<string, string | number | bigint>;
-        query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>;
-    };
-    requestOptions?: BinaryRequestOptions;
-    privateScope?: PrivateRequestScope;
-}): {
-    binaryUrl: string;
-    requestOptions?: BinaryRequestOptions;
+function resolveBinaryRequest(options: BinaryTransportRequest): {
+    requestUrl: string;
+    requestOptions: BinaryRequestOptions;
     retryPublicReadWithPow: boolean;
-    operationId: FsusBinaryOperationId | 'binary_legacy_request';
-    routeClass: BinaryFailureRouteClass;
-    privateScope: PrivateRequestScope;
+    operationId: FsusBinaryOperationId;
+    scope: PrivateRequestScope;
     abortOnGenerationChange: boolean;
 }
 {
-    if (options.binaryRoute)
+    const route = options.binaryRoute;
+    if (!route)
     {
-        const descriptor = fsusBinaryRouteDescriptors[options.binaryRoute.operationId];
-        if (!descriptor)
-        {
-            throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_descriptor_missing');
-        }
-        const binaryUrl = buildFsusBinaryRoute(options.binaryRoute.operationId, options.binaryRoute.params, options.binaryRoute.query);
-        const retryPublicReadWithPow = descriptor.auth === 'anonymous'
-      && descriptor.rateLimitPolicy === 'public_read'
-      && descriptor.method === 'GET'
-      && !descriptor.requiresPow;
-        const privateScope: PrivateRequestScope = descriptor.auth === 'admin'
-            ? 'admin'
-            : descriptor.auth === 'user' || descriptor.auth === 'optional'
-        ? 'account'
-        : 'public';
-        const abortOnGenerationChange = descriptor.auth !== 'optional';
-        if (options.requestOptions?.credentials !== undefined || descriptor.credentialPolicy === 'include')
-        {
-            return {
-                binaryUrl,
-                requestOptions: options.requestOptions,
-                retryPublicReadWithPow,
-                operationId: options.binaryRoute.operationId,
-                routeClass: binaryRouteClass(descriptor.auth),
-                privateScope,
-                abortOnGenerationChange
-            };
-        }
-        return {
-            binaryUrl,
-            retryPublicReadWithPow,
-            requestOptions: {
-                ...options.requestOptions,
-                credentials: descriptor.credentialPolicy
-            },
-            operationId: options.binaryRoute.operationId,
-            routeClass: binaryRouteClass(descriptor.auth),
-            privateScope,
-            abortOnGenerationChange
-        };
+        throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');
     }
-    if (options.binaryUrl)
+    const descriptor: {
+        auth: 'anonymous' | 'optional' | 'user' | 'admin';
+        credentialPolicy: 'include' | 'omit';
+        method: string;
+        requiresPow: boolean;
+        rateLimitPolicy: string;
+    } | undefined = fsusBinaryRouteDescriptors[route.operationId];
+    if (!descriptor || (descriptor.auth !== 'anonymous' && descriptor.auth !== 'optional' && descriptor.auth !== 'user' && descriptor.auth !== 'admin')
+        || (descriptor.credentialPolicy !== 'include' && descriptor.credentialPolicy !== 'omit') || !descriptor.method
+        || typeof descriptor.requiresPow !== 'boolean' || !descriptor.rateLimitPolicy)
     {
-        return {
-            binaryUrl: options.binaryUrl,
-            requestOptions: options.requestOptions,
-            retryPublicReadWithPow: false,
-            operationId: 'binary_legacy_request',
-            routeClass: 'legacy',
-            privateScope: options.privateScope ?? 'public',
-            abortOnGenerationChange: options.privateScope !== 'public'
-        };
+        throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_descriptor_invalid');
     }
-    throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');
-}
-
-function binaryRouteClass(auth: string): BinaryFailureRouteClass
-{
-    if (auth === 'admin')
+    const supplied = options.requestOptions as BinaryRequestOptions | undefined;
+    if (supplied && ('method' in supplied || 'credentials' in supplied || 'requiresPow' in supplied))
     {
-        return 'admin';
+        throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_metadata_override');
     }
-    if (auth === 'user' || auth === 'optional')
-    {
-        return 'account';
-    }
-    return 'public';
+    const scope: PrivateRequestScope = descriptor.auth === 'admin'
+        ? 'admin'
+        : descriptor.auth === 'user' || descriptor.auth === 'optional' ? 'account' : 'public';
+    return {
+        requestUrl: buildFsusBinaryRoute(route.operationId, route.params, route.query),
+        requestOptions: {
+            ...options.requestOptions,
+            method: descriptor.method,
+            credentials: descriptor.credentialPolicy,
+            requiresPow: descriptor.requiresPow
+        },
+        retryPublicReadWithPow: descriptor.auth === 'anonymous'
+            && descriptor.rateLimitPolicy === 'public_read' && descriptor.method === 'GET' && !descriptor.requiresPow,
+        operationId: route.operationId,
+        scope,
+        abortOnGenerationChange: descriptor.auth !== 'optional'
+    };
 }
 
 function shouldRetryPublicReadWithPow<T>(

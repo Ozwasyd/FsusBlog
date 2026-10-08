@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "fsusblog.runtime-role-observation.v2",
+    "$id": "fsusblog.runtime-role-observation.v3",
     "title": "FsusBlog compiled runtime-role observation",
     "type": "object",
     "additionalProperties": false,
@@ -11,12 +11,12 @@
         "unsupportedCombinations",
         "ownership",
         "deploymentAuthority",
-        "schemaOverlap",
+        "currentSchemaContract",
         "observationDigest"
     ],
     "properties": {
         "schema": {
-            "const": "fsusblog.runtime-role-observation.v2"
+            "const": "fsusblog.runtime-role-observation.v3"
         },
         "modes": {
             "type": "array",
@@ -55,11 +55,11 @@
         "deploymentAuthority": {
             "$ref": "#/$defs/deploymentAuthority"
         },
-        "schemaOverlap": {
-            "$ref": "#/$defs/schemaOverlap"
-        },
         "observationDigest": {
             "$ref": "#/$defs/digest"
+        },
+        "currentSchemaContract": {
+            "$ref": "#/$defs/currentSchemaContract"
         }
     },
     "$defs": {
@@ -538,110 +538,122 @@
                 }
             }
         },
-        "schemaOverlap": {
+        "currentSchemaContract": {
             "type": "object",
             "additionalProperties": false,
             "required": [
                 "schema",
+                "stage",
                 "evidenceClass",
-                "manifestDescriptorCount",
-                "catalogMetadataCount",
-                "manifestDigest",
-                "catalogDigest",
-                "databaseObservationDigest",
-                "sourceReleaseId",
-                "targetReleaseId",
-                "previousRollbackReleaseId",
-                "sourceReleaseManifestDigest",
-                "targetReleaseManifestDigest",
-                "sameReleaseFailureCode",
-                "sourceReadiness",
-                "targetReadiness",
-                "missingExpandFailureCodes",
-                "concurrentContractFailureCodes",
-                "authorityState",
-                "claimEligible"
+                "receiptFormat",
+                "target",
+                "producer",
+                "entityTableCount",
+                "requiredRecipeCount",
+                "inputDigest",
+                "nativeVerifier",
+                "nativeStage",
+                "actualDatabaseObserved",
+                "nativeClaimEligible"
             ],
             "properties": {
                 "schema": {
-                    "const": "fsusblog.online-schema-overlap-observation.v1"
+                    "const": "fsusblog.runtime-role-current-schema-contract.v1"
+                },
+                "stage": {
+                    "const": "compiled-contract"
                 },
                 "evidenceClass": {
-                    "type": "string",
-                    "minLength": 1
+                    "const": "original-production-current-model-and-receipt-validation-contract"
                 },
-                "manifestDescriptorCount": {
-                    "type": "integer",
-                    "minimum": 0
+                "receiptFormat": {
+                    "const": "fsusblog.current-schema-receipt.v1"
                 },
-                "catalogMetadataCount": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "manifestDigest": {
-                    "$ref": "#/$defs/prefixedDigest"
-                },
-                "catalogDigest": {
-                    "$ref": "#/$defs/prefixedDigest"
-                },
-                "databaseObservationDigest": {
-                    "$ref": "#/$defs/prefixedDigest"
-                },
-                "sourceReleaseId": {
-                    "$ref": "#/$defs/releaseId"
-                },
-                "targetReleaseId": {
-                    "$ref": "#/$defs/releaseId"
-                },
-                "previousRollbackReleaseId": {
-                    "$ref": "#/$defs/releaseId"
-                },
-                "sourceReleaseManifestDigest": {
-                    "$ref": "#/$defs/prefixedDigest"
-                },
-                "targetReleaseManifestDigest": {
-                    "$ref": "#/$defs/prefixedDigest"
-                },
-                "sameReleaseFailureCode": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "sourceReadiness": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "targetReadiness": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "missingExpandFailureCodes": {
-                    "type": "array",
-                    "uniqueItems": true,
-                    "items": {
-                        "type": "string",
-                        "minLength": 1
+                "target": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "modelVersion",
+                        "extractorVersion",
+                        "generatorVersion",
+                        "sourceDigest",
+                        "contentDigest"
+                    ],
+                    "properties": {
+                        "modelVersion": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "extractorVersion": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "generatorVersion": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "sourceDigest": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "contentDigest": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                        }
                     }
                 },
-                "concurrentContractFailureCodes": {
-                    "type": "array",
-                    "uniqueItems": true,
-                    "items": {
-                        "type": "string",
-                        "minLength": 1
+                "producer": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "sourceCommit",
+                        "producerId",
+                        "producerAssemblySha256",
+                        "contractAssemblySha256"
+                    ],
+                    "properties": {
+                        "sourceCommit": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{40}$"
+                        },
+                        "producerId": {
+                            "const": "fsusblog.current-schema-owned-projection.v1"
+                        },
+                        "producerAssemblySha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "contractAssemblySha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                        }
                     }
                 },
-                "authorityState": {
-                    "type": "string",
-                    "minLength": 1
+                "entityTableCount": {
+                    "type": "integer",
+                    "minimum": 1
                 },
-                "claimEligible": {
-                    "type": "boolean"
+                "requiredRecipeCount": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "inputDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "nativeVerifier": {
+                    "const": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaReceiptAdmission.VerifyAsync"
+                },
+                "nativeStage": {
+                    "const": "post-static-admission"
+                },
+                "actualDatabaseObserved": {
+                    "const": false
+                },
+                "nativeClaimEligible": {
+                    "const": false
                 }
             }
-        },
-        "releaseId": {
-            "type": "string",
-            "pattern": "^[0-9]{14}-[a-f0-9]{12}$"
         }
     }
 }

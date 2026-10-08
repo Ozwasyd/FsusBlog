@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute, fsusBinaryRouteDescriptors } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
@@ -41,7 +42,7 @@ describe('security API binary transport', () => {
     await getSecurityOverview()
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/admin/security/overview')
+    expect(routeUrl(call)).toBe('/api/binary/admin/security/overview')
     expect(call?.frameType).toBe(FrameType.SecurityOverview)
     expect(call?.requestOptions?.body).toBeUndefined()
     expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-security-test')
@@ -57,17 +58,17 @@ describe('security API binary transport', () => {
     await getSecurityPolicyConsole()
 
     const riskCall = binaryMock.mock.calls[0]?.[0]
-    expect(riskCall?.binaryUrl).toBe('/api/binary/admin/security/risk-control/overview')
+    expect(routeUrl(riskCall)).toBe('/api/binary/admin/security/risk-control/overview')
     expect(riskCall?.frameType).toBe(FrameType.SecurityOverview)
     expect(riskCall?.requestOptions?.body).toBeUndefined()
 
     const challengeCall = binaryMock.mock.calls[1]?.[0]
-    expect(challengeCall?.binaryUrl).toBe('/api/binary/admin/security/challenges/overview')
+    expect(routeUrl(challengeCall)).toBe('/api/binary/admin/security/challenges/overview')
     expect(challengeCall?.frameType).toBe(FrameType.SecurityOverview)
     expect(challengeCall?.requestOptions?.body).toBeUndefined()
 
     const policyCall = binaryMock.mock.calls[2]?.[0]
-    expect(policyCall?.binaryUrl).toBe('/api/binary/admin/security/policies/overview')
+    expect(routeUrl(policyCall)).toBe('/api/binary/admin/security/policies/overview')
     expect(policyCall?.frameType).toBe(FrameType.SecurityOverview)
     expect(policyCall?.requestOptions?.body).toBeUndefined()
   })
@@ -78,7 +79,7 @@ describe('security API binary transport', () => {
     await getSecurityChallengeMetrics({ kind: 'perceptionLocalizationV2' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/admin/security/challenges/overview?kind=perceptionLocalizationV2')
+    expect(routeUrl(call)).toBe('/api/binary/admin/security/challenges/overview?kind=perceptionLocalizationV2')
     expect(call?.frameType).toBe(FrameType.SecurityOverview)
   })
 
@@ -88,7 +89,7 @@ describe('security API binary transport', () => {
     await getRiskControlOptions()
 
     const readCall = binaryMock.mock.calls[0]?.[0]
-    expect(readCall?.binaryUrl).toBe('/api/binary/admin/security/risk-control/options')
+    expect(routeUrl(readCall)).toBe('/api/binary/admin/security/risk-control/options')
     expect(readCall?.frameType).toBe(FrameType.SecurityOverview)
     expect(readCall?.requestOptions?.body).toBeUndefined()
   })
@@ -115,18 +116,18 @@ describe('security API binary transport', () => {
     await rollbackPerceptionSealedV2Options({ mfaProofToken: 'proof-perception-rollback' })
 
     const consoleCall = binaryMock.mock.calls[0]?.[0]
-    expect(consoleCall?.binaryUrl).toBe('/api/binary/admin/security/perception-v2/overview')
+    expect(routeUrl(consoleCall)).toBe('/api/binary/admin/security/perception-v2/overview')
     expect(consoleCall?.frameType).toBe(FrameType.SecurityOverview)
     expect(consoleCall?.requestOptions?.body).toBeUndefined()
 
     const readCall = binaryMock.mock.calls[1]?.[0]
-    expect(readCall?.binaryUrl).toBe('/api/binary/admin/security/perception-v2/options')
+    expect(routeUrl(readCall)).toBe('/api/binary/admin/security/perception-v2/options')
     expect(readCall?.frameType).toBe(FrameType.SecurityOverview)
 
     const updateCall = binaryMock.mock.calls[2]?.[0]
-    expect(updateCall?.binaryUrl).toBe('/api/binary/admin/security/perception-v2/options')
+    expect(routeUrl(updateCall)).toBe('/api/binary/admin/security/perception-v2/options')
     expect(updateCall?.frameType).toBe(FrameType.SecurityOverview)
-    expect(updateCall?.requestOptions?.method).toBe('PUT')
+    expect(fsusBinaryRouteDescriptors[updateCall.binaryRoute.operationId].method).toBe('PUT')
     expect((updateCall?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-perception')
     expectAedsJsonBody(updateCall?.requestOptions?.body, FrameType.SecurityOverview, {
       enabled: false,
@@ -135,9 +136,9 @@ describe('security API binary transport', () => {
     })
 
     const rollbackCall = binaryMock.mock.calls[3]?.[0]
-    expect(rollbackCall?.binaryUrl).toBe('/api/binary/admin/security/perception-v2/options/rollback')
+    expect(routeUrl(rollbackCall)).toBe('/api/binary/admin/security/perception-v2/options/rollback')
     expect(rollbackCall?.frameType).toBe(FrameType.SecurityOverview)
-    expect(rollbackCall?.requestOptions?.method).toBe('POST')
+    expect(fsusBinaryRouteDescriptors[rollbackCall.binaryRoute.operationId].method).toBe('POST')
     expect((rollbackCall?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-perception-rollback')
   })
 
@@ -147,9 +148,9 @@ describe('security API binary transport', () => {
     await updateAntiCrawlerOptions({ mode: 'observe', reason: 'tighten' }, { mfaProofToken: 'proof-anti' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/admin/security/anti-crawler/options')
+    expect(routeUrl(call)).toBe('/api/binary/admin/security/anti-crawler/options')
     expect(call?.frameType).toBe(FrameType.AntiCrawlerPolicySnapshot)
-    expect(call?.requestOptions?.method).toBe('PUT')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('PUT')
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-anti')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.AntiCrawlerOptionsUpdateRequest, {
       mode: 'observe',
@@ -163,7 +164,7 @@ describe('security API binary transport', () => {
     await resetSecurityRisk({ subject: '127.0.0.1', reason: 'manual' }, { mfaProofToken: 'proof-risk' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/admin/security/risk/ip/reset')
+    expect(routeUrl(call)).toBe('/api/binary/admin/security/risk/ip/reset')
     expect(call?.frameType).toBe(FrameType.SecurityRiskResetResponse)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-risk')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.SecurityRiskResetRequest, {
@@ -195,9 +196,9 @@ describe('security API binary transport', () => {
     })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/admin/security/risk-control/simulate')
+    expect(routeUrl(call)).toBe('/api/binary/admin/security/risk-control/simulate')
     expect(call?.frameType).toBe(FrameType.SecurityOverview)
-    expect(call?.requestOptions?.method).toBe('POST')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('POST')
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBeNull()
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.SecurityOverview, {
       action: 'comment.create',
@@ -222,14 +223,14 @@ describe('security API binary transport', () => {
     await updatePowOptions({ mode: 'enforce', reason: 'pow-strict' }, { mfaProofToken: 'proof-pow' })
 
     const ruleCall = binaryMock.mock.calls[0]?.[0]
-    expect(ruleCall?.binaryUrl).toBe('/api/binary/admin/security/anti-crawler/rules')
+    expect(routeUrl(ruleCall)).toBe('/api/binary/admin/security/anti-crawler/rules')
     expect(ruleCall?.frameType).toBe(FrameType.AntiCrawlerRuleResponse)
     expectAedsJsonBody(ruleCall?.requestOptions?.body, FrameType.AntiCrawlerRuleRequest, {
       name: 'Block scanner'
     })
 
     const powCall = binaryMock.mock.calls[1]?.[0]
-    expect(powCall?.binaryUrl).toBe('/api/binary/admin/security/pow/options')
+    expect(routeUrl(powCall)).toBe('/api/binary/admin/security/pow/options')
     expect(powCall?.frameType).toBe(FrameType.PowPolicySnapshot)
     expect((powCall?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-pow')
     expectAedsJsonBody(powCall?.requestOptions?.body, FrameType.PowOptionsUpdateRequest, {
@@ -248,4 +249,9 @@ function expectAedsJsonBody(body: BodyInit | null | undefined, frameType: FrameT
   const payloadLength = view.getUint32(10, true)
   const payload = JSON.parse(decoder.decode(bytes.slice(16, 16 + payloadLength)))
   expect(payload).toMatchObject(expected)
+}
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
 }

@@ -8,79 +8,160 @@
       "frame": "ArticleList",
       "outputContract": "PublicArticleListCardProjection",
       "defaultEnabled": true,
-      "supportedRecordBytes": [76, 100],
-      "fallbackRecordBytes": [56],
-      "requiredFields": ["id", "createTimeUnixMs", "categoryId", "categoryName", "title", "summary"],
-      "optionalFields": ["tags"],
+      "requiredFields": [
+        "id",
+        "createTimeUnixMs",
+        "categoryId",
+        "categoryName",
+        "title",
+        "summary"
+      ],
+      "optionalFields": [
+        "tags"
+      ],
       "deferredFields": [],
-      "ignoredFields": ["views", "isDeleted", "status", "scheduledPublishAtUnixMs", "publishedAtUnixMs", "currentRevisionId", "revisionNo", "currentPublicationId", "publicationNo"],
-      "semanticValidations": ["cursor", "counts", "recordLayout", "reservedBytes", "allSliceRanges", "utf8", "tagRanges", "trailingBytes"]
+      "ignoredFields": [
+        "views",
+        "isDeleted",
+        "status",
+        "scheduledPublishAtUnixMs",
+        "publishedAtUnixMs",
+        "currentRevisionId",
+        "revisionNo",
+        "currentPublicationId",
+        "publicationNo"
+      ],
+      "semanticValidations": [
+        "cursor",
+        "counts",
+        "recordLayout",
+        "reservedBytes",
+        "allSliceRanges",
+        "utf8",
+        "tagRanges",
+        "trailingBytes"
+      ],
+      "wireLayout": "ArticleList"
     },
     {
       "id": "publicFilterArchiveItem",
       "frame": "ArticleList",
       "outputContract": "PublicFilterArchiveProjection",
       "defaultEnabled": false,
-      "supportedRecordBytes": [76, 100],
-      "fallbackRecordBytes": [56],
-      "requiredFields": ["id", "createTimeUnixMs", "categoryId", "categoryName", "title", "summary"],
-      "optionalFields": ["tags"],
+      "requiredFields": [
+        "id",
+        "createTimeUnixMs",
+        "categoryId",
+        "categoryName",
+        "title",
+        "summary"
+      ],
+      "optionalFields": [
+        "tags"
+      ],
       "deferredFields": [],
-      "ignoredFields": ["views", "isDeleted", "status", "scheduledPublishAtUnixMs", "publishedAtUnixMs", "currentRevisionId", "revisionNo", "currentPublicationId", "publicationNo"],
-      "semanticValidations": ["cursor", "counts", "recordLayout", "reservedBytes", "allSliceRanges", "utf8", "tagRanges", "trailingBytes"]
+      "ignoredFields": [
+        "views",
+        "isDeleted",
+        "status",
+        "scheduledPublishAtUnixMs",
+        "publishedAtUnixMs",
+        "currentRevisionId",
+        "revisionNo",
+        "currentPublicationId",
+        "publicationNo"
+      ],
+      "semanticValidations": [
+        "cursor",
+        "counts",
+        "recordLayout",
+        "reservedBytes",
+        "allSliceRanges",
+        "utf8",
+        "tagRanges",
+        "trailingBytes"
+      ],
+      "wireLayout": "ArticleList"
     },
     {
       "id": "notificationArticlePreview",
       "frame": "ArticleList",
       "outputContract": "NotificationArticlePreviewProjection",
       "defaultEnabled": false,
-      "supportedRecordBytes": [100],
-      "fallbackRecordBytes": [56, 76],
-      "requiredFields": ["id", "createTimeUnixMs", "categoryId", "title", "status", "currentRevisionId", "revisionNo", "currentPublicationId", "publicationNo"],
-      "optionalFields": ["categoryName", "summary", "tags"],
+      "requiredFields": [
+        "id",
+        "createTimeUnixMs",
+        "categoryId",
+        "title",
+        "status",
+        "currentRevisionId",
+        "revisionNo",
+        "currentPublicationId",
+        "publicationNo"
+      ],
+      "optionalFields": [
+        "categoryName",
+        "summary",
+        "tags"
+      ],
       "deferredFields": [],
-      "ignoredFields": ["views", "isDeleted", "scheduledPublishAtUnixMs", "publishedAtUnixMs"],
-      "semanticValidations": ["cursor", "counts", "recordLayout", "reservedBytes", "allSliceRanges", "utf8", "tagRanges", "trailingBytes"]
+      "ignoredFields": [
+        "views",
+        "isDeleted",
+        "scheduledPublishAtUnixMs",
+        "publishedAtUnixMs"
+      ],
+      "semanticValidations": [
+        "cursor",
+        "counts",
+        "recordLayout",
+        "reservedBytes",
+        "allSliceRanges",
+        "utf8",
+        "tagRanges",
+        "trailingBytes"
+      ],
+      "wireLayout": "ArticleList"
     },
     {
       "id": "articleSearchRankingCandidate",
       "frame": "ArticleSearch",
       "outputContract": "ArticleSearchRankingCandidateProjection",
       "defaultEnabled": false,
-      "supportedRecordBytes": [100],
-      "fallbackRecordBytes": [76],
-      "requiredFields": ["id", "views", "createTimeUnixMs", "title", "summary", "tags", "status", "publishedAtUnixMs"],
-      "optionalFields": ["categoryId", "categoryName"],
-      "deferredFields": ["currentRevisionId", "revisionNo", "currentPublicationId", "publicationNo"],
-      "ignoredFields": ["isDeleted", "scheduledPublishAtUnixMs"],
-      "semanticValidations": ["version", "counts", "recordLayout", "allSliceRanges", "utf8", "tagRanges", "trailingBytes"]
+      "requiredFields": [
+        "id",
+        "views",
+        "createTimeUnixMs",
+        "title",
+        "summary",
+        "tags",
+        "status",
+        "publishedAtUnixMs"
+      ],
+      "optionalFields": [
+        "categoryId",
+        "categoryName"
+      ],
+      "deferredFields": [
+        "currentRevisionId",
+        "revisionNo",
+        "currentPublicationId",
+        "publicationNo"
+      ],
+      "ignoredFields": [
+        "isDeleted",
+        "scheduledPublishAtUnixMs"
+      ],
+      "semanticValidations": [
+        "version",
+        "counts",
+        "recordLayout",
+        "allSliceRanges",
+        "utf8",
+        "tagRanges",
+        "trailingBytes"
+      ],
+      "wireLayout": "ArticleSearch"
     }
-  ],
-  "articleList": {
-    "cursorMagic": 1095979078,
-    "cursorVersions": [2],
-    "tagRecordBytes": 12,
-    "offsets": {
-      "id": 0,
-      "views": 4,
-      "createTimeUnixMs": 8,
-      "categoryId": 16,
-      "categoryName": 20,
-      "title": 28,
-      "summary": 36,
-      "tagStart": 44,
-      "tagCount": 48,
-      "isDeleted": 52,
-      "hasIsDeleted": 53,
-      "reserved0": 54,
-      "reserved1": 55,
-      "status": 56,
-      "scheduledPublishAtUnixMs": 60,
-      "publishedAtUnixMs": 68,
-      "currentRevisionId": 76,
-      "revisionNo": 84,
-      "currentPublicationId": 88,
-      "publicationNo": 96
-    }
-  }
+  ]
 }

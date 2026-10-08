@@ -3,6 +3,8 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
+const { validateRuntimeRoleCurrentSchemaContract } = await import(new URL('../../contracts/lib/runtime-role-current-schema-contract.mjs', import.meta.url));
 import {
   isExternalBehaviorDocAdmissionDependency
 } from '../../test-matrix/behavior-doc-static-admission-contract.mjs'
@@ -142,6 +144,7 @@ function verifyRuntimeReproducibleBuild(repositoryRoot, runtimeBinding, minimalR
     '--no-incremental', '--disable-build-servers', '--artifacts-path', expectedOutputRoot,
     '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
     runtimeReproduciblePathMapArgument,
+    `/p:FsusBlogCommitSha=${minimalReceipt.sourceCommit}`,
     '/p:NuGetAudit=false', '/m:1'
   ]
   if (!exactKeys(attestation, expectedKeys)
@@ -176,6 +179,7 @@ function verifyRuntimeReproducibleBuild(repositoryRoot, runtimeBinding, minimalR
     reproduced = reproduceRuntimeRoleAssembly({
       repositoryRoot,
       buildKey: minimalReceipt.buildKey,
+      sourceCommit: minimalReceipt.sourceCommit,
       verification: true
     })
     const normalized = {
@@ -495,13 +499,13 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
   const volumeScopes = Object.fromEntries(['operator-shared', 'release-artifact-store', 'release-identity',
     'shared-between-slots', 'slot-private'].map((scope) => [scope, Object.entries(volumeTopology)
     .filter(([, value]) => value?.scope === scope).map(([target]) => target).sort()]))
-  const schemaOverlap = runtimeObservation?.schemaOverlap
+  const currentSchemaContract = runtimeObservation?.currentSchemaContract
   const claimEligibilityReasons = ['production-current-active-resource-evidence-absent']
   if (runtimeObservation?.ownership?.claimEligible !== true) claimEligibilityReasons.push('runtime-ownership-authority-conflict')
   if (Object.values(volumeScopes).flat().length !== 10) claimEligibilityReasons.push('volume-topology-incomplete')
   if (unsupportedVolumeCleanup.status !== 'unsupported') claimEligibilityReasons.push('volume-cleanup-authority-conflict')
   if (unsupportedSchemaCleanup.status !== 'unsupported') claimEligibilityReasons.push('schema-cleanup-authority-conflict')
-  if (schemaOverlap?.claimEligible !== true) claimEligibilityReasons.push('schema-overlap-authority-conflict')
+  if (currentSchemaContract?.nativeClaimEligible !== true) claimEligibilityReasons.push('current-schema-native-observation-absent')
 
   return {
     evidenceClass: 'synthetic-library-proof',
@@ -539,7 +543,7 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
     },
     volumeTopology: projectVolumeTopology(volumeTopology),
     volumeScopes,
-    schemaOverlap,
+    currentSchemaContract,
     runtimeProtectionAuthorityState: 'synthetic-library-proof',
     artifactProtectionAuthorityState: 'synthetic-library-proof',
     schemaProtectionAuthorityState: 'synthetic-library-proof',
@@ -1399,11 +1403,11 @@ export function extract(context)
     unsupportedCombinations: runtimeObservation?.unsupportedCombinations,
     ownership: runtimeObservation?.ownership,
     deploymentAuthority: runtimeObservation?.deploymentAuthority,
-    schemaOverlap: runtimeObservation?.schemaOverlap
+    currentSchemaContract: runtimeObservation?.currentSchemaContract
   }
   const runtimeContentDigest = createHash('sha256')
     .update(JSON.stringify(runtimeUnsigned), 'utf8').digest('hex')
-  if (runtimeObservation?.schema !== 'fsusblog.runtime-role-observation.v2'
+  if (!validateRuntimeRoleCurrentSchemaContract(runtimeObservation, { sourceCommit: context.sourceCommit })
     || runtimeObservation?.observationDigest !== runtimeContentDigest
     || runtimeModes.map((mode) => mode.id).sort().join(',') !== 'adaptive,single,static-role'
     || runtimeObservation?.ownership?.authorityState !== 'closed-current'
@@ -1421,34 +1425,6 @@ export function extract(context)
       runtimeObservation?.deploymentAuthority?.effectiveCompose?.dockerExecutable?.digest ?? ''))
     || !/^[a-f0-9]{64}$/u.test(String(
       runtimeObservation?.deploymentAuthority?.effectiveCompose?.composeImplementation?.digest ?? ''))
-    || runtimeObservation?.schemaOverlap?.authorityState !== 'observed-in-current-schema-manifest-probe'
-    || runtimeObservation?.schemaOverlap?.claimEligible !== true
-    || runtimeObservation?.schemaOverlap?.evidenceClass !== 'current-manifest-catalog-production-provider-model'
-    || runtimeObservation?.schemaOverlap?.manifestDescriptorCount !== runtimeObservation?.schemaOverlap?.catalogMetadataCount
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.manifestDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.catalogDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.databaseObservationDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.sourceReleaseManifestDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.targetReleaseManifestDigest ?? ''))
-    || runtimeObservation?.schemaOverlap?.sourceReleaseId === runtimeObservation?.schemaOverlap?.targetReleaseId
-    || runtimeObservation?.schemaOverlap?.previousRollbackReleaseId === runtimeObservation?.schemaOverlap?.sourceReleaseId
-    || runtimeObservation?.schemaOverlap?.sameReleaseFailureCode !== 'schema_previous_rollback_release_not_distinct'
-    || JSON.stringify(runtimeObservation?.schemaOverlap?.missingExpandFailureCodes)
-      !== JSON.stringify(['schema_expand_pending'])
-    || JSON.stringify(runtimeObservation?.schemaOverlap?.concurrentContractFailureCodes) !== JSON.stringify([
-      'schema_contract_backfill_incomplete',
-      'schema_contract_backfill_unverified',
-      'schema_contract_backup_restore_stale',
-      'schema_contract_confirmation_missing',
-      'schema_contract_current_release_dependency',
-      'schema_contract_exclusive_mode_missing',
-      'schema_contract_observation_window',
-      'schema_contract_old_writes_enabled',
-      'schema_contract_previous_release_dependency',
-      'schema_contract_release_window_open',
-      'schema_contract_rollback_manifest_open',
-      'schema_contract_slot_switch_in_progress'
-    ])
     || !Array.isArray(runtimeObservation?.unsupportedCombinations)
     || runtimeObservation.unsupportedCombinations.some((entry) => entry.errorCode === 'unexpectedly-accepted'))
   {
@@ -1725,7 +1701,7 @@ export function extract(context)
       effectiveCompose: projectEffectiveCompose(runtimeObservation.deploymentAuthority.effectiveCompose),
       volumeTopology: projectVolumeTopology(runtimeObservation.deploymentAuthority.volumeTopology)
     },
-    schemaOverlap: runtimeObservation.schemaOverlap,
+    currentSchemaContract: runtimeObservation.currentSchemaContract,
     observationDigest: runtimeObservation.observationDigest,
     artifactDigest: runtimeArtifactDigest
   }

@@ -244,10 +244,14 @@ The migration-owned source-observation component registers the checked-in
 `2026-05-17` representative legacy shape, not an already qualified production dump.
 Its PostgreSQL path closes the actual catalog, all 49 registered columns and every
 row, history and five sequence states under one native read-only snapshot with a
-streamed, bounded content encoder. Three-provider shape registration is not proof
-of three native implementations: missing MySQL/SQLite full-content/snapshot
-capabilities fail closed. The component still needs its unique native-session
-owner and genuine producer/provider execution before operational qualification.
+streamed, bounded content encoder. The MySQL and SQLite observation paths use
+their original native session and streaming readers; wrong drivers and unheld
+transactions are refused before catalog reads. This source availability does not
+qualify provider execution. MySQL/SQLite snapshot capture remains unsupported, and
+SQLite public observation requires actual held-descriptor FILESTAT support;
+unavailable native capabilities fail closed. Three-provider shape registration is
+not operational qualification: genuine producer/provider execution and the original
+native-session admission remain required.
 
 `MySqlArticlePreservationSourceReader` connects the existing bounded article reader
 to the original `OfflineMigrationMySqlNativeSession` owned-read port. Finite limits,
@@ -423,10 +427,10 @@ and original control creation/admission rules are unchanged.
 
 This source combination retains the original complete MySQL physical-fact model,
 comparison and canonical hash/clone closure rather than discarding observed native
-metadata. It changes the current model to `fsusblog.current-schema.v4` and the
-projection generator to `fsusblog.current-schema-projection.v4`; the reflection
+metadata. The expression-key contract changes the current model to `fsusblog.current-schema.v5` and the
+projection generator to `fsusblog.current-schema-projection.v5`; the reflection
 extractor version remains v2. Both composite source/content identities include
-the explicit control version and complete sole shape. Previously sealed v2/v3 owned
+the explicit control version and complete sole shape. Previously sealed v2/v3/v4 owned
 targets, plans and receipts cannot be reinterpreted, auto-resealed or accepted
 through a second version path. A new candidate must invoke the original owned
 projection producer and obtain fresh exact authorized source/backup/DAG/target
@@ -660,8 +664,66 @@ the single neutral target projection binds both the entity facts and all recipe
 facts. Missing descriptions still refuse before any command is returned.
 The exporter payload is neither an apply grant nor a self-reported current target;
 the offline evidence owner must independently bind its original producer, bytes
-and complete source closure before consumption. No owned target artifact has
-been produced by this source-only change.
+and complete source closure before consumption. Producing an owned target
+artifact does not grant migration execution or current-schema runtime admission.
+
+The original property-definition recipe's unconstrained PostgreSQL `numeric`
+columns retain neutral `decimal` and physical `numeric` facts. Its inline tick
+`CHECK` clauses retain the complete original expressions and PostgreSQL's implicit
+`<table>_<column>_check` names as separate constraint effects. Numeric modifiers,
+unknown column tails and malformed checks still refuse extraction. This bounded
+extraction support does not grant independent producer or native qualification.
+
+Current index keys retain either their bound column or a complete neutral
+expression tree, with independent direction, null placement, operator class and
+collation. The original history index's ordered three-column timestamp
+`GREATEST` expression is supported by the sole extractor, PostgreSQL native
+catalog decoder, complete comparer and offline compiler. Expression keys use an
+empty column field; their expressions are never discarded or relabeled as column
+names. Unknown functions, arities, operands and native roster inconsistencies
+refuse. MySQL and SQLite do not acquire an expression-key implementation from
+this PostgreSQL capability. Fresh v5 target/source identities are required; old
+artifacts remain unchanged and cannot grant current admission.
+
+The sole PostgreSQL entity-projection compiler preserves the original CodeFirst
+physical policies from the declared entity facts: nullable bounded strings with
+no explicit default retain their native NULL default; text and non-nullable
+strings do not acquire one. Declared Int64 defaults keep their original logical
+input literal. The extractor's generated primary role uses PostgreSQL's native
+implicit constraint/backing-index name; explicit names remain explicit. These
+policies apply to the entity projection only. Recipe/control renderers and other
+provider owners remain responsible for their original facts. The complete
+original-vs-compiled PostgreSQL snapshot comparison stays unfiltered.
+
+For a direct comparison against an independently typed double-precision column,
+only a closed literal operand is interpreted in PostgreSQL's `float8` domain.
+The existing physical-float64 node preserves the exact IEEE operand bits. Proven
+in-range integer casts and unmodified numeric literals can enter that conversion;
+intermediate `real` precision, numeric typmods, arithmetic, overflow and column
+casts retain their original facts. Unsupported overflow/underflow cannot acquire
+a finite or zero threshold identity. This comparison context does not change
+unbound arithmetic or the single-precision operator domain. An untyped string
+default on a declared `jsonb` column receives its assignment cast while retaining
+the complete literal bytes; explicit other casts, changed values, SQL NULL and
+JSON null stay distinct. There is no JSON rewriting or general equivalence
+fallback. Fresh original producer/verifier bytes remain required under model v5.
+
+The original apply-journal control's non-nullability remains owned by its seven
+canonical column facts. PostgreSQL 18 additionally records each inline `NOT NULL`
+declaration in `pg_constraint` with type `n`. The sole native catalog observer
+checks the complete version-dependent roster, exact column and generated name,
+validation/enforcement, absence of inheritance, deferral and unrelated constraint
+effects, and agreement with measured column nullability before projecting that
+representation onto `IsNullable=false`. PostgreSQL 17 retains its original column
+representation without those catalog rows. Unknown, missing or changed `n` facts
+refuse; they are not ignored or treated as extra permitted objects. This preserves
+the v5 model and current control semantics; fresh producer/verifier byte bindings
+and independent native qualification remain required. The original `default-null`
+native negative retains a real NULL-valued default expression and measures its
+`pg_attrdef` object before requiring refusal. Bare `SET DEFAULT NULL` (including
+literal casts) removes that object on the tested PostgreSQL; it cannot stand in
+for an actual undeclared default. The original case identity and no-default
+refusal gate are retained.
 
 The original Server executable exposes `export-current-schema-owned-target
 --output <new-absolute-file>` before Web host, DI or database configuration.

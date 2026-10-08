@@ -60,8 +60,8 @@ assert(sw.includes("fetch(request, { cache: 'no-store' })"), 'sensitive requests
 assert(sw.includes('const EXPLICIT_PUBLIC_STATIC_PATHS'), 'static caching must use an explicit public path allowlist');
 assert(sw.includes('isExplicitPublicStaticRequest(url)'), 'a matching file extension alone must not make a request cacheable');
 assert(sw.includes("directives.has('no-store') || directives.has('private')"), 'private and no-store responses must not enter Cache Storage');
-assert(sw.includes('clearLegacyFsusCaches'), 'service worker activate must clear legacy fsus caches');
-assert(sw.includes("key.startsWith('fsus-') && !keep.has(key)"), 'service worker must preserve only current cache names');
+assert(sw.includes('await requireCurrentReleaseBrowserAdmission()'), 'install and activate require current candidate admission');
+assert(!sw.includes('clearLegacyFsusCaches'), 'worker lifecycle must not delete unowned old caches');
 assert(sw.includes("case 'shell.invalidate':"), 'service worker must support explicit shell invalidation');
 assert(sw.includes('invalidateShellCache(message.scope ?? null)'), 'shell.invalidate must pass message scope into shell cache invalidation');
 assert(sw.includes('const SHELL_INVALIDATION_SCOPE_PATHS'), 'service worker must define shell invalidation scope to route mapping');
@@ -202,6 +202,14 @@ async function runShellInvalidationBehaviorCheck(scope, initialPaths)
     const { context, sandbox } = createServiceWorkerContext(initialPaths);
     const result = await vm.runInContext(`invalidateShellCache(${JSON.stringify(scope)})`, sandbox);
     return { result, cache: context.__cache };
+}
+
+{
+    const { context, sandbox } = createServiceWorkerContext(['/', '/about', '/archive']);
+    const result = await vm.runInContext("handleControlMessage({ type: 'shell.invalidate', scope: 'about' })", sandbox);
+    assert(result.deletedCount === 1, 'shell control must return its in-scope deletion result after broadcasting');
+    assert(!context.__cache.has('/about'), 'shell control must invalidate the selected public scope');
+    assert(context.__cache.has('/') && context.__cache.has('/archive'), 'shell control must preserve other public scopes');
 }
 
 async function runSensitiveFetchBehaviorCheck(path)
@@ -362,4 +370,45 @@ for (const sensitivePath of [
     assert(!cache.has('/') && !cache.has('/about') && !cache.has('/archive'), 'unknown shell invalidation scope must clear all shell entries');
 }
 
-console.log('[check-pwa-offline-policy] ok');
+
+
+
+// Executable refusal controls, not successful browser activation evidence.
+for (const lifecycle of ['install', 'activate'])
+{
+    const { context } = createServiceWorkerContext(['/assets/old.js']);
+    const operations = [];
+    context.self.skipWaiting = async () => operations.push('skipWaiting');
+    context.self.clients.claim = async () => operations.push('claim');
+    context.caches.open = async () => operations.push('cache-open');
+    context.caches.delete = async () => operations.push('cache-delete');
+    context.self.currentReleaseAdmission = {
+        status: 'active', actualDatabaseObserved: true, nativeClaimEligible: true,
+        candidateId: `sha256:${'a'.repeat(64)}`
+    };
+    for (let attempt = 0; attempt < 2; attempt += 1)
+    {
+        let pending;
+        context.__handlers.get(lifecycle)({
+            data: { status: 'verified-current', signed: true },
+            waitUntil(promise)
+            {
+                pending = promise;
+            }
+        });
+        assert(pending && typeof pending.then === 'function', `${lifecycle} must register its asynchronous admission gate`);
+        let refused = false;
+        try
+        {
+            await pending;
+        }
+        catch (error)
+        {
+            refused = error?.message === 'current_release_browser_admission_unconfigured';
+        }
+        assert(refused, `${lifecycle} must reject fixture/status grants without the actual public/native bridge`);
+    }
+    assert(operations.length === 0, `${lifecycle} refusal must leave active workers and every unowned cache untouched`);
+    assert(context.__cache.has('/assets/old.js'), `${lifecycle} refusal must preserve preexisting cache bytes`);
+}
+console.log('current release worker admission refusal controls passed (source-only, native/browser activation unqualified)');

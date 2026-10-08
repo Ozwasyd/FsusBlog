@@ -41,13 +41,10 @@ export function initUploadSession(payload: UploadSessionInitRequest, signal?: Ab
 {
     const body = encodeAedsFrame(FrameType.UploadInitRequest, encodeUploadInitRequest(payload));
     return requestBinaryOnly<UploadInitViewModel>({
-        binaryUrl: '/api/binary/upload/init',
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_post_upload_init' },
         frameType: FrameType.UploadInit,
         signal,
         requestOptions: {
-            method: 'POST',
-            requiresPow: true,
             headers: {
                 'Content-Type': 'application/octet-stream'
             },
@@ -59,13 +56,10 @@ export function initUploadSession(payload: UploadSessionInitRequest, signal?: Ab
 export function getUploadStatus(uploadId: string, signal?: AbortSignal): Promise<UploadStatusViewModel>
 {
     return requestBinaryOnly<UploadStatusViewModel>({
-        binaryUrl: `/api/binary/upload/${uploadId}/status`,
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_get_upload_uploadId_status', params: { uploadId } },
         frameType: FrameType.UploadStatus,
         signal,
         requestOptions: {
-            method: 'GET',
-            requiresPow: true
         }
     });
 }
@@ -73,13 +67,10 @@ export function getUploadStatus(uploadId: string, signal?: AbortSignal): Promise
 export function getUploadPartMap(uploadId: string, signal?: AbortSignal): Promise<UploadPartMapViewModel>
 {
     return requestBinaryOnly<UploadPartMapViewModel>({
-        binaryUrl: `/api/binary/upload/${uploadId}/status/parts`,
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_get_upload_uploadId_status_parts', params: { uploadId } },
         frameType: FrameType.UploadPartMap,
         signal,
         requestOptions: {
-            method: 'GET',
-            requiresPow: true
         }
     });
 }
@@ -95,13 +86,10 @@ export function uploadPart(
 ): Promise<UploadPartAckViewModel>
 {
     return requestBinaryOnly<UploadPartAckViewModel>({
-        binaryUrl: `/api/binary/upload/${uploadId}/part`,
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_put_upload_uploadId_part', params: { uploadId } },
         frameType: FrameType.UploadPartAck,
         signal,
         requestOptions: {
-            method: 'PUT',
-            requiresPow: true,
             headers: {
                 'Content-Type': 'application/octet-stream',
                 'X-Fsus-Upload-Token': uploadToken,
@@ -118,13 +106,10 @@ export function completeUpload(uploadId: string, uploadToken: string, sha256?: s
 {
     const body = encodeAedsFrame(FrameType.UploadCompleteRequest, encodeUploadCompleteRequest(sha256));
     return requestBinaryOnly<UploadCompleteViewModel>({
-        binaryUrl: `/api/binary/upload/${uploadId}/complete`,
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_post_upload_uploadId_complete', params: { uploadId } },
         frameType: FrameType.UploadComplete,
         signal,
         requestOptions: {
-            method: 'POST',
-            requiresPow: true,
             headers: {
                 'Content-Type': 'application/octet-stream',
                 'X-Fsus-Upload-Token': uploadToken
@@ -137,13 +122,10 @@ export function completeUpload(uploadId: string, uploadToken: string, sha256?: s
 export function abortUpload(uploadId: string, signal?: AbortSignal): Promise<UploadStatusViewModel>
 {
     return requestBinaryOnly<UploadStatusViewModel>({
-        binaryUrl: `/api/binary/upload/${uploadId}`,
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_delete_upload_uploadId', params: { uploadId } },
         frameType: FrameType.UploadStatus,
         signal,
         requestOptions: {
-            method: 'DELETE',
-            requiresPow: true
         }
     });
 }

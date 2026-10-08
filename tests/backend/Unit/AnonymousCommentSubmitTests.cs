@@ -1470,7 +1470,7 @@ public sealed class AnonymousCommentSubmitTests(
         }
 
         public Task<bool> CreateCommentAsync(int userId, CommentDto dto) => throw new NotSupportedException();
-        public Task<bool> CreateAttributablePublicCommentAsync(AccountPrincipalContext account, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null) => throw new NotSupportedException();
+        public Task<bool> CreateAttributablePublicCommentAsync(AccountPrincipalContext account, CommentCreateRequestCoreModel request, RegionModerationDecision? regionDecision = null) => throw new NotSupportedException();
         public Task<CursorResponse<CommentThreadItemDto>> GetCommentThreadsByCursorAsync(int articleId, CursorPageRequest<long> request, int previewLimit = 3, string viewerRegion = "GLOBAL") => throw new NotSupportedException();
         public Task<CursorResponse<CommentReplyItemDto>> GetThreadRepliesByCursorAsync(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion = "GLOBAL") => throw new NotSupportedException();
         public Task<bool> DeleteCommentAsAccountAsync(long id, int accountId, string reason = "违反社区管理条例") => throw new NotSupportedException();
@@ -1554,7 +1554,7 @@ public sealed class AnonymousCommentSubmitTests(
         }
     }
 
-    private sealed class FixedZkAnonymousProofService(ZkProdPolicySnapshot policy) : IZkAnonymousProofService
+    private sealed class FixedZkAnonymousProofService(ZkCommentPolicySnapshot policy) : IZkAnonymousProofService
     {
         public AnonymousCommentPolicySnapshot CurrentCommentPolicy
         {
@@ -1566,10 +1566,10 @@ public sealed class AnonymousCommentSubmitTests(
 
         public ZkAnonymousPolicySnapshot CurrentZkPolicy { get; } = new(true, true, "comment.create", []);
 
-        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = policy;
+        public ZkCommentPolicySnapshot CurrentZkCommentPolicy { get; } = policy;
 
         public static FixedZkAnonymousProofService Available()
-            => new(new ZkProdPolicySnapshot(
+            => new(new ZkCommentPolicySnapshot(
                 Enabled: true,
                 NativeVerifierConfigured: true,
                 TrustedSetupVerified: true,
@@ -1578,7 +1578,7 @@ public sealed class AnonymousCommentSubmitTests(
                 UnavailableReason: string.Empty));
 
         public static FixedZkAnonymousProofService Unavailable(string reason)
-            => new(new ZkProdPolicySnapshot(
+            => new(new ZkCommentPolicySnapshot(
                 Enabled: true,
                 NativeVerifierConfigured: false,
                 TrustedSetupVerified: true,

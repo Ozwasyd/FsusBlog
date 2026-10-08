@@ -94,7 +94,7 @@ export async function runMigrationQualification(options, dependencies = {}) {
       releaseId: manifest.releaseId,
       commitSha: manifest.commitSha,
       imageDigest: manifest.imageDigest,
-      schemaCompatibility: manifest.schemaCompatibility,
+      currentSchema: manifest.currentSchema,
       binding: immutableInputs.releaseManifest
     },
     rolloutState: { start: immutableInputs.rolloutState, end: finalInputs.rolloutState },

@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -85,8 +86,6 @@ describe('system API', () => {
       binaryRoute: { operationId: 'binary_put_system_seo' },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
-        method: 'PUT',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     }))
@@ -130,8 +129,6 @@ describe('system API', () => {
       binaryRoute: { operationId: 'binary_put_system_compliance' },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
-        method: 'PUT',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     }))
@@ -159,8 +156,6 @@ describe('system API', () => {
       binaryRoute: { operationId: 'binary_put_system_page' },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
-        method: 'PUT',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     }))
@@ -172,8 +167,6 @@ describe('system API', () => {
       binaryRoute: { operationId: 'binary_post_system_page_refresh_slug', params: { slug: 'privacy' } },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true
       })
     }))
   })
@@ -184,11 +177,14 @@ describe('system API', () => {
       binaryRoute: { operationId: 'binary_delete_file_delete' },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
-        method: 'DELETE',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     }))
   })
 
 })
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
+}

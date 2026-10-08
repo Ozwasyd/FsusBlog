@@ -62,22 +62,18 @@ public sealed class ZkProofVerifierTests
         var service = new ZkAnonymousProofService(
             BuildConfiguration(new Dictionary<string, string?>
             {
-                ["AnonymousIdentity:ZkProd:Enabled"] = "true",
-                ["AnonymousIdentity:ZkProd:RequireNativeVerifier"] = "true",
-                ["AnonymousIdentity:ZkProd:RequireCredential"] = "true",
-                ["AnonymousIdentity:ZkProd:RequireTrustedSetupVerified"] = "true",
-                ["AnonymousIdentity:ZkProd:VerifierBackend"] = "native_groth16",
-                ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
-                ["AnonymousIdentity:ZkProd:CredentialReady"] = "true",
-                ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = s_verifyingKeyHash
+                ["AnonymousIdentity:ZkCommentPolicy:Enabled"] = "true",
+                ["AnonymousIdentity:ZkVerifier:Backend"] = ZkVerifierOptions.NativeGroth16Backend,
+                ["AnonymousIdentity:ZkCommentPolicy:RequireCredential"] = "true",
+                ["AnonymousIdentity:ZkCommentPolicy:RequireTrustedSetupVerified"] = "true",
             }),
             new DisabledZkProofVerifier());
 
-        ZkProdPolicySnapshot policy = service.CurrentZkProdPolicy;
+        ZkCommentPolicySnapshot policy = service.CurrentZkCommentPolicy;
 
         Assert.True(policy.Enabled);
         Assert.False(policy.NativeVerifierConfigured);
-        Assert.True(policy.TrustedSetupVerified);
+        Assert.False(policy.TrustedSetupVerified);
         Assert.True(policy.CredentialRequired);
         Assert.False(policy.CredentialRootReady);
         Assert.Equal("native_verifier_unavailable", policy.UnavailableReason);
@@ -573,7 +569,7 @@ public sealed class ZkProofVerifierTests
             "comment.create",
             []);
 
-        public ZkProdPolicySnapshot CurrentZkProdPolicy
+        public ZkCommentPolicySnapshot CurrentZkCommentPolicy
         {
             get;
         } = new(

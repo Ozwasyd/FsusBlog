@@ -145,7 +145,7 @@ import {
     getRiskControlOptions,
     getSecurityChallengeMetrics,
     type SecurityChallengeMetricsResponse,
-    type SecurityRiskPolicySnapshotV2
+    type SecurityRiskPolicy
 } from '@/api/security';
 import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue';
 import { FsusUiSettingsSection } from '@/fsusui';
@@ -159,7 +159,7 @@ import { showErrorToast } from '@/utils/errorPresentation';
 
 const loading = shallowRef(false);
 const metricsState = shallowRef<SecurityChallengeMetricsResponse | null>(null);
-const policyState = shallowRef<SecurityRiskPolicySnapshotV2 | null>(null);
+const policyState = shallowRef<SecurityRiskPolicy | null>(null);
 
 const successRate = computed(() => metricsState.value?.successRate ?? 0);
 const failureRate = computed(() => metricsState.value?.failureRate ?? 0);

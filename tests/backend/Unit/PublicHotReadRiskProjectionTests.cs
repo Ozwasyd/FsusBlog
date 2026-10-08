@@ -77,7 +77,7 @@ public sealed class PublicHotReadRiskProjectionTests
         PublicHotReadRiskProjection nodeB = CreateProjection(clock);
         var authority = new LocalDurableProjectionAuthority();
         RiskControlContext context = CreateRiskContext("198.51.100.44");
-        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(SecuritySystemModes.Enforce);
+        SecurityRiskPolicy policy = CreatePolicy(SecuritySystemModes.Enforce);
         var decisionService = new RiskDecisionService();
 
         PublicHotReadRiskProjectionUpdate zero = CreateUpdate("198.51.100.44", 0, 1, "zero");
@@ -387,7 +387,7 @@ public sealed class PublicHotReadRiskProjectionTests
         string mode)
     {
         var provider = Substitute.For<ISecurityRiskPolicyProvider>();
-        provider.CurrentRiskPolicyV2.Returns(CreatePolicy(mode));
+        provider.CurrentRiskPolicy.Returns(CreatePolicy(mode));
         return new PublicReadSecurityGate(
             projection,
             Substitute.For<ISecurityRiskScoreReader>(),
@@ -400,7 +400,7 @@ public sealed class PublicHotReadRiskProjectionTests
             new AdaptivePowGovernor(Substitute.For<ICacheStringReader>()));
     }
 
-    private static SecurityRiskPolicySnapshotV2 CreatePolicy(string mode)
+    private static SecurityRiskPolicy CreatePolicy(string mode)
     {
         var action = new SecurityRiskActionPolicy(
             RiskActionNames.PublicRead,
@@ -409,9 +409,9 @@ public sealed class PublicHotReadRiskProjectionTests
             1,
             null,
             AnonymousWriteAllowed: true);
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "runtime",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            SecurityRiskPolicyFactory.DefaultPolicyVersion,
             s_now,
             mode,
             200,

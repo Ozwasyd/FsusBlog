@@ -1,12 +1,12 @@
 using System.Diagnostics;
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
-using FsusBlog.Migration;
+using FsusBlog.Contracts.Schema;
+using FsusBlog.Contracts.SchemaMigration;
 using FsusBlog.RuntimeRoleObservation;
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
 using FsusBlog.Server.Infrastructure.Operations;
@@ -107,7 +107,7 @@ internal static class RuntimeRoleObservationHost
             ObserveUnsupported("static-role-unknown", Configuration(FsusRuntimeModes.StaticRole, ["unknown"]))
         ];
         OwnershipObservation ownership = deploymentProbe.Ownership;
-        SchemaOverlapObservation schemaOverlap = ObserveSchemaOverlap();
+        CurrentSchemaContractObservation currentSchemaContract = ObserveCurrentSchemaContract();
         var deploymentAuthority = new DeploymentAuthorityObservation(
             deploymentProbe.Schema,
             deploymentProbe.AuthoritySchema,
@@ -119,13 +119,13 @@ internal static class RuntimeRoleObservationHost
             deploymentProbe.ObservationDigest);
         var unsigned = new
         {
-            Schema = "fsusblog.runtime-role-observation.v2",
+            Schema = "fsusblog.runtime-role-observation.v3",
             Modes = modes,
             StaticRoleCapabilities = capabilities,
             UnsupportedCombinations = unsupported,
             Ownership = ownership,
             DeploymentAuthority = deploymentAuthority,
-            SchemaOverlap = schemaOverlap
+            CurrentSchemaContract = currentSchemaContract
         };
         string canonical = JsonSerializer.Serialize(unsigned, new JsonSerializerOptions
         {
@@ -139,7 +139,7 @@ internal static class RuntimeRoleObservationHost
             unsupported,
             ownership,
             deploymentAuthority,
-            schemaOverlap,
+            currentSchemaContract,
             digest);
     }
 
@@ -791,303 +791,31 @@ internal static class RuntimeRoleObservationHost
             character is >= '0' and <= '9' or >= 'a' and <= 'f');
     }
 
-    private static SchemaOverlapObservation ObserveSchemaOverlap()
+    private static CurrentSchemaContractObservation ObserveCurrentSchemaContract()
     {
-        IReadOnlyList<ISchemaMigrationDescriptor> descriptors = new SchemaMigrationRegistry().GetDescriptors();
-        IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> metadataById =
-            new OnlineSchemaMigrationCatalog().GetMetadata();
-        string[] descriptorIds = descriptors.Select(static descriptor => descriptor.MigrationId)
-            .Order(StringComparer.Ordinal).ToArray();
-        string[] metadataIds = metadataById.Keys.Order(StringComparer.Ordinal).ToArray();
-        if (!descriptorIds.SequenceEqual(metadataIds, StringComparer.Ordinal))
-        {
-            throw new InvalidOperationException("runtime_role_schema_manifest_catalog_roster_mismatch");
-        }
-
-        OnlineSchemaMigrationMetadata expandMetadata = metadataById.Values
-            .Where(static metadata => metadata.Phase == OnlineSchemaMigrationPhase.Expand)
-            .OrderByDescending(static metadata => metadata.IntroducedAtCoordinate)
-            .First();
-        SchemaCompatibilityCoordinate coordinate = expandMetadata.IntroducedAtCoordinate;
-        ReleaseId targetReleaseId = CreateCatalogReleaseId(
-            coordinate,
-            descriptors.Single(descriptor => descriptor.MigrationId == expandMetadata.MigrationId).Checksum,
-            dayOffset: 2);
-        ReleaseId sourceReleaseId = CreateCatalogReleaseId(
-            coordinate,
-            descriptors.Single(descriptor => descriptor.MigrationId == expandMetadata.MigrationId).Checksum,
-            dayOffset: 1);
-        ReleaseId previousRollbackReleaseId = CreateCatalogReleaseId(
-            coordinate,
-            descriptors.Single(descriptor => descriptor.MigrationId == expandMetadata.MigrationId).Checksum);
-        DateTimeOffset observedAt = DateTimeOffset.ParseExact(
-            sourceReleaseId.Value[..14],
-            "yyyyMMddHHmmss",
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
-        var descriptorById = descriptors.ToDictionary(
-            static descriptor => descriptor.MigrationId,
-            StringComparer.Ordinal);
-        OnlineSchemaMigrationHistorySnapshot[] history = metadataById.Values
-            .OrderBy(static metadata => metadata.MigrationId, StringComparer.Ordinal)
-            .Select(metadata => new OnlineSchemaMigrationHistorySnapshot(
-                metadata.MigrationId,
-                descriptorById[metadata.MigrationId].Checksum,
-                observedAt,
-                sourceReleaseId.Value,
-                Succeeded: true))
-            .ToArray();
-        var database = new OnlineSchemaDatabaseSnapshot(
-            HistoryAvailable: true,
-            coordinate,
-            history,
-            new Dictionary<string, OnlineSchemaBackfillSnapshot>(StringComparer.Ordinal));
-        var window = new OnlineSchemaCompatibilityWindow(
-            SchemaCompatibilityCoordinate.Minimum,
-            SchemaCompatibilityCoordinate.Maximum);
-        string manifestDirectory = Path.Combine(
-            Path.GetTempPath(),
-            $"fsusblog-runtime-role-schema-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(manifestDirectory);
-        OnlineSchemaReleaseManifest source;
-        OnlineSchemaReleaseManifest target;
-        string sourceManifestDigest;
-        string targetManifestDigest;
-        string sameReleaseFailureCode;
-        try
-        {
-            string sourceManifestPath = WriteReleaseManifest(
-                manifestDirectory,
-                "source-release-manifest.json",
-                sourceReleaseId,
-                window);
-            string targetManifestPath = WriteReleaseManifest(
-                manifestDirectory,
-                "target-release-manifest.json",
-                targetReleaseId,
-                window);
-            sourceManifestDigest = DigestFile(sourceManifestPath);
-            targetManifestDigest = DigestFile(targetManifestPath);
-            source = LoadReleaseManifest(
-                sourceManifestPath,
-                sourceReleaseId,
-                previousRollbackReleaseId);
-            target = LoadReleaseManifest(
-                targetManifestPath,
-                targetReleaseId,
-                sourceReleaseId);
-            try
-            {
-                _ = LoadReleaseManifest(targetManifestPath, targetReleaseId, targetReleaseId);
-                sameReleaseFailureCode = "unexpectedly-accepted";
-            }
-            catch (InvalidOperationException error)
-            {
-                sameReleaseFailureCode = error.Message;
-            }
-        }
-        finally
-        {
-            Directory.Delete(manifestDirectory, recursive: true);
-        }
-        OnlineSchemaCompatibilityReport sourceReport = OnlineSchemaCompatibilityEvaluator.Evaluate(
-            source, database, metadataById);
-        OnlineSchemaCompatibilityReport targetReport = OnlineSchemaCompatibilityEvaluator.Evaluate(
-            target, database, metadataById);
-        var missingExpandDatabase = database with
-        {
-            History = history.Where(entry => entry.MigrationId != expandMetadata.MigrationId).ToArray()
-        };
-        OnlineSchemaCompatibilityReport missingExpand = OnlineSchemaCompatibilityEvaluator.Evaluate(
-            target, missingExpandDatabase, metadataById);
-
-        OnlineSchemaMigrationMetadata contractMetadata = metadataById.Values
-            .Where(static metadata => metadata.Phase == OnlineSchemaMigrationPhase.Contract
-                && metadata.Destructive
-                && metadata.RequiresExclusiveMode
-                && metadata.ContractAfterCoordinate is not null)
-            .OrderBy(static metadata => metadata.MigrationId, StringComparer.Ordinal)
-            .First();
-        ReleaseId contractCurrentRelease = CreateCatalogReleaseId(
-            contractMetadata.ContractAfterCoordinate!.Value,
-            descriptorById[contractMetadata.MigrationId].Checksum,
-            dayOffset: -1);
-        ReleaseId contractPreviousRelease = CreateCatalogReleaseId(
-            contractMetadata.ContractAfterCoordinate!.Value,
-            descriptorById[contractMetadata.MigrationId].Checksum,
-            dayOffset: -2);
-        DateTimeOffset contractNow = DateTimeOffset.ParseExact(
-            contractCurrentRelease.Value[..14],
-            "yyyyMMddHHmmss",
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal).AddHours(1);
-        var unsafeContract = new OnlineSchemaContractEvidence(
-            CurrentReleaseUsesOldSchema: true,
-            PreviousRollbackReleaseUsesOldSchema: true,
-            BackfillComplete: false,
-            BackfillVerified: false,
-            ObservationStartedAtUtc: null,
-            BackupRestoreVerifiedAtUtc: null,
-            SlotSwitchInProgress: true,
-            DestructiveChangeConfirmed: false,
-            RollbackManifestSealed: false,
-            OldWritesDisabled: false,
-            ExclusiveModeEnabled: false);
-        IReadOnlyList<string> contractCodes = OnlineSchemaContractGate.Evaluate(
-                contractMetadata,
-                unsafeContract,
-                contractCurrentRelease,
-                contractPreviousRelease,
-                contractNow,
-                TimeSpan.FromHours(24))
-            .Select(static issue => issue.Code)
-            .Order(StringComparer.Ordinal)
-            .ToArray();
-        string[] missingCodes = missingExpand.Issues.Select(static issue => issue.Code)
-            .Order(StringComparer.Ordinal).ToArray();
-        string[] expectedMissingCodes = ["schema_expand_pending"];
-        string[] expectedContractCodes =
-        [
-            "schema_contract_backfill_incomplete",
-            "schema_contract_backfill_unverified",
-            "schema_contract_backup_restore_stale",
-            "schema_contract_confirmation_missing",
-            "schema_contract_current_release_dependency",
-            "schema_contract_exclusive_mode_missing",
-            "schema_contract_observation_window",
-            "schema_contract_old_writes_enabled",
-            "schema_contract_previous_release_dependency",
-            "schema_contract_release_window_open",
-            "schema_contract_rollback_manifest_open",
-            "schema_contract_slot_switch_in_progress"
-        ];
-        bool eligible = sourceReport.Ready
-            && targetReport.Ready
-            && source.ReleaseId != target.ReleaseId
-            && target.PreviousRollbackReleaseId == source.ReleaseId
-            && source.PreviousRollbackReleaseId == previousRollbackReleaseId
-            && sameReleaseFailureCode == "schema_previous_rollback_release_not_distinct"
-            && missingCodes.SequenceEqual(expectedMissingCodes, StringComparer.Ordinal)
-            && contractCodes.SequenceEqual(expectedContractCodes, StringComparer.Ordinal);
-        string manifestDigest = DigestJson(descriptors.OrderBy(static descriptor => descriptor.MigrationId)
-            .Select(static descriptor => new
-            {
-                descriptor.MigrationId,
-                descriptor.Description,
-                descriptor.Checksum,
-                AcceptedChecksums = descriptor.AcceptedChecksums.Order(StringComparer.Ordinal),
-                Phase = descriptor.Phase.ToString(),
-                descriptor.Transactional,
-                Steps = descriptor.Steps.Select(static step => new
-                {
-                    Type = step.GetType().FullName,
-                    Payload = JsonSerializer.Serialize(step, step.GetType())
-                })
-            }));
-        string catalogDigest = DigestJson(metadataById.OrderBy(static pair => pair.Key)
-            .Select(static pair => new
-            {
-                pair.Key,
-                Phase = pair.Value.Phase.ToString(),
-                Minimum = pair.Value.Compatibility.MinimumCoordinate.Value,
-                Maximum = pair.Value.Compatibility.MaximumCoordinate.Value,
-                pair.Value.Destructive,
-                pair.Value.RequiresExclusiveMode,
-                RollbackMode = pair.Value.RollbackMode.ToString(),
-                EstimatedLockRisk = pair.Value.EstimatedLockRisk.ToString(),
-                pair.Value.BatchSize,
-                pair.Value.ResumeTokenName,
-                IntroducedAtCoordinate = pair.Value.IntroducedAtCoordinate.Value,
-                ContractAfterCoordinate = pair.Value.ContractAfterCoordinate?.Value,
-                MinimumRetentionWindowTicks = pair.Value.MinimumRetentionWindow.Ticks,
-                Validators = pair.Value.Validators.ToArray(),
-                pair.Value.LegacyBootstrapOnly
-            }));
-        string databaseObservationDigest = DigestJson(new
-        {
-            database.HistoryAvailable,
-            SchemaCompatibilityCoordinate = database.SchemaCompatibilityCoordinate?.Value,
-            History = database.History.OrderBy(static entry => entry.MigrationId, StringComparer.Ordinal),
-            Backfills = database.Backfills.OrderBy(static pair => pair.Key)
-        });
-        return new SchemaOverlapObservation(
-            "fsusblog.online-schema-overlap-observation.v1",
-            "current-manifest-catalog-production-provider-model",
-            descriptors.Count,
-            metadataById.Count,
-            manifestDigest,
-            catalogDigest,
-            databaseObservationDigest,
-            source.ReleaseId.Value,
-            target.ReleaseId.Value,
-            source.PreviousRollbackReleaseId.Value,
-            sourceManifestDigest,
-            targetManifestDigest,
-            sameReleaseFailureCode,
-            sourceReport.Status,
-            targetReport.Status,
-            missingCodes,
-            contractCodes,
-            eligible ? "observed-in-current-schema-manifest-probe" : "conflict-unknown",
-            eligible);
-    }
-
-    private static string DigestJson<T>(T value)
-    {
-        string json = JsonSerializer.Serialize(value, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
-        return "sha256:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
+        // Original production owners only. No connection, history, release window,
+        // receipt issuance or database readiness is observed during static admission.
+        CurrentSchemaBootstrapInput input = CurrentSchemaOwnedProjectionExporter
+            .ExportAsync(CancellationToken.None).GetAwaiter().GetResult();
+        CurrentSchemaIdentity target = CurrentSchemaOwnedTargetProjection.Observe(input);
+        return new CurrentSchemaContractObservation(
+            "fsusblog.runtime-role-current-schema-contract.v1",
+            "compiled-contract",
+            "original-production-current-model-and-receipt-validation-contract",
+            CurrentSchemaReceiptCodec.Format,
+            target,
+            input.Producer,
+            input.EntityProjection.Schema.Tables.Count,
+            input.RequiredRecipes.Count,
+            CurrentSchemaOwnedTargetProjection.ComputeInputDigest(input),
+            typeof(CurrentSchemaReceiptAdmission).FullName + "." + nameof(CurrentSchemaReceiptAdmission.VerifyAsync),
+            "post-static-admission",
+            ActualDatabaseObserved: false,
+            NativeClaimEligible: false);
     }
 
     private static string DigestFile(string path)
         => "sha256:" + Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
-
-    private static string WriteReleaseManifest(
-        string directory,
-        string fileName,
-        ReleaseId releaseId,
-        OnlineSchemaCompatibilityWindow compatibility)
-    {
-        string path = Path.Combine(directory, fileName);
-        File.WriteAllText(path, JsonSerializer.Serialize(new
-        {
-            Schema = "fsusblog.release-manifest.v2",
-            ReleaseId = releaseId.Value,
-            SchemaCompatibility = new
-            {
-                MinimumCoordinate = compatibility.MinimumCoordinate.Value,
-                MaximumCoordinate = compatibility.MaximumCoordinate.Value
-            }
-        }, s_json));
-        return path;
-    }
-
-    private static OnlineSchemaReleaseManifest LoadReleaseManifest(
-        string path,
-        ReleaseId expected,
-        ReleaseId previous)
-    {
-        IConfiguration configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
-            {
-                ["FSUSBLOG_RELEASE_MANIFEST_PATH"] = path,
-                ["FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE"] = previous.Value
-            })
-            .Build();
-        return new OnlineSchemaReleaseManifestProvider(configuration).Load(expected.Value);
-    }
-
-    private static ReleaseId CreateCatalogReleaseId(
-        SchemaCompatibilityCoordinate coordinate,
-        string checksum,
-        int dayOffset = 0)
-    {
-        string date = coordinate.Value[..8];
-        DateOnly releaseDate = DateOnly.ParseExact(date, "yyyyMMdd", CultureInfo.InvariantCulture).AddDays(dayOffset);
-        return ReleaseId.Parse($"{releaseDate:yyyyMMdd}000000-{checksum[..12].ToLowerInvariant()}");
-    }
 
     private static string CanonicalObjectWithout(JsonElement value, string omittedProperty)
     {

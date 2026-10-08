@@ -328,7 +328,7 @@ function validateAuxiliaryEvidence(name, value, state, errors) {
     if (Array.isArray(value.errors) && value.errors.length > 0) {errors.push(`${name}: errors must be empty`)};
     if (name === 'releaseManifest')
 {
-        if (value.schema !== 'fsusblog.release-manifest.v2'
+        if (value.schema !== 'fsusblog.release-manifest.v3'
       || value.releaseId !== state.target.releaseId
       || value.imageDigest !== state.target.imageDigest)
 {

@@ -202,7 +202,7 @@ public enum AedsFrameType : ushort
     IdentityAccountSnapshot = 163,
     CommentPolicySnapshot = 164,
     CommentPolicyUpdateRequest = 165,
-    CommentCreateV2Request = 166,
+    CommentCreateRequest = 166,
     CommentAuthorView = 167,
     AnonymousGovernanceActionRequest = 168,
     AnonymousGovernanceActionResponse = 169,

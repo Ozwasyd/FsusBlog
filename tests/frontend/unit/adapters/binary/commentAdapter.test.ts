@@ -1,3 +1,4 @@
+import { COMMENT_CREATE_POD_BYTES, COMMENT_CREATE_OFFSETS } from '@/generated/commentCreateWire'
 import { describe, it, expect } from 'vitest'
 import {
   mapAnonymousCommentTicketResponseFromPayload,
@@ -26,10 +27,9 @@ import {
   USER_COMMENT_POD_SIZE
 } from '@/adapters/binary/types'
 import {
-  CommentPolicyContractVersion,
   CommentPolicyReadiness
 } from '@/contracts/commentPolicy'
-import { encodeCommentCreateV2Request as encodeSupportCommentCreateV2Request } from '../../../support/aeds-envelope.mjs'
+import { encodeCommentCreateRequest as encodeSupportCommentCreateRequest } from '../../../support/aeds-envelope.mjs'
 
 function writeInt32(b: Uint8Array, off: number, v: number): void {
   b[off] = v & 0xff; b[off + 1] = (v >>> 8) & 0xff
@@ -303,23 +303,21 @@ describe('mapCommentCursorFromPodPayload', () => {
 })
 
 describe('comment create binary request compatibility slots', () => {
-  it('keeps replyToUserId out of the support encoder POD payload', () => {
-    const payload = encodeSupportCommentCreateV2Request({
+  it('uses the compact current support encoder with a sole reply comment target', () => {
+    const payload = encodeSupportCommentCreateRequest({
       articleId: 9,
       content: 'reply through comment id',
       parentId: '100',
       rootId: '90',
       replyToCommentId: '80',
-      replyToUserId: 7,
       authorMode: 'zk_anonymous',
       publicSendExplicitlySelected: false
     })
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
 
     expect(view.getInt32(0, true)).toBe(9)
-    expect(view.getInt32(4, true)).toBe(0)
-    expect(payload[11]).toBe(0)
-    expect(view.getBigInt64(32, true)).toBe(80n)
+    expect(COMMENT_CREATE_POD_BYTES).toBeLessThan(80)
+    expect(view.getBigInt64(COMMENT_CREATE_OFFSETS.replyToCommentId, true)).toBe(80n)
   })
 
 })
@@ -353,7 +351,6 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     ))
 
     expect(result).toEqual({
-      contractVersion: CommentPolicyContractVersion.Current,
       anonymousCommentsEnabled: true,
       publicCommentsEnabled: true,
       zkAnonymousEnabled: true,
@@ -372,7 +369,46 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     })
   })
 
-  it('decodes legacy padded policy snapshot payloads from running dev backends', () => {
+  it.each(['dev_verifier_disallowed', 'legacy_fallback_disallowed', 'credential_unready'])('rejects retired product readiness reason %s on the wire', reason => {
+    const pod = new Uint8Array(COMMENT_POLICY_SNAPSHOT_POD_SIZE)
+    pod.fill(1, 0, 9)
+    pod[3] = 4
+    writeInt32(pod, 9, 2500)
+    writeInt32(pod, 13, 10000)
+    const language = textBytes('en')
+    const hash = textBytes('9'.repeat(64))
+    const unavailable = textBytes(reason)
+    writeSliceRef(pod, 17, 0, language.length)
+    writeSliceRef(pod, 25, language.length, hash.length)
+    writeSliceRef(pod, 33, language.length + hash.length, unavailable.length)
+    expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(pod, blobParts(language, hash, unavailable)))).toThrow('comment_policy_snapshot_fields_invalid')
+  })
+
+  it.each(['zero-chars', 'hard-chars', 'zero-bytes', 'hard-bytes', 'padded-offsets', 'missing-hash', 'missing-language', 'missing-reason-ref', 'trailing-blob', 'invalid-utf8'])('rejects a current policy with %s', defect => {
+    const pod = new Uint8Array(COMMENT_POLICY_SNAPSHOT_POD_SIZE)
+    pod.fill(1, 0, 9)
+    pod[3] = 4
+    writeInt32(pod, 9, 2500)
+    writeInt32(pod, 13, 10000)
+    const language = textBytes('en')
+    const hash = textBytes('9'.repeat(64))
+    writeSliceRef(pod, 17, 0, language.length)
+    writeSliceRef(pod, 25, language.length, hash.length)
+    writeSliceRef(pod, 33, language.length + hash.length, 0)
+    if (defect === 'zero-chars') writeInt32(pod, 9, 0)
+    if (defect === 'hard-chars') writeInt32(pod, 9, 3001)
+    if (defect === 'zero-bytes') writeInt32(pod, 13, 0)
+    if (defect === 'hard-bytes') writeInt32(pod, 13, 12289)
+    if (defect === 'padded-offsets') { writeInt32(pod, 9, 0); writeInt32(pod, 12, 2500); writeInt32(pod, 16, 10000) }
+    if (defect === 'missing-hash') writeSliceRef(pod, 25, language.length, 0)
+    if (defect === 'missing-language') writeSliceRef(pod, 17, 0, 0)
+    if (defect === 'missing-reason-ref') writeSliceRef(pod, 33, 0, 0)
+    if (defect === 'invalid-utf8') language[0] = 0xff
+    const blob = defect === 'trailing-blob' ? blobParts(language, hash, new Uint8Array([0])) : blobParts(language, hash)
+    expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(pod, blob))).toThrow()
+  })
+
+  it('rejects structurally valid retired 48-byte policy snapshots', () => {
     const pod = new Uint8Array(48)
     pod[0] = 1
     pod[1] = 1
@@ -391,21 +427,8 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     writeSliceRef(pod, 28, languages.byteLength, snapshotHash.byteLength)
     writeSliceRef(pod, 36, languages.byteLength + snapshotHash.byteLength, 0)
 
-    const result = mapCommentPolicySnapshotFromPayload(buildPayload(
-      pod,
-      blobParts(languages, snapshotHash)
-    ))
-
-    expect(result.commentMaxChars).toBe(2500)
-    expect(result.commentMaxUtf8Bytes).toBe(10000)
-    expect(result.supportedDisplayLanguages).toEqual(['zh-CN', 'en'])
-    expect(result.snapshotHash).toBe('9'.repeat(64))
-    expect(result.defaultAuthorMode).toBe('zk_anonymous')
-    expect(result.contractVersion).toBe(CommentPolicyContractVersion.LegacyPadded)
-    expect(result.zkProdReadiness).toBe(CommentPolicyReadiness.ContractInvalid)
-    expect(result.zkProdUnavailableReason).toBe('contract_invalid')
+    expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(pod, blobParts(languages, snapshotHash)))).toThrow()
   })
-
   it('rejects retired policy snapshots without configurable comment limits', () => {
     const pod = new Uint8Array(33)
     pod[0] = 1
@@ -426,10 +449,10 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(
       pod,
       blobParts(languages, snapshotHash)
-    ))).toThrow('comment_policy_snapshot_author_mode_invalid')
+    ))).toThrow()
   })
 
-  it('maps a structurally valid no-limits legacy snapshot to unavailable', () => {
+  it('rejects structurally valid retired 33-byte policy snapshots', () => {
     const pod = new Uint8Array(33)
     pod[0] = 1
     pod[1] = 1
@@ -446,17 +469,8 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     writeSliceRef(pod, 17, languages.byteLength, snapshotHash.byteLength)
     writeSliceRef(pod, 25, languages.byteLength + snapshotHash.byteLength, 0)
 
-    const result = mapCommentPolicySnapshotFromPayload(buildPayload(
-      pod,
-      blobParts(languages, snapshotHash)
-    ))
-
-    expect(result.contractVersion).toBe(CommentPolicyContractVersion.LegacyWithoutLimits)
-    expect(result.commentMaxChars).toBe(1000)
-    expect(result.commentMaxUtf8Bytes).toBe(4096)
-    expect(result.zkProdReadiness).toBe(CommentPolicyReadiness.ContractInvalid)
+    expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(pod, blobParts(languages, snapshotHash)))).toThrow()
   })
-
   it('rejects invalid policy flag bytes', () => {
     const pod = new Uint8Array(COMMENT_POLICY_SNAPSHOT_POD_SIZE)
     pod[0] = 2

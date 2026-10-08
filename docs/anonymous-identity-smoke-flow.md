@@ -43,7 +43,7 @@ Create a Recovery Key and verify that the plaintext is shown once. Use it throug
 
 ### anonymous default comment submission
 
-Submit a comment without selecting public sending. Confirm the request uses `CommentCreateV2Request`, `authorMode=anonymous`, `publicSendExplicitlySelected=false`, and the stored comment has nullable `user_id` plus a server-generated anonymous author view.
+Submit a comment without selecting public sending. Confirm the request uses `CommentCreateRequest`, `authorMode=anonymous`, `publicSendExplicitlySelected=false`, and the stored comment has nullable `user_id` plus a server-generated anonymous author view.
 
 Verify localized display names for both supported languages:
 
@@ -76,7 +76,7 @@ npm --prefix src/frontend run check:privacy-zk-prod-release
 
 The gate is backed by `security/matrices/privacy-zk-comment.yml` and covers anonymous transport without Cookie or Authorization, strong-anonymous request rejection when credentials are present, fail-closed ZK proof/root/verifier handling, one-shot ticket consumption, scoped nullifier behavior, provider and log redaction, admin non-reversibility, explicit public opt-in, frontend fake-timer/worker/Abort coverage, and deterministic high-concurrency pressure cases.
 
-`check:privacy-zk-prod-smoke` writes `.tmp/security/privacy-zk-prod-smoke.json`. When `AnonymousIdentity:ZkProd:Enabled=false` or the browser prover artifact is not present, the smoke result must be `expected_unavailable` with a trace id and business state. When real Groth16 / circuit-native artifacts are available, pass sanitized real evidence with `--real-evidence` and `--require-real`; the evidence must prove native verifier, wasm prover, circuit-native credential, ticket issue, anonymous submit pending state, omitted identity headers, and sensitive payload redaction. Real evidence must include local `artifacts.*.path` and `artifacts.*.sha256` entries for `r1cs`, `provingKey`, `verifyingKey`, `nativeVerifier`, `wasmProver`, `proofFixture`, `publicInputs`, and `tamperCases`; the smoke and release gates recalculate SHA-256 from those files, and the first five hashes must match `artifactHashes`. The smoke summary must never contain proof, ticket, credential secret, or nullifier secret material.
+`check:privacy-zk-prod-smoke` writes `.tmp/security/privacy-zk-prod-smoke.json`. When `AnonymousIdentity:ZkCommentPolicy:Enabled=false` or the browser prover artifact is not present, the smoke result must be `expected_unavailable` with a trace id and business state. When real Groth16 / circuit-native artifacts are available, pass sanitized real evidence with `--real-evidence` and `--require-real`; the evidence must prove native verifier, wasm prover, circuit-native credential, ticket issue, anonymous submit pending state, omitted identity headers, and sensitive payload redaction. Real evidence must include local `artifacts.*.path` and `artifacts.*.sha256` entries for `r1cs`, `provingKey`, `verifyingKey`, `nativeVerifier`, `wasmProver`, `proofFixture`, `publicInputs`, and `tamperCases`; the smoke and release gates recalculate SHA-256 from those files, and the first five hashes must match `artifactHashes`. The smoke summary must never contain proof, ticket, credential secret, or nullifier secret material.
 
 ## Required Evidence
 

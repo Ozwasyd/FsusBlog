@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute, fsusBinaryRouteDescriptors } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
@@ -214,9 +215,9 @@ describe('authoring API binary transport', () => {
     expect(saved.rights).toMatchObject(rights)
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/drafts')
+    expect(routeUrl(call)).toBe('/api/binary/author/drafts')
     expect(call?.frameType).toBe(FrameType.AuthorDraftResponse)
-    expect(call?.requestOptions?.method).toBe('POST')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('POST')
     expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-test')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.AuthorDraftSaveRequest, {
       title: 'Draft',
@@ -239,9 +240,9 @@ describe('authoring API binary transport', () => {
     await expect(discardServerDraft('fsus:article-draft:create', 7)).resolves.toBe(true)
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/drafts/fsus%3Aarticle-draft%3Acreate?expectedServerRevision=7')
+    expect(routeUrl(call)).toBe('/api/binary/author/drafts/fsus%3Aarticle-draft%3Acreate?expectedServerRevision=7')
     expect(call?.frameType).toBe(FrameType.AuthorDraftDiscardResponse)
-    expect(call?.requestOptions?.method).toBe('DELETE')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('DELETE')
     expect(call?.requestOptions?.body).toBeUndefined()
   })
 
@@ -268,9 +269,9 @@ describe('authoring API binary transport', () => {
     })
 
     const call = binaryMock.mock.calls.at(-1)?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/responsibility')
+    expect(routeUrl(call)).toBe('/api/binary/author/articles/42/revisions/9001/responsibility')
     expect(call?.frameType).toBe(FrameType.ArticleResponsibilityResponse)
-    expect(call?.requestOptions?.method).toBe('PUT')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('PUT')
   })
 
   it('reads append-only responsibility history for the exact article revision', async () => {
@@ -279,9 +280,9 @@ describe('authoring API binary transport', () => {
     await getArticleResponsibilityHistory(42, '9001')
 
     const call = binaryMock.mock.calls.at(-1)?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/responsibility')
+    expect(routeUrl(call)).toBe('/api/binary/author/articles/42/revisions/9001/responsibility')
     expect(call?.frameType).toBe(FrameType.ArticleResponsibilityHistory)
-    expect(call?.requestOptions?.credentials).toBe('include')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].credentialPolicy).toBe('include')
     expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-test')
   })
 
@@ -308,8 +309,8 @@ describe('authoring API binary transport', () => {
     }, { mfaProofToken: 'proof' })).resolves.toEqual(response)
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/rollback')
-    expect(call?.requestOptions?.method).toBe('POST')
+    expect(routeUrl(call)).toBe('/api/binary/author/articles/42/revisions/9001/rollback')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('POST')
     expect(call?.frameType).toBe(FrameType.MutationId)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.ArticleRevisionRollbackRequest, {
@@ -325,7 +326,7 @@ describe('authoring API binary transport', () => {
     await expect(getServerDraft('missing')).resolves.toBeNull()
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/drafts/missing')
+    expect(routeUrl(call)).toBe('/api/binary/author/drafts/missing')
     expect(call?.frameType).toBe(FrameType.AuthorDraftResponse)
     expect(call?.requestOptions?.body).toBeUndefined()
   })
@@ -336,7 +337,7 @@ describe('authoring API binary transport', () => {
     await applyIntegrityFix({ codes: ['orphan-asset'], confirmPhrase: 'APPLY SAFE FIX' }, { mfaProofToken: 'proof-1' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/integrity/fix')
+    expect(routeUrl(call)).toBe('/api/binary/author/integrity/fix')
     expect(call?.frameType).toBe(FrameType.IntegrityFixResponse)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-1')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.IntegrityFixRequest, {
@@ -353,7 +354,7 @@ describe('authoring API binary transport', () => {
     })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/moderation/effective-policy/preview')
+    expect(routeUrl(call)).toBe('/api/binary/author/moderation/effective-policy/preview')
     expect(call?.frameType).toBe(FrameType.ModerationEffectivePolicy)
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.ModerationEffectivePolicyPreviewRequest, {
       regionCode: 'CN-MAINLAND'
@@ -385,15 +386,15 @@ describe('authoring API binary transport', () => {
     const reload = binaryMock.mock.calls[0]?.[0]
     const rollback = binaryMock.mock.calls[1]?.[0]
     expect(reload).toMatchObject({
-      binaryUrl: '/api/binary/author/moderation/dictionaries/reload',
+      binaryRoute: { operationId: 'binary_post_author_moderation_dictionaries_reload' },
       frameType: FrameType.ModerationDictionaryReloadResponse,
-      requestOptions: { method: 'POST' }
+      requestOptions: { }
     })
     expect((reload?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-reload')
     expect(rollback).toMatchObject({
-      binaryUrl: '/api/binary/author/moderation/dictionaries/rollback',
+      binaryRoute: { operationId: 'binary_post_author_moderation_dictionaries_rollback' },
       frameType: FrameType.ModerationDictionarySnapshot,
-      requestOptions: { method: 'POST' }
+      requestOptions: { }
     })
     expect((rollback?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-rollback')
   })
@@ -415,14 +416,14 @@ describe('authoring API binary transport', () => {
 
     const globalState = binaryMock.mock.calls[0]?.[0]
     const regionState = binaryMock.mock.calls[1]?.[0]
-    expect(globalState?.binaryUrl).toBe('/api/binary/author/moderation/runtime/global-state')
+    expect(routeUrl(globalState)).toBe('/api/binary/author/moderation/runtime/global-state')
     expect(globalState?.frameType).toBe(FrameType.ModerationRuntimeStatus)
     expect((globalState?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-global')
     expectAedsJsonBody(globalState?.requestOptions?.body, FrameType.ModerationRuntimeGlobalStateRequest, {
       state: 'disabled_to_pending',
       reason: 'provider incident'
     })
-    expect(regionState?.binaryUrl).toBe('/api/binary/author/moderation/runtime/region-state')
+    expect(routeUrl(regionState)).toBe('/api/binary/author/moderation/runtime/region-state')
     expect(regionState?.frameType).toBe(FrameType.ModerationRuntimeStatus)
     expect((regionState?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-region')
     expectAedsJsonBody(regionState?.requestOptions?.body, FrameType.ModerationRuntimeRegionStateRequest, {
@@ -439,7 +440,7 @@ describe('authoring API binary transport', () => {
       .resolves.toBe(true)
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/comments/42/moderation')
+    expect(routeUrl(call)).toBe('/api/binary/author/comments/42/moderation')
     expect(call?.frameType).toBe(FrameType.CommentModerationResult)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-2')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.CommentModerationRequest, {
@@ -457,7 +458,7 @@ describe('authoring API binary transport', () => {
     }, { mfaProofToken: 'proof-nullifier' })).resolves.toEqual({ applied: true })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/comments/moderation/nullifiers/block')
+    expect(routeUrl(call)).toBe('/api/binary/author/comments/moderation/nullifiers/block')
     expect(call?.frameType).toBe(FrameType.AnonymousGovernanceActionResponse)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-nullifier')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.AnonymousGovernanceActionRequest, {
@@ -475,7 +476,7 @@ describe('authoring API binary transport', () => {
     }, { mfaProofToken: 'proof-credential' })).resolves.toEqual({ applied: true })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/comments/moderation/anonymous-credentials/88001/revoke')
+    expect(routeUrl(call)).toBe('/api/binary/author/comments/moderation/anonymous-credentials/88001/revoke')
     expect(call?.frameType).toBe(FrameType.AnonymousGovernanceActionResponse)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-credential')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.AnonymousGovernanceActionRequest, {
@@ -490,13 +491,11 @@ describe('authoring API binary transport', () => {
     await getPlugin('fsusblog.plugin.guard')
 
     expect(binaryMock.mock.calls[0]?.[0]).toMatchObject({
-      binaryUrl: '/api/binary/author/plugins',
-      privateScope: 'admin',
+      binaryRoute: { operationId: 'binary_get_author_plugins' },
       frameType: FrameType.PluginAdminSnapshot
     })
     expect(binaryMock.mock.calls[1]?.[0]).toMatchObject({
-      binaryUrl: '/api/binary/author/plugins/fsusblog.plugin.guard',
-      privateScope: 'admin',
+      binaryRoute: { operationId: 'binary_get_author_plugins_pluginId', params: { pluginId: "fsusblog.plugin.guard" } },
       frameType: FrameType.PluginAdminSnapshot
     })
   })
@@ -512,7 +511,7 @@ describe('authoring API binary transport', () => {
     }, { mfaProofToken: 'proof-plugin' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/plugins/fsusblog.plugin.guard/actions')
+    expect(routeUrl(call)).toBe('/api/binary/author/plugins/fsusblog.plugin.guard/actions')
     expect(call?.frameType).toBe(FrameType.PluginAdminSnapshot)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-plugin')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.PluginAdminMutationRequest, {
@@ -530,7 +529,7 @@ describe('authoring API binary transport', () => {
     await installPlugin(file, { mfaProofToken: 'proof-install' })
 
     const call = binaryMock.mock.calls[0]?.[0]
-    expect(call?.binaryUrl).toBe('/api/binary/author/plugins/install')
+    expect(routeUrl(call)).toBe('/api/binary/author/plugins/install')
     expect(call?.frameType).toBe(FrameType.PluginAdminSnapshot)
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-install')
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Plugin-Confirm')).toBe('install')
@@ -550,4 +549,9 @@ function expectAedsJsonBody(body: BodyInit | null | undefined, frameType: FrameT
   const payloadLength = view.getUint32(10, true)
   const payload = JSON.parse(decoder.decode(bytes.slice(16, 16 + payloadLength)))
   expect(payload).toMatchObject(expected)
+}
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
 }

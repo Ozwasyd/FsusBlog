@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute, fsusBinaryRouteDescriptors } from '@/generated/fsusBinaryRoutes';
 import { readFixedUtf8, readInt32, readInt64Number } from '@/codecs/binary/reader';
 import { usePow } from '@/composables/usePow';
 import type { BinaryRequestOptions } from '@/contracts/binaryTransport';
@@ -87,8 +88,9 @@ async function buildBinaryPowHeadersFresh(fp: string, signal?: AbortSignal): Pro
     throwIfAborted(signal);
 
     const { calculate } = usePow();
-    const challengeResponse = await fetch(resolveBinaryTransportUrl('/api/binary/auth/pow-challenge?_t=' + Date.now()), {
-        credentials: 'include',
+    const challengeResponse = await fetch(resolveBinaryTransportUrl(buildFsusBinaryRoute('binary_get_auth_pow_challenge', undefined, { _t: Date.now() })), {
+        method: fsusBinaryRouteDescriptors.binary_get_auth_pow_challenge.method,
+        credentials: fsusBinaryRouteDescriptors.binary_get_auth_pow_challenge.credentialPolicy,
         headers: withBinaryAccept(),
         signal
     });

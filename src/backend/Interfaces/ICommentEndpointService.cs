@@ -39,17 +39,17 @@ public interface ICommentCommandService
 public interface ICommentEndpointService
 {
     Task<bool> CreateCommentAsync(int userId, CommentDto dto);
-    Task<bool> CreateAttributablePublicCommentAsync(AccountPrincipalContext account, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null);
+    Task<bool> CreateAttributablePublicCommentAsync(AccountPrincipalContext account, CommentCreateRequestCoreModel request, RegionModerationDecision? regionDecision = null);
     Task<bool> CreateStrongAnonymousCommentAsync(AnonymousCommentCreateRequestCoreModel request, RegionModerationDecision? regionDecision = null, CancellationToken cancellationToken = default);
 
-    async Task<CommentCreateResult> CreateAttributablePublicCommentResultAsync(AccountPrincipalContext account, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null)
+    async Task<CommentCreateResult> CreateAttributablePublicCommentResultAsync(AccountPrincipalContext account, CommentCreateRequestCoreModel request, RegionModerationDecision? regionDecision = null)
         => await CreateAttributablePublicCommentAsync(account, request, regionDecision)
             ? new CommentCreateResult(true, 0, 0, null, DateTime.UtcNow, CommentModerationStatus.Pending, "pending", false, false)
             : CommentCreateResult.Failed;
 
     Task<CommentCreateResult> CreateAttributablePublicCommentResultAsync(
         AccountPrincipalContext account,
-        CommentCreateV2RequestCoreModel request,
+        CommentCreateRequestCoreModel request,
         string clientMutationId,
         RegionModerationDecision? regionDecision = null)
         => CreateAttributablePublicCommentResultAsync(account, request, regionDecision);

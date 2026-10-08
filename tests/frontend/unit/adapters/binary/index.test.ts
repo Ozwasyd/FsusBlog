@@ -1,9 +1,10 @@
+import { ARTICLE_SEARCH_WIRE } from '@/generated/aedsArticleSearchWire'
 import { createHash } from 'node:crypto'
 import { describe, it, expect, vi } from 'vitest'
 import articleDetailFrameHex from '../../../../fixtures/protocol/article-detail-frame.hex?raw'
 import routingReplacementLedger from '../../../../fixtures/binary-decoder-routing-replacements.json'
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
-import { CommentPolicyContractVersion, CommentPolicyReadiness } from '@/contracts/commentPolicy'
+import { CommentPolicyReadiness } from '@/contracts/commentPolicy'
 import {
   binaryFrameDecoderFrameTypes,
   binaryFrameDecoderRegistrations,
@@ -240,7 +241,14 @@ const validPayloadByDecoder = new Map<string, () => Uint8Array>([
   }],
   ['mapArticleDetailFromPodPayload', () => protocolFixturePayload(articleDetailFrameHex)],
   ['mapArticleHotFromPodPayload', zeroPayload(8)],
-  ['mapArticleSearchFromPodPayload', zeroPayload(4)],
+  ['mapArticleSearchFromPodPayload', () => {
+    const payload = new Uint8Array(ARTICLE_SEARCH_WIRE.headerBytes)
+    writeInt32(payload, 0, ARTICLE_SEARCH_WIRE.magic)
+    writeInt32(payload, 4, ARTICLE_SEARCH_WIRE.version)
+    writeInt32(payload, 16, ARTICLE_SEARCH_WIRE.headerBytes)
+    writeInt32(payload, 20, ARTICLE_SEARCH_WIRE.headerBytes)
+    return payload
+  }],
   ['mapArticleFeaturedFromPodPayload', zeroPayload(4)],
   ['mapRelatedReadingFromPodPayload', zeroPayload(12)],
   ['mapHumanReadChallengeFromPayload', zeroPayload(56)],
@@ -496,6 +504,28 @@ describe('decodeBinaryFramePayload', () => {
         expect(result).toEqual({ items: [], total: 0, hasMore: false, nextCursor: null })
         continue
       }
+      if (decoder.name === 'mapCommentPolicySnapshotFromPayload') {
+        // Current packed policy has no version field; retain the historical
+        // replacement fingerprint as evidence of its original result shape.
+        expect(result).toEqual({
+          anonymousCommentsEnabled: true,
+          publicCommentsEnabled: true,
+          zkAnonymousEnabled: true,
+          defaultAuthorMode: 'zk_anonymous',
+          supportedDisplayLanguages: ['en'],
+          snapshotHash: '9'.repeat(64),
+          commentMaxChars: 1000,
+          commentMaxUtf8Bytes: 4096,
+          zkProdEnabled: false,
+          zkProdNativeVerifierConfigured: false,
+          zkProdTrustedSetupVerified: false,
+          zkProdCredentialRequired: false,
+          zkProdCredentialRootReady: false,
+          zkProdUnavailableReason: 'contract_invalid',
+          zkProdReadiness: CommentPolicyReadiness.ContractInvalid
+        })
+        continue
+      }
       if (decoder.name === 'mapUserLocalePreferenceFromPayload') {
         expect(result).toEqual({
           mode: 'auto',
@@ -541,7 +571,6 @@ describe('decodeBinaryFramePayload', () => {
 
   it('maps CommentPolicySnapshot for composer author-mode controls', () => {
     expect(decodeBinaryFramePayload(FrameType.CommentPolicySnapshot, commentPolicyPayload('zh-CN\nen'))).toEqual({
-      contractVersion: CommentPolicyContractVersion.Current,
       anonymousCommentsEnabled: true,
       publicCommentsEnabled: true,
       zkAnonymousEnabled: true,

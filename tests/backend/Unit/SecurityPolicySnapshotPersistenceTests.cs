@@ -330,14 +330,14 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     public async Task StartupLoader_LoadsRiskControlAndPerceptionV2ActiveOrLastKnownGoodPolicy()
     {
         ISecurityPolicySnapshotService snapshots = Substitute.For<ISecurityPolicySnapshotService>();
-        SecurityRiskPolicySnapshotV2 risk = CreateRiskControlSnapshot();
+        SecurityRiskPolicy risk = CreateRiskControlSnapshot();
         PerceptionSealedV2PolicySnapshot perception = CreatePerceptionSnapshot();
         snapshots.LoadActiveOrLastKnownGoodAsync<AntiCrawlerPolicySnapshot>(SecurityPolicyIds.AntiCrawler, Arg.Any<CancellationToken>())
             .Returns(new SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot>(false, null, null, false, "missing"));
         snapshots.LoadActiveOrLastKnownGoodAsync<PowPolicySnapshot>(SecurityPolicyIds.Pow, Arg.Any<CancellationToken>())
             .Returns(new SecurityPolicyLoadResult<PowPolicySnapshot>(false, null, null, false, "missing"));
-        snapshots.LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>(SecurityPolicyIds.RiskControl, Arg.Any<CancellationToken>())
-            .Returns(new SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2>(true, risk, null, false, "active"));
+        snapshots.LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicy>(SecurityPolicyIds.RiskControl, Arg.Any<CancellationToken>())
+            .Returns(new SecurityPolicyLoadResult<SecurityRiskPolicy>(true, risk, null, false, "active"));
         snapshots.LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>(SecurityPolicyIds.PerceptionSealedV2, Arg.Any<CancellationToken>())
             .Returns(new SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot>(true, perception, null, true, "last_known_good"));
         using ServiceProvider services = new ServiceCollection()
@@ -353,7 +353,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
 
         Assert.Equal("risk-control", SecurityPolicyIds.RiskControl);
         Assert.Equal("perception-sealed-v2", SecurityPolicyIds.PerceptionSealedV2);
-        await snapshots.Received(1).LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>(SecurityPolicyIds.RiskControl, Arg.Any<CancellationToken>());
+        await snapshots.Received(1).LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicy>(SecurityPolicyIds.RiskControl, Arg.Any<CancellationToken>());
         await snapshots.Received(1).LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>(SecurityPolicyIds.PerceptionSealedV2, Arg.Any<CancellationToken>());
         policy.Received(1).ApplyRiskControlPolicySnapshot(risk);
         policy.Received(1).ApplyPerceptionSealedV2PolicySnapshot(perception);
@@ -424,7 +424,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
             ChallengeEndpoint: "/api/binary/auth/pow-challenge",
             VerificationStrategy: "RedisPowService"));
 
-    private static SecurityRiskPolicySnapshotV2 CreateRiskControlSnapshot()
+    private static SecurityRiskPolicy CreateRiskControlSnapshot()
     {
         var defaultAction = new SecurityRiskActionPolicy(
             "*",
@@ -433,7 +433,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
             1,
             null,
             AnonymousWriteAllowed: true);
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "risk-policy-runtime",
             "risk-policy-v2",
             s_baselineNow,

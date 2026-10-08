@@ -90,7 +90,7 @@ function resealRuntimeObservation(observation)
     unsupportedCombinations: observation.unsupportedCombinations,
     ownership: observation.ownership,
     deploymentAuthority: observation.deploymentAuthority,
-    schemaOverlap: observation.schemaOverlap
+    currentSchemaContract: observation.currentSchemaContract
   }
   observation.observationDigest = createHash('sha256').update(JSON.stringify(unsigned)).digest('hex')
 }
@@ -467,10 +467,10 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.match(runtimeRole.deploymentAuthority.effectiveCompose.dockerExecutable.digest, /^[a-f0-9]{64}$/u)
   assert.match(runtimeRole.deploymentAuthority.effectiveCompose.composeImplementation.digest, /^[a-f0-9]{64}$/u)
   assert.equal(runtimeRole.deploymentAuthority.effectiveCompose.defaultServices['fsusblog.server'].profileState, 'default-active')
-  assert.equal(runtimeRole.schemaOverlap.sourceReadiness, 'ready')
-  assert.notEqual(runtimeRole.schemaOverlap.sourceReleaseId, runtimeRole.schemaOverlap.targetReleaseId)
-  assert.equal(runtimeRole.schemaOverlap.sameReleaseFailureCode, 'schema_previous_rollback_release_not_distinct')
-  assert.ok(runtimeRole.schemaOverlap.missingExpandFailureCodes.includes('schema_expand_pending'))
+  assert.equal(runtimeRole.currentSchemaContract.stage, 'compiled-contract')
+  assert.equal(runtimeRole.currentSchemaContract.receiptFormat, 'fsusblog.current-schema-receipt.v1')
+  assert.equal(runtimeRole.currentSchemaContract.actualDatabaseObserved, false)
+  assert.equal(runtimeRole.currentSchemaContract.nativeClaimEligible, false)
   assert.deepEqual(Object.keys(facts['deployment.runtime-role-contract'].modes).sort(), ['adaptive', 'single', 'static-role'])
   const blueGreen = facts['deployment.blue-green-contract']
   assert.equal(blueGreen.switchState, 'switching')
@@ -760,7 +760,7 @@ test('runtime-role observation requires exact receipt and rejects semantic tampe
       unsupportedCombinations: observation.unsupportedCombinations,
       ownership: observation.ownership,
       deploymentAuthority: observation.deploymentAuthority,
-      schemaOverlap: observation.schemaOverlap
+      currentSchemaContract: observation.currentSchemaContract
     }
     observation.observationDigest = createHash('sha256').update(JSON.stringify(unsigned)).digest('hex')
     writeFileSync(artifact, `${JSON.stringify(observation, null, 2)}\n`)
@@ -986,11 +986,11 @@ test('runtime-role deployment source roster, live digests, and policy authority 
   }
 })
 
-test('schema overlap failure-code sets reject both missing and extra members', () =>
+test('current-schema compiled contract rejects missing and retired members', () =>
 {
   for (const [label, mutate] of [
-    ['missing', (observation) => { observation.schemaOverlap.concurrentContractFailureCodes.pop() }],
-    ['extra', (observation) => { observation.schemaOverlap.missingExpandFailureCodes.push('schema_unexpected') }]
+    ['missing', (observation) => { delete observation.currentSchemaContract.nativeStage }],
+    ['extra', (observation) => { observation.currentSchemaContract.sourceReadiness = 'ready' }]
   ])
   {
     const directory = fixtureRepository()

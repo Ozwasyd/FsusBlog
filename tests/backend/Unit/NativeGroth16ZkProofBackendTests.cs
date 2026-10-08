@@ -50,7 +50,7 @@ public sealed class NativeGroth16ZkProofBackendTests
 
         ProductionZkProofBackendResult result = await backend.VerifyAsync(ValidBackendRequest([1, 2, 3], temp.VerifyingKeySha256));
 
-        Assert.False(backend.IsAvailable(ZkProdOptions.NativeGroth16Backend));
+        Assert.False(backend.IsAvailable(ZkVerifierOptions.NativeGroth16Backend));
         Assert.False(result.Verified);
         Assert.Equal("backend_unavailable", result.Reason);
     }
@@ -66,7 +66,7 @@ public sealed class NativeGroth16ZkProofBackendTests
 
         ProductionZkProofBackendResult result = await backend.VerifyAsync(ValidBackendRequest([1, 2, 3], new string('0', 64)));
 
-        Assert.False(backend.IsAvailable(ZkProdOptions.NativeGroth16Backend));
+        Assert.False(backend.IsAvailable(ZkVerifierOptions.NativeGroth16Backend));
         Assert.False(result.Verified);
         Assert.Equal("backend_unavailable", result.Reason);
     }
@@ -91,7 +91,7 @@ public sealed class NativeGroth16ZkProofBackendTests
             Proof = tamperedProof
         });
 
-        Assert.True(backend.IsAvailable(ZkProdOptions.NativeGroth16Backend));
+        Assert.True(backend.IsAvailable(ZkVerifierOptions.NativeGroth16Backend));
         Assert.False(backend.IsAvailable("unit"));
         Assert.True(accepted.Verified);
         Assert.False(rejected.Verified);
@@ -126,7 +126,7 @@ public sealed class NativeGroth16ZkProofBackendTests
                 Proof = validProof
             });
 
-        Assert.True(backend.IsAvailable(ZkProdOptions.NativeGroth16Backend));
+        Assert.True(backend.IsAvailable(ZkVerifierOptions.NativeGroth16Backend));
         Assert.True(accepted.Verified);
         Assert.False(rejectedProof.Verified);
         Assert.False(rejectedPublicInputs.Verified);
@@ -209,7 +209,7 @@ public sealed class NativeGroth16ZkProofBackendTests
         {
             ["AnonymousIdentity:ZkVerifier:NativeGroth16:LibraryPath"] = NativeGroth16ZkProofBackendOptions.ManagedMclLibraryPath,
             ["AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeyPath"] = temp.VerifyingKeyPath,
-            ["AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeySha256"] = temp.VerifyingKeySha256
+            ["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"] = temp.VerifyingKeySha256
         });
         using var backend = new NativeGroth16ZkProofBackend(
             configuration,
@@ -224,7 +224,7 @@ public sealed class NativeGroth16ZkProofBackendTests
             Proof = proof
         });
 
-        Assert.True(backend.IsAvailable(ZkProdOptions.NativeGroth16Backend));
+        Assert.True(backend.IsAvailable(ZkVerifierOptions.NativeGroth16Backend));
         Assert.True(result.Verified);
     }
 
@@ -362,10 +362,9 @@ public sealed class NativeGroth16ZkProofBackendTests
         var nativeServices = new ServiceCollection();
         nativeServices.AddFsusRuntimeSecurityAndLifecycleServices(BuildConfiguration(new Dictionary<string, string?>
         {
-            ["AnonymousIdentity:ZkProd:Enabled"] = "true",
-            ["AnonymousIdentity:ZkProd:VerifierBackend"] = ZkProdOptions.NativeGroth16Backend,
+            ["AnonymousIdentity:ZkCommentPolicy:Enabled"] = "true",
             ["AnonymousIdentity:ZkVerifier:Enabled"] = "true",
-            ["AnonymousIdentity:ZkVerifier:Backend"] = ZkProdOptions.NativeGroth16Backend
+            ["AnonymousIdentity:ZkVerifier:Backend"] = ZkVerifierOptions.NativeGroth16Backend
         }));
 
         ServiceDescriptor nativeBackend = Assert.Single(
@@ -376,16 +375,15 @@ public sealed class NativeGroth16ZkProofBackendTests
         var unavailableServices = new ServiceCollection();
         unavailableServices.AddFsusRuntimeSecurityAndLifecycleServices(BuildConfiguration(new Dictionary<string, string?>
         {
-            ["AnonymousIdentity:ZkProd:Enabled"] = "false",
-            ["AnonymousIdentity:ZkProd:VerifierBackend"] = ZkProdOptions.NativeGroth16Backend,
+            ["AnonymousIdentity:ZkCommentPolicy:Enabled"] = "false",
             ["AnonymousIdentity:ZkVerifier:Enabled"] = "true",
-            ["AnonymousIdentity:ZkVerifier:Backend"] = ZkProdOptions.NativeGroth16Backend
+            ["AnonymousIdentity:ZkVerifier:Backend"] = ZkVerifierOptions.NativeGroth16Backend
         }));
 
         ServiceDescriptor unavailableBackend = Assert.Single(
             unavailableServices,
             static item => item.ServiceType == typeof(IProductionZkProofBackend));
-        Assert.Equal(typeof(UnavailableProductionZkProofBackend), unavailableBackend.ImplementationType);
+        Assert.Equal(typeof(NativeGroth16ZkProofBackend), unavailableBackend.ImplementationType);
     }
 
     [Fact]
@@ -751,7 +749,7 @@ public sealed class NativeGroth16ZkProofBackendTests
             ["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"] = temp.VerifyingKeySha256,
             ["AnonymousIdentity:ZkVerifier:PublicInputLayoutVersion"] = PublicInputLayoutVersion.ToString(),
             ["AnonymousIdentity:ZkVerifier:MaxProofBytes"] = "4096",
-            ["AnonymousIdentity:ZkVerifier:Backend"] = ZkProdOptions.NativeGroth16Backend,
+            ["AnonymousIdentity:ZkVerifier:Backend"] = ZkVerifierOptions.NativeGroth16Backend,
             ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "1000",
             ["AnonymousIdentity:ZkVerifier:MaxConcurrentVerifications"] = "2"
         };
@@ -773,7 +771,7 @@ public sealed class NativeGroth16ZkProofBackendTests
                 ? Path.Combine(temp.DirectoryPath, "missing", "libfsus_zk_groth16.so")
                 : temp.NativeLibraryPath,
             ["AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeyPath"] = temp.VerifyingKeyPath,
-            ["AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeySha256"] = temp.VerifyingKeySha256
+            ["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"] = temp.VerifyingKeySha256
         });
 
     private static IConfiguration BuildConfiguration(Dictionary<string, string?> values)
@@ -935,7 +933,7 @@ public sealed class NativeGroth16ZkProofBackendTests
             .ToArray();
 
         public bool IsAvailable(string backendName)
-            => string.Equals(backendName, ZkProdOptions.NativeGroth16Backend, StringComparison.Ordinal);
+            => string.Equals(backendName, ZkVerifierOptions.NativeGroth16Backend, StringComparison.Ordinal);
 
         public async Task<ProductionZkProofBackendResult> VerifyAsync(
             ProductionZkProofBackendRequest request,
@@ -997,7 +995,7 @@ public sealed class NativeGroth16ZkProofBackendTests
     private sealed class CancellationRequiredProductionZkProofBackend(TimeSpan fallbackDelay) : IProductionZkProofBackend
     {
         public bool IsAvailable(string backendName)
-            => string.Equals(backendName, ZkProdOptions.NativeGroth16Backend, StringComparison.Ordinal);
+            => string.Equals(backendName, ZkVerifierOptions.NativeGroth16Backend, StringComparison.Ordinal);
 
         public async Task<ProductionZkProofBackendResult> VerifyAsync(
             ProductionZkProofBackendRequest request,

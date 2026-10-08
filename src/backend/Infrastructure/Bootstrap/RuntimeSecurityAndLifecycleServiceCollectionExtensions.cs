@@ -62,7 +62,10 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
             services.TryAddSingleton<IProductionZkProofBackend, UnavailableProductionZkProofBackend>();
         }
 
-        services.Configure<ZkProdOptions>(configuration.GetSection(ZkProdOptions.SectionName));
+        _ = ZkCommentPolicyOptions.FromConfiguration(configuration);
+        services.AddSingleton<IZkCommentPolicyAuthority, ZkCommentPolicyAuthority>();
+        services.AddSingleton(ZkVerifierOptions.FromConfiguration(configuration));
+        services.AddSingleton<IZkVerifierReadiness, ZkVerifierReadiness>();
         if (ProductionZkProofVerifier.IsEnabled(configuration))
         {
             services.TryAddSingleton<IZkProofVerifier, ProductionZkProofVerifier>();
@@ -189,9 +192,8 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
 
     private static bool ShouldUseNativeGroth16ZkProofBackend(IConfiguration configuration)
     {
-        ZkProdOptions options = ZkProdOptions.FromConfiguration(configuration);
-        return options.Enabled &&
-            ZkProdOptions.IsNativeVerifierBackend(options.VerifierBackend);
+        ZkVerifierOptions options = ZkVerifierOptions.FromConfiguration(configuration);
+        return options.Enabled && string.Equals(options.Backend, ZkVerifierOptions.NativeGroth16Backend, StringComparison.Ordinal);
     }
 
     private static bool ShouldUseLocalDevZkProofBackend(IConfiguration configuration)

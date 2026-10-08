@@ -10,7 +10,7 @@ import {
     encodeAdminChangeStatusRequest,
     encodeAedsFrame,
     encodeArticleWriteRequest,
-    encodeCommentCreateV2Request,
+    encodeCommentCreateRequest,
     encodeAccountConversationReplyRequest,
     encodeConversationCreateRequest,
     encodeConversationReadRequest,
@@ -557,7 +557,7 @@ function encodeOptionalBody(path, body)
 
     if (path === '/api/Comment')
     {
-        return encodeAedsFrame(FRAME_COMMENT_CREATE_V2_REQUEST, encodeCommentCreateV2Request(body));
+        return encodeAedsFrame(FRAME_COMMENT_CREATE_V2_REQUEST, encodeCommentCreateRequest(body));
     }
 
     if (path.endsWith('/update-password'))

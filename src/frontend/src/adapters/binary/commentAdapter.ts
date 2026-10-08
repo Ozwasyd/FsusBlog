@@ -17,10 +17,11 @@ import type {
     UserCommentResponse
 } from '@/contracts/binaryApi';
 import {
-    CommentPolicyContractVersion,
     type CommentPolicySnapshot,
+    zkProdServerUnavailableReasons,
     type DecodedCommentPolicySnapshot
 } from '@/contracts/commentPolicy';
+import { COMMENT_POLICY_WIRE, COMMENT_POLICY_OFFSETS } from '@/generated/commentPolicyWire';
 import { finalizeCommentPolicySnapshot } from '@/policies/commentPolicy';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { resolveCommentAuthorView } from '@/utils/commentAuthorView';
@@ -34,7 +35,6 @@ import {
     BLIND_CREDENTIAL_ISSUER_METADATA_POD_SIZE,
     BLIND_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
     ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE,
-    COMMENT_POLICY_SNAPSHOT_POD_SIZE,
     COMMENT_REPLY_ITEM_POD_SIZE,
     USER_COMMENT_POD_SIZE
 } from './types';
@@ -42,44 +42,6 @@ import {
 const ANONYMOUS_PRIVACY_MAX_PAYLOAD_BYTES = 16 * 1024;
 const REVOCATION_ARTIFACT_MAX_PAYLOAD_BYTES = 4 * 1024 * 1024;
 const decoder = new TextDecoder();
-
-interface CommentPolicySnapshotLayout {
-    contractVersion: CommentPolicyContractVersion;
-    podSize: number;
-    commentMaxCharsOffset?: number;
-    commentMaxUtf8BytesOffset?: number;
-    supportedDisplayLanguagesOffset: number;
-    snapshotHashOffset: number;
-    unavailableReasonOffset: number;
-}
-
-const COMMENT_POLICY_SNAPSHOT_PACKED_LAYOUT: CommentPolicySnapshotLayout = {
-    contractVersion: CommentPolicyContractVersion.Current,
-    podSize: COMMENT_POLICY_SNAPSHOT_POD_SIZE,
-    commentMaxCharsOffset: 9,
-    commentMaxUtf8BytesOffset: 13,
-    supportedDisplayLanguagesOffset: 17,
-    snapshotHashOffset: 25,
-    unavailableReasonOffset: 33
-};
-
-const COMMENT_POLICY_SNAPSHOT_LEGACY_PADDED_LAYOUT: CommentPolicySnapshotLayout = {
-    contractVersion: CommentPolicyContractVersion.LegacyPadded,
-    podSize: 48,
-    commentMaxCharsOffset: 12,
-    commentMaxUtf8BytesOffset: 16,
-    supportedDisplayLanguagesOffset: 20,
-    snapshotHashOffset: 28,
-    unavailableReasonOffset: 36
-};
-
-const COMMENT_POLICY_SNAPSHOT_LEGACY_NO_LIMITS_LAYOUT: CommentPolicySnapshotLayout = {
-    contractVersion: CommentPolicyContractVersion.LegacyWithoutLimits,
-    podSize: 33,
-    supportedDisplayLanguagesOffset: 9,
-    snapshotHashOffset: 17,
-    unavailableReasonOffset: 25
-};
 
 export function mapCommentCursorFromPodPayload(payload: Uint8Array): CursorResponse<CommentThreadItem>
 {
@@ -122,76 +84,85 @@ export function mapCommentCreateResultFromPayload(payload: Uint8Array): CommentC
     };
 }
 
-export function mapCommentPolicySnapshotFromPayload(payload: Uint8Array): CommentPolicySnapshot
-{
-    let firstError: unknown;
-    for (const layout of [
-        COMMENT_POLICY_SNAPSHOT_PACKED_LAYOUT,
-        COMMENT_POLICY_SNAPSHOT_LEGACY_NO_LIMITS_LAYOUT,
-        COMMENT_POLICY_SNAPSHOT_LEGACY_PADDED_LAYOUT
-    ])
-    {
-        try
-        {
-            const result = tryMapCommentPolicySnapshotFromLayout(payload, layout);
-            if (result)
-            {
-                return result;
-            }
-        }
-        catch (error)
-        {
-            firstError ??= error;
-        }
-    }
+const policyUtf8Decoder = new TextDecoder('utf-8', { fatal: true });
+const policyServerReasons = new Set<string>(zkProdServerUnavailableReasons);
 
-    if (firstError)
+function readPolicyBoolean(pod: Uint8Array, offset: number, error: string): boolean
+{
+    const value = readByte(pod, offset);
+    if (value > COMMENT_POLICY_WIRE.booleanMaxByte)
     {
-        throw firstError;
+        throw createAppError(AppErrorCode.ProtocolFailure, error);
     }
-    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_policy_snapshot_trailing_payload_invalid');
+    return value === COMMENT_POLICY_WIRE.booleanMaxByte;
 }
 
-function tryMapCommentPolicySnapshotFromLayout(payload: Uint8Array, layout: CommentPolicySnapshotLayout): CommentPolicySnapshot | null
+export function mapCommentPolicySnapshotFromPayload(payload: Uint8Array): CommentPolicySnapshot
 {
-    if (payload.byteLength < layout.podSize + 4)
+    const size = COMMENT_POLICY_WIRE.podBytes;
+    if (payload.byteLength < size + 4)
     {
-        return null;
+        throw createAppError(AppErrorCode.ProtocolFailure, 'comment_policy_snapshot_size_invalid');
     }
-
-    const blobLength = readInt32(payload, layout.podSize);
-    if (blobLength < 0)
+    const blobLength = readInt32(payload, size);
+    if (blobLength < 0 || payload.byteLength !== size + 4 + blobLength)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'comment_policy_snapshot_blob_length_invalid');
     }
-
-    const expectedLength = layout.podSize + 4 + blobLength;
-    if (expectedLength !== payload.byteLength)
+    const pod = payload.subarray(0, size);
+    const blob = payload.subarray(size + 4);
+    const offsets = COMMENT_POLICY_OFFSETS;
+    const languages = readSliceRef(pod, offsets.supportedDisplayLanguages);
+    const hash = readSliceRef(pod, offsets.snapshotHash);
+    const reason = readSliceRef(pod, offsets.zkProdUnavailableReason);
+    const authorMode = readByte(pod, offsets.defaultAuthorMode);
+    if (authorMode !== COMMENT_POLICY_WIRE.publicAuthorMode && authorMode !== COMMENT_POLICY_WIRE.zkAnonymousAuthorMode)
     {
-        return null;
+        throw createAppError(AppErrorCode.ProtocolFailure, 'comment_policy_snapshot_author_mode_invalid');
     }
-
-    const pod = payload.subarray(0, layout.podSize);
-    const blob = payload.subarray(layout.podSize + 4, expectedLength);
+    const maxChars = readInt32(pod, offsets.commentMaxChars);
+    const maxBytes = readInt32(pod, offsets.commentMaxUtf8Bytes);
+    if (languages.offset !== 0 || languages.length <= 0 || hash.offset !== languages.length || hash.length !== 64
+        || reason.offset !== hash.offset + hash.length || reason.length < 0 || reason.offset + reason.length !== blobLength
+        || maxChars < COMMENT_POLICY_WIRE.minMaxChars || maxChars > COMMENT_POLICY_WIRE.hardMaxChars
+        || maxBytes < COMMENT_POLICY_WIRE.minMaxUtf8Bytes || maxBytes > COMMENT_POLICY_WIRE.hardMaxUtf8Bytes)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'comment_policy_snapshot_fields_invalid');
+    }
+    let languageText: string;
+    let snapshotHash: string;
+    let unavailableReason: string;
+    try
+    {
+        languageText = policyUtf8Decoder.decode(blob.subarray(0, languages.length));
+        snapshotHash = policyUtf8Decoder.decode(blob.subarray(hash.offset, hash.offset + hash.length));
+        unavailableReason = policyUtf8Decoder.decode(blob.subarray(reason.offset));
+    }
+    catch
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'comment_policy_snapshot_utf8_invalid');
+    }
+    const supportedDisplayLanguages = languageText.split('\n').map(language => language.trim());
+    if (!/^[0-9a-f]{64}$/u.test(snapshotHash) || !supportedDisplayLanguages.every(language => language.length > 0)
+        || !policyServerReasons.has(unavailableReason))
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'comment_policy_snapshot_fields_invalid');
+    }
     const decoded: DecodedCommentPolicySnapshot = {
-        contractVersion: layout.contractVersion,
-        anonymousCommentsEnabled: readBooleanByte(pod, 0, 'comment_policy_snapshot_anonymous_flag_invalid'),
-        publicCommentsEnabled: readBooleanByte(pod, 1, 'comment_policy_snapshot_public_flag_invalid'),
-        zkAnonymousEnabled: readBooleanByte(pod, 2, 'comment_policy_snapshot_zk_flag_invalid'),
-        defaultAuthorMode: decodeCommentAuthorMode(readByte(pod, 3)),
-        zkProdEnabled: readBooleanByte(pod, 4, 'comment_policy_snapshot_zk_prod_flag_invalid'),
-        zkProdNativeVerifierConfigured: readBooleanByte(pod, 5, 'comment_policy_snapshot_zk_prod_verifier_flag_invalid'),
-        zkProdTrustedSetupVerified: readBooleanByte(pod, 6, 'comment_policy_snapshot_zk_prod_setup_flag_invalid'),
-        zkProdCredentialRequired: readBooleanByte(pod, 7, 'comment_policy_snapshot_zk_prod_credential_flag_invalid'),
-        zkProdCredentialRootReady: readBooleanByte(pod, 8, 'comment_policy_snapshot_zk_prod_root_flag_invalid'),
-        commentMaxChars: layout.commentMaxCharsOffset === undefined ? 1000 : readInt32(pod, layout.commentMaxCharsOffset),
-        commentMaxUtf8Bytes: layout.commentMaxUtf8BytesOffset === undefined ? 4096 : readInt32(pod, layout.commentMaxUtf8BytesOffset),
-        supportedDisplayLanguages: readSliceText(blob, readSliceRef(pod, layout.supportedDisplayLanguagesOffset))
-            .split('\n')
-            .map(language => language.trim())
-            .filter(Boolean),
-        snapshotHash: readSliceText(blob, readSliceRef(pod, layout.snapshotHashOffset)),
-        zkProdUnavailableReason: readSliceText(blob, readSliceRef(pod, layout.unavailableReasonOffset))
+        anonymousCommentsEnabled: readPolicyBoolean(pod, offsets.anonymousCommentsEnabled, 'comment_policy_snapshot_anonymous_flag_invalid'),
+        publicCommentsEnabled: readPolicyBoolean(pod, offsets.publicCommentsEnabled, 'comment_policy_snapshot_public_flag_invalid'),
+        zkAnonymousEnabled: readPolicyBoolean(pod, offsets.zkAnonymousEnabled, 'comment_policy_snapshot_zk_flag_invalid'),
+        defaultAuthorMode: decodeCommentAuthorMode(authorMode),
+        zkProdEnabled: readPolicyBoolean(pod, offsets.zkProdEnabled, 'comment_policy_snapshot_zk_prod_flag_invalid'),
+        zkProdNativeVerifierConfigured: readPolicyBoolean(pod, offsets.zkProdNativeVerifierConfigured, 'comment_policy_snapshot_zk_prod_verifier_flag_invalid'),
+        zkProdTrustedSetupVerified: readPolicyBoolean(pod, offsets.zkProdTrustedSetupVerified, 'comment_policy_snapshot_zk_prod_setup_flag_invalid'),
+        zkProdCredentialRequired: readPolicyBoolean(pod, offsets.zkProdCredentialRequired, 'comment_policy_snapshot_zk_prod_credential_flag_invalid'),
+        zkProdCredentialRootReady: readPolicyBoolean(pod, offsets.zkProdCredentialRootReady, 'comment_policy_snapshot_zk_prod_root_flag_invalid'),
+        commentMaxChars: maxChars,
+        commentMaxUtf8Bytes: maxBytes,
+        supportedDisplayLanguages,
+        snapshotHash,
+        zkProdUnavailableReason: unavailableReason
     };
     return finalizeCommentPolicySnapshot(decoded);
 }

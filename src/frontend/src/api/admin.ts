@@ -86,8 +86,7 @@ export const getAdminUserList = async (
     }
 
     return requestBinaryOnly<PageResult<AdminAccountListItem>>({
-        binaryUrl: `/api/binary/admin/users?${search.toString()}`,
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_get_admin_users', query: search },
         frameType: FrameType.AdminUserList,
         signal: config?.signal
     });
@@ -103,13 +102,10 @@ export const adminChangeStatus = async (
 ) =>
 {
     return requestBinaryOnly<null>({
-        binaryUrl: '/api/binary/admin/users/status',
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_put_admin_users_status' },
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'PUT',
-            requiresPow: true,
             headers: adminHeaders(config?.mfaProofToken),
             body: encodeAedsFrame(FrameType.AdminChangeUserStatusRequest, encodeAdminChangeStatusRequest(data))
         }

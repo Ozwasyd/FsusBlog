@@ -1,5 +1,3 @@
-using System.Buffers.Binary;
-
 using BenchmarkDotNet.Attributes;
 
 using FsusBlog.Core.Cache;
@@ -21,12 +19,6 @@ public class AedsAccessProjectionBenchmarks
 
     [Params(1, 8)]
     public int TagsPerArticle
-    {
-        get; set;
-    }
-
-    [Params(76, 100)]
-    public int RecordBytes
     {
         get; set;
     }
@@ -65,7 +57,7 @@ public class AedsAccessProjectionBenchmarks
         }).ToArray();
         byte[] current = PodBinaryCodec.EncodeArticlePage(
             new CorePageResult<ArticleListCoreModel>(items, items.Length));
-        _payload = RecordBytes == 100 ? current : ToLegacy76(current);
+        _payload = current;
 
         if (!PodBinaryCodec.TryDecodeArticlePage(_payload, out var canonical)
             || !PodBinaryCodec.TryDecodePublicArticleListCardProjection(_payload, out var projection)
@@ -113,24 +105,4 @@ public class AedsAccessProjectionBenchmarks
         return hash.ToHashCode();
     }
 
-    private static byte[] ToLegacy76(byte[] current)
-    {
-        int cursorLength = BinaryPrimitives.ReadInt32LittleEndian(current.AsSpan(13, sizeof(int)));
-        int countOffset = 17 + cursorLength;
-        int count = BinaryPrimitives.ReadInt32LittleEndian(current.AsSpan(countOffset, sizeof(int)));
-        int tagCount = BinaryPrimitives.ReadInt32LittleEndian(current.AsSpan(countOffset + 4, sizeof(int)));
-        int blobLength = BinaryPrimitives.ReadInt32LittleEndian(current.AsSpan(countOffset + 8, sizeof(int)));
-        int recordsOffset = countOffset + 12 + blobLength;
-        int tagOffset = recordsOffset + count * 100;
-        var legacy = new byte[current.Length - count * 24];
-        current.AsSpan(0, recordsOffset).CopyTo(legacy);
-        int target = recordsOffset;
-        for (int index = 0; index < count; index++)
-        {
-            current.AsSpan(recordsOffset + index * 100, 76).CopyTo(legacy.AsSpan(target));
-            target += 76;
-        }
-        current.AsSpan(tagOffset, tagCount * 12).CopyTo(legacy.AsSpan(target));
-        return legacy;
-    }
 }

@@ -168,7 +168,7 @@ RunResidueCheck \
 RunResidueCheck \
     "frontend retired identifiers" \
     "frontend retired identifier residue detected" \
-    '\b(?:setUserInfo|isMobileSearchOpen|setMobileSearchVisible|updateRiskControlOptions|rollbackRiskControlOptions|RiskControlPolicyUpdateRequest|poSpaceV1Enabled|createComment|CommentDto|PowRequest|useAboutPage)\b|About[.]vue' \
+    '\b(?:setUserInfo|isMobileSearchOpen|setMobileSearchVisible|updateRiskControlOptions|rollbackRiskControlOptions|RiskControlPolicyUpdateRequest|poSpaceV1Enabled|CommentDto|PowRequest|useAboutPage)\b|About[.]vue' \
     "" \
     src/frontend/src
 
@@ -210,9 +210,18 @@ RunResidueCheck \
 RunResidueCheck \
     "old comment-create V1 paths" \
     "old comment-create V1 residue detected" \
-    '\bcreateCommentV1\b|\bCommentCreateRequest\b|\b(?:AedsFrameType|FrameType)\.CommentCreateRequest\b|["'\'']/api/Comment(?:["'\''/?]|$)' \
+    '\bcreateCommentV1\b|\b(?:CommentCreateV2[A-Za-z0-9_]*|createCommentV2|encodeCommentCreateV2[A-Za-z0-9_]*)\b|["'\'']/api/Comment(?:["'\''/?]|$)' \
     "" \
     src/backend src/shared src/frontend/src
+
+RunResidueCheck \
+    "retired comment-create account override" \
+    "retired comment-create account override residue detected" \
+    '\b(?:ReplyToUserId|replyToUserId|HasReplyToUserId)\b' \
+    "" \
+    src/frontend/src src/backend/Models/Dtos/CommentDto.cs \
+    src/shared/Contracts/Models/CommentCreateRequestPod.Generated.cs \
+    src/core/Mapping/Models/CommentCreateRequest.Generated.cs
 
 RunResidueCheck \
     "old author-mode aliases" \
@@ -443,7 +452,7 @@ RunResidueCheck \
 RunResidueCheck \
     "legacy anonymous comment user-bound creation" \
     "legacy anonymous comment user-bound creation residue detected" \
-    '\bCreateCommentAsync[(]\s*userId\b|\bCreateCommentV2Async[(]|\b(?:AedsFrameType|FrameType)[.]CommentCreateRequest\b' \
+    '\bCreateCommentAsync[(]\s*userId\b|\bCreateCommentV2Async[(]|\b(?:AedsFrameType|FrameType)[.]CommentCreateV2Request\b' \
     "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
     src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs src/frontend/src/api/comment.ts
 

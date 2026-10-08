@@ -41,7 +41,7 @@ public class PodBinaryCodecTests
             pod, id, title, summary, null, null, 42, createTime,
             new ArticleCategoryCoreModel(3, "Tech"),
             [new TagCoreModel(1, "dotnet")],
-            false);
+            false, CurrentRevisionId: id + 100, RevisionNo: 1);
     }
 
     [Fact]
@@ -944,7 +944,7 @@ public class PodBinaryCodecTests
         Assert.Equal((ushort)163, (ushort)AedsFrameType.IdentityAccountSnapshot);
         Assert.Equal((ushort)164, (ushort)AedsFrameType.CommentPolicySnapshot);
         Assert.Equal((ushort)165, (ushort)AedsFrameType.CommentPolicyUpdateRequest);
-        Assert.Equal((ushort)166, (ushort)AedsFrameType.CommentCreateV2Request);
+        Assert.Equal((ushort)166, (ushort)AedsFrameType.CommentCreateRequest);
         Assert.Equal((ushort)167, (ushort)AedsFrameType.CommentAuthorView);
         Assert.Equal((ushort)189, (ushort)AedsFrameType.AuthAnonymousBootstrapRequest);
     }
@@ -1314,6 +1314,31 @@ public class PodBinaryCodecTests
         Assert.Equal(2300, updateDecoded.CommentMaxChars);
         Assert.Equal(9200, updateDecoded.CommentMaxUtf8Bytes);
 
+        foreach (int rawMode in new[] { 0, 1, 2, 5 })
+        {
+            byte[] invalidMode = (byte[])snapshotEncoded.Clone();
+            invalidMode[CommentPolicySnapshotWire.DefaultAuthorModeOffset] = (byte)rawMode;
+            Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(invalidMode, out _));
+        }
+        foreach (int maxChars in new[] { 0, CommentPolicySnapshotWire.HardMaxChars + 1 })
+        {
+            byte[] invalidLimits = (byte[])snapshotEncoded.Clone();
+            BinaryPrimitives.WriteInt32LittleEndian(invalidLimits.AsSpan(CommentPolicySnapshotWire.CommentMaxCharsOffset), maxChars);
+            Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(invalidLimits, out _));
+            Assert.Throws<ArgumentOutOfRangeException>(() => PodBinaryCodec.EncodeCommentPolicySnapshot(snapshot with { CommentMaxChars = maxChars }));
+        }
+        byte[] missingHash = (byte[])snapshotEncoded.Clone();
+        BinaryPrimitives.WriteInt32LittleEndian(missingHash.AsSpan(CommentPolicySnapshotWire.SnapshotHashOffset + 4), 0);
+        Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(missingHash, out _));
+        byte[] missingReason = (byte[])snapshotEncoded.Clone();
+        BinaryPrimitives.WriteInt32LittleEndian(missingReason.AsSpan(CommentPolicySnapshotWire.ZkProdUnavailableReasonOffset), 0);
+        Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(missingReason, out _));
+        byte[] invalidUtf8 = (byte[])snapshotEncoded.Clone();
+        invalidUtf8[CommentPolicySnapshotWire.PodBytes + sizeof(int)] = 0xff;
+        Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(invalidUtf8, out _));
+        Assert.Equal(CommentPolicySnapshotWire.PodBytes, Marshal.SizeOf<CommentPolicySnapshotPod>());
+        Assert.Equal(CommentPolicySnapshotWire.CommentMaxCharsOffset, Marshal.OffsetOf<CommentPolicySnapshotPod>(nameof(CommentPolicySnapshotPod.CommentMaxChars)).ToInt32());
+
         byte[] retiredSnapshotMode = (byte[])snapshotEncoded.Clone();
         retiredSnapshotMode[3] = 2;
         Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(retiredSnapshotMode, out _));
@@ -1544,15 +1569,14 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void CommentCreateV2Request_RoundTrip_PreservesAnonymousFields()
+    public void CommentCreateRequest_RoundTrip_PreservesAnonymousFields()
     {
-        var request = new CommentCreateV2RequestCoreModel(
+        var request = new CommentCreateRequestCoreModel(
             ArticleId: 9,
             Content: "Hello anonymous mode",
             ParentId: "100",
             RootId: "90",
             ReplyToCommentId: "80",
-            ReplyToUserId: 7,
             AuthorMode: "zk_anonymous",
             PublicSendExplicitlySelected: false,
             AnonymousScope: "article:9:root:90",
@@ -1560,8 +1584,8 @@ public class PodBinaryCodecTests
             ProofToken: "proof-token",
             ZkProof: [1, 2, 3, 4]);
 
-        byte[] encoded = PodBinaryCodec.EncodeCommentCreateV2Request(request);
-        bool ok = PodBinaryCodec.TryDecodeCommentCreateV2Request(encoded, out var decoded);
+        byte[] encoded = PodBinaryCodec.EncodeCommentCreateRequest(request);
+        bool ok = PodBinaryCodec.TryDecodeCommentCreateRequest(encoded, out var decoded);
 
         Assert.True(ok);
         Assert.Equal(9, decoded.ArticleId);
@@ -1569,11 +1593,10 @@ public class PodBinaryCodecTests
         Assert.Equal("100", decoded.ParentId);
         Assert.Equal("90", decoded.RootId);
         Assert.Equal("80", decoded.ReplyToCommentId);
-        Assert.Null(decoded.ReplyToUserId);
 
         var view = new ReadOnlySpan<byte>(encoded);
-        Assert.Equal(0, BitConverter.ToInt32(view.Slice(4, sizeof(int))));
-        Assert.Equal(0, view[11]);
+        Assert.Equal(CommentCreateRequestWire.PodBytes, Marshal.SizeOf<CommentCreateRequestPod>());
+        Assert.True(CommentCreateRequestWire.PodBytes < 80);
         Assert.Equal("zk_anonymous", decoded.AuthorMode);
         Assert.False(decoded.PublicSendExplicitlySelected);
         Assert.Equal("article:9:root:90", decoded.AnonymousScope);
@@ -1582,8 +1605,20 @@ public class PodBinaryCodecTests
         Assert.Equal([1, 2, 3, 4], decoded.ZkProof);
 
         byte[] retiredAuthorMode = (byte[])encoded.Clone();
-        retiredAuthorMode[12] = 2;
-        Assert.False(PodBinaryCodec.TryDecodeCommentCreateV2Request(retiredAuthorMode, out _));
+        retiredAuthorMode[CommentCreateRequestWire.AuthorModeOffset] = 2;
+        Assert.False(PodBinaryCodec.TryDecodeCommentCreateRequest(retiredAuthorMode, out _));
+        byte[] trailing = [.. encoded, 0];
+        Assert.False(PodBinaryCodec.TryDecodeCommentCreateRequest(trailing, out _));
+        // Minimal retired 80-byte request with a real client-supplied account target.
+        byte[] retired = new byte[encoded.Length + 7];
+        encoded.AsSpan(0, 4).CopyTo(retired);
+        BinaryPrimitives.WriteInt32LittleEndian(retired.AsSpan(4), 7);
+        encoded.AsSpan(4, 3).CopyTo(retired.AsSpan(8));
+        retired[11] = 1;
+        encoded.AsSpan(7, 2).CopyTo(retired.AsSpan(12));
+        encoded.AsSpan(9, 64).CopyTo(retired.AsSpan(16));
+        encoded.AsSpan(CommentCreateRequestWire.PodBytes).CopyTo(retired.AsSpan(80));
+        Assert.False(PodBinaryCodec.TryDecodeCommentCreateRequest(retired, out _));
     }
 
     [Fact]
@@ -2225,6 +2260,25 @@ public class PodBinaryCodecTests
     {
         bool ok = PodBinaryCodec.TryDecodeRelatedReading(ReadOnlyMemory<byte>.Empty, out _);
         Assert.False(ok);
+    }
+
+    [Fact]
+    public void ArticleSearch_RetiredAndMalformedLayouts_FailClosed()
+    {
+        byte[] payload = PodBinaryCodec.EncodeArticleSearch([MakeListItem()]);
+        Assert.Equal(AedsArticleSearchWire.Magic, BinaryPrimitives.ReadInt32LittleEndian(payload));
+        Assert.False(PodBinaryCodec.TryDecodeArticleSearch(payload.AsMemory(8), out _));
+        byte[] trailingPayload = [.. payload, 0];
+        Assert.False(PodBinaryCodec.TryDecodeArticleSearch(trailingPayload, out _));
+        foreach (int offset in new[] { AedsArticleSearchWire.CurrentRevisionIdOffset, AedsArticleSearchWire.RevisionNoOffset })
+        {
+            byte[] invalid = payload.ToArray();
+            BinaryPrimitives.WriteInt32LittleEndian(invalid.AsSpan(AedsArticleSearchWire.HeaderBytes + offset), 0);
+            Assert.False(PodBinaryCodec.TryDecodeArticleSearch(invalid, out _));
+        }
+        byte[] old = payload.ToArray();
+        BinaryPrimitives.WriteInt32LittleEndian(old.AsSpan(4), 3);
+        Assert.False(PodBinaryCodec.TryDecodeArticleSearch(old, out _));
     }
 
     // ── ArticleSearch round-trip ─────────────────────────────────────────────

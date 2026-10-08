@@ -94,8 +94,6 @@ export const bootstrapAnonymousAccount = (data: AnonymousBootstrapRequest, confi
         frameType: FrameType.AuthLoginFlow,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            requiresPow: true,
             body: encodeAedsFrame(FrameType.AuthAnonymousBootstrapRequest, encodeAuthAnonymousBootstrapRequest(data))
         }
     });
@@ -133,7 +131,6 @@ export const updatePublicHandle = (data: UpdatePublicHandleDto, config?: ApiRequ
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'PUT',
             body: encodeAedsFrame(FrameType.AuthUpdatePublicHandleRequest, encodeStringMutationRequest(data.publicHandle ?? ''))
         }
     });
@@ -155,7 +152,6 @@ export const updateLocalePreference = (
         frameType: FrameType.UserLocalePreference,
         signal: config?.signal,
         requestOptions: {
-            method: 'PUT',
             body: encodeAedsFrame(
                 FrameType.UserLocalePreferenceUpdateRequest,
                 encodeUserLocalePreferenceUpdateRequest(
@@ -177,7 +173,6 @@ export const logout = (config?: ApiRequestConfig) =>
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST'
         }
     });
 };
@@ -190,7 +185,6 @@ export const logoutAdmin = async (config?: ApiRequestConfig) =>
         signal: config?.signal,
         suppressAuthFailureTelemetry: true,
         requestOptions: {
-            method: 'POST'
         }
     });
 
@@ -219,8 +213,6 @@ export const deleteAccount = (data: DeleteAccountRequest, config?: ApiRequestCon
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            requiresPow: true,
             headers: mfaProofHeaders(data.mfaProofToken ?? config?.mfaProofToken),
             body: encodeAedsFrame(FrameType.AuthDeleteAccountRequest, encodeAuthDeleteAccountRequest(data))
         }
@@ -238,7 +230,6 @@ export const refreshToken = async (config?: ApiRequestConfig) =>
         signal: config?.signal,
         suppressAuthFailureTelemetry: true,
         requestOptions: {
-            method: 'POST'
         }
     });
 };
@@ -256,7 +247,6 @@ export const revokeSession = (sessionId: string, config?: ApiRequestConfig) =>
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST'
         }
     });
 
@@ -266,7 +256,6 @@ export const revokeOtherSessions = (config?: ApiRequestConfig) =>
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST'
         }
     });
 
@@ -287,7 +276,6 @@ export const startMfaSetup = (
         frameType: FrameType.MfaSetupStart,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             headers: mfaProofHeaders(payload?.mfaProofToken ?? config?.mfaProofToken)
         }
     });
@@ -305,7 +293,6 @@ export const verifyMfaSetup = (code: string, config?: ApiRequestConfig) =>
         frameType: FrameType.MfaSetupVerify,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             body: encodeAedsFrame(FrameType.MfaSetupVerifyRequest, encodeStringMutationRequest(code))
         }
     });
@@ -316,7 +303,6 @@ export const disableMfa = (payload: MfaStepUpProofPayload, config?: ApiRequestCo
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             headers: mfaProofHeaders(payload.mfaProofToken ?? config?.mfaProofToken)
         }
     });
@@ -329,7 +315,6 @@ export const regenerateMfaRecoveryCodes = (
     frameType: FrameType.MfaSetupVerify,
     signal: config?.signal,
     requestOptions: {
-        method: 'POST',
         headers: mfaProofHeaders(payload.mfaProofToken ?? config?.mfaProofToken)
     }
 });
@@ -340,7 +325,6 @@ export const startMfaChallenge = (action: string, config?: ApiRequestConfig) =>
         frameType: FrameType.MfaChallengeResult,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             body: encodeAedsFrame(FrameType.MfaChallengeStartRequest, encodeStringMutationRequest(action))
         }
     });
@@ -353,7 +337,6 @@ export const verifyMfaChallenge = (
     frameType: FrameType.MfaChallengeResult,
     signal: config?.signal,
     requestOptions: {
-        method: 'POST',
         body: encodeAedsFrame(FrameType.MfaChallengeVerifyRequest, encodeMfaChallengeVerifyRequest(payload))
     }
 });
@@ -364,7 +347,6 @@ export const userStepUpPasskeyBegin = (action: string, config?: ApiRequestConfig
         frameType: FrameType.PasskeyLoginBegin,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             body: encodeAedsFrame(FrameType.MfaChallengeStartRequest, encodeStringMutationRequest(action))
         }
     });
@@ -375,7 +357,6 @@ export const userStepUpPasskeyComplete = (data: PasskeyLoginCompleteRequest, con
         frameType: FrameType.MfaChallengeResult,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             body: encodeAedsFrame(FrameType.PasskeyLoginCompleteRequest, encodePasskeyLoginCompleteRequest(data))
         }
     });
@@ -419,7 +400,7 @@ export const passkeyRegisterBegin = (config?: ApiRequestConfig) =>
         binaryRoute: { operationId: 'binary_post_auth_passkey_register_begin' },
         frameType: FrameType.PasskeyRegisterBegin,
         signal: config?.signal,
-        requestOptions: { method: 'POST' }
+        requestOptions: { }
     });
 
 export const passkeyRegisterComplete = (data: PasskeyRegisterCompleteRequest, config?: ApiRequestConfig) =>
@@ -428,7 +409,6 @@ export const passkeyRegisterComplete = (data: PasskeyRegisterCompleteRequest, co
         frameType: FrameType.PasskeySignalState,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             body: encodeAedsFrame(FrameType.PasskeyRegisterCompleteRequest, encodePasskeyRegisterCompleteRequest(data))
         }
     });
@@ -438,7 +418,7 @@ export const enrollmentPasskeyRegisterBegin = (config?: ApiRequestConfig) =>
         binaryRoute: { operationId: 'binary_post_auth_enrollment_passkey_register_begin' },
         frameType: FrameType.PasskeyRegisterBegin,
         signal: config?.signal,
-        requestOptions: { method: 'POST' }
+        requestOptions: { }
     });
 
 export const enrollmentPasskeyRegisterComplete = (data: PasskeyRegisterCompleteRequest, config?: ApiRequestConfig) =>
@@ -447,7 +427,6 @@ export const enrollmentPasskeyRegisterComplete = (data: PasskeyRegisterCompleteR
         frameType: FrameType.AuthLoginFlow,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             body: encodeAedsFrame(FrameType.PasskeyRegisterCompleteRequest, encodePasskeyRegisterCompleteRequest(data))
         }
     });
@@ -464,7 +443,7 @@ export const cancelEnrollment = (config?: ApiRequestConfig) =>
         binaryRoute: { operationId: 'binary_post_auth_enrollment_cancel' },
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
-        requestOptions: { method: 'POST' }
+        requestOptions: { }
     });
 
 export const createRecoveryKey = (config?: ApiRequestConfig) =>
@@ -473,7 +452,6 @@ export const createRecoveryKey = (config?: ApiRequestConfig) =>
         frameType: FrameType.RecoveryKeyCreateResponse,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             headers: mfaProofHeaders(config?.mfaProofToken)
         }
     });
@@ -484,7 +462,6 @@ export const rotateRecoveryKey = (config?: ApiRequestConfig) =>
         frameType: FrameType.RecoveryKeyCreateResponse,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             headers: mfaProofHeaders(config?.mfaProofToken)
         }
     });
@@ -495,8 +472,6 @@ export const verifyRecoveryKey = (data: RecoveryKeyVerifyRequest, config?: ApiRe
         frameType: FrameType.RecoveryKeyVerifyResponse,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            requiresPow: true,
             riskChallengeProof: config?.riskChallengeProof ?? undefined,
             body: encodeAedsFrame(FrameType.RecoveryKeyVerifyRequest, encodeRecoveryKeyVerifyRequest(data))
         }
@@ -508,7 +483,6 @@ export const beginRecoveryPasskeyRegistration = (recoverySessionToken: string, c
         frameType: FrameType.PasskeyRegisterBegin,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             body: encodeAedsFrame(FrameType.RecoveryKeySessionRequest, encodeStringMutationRequest(recoverySessionToken))
         }
     });
@@ -519,7 +493,6 @@ export const completeRecoveryPasskeyRegistration = (data: RecoveryPasskeyRegiste
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             body: encodeAedsFrame(FrameType.PasskeyRegisterCompleteRequest, encodePasskeyRegisterCompleteRequest({
                 sessionKey: data.sessionKey,
                 attestation: data.attestation,
@@ -535,7 +508,6 @@ export const passkeyLoginBegin = (config?: ApiRequestConfig) =>
         frameType: FrameType.PasskeyLoginBegin,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             riskChallengeProof: config?.riskChallengeProof ?? undefined
         }
     });
@@ -546,7 +518,6 @@ export const passkeyLoginComplete = (data: PasskeyLoginCompleteRequest, config?:
         frameType: FrameType.AuthLoginFlow,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             riskChallengeProof: config?.riskChallengeProof ?? undefined,
             body: encodeAedsFrame(FrameType.PasskeyLoginCompleteRequest, encodePasskeyLoginCompleteRequest(data))
         }
@@ -558,7 +529,7 @@ export const adminStepUpPasskeyBegin = (config?: ApiRequestConfig) =>
         frameType: FrameType.PasskeyLoginBegin,
         signal: config?.signal,
         suppressAuthFailureTelemetry: true,
-        requestOptions: { method: 'POST' }
+        requestOptions: { }
     });
 
 export const adminStepUpPasskeyComplete = (data: PasskeyLoginCompleteRequest, config?: ApiRequestConfig) =>
@@ -567,7 +538,6 @@ export const adminStepUpPasskeyComplete = (data: PasskeyLoginCompleteRequest, co
         frameType: FrameType.MfaChallengeResult,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             body: encodeAedsFrame(FrameType.PasskeyLoginCompleteRequest, encodePasskeyLoginCompleteRequest(data))
         }
     });
@@ -592,7 +562,6 @@ export const deletePasskey = (id: number, config?: ApiRequestConfig) =>
         frameType: FrameType.PasskeySignalState,
         signal: config?.signal,
         requestOptions: {
-            method: 'DELETE',
             headers: mfaProofHeaders(config?.mfaProofToken)
         }
     });
@@ -603,7 +572,6 @@ export const renamePasskey = (id: number, name: string, config?: ApiRequestConfi
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'PUT',
             headers: mfaProofHeaders(config?.mfaProofToken),
             body: encodeAedsFrame(
                 FrameType.PasskeyCredentialFriendlyNameUpdateRequest,

@@ -387,7 +387,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
         IAnonymousCommentPolicyService policyService = Substitute.For<IAnonymousCommentPolicyService>();
         policyService.GetCurrentAsync(Arg.Any<CancellationToken>()).Returns(policy);
         IZkAnonymousProofService proofService = Substitute.For<IZkAnonymousProofService>();
-        proofService.CurrentZkProdPolicy.Returns(new ZkProdPolicySnapshot(
+        proofService.CurrentZkCommentPolicy.Returns(new ZkCommentPolicySnapshot(
             true,
             true,
             true,

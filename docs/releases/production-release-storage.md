@@ -49,3 +49,27 @@ Use `--source <wwwroot>` for an already extracted tree. Otherwise the tool creat
 The output schema is `fsusblog.release-assets.materialization.v1`. `status=ok` or `dry-run` is required; `status=fail` exits non-zero. Stable fields include `releaseId`, `slot`, `dryRun`, `assetManifestSha256`, `spaManifestDescriptor`, `spaManifestDescriptorSha256`, `productionBuildReceipt`, `productionBuildReceiptSha256`, `assets`, `actions`, and `errors`. The four SPA authority fields are `null` only for a successful dry-run.
 
 Risk and no-restart fallback: do not repoint a mutable entry to the candidate until candidate assets and compatibility pass. If a post-switch issue occurs, switch traffic to the previous slot and previous build ID; its static and derived state remains retained. DataProtection and uploads remain shared, so sessions and durable user content do not require a restart or copy.
+
+
+## Current inventory source verification
+
+The sole `asset-manifest.json` inventory remains produced by `release-assets.mjs`.
+The current release signature verifier reads its pinned bytes, requires the exact
+release/build identity and no compatibility metadata, and independently reads each
+listed asset beside that inventory. Every URL, relative path, SHA-256, size and
+cache class must agree; duplicate paths, aliases, private paths, traversal and extra
+fields fail closed. The fixed media type is derived from the hash-bound file path.
+The Vite build graph is a separate artifact and cannot replace this inventory.
+These checks provide source artifact evidence; they do not provide browser install,
+native schema admission, readiness or Service Worker activation evidence.
+
+
+The checked-in worker now rejects install and activate with
+`current_release_browser_admission_unconfigured` before `skipWaiting`,
+`clients.claim` or any lifecycle cache deletion. A canonical build query, caller
+status, fixture flag or cached response cannot admit it. Successful installation
+still needs a public signed projection from the sole release owner binding the
+candidate, inventory bytes, contract versions and SW identity, plus the original
+Server native same-candidate admission/readiness bridge. The operational manifest
+and database identities must remain private. Source refusal tests do not replace
+the remaining cold/warm browser, interrupted update and request-byte acceptance.

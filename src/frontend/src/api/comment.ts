@@ -8,32 +8,25 @@ import type {
     AnonymousCommentTicketResponse,
     AnonymousCredentialRevocationArtifact,
     AnonymousCredentialRootSnapshot,
-    AnonymousPrivacyStateSnapshot,
     BlindCredentialIssueRequestDto,
-    BlindCredentialIssueResponse,
     BlindCredentialIssuerMetadata,
-    CommentAuthorMode,
     CommentAuthorMutationResult,
     CommentAuthorStatusResult,
-    CommentAuthorView,
-    CommentAuthorViewMode,
-    CommentCreateV2Dto as CommentCreateV2ContractDto,
+    CommentCreateDto as CommentCreateContractDto,
     CommentCreateResult,
-    CommentDisplayLanguage,
     CommentPermalinkContext,
-    CommentPermalinkStatus,
     CommentPolicySnapshot,
     CommentManagementChallengeResult,
     CommentReplyItem,
-    CommentReplyPreviewItem,
-    CommentThreadItem,
     CommentTreeNode,
     CommentTreeRoot,
     CursorResponse,
     PublicCommentCreateInput,
     UserCommentResponse
 } from '@/contracts/binaryApi';
+import { COMMENT_CREATE_POD_BYTES, COMMENT_CREATE_OFFSETS } from '@/generated/commentCreateWire';
 import type { FsusBinaryOperationId } from '@/generated/fsusBinaryRoutes';
+import type { CommentPrivacyRevocationArtifactReference } from '@/privacy/commentPrivacyContracts';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { validateCommentContent } from '@/utils/contentFilter';
 
@@ -77,10 +70,7 @@ export type {
     UserCommentResponse
 } from '@/contracts/binaryApi';
 
-export interface CommentCreateV2Dto extends CommentCreateV2ContractDto {
-    /** @deprecated 匿名模式不应设置 replyToUserId；编码器始终写入兼容占位。 */
-    replyToUserId?: number | null;
-}
+export type CommentCreateDto = CommentCreateContractDto;
 
 // =================================================================================
 // API methods
@@ -90,7 +80,7 @@ export interface CommentCreateV2Dto extends CommentCreateV2ContractDto {
  * 所有方法接受可选的 config.signal，以便调用方通过 AbortSignal 中断请求。
  */
 
-export const createCommentV2 = (data: CommentCreateV2Dto, config?: ApiRequestConfig) =>
+export const createComment = (data: CommentCreateDto, config?: ApiRequestConfig) =>
 {
     return sendCommentMutation(data, config);
 };
@@ -123,8 +113,6 @@ export const createAnonymousComment = (
         frameType: FrameType.AnonymousCommentCreateResult,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            credentials: 'omit',
             body: encodeAedsFrame(FrameType.AnonymousCommentCreateRequest, payload)
         }
     });
@@ -171,7 +159,7 @@ export const getCommentPolicySnapshot = (
         binaryRoute: { operationId: 'binary_get_comment_policy', query },
         frameType: FrameType.CommentPolicySnapshot,
         signal: config?.signal,
-        requestOptions: { credentials: 'omit' }
+        requestOptions: { }
     });
 };
 
@@ -181,7 +169,6 @@ export const getAnonymousCredentialRootSnapshot = (config?: ApiRequestConfig) =>
         frameType: FrameType.AnonymousCredentialRootSnapshot,
         signal: config?.signal,
         requestOptions: {
-            credentials: 'omit'
         }
     });
 
@@ -191,7 +178,6 @@ export const getAnonymousCredentialCircuitSnapshot = (config?: ApiRequestConfig)
         frameType: FrameType.AnonymousCredentialRootSnapshot,
         signal: config?.signal,
         requestOptions: {
-            credentials: 'omit'
         }
     });
 
@@ -201,27 +187,29 @@ export const getBlindCredentialIssuerMetadata = (config?: ApiRequestConfig) =>
         frameType: FrameType.BlindCredentialIssuerMetadata,
         signal: config?.signal,
         requestOptions: {
-            credentials: 'omit'
         }
     });
 
 export const getAnonymousCredentialRevocationArtifact = (
-    path: string,
-    kind: 1 | 2,
+    reference: CommentPrivacyRevocationArtifactReference,
     config?: ApiRequestConfig
 ) =>
-    requestBinaryOnly<AnonymousCredentialRevocationArtifact>({
-        binaryUrl: path,
-        privateScope: 'public',
-        frameType: kind === 1
+{
+    const params = {
+        epoch: reference.epoch,
+        version: reference.version,
+        revocationRoot: reference.revocationRoot
+    };
+    return requestBinaryOnly<AnonymousCredentialRevocationArtifact>({
+        binaryRoute: reference.kind === 'snapshot'
+            ? { operationId: 'binary_get_anonymous_credential_revocation_full', params }
+            : { operationId: 'binary_get_anonymous_credential_revocation_delta', params: { ...params, baseVersion: reference.baseVersion } },
+        frameType: reference.kind === 'snapshot'
             ? FrameType.AnonymousCredentialRevocationSnapshot
             : FrameType.AnonymousCredentialRevocationDelta,
-        signal: config?.signal,
-        requestOptions: {
-            method: 'GET',
-            credentials: 'omit'
-        }
+        signal: config?.signal
     });
+};
 
 export const issueAnonymousCommentTicket = (
     data: AnonymousCommentTicketRequestDto,
@@ -234,15 +222,13 @@ export const issueAnonymousCommentTicket = (
         frameType: FrameType.AnonymousCommentTicketResponse,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            credentials: 'omit',
             body: encodeAedsFrame(FrameType.AnonymousCommentTicketRequest, payload)
         }
     });
 };
 
 function sendCommentMutation(
-    data: CommentCreateV2Dto,
+    data: CommentCreateDto,
     config?: ApiRequestConfig
 )
 {
@@ -257,7 +243,7 @@ function sendCommentMutation(
         return Promise.reject(new Error(validation.message));
     }
 
-    const payload = encodeCommentCreateV2Request(data);
+    const payload = encodeCommentCreateRequest(data);
     const clientMutationId = normalizeCommentMutationId(data.clientMutationId);
 
     return requestBinaryOnly<CommentCreateResult>({
@@ -265,13 +251,11 @@ function sendCommentMutation(
         frameType: FrameType.CommentCreateResult,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            requiresPow: true,
             riskChallengeProof: config?.riskChallengeProof ?? undefined,
             headers: {
                 'X-Fsus-Client-Mutation-Id': clientMutationId
             },
-            body: encodeAedsFrame(FrameType.CommentCreateV2Request, payload)
+            body: encodeAedsFrame(FrameType.CommentCreateRequest, payload)
         }
     });
 }
@@ -318,7 +302,6 @@ export const getComments = (
         frameType: FrameType.CommentTreeRootCursor,
         signal: config?.signal,
         requestOptions: {
-            credentials: 'omit'
         }
     });
 };
@@ -345,7 +328,7 @@ export const getCommentChildren = (
         },
         frameType: FrameType.CommentChildCursor,
         signal: config?.signal,
-        requestOptions: { credentials: 'omit' }
+        requestOptions: { }
     });
 };
 
@@ -365,7 +348,7 @@ export const getCommentPermalinkContext = (
         },
         frameType: FrameType.CommentPermalinkContext,
         signal: config?.signal,
-        requestOptions: { credentials: 'omit' }
+        requestOptions: { }
     });
 };
 
@@ -392,7 +375,6 @@ export const getThreadReplies = (
         frameType: FrameType.CommentThreadReplyCursor,
         signal: config?.signal,
         requestOptions: {
-            credentials: 'omit'
         }
     });
 };
@@ -451,8 +433,6 @@ export const deleteComment = (id: string, config?: ApiRequestConfig) =>
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'DELETE',
-            requiresPow: true
         }
     });
 
@@ -469,7 +449,6 @@ export const issueCommentManagementChallenge = (
   FrameType.CommentManagementChallengeRequest,
   FrameType.CommentManagementChallengeResponse,
   { purpose, capabilitySecret },
-  capabilitySecret ? 'public' : 'account',
   config
 );
 
@@ -485,7 +464,6 @@ export const editCommentAsAuthor = (
   FrameType.CommentAuthorEditRequest,
   FrameType.CommentAuthorMutationResult,
   request,
-  request.capabilitySecret ? 'public' : 'account',
   config
 );
 
@@ -500,7 +478,6 @@ export const deleteAnonymousComment = (
     FrameType.CommentAuthorStatusRequest,
     FrameType.CommentAuthorMutationResult,
     { capabilitySecret, challenge },
-    'public',
     config
 );
 
@@ -514,7 +491,6 @@ export const deleteCommentAsAuthor = (
     FrameType.CommentAuthorStatusRequest,
     FrameType.CommentAuthorMutationResult,
     { challenge, capabilitySecret: '' },
-    'account',
     config
 );
 
@@ -529,7 +505,6 @@ export const getAnonymousCommentStatus = (
     FrameType.CommentAuthorStatusRequest,
     FrameType.CommentAuthorStatusResult,
     { capabilitySecret, challenge },
-    'public',
     config
 );
 
@@ -545,7 +520,6 @@ export const appealAnonymousComment = (
     FrameType.CommentAuthorAppealRequest,
     FrameType.CommentAuthorMutationResult,
     { capabilitySecret, challenge, reason },
-    'public',
     config
 );
 
@@ -555,26 +529,22 @@ function requestCommentManagementJson<T>(
     requestFrame: FrameType,
     responseFrame: FrameType,
     value: unknown,
-    privateScope: 'public' | 'account',
     config?: ApiRequestConfig
 ): Promise<T>
 {
     const payload = new TextEncoder().encode(JSON.stringify(value));
     return requestBinaryOnly<T>({
         binaryRoute: { operationId, params: { id } },
-        privateScope,
         frameType: responseFrame,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             cache: 'no-store',
-            credentials: privateScope === 'account' ? 'include' : 'omit',
             body: encodeAedsFrame(requestFrame, payload)
         }
     });
 }
 
-export function encodeCommentCreateV2Request(data: CommentCreateV2Dto): Uint8Array
+export function encodeCommentCreateRequest(data: CommentCreateDto): Uint8Array
 {
     const anonymousScope = new Uint8Array();
     const displayLanguage = encodeText(data.displayLanguage ?? '');
@@ -582,32 +552,31 @@ export function encodeCommentCreateV2Request(data: CommentCreateV2Dto): Uint8Arr
     const zkProof = new Uint8Array();
     const content = encodeText(data.content ?? '');
     const blobLength = anonymousScope.byteLength + displayLanguage.byteLength + proofToken.byteLength + zkProof.byteLength + content.byteLength;
-    const bytes = new Uint8Array(80 + 4 + blobLength);
+    const bytes = new Uint8Array(COMMENT_CREATE_POD_BYTES + 4 + blobLength);
     const view = new DataView(bytes.buffer);
     const parentId = parseOptionalId(data.parentId);
     const rootId = parseOptionalId(data.rootId);
     const replyToCommentId = parseOptionalId(data.replyToCommentId);
 
-    view.setInt32(0, data.articleId, true);
-    view.setInt32(4, 0, true);
-    bytes[8] = parentId === null ? 0 : 1;
-    bytes[9] = rootId === null ? 0 : 1;
-    bytes[10] = replyToCommentId === null ? 0 : 1;
-    bytes[11] = 0;
-    bytes[12] = encodeCommentAuthorMode(data.authorMode);
-    bytes[13] = data.publicSendExplicitlySelected ? 1 : 0;
-    view.setUint16(14, 0, true);
-    view.setBigInt64(16, parentId ?? 0n, true);
-    view.setBigInt64(24, rootId ?? 0n, true);
-    view.setBigInt64(32, replyToCommentId ?? 0n, true);
+    const o = COMMENT_CREATE_OFFSETS;
+    const blobStart = COMMENT_CREATE_POD_BYTES + 4;
+    view.setInt32(o.articleId, data.articleId, true);
+    bytes[o.hasParentId] = parentId === null ? 0 : 1;
+    bytes[o.hasRootId] = rootId === null ? 0 : 1;
+    bytes[o.hasReplyToCommentId] = replyToCommentId === null ? 0 : 1;
+    bytes[o.authorMode] = encodeCommentAuthorMode(data.authorMode);
+    bytes[o.publicSendExplicitlySelected] = data.publicSendExplicitlySelected ? 1 : 0;
+    view.setBigInt64(o.parentId, parentId ?? 0n, true);
+    view.setBigInt64(o.rootId, rootId ?? 0n, true);
+    view.setBigInt64(o.replyToCommentId, replyToCommentId ?? 0n, true);
 
     let offset = 0;
-    offset = writeBlobPart(bytes, view, 40, 84, offset, anonymousScope);
-    offset = writeBlobPart(bytes, view, 48, 84, offset, displayLanguage);
-    offset = writeBlobPart(bytes, view, 56, 84, offset, proofToken);
-    offset = writeBlobPart(bytes, view, 64, 84, offset, zkProof);
-    writeBlobPart(bytes, view, 72, 84, offset, content);
-    view.setInt32(80, blobLength, true);
+    offset = writeBlobPart(bytes, view, o.anonymousScope, blobStart, offset, anonymousScope);
+    offset = writeBlobPart(bytes, view, o.displayLanguage, blobStart, offset, displayLanguage);
+    offset = writeBlobPart(bytes, view, o.proofToken, blobStart, offset, proofToken);
+    offset = writeBlobPart(bytes, view, o.zkProof, blobStart, offset, zkProof);
+    writeBlobPart(bytes, view, o.content, blobStart, offset, content);
+    view.setInt32(COMMENT_CREATE_POD_BYTES, blobLength, true);
     return bytes;
 }
 
@@ -740,7 +709,7 @@ function writeBlobPart(bytes: Uint8Array, view: DataView, sliceOffset: number, b
     return offset + value.byteLength;
 }
 
-function encodeCommentAuthorMode(mode: CommentCreateV2Dto['authorMode']): number
+function encodeCommentAuthorMode(mode: CommentCreateDto['authorMode']): number
 {
     switch (mode.trim().toLowerCase().replace('-', '_'))
     {

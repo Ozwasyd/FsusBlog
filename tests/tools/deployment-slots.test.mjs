@@ -1,3 +1,4 @@
+import { createCurrentSchemaReleaseBindingFixture, createReleaseIdentityRosterFixture } from './support/release-readiness-test-helpers.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -45,8 +46,8 @@ function releaseInput(releaseId, imageDigest)
         createdAtUtc: releaseId === greenRelease ? '2026-07-11T02:02:02.000Z' : '2026-07-11T01:01:01.000Z',
         frontendManifestHash: `sha256:${'b'.repeat(64)}`,
         wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-        schemaMinimumCoordinate: blueRelease,
-        schemaMaximumCoordinate: greenRelease,
+        currentSchema: createCurrentSchemaReleaseBindingFixture(),
+        identity: createReleaseIdentityRosterFixture({ commitSha: releaseId === greenRelease ? greenCommitSha : commitSha, imageDigest, frontendManifestHash: `sha256:${'b'.repeat(64)}`, wasmArtifactHash: `sha256:${'c'.repeat(64)}` }),
         dotnetVersion: '10.0.100',
         nodeVersion: 'v20.19.0',
         dockerVersion: '28.0.0',

@@ -8,7 +8,7 @@ import test from 'node:test';
 
 const { digestCatalog, loadCatalog } = await import(new URL("../../tools/contracts/behavior-contract-catalog.mjs", import.meta.url));
 const { digestValue } = await import(new URL("../../tools/fact-extractors/lib/canonicalize.mjs", import.meta.url));
-const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, readJson, loadProtocol } = await import(new URL("../../tools/contracts/lib/openapi-contracts.mjs", import.meta.url));
+const { buildOpenApiFromMatrix, generateFrontendRoutes, committedOpenApiPath, operationsFromOpenApi, readJson, loadProtocol } = await import(new URL("../../tools/contracts/lib/openapi-contracts.mjs", import.meta.url));
 const { observationBuildSourcePaths, observationContentDigest, openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
 const { extract: extractOpenApi } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
 const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
@@ -597,6 +597,7 @@ function sampleObservation(overrides = {})
         }
         return {
             ...operation,
+            credentialPolicy: operation.auth === 'anonymous' ? 'omit' : 'include',
             request,
             responses: [
                 {
@@ -715,7 +716,7 @@ test('compiled C# observation self-test executes real loader, merger, and reques
     assert.match(result.stdout, /self-test.*ok/iu);
 });
 
-test('pre-3177 normal producer isolates only the exact owned JSON routes and emits the AEDS observation', {
+test('normal producer includes the exact current Font/Theme AEDS census without retired JSON exclusions', {
     timeout: 120_000
 }, () =>
 {
@@ -741,14 +742,65 @@ test('pre-3177 normal producer isolates only the exact owned JSON routes and emi
         });
         const diagnostic = `${result.stdout}\n${result.stderr}`;
         assert.equal(result.status, 0, diagnostic);
-        assert.match(diagnostic, /pre-#3177 known non-AEDS routes excluded count=8:/u);
+        assert.doesNotMatch(diagnostic, /known non-AEDS routes excluded/u);
         const observation = readJson(path.join(directory, 'observation.json'));
         assert.ok(observation.operations.some((operation) =>
             operation.operationId === 'binary_get_article_articleId_int_related_aeds'
             && operation.responseFrame === 'ArticleRelatedReading'));
-        assert.ok(observation.operations.every((operation) =>
-            !operation.path.startsWith('/api/binary/author/ops/fonts/')
-            && !operation.path.startsWith('/api/binary/author/ops/themes/')));
+        const fontThemeOperations = observation.operations.filter((operation) =>
+            operation.path.startsWith('/api/binary/author/ops/fonts/')
+            || operation.path.startsWith('/api/binary/author/ops/themes/'));
+        const expectedFrames = [
+            ['/api/binary/author/ops/fonts/activations', 'FontActivationList'],
+            ['/api/binary/author/ops/fonts/registry', 'FontRegistryList'],
+            ['/api/binary/author/ops/fonts/registry/{fontId}', 'FontRegistryDetail'],
+            ['/api/binary/author/ops/themes/activations', 'ThemeActivationList'],
+            ['/api/binary/author/ops/themes/activations/{scope}', 'ThemeActivation'],
+            ['/api/binary/author/ops/themes/activations/{scope}/history', 'ThemeActivationHistory'],
+            ['/api/binary/author/ops/themes/registry', 'ThemeRegistryList'],
+            ['/api/binary/author/ops/themes/registry/{themeId}', 'ThemeRegistryDetail']
+        ];
+        assert.deepEqual(fontThemeOperations.map((operation) => ({
+            method: operation.method,
+            path: operation.path,
+            protocol: operation.protocol,
+            aedsVersion: operation.aedsVersion,
+            requestFrame: operation.requestFrame,
+            responseFrame: operation.responseFrame,
+            errorFrame: operation.errorFrame,
+            auth: operation.auth,
+            credentialPolicy: operation.credentialPolicy,
+            permission: operation.permission,
+            pow: operation.pow,
+            rateLimit: operation.rateLimit,
+            cache: operation.cache,
+            success: operation.responses.filter((response) => response.kind === 'success'),
+            protocolState: operation.protocolState
+        })), expectedFrames.map(([path, responseFrame]) => ({
+            method: 'GET',
+            path,
+            protocol: 'AEDS',
+            aedsVersion: 2,
+            requestFrame: null,
+            responseFrame,
+            errorFrame: 'ApiError',
+            auth: 'admin',
+            credentialPolicy: 'include',
+            permission: 'system.config',
+            pow: false,
+            rateLimit: 'fixed_ip',
+            cache: 'no-store',
+            success: [{
+                status: 200,
+                kind: 'success',
+                schemaRef: `aeds://frame/${responseFrame}`,
+                contentType: 'application/octet-stream',
+                resultPlacement: 'aeds.frame.payload',
+                nullable: false,
+                publicErrorRef: null
+            }],
+            protocolState: 'active-aeds-only'
+        })));
     }
     finally
     {
@@ -852,6 +904,37 @@ test('3) auth drift is visible in observation map fields', () =>
     const facts = observationToFactObservations(observation);
     assert.equal(facts.operations.binary_post_admin_article.auth, 'user');
     assert.notEqual(facts.operations.binary_post_admin_article.auth, 'admin');
+});
+
+test('route descriptors consume observed credentials without guessing anonymous policy', () =>
+{
+    const operation = {
+        operationId: 'binary_get_self_test', 'x-fsus-auth': 'anonymous', 'x-fsus-pow': false,
+        'x-fsus-rate-limit': 'public_read', 'x-fsus-cache': 'public-read'
+    };
+    const projection = { paths: { '/api/binary/self-test': { get: operation } } };
+    assert.throws(() => generateFrontendRoutes(projection), /route_metadata_missing/u);
+    for (const policy of ['include', 'omit'])
+    {
+        operation['x-fsus-credential-policy'] = policy;
+        assert.match(generateFrontendRoutes(projection), new RegExp(`credentialPolicy: "${policy}"`, 'u'));
+    }
+    operation['x-fsus-auth'] = 'admin';
+    assert.throws(() => generateFrontendRoutes(projection), /route_metadata_missing/u);
+});
+
+test('credential authority rejects missing policies and authenticated omission', () =>
+{
+    for (const policy of [undefined, 'same-origin', 'omit'])
+    {
+        const observation = sampleObservation();
+        observation.operations[1].credentialPolicy = policy;
+        assert.ok(validateObservationAgainstProtocol(observation, loadProtocol())
+            .some((error) => /credentialPolicy/u.test(error)), String(policy));
+    }
+    const facts = observationToFactObservations(sampleObservation());
+    assert.equal(facts.operations.binary_get_article_id_aeds.credentialPolicy, 'omit');
+    assert.equal(facts.operations.binary_post_admin_article.credentialPolicy, 'include');
 });
 
 test('4) rate-limit and cache metadata are required observation fields', () =>

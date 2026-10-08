@@ -67,7 +67,7 @@ public static class SecurityEndpoints
             IReadOnlyList<SecurityRiskSnapshotResponse> snapshots = policy.ListRiskSnapshots(50);
             SecurityChallengeMetricsResponse challengeMetrics = await BuildSecurityChallengeMetricsAsync(db, null, cancellationToken);
             var response = new RiskControlConsoleResponse(
-                policy.CurrentRiskPolicyV2,
+                policy.CurrentRiskPolicy,
                 BuildRiskOverview(events, snapshots),
                 BuildRiskEventAggregate(events),
                 challengeMetrics,
@@ -136,7 +136,7 @@ public static class SecurityEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             ISecurityAdminPolicyService policy) =>
-            Ok(context, aeds, policy.CurrentRiskPolicyV2));
+            Ok(context, aeds, policy.CurrentRiskPolicy));
 
         group.MapPut("/risk-control/options", async (
             HttpContext context,
@@ -164,7 +164,7 @@ public static class SecurityEndpoints
                 return stepUp;
             }
 
-            SecurityRiskPolicySnapshotV2 snapshot = policy.UpdateRiskControlPolicy(request, ResolveActor(context));
+            SecurityRiskPolicy snapshot = policy.UpdateRiskControlPolicy(request, ResolveActor(context));
             await policySnapshots.ActivateAsync(
                 SecurityPolicyIds.RiskControl,
                 snapshot.GlobalMode,
@@ -202,13 +202,13 @@ public static class SecurityEndpoints
                 return stepUp;
             }
 
-            SecurityPolicyRollbackResult<SecurityRiskPolicySnapshotV2> rollback = await policySnapshots.RollbackAsync<SecurityRiskPolicySnapshotV2>(
+            SecurityPolicyRollbackResult<SecurityRiskPolicy> rollback = await policySnapshots.RollbackAsync<SecurityRiskPolicy>(
                 SecurityPolicyIds.RiskControl,
                 targetVersion: null,
                 ResolveAdminPrincipalId(context),
                 "rollback",
                 cancellationToken);
-            SecurityRiskPolicySnapshotV2 snapshot;
+            SecurityRiskPolicy snapshot;
             if (rollback.Success && rollback.Document is not null)
             {
                 snapshot = rollback.Document;
@@ -259,7 +259,7 @@ public static class SecurityEndpoints
         {
             IReadOnlyList<SecurityPolicyVersionSummaryResponse> versions = await BuildPolicyVersionsAsync(db, policy, cancellationToken);
             var response = new SecurityPolicyConsoleResponse(
-                policy.CurrentRiskPolicyV2,
+                policy.CurrentRiskPolicy,
                 policy.Current,
                 policy.CurrentPow,
                 versions);
@@ -277,7 +277,7 @@ public static class SecurityEndpoints
             var response = new PerceptionSealedV2ConsoleResponse(
                 policy.CurrentPerceptionSealedV2,
                 metrics,
-                policy.CurrentRiskPolicyV2);
+                policy.CurrentRiskPolicy);
             return Ok(context, aeds, response);
         });
 
@@ -908,7 +908,7 @@ public static class SecurityEndpoints
         RiskControlContext riskContext = BuildSimulationRiskContext(request, actionName, routeKey, subject, clientIp, context);
         RiskDecision decision = riskDecisionService.Decide(
             riskContext,
-            riskPolicyProvider.CurrentRiskPolicyV2,
+            riskPolicyProvider.CurrentRiskPolicy,
             riskScore);
 
         return new RiskControlSimulationResponse(
@@ -1600,15 +1600,15 @@ public static class SecurityEndpoints
             versions.Insert(0, new SecurityPolicyVersionSummaryResponse(
                 SecurityPolicyIds.RiskControl,
                 0,
-                policy.CurrentRiskPolicyV2.GlobalMode,
+                policy.CurrentRiskPolicy.GlobalMode,
                 true,
                 true,
                 null,
                 null,
-                policy.CurrentRiskPolicyV2.UpdatedAtUtc,
-                policy.CurrentRiskPolicyV2.UpdatedAtUtc,
+                policy.CurrentRiskPolicy.UpdatedAtUtc,
+                policy.CurrentRiskPolicy.UpdatedAtUtc,
                 null,
-                policy.CurrentRiskPolicyV2.PolicyVersion));
+                policy.CurrentRiskPolicy.PolicyVersion));
         }
 
         return versions;

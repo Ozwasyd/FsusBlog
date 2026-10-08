@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-    CommentPolicyContractVersion,
     CommentPolicyReadiness,
     type DecodedCommentPolicySnapshot
 } from '@/contracts/commentPolicy'
@@ -11,7 +10,6 @@ import {
 } from '@/policies/commentPolicy'
 
 const readySnapshot: DecodedCommentPolicySnapshot = {
-    contractVersion: CommentPolicyContractVersion.Current,
     anonymousCommentsEnabled: true,
     publicCommentsEnabled: true,
     zkAnonymousEnabled: true,
@@ -42,10 +40,8 @@ describe('comment policy readiness contract', () => {
         [{ zkProdUnavailableReason: 'native_backend_required' }, CommentPolicyReadiness.VerifierMissing],
         [{ zkProdTrustedSetupVerified: false, zkProdUnavailableReason: 'trusted_setup_unverified' }, CommentPolicyReadiness.TrustedSetupUnverified],
         [{ zkProdCredentialRootReady: false, zkProdUnavailableReason: 'credential_root_unavailable' }, CommentPolicyReadiness.CredentialRootMissing],
-        [{ zkProdUnavailableReason: 'credential_unready' }, CommentPolicyReadiness.CredentialRootMissing],
         [{ zkProdUnavailableReason: 'credential_issuer_unavailable' }, CommentPolicyReadiness.CredentialRootMissing],
         [{ zkProdCredentialRequired: false, zkProdUnavailableReason: '' }, CommentPolicyReadiness.PolicyUnavailable],
-        [{ zkProdUnavailableReason: 'dev_verifier_disallowed' }, CommentPolicyReadiness.PolicyUnavailable]
     ] as const)('fails closed for a non-ready production state (%j -> %s)', (changes, expected) => {
         const policy = finalizeCommentPolicySnapshot({ ...readySnapshot, ...changes })
 
@@ -55,6 +51,9 @@ describe('comment policy readiness contract', () => {
 
     it.each([
         { zkProdUnavailableReason: 'future_unknown_reason' },
+        { zkProdUnavailableReason: 'dev_verifier_disallowed' },
+        { zkProdUnavailableReason: 'legacy_fallback_disallowed' },
+        { zkProdUnavailableReason: 'credential_unready' },
         { zkProdEnabled: 'true' },
         { snapshotHash: '' },
         { supportedDisplayLanguages: 'zh-CN' }
@@ -69,10 +68,10 @@ describe('comment policy readiness contract', () => {
         expect(isStrongAnonymousCommentAvailable(policy)).toBe(false)
     })
 
-    it('maps an old frame version to unavailable even when its legacy flags look ready', () => {
+    it('rejects missing current limits without synthesizing defaults', () => {
         const policy = finalizeCommentPolicySnapshot({
             ...readySnapshot,
-            contractVersion: CommentPolicyContractVersion.LegacyPadded
+            commentMaxChars: 0
         })
 
         expect(policy.zkProdReadiness).toBe(CommentPolicyReadiness.ContractInvalid)

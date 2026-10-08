@@ -8,6 +8,9 @@
 #include "aeds_crc32.hpp"
 #include "aeds_decode.hpp"
 #include "aeds_frame.hpp"
+#include "article_list_wire_validation.hpp"
+#include "comment_policy_wire.generated.hpp"
+#include "comment_create_wire.generated.hpp"
 #include "font_theme_admin_pods.hpp"
 
 namespace
@@ -25,6 +28,44 @@ void write_u32_le(std::uint8_t* output, std::uint32_t value)
     output[1] = static_cast<std::uint8_t>((value >> 8U) & 0xffU);
     output[2] = static_cast<std::uint8_t>((value >> 16U) & 0xffU);
     output[3] = static_cast<std::uint8_t>((value >> 24U) & 0xffU);
+}
+
+bool ArticleListContract()
+{
+    using namespace FsusBlog::AedsWire;
+    std::vector<std::uint8_t> current(29u + ArticleListRecordBytes, 0u);
+    write_u32_le(current.data(), ArticleListCursorMagic);
+    write_u32_le(current.data() + 4u, ArticleListCursorVersion);
+    write_u32_le(current.data() + 9u, 1u);
+    write_u32_le(current.data() + 17u, 1u);
+    write_u32_le(current.data() + 29u + ArticleListCurrentRevisionIdOffset, 99u);
+    write_u32_le(current.data() + 29u + ArticleListRevisionNoOffset, 1u);
+    ArticleListPayloadView view{};
+    if (!ValidateArticleListPayload(current.data(), current.size(), view) || view.count != 1) return false;
+    for (const auto oldSize : {56u, 76u})
+        if (ValidateArticleListPayload(current.data(), 29u + oldSize, view)) return false;
+    for (const auto offset : {ArticleListCurrentRevisionIdOffset, ArticleListRevisionNoOffset})
+    {
+        auto invalid = current;
+        write_u32_le(invalid.data() + 29u + offset, 0u);
+        if (ValidateArticleListPayload(invalid.data(), invalid.size(), view)) return false;
+    }
+    for (const auto offset : {ArticleListReserved0Offset, ArticleListIsDeletedOffset, ArticleListHasIsDeletedOffset})
+    {
+        auto invalid = current;
+        invalid[29u + offset] = 2u;
+        if (ValidateArticleListPayload(invalid.data(), invalid.size(), view)) return false;
+    }
+    auto trailing = current;
+    trailing.push_back(0u);
+    if (ValidateArticleListPayload(trailing.data(), trailing.size(), view)) return false;
+    auto oldVersion = current;
+    write_u32_le(oldVersion.data() + 4u, 1u);
+    if (ValidateArticleListPayload(oldVersion.data(), oldVersion.size(), view)) return false;
+    if (ValidateArticleListPayload(current.data() + 8u, current.size() - 8u, view)) return false;
+    auto inconsistent = current;
+    write_u32_le(inconsistent.data() + 29u + ArticleListPublicationNoOffset, 1u);
+    return !ValidateArticleListPayload(inconsistent.data(), inconsistent.size(), view);
 }
 
 std::vector<std::uint8_t> empty_frame(std::uint16_t frame_type)
@@ -295,6 +336,7 @@ bool parse_hex(std::string_view hex, std::vector<std::uint8_t>& output)
 
 int main(int argc, char** argv)
 {
+    if (!ArticleListContract()) return 24;
     if (argc >= 3 && std::string_view(argv[1]) == "all")
     {
         for (int index = 2; index < argc; ++index)

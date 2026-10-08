@@ -563,7 +563,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
 
         public ZkAnonymousPolicySnapshot CurrentZkPolicy => new(true, true, "comment.create", []);
 
-        public ZkProdPolicySnapshot CurrentZkProdPolicy => new(true, true, true, true, true, string.Empty);
+        public ZkCommentPolicySnapshot CurrentZkCommentPolicy => new(true, true, true, true, true, string.Empty);
 
         public Task<ZkProofVerificationResult> VerifyCommentProofAsync(
             ZkProofVerificationRequest request,

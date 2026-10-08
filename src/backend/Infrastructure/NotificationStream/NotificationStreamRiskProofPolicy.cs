@@ -88,7 +88,7 @@ internal sealed class NotificationStreamRiskProofPolicy(
             RiskActionRegistry.Default.CreateMetadata(RiskActionNames.NotificationSubscribe);
         RiskControlContext riskContext = riskContextFactory.Create(context);
         int riskScore = await riskScoreReader.GetRiskScoreAsync(context, cancellationToken);
-        SecurityRiskPolicySnapshotV2 policy = riskPolicyProvider.CurrentRiskPolicyV2;
+        SecurityRiskPolicy policy = riskPolicyProvider.CurrentRiskPolicy;
         RiskDecision decision = riskDecisionService.Decide(riskContext, policy, riskScore);
 
         return decision.Kind switch

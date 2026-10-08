@@ -1,5 +1,7 @@
 import path from 'node:path'
 
+import { validateRuntimeRoleCurrentSchemaContract } from '../contracts/lib/runtime-role-current-schema-contract.mjs'
+
 import { validateBehaviorDocStaticAdmissionReceiptV3 } from '../docs/behavior-doc-static-admission-contract.mjs'
 import { verifyReleaseRolloutEvidence } from '../deployment/release-rollout-evidence-receipt-contract.mjs'
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
@@ -50,7 +52,7 @@ function verifyRuntimeRole(relative, plan, repositoryRoot, readJson)
   const deployment = readJson(artifact.deploymentArtifactPath, 'content-addressed deployment observation')
   if (normalized(observation.ref.fileDigest) !== artifact.artifactDigest
     || normalized(deployment.ref.fileDigest) !== artifact.deploymentArtifactDigest
-    || observation.value.schema !== 'fsusblog.runtime-role-observation.v2'
+    || !validateRuntimeRoleCurrentSchemaContract(observation.value, { sourceCommit: plan.sourceState.commit })
     || deployment.value.ownership?.claimEligible !== true
     || observation.value.ownership?.claimEligible !== true
     || observation.value.deploymentAuthority?.observationDigest !== deployment.value.observationDigest
@@ -87,8 +89,7 @@ export function verifyCanonicalReleaseAuthorityValues({
   const runtimeRole = verifyRuntimeRole(runtimeRoleAdmission, plan, repositoryRoot, readJson)
   const manifest = referencedJson(rollout.value.auxiliary?.releaseManifest, 'release manifest', repositoryRoot, readJson)
   const { validateReleaseManifest } = createReleaseManifestValueContract({
-    releaseIdContract: readJson('src/shared/Contracts/Validation/release-id-contract.json', 'release identity contract').value,
-    schemaCompatibilityContract: readJson('src/shared/Contracts/Validation/schema-compatibility-coordinate.json', 'schema coordinate contract').value
+    releaseIdContract: readJson('src/shared/Contracts/Validation/release-id-contract.json', 'release identity contract').value
   })
   const manifestErrors = validateReleaseManifest(manifest.value, {
     requireRegistryDigest: true,

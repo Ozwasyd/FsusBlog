@@ -154,20 +154,6 @@ public readonly record struct CommentPolicyUpdateRequestCoreModel(
     int? CommentMaxChars = null,
     int? CommentMaxUtf8Bytes = null);
 
-public readonly record struct CommentCreateV2RequestCoreModel(
-    int ArticleId,
-    string Content,
-    string? ParentId,
-    string? RootId,
-    string? ReplyToCommentId,
-    int? ReplyToUserId,
-    string AuthorMode,
-    bool PublicSendExplicitlySelected,
-    string? AnonymousScope,
-    string? DisplayLanguage,
-    string? ProofToken,
-    byte[] ZkProof);
-
 public readonly record struct BlindCredentialIssuerMetadataCoreModel(
     long CredentialEpoch,
     long ExpiresAtUnixMs,

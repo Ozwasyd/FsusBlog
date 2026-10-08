@@ -7,9 +7,7 @@ interface ApiUploadProgress {
 
 export interface ApiRequestConfig {
     signal?: AbortSignal;
-    credentials?: RequestCredentials;
     onUploadProgress?: (event: ApiUploadProgress) => void;
-    requiresPow?: boolean;
     mfaProofToken?: string | null;
     riskChallengeProof?: RiskChallengeProofContext | null;
 }

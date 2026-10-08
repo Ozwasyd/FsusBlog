@@ -81,7 +81,7 @@
         "check:pospace-runtime-reachability": "node ../../tests/frontend/checks/static/check-pospace-runtime-reachability.mjs && node ../../tests/frontend/checks/static/check-pospace-runtime-reachability-fixture.mjs",
         "check:runtime-entry-reachability": "node ../../tests/frontend/checks/static/check-runtime-entry-reachability.mjs",
         "check:private-runtime-governance": "node ../../tests/frontend/checks/static/check-private-runtime-governance.mjs",
-        "check:private-request-generation": "node ../../tests/frontend/checks/static/check-private-request-generation.mjs",
+        "check:private-request-generation": "node --test ../../tests/frontend/checks/static/binary-route-call-audit.test.mjs && node ../../tests/frontend/checks/static/check-private-request-generation.mjs",
         "check:private-navigation-policy": "node ../../tests/frontend/checks/static/check-private-navigation-policy.mjs",
         "check:risk-challenge-proof-transport": "node ../../tests/frontend/checks/static/check-risk-challenge-proof-transport.mjs",
         "check:bootstrap-import-retry-privacy": "node ../../tests/frontend/checks/static/check-bootstrap-import-retry-privacy.mjs",

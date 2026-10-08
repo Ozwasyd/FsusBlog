@@ -44,7 +44,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anticrawler-unsafe-provider-url-reject")]
     public void UpdateAntiCrawlerOptions_RejectsUnsafeProviderUrls(string configured)
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         Assert.Throws<ArgumentException>(() =>
             service.UpdateAntiCrawlerOptions(CreateUpdate(googleUrl: configured), "test"));
@@ -57,7 +57,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anticrawler-snapshot-path-outside-root-reject")]
     public void UpdateAntiCrawlerOptions_RejectsSnapshotPathsOutsideDataRoot(string configured)
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         Assert.Throws<ArgumentException>(() =>
             service.UpdateAntiCrawlerOptions(CreateUpdate(snapshotPath: configured), "test"));
@@ -67,7 +67,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void UpdateAntiCrawlerOptions_AcceptsOfficialProvidersAndRelativeSnapshotPath()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         AntiCrawlerPolicySnapshot snapshot = service.UpdateAntiCrawlerOptions(
             CreateUpdate(
@@ -85,7 +85,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void ListRiskEvents_ClampsUntrustedLimitsAtPublicServiceBoundary()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         for (int index = 0; index < 513; index++)
         {
             service.RecordRiskEvent(new AntiCrawlerRiskEventResponse(

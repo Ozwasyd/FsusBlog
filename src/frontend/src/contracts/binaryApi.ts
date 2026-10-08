@@ -1,3 +1,4 @@
+import type { CommentCreateDto } from '@/generated/commentCreateWire';
 export const ArticlePublishStatus = {
     Draft: 0,
     Scheduled: 1,
@@ -281,7 +282,6 @@ export type CommentAuthorViewMode = CommentAuthorMode | 'legacy_server_visible_p
 export type CommentDisplayLanguage = 'zh-CN' | 'en';
 
 export type {
-    CommentPolicyContractVersion,
     CommentPolicyReadiness,
     CommentPolicySnapshot,
     ZkProdUnavailableReason
@@ -295,25 +295,7 @@ export interface CommentAuthorView {
     scopeLabel?: string | null;
 }
 
-export interface CommentCreateV2Dto {
-    clientMutationId?: string;
-    articleId: number;
-    content: string;
-    parentId?: string | null;
-    rootId?: string | null;
-    replyToCommentId?: string | null;
-    /** @deprecated Anonymous mode must leave this unset; the POD encoder writes the compatibility placeholder. */
-    replyToUserId?: number | null;
-    authorMode: 'public';
-    publicSendExplicitlySelected: boolean;
-    displayLanguage: CommentDisplayLanguage;
-    powSalt?: string;
-    powSignature?: string;
-    powTimestamp?: number;
-    difficulty?: number;
-    powNonce?: string;
-    browserFp?: string;
-}
+export type { CommentCreateDto } from '@/generated/commentCreateWire';
 
 export interface CommentCreateResult {
     commentId: string;
@@ -378,7 +360,7 @@ export interface AnonymousCommentSubmitTicket {
     ticket: Uint8Array | number[];
 }
 
-export type PublicCommentCreateInput = Omit<CommentCreateV2Dto, 'authorMode' | 'publicSendExplicitlySelected'> & {
+export type PublicCommentCreateInput = Omit<CommentCreateDto, 'authorMode' | 'publicSendExplicitlySelected'> & {
     authorMode?: CommentAuthorMode | null;
     publicSendExplicitlySelected?: boolean | null;
 };

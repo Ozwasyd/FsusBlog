@@ -39,28 +39,6 @@ public readonly struct UserCommentPod
 }
 
 /// <summary>
-/// Defines the fixed-layout binary representation used by the <c>CommentPolicySnapshot</c> wire contract.
-/// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct CommentPolicySnapshotPod
-{
-    public readonly byte AnonymousCommentsEnabled;
-    public readonly byte PublicCommentsEnabled;
-    public readonly byte ZkAnonymousEnabled;
-    public readonly byte DefaultAuthorMode;
-    public readonly byte ZkProdEnabled;
-    public readonly byte ZkProdNativeVerifierConfigured;
-    public readonly byte ZkProdTrustedSetupVerified;
-    public readonly byte ZkProdCredentialRequired;
-    public readonly byte ZkProdCredentialRootReady;
-    public readonly int CommentMaxChars;
-    public readonly int CommentMaxUtf8Bytes;
-    public readonly Utf8SliceRef SupportedDisplayLanguages;
-    public readonly Utf8SliceRef SnapshotHash;
-    public readonly Utf8SliceRef ZkProdUnavailableReason;
-}
-
-/// <summary>
 /// Defines the fixed-layout binary representation used by the <c>CommentPolicyUpdateRequest</c> wire contract.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -79,31 +57,6 @@ public readonly struct CommentPolicyUpdateRequestPod
     public readonly int CommentMaxChars;
     public readonly int CommentMaxUtf8Bytes;
     public readonly Utf8SliceRef SupportedDisplayLanguages;
-}
-
-/// <summary>
-/// Defines the fixed-layout binary representation used by the <c>CommentCreateV2Request</c> wire contract.
-/// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct CommentCreateV2RequestPod
-{
-    public readonly int ArticleId;
-    public readonly int ReplyToUserId;
-    public readonly byte HasParentId;
-    public readonly byte HasRootId;
-    public readonly byte HasReplyToCommentId;
-    public readonly byte HasReplyToUserId;
-    public readonly byte AuthorMode;
-    public readonly byte PublicSendExplicitlySelected;
-    public readonly ushort Reserved0;
-    public readonly long ParentId;
-    public readonly long RootId;
-    public readonly long ReplyToCommentId;
-    public readonly Utf8SliceRef AnonymousScope;
-    public readonly Utf8SliceRef DisplayLanguage;
-    public readonly Utf8SliceRef ProofToken;
-    public readonly Utf8SliceRef ZkProof;
-    public readonly Utf8SliceRef Content;
 }
 
 /// <summary>

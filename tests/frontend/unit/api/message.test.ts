@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -46,8 +47,6 @@ describe('message API binary transport', () => {
       binaryRoute: { operationId: 'binary_post_messages_conversations' },
       frameType: FrameType.ConversationDetailV2,
       requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true,
         headers: expect.objectContaining({ 'X-Fsus-Client-Mutation-Id': expect.any(String) }),
         body: expect.any(ArrayBuffer)
       })
@@ -59,8 +58,6 @@ describe('message API binary transport', () => {
       },
       frameType: FrameType.ConversationMessage,
       requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true,
         headers: expect.objectContaining({ 'X-Fsus-Client-Mutation-Id': expect.any(String) }),
         body: expect.any(ArrayBuffer)
       })
@@ -216,3 +213,8 @@ describe('message API binary transport', () => {
     expect(new TextDecoder().decode(statusFrame.subarray(32))).toBe('resolved_by_admin')
   })
 })
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
+}

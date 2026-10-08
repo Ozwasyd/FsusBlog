@@ -62,7 +62,8 @@ public static class PgCurrentSchemaCatalogObserver
         foreach (DataRow row in tableRows.Rows)
         {
             string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
-            if (tableScope is not null && tableName != tableScope) continue;
+            if (tableScope is not null && tableName != tableScope)
+                continue;
             if (tableName == CurrentSchemaControlShape.ApplyJournalTableName)
             {
                 CurrentSchemaControlTableFacts control = CurrentSchemaControlShape.DescribeApplyJournalFacts();
@@ -235,6 +236,9 @@ public static class PgCurrentSchemaCatalogObserver
                     SELECT json_agg(
                         json_build_object(
                             'column', key_column.attname,
+                            'expression', CASE WHEN index_meta.indkey[key_position.position] = 0
+                                THEN pg_catalog.pg_get_indexdef(index_meta.indexrelid, key_position.position + 1, true)
+                                ELSE NULL END,
                             'direction', CASE
                                 WHEN (index_meta.indoption[key_position.position] & 1) = 1 THEN 'desc'
                                 ELSE 'asc'
@@ -298,11 +302,12 @@ public static class PgCurrentSchemaCatalogObserver
                 if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
                     && (!Convert.ToBoolean(row["is_valid"]) || !Convert.ToBoolean(row["is_ready"]) || !Convert.ToBoolean(row["is_live"])))
                     throw new InvalidOperationException("current_schema_control_index_unavailable");
-                if (Convert.ToBoolean(row["is_primary"])) primaryIndexes.Add(tableName + "." + indexName);
+                if (Convert.ToBoolean(row["is_primary"]))
+                    primaryIndexes.Add(tableName + "." + indexName);
                 bool hasExpressions = Convert.ToBoolean(row["has_expressions"]);
                 IReadOnlyList<SchemaIndexKeyModel> keys = ParsePostgresIndexKeys(
                     Convert.ToString(row["keys"]),
-                    hasExpressions);
+                    hasExpressions, table.Columns);
                 string[] includedColumns = ParsePostgresIncludedColumns(Convert.ToString(row["included_columns"]));
                 table.Indexes.Add(indexName);
                 ((Dictionary<string, SchemaIndexModel>)table.IndexDefinitions).Add(
@@ -318,11 +323,28 @@ public static class PgCurrentSchemaCatalogObserver
             }
         }
 
+        int controlServerVersion = 0;
+        var controlNotNullColumns = new HashSet<string>(StringComparer.Ordinal);
+        if (tables.ContainsKey(CurrentSchemaControlShape.ApplyJournalTableName))
+        {
+            await using DbCommand version = connection.CreateCommand();
+            version.Transaction = transaction;
+            version.CommandText = "SELECT current_setting('server_version_num')::integer;";
+            controlServerVersion = Convert.ToInt32(await version.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));
+            if (controlServerVersion <= 0)
+                throw new InvalidOperationException("current_schema_control_native_version_unavailable");
+        }
         DataTable constraintRows = await QueryAsync(connection, transaction, $"""
             SELECT
                 table_rel.relname AS table_name,
                 constraint_meta.conname AS constraint_name,
                 constraint_meta.contype AS constraint_type,
+                cardinality(constraint_meta.conkey) AS column_count,
+                constraint_meta.contypid = 0 AND constraint_meta.conparentid = 0
+                    AND constraint_meta.conindid = 0 AND constraint_meta.confrelid = 0
+                    AND constraint_meta.conbin IS NULL AND constraint_meta.confkey IS NULL AS plain_column_constraint,
+                to_jsonb(constraint_meta)->>'conenforced' AS is_enforced,
+                to_jsonb(constraint_meta)->>'conperiod' AS is_period,
                 COALESCE((
                     SELECT string_agg(column_meta.attname, ',' ORDER BY constraint_column.ordinality)
                     FROM unnest(constraint_meta.conkey) WITH ORDINALITY AS constraint_column(attnum, ordinality)
@@ -380,6 +402,30 @@ public static class PgCurrentSchemaCatalogObserver
             }
 
             string physicalName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["constraint_name"])!);
+            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
+                && Convert.ToString(row["constraint_type"]) == "n")
+            {
+                // PG18 stores the original column NOT NULL declaration as a
+                // separate catalog row. Validate every representation fact before
+                // projecting it to the existing canonical IsNullable=false fact.
+                string[] boundColumns = ParseIdentifierList(Convert.ToString(row["columns"]));
+                SchemaTableModel control = CurrentSchemaControlShape.DescribeApplyJournal();
+                if (controlServerVersion < 180000 || boundColumns.Length != 1
+                    || row["column_count"] is DBNull || Convert.ToInt32(row["column_count"]) != 1
+                    || !control.Columns.TryGetValue(boundColumns[0], out SchemaColumnModel? declared)
+                    || declared.IsNullable || !table.Columns.TryGetValue(boundColumns[0], out SchemaColumnModel? measured)
+                    || measured.IsNullable
+                    || Convert.ToString(row["constraint_name"]) != tableName + "_" + boundColumns[0] + "_not_null"
+                    || Convert.ToBoolean(row["is_deferrable"]) || Convert.ToBoolean(row["is_initially_deferred"])
+                    || !Convert.ToBoolean(row["is_validated"]) || Convert.ToString(row["is_enforced"]) != "true"
+                    || Convert.ToString(row["is_period"]) != "false" || !Convert.ToBoolean(row["plain_column_constraint"])
+                    || Convert.ToBoolean(row["no_inherit"]) || !Convert.ToBoolean(row["is_local"])
+                    || Convert.ToInt32(row["inheritance_count"]) != 0 || row["backing_index_name"] is not DBNull
+                    || row["referenced_table"] is not DBNull || row["referenced_schema"] is not DBNull
+                    || !controlNotNullColumns.Add(boundColumns[0]))
+                    throw new InvalidOperationException("current_schema_control_not_null_metadata_invalid");
+                continue;
+            }
             if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
                 && (Convert.ToString(row["constraint_type"]) is "p" or "u")
                 && (!Convert.ToBoolean(row["backing_index_owned"])
@@ -441,14 +487,26 @@ public static class PgCurrentSchemaCatalogObserver
                     referencedSchema));
         }
 
+        if (tables.ContainsKey(CurrentSchemaControlShape.ApplyJournalTableName))
+        {
+            IEnumerable<string> requiredNotNull = controlServerVersion >= 180000
+                ? CurrentSchemaControlShape.DescribeApplyJournal().Columns.Values.Where(static column => !column.IsNullable)
+                    .Select(static column => column.Name)
+                : [];
+            if (!controlNotNullColumns.SetEquals(requiredNotNull))
+                throw new InvalidOperationException("current_schema_control_not_null_roster_unavailable");
+        }
+
         foreach ((string tableName, SchemaTableModel table) in tables.ToArray())
         {
             // Control constraints must be actual pg_constraint rows, not inferred unique indexes.
-            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName) continue;
+            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName)
+                continue;
             var constraints = (Dictionary<string, SchemaConstraintModel>)table.Constraints;
             foreach (SchemaIndexModel index in table.IndexDefinitions.Values.Where(static index => index.IsUnique))
             {
-                if (primaryIndexes.Contains(tableName + "." + index.Name)) continue;
+                if (primaryIndexes.Contains(tableName + "." + index.Name))
+                    continue;
                 constraints.TryAdd(index.Name, new SchemaConstraintModel(
                     index.Name,
                     "unique",
@@ -539,13 +597,9 @@ public static class PgCurrentSchemaCatalogObserver
     /// <summary>Decodes complete native index-key metadata; expression keys outside the current contract refuse.</summary>
     public static IReadOnlyList<SchemaIndexKeyModel> ParsePostgresIndexKeys(
         string? json,
-        bool hasExpressions)
+        bool hasExpressions,
+        IReadOnlyDictionary<string, SchemaColumnModel>? columns = null)
     {
-        if (hasExpressions)
-        {
-            throw new InvalidOperationException("PostgreSQL current schema contains an unsupported expression index key.");
-        }
-
         using JsonDocument document = JsonDocument.Parse(json ?? "null");
         if (document.RootElement.ValueKind != JsonValueKind.Array
             || document.RootElement.GetArrayLength() == 0)
@@ -559,15 +613,26 @@ public static class PgCurrentSchemaCatalogObserver
             if (element.ValueKind != JsonValueKind.Object
                 || element.EnumerateObject().Select(static property => property.Name).Order(StringComparer.Ordinal)
                     .SequenceEqual(
-                        new[] { "collation", "column", "direction", "nullPlacement", "operatorClass" },
+                        new[] { "collation", "column", "direction", "expression", "nullPlacement", "operatorClass" },
                         StringComparer.Ordinal) == false)
             {
                 throw new InvalidOperationException("PostgreSQL current schema index key observation has an invalid shape.");
             }
 
-            string column = NormalizeRequiredPostgresIdentifier(
-                element.GetProperty("column").GetString(),
-                "index key column");
+            JsonElement rawExpression = element.GetProperty("expression");
+            bool expressionKey = rawExpression.ValueKind != JsonValueKind.Null;
+            string column = expressionKey ? string.Empty : NormalizeRequiredPostgresIdentifier(
+                element.GetProperty("column").GetString(), "index key column");
+            SchemaExpressionNode? expression = null;
+            if (expressionKey)
+            {
+                if (!hasExpressions || columns is null || rawExpression.ValueKind != JsonValueKind.String
+                    || element.GetProperty("column").ValueKind != JsonValueKind.Null)
+                {
+                    throw new InvalidOperationException("current_schema_native_index_expression_unobserved_or_unbound");
+                }
+                expression = PgCurrentSchemaExpressionParser.Parse(rawExpression.GetString()!, columns);
+            }
             string direction = RequireExactValue(
                 element.GetProperty("direction").GetString(),
                 "index key direction",
@@ -584,12 +649,24 @@ public static class PgCurrentSchemaCatalogObserver
             string collation = NormalizePostgresIndexIdentity(
                 element.GetProperty("collation").GetString(),
                 "index collation");
-            keys.Add(new SchemaIndexKeyModel(
+            var key = new SchemaIndexKeyModel(
                 column,
                 direction,
                 nullPlacement,
                 operatorClass,
-                collation));
+                collation)
+            {
+                Expression = expression
+            };
+            if (expression is not null)
+            {
+                _ = SchemaIndexExpressionSemantics.RequireColumns(key, columns!);
+            }
+            keys.Add(key);
+        }
+        if (hasExpressions != keys.Any(static key => key.Expression is not null))
+        {
+            throw new InvalidOperationException("current_schema_native_index_expression_roster_mismatch");
         }
         return keys;
     }

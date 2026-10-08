@@ -2,14 +2,14 @@ using System.Text;
 
 using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Shared.Contracts.Primitives;
+using FsusBlog.Shared.Contracts.Validation;
 
 namespace FsusBlog.Core.Cache;
 
-/// <summary>Identifies whether a selective result was decoded directly or through canonical compatibility.</summary>
+/// <summary>Identifies whether a selective result was decoded directly from the current wire layout.</summary>
 public enum AedsProjectionDecodePath
 {
-    Projection = 1,
-    CanonicalFallback = 2
+    Projection = 1
 }
 
 /// <summary>Contains the fields required to render one public article-list card.</summary>
@@ -54,7 +54,7 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        if (total != AedsArticleListAccessProfile.CursorMagic
+        if (total != AedsArticleListWire.CursorMagic
             || !reader.TryReadInt32(out int version)
             || version != ArticlePageCursorEnvelopeVersion)
         {
@@ -89,52 +89,9 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        int tagBytes;
-        int itemRecordBytes;
-        try
-        {
-            tagBytes = checked(tagRecordCount * AedsArticleListAccessProfile.TagRecordBytes);
-            itemRecordBytes = reader.Remaining - tagBytes;
-        }
-        catch (OverflowException)
-        {
-            page = default!;
-            return false;
-        }
-        int itemRecordSize = count == 0 ? 100 : itemRecordBytes / count;
-        if (itemRecordBytes < 0
-            || count > 0 && itemRecordBytes % count != 0
-            || reader.Remaining != count * itemRecordSize + tagBytes)
-        {
-            page = default!;
-            return false;
-        }
-
-        if (AedsArticleListAccessProfile.FallbackPublicCardRecordBytes.Contains(itemRecordSize))
-        {
-            if (!TryDecodeArticlePage(bytes, out var canonical))
-            {
-                page = default!;
-                return false;
-            }
-            page = new PublicArticleListProjectionPage(
-                canonical.Items.Select(static item => new PublicArticleListCardProjection(
-                    item.Id,
-                    item.CreateTime,
-                    item.Category.Id,
-                    item.Category.Name,
-                    item.Title,
-                    item.Summary ?? string.Empty,
-                    item.Tags.Take(PublicArticleListCardTagLimit)
-                        .Select(static tag => new PublicArticleListTagProjection(tag.Id, tag.Name))
-                        .ToArray())).ToArray(),
-                canonical.Total,
-                canonical.NextCursor,
-                canonical.HasMore,
-                AedsProjectionDecodePath.CanonicalFallback);
-            return true;
-        }
-        if (!AedsArticleListAccessProfile.SupportedPublicCardRecordBytes.Contains(itemRecordSize))
+        const int ItemRecordSize = AedsArticleListWire.RecordBytes;
+        if (total < 0 || (long)reader.Remaining != (long)count * ItemRecordSize
+            + (long)tagRecordCount * AedsArticleListWire.TagRecordBytes)
         {
             page = default!;
             return false;
@@ -143,7 +100,7 @@ public static partial class PodBinaryCodec
         var records = new ArticleListProjectionRecord[count];
         for (int index = 0; index < count; index++)
         {
-            if (!reader.TryReadSpan(itemRecordSize, out ReadOnlySpan<byte> record)
+            if (!reader.TryReadSpan(ItemRecordSize, out ReadOnlySpan<byte> record)
                 || !TryReadProjectionRecord(record, tagRecordCount, out records[index]))
             {
                 page = default!;
@@ -208,32 +165,41 @@ public static partial class PodBinaryCodec
         int tagRecordCount,
         out ArticleListProjectionRecord projection)
     {
-        if (record.Length is not (76 or 100))
+        if (record.Length != AedsArticleListWire.RecordBytes)
         {
             projection = default;
             return false;
         }
         int tagStart = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(
-            record[AedsArticleListAccessProfile.TagStartOffset..]);
+            record[AedsArticleListWire.TagStartOffset..]);
         int tagCount = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(
-            record[AedsArticleListAccessProfile.TagCountOffset..]);
+            record[AedsArticleListWire.TagCountOffset..]);
         if (tagStart < 0 || tagCount < 0 || tagStart > tagRecordCount || tagCount > tagRecordCount - tagStart
-            || record[AedsArticleListAccessProfile.IsDeletedOffset] > 1
-            || record[AedsArticleListAccessProfile.HasIsDeletedOffset] > 1
-            || record[AedsArticleListAccessProfile.Reserved0Offset] != 0
-            || record[AedsArticleListAccessProfile.Reserved1Offset] != 0)
+            || record[AedsArticleListWire.IsDeletedOffset] > 1
+            || record[AedsArticleListWire.HasIsDeletedOffset] > 1
+            || record[AedsArticleListWire.Reserved0Offset] != 0
+            || record[AedsArticleListWire.Reserved1Offset] != 0)
         {
             projection = default;
             return false;
         }
 
+        if (!ValidArticleVersionCoordinates(
+            System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(record[AedsArticleListWire.CurrentRevisionIdOffset..]),
+            System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(record[AedsArticleListWire.RevisionNoOffset..]),
+            System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(record[AedsArticleListWire.CurrentPublicationIdOffset..]),
+            System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(record[AedsArticleListWire.PublicationNoOffset..])))
+        {
+            projection = default;
+            return false;
+        }
         projection = new ArticleListProjectionRecord(
-            System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(record[AedsArticleListAccessProfile.IdOffset..]),
-            System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(record[AedsArticleListAccessProfile.CreateTimeUnixMsOffset..]),
-            System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(record[AedsArticleListAccessProfile.CategoryIdOffset..]),
-            ReadSlice(record, AedsArticleListAccessProfile.CategoryNameOffset),
-            ReadSlice(record, AedsArticleListAccessProfile.TitleOffset),
-            ReadSlice(record, AedsArticleListAccessProfile.SummaryOffset),
+            System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(record[AedsArticleListWire.IdOffset..]),
+            System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(record[AedsArticleListWire.CreateTimeUnixMsOffset..]),
+            System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(record[AedsArticleListWire.CategoryIdOffset..]),
+            ReadSlice(record, AedsArticleListWire.CategoryNameOffset),
+            ReadSlice(record, AedsArticleListWire.TitleOffset),
+            ReadSlice(record, AedsArticleListWire.SummaryOffset),
             tagStart,
             tagCount);
         return true;

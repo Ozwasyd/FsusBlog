@@ -175,7 +175,7 @@
     { "name": "IdentityAccountSnapshot", "value": 163, "family": "identity-response" },
     { "name": "CommentPolicySnapshot", "value": 164, "family": "comment-policy-response" },
     { "name": "CommentPolicyUpdateRequest", "value": 165, "family": "comment-policy-request" },
-    { "name": "CommentCreateV2Request", "value": 166, "family": "comment-request" },
+    { "name": "CommentCreateRequest", "value": 166, "family": "comment-request" },
     { "name": "CommentAuthorView", "value": 167, "family": "comment-response" },
     { "name": "AnonymousGovernanceActionRequest", "value": 168, "family": "anonymous-governance-request" },
     { "name": "AnonymousGovernanceActionResponse", "value": 169, "family": "anonymous-governance-response" },

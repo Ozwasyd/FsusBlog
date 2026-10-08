@@ -1,3 +1,4 @@
+import { createCurrentSchemaReleaseBindingFixture, createReleaseIdentityRosterFixture } from './support/release-readiness-test-helpers.mjs';
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
@@ -49,8 +50,8 @@ function writeReleaseManifest(directory) {
     createdAtUtc: '2026-07-26T01:01:01Z',
     frontendManifestHash: digest('b'),
     wasmArtifactHash: digest('c'),
-    schemaMinimumCoordinate: releaseId,
-    schemaMaximumCoordinate: releaseId,
+    currentSchema: createCurrentSchemaReleaseBindingFixture(),
+        identity: createReleaseIdentityRosterFixture({ commitSha, imageDigest: digest('a'), frontendManifestHash: digest('b'), wasmArtifactHash: digest('c') }),
     dotnetVersion: '10',
     nodeVersion: '24',
     dockerVersion: '28',

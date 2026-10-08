@@ -31,7 +31,8 @@ public static partial class PodBinaryCodec
             || !reader.TryReadByte(out byte reserved1)
             || tagStart < 0
             || tagCount < 0
-            || tagStart + tagCount > tagRecordCount
+            || tagStart > tagRecordCount
+            || tagCount > tagRecordCount - tagStart
             || isDeleted > 1
             || hasIsDeleted > 1
             || reserved0 != 0

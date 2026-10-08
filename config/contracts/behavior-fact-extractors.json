@@ -74,7 +74,6 @@
                 "tools/deployment/destructive-operation-authority.mjs",
                 "src/migration",
                 "src/backend/Infrastructure/SchemaMigration",
-                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs",
                 "config/testing/required-evidence-authority-ledger.json",
                 "config/testing/release-domain-assertion-dispositions.json",
                 "tools/test-matrix/release-final-evidence-contract.mjs",
@@ -90,7 +89,8 @@
                 "tools/test/lanes",
                 "src/frontend/package.json",
                 "tools/docs/generate-testing-docs.mjs",
-                "tools/test/lanes/release-final.sh"
+                "tools/test/lanes/release-final.sh",
+                "tools/contracts/lib/runtime-role-current-schema-contract.mjs"
             ],
             "outputSchema": "fsusblog.fact-observation-receipt.v1",
             "requiredBuildArtifact": "runtime-role-observation",

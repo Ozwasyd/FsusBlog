@@ -86,8 +86,18 @@ public sealed record SchemaIndexKeyModel(
     string OperatorClass,
     string Collation)
 {
+    /// <summary>Complete neutral expression facts; expression keys have an empty Column, never a fabricated column name.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SchemaExpressionNode? Expression
+    {
+        get; init;
+    }
+
     /// <summary>Required for physical MySQL comparison; null is unobserved, not a complete key.</summary>
-    public SchemaMySqlIndexKeyPhysicalFacts? MySqlPhysical { get; init; }
+    public SchemaMySqlIndexKeyPhysicalFacts? MySqlPhysical
+    {
+        get; init;
+    }
 }
 
 public sealed record SchemaIndexModel(
@@ -100,7 +110,10 @@ public sealed record SchemaIndexModel(
     bool NullsNotDistinct)
 {
     /// <summary>Required for physical MySQL comparison; no visibility default is selected by the model.</summary>
-    public SchemaMySqlIndexPhysicalFacts? MySqlPhysical { get; init; }
+    public SchemaMySqlIndexPhysicalFacts? MySqlPhysical
+    {
+        get; init;
+    }
 }
 
 public sealed record SchemaOwnedSequenceModel(
@@ -156,7 +169,10 @@ public sealed record SchemaColumnModel(
     SchemaOwnedSequenceModel? OwnedSequence = null)
 {
     /// <summary>Required for physical MySQL comparison; null charset/collation inside a measured object remain distinct from no observation.</summary>
-    public SchemaMySqlColumnPhysicalFacts? MySqlPhysical { get; init; }
+    public SchemaMySqlColumnPhysicalFacts? MySqlPhysical
+    {
+        get; init;
+    }
 }
 
 public sealed class SchemaTableModel(
@@ -194,7 +210,10 @@ public sealed class SchemaTableModel(
         constraints ?? new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
     public SchemaOwnerModel? Owner { get; } = owner;
     /// <summary>Required for physical MySQL comparison; originates in the same current-owned definition as compiler output.</summary>
-    public SchemaMySqlTablePhysicalFacts? MySqlPhysical { get; init; }
+    public SchemaMySqlTablePhysicalFacts? MySqlPhysical
+    {
+        get; init;
+    }
 }
 
 public sealed class SchemaModelSnapshot(

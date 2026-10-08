@@ -43,7 +43,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         var orchestrator = new FakeChallengeOrchestrator();
         SecurityChallengeAssignment assignment = CreateAssignment();
         orchestrator.IssueResult = SecurityChallengeOrchestrationIssueResult.Success(
-            new SecurityChallengeEnvelope(SecurityChallengeContracts.CreateChallengeId(), SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion, [assignment]),
+            new SecurityChallengeEnvelope(SecurityChallengeContracts.CreateChallengeId(), SecurityRiskPolicyFactory.DefaultPolicyVersion, [assignment]),
             new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal)
             {
                 [assignment.ChallengeId] = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -101,7 +101,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
             RouteKey = "auth.login"
         };
         orchestrator.IssueResult = SecurityChallengeOrchestrationIssueResult.Success(
-            new SecurityChallengeEnvelope(SecurityChallengeContracts.CreateChallengeId(), SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion, [assignment]));
+            new SecurityChallengeEnvelope(SecurityChallengeContracts.CreateChallengeId(), SecurityRiskPolicyFactory.DefaultPolicyVersion, [assignment]));
         var riskSink = new CapturingRiskSink();
 
         BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
@@ -1297,7 +1297,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         return Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(arguments[1]);
     }
 
-    private static SecurityRiskPolicySnapshotV2 CreatePolicy(
+    private static SecurityRiskPolicy CreatePolicy(
         string challengeKind,
         IReadOnlyList<string>? requiredChallenges = null)
     {
@@ -1312,9 +1312,9 @@ public sealed class SecurityChallengeBinaryEndpointTests
         {
             HardChallengeKinds = requiredChallenges ?? []
         };
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "risk:test",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            SecurityRiskPolicyFactory.DefaultPolicyVersion,
             DateTimeOffset.UnixEpoch,
             SecuritySystemModes.Enforce,
             200,
@@ -1347,11 +1347,9 @@ public sealed class SecurityChallengeBinaryEndpointTests
             => Task.CompletedTask;
     }
 
-    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy) : ISecurityRiskPolicyProvider
+    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicy policy) : ISecurityRiskPolicyProvider
     {
-        public SecurityRiskPolicySnapshot CurrentRiskPolicy => SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
-
-        public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+        public SecurityRiskPolicy CurrentRiskPolicy => policy;
     }
 
     private sealed class NullRiskSink : ISecurityRiskSignalSink
@@ -1396,7 +1394,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         public Task<PoSpaceUnsupportedReissueResult> ReissueAsync(
             PoSpaceUnsupportedReissueRequest request,
             RiskDecision currentDecision,
-            SecurityRiskPolicySnapshotV2 currentPolicy,
+            SecurityRiskPolicy currentPolicy,
             CancellationToken cancellationToken = default)
         {
             LastRequest = request;

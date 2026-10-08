@@ -15,7 +15,6 @@ import {
 } from '@/api/comment'
 import { createCommentPrivacyAdapter } from '@/privacy/commentPrivacyAdapter'
 import {
-  CommentPolicyContractVersion,
   CommentPolicyReadiness,
   type CommentPolicySnapshot
 } from '@/contracts/commentPolicy'
@@ -35,7 +34,6 @@ const rootSnapshot = {
   verifierConfigured: true
 }
 const policySnapshot = {
-  contractVersion: CommentPolicyContractVersion.Current,
   anonymousCommentsEnabled: true,
   publicCommentsEnabled: true,
   zkAnonymousEnabled: true,

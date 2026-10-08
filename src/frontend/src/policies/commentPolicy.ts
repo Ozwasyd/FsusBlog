@@ -1,17 +1,14 @@
 import {
-    CommentPolicyContractVersion,
     CommentPolicyReadiness,
     zkProdServerUnavailableReasons,
     type DecodedCommentPolicySnapshot,
     type CommentPolicySnapshot,
     type ZkProdUnavailableReason
 } from '@/contracts/commentPolicy';
+import { COMMENT_POLICY_WIRE } from '@/generated/commentPolicyWire';
 
-const defaultCommentMaxChars = 1000;
-const defaultCommentMaxUtf8Bytes = 4096;
 const policyHashPattern = /^[0-9a-f]{64}$/;
 const serverReasonSet = new Set<string>(zkProdServerUnavailableReasons);
-const contractVersions = new Set<number>(Object.values(CommentPolicyContractVersion));
 
 /** Normalizes a complete decoded policy and maps every invalid combination fail closed. */
 export function finalizeCommentPolicySnapshot(
@@ -21,15 +18,6 @@ export function finalizeCommentPolicySnapshot(
     if (!isDecodedSnapshotShapeValid(snapshot))
     {
         return createContractInvalidCommentPolicySnapshot();
-    }
-
-    if (snapshot.contractVersion !== CommentPolicyContractVersion.Current)
-    {
-        return {
-            ...snapshot,
-            zkProdUnavailableReason: 'contract_invalid',
-            zkProdReadiness: CommentPolicyReadiness.ContractInvalid
-        };
     }
 
     const normalizedReason = snapshot.zkProdUnavailableReason.trim().toLowerCase().replaceAll('-', '_');
@@ -59,7 +47,6 @@ function isDecodedSnapshotShapeValid(snapshot: DecodedCommentPolicySnapshot): bo
 {
     return typeof snapshot === 'object' &&
     snapshot !== null &&
-    contractVersions.has(snapshot.contractVersion) &&
     typeof snapshot.anonymousCommentsEnabled === 'boolean' &&
     typeof snapshot.publicCommentsEnabled === 'boolean' &&
     typeof snapshot.zkAnonymousEnabled === 'boolean' &&
@@ -70,21 +57,20 @@ function isDecodedSnapshotShapeValid(snapshot: DecodedCommentPolicySnapshot): bo
     typeof snapshot.zkProdCredentialRequired === 'boolean' &&
     typeof snapshot.zkProdCredentialRootReady === 'boolean' &&
     Number.isInteger(snapshot.commentMaxChars) &&
-    snapshot.commentMaxChars > 0 &&
+    snapshot.commentMaxChars >= COMMENT_POLICY_WIRE.minMaxChars &&
+    snapshot.commentMaxChars <= COMMENT_POLICY_WIRE.hardMaxChars &&
     Number.isInteger(snapshot.commentMaxUtf8Bytes) &&
-    snapshot.commentMaxUtf8Bytes > 0 &&
+    snapshot.commentMaxUtf8Bytes >= COMMENT_POLICY_WIRE.minMaxUtf8Bytes &&
+    snapshot.commentMaxUtf8Bytes <= COMMENT_POLICY_WIRE.hardMaxUtf8Bytes &&
     Array.isArray(snapshot.supportedDisplayLanguages) &&
     snapshot.supportedDisplayLanguages.every((language) => typeof language === 'string') &&
     typeof snapshot.snapshotHash === 'string' &&
     typeof snapshot.zkProdUnavailableReason === 'string';
 }
 
-function createContractInvalidCommentPolicySnapshot(
-    contractVersion = CommentPolicyContractVersion.Current
-): CommentPolicySnapshot
+function createContractInvalidCommentPolicySnapshot(): CommentPolicySnapshot
 {
     return {
-        contractVersion,
         anonymousCommentsEnabled: false,
         publicCommentsEnabled: false,
         zkAnonymousEnabled: false,
@@ -94,8 +80,8 @@ function createContractInvalidCommentPolicySnapshot(
         zkProdTrustedSetupVerified: false,
         zkProdCredentialRequired: true,
         zkProdCredentialRootReady: false,
-        commentMaxChars: defaultCommentMaxChars,
-        commentMaxUtf8Bytes: defaultCommentMaxUtf8Bytes,
+        commentMaxChars: 0,
+        commentMaxUtf8Bytes: 0,
         supportedDisplayLanguages: [],
         snapshotHash: '',
         zkProdUnavailableReason: 'contract_invalid',
@@ -128,11 +114,6 @@ function resolveCurrentReadiness(
             : CommentPolicyReadiness.ContractInvalid;
     }
 
-    if (reason === 'dev_verifier_disallowed' || reason === 'legacy_fallback_disallowed')
-    {
-        return CommentPolicyReadiness.PolicyUnavailable;
-    }
-
     if (reason === 'native_backend_required')
     {
         return CommentPolicyReadiness.VerifierMissing;
@@ -157,7 +138,7 @@ function resolveCurrentReadiness(
         return CommentPolicyReadiness.PolicyUnavailable;
     }
 
-    if (reason === 'credential_unready' || reason === 'credential_issuer_unavailable')
+    if (reason === 'credential_issuer_unavailable')
     {
         return CommentPolicyReadiness.CredentialRootMissing;
     }

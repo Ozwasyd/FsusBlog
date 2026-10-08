@@ -150,7 +150,7 @@ export async function getClusterOperations(
 ): Promise<ClusterOperationsResponse>
 {
     return requestAuthoringBinary<ClusterOperationsResponse>(
-        '/ops/cluster/nodes',
+        { operationId: 'binary_get_author_ops_cluster_nodes' },
         FrameType.ClusterRuntimeSnapshot,
         config
     );
@@ -164,11 +164,10 @@ export async function setClusterNodeState(
 ): Promise<ClusterNodeStateResponse>
 {
     return requestAuthoringBinary<ClusterNodeStateResponse>(
-        `/ops/cluster/nodes/${encodeURIComponent(nodeId)}/state`,
+        { operationId: 'binary_post_author_ops_cluster_nodes_nodeId_state', params: { nodeId } },
         FrameType.ClusterRuntimeSnapshot,
         config,
         {
-            method: 'POST',
             requestFrame: FrameType.ClusterNodeStateRequest,
             request: { state, reason }
         }
@@ -182,11 +181,10 @@ export async function setClusterSchedulerState(
 ): Promise<ClusterSchedulerStateResponse>
 {
     return requestAuthoringBinary<ClusterSchedulerStateResponse>(
-        '/ops/cluster/scheduler',
+        { operationId: 'binary_post_author_ops_cluster_scheduler' },
         FrameType.ClusterRuntimeSnapshot,
         config,
         {
-            method: 'POST',
             requestFrame: FrameType.ClusterSchedulerStateRequest,
             request: { enabled, reason }
         }
@@ -200,11 +198,10 @@ export async function releaseExpiredClusterLease(
 ): Promise<ClusterLeaseReleaseResponse>
 {
     return requestAuthoringBinary<ClusterLeaseReleaseResponse>(
-        `/ops/cluster/leases/${encodeURIComponent(leaseId)}/release-expired`,
+        { operationId: 'binary_post_author_ops_cluster_leases_leaseId_release_expired', params: { leaseId } },
         FrameType.ClusterRuntimeSnapshot,
         config,
         {
-            method: 'POST',
             requestFrame: FrameType.ClusterLeaseReleaseRequest,
             request: { reason }
         }

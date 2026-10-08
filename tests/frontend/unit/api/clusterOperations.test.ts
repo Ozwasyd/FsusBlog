@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FrameType } from '@wasm/protocol/frame';
 import {
@@ -69,8 +70,7 @@ describe('cluster operations API AEDS binary transport', () => {
         });
         expect(binaryMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                binaryUrl: '/api/binary/author/ops/cluster/nodes',
-                privateScope: 'admin',
+                binaryRoute: { operationId: 'binary_get_author_ops_cluster_nodes' },
                 frameType: FrameType.ClusterRuntimeSnapshot
             })
         );
@@ -85,11 +85,19 @@ describe('cluster operations API AEDS binary transport', () => {
         });
         expect(binaryMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                binaryUrl: '/api/binary/author/ops/cluster/nodes/node-a/state',
-                privateScope: 'admin',
+                binaryRoute: { operationId: 'binary_post_author_ops_cluster_nodes_nodeId_state', params: { nodeId: 'node-a' } },
                 frameType: FrameType.ClusterRuntimeSnapshot
             })
         );
+    });
+
+    it('encodes node coordinates without changing the generated endpoint', async () => {
+        binaryMock.mockResolvedValue({ nodeId: 'node/a', status: 'draining' });
+        await setClusterNodeState('node/a?next=https://evil.example', 'draining', 'maintenance');
+        const call = binaryMock.mock.calls[0][0];
+        expect(routeUrl(call)).toBe('/api/binary/author/ops/cluster/nodes/node%2Fa%3Fnext%3Dhttps%3A%2F%2Fevil.example/state');
+        expect(call.requestOptions).not.toHaveProperty('method');
+        expect(call.requestOptions).not.toHaveProperty('credentials');
     });
 
     it('setClusterSchedulerState issues binary POST request with ClusterSchedulerStateRequest frame type', async () => {
@@ -100,8 +108,7 @@ describe('cluster operations API AEDS binary transport', () => {
         });
         expect(binaryMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                binaryUrl: '/api/binary/author/ops/cluster/scheduler',
-                privateScope: 'admin',
+                binaryRoute: { operationId: 'binary_post_author_ops_cluster_scheduler' },
                 frameType: FrameType.ClusterRuntimeSnapshot
             })
         );
@@ -115,10 +122,14 @@ describe('cluster operations API AEDS binary transport', () => {
         });
         expect(binaryMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                binaryUrl: '/api/binary/author/ops/cluster/leases/00000000000000000000000000000001/release-expired',
-                privateScope: 'admin',
+                binaryRoute: { operationId: 'binary_post_author_ops_cluster_leases_leaseId_release_expired', params: { leaseId: '00000000000000000000000000000001' } },
                 frameType: FrameType.ClusterRuntimeSnapshot
             })
         );
     });
 });
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
+}

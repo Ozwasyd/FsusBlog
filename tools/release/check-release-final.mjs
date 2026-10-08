@@ -29,7 +29,7 @@ import {
     isNonBlockingDiagnosticVisualGateSkip
 } from './release-final-diagnostics.mjs';
 import { createReleaseFinalDomainEvidence } from './release-final-domain-evidence.mjs';
-import { validateReleaseManifest } from './release-manifest.mjs';
+import { validateReleaseManifest, deriveReleaseCandidateId, deriveReleaseManifestContentDigest } from './release-manifest.mjs';
 import { writeJsonAtomic } from './test-evidence-receipts.mjs';
 import { validateThemeCssSafetyEvidence } from './theme-css-safety-evidence.mjs';
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
@@ -400,7 +400,7 @@ async function runSelfTest()
         commitSha: commit,
         imageDigest,
         releaseIdentity: {
-            schema: 'fsusblog.release-manifest.v2',
+            schema: 'fsusblog.release-manifest.v3',
             releaseId,
             commitSha: commit,
             imageRepository: 'ghcr.io/fsusblog/app',
@@ -411,7 +411,7 @@ async function runSelfTest()
             createdAtUtc: '2026-07-15T01:01:01.000Z',
             frontendManifestHash: `sha256:${'b'.repeat(64)}`,
             wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-            schemaCompatibility: { minimumCoordinate: releaseId, maximumCoordinate: releaseId },
+            currentSchema: { receiptFormat: 'fsusblog.current-schema-receipt.v1', receipt: { reference: '/unit-fixture/current-schema-receipt.json', sha256: 'a'.repeat(64) }, receiptContentDigest: 'b'.repeat(64), target: { modelVersion: 'unit-model-v1', extractorVersion: 'unit-extractor-v1', generatorVersion: 'unit-generator-v1', sourceDigest: 'c'.repeat(64), contentDigest: 'd'.repeat(64) }, database: { provider: 0, instanceId: 'unit-instance', databaseId: 'unit-database' }, actualSchemaDigest: 'e'.repeat(64) },
             toolchain: {
                 dotnetVersion: '10.0.100',
                 nodeVersion: 'v24.16.0',
@@ -462,6 +462,13 @@ async function runSelfTest()
             }
         }
     };
+    const { createReleaseIdentityRosterFixture } = await import('../../tests/tools/support/release-readiness-test-helpers.mjs');
+    manifest.releaseIdentity.identity = createReleaseIdentityRosterFixture(manifest.releaseIdentity);
+    manifest.releaseIdentity.signature = null;
+    const { releaseSlot: unitSlot, ...unitManifest } = manifest.releaseIdentity;
+    unitManifest.candidateId = deriveReleaseCandidateId(unitManifest);
+    unitManifest.contentDigest = deriveReleaseManifestContentDigest(unitManifest);
+    manifest.releaseIdentity = { ...unitManifest, releaseSlot: unitSlot };
     const errors = validateManifest(manifest, manifestFile);
     if (errors.length > 0)
     {

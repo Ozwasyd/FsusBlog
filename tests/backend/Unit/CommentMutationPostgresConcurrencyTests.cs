@@ -45,7 +45,7 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         var logger = new RecordingLogger<CommentCommandService>();
         using var barrier = new Barrier(2);
         const string MutationId = "018ff010-1234-7abc-8def-0123456789ab";
-        CommentCreateV2RequestCoreModel request = CreatePublicRequest("same comment");
+        CommentCreateRequestCoreModel request = CreatePublicRequest("same comment");
 
         CommentCreateResult[] results = await Task.WhenAll(
             StartBarrierTaskAsync(barrier, async () =>
@@ -447,11 +447,10 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         return attribution;
     }
 
-    private static CommentCreateV2RequestCoreModel CreatePublicRequest(string content)
+    private static CommentCreateRequestCoreModel CreatePublicRequest(string content)
         => new(
             42,
             content,
-            null,
             null,
             null,
             null,

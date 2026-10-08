@@ -1,3 +1,5 @@
+import { validateCurrentActivationPlan } from './current-activation-contract.mjs';
+
 import fs from 'node:fs';
 import path from 'node:path';
 import { isValidReleaseId } from '../release/release-id.mjs';
@@ -277,6 +279,16 @@ export function readRolloutState(file) {
 
 export function writeRolloutStateAtomic(file, state) {
   validateRolloutState(state)
+  writeStateAtomic(file, state)
+}
+
+export function writeCurrentActivationPlanAtomic(file, state, manifest)
+{
+  validateCurrentActivationPlan(state, manifest)
+  writeStateAtomic(file, state)
+}
+
+function writeStateAtomic(file, state) {
   const resolved = path.resolve(file)
   const directory = path.dirname(resolved)
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 })
@@ -470,3 +482,7 @@ function boundedCode(value) {
   if (!/^[0-9A-Za-z][0-9A-Za-z._:-]{0,127}$/u.test(result)) throw new Error('error/reason code is invalid')
   return result
 }
+
+// Current-only activation is owned by this rollout module; the helper is its closed value contract.
+export { createCurrentActivationPlan, validateCurrentActivationPlan, verifyCurrentActivationArtifacts,
+    beginCurrentActivationSwitch, failCurrentActivation, discardUnactivatedCandidate } from './current-activation-contract.mjs';

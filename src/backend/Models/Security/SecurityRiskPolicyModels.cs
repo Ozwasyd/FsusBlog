@@ -1,16 +1,17 @@
+using System.Collections.Frozen;
+using System.Collections.Immutable;
+using System.Security.Cryptography;
+using System.Text.Json;
+
 namespace FsusBlog.Server.Models.Security;
 
-public static class SecurityRiskPolicyOutcomes
-{
-    public const string Allow = "allow";
-    public const string Observe = "observe";
-    public const string Challenge = "challenge";
-    public const string HardChallenge = "hard_challenge";
-    public const string Queue = "queue";
-    public const string Throttle = "throttle";
-    public const string Block = "block";
-    public const string LockdownBlock = "lockdown_block";
-}
+/// <summary>Current typed configuration commands used only when building a risk snapshot.</summary>
+public sealed record SecurityRiskPolicyInputs(
+    string Mode,
+    bool PublicReadChallengeEnabled,
+    int MaxRiskScore,
+    string PowMode = SecuritySystemModes.Enforce,
+    bool PerceptionCharacterV3Enabled = true);
 
 public sealed record SecurityRiskActionThresholds(
     int AllowScore,
@@ -137,6 +138,13 @@ public sealed record SecurityRiskActionPolicy(
     string? ModeOverride,
     bool AnonymousWriteAllowed)
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    internal bool IsSealed
+    {
+        get;
+        init;
+    }
+
     public IReadOnlyList<string> HardChallengeKinds { get; init; } = [];
 
     public int HardChallengeEscalationLevel { get; init; } = 2;
@@ -158,7 +166,7 @@ public sealed record SecurityRiskPolicyDecision(
     int EscalationLevel,
     string Reason);
 
-public sealed record SecurityRiskPolicySnapshotV2(
+public sealed record SecurityRiskPolicy(
     string SnapshotId,
     string PolicyVersion,
     DateTimeOffset UpdatedAtUtc,
@@ -170,6 +178,106 @@ public sealed record SecurityRiskPolicySnapshotV2(
     IReadOnlyDictionary<string, SecurityRiskActionPolicy> ActionOverrides,
     IReadOnlyDictionary<string, string> SubsystemModes)
 {
+    public string Digest { get; init; } = string.Empty;
+
+    /// <summary>Freezes command-boundary input and binds its complete current policy identity.</summary>
+    public SecurityRiskPolicy Seal()
+    {
+        SecurityRiskActionPolicy FreezeAction(SecurityRiskActionPolicy action)
+            => action with
+            {
+                IsSealed = true,
+                Thresholds = NormalizeThresholds(action.Thresholds),
+                HardChallengeKinds = NormalizeChallengeKinds(action.HardChallengeKinds).ToImmutableArray(),
+                DecisionBands = action.DecisionBands.Select(static band => band with
+                {
+                    ChallengeKinds = NormalizeChallengeKinds(band.ChallengeKinds).ToImmutableArray()
+                }).ToImmutableArray()
+            };
+        SecurityRiskPolicy policy = this with
+        {
+            DefaultAction = FreezeAction(DefaultAction),
+            ActionOverrides = ActionOverrides.ToFrozenDictionary(static entry => entry.Key, entry => FreezeAction(entry.Value), StringComparer.Ordinal),
+            SubsystemModes = SubsystemModes.ToFrozenDictionary(StringComparer.Ordinal),
+            PerceptionGeneratorPolicy = PerceptionGeneratorPolicy with
+            {
+                Families = PerceptionGeneratorPolicy.Families.Select(static family => family with
+                {
+                    Variants = family.Variants.ToImmutableArray()
+                }).ToImmutableArray(),
+                ActionOverrides = PerceptionGeneratorPolicy.ActionOverrides.ToFrozenDictionary(static entry => entry.Key, static entry => FreezeGeneratorOverride(entry.Value), StringComparer.Ordinal),
+                RiskOverrides = PerceptionGeneratorPolicy.RiskOverrides.Select(static entry => entry with
+                {
+                    Override = FreezeGeneratorOverride(entry.Override)
+                }).ToImmutableArray()
+            }
+        };
+        byte[] identity = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            policy.SnapshotId,
+            policy.PolicyVersion,
+            policy.UpdatedAtUtc,
+            policy.GlobalMode,
+            policy.MaxRiskScore,
+            policy.StrictRiskMultiplierPercent,
+            policy.LastKnownGoodSnapshotId,
+            policy.DefaultAction,
+            ActionOverrides = policy.ActionOverrides.OrderBy(static entry => entry.Key, StringComparer.Ordinal),
+            SubsystemModes = policy.SubsystemModes.OrderBy(static entry => entry.Key, StringComparer.Ordinal),
+            Generator = new
+            {
+                policy.PerceptionGeneratorPolicy.PolicyId,
+                policy.PerceptionGeneratorPolicy.Families,
+                ActionOverrides = policy.PerceptionGeneratorPolicy.ActionOverrides.OrderBy(static entry => entry.Key, StringComparer.Ordinal),
+                policy.PerceptionGeneratorPolicy.RiskOverrides
+            }
+        });
+        using JsonDocument document = JsonDocument.Parse(identity);
+        using var canonical = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(canonical))
+        {
+            WriteCanonical(document.RootElement, writer);
+        }
+        return policy with
+        {
+            Digest = Convert.ToHexStringLower(SHA256.HashData(canonical.ToArray()))
+        };
+    }
+
+    private static void WriteCanonical(JsonElement element, Utf8JsonWriter writer)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            writer.WriteStartObject();
+            foreach (JsonProperty property in element.EnumerateObject().OrderBy(static property => property.Name, StringComparer.Ordinal))
+            {
+                writer.WritePropertyName(property.Name);
+                WriteCanonical(property.Value, writer);
+            }
+            writer.WriteEndObject();
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            writer.WriteStartArray();
+            foreach (JsonElement value in element.EnumerateArray())
+            {
+                WriteCanonical(value, writer);
+            }
+            writer.WriteEndArray();
+        }
+        else
+        {
+            element.WriteTo(writer);
+        }
+    }
+
+    private static PerceptionChallengeGeneratorOverride FreezeGeneratorOverride(PerceptionChallengeGeneratorOverride value)
+        => value with
+        {
+            FamilyWeights = value.FamilyWeights.ToFrozenDictionary(StringComparer.Ordinal),
+            VariantWeights = value.VariantWeights.ToFrozenDictionary(static entry => entry.Key, static entry => (IReadOnlyDictionary<string, int>)entry.Value.ToFrozenDictionary(StringComparer.Ordinal), StringComparer.Ordinal)
+        };
+
     public PerceptionChallengeGeneratorDistributionPolicy PerceptionGeneratorPolicy
     {
         get; init;
@@ -201,7 +309,7 @@ public sealed record SecurityRiskPolicySnapshotV2(
     {
         SecurityRiskActionPolicy actionPolicy = ResolveActionPolicy(actionName);
         string mode = SecuritySystemModes.Normalize(actionPolicy.ModeOverride ?? GlobalMode);
-        SecurityRiskActionThresholds thresholds = NormalizeThresholds(actionPolicy.Thresholds);
+        SecurityRiskActionThresholds thresholds = actionPolicy.IsSealed ? actionPolicy.Thresholds : NormalizeThresholds(actionPolicy.Thresholds);
         int boundedRiskScore = Math.Clamp(riskScore, 0, Math.Max(MaxRiskScore, thresholds.BlockScore));
         int effectiveRiskScore = mode == SecuritySystemModes.Strict
             ? ApplyStrictRiskWeight(boundedRiskScore)
@@ -209,7 +317,7 @@ public sealed record SecurityRiskPolicySnapshotV2(
 
         if (mode == SecuritySystemModes.Disabled)
         {
-            return BuildDecision(actionPolicy, mode, SecurityRiskPolicyOutcomes.Allow, false, boundedRiskScore, effectiveRiskScore, "mode_disabled");
+            return BuildDecision(actionPolicy, mode, SecurityRiskPolicyOutcomes.Allow, false, boundedRiskScore, effectiveRiskScore, SecurityRiskPolicyReasons.ModeDisabled);
         }
 
         SecurityRiskDecisionBand? decisionBand = ResolveDecisionBand(actionPolicy, effectiveRiskScore);
@@ -217,13 +325,13 @@ public sealed record SecurityRiskPolicySnapshotV2(
         if (mode == SecuritySystemModes.Observe)
         {
             return thresholdOutcome == SecurityRiskPolicyOutcomes.Allow
-                ? BuildDecision(actionPolicy, mode, SecurityRiskPolicyOutcomes.Allow, false, boundedRiskScore, effectiveRiskScore, "below_threshold")
+                ? BuildDecision(actionPolicy, mode, SecurityRiskPolicyOutcomes.Allow, false, boundedRiskScore, effectiveRiskScore, SecurityRiskPolicyReasons.BelowThreshold)
                 : BuildDecision(actionPolicy, mode, SecurityRiskPolicyOutcomes.Observe, false, boundedRiskScore, effectiveRiskScore, decisionBand?.Reason ?? thresholdOutcome);
         }
 
         if (mode == SecuritySystemModes.Lockdown && isAnonymousWrite && !actionPolicy.AnonymousWriteAllowed)
         {
-            return BuildDecision(actionPolicy, mode, SecurityRiskPolicyOutcomes.LockdownBlock, true, boundedRiskScore, effectiveRiskScore, "anonymous_write_lockdown");
+            return BuildDecision(actionPolicy, mode, SecurityRiskPolicyOutcomes.LockdownBlock, true, boundedRiskScore, effectiveRiskScore, SecurityRiskPolicyReasons.AnonymousWriteLockdown);
         }
 
         if (decisionBand is not null)
@@ -238,7 +346,7 @@ public sealed record SecurityRiskPolicySnapshotV2(
             thresholdOutcome != SecurityRiskPolicyOutcomes.Allow,
             boundedRiskScore,
             effectiveRiskScore,
-            thresholdOutcome == SecurityRiskPolicyOutcomes.Allow ? "below_threshold" : thresholdOutcome);
+            thresholdOutcome == SecurityRiskPolicyOutcomes.Allow ? SecurityRiskPolicyReasons.BelowThreshold : thresholdOutcome);
     }
 
     private int ApplyStrictRiskWeight(int riskScore)
@@ -310,7 +418,7 @@ public sealed record SecurityRiskPolicySnapshotV2(
                 : [actionPolicy.ChallengeKind];
         }
 
-        return NormalizeChallengeKinds(configured);
+        return actionPolicy.IsSealed ? configured : NormalizeChallengeKinds(configured);
     }
 
     private static IReadOnlyList<string> ResolveRequiredChallenges(
@@ -325,7 +433,7 @@ public sealed record SecurityRiskPolicySnapshotV2(
 
         return configured.Count == 0
             ? ResolveRequiredChallenges(actionPolicy, outcome)
-            : NormalizeChallengeKinds(configured);
+            : actionPolicy.IsSealed ? configured : NormalizeChallengeKinds(configured);
     }
 
     private static int ResolveEscalationLevel(SecurityRiskActionPolicy actionPolicy, string outcome)

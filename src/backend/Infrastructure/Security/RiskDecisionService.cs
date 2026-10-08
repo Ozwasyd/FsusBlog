@@ -61,7 +61,7 @@ public sealed record RiskControlDecisionContext(RiskDecision Decision)
 /// </summary>
 public interface IRiskDecisionService
 {
-    RiskDecision Decide(RiskControlContext context, SecurityRiskPolicySnapshotV2 policy, int currentRiskScore);
+    RiskDecision Decide(RiskControlContext context, SecurityRiskPolicy policy, int currentRiskScore);
 }
 
 /// <summary>
@@ -82,7 +82,7 @@ public sealed class RiskDecisionService : IRiskDecisionService
     /// <param name="policy">Versioned policy snapshot used for this evaluation.</param>
     /// <param name="currentRiskScore">Accumulated non-negative score before action-specific policy evaluation.</param>
     /// <returns>The disposition, effective score, required challenges, and audit reasons.</returns>
-    public RiskDecision Decide(RiskControlContext context, SecurityRiskPolicySnapshotV2 policy, int currentRiskScore)
+    public RiskDecision Decide(RiskControlContext context, SecurityRiskPolicy policy, int currentRiskScore)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(policy);
@@ -163,7 +163,7 @@ public sealed class RiskDecisionService : IRiskDecisionService
         return decision;
     }
 
-    private static RiskDecision Allow(RiskControlContext context, SecurityRiskPolicySnapshotV2 policy, int currentRiskScore, string reason)
+    private static RiskDecision Allow(RiskControlContext context, SecurityRiskPolicy policy, int currentRiskScore, string reason)
         => new(
             RiskDecisionKind.Allow,
             context.ActionName,
@@ -193,7 +193,7 @@ public sealed class RiskDecisionService : IRiskDecisionService
         RiskDecisionKind kind,
         IReadOnlyList<string> challengeKinds,
         RiskControlContext context,
-        SecurityRiskPolicySnapshotV2 policy)
+        SecurityRiskPolicy policy)
     {
         if (kind is not (RiskDecisionKind.Challenge or RiskDecisionKind.StepUp))
         {
@@ -219,7 +219,7 @@ public sealed class RiskDecisionService : IRiskDecisionService
     private static void AddChallengeKindIfEnabled(
         List<string> required,
         string challengeKind,
-        SecurityRiskPolicySnapshotV2 policy,
+        SecurityRiskPolicy policy,
         List<string> reasons)
     {
         if (!IsChallengeSubsystemEnforcing(policy, challengeKind))
@@ -256,7 +256,7 @@ public sealed class RiskDecisionService : IRiskDecisionService
     private static bool TryResolvePoSpaceRouteRejection(
         RiskControlContext context,
         SecurityRiskPolicyDecision policyDecision,
-        SecurityRiskPolicySnapshotV2 policy,
+        SecurityRiskPolicy policy,
         out string reason)
     {
         reason = string.Empty;
@@ -281,7 +281,7 @@ public sealed class RiskDecisionService : IRiskDecisionService
         return false;
     }
 
-    private static bool IsChallengeSubsystemEnforcing(SecurityRiskPolicySnapshotV2 policy, string challengeKind)
+    private static bool IsChallengeSubsystemEnforcing(SecurityRiskPolicy policy, string challengeKind)
     {
         string? subsystem = challengeKind switch
         {

@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "18ce5e8db6d450bbeb0e742a0c29d8c9b4b6334b985dac781a6e2f20884b3801",
+    "contentDigest": "f4e7bb9a4af4042776c9c8ba716231e499305944f8fa7160710c7a19d42e38f8",
     "operations": [
         {
             "method": "DELETE",
@@ -1079,6 +1079,17 @@
             "requestType": null,
             "requestEncoding": null,
             "responseFrame": "BackupStatus",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/ops/cluster/nodes",
+            "operationId": "binary_get_author_ops_cluster_nodes",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "ClusterRuntimeSnapshot",
             "errorFrame": "ApiError",
             "successStatus": 200
         },
@@ -2420,6 +2431,39 @@
         },
         {
             "method": "POST",
+            "path": "/api/binary/author/ops/cluster/leases/{leaseId}/release-expired",
+            "operationId": "binary_post_author_ops_cluster_leases_leaseId_release_expired",
+            "requestFrame": "ClusterLeaseReleaseRequest",
+            "requestType": "FsusBlog.Server.Modules.Endpoints.ClusterLeaseReleaseRequest",
+            "requestEncoding": "utf8-json",
+            "responseFrame": "ClusterRuntimeSnapshot",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/ops/cluster/nodes/{nodeId}/state",
+            "operationId": "binary_post_author_ops_cluster_nodes_nodeId_state",
+            "requestFrame": "ClusterNodeStateRequest",
+            "requestType": "FsusBlog.Server.Modules.Endpoints.ClusterNodeStateRequest",
+            "requestEncoding": "utf8-json",
+            "responseFrame": "ClusterRuntimeSnapshot",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/ops/cluster/scheduler",
+            "operationId": "binary_post_author_ops_cluster_scheduler",
+            "requestFrame": "ClusterSchedulerStateRequest",
+            "requestType": "FsusBlog.Server.Modules.Endpoints.ClusterSchedulerStateRequest",
+            "requestEncoding": "utf8-json",
+            "responseFrame": "ClusterRuntimeSnapshot",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
             "path": "/api/binary/author/plugins/install",
             "operationId": "binary_post_author_plugins_install",
             "requestFrame": "PluginPackageInstallRequest",
@@ -2477,8 +2521,8 @@
             "method": "POST",
             "path": "/api/binary/comment",
             "operationId": "binary_post_comment",
-            "requestFrame": "CommentCreateV2Request",
-            "requestType": "FsusBlog.Core.Mapping.Models.CommentCreateV2RequestCoreModel",
+            "requestFrame": "CommentCreateRequest",
+            "requestType": "FsusBlog.Core.Mapping.Models.CommentCreateRequestCoreModel",
             "requestEncoding": "binary-layout",
             "responseFrame": "CommentCreateResult",
             "errorFrame": "ApiError",

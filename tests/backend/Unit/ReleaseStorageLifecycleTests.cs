@@ -8,15 +8,61 @@ using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests;
 
 public sealed class ReleaseStorageLifecycleTests
 {
+    [Theory]
+    [InlineData("20260712000006-abcdef123456/sw.js?build=20260712000006-abcdef123456", true)]
+    [InlineData("20260712000006-abcdef123456/sw.js", false)]
+    [InlineData("20260712000006-abcdef123456/sw.js?build=20260712000006-aaaaaaaaaaaa", false)]
+    [InlineData("20260712000006-abcdef123456/sw.js?build=20260712000006-abcdef123456&build=20260712000006-abcdef123456", false)]
+    [InlineData("20260712000006-abcdef123456/sw.js?build=20260712000006-abcdef123456&extra=value", false)]
+    [InlineData("20260712000006-abcdef123456/assets/sw.js?build=20260712000006-abcdef123456", false)]
+    [InlineData("latest/sw.js?build=latest", false)]
+    [InlineData("20260230000006-abcdef123456/sw.js?build=20260230000006-abcdef123456", false)]
+    public async Task ReleaseStaticWorker_GrantsRootScopeOnlyForExactCanonicalBuildRequest(string request, bool rootScope)
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            string relativeFile = request.Split('?')[0];
+            string file = Path.Combine(root, relativeFile);
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            await File.WriteAllTextAsync(file, "self.addEventListener('install', () => {});");
+            WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
+            {
+                ContentRootPath = root
+            });
+            builder.Configuration["AllowedHosts"] = "localhost";
+            builder.WebHost.UseTestServer();
+            await using WebApplication app = builder.Build();
+            app.UseFsusReleaseAssets(root);
+            await app.StartAsync();
+            using HttpClient client = app.GetTestClient();
+            using HttpResponseMessage response = await client.GetAsync($"/release-assets/{request}");
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(rootScope, response.Headers.Contains("Service-Worker-Allowed"));
+            if (rootScope)
+            {
+                Assert.Equal("/", Assert.Single(response.Headers.GetValues("Service-Worker-Allowed")));
+            }
+            Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+            Assert.Contains("no-store", response.Headers.CacheControl!.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public void Layout_SeparatesSharedDerivedImmutableAndInstanceState()
     {

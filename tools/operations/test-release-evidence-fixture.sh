@@ -90,8 +90,10 @@ node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --image-digest "$IMAGE_DIGEST" \
     --frontend-manifest-hash "sha256:$(printf 'b%.0s' {1..64})" \
     --wasm-artifact-hash "sha256:$(printf 'c%.0s' {1..64})" \
-    --schema-minimum-coordinate "$RELEASE_ID" \
-    --schema-maximum-coordinate "$RELEASE_ID" \
+    --identity-roster "${FSUSBLOG_RELEASE_IDENTITY_ROSTER:?explicit closed identity roster required}" \
+  --identity-roster-sha256 "${FSUSBLOG_RELEASE_IDENTITY_ROSTER_SHA256:?explicit identity roster digest required}" \
+  --current-schema-receipt "${FSUSBLOG_CURRENT_SCHEMA_RECEIPT:?explicit canonical current-schema receipt required}" \
+    --current-schema-receipt-sha256 "${FSUSBLOG_CURRENT_SCHEMA_RECEIPT_SHA256:?explicit artifact digest required}" \
     --dotnet-version "10.0.100-fixture" \
     --node-version "v20.19.0-fixture" \
     --docker-version "28.0.0-fixture" \

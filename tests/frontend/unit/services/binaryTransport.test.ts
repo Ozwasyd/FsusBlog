@@ -2,8 +2,13 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decode } from '@wasm/aeds'
+
+vi.mock('@/workers/wasmDecode.worker.ts?worker&url', () => ({
+  default: 'https://fsusblog.test/assets/wasmDecode.worker-unit.js'
+}))
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 import { AppErrorCode } from '@/utils/appError'
+import { ARTICLE_LIST_WIRE } from '@/generated/aedsArticleListWire'
 import { encodeAedsFrame } from '@/api/binaryFrame'
 
 const { mockBinaryRequest } = vi.hoisted(() => {
@@ -109,11 +114,96 @@ describe('binaryTransport ApiError mapping', () => {
     ))
 
     await expect(transport.requestBinaryOnly({
-      binaryUrl: '/api/binary/injected-decoder',
+      binaryRoute: { operationId: 'binary_get_category' },
       frameType: FrameType.EmptySuccess
     })).resolves.toBe(injectedValue)
     expect(decodeFramePayload).toHaveBeenCalledOnce()
     expect(decodeFramePayload).toHaveBeenCalledWith(FrameType.EmptySuccess, expect.any(Uint8Array), undefined)
+  })
+
+  it('keeps large management JSON with its decoder when a packed worker is available', async () => {
+    const worker = vi.fn(() => { throw new Error('packed worker must not decode management JSON') })
+    vi.stubGlobal('Worker', worker)
+    const value = { description: 'x'.repeat(5000) }
+    const payload = new TextEncoder().encode(JSON.stringify(value))
+    mockBinaryRequest.mockResolvedValue(encodeAedsFrame(FrameType.CommentPolicySnapshot, payload))
+    const transport = createBinaryTransport((_type, bytes) => JSON.parse(new TextDecoder().decode(bytes)), false)
+
+    await expect(transport.requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_author_moderation_anonymous_comment_policy' },
+      frameType: FrameType.CommentPolicySnapshot
+    })).resolves.toEqual(value)
+    expect(worker).not.toHaveBeenCalled()
+    expect(mockBinaryRequest).toHaveBeenCalledOnce()
+    expect(mockBinaryRequest).toHaveBeenCalledWith('/api/binary/author/moderation/anonymous-comment-policy',
+      expect.objectContaining({ method: 'GET', credentials: 'include', signal: expect.any(AbortSignal) }))
+  })
+
+  it('keeps the packed worker path for large typed frames', async () => {
+    const listeners = new Map<string, (event: unknown) => void>()
+    const value = { decodedBy: 'packed-worker' }
+    const postMessage = vi.fn((request: { requestId: number }) => {
+      queueMicrotask(() => listeners.get('message')?.({ data: {
+        requestId: request.requestId, ok: true, data: value
+      } }))
+    })
+    vi.stubGlobal('Worker', class {
+      addEventListener(name: string, listener: (event: unknown) => void) { listeners.set(name, listener) }
+      postMessage = postMessage
+      terminate() {}
+    })
+    const decoder = vi.fn()
+    const transport = createBinaryTransport(decoder)
+    mockBinaryRequest.mockResolvedValue(encodeAedsFrame(FrameType.EmptySuccess, new Uint8Array(5000)))
+    try {
+      await expect(transport.requestBinaryOnly({
+        binaryRoute: { operationId: 'binary_get_admin_article' }, frameType: FrameType.EmptySuccess
+      })).resolves.toBe(value)
+      expect(decoder).not.toHaveBeenCalled()
+      expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'decode', expectedFrameType: FrameType.EmptySuccess
+      }), [expect.any(ArrayBuffer)])
+    } finally {
+      listeners.get('messageerror')?.({})
+    }
+  })
+
+  it.each(['wrong-frame', 'malformed-header'])('refuses %s before decoding large management JSON', async (failure) => {
+    const worker = vi.fn(() => { throw new Error('packed worker must not decode management JSON') })
+    vi.stubGlobal('Worker', worker)
+    const decoder = vi.fn((_type, bytes) => JSON.parse(new TextDecoder().decode(bytes)))
+    const transport = createBinaryTransport(decoder, false)
+    const buffer = encodeAedsFrame(failure === 'wrong-frame' ? FrameType.EmptySuccess : FrameType.CommentPolicySnapshot,
+      new TextEncoder().encode(JSON.stringify({ description: 'x'.repeat(5000) })))
+    if (failure === 'malformed-header') new DataView(buffer).setUint32(0, 0, true)
+    mockBinaryRequest.mockResolvedValue(buffer)
+    await expect(transport.requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_author_moderation_anonymous_comment_policy' },
+      frameType: FrameType.CommentPolicySnapshot
+    })).rejects.toMatchObject({ kind: 'decode_failed' })
+    expect(decoder).not.toHaveBeenCalled()
+    expect(worker).not.toHaveBeenCalled()
+  })
+
+  it('rejects a large management JSON response after its admin generation changes', async () => {
+    let resolveResponse!: (value: ArrayBuffer) => void
+    const response = new Promise<ArrayBuffer>(resolve => { resolveResponse = resolve })
+    let requestSignal: AbortSignal | undefined
+    mockBinaryRequest.mockImplementation(async (_url, options) => {
+      requestSignal = options?.signal
+      return await response
+    })
+    const transport = createBinaryTransport((_type, bytes) => JSON.parse(new TextDecoder().decode(bytes)), false)
+    const pending = transport.requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_author_moderation_anonymous_comment_policy' },
+      frameType: FrameType.CommentPolicySnapshot
+    })
+    await vi.waitFor(() => expect(requestSignal).toBeDefined())
+    privateRequestRuntime.advance('admin')
+    expect(requestSignal?.aborted).toBe(true)
+    resolveResponse(encodeAedsFrame(FrameType.CommentPolicySnapshot,
+      new TextEncoder().encode(JSON.stringify({ description: 'x'.repeat(5000) }))))
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
   })
 
   it('rejects a decoded legacy admin response from an older generation', async () => {
@@ -126,8 +216,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
 
     const pending = requestBinaryOnly({
-      binaryUrl: '/api/binary/admin/deferred',
-      privateScope: 'admin',
+      binaryRoute: { operationId: 'binary_get_admin_article' },
       frameType: FrameType.EmptySuccess
     })
     await vi.waitFor(() => expect(requestSignal).toBeDefined())
@@ -142,7 +231,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('pow-challenge-frame.hex'))
 
     await expect(requestBinaryOnly<{ salt: string; difficulty: number; timestamp: number; signature: string }>({
-      binaryUrl: '/api/binary/auth/pow-challenge',
+      binaryRoute: { operationId: 'binary_get_auth_pow_challenge' },
       frameType: FrameType.PowChallenge
     })).resolves.toMatchObject({
       salt: 'salt-value',
@@ -162,7 +251,7 @@ describe('binaryTransport ApiError mapping', () => {
       mfaMode: 'risk' | 'standard' | null;
       challengeToken: string | null;
     }>({
-      binaryUrl: '/api/binary/auth/anonymous/bootstrap',
+      binaryRoute: { operationId: 'binary_post_auth_anonymous_bootstrap' },
       frameType: FrameType.AuthLoginFlow
     })).resolves.toMatchObject({
       accountId: 7,
@@ -185,7 +274,7 @@ describe('binaryTransport ApiError mapping', () => {
         identityKind: string;
       } | null;
     }>({
-      binaryUrl: '/api/binary/auth/mfa/challenge',
+      binaryRoute: { operationId: 'binary_post_auth_mfa_challenge' },
       frameType: FrameType.MfaChallengeResult
     })).resolves.toMatchObject({
       verified: true,
@@ -208,7 +297,7 @@ describe('binaryTransport ApiError mapping', () => {
       issuer: string;
       account: string;
     }>({
-      binaryUrl: '/api/binary/auth/mfa/setup/start',
+      binaryRoute: { operationId: 'binary_post_auth_mfa_setup_start' },
       frameType: FrameType.MfaSetupStart
     })).resolves.toMatchObject({
       enabled: true,
@@ -230,7 +319,7 @@ describe('binaryTransport ApiError mapping', () => {
       isCurrent: boolean;
       mfaVerified: boolean;
     }>>({
-      binaryUrl: '/api/binary/auth/sessions',
+      binaryRoute: { operationId: 'binary_get_auth_sessions' },
       frameType: FrameType.AuthSessionList
     })).resolves.toMatchObject([
       {
@@ -273,7 +362,7 @@ describe('binaryTransport ApiError mapping', () => {
       banReason: string | null;
       deletedAt: string | null;
     }>({
-      binaryUrl: '/api/binary/auth/me',
+      binaryRoute: { operationId: 'binary_get_auth_me' },
       frameType: FrameType.IdentityAccountSnapshot
     })).resolves.toMatchObject({
       accountId: 42,
@@ -297,7 +386,7 @@ describe('binaryTransport ApiError mapping', () => {
       enabled: boolean;
       verifiedAt: string | null;
     }>({
-      binaryUrl: '/api/binary/auth/mfa/profile',
+      binaryRoute: { operationId: 'binary_get_auth_mfa_profile' },
       frameType: FrameType.MfaProfile
     })).resolves.toMatchObject({
       enabled: true,
@@ -309,7 +398,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('category-list-frame.hex'))
 
     await expect(requestBinaryOnly<Array<{ id: number; name: string; articleCount: number }>>({
-      binaryUrl: '/api/binary/category.aeds',
+      binaryRoute: { operationId: 'binary_get_category_aeds' },
       frameType: FrameType.CategoryList
     })).resolves.toMatchObject([
       { id: 1, name: 'Tech', articleCount: 2 },
@@ -345,7 +434,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
     expect(mockBinaryRequest).toHaveBeenLastCalledWith(
       '/api/binary/system/page/about',
-      expect.not.objectContaining({ credentials: 'omit' })
+      expect.objectContaining({ credentials: 'include' })
     )
   })
 
@@ -376,8 +465,6 @@ describe('binaryTransport ApiError mapping', () => {
       2,
       '/api/binary/category.aeds',
       expect.objectContaining({
-        credentials: 'omit',
-        requiresPow: true,
         powScope: 'public-read:/api/binary/category.aeds'
       })
     )
@@ -405,32 +492,25 @@ describe('binaryTransport ApiError mapping', () => {
       2,
       '/api/binary/category.aeds',
       expect.objectContaining({
-        credentials: 'omit',
-        requiresPow: true,
         powScope: 'public-read:/api/binary/category.aeds'
       })
     )
   })
 
-  it('does not retry raw binary URLs on 428 because their public-read contract is unknown', async () => {
-    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(428, 'Binary request failed: 428', encodeApiErrorFrame({
-      status: 428,
-      message: '公开读取请求需要 PoW 凭证',
-      details: 'security.pow',
-      traceId: 'trace-raw'
-    })))
+  it('refuses raw binary URLs before sending or retrying a request', async () => {
+    await expect(requestBinaryOnly({ binaryUrl: '/api/binary/category.aeds', frameType: FrameType.CategoryList } as never))
+      .rejects.toMatchObject({ code: AppErrorCode.ProtocolFailure, message: 'binary_route_missing' })
+    expect(mockBinaryRequest).not.toHaveBeenCalled()
+  })
 
-    await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/category.aeds',
-      frameType: FrameType.CategoryList
-    })).rejects.toMatchObject({
-      name: 'BinaryTransportError',
-      kind: 'precondition_required',
-      status: 428,
-      traceId: 'trace-raw'
-    })
-
-    expect(mockBinaryRequest).toHaveBeenCalledTimes(1)
+  it.each([
+    { binaryRoute: { operationId: 'binary_missing' }, frameType: FrameType.EmptySuccess },
+    { binaryRoute: { operationId: 'binary_get_article_id_aeds' }, frameType: FrameType.EmptySuccess },
+    { binaryRoute: { operationId: 'binary_get_admin_article' }, frameType: FrameType.EmptySuccess, requestOptions: { credentials: 'omit' } },
+    { binaryRoute: { operationId: 'binary_get_auth_me' }, frameType: FrameType.EmptySuccess, requestOptions: { method: 'GET' } }
+  ])('refuses invalid or overridden generated contracts before network IO', async (request) => {
+    await expect(requestBinaryOnly(request as never)).rejects.toThrow()
+    expect(mockBinaryRequest).not.toHaveBeenCalled()
   })
 
   it('keeps credentials included for optional identity routes', async () => {
@@ -441,7 +521,7 @@ describe('binaryTransport ApiError mapping', () => {
       frameType: FrameType.IdentityAccountSnapshot
     })
 
-    expect(mockBinaryRequest).toHaveBeenLastCalledWith('/api/binary/auth/me', expect.not.objectContaining({ credentials: 'omit' }))
+    expect(mockBinaryRequest).toHaveBeenLastCalledWith('/api/binary/auth/me', expect.objectContaining({ credentials: 'include' }))
   })
 
   it('maps a ConversationList frame into the expected view model', async () => {
@@ -466,7 +546,7 @@ describe('binaryTransport ApiError mapping', () => {
         } | null;
       }>;
     }>({
-      binaryUrl: '/api/binary/messages/conversations',
+      binaryRoute: { operationId: 'binary_get_messages_conversations' },
       frameType: FrameType.ConversationList
     })).resolves.toMatchObject({
       total: 1,
@@ -502,7 +582,7 @@ describe('binaryTransport ApiError mapping', () => {
       body: string;
       createdAt: string;
     }>({
-      binaryUrl: '/api/binary/messages/conversations/7/reply',
+      binaryRoute: { operationId: 'binary_post_messages_conversations_id_long_reply', params: { id: "7" } },
       frameType: FrameType.ConversationMessage
     })).resolves.toMatchObject({
       messageId: '11',
@@ -535,7 +615,7 @@ describe('binaryTransport ApiError mapping', () => {
         createdAt: string;
       }>;
     }>({
-      binaryUrl: '/api/binary/messages/conversations/7',
+      binaryRoute: { operationId: 'binary_get_messages_conversations_id_long', params: { id: "7" } },
       frameType: FrameType.ConversationDetail
     })).resolves.toMatchObject({
       conversationId: '7',
@@ -572,7 +652,7 @@ describe('binaryTransport ApiError mapping', () => {
         name: string;
       };
     }>>({
-      binaryUrl: '/api/binary/article/featured/2.aeds',
+      binaryRoute: { operationId: 'binary_get_article_featured_size_aeds', params: { size: "2" } },
       frameType: FrameType.ArticleFeatured
     })).resolves.toMatchObject([
       {
@@ -620,7 +700,7 @@ describe('binaryTransport ApiError mapping', () => {
         name: string;
       }>;
     }>({
-      binaryUrl: '/api/binary/article/42.aeds',
+      binaryRoute: { operationId: 'binary_get_article_id_aeds', params: { id: "42" } },
       frameType: FrameType.ArticleDetail
     })).resolves.toMatchObject({
       id: 42,
@@ -654,7 +734,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-hot-frame.hex'))
 
     await expect(requestBinaryOnly<Array<{ id: number; title: string; views: number }>>({
-      binaryUrl: '/api/binary/article/hot/10.aeds',
+      binaryRoute: { operationId: 'binary_get_article_hot_size_aeds', params: { size: "10" } },
       frameType: FrameType.ArticleHot
     })).resolves.toMatchObject([
       { id: 11, title: 'Hot 1', views: 999 },
@@ -666,7 +746,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-related-reading-frame.hex'))
 
     await expect(requestBinaryOnly<any>({
-      binaryUrl: '/api/binary/article/10/related.aeds',
+      binaryRoute: { operationId: 'binary_get_article_articleId_int_related_aeds', params: { articleId: "10" } },
       frameType: FrameType.ArticleRelatedReading
     })).resolves.toMatchObject({
       related: [
@@ -707,7 +787,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-search-frame.hex'))
 
     const res = await requestBinaryOnly<any>({
-      binaryUrl: '/api/binary/search/article?q=AEDS',
+      binaryRoute: { operationId: 'binary_get_article_search_query_aeds', query: {"q":"AEDS"} },
       frameType: FrameType.ArticleSearch
     });
     expect(res.items).toMatchObject([{
@@ -728,8 +808,19 @@ describe('binaryTransport ApiError mapping', () => {
     }])
   })
 
+  it('refuses cursor v1 through the current ArticleList transport', async () => {
+    const currentFrame = currentArticleListFrame()
+    const payload = new Uint8Array(currentFrame, AEDS_HEADER_LENGTH).slice()
+    new DataView(payload.buffer).setInt32(4, 1, true)
+    mockBinaryRequest.mockResolvedValue(encodeAedsFrame(FrameType.ArticleList, payload))
+    await expect(requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_article_list_home_page_size_aeds', params: { page: 1, size: 10 } },
+      frameType: FrameType.ArticleList
+    })).rejects.toMatchObject({ kind: 'decode_failed', message: 'article_page_cursor_version_invalid' })
+  })
+
   it('maps an ArticleList frame into the expected page response', async () => {
-    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-list-frame.hex'))
+    mockBinaryRequest.mockResolvedValue(currentArticleListFrame())
 
     await expect(requestBinaryOnly<{
       total: number;
@@ -749,7 +840,7 @@ describe('binaryTransport ApiError mapping', () => {
         }>;
       }>;
     }>({
-      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
+      binaryRoute: { operationId: 'binary_get_article_list_home_page_size_aeds', params: { page: "1", size: "10" } },
       frameType: FrameType.ArticleList
     })).resolves.toMatchObject({
       total: 17,
@@ -759,11 +850,11 @@ describe('binaryTransport ApiError mapping', () => {
         {
           id: 11,
 
-          currentRevisionId: '0',
+          currentRevisionId: '101',
 
           currentPublicationId: null,
 
-          revisionNo: 0,
+          revisionNo: 1,
 
           publicationNo: null,
 
@@ -817,7 +908,7 @@ describe('binaryTransport ApiError mapping', () => {
       content: string;
       createTime: string;
     }>>({
-      binaryUrl: '/api/binary/stats/recent-comments',
+      binaryRoute: { operationId: 'binary_get_stats_recent_comments' },
       frameType: FrameType.RecentCommentStats
     })).resolves.toMatchObject([
       {
@@ -846,7 +937,7 @@ describe('binaryTransport ApiError mapping', () => {
       region: string;
       count: number;
     }>>({
-      binaryUrl: '/api/binary/stats/regions',
+      binaryRoute: { operationId: 'binary_get_stats_regions' },
       frameType: FrameType.RegionStats
     })).resolves.toMatchObject([
       {
@@ -894,7 +985,7 @@ describe('binaryTransport ApiError mapping', () => {
         count: number;
       }>;
     }>({
-      binaryUrl: '/api/binary/stats',
+      binaryRoute: { operationId: 'binary_get_stats' },
       frameType: FrameType.AdminStats
     })).resolves.toMatchObject({
       overview: {
@@ -973,7 +1064,7 @@ describe('binaryTransport ApiError mapping', () => {
       loginLogoUrl: string;
       loginIconUrl: string;
     }>({
-      binaryUrl: '/api/binary/system/seo',
+      binaryRoute: { operationId: 'binary_get_system_seo' },
       frameType: FrameType.SeoConfig
     })).resolves.toMatchObject({
       title: 'Fsus Blog',
@@ -1010,7 +1101,7 @@ describe('binaryTransport ApiError mapping', () => {
       slug: string;
       content: string;
     }>({
-      binaryUrl: '/api/binary/system/page/about',
+      binaryRoute: { operationId: 'binary_get_system_page_slug', params: { slug: "about" } },
       frameType: FrameType.PageContent
     })).resolves.toMatchObject({
       slug: 'about',
@@ -1061,7 +1152,7 @@ describe('binaryTransport ApiError mapping', () => {
         }>;
       }>;
     }>({
-      binaryUrl: '/api/binary/comment/5?limit=10',
+      binaryRoute: { operationId: 'binary_get_comment_articleId_int', params: { articleId: "5" }, query: {"limit":"10"} },
       frameType: FrameType.CommentArticleCursor
     })).resolves.toMatchObject({
       nextCursor: '777',
@@ -1115,7 +1206,7 @@ describe('binaryTransport ApiError mapping', () => {
     const buffer = readProtocolFixtureBuffer('api-error-frame.hex')
     mockBinaryRequest.mockRejectedValue(new BinaryRequestError(403, 'Binary request failed: 403', buffer))
 
-    await requestBinaryOnly({ binaryUrl: '/api/binary/example', frameType: FrameType.EmptySuccess })
+    await requestBinaryOnly({ binaryRoute: { operationId: 'binary_get_category' }, frameType: FrameType.EmptySuccess })
       .then(() => {
         throw new Error('expected requestBinaryOnly to throw')
       })
@@ -1145,7 +1236,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockRejectedValue(new BinaryRequestError(status, `Binary request failed: ${status}`, new ArrayBuffer(0)))
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
+      binaryRoute: { operationId: 'binary_get_article_list_home_page_size_aeds', params: { page: "1", size: "10" } },
       frameType: FrameType.ArticleList
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',
@@ -1173,7 +1264,7 @@ describe('binaryTransport ApiError mapping', () => {
     ))
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/auth/recovery-key/verify',
+      binaryRoute: { operationId: 'binary_post_auth_recovery_key_verify' },
       frameType: FrameType.RecoveryKeyVerifyResponse
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',
@@ -1197,7 +1288,7 @@ describe('binaryTransport ApiError mapping', () => {
     ))
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/auth/passkey/login/begin',
+      binaryRoute: { operationId: 'binary_post_auth_passkey_login_begin' },
       frameType: FrameType.PasskeyLoginBegin
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',
@@ -1228,7 +1319,7 @@ describe('binaryTransport ApiError mapping', () => {
     ))
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/auth/passkey/login/begin',
+      binaryRoute: { operationId: 'binary_post_auth_passkey_login_begin' },
       frameType: FrameType.PasskeyLoginBegin
     })).rejects.toMatchObject({
       riskChallengeHandoff: undefined
@@ -1253,7 +1344,7 @@ describe('binaryTransport ApiError mapping', () => {
     ))
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/comment/1',
+      binaryRoute: { operationId: 'binary_get_comment_articleId_int', params: { articleId: "1" } },
       frameType: FrameType.ArticleList
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',
@@ -1285,7 +1376,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/comment/42?token=secret',
+      binaryRoute: { operationId: 'binary_get_comment_articleId_int', params: { articleId: "42" }, query: {"token":"secret"} },
       frameType: FrameType.ArticleList
     })).rejects.toBeInstanceOf(BinaryTransportError)
 
@@ -1293,8 +1384,8 @@ describe('binaryTransport ApiError mapping', () => {
     expect(payloads).toHaveLength(1)
     for (const payload of payloads) {
       expect(payload).toEqual({
-        operationId: 'binary_legacy_request',
-        routeClass: 'legacy',
+        operationId: 'binary_get_comment_articleId_int',
+        routeClass: 'public',
         status: 429,
         errorCode: 7,
         category: 13,
@@ -1310,7 +1401,7 @@ describe('binaryTransport ApiError mapping', () => {
     const recordSpy = recordTelemetrySpy
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/auth/me',
+      binaryRoute: { operationId: 'binary_get_auth_me' },
       frameType: FrameType.IdentityAccountSnapshot,
       suppressAuthFailureTelemetry: true
     })).rejects.toMatchObject({
@@ -1329,7 +1420,7 @@ describe('binaryTransport ApiError mapping', () => {
     const recordSpy = recordTelemetrySpy
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
+      binaryRoute: { operationId: 'binary_get_article_list_home_page_size_aeds', params: { page: "1", size: "10" } },
       frameType: FrameType.ArticleList,
       signal: controller.signal
     })).rejects.toMatchObject({
@@ -1347,7 +1438,7 @@ describe('binaryTransport ApiError mapping', () => {
     const recordSpy = recordTelemetrySpy
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/system/seo',
+      binaryRoute: { operationId: 'binary_get_system_seo' },
       frameType: FrameType.SeoConfig,
       requestOptions: {
         signal: controller.signal
@@ -1367,7 +1458,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/auth/pow-challenge',
+      binaryRoute: { operationId: 'binary_get_auth_pow_challenge' },
       frameType: FrameType.PowChallenge
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',
@@ -1437,6 +1528,53 @@ describe('private request generation leases', () => {
     privateLease.release()
   })
 })
+
+// A current transport fixture; the cross-stack golden exporter remains owned by #1764.
+function currentArticleListFrame(): ArrayBuffer {
+  const slices: Uint8Array[] = []
+  let blobLength = 0
+  const addText = (text: string) => {
+    const bytes = new TextEncoder().encode(text)
+    const slice = { offset: blobLength, length: bytes.byteLength }
+    slices.push(bytes)
+    blobLength += bytes.byteLength
+    return slice
+  }
+  const items = [
+    { id: 11, views: 42, time: '2026-05-12T12:34:56.000Z', categoryId: 3, category: addText('Protocol'),
+      title: addText('Intro AEDS'), summary: addText('Binary protocol basics'), tagStart: 0, tagCount: 2, revisionId: 101n },
+    { id: 12, views: 7, time: '2026-05-13T08:00:00.000Z', categoryId: 4, category: addText('Frontend'),
+      title: addText('Hydration Fixes'), summary: addText(''), tagStart: 2, tagCount: 1, revisionId: 102n }
+  ]
+  const tags = [{ id: 9, name: addText('binary') }, { id: 10, name: addText('contract') }, { id: 11, name: addText('vue') }]
+  const payload = new Uint8Array(29 + blobLength + items.length * ARTICLE_LIST_WIRE.recordBytes + tags.length * ARTICLE_LIST_WIRE.tagRecordBytes)
+  const view = new DataView(payload.buffer)
+  view.setInt32(0, ARTICLE_LIST_WIRE.cursorMagic, true)
+  view.setInt32(4, ARTICLE_LIST_WIRE.cursorVersion, true)
+  view.setInt32(9, 17, true)
+  view.setInt32(13, 0, true)
+  view.setInt32(17, items.length, true)
+  view.setInt32(21, tags.length, true)
+  view.setInt32(25, blobLength, true)
+  let offset = 29
+  for (const text of slices) { payload.set(text, offset); offset += text.byteLength }
+  const writeSlice = (at: number, slice: { offset: number; length: number }) => {
+    view.setInt32(at, slice.offset, true); view.setInt32(at + 4, slice.length, true)
+  }
+  for (const item of items) {
+    view.setInt32(offset, item.id, true); view.setInt32(offset + 4, item.views, true)
+    view.setBigInt64(offset + 8, BigInt(Date.parse(item.time)), true)
+    view.setInt32(offset + 16, item.categoryId, true)
+    writeSlice(offset + 20, item.category); writeSlice(offset + 28, item.title); writeSlice(offset + 36, item.summary)
+    view.setInt32(offset + 44, item.tagStart, true); view.setInt32(offset + 48, item.tagCount, true)
+    payload[offset + 53] = 1
+    view.setInt32(offset + 56, 2, true)
+    view.setBigInt64(offset + 76, item.revisionId, true); view.setInt32(offset + 84, 1, true)
+    offset += ARTICLE_LIST_WIRE.recordBytes
+  }
+  for (const tag of tags) { view.setInt32(offset, tag.id, true); writeSlice(offset + 4, tag.name); offset += ARTICLE_LIST_WIRE.tagRecordBytes }
+  return encodeAedsFrame(FrameType.ArticleList, payload)
+}
 
 function readProtocolFixtureBuffer(fileName: string): ArrayBuffer {
   const fixturePath = fileURLToPath(new URL(`../../../fixtures/protocol/${fileName}`, import.meta.url))

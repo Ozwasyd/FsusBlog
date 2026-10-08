@@ -1,3 +1,4 @@
+const { COMMENT_CREATE_POD_BYTES, COMMENT_CREATE_OFFSETS } = await import(new URL('../../../src/frontend/src/generated/commentCreateWire.ts', import.meta.url));
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -436,7 +437,7 @@ export function encodeStringMutationRequest(value)
     return bytes;
 }
 
-export function encodeCommentCreateV2Request(data)
+export function encodeCommentCreateRequest(data)
 {
     const anonymousScope = UTF8_ENCODER.encode(data.anonymousScope ?? '');
     const displayLanguage = UTF8_ENCODER.encode(data.displayLanguage ?? '');
@@ -444,32 +445,29 @@ export function encodeCommentCreateV2Request(data)
     const zkProof = data.zkProof instanceof Uint8Array ? data.zkProof : new Uint8Array(data.zkProof ?? []);
     const content = UTF8_ENCODER.encode(data.content ?? '');
     const blobLength = anonymousScope.byteLength + displayLanguage.byteLength + proofToken.byteLength + zkProof.byteLength + content.byteLength;
-    const bytes = new Uint8Array(84 + blobLength);
+    const bytes = new Uint8Array(COMMENT_CREATE_POD_BYTES + 4 + blobLength);
     const view = new DataView(bytes.buffer);
-    view.setInt32(0, data.articleId ?? 0, true);
-    view.setInt32(4, 0, true);
-
+    const o = COMMENT_CREATE_OFFSETS;
+    const blobStart = COMMENT_CREATE_POD_BYTES + 4;
     const parentId = parseOptionalBigInt(data.parentId);
     const rootId = parseOptionalBigInt(data.rootId);
     const replyToCommentId = parseOptionalBigInt(data.replyToCommentId);
-    bytes[8] = parentId === null ? 0 : 1;
-    bytes[9] = rootId === null ? 0 : 1;
-    bytes[10] = replyToCommentId === null ? 0 : 1;
-    bytes[11] = 0;
-    view.setUint8(12, encodeCommentAuthorMode(data.authorMode));
-    view.setUint8(13, data.publicSendExplicitlySelected ? 1 : 0);
-    view.setUint16(14, 0, true);
-    view.setBigInt64(16, parentId ?? 0n, true);
-    view.setBigInt64(24, rootId ?? 0n, true);
-    view.setBigInt64(32, replyToCommentId ?? 0n, true);
-
+    view.setInt32(o.articleId, data.articleId ?? 0, true);
+    bytes[o.hasParentId] = parentId === null ? 0 : 1;
+    bytes[o.hasRootId] = rootId === null ? 0 : 1;
+    bytes[o.hasReplyToCommentId] = replyToCommentId === null ? 0 : 1;
+    bytes[o.authorMode] = encodeCommentAuthorMode(data.authorMode);
+    bytes[o.publicSendExplicitlySelected] = data.publicSendExplicitlySelected ? 1 : 0;
+    view.setBigInt64(o.parentId, parentId ?? 0n, true);
+    view.setBigInt64(o.rootId, rootId ?? 0n, true);
+    view.setBigInt64(o.replyToCommentId, replyToCommentId ?? 0n, true);
     let offset = 0;
-    offset = writeBytesSlice(bytes, view, 40, 84, offset, anonymousScope);
-    offset = writeBytesSlice(bytes, view, 48, 84, offset, displayLanguage);
-    offset = writeBytesSlice(bytes, view, 56, 84, offset, proofToken);
-    offset = writeBytesSlice(bytes, view, 64, 84, offset, zkProof);
-    writeBytesSlice(bytes, view, 72, 84, offset, content);
-    view.setInt32(80, blobLength, true);
+    offset = writeBytesSlice(bytes, view, o.anonymousScope, blobStart, offset, anonymousScope);
+    offset = writeBytesSlice(bytes, view, o.displayLanguage, blobStart, offset, displayLanguage);
+    offset = writeBytesSlice(bytes, view, o.proofToken, blobStart, offset, proofToken);
+    offset = writeBytesSlice(bytes, view, o.zkProof, blobStart, offset, zkProof);
+    writeBytesSlice(bytes, view, o.content, blobStart, offset, content);
+    view.setInt32(COMMENT_CREATE_POD_BYTES, blobLength, true);
     return bytes;
 }
 

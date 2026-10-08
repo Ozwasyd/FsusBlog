@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { auditBinaryRouteCalls, collectBinaryRouteFunctionNames } from './binary-route-call-audit.mjs';
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
@@ -21,23 +22,17 @@ function fail(message)
 }
 
 const sourceFiles = filesUnder(sourceRoot).filter(path => statSync(path).isFile() && /\.(ts|vue)$/.test(path));
+const routeCallNames = new Set(sourceFiles.flatMap(path => collectBinaryRouteFunctionNames(readFileSync(path, 'utf8'))));
+const generated = readFileSync(resolve(sourceRoot, 'generated/fsusBinaryRoutes.ts'), 'utf8');
+const operations = new Set([...generated.matchAll(/"(binary_[^"]+)":/gu)].map(match => match[1]));
 for (const path of sourceFiles)
 {
-    const source = readFileSync(path, 'utf8');
-    const name = relative(root, path);
-    if (name.endsWith('services/binaryTransport.ts'))
-    {
-        continue;
-    }
-    const legacyRequests = [...source.matchAll(/binaryUrl\s*:(?!\s*string\b)\s*[^,\n]+,/g)];
-    for (const request of legacyRequests)
-    {
-        const tail = source.slice(request.index + request[0].length, request.index + request[0].length + 160);
-        if (!/privateScope\s*:\s*'(public|account|admin)'/.test(tail))
-        {
-            fail(`${name} has a legacy binaryUrl without an explicit privateScope`);
-        }
-    }
+    const name = relative(sourceRoot, path);
+    const errors = auditBinaryRouteCalls(readFileSync(path, 'utf8'), name, operations, {
+        transportOwner: name === 'services/binaryTransport.ts',
+        routeCallNames
+    });
+    if (errors.length) fail(errors.join('\n'));
 }
 
 for (const path of filesUnder(resolve(sourceRoot, 'api')).filter(path => path.endsWith('.ts')))
@@ -55,7 +50,7 @@ for (const path of filesUnder(resolve(sourceRoot, 'api')).filter(path => path.en
 }
 
 const transport = readFileSync(resolve(sourceRoot, 'services/binaryTransport.ts'), 'utf8');
-if (!transport.includes('privateRequestRuntime.open(resolved.privateScope') || !transport.includes('lease.assertCurrent()'))
+if (!transport.includes('privateRequestRuntime.open(resolved.scope') || !transport.includes('lease.assertCurrent()'))
 {
     fail('binaryTransport must open and validate the shared generation lease');
 }

@@ -79,14 +79,6 @@ public sealed record class CommentDto : ICheckableContent
     {
         get; init;
     }
-    /// <summary>
-    /// Deprecated request input. The server derives the notification recipient from
-    /// ReplyToCommentId and the target comment; clients cannot supply this value.
-    /// </summary>
-    public int? ReplyToUserId
-    {
-        get; init;
-    }
     public RegionModerationDecision? RegionDecision
     {
         get; init;

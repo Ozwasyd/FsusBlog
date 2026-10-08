@@ -1,3 +1,4 @@
+import type { BinaryRouteRequest } from '@/contracts/binaryTransport';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
 import {
     ArticlePublishStatus,
@@ -63,7 +64,7 @@ export const getArticles = (
     return requestBinaryOnly<PageResponse<ArticleListItemResponse>>({
         binaryRoute: buildPublicArticleListRoute(normalized),
         frameType: FrameType.ArticleList,
-        requestOptions: { credentials: 'omit' },
+        requestOptions: { },
         signal: config?.signal
     });
 };
@@ -84,7 +85,7 @@ export const getPublicArticleCardProjections = (
         binaryRoute: buildPublicArticleListRoute(normalized),
         frameType: FrameType.ArticleList,
         accessProfile: AEDS_ACCESS_PROFILE.publicArticleListCard,
-        requestOptions: { credentials: 'omit' },
+        requestOptions: { },
         signal: config?.signal
     });
 };
@@ -98,7 +99,7 @@ export const getArticleById = (id: number, config?: ApiRequestConfig) =>
             params: { id: normalizePositiveInt(id, 1) }
         },
         frameType: FrameType.ArticleDetail,
-        requestOptions: { credentials: 'omit' },
+        requestOptions: { },
         signal: config?.signal
     });
 };
@@ -111,7 +112,7 @@ export const getRelatedReading = (id: number, config?: ApiRequestConfig): Promis
             params: { articleId: normalizePositiveInt(id, 1) }
         },
         frameType: FrameType.ArticleRelatedReading,
-        requestOptions: { credentials: 'omit' },
+        requestOptions: { },
         signal: config?.signal
     });
 };
@@ -126,7 +127,7 @@ export const getHotArticles = (size = 10, config?: ApiRequestConfig) =>
             params: { size: count }
         },
         frameType: FrameType.ArticleHot,
-        requestOptions: { credentials: 'omit' },
+        requestOptions: { },
         signal: config?.signal
     });
 };
@@ -141,7 +142,7 @@ export const getFeaturedArticles = (size = 3, config?: ApiRequestConfig) =>
             params: { size: count }
         },
         frameType: FrameType.ArticleFeatured,
-        requestOptions: { credentials: 'omit' },
+        requestOptions: { },
         signal: config?.signal
     });
 };
@@ -228,8 +229,6 @@ export const createArticle = (data: ArticleWriteRequest & { clientMutationId?: s
         frameType: FrameType.MutationId,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            requiresPow: true,
             headers: { 'X-Fsus-Client-Mutation-Id': clientMutationId },
             body: encodeAedsFrame(FrameType.ArticleWriteRequest, encodeArticleWriteRequest(data))
         }
@@ -253,8 +252,6 @@ export const updateArticle = (id: number, data: ArticleWriteRequest, config?: Ap
         frameType: FrameType.MutationId,
         signal: config?.signal,
         requestOptions: {
-            method: 'PUT',
-            requiresPow: true,
             body: encodeAedsFrame(FrameType.ArticleWriteRequest, encodeArticleWriteRequest(data))
         }
     });
@@ -268,8 +265,6 @@ export const deleteArticle = (id: number, config?: ApiRequestConfig) =>
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'DELETE',
-            requiresPow: true
         }
     });
 
@@ -282,8 +277,6 @@ export const restoreArticle = (id: number, config?: ApiRequestConfig) =>
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'PUT',
-            requiresPow: true
         }
     });
 
@@ -296,8 +289,6 @@ export const permanentDeleteArticle = (id: number, config?: ApiRequestConfig) =>
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'DELETE',
-            requiresPow: true
         }
     });
 
@@ -338,12 +329,12 @@ function buildPublicArticleListRoute(params: { page: number; size: number; categ
     }, params.cursor, params.keyword, params.sort);
 }
 
-function withArticleCursorQuery<T extends { operationId: string; params?: Record<string, string | number | bigint>; }>(
-    route: T,
+function withArticleCursorQuery(
+    route: BinaryRouteRequest,
     cursor?: string | null,
     keyword?: string | null,
     sort?: 'relevance' | 'latest' | 'hot' | null
-): T | (T & { query: URLSearchParams; })
+): BinaryRouteRequest
 {
     const normalizedKeyword = keyword?.trim();
     if (!cursor && !normalizedKeyword && !sort)
@@ -364,7 +355,8 @@ function withArticleCursorQuery<T extends { operationId: string; params?: Record
     {
         query.set('sort', sort);
     }
-    return { ...route, query };
+    route.query = query;
+    return route;
 }
 
 function normalizePositiveInt(value: number, fallback: number): number

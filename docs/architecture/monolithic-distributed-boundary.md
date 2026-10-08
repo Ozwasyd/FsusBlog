@@ -14,6 +14,31 @@ render: rationale-prose
 
 ## Runtime modes
 
+The current producer emits only `fsusblog.runtime-role-observation.v3` with a
+closed `currentSchemaContract`. Its `compiled-contract` stage observes the
+original production entity and required-recipe owners and the unique
+`fsusblog.current-schema-receipt.v1` validation contract. It does not connect to a
+database, issue a receipt or claim verified-current status; both
+`actualDatabaseObserved` and `nativeClaimEligible` are false. A v2 observation or
+retired `schemaOverlap` field is rejected by every required current consumer.
+
+Static admission still requires all compiled extractors, a source-bound minimal
+build receipt v3, deterministic artifact replay and zero candidate spawns.
+Actual receipt bytes must be read and independently verified against the live
+database by `CurrentSchemaReceiptAdmission.VerifyAsync` only after static
+admission. The original reader rejects `latest`, non-regular/symlink artifacts,
+changed bytes and oversized input; the production verifier reads a fresh native
+read-only snapshot and binds the target, database and actual schema. File SHA-256
+and the receipt's semantic content digest are separate identities. Historical
+plan/apply/checkpoint/backup/recovery/semantic verification remains with the sole
+offline issuer, never a second runtime receipt or evaluator.
+
+The generated table below is an older evidence snapshot until the canonical
+producer and documentation generator run on the current admitted candidate. It
+is not current native database qualification. Role composition semantics and the
+existing deployment behavior ID remain unchanged; schema-window readiness is
+retired rather than reinterpreted as a current native claim.
+
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.runtime-roles
 behaviorId: deployment-blue-green-runtime-role

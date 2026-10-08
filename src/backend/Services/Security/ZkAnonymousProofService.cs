@@ -1,7 +1,6 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
 
-using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -29,7 +28,7 @@ public interface IZkAnonymousProofService
         get;
     }
 
-    ZkProdPolicySnapshot CurrentZkProdPolicy
+    ZkCommentPolicySnapshot CurrentZkCommentPolicy
     {
         get;
     }
@@ -71,9 +70,14 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         "requires_moderation"
     ];
 
-    private readonly IConfiguration _configuration;
+    private readonly AnonymousCommentPolicySnapshot _commentPolicy;
+    private readonly ZkAnonymousPolicySnapshot _zkPolicy;
     private readonly IZkProofVerifier _verifier;
-    private readonly IOptionsMonitor<ZkProdOptions> _zkProdOptions;
+    private readonly IZkCommentPolicyAuthority _policyAuthority;
+    private ZkCommentPolicyOptions? _lastOptions;
+    private readonly IZkVerifierReadiness _verifierReadiness;
+    private ZkCommentRuntimeReadiness _lastReadiness;
+    private ZkCommentPolicySnapshot? _currentPolicy;
     private readonly IAnonymousCredentialRootReader? _rootReader;
     private readonly IRfc9474BlindCredentialSigner? _credentialSigner;
     private readonly IBlindCredentialRuntimeGate? _credentialGate;
@@ -82,7 +86,8 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         : this(
             configuration,
             verifier,
-            new StaticOptionsMonitor<ZkProdOptions>(ZkProdOptions.FromConfiguration(configuration)),
+            new ZkCommentPolicyAuthority(configuration),
+            new ZkVerifierReadiness(ZkVerifierOptions.FromConfiguration(configuration), verifier),
             null,
             null,
             null)
@@ -92,54 +97,55 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
     public ZkAnonymousProofService(
         IConfiguration configuration,
         IZkProofVerifier verifier,
-        IOptionsMonitor<ZkProdOptions> zkProdOptions,
+        IZkCommentPolicyAuthority policyAuthority,
+        IZkVerifierReadiness verifierReadiness,
         IAnonymousCredentialRootReader? rootReader = null,
         IRfc9474BlindCredentialSigner? credentialSigner = null,
         IBlindCredentialRuntimeGate? credentialGate = null)
     {
-        _configuration = configuration;
+        var commentPolicy = new AnonymousCommentPolicySnapshot(
+            configuration.GetValue("AnonymousIdentity:AnonymousCommentsEnabled", true),
+            configuration.GetValue("AnonymousIdentity:PublicCommentsEnabled", true),
+            configuration.GetValue("AnonymousIdentity:ZkAnonymousCommentsEnabled", false),
+            CommentAuthorModes.ZkAnonymous,
+            AnonymousCommentPolicySnapshot.DefaultDisplayLanguages);
+        _commentPolicy = commentPolicy with { SnapshotHash = AnonymousCommentPolicySnapshotHash.Compute(commentPolicy) };
+        _zkPolicy = new ZkAnonymousPolicySnapshot(_commentPolicy.ZkAnonymousEnabled, verifier.IsConfigured,
+            CommentActionContext, s_expectedPublicInputs);
         _verifier = verifier;
-        _zkProdOptions = zkProdOptions;
+        _policyAuthority = policyAuthority;
+        _verifierReadiness = verifierReadiness;
         _rootReader = rootReader;
         _credentialSigner = credentialSigner;
         _credentialGate = credentialGate;
     }
 
-    public AnonymousCommentPolicySnapshot CurrentCommentPolicy
+    public AnonymousCommentPolicySnapshot CurrentCommentPolicy => _commentPolicy;
+
+    public ZkAnonymousPolicySnapshot CurrentZkPolicy => _zkPolicy;
+
+    public ZkCommentPolicySnapshot CurrentZkCommentPolicy
     {
         get
         {
-            bool anonymousEnabled = _configuration.GetValue("AnonymousIdentity:AnonymousCommentsEnabled", true);
-            bool publicEnabled = _configuration.GetValue("AnonymousIdentity:PublicCommentsEnabled", true);
-            bool zkEnabled = _configuration.GetValue("AnonymousIdentity:ZkAnonymousCommentsEnabled", false);
-            var snapshot = new AnonymousCommentPolicySnapshot(
-                anonymousEnabled,
-                publicEnabled,
-                zkEnabled,
-                CommentAuthorModes.ZkAnonymous,
-                AnonymousCommentPolicySnapshot.DefaultDisplayLanguages);
-            return snapshot with
+            ZkCommentPolicyOptions options = _policyAuthority.Current;
+            ZkVerifierReadinessSnapshot verifier = _verifierReadiness.Current;
+            var readiness = new ZkCommentRuntimeReadiness(
+                verifier.NativeVerifierConfigured,
+                HasReadyCredentialRoot(),
+                _credentialSigner?.IsConfigured == true && _credentialGate?.IsEnabled == true,
+                verifier.TrustedSetupVerified,
+                verifier.NativeBackendConfigured);
+            if (_currentPolicy is null || readiness != _lastReadiness || !ReferenceEquals(options, _lastOptions))
             {
-                SnapshotHash = AnonymousCommentPolicySnapshotHash.Compute(snapshot)
-            };
+                _currentPolicy = ZkCommentPolicySnapshotFactory.Create(options, readiness);
+                _lastReadiness = readiness;
+                _lastOptions = options;
+            }
+
+            return _currentPolicy;
         }
     }
-
-    public ZkAnonymousPolicySnapshot CurrentZkPolicy
-        => new(
-            CurrentCommentPolicy.ZkAnonymousEnabled,
-            _verifier.IsConfigured,
-            CommentActionContext,
-            s_expectedPublicInputs);
-
-    public ZkProdPolicySnapshot CurrentZkProdPolicy
-        => ZkProdPolicySnapshotFactory.Create(
-            _zkProdOptions.CurrentValue,
-            new ZkProdRuntimeReadiness(
-                _verifier.IsConfigured,
-                HasReadyCredentialRoot(),
-                _credentialSigner?.IsConfigured == true && _credentialGate?.IsEnabled == true),
-            _configuration);
 
     public async Task<ZkProofVerificationResult> VerifyCommentProofAsync(
         ZkProofVerificationRequest request,
@@ -175,19 +181,19 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         }
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        return _rootReader.CurrentSnapshot.AcceptedRoots.Any(root =>
-            root.GraceExpiresAtUtc > now &&
-            !string.IsNullOrWhiteSpace(root.RootHash) &&
-            (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
-             string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal)));
-    }
+        var roots = _rootReader.CurrentSnapshot.AcceptedRoots;
+        for (int index = 0; index < roots.Count; index++)
+        {
+            var root = roots[index];
+            if (root.GraceExpiresAtUtc > now && !string.IsNullOrWhiteSpace(root.RootHash) &&
+                !string.IsNullOrWhiteSpace(root.RevocationRootHash) && !string.IsNullOrWhiteSpace(root.IssuerPublicKeyHash) &&
+                (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
+                 string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
 
-    private sealed class StaticOptionsMonitor<TOptions>(TOptions value) : IOptionsMonitor<TOptions>
-    {
-        public TOptions CurrentValue { get; } = value;
-
-        public TOptions Get(string? name) => CurrentValue;
-
-        public IDisposable? OnChange(Action<TOptions, string?> listener) => null;
+        return false;
     }
 }

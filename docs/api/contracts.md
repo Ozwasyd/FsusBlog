@@ -79,7 +79,7 @@ Font/Theme 管理的八个 GET 均为 typed AEDS v2：`/api/binary/author/ops/fo
 
 transport validation 对 manifest 中每条转换只比较固定 `preserves` 字段。任一 renderer/assets/source/document/sidecar digest 不匹配，cache/file materialization 必须 evict-and-rebuild，HotRead 必须保留上一份合格 snapshot或回常规 endpoint，浏览器 hydration 与旧 Service Worker shell 必须走 network canonical route/navigation；不得继续消费部分兼容 payload。结构化 evidence 只使用固定 mismatch layer、transition 与 counter，不记录 route/digest/release 等高基数值。该合同不新增 frame 字段、不调整 AEDS v2 header 或 middleware 顺序，也不声明 #428 范围内的多节点强一致。
 
-AEDS payload 的消费投影由 `src/shared/Contracts/Validation/aeds-access-profiles.json` 单独治理；它不得覆盖上述 wire authority。生成器 `tools/frontend/generate-aeds-access-profiles.mjs` 同时产出 C#、TypeScript 与 C++ offset/profile surface。当前默认 `publicArticleListCard` 只在合法 76/100-byte `ArticleList` layout 上选择性物化公开卡片字段；合法 56-byte layout 确定性回退 canonical decoder，未知 layout、越界 slice、非法 UTF-8、reserved byte、tag range 或 trailing bytes 全部 fail closed。完整边界、生成流程、门禁与回退见 [AEDS v2 access projections](../architecture/aeds-access-projections.md)。
+AEDS payload 的消费投影由 `src/shared/Contracts/Validation/aeds-access-profiles.json` 单独治理；它不得覆盖上述 wire authority。生成器 `tools/frontend/generate-aeds-access-profiles.mjs` 同时产出 C#、TypeScript 与 C++ offset/profile surface。当前默认 `publicArticleListCard` 只在 cursor v2、100-byte `ArticleList` current layout 上选择性物化公开卡片字段；56/76-byte layout、cursor v1 和缺 envelope payload 确定性拒绝，未知 layout、越界 slice、非法 UTF-8、reserved byte、tag range 或 trailing bytes 全部 fail closed。完整边界、生成流程、门禁与回退见 [AEDS v2 access projections](../architecture/aeds-access-projections.md)。
 
 公开 binary 读模型使用预编码 artifact：匿名 `GET /api/binary/article/{id}.aeds`、公开文章列表的 `page=1` 且无 `cursor` 请求、`GET /api/binary/article/hot/{size}.aeds`、`GET /api/binary/category.aeds`、`GET /api/binary/tag.aeds` 可读取进程内 `PublicHotReadSnapshot` 的完整 AEDS v2 frame。文章列表 `page>1&cursor=...` 固定绕过 L0 并进入动态 endpoint；PublicHotRead 与 Public AOT 只预生成第一页，其响应中的 `nextCursor` 是下一页的唯一输入，不生成或读取 cursor-less 深页 artifact。artifact build 阶段同时生成 raw/br/gzip variant；命中时服务端按 `Accept-Encoding` 选择最优 variant，写出 variant-aware `ETag`、`Vary: Accept-Encoding`、可选 `Content-Encoding` 和 `X-Fsus-Frame-Encoding`。`If-None-Match` 匹配当前 variant 时返回 `304 Not Modified`，不发送 frame body。miss/not-ready 返回状态码，不会在请求线程同步查询 PostgreSQL、Redis、IMemoryCache、OutputCache 或文件系统。`GET /api/binary/article/{articleId}/related.aeds` 是动态 AEDS public-read endpoint；它缓存并直接租借唯一的最终 `ArticleRelatedReading` frame，不缓存 DTO/JSON，也不属于 PublicHotRead L0 或 Public AOT snapshot。不存在的公开文章使用同 policy 负缓存，存在但无推荐的文章返回合法空推荐 frame。admin/private 读取走 `/api/binary/admin/article/**` 和非 `.aeds` taxonomy mutation path，以便草稿、定时、归档、删除状态和分类标签管理。
 
@@ -482,7 +482,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 
 ### Anonymous identity and comment policy AEDS frames
 
-匿名身份不新增平行 Passkey 协议：注册、登录、credential list、rename、admin bootstrap 和 recovery bind 仍复用上面的 Passkey frame；账户恢复仍复用 `RecoveryKeyCreateResponse` / `RecoveryKeyVerifyRequest` / `RecoveryKeyVerifyResponse` / `RecoveryKeySessionRequest`。已发布运行时 frame 覆盖账户快照、评论策略、CommentCreateV2 和作者展示投影。177-183 是匿名凭证/root/ticket/匿名评论创建的独立 frame family；已注册的 root/circuit/ticket/submit endpoint 必须只使用对应 AEDS frame，未注册 frame 仍只代表跨栈 POD/codec、AEDS 编号、前端 adapter 和 golden fixture。
+匿名身份不新增平行 Passkey 协议：注册、登录、credential list、rename、admin bootstrap 和 recovery bind 仍复用上面的 Passkey frame；账户恢复仍复用 `RecoveryKeyCreateResponse` / `RecoveryKeyVerifyRequest` / `RecoveryKeyVerifyResponse` / `RecoveryKeySessionRequest`。已发布运行时 frame 覆盖账户快照、评论策略、CommentCreate 和作者展示投影。177-183 是匿名凭证/root/ticket/匿名评论创建的独立 frame family；已注册的 root/circuit/ticket/submit endpoint 必须只使用对应 AEDS frame，未注册 frame 仍只代表跨栈 POD/codec、AEDS 编号、前端 adapter 和 golden fixture。
 
 `POST /api/binary/auth/anonymous/bootstrap` 是匿名身份模式的新账号创建入口：匿名访问、`fixed_ip` 限流、`RequiresPowFilter`、`RequireNoStoreResponse()`，请求 `Content-Type` 必须为 `application/octet-stream`。请求 frame 为 `AuthAnonymousBootstrapRequest` (`189`)，只包含 `acceptedGuidelines` 和可选 `publicHandle`；不得携带 username、password、confirmPassword、Recovery Key 或 Passkey attestation。服务端在同一事务中创建 `registration_state=provisional` 的 `sys_user` 与独立 `account_enrollment_session`，仅通过 path 限定为 `/api/binary/auth/enrollment` 的 HttpOnly/Strict 短期 cookie 返回单用途 enrollment token；bootstrap 不创建 `sys_user_session`，不签发 Access JWT 或 Refresh Token。成功响应复用 `AuthLoginFlow` (`18`) 且 `authPhase=enrollment_required`。`AuthLoginFlowPod.AuthPhase` 的稳定值为 `1=authenticated`、`2=mfa_required`、`3=enrollment_required`。
 
@@ -499,7 +499,7 @@ enrollment token 只允许访问 `POST /auth/enrollment/passkey/register/begin`�
 | `AuthUpdatePublicHandleRequest` (`190`) | `StringMutationRequestPod` + UTF-8 blob | `PUT /api/binary/auth/public-handle` 请求体；保存或清空当前匿名账号的 public handle |
 | `CommentPolicySnapshot` (`164`) | `CommentPolicySnapshotPod` + UTF-8 blob | `GET /api/binary/comment/policy` 响应；评论 composer 渲染前读取 anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、支持语言 `zh-CN` / `en` 与策略 `snapshotHash` |
 | `CommentPolicyUpdateRequest` (`165`) | `CommentPolicyUpdateRequestPod` + UTF-8 blob | admin 匿名评论策略 patch；bool 字段用 `Has*` flag 表示未设置 |
-| `CommentCreateV2Request` (`166`) | `CommentCreateV2RequestPod` + UTF-8/blob payload | 登录态 public 新评论请求；生产只接受 `authorMode=public` 且显式 opt-in。anonymous scope/proof 槽仅保留 wire 兼容，旧 `anonymous` 写入已退休，ZK 只能走 ticket-submit |
+| `CommentCreateRequest` (`166`) | `CommentCreateRequestPod` + UTF-8/blob payload | 登录态 public 新评论请求；生产只接受 `authorMode=public` 且显式 opt-in。anonymous scope/proof 槽仅保留 wire 兼容，旧 `anonymous` 写入已退休，ZK 只能走 ticket-submit |
 | `CommentAuthorView` (`167`) | `CommentAuthorViewPod` + UTF-8 blob | 评论读取侧作者投影：mode、display name、display language、badge/status/scope label；v5 强匿名投影不得携带精确 credential/reputation/account-age 属性，评论 cursor item blob 必须内嵌该 payload，客户端不得从 identity string 伪造 author |
 | reserved (`177`) | none | 未分配；无路由、codec 或兼容行为 |
 | reserved (`178`) | none | 未分配；无路由、codec 或兼容行为 |
@@ -516,9 +516,9 @@ enrollment token 只允许访问 `POST /auth/enrollment/passkey/register/begin`�
 
 `CommentPolicySnapshot` 通过 `GET /api/binary/comment/policy` 公开读取，匿名访问、`public_read` 限流，用于让公开文章评论 composer 在渲染前应用当前服务端策略。生产 policy 的 `DefaultAuthorMode` 只能是 `3=public` 或 `4=zk_anonymous`，默认使用 ZK 并在 ZK 未就绪时保持不可提交；`1` / `0` 仅在历史作者展示中解释为 `legacy_server_visible_pseudonymous`，不能作为新建策略或写入模式。`SupportedDisplayLanguages` 使用换行分隔文本，当前只允许 `zh-CN` 与 `en`。`snapshotHash` 是服务端规范化匿名评论策略上下文的 64-hex SHA-256，用于 comment.v2 `policy_hash` public input；客户端只能读取并绑定，ticket service 会用当前服务端 policy 重新计算并比对 canonical public inputs。ZK-Prod 字段只暴露 coarse readiness，不得返回 proof、circuit、witness、credential secret 或 verifying key 细节。前端不得从 ZK 不可用状态自动降级到 public。
 
-前端 comment policy contract 只从 Decoder/contract 层导出一个完整 `CommentPolicySnapshot`。当前 packed 41-byte POD 映射为 client contract version `3`；历史 48-byte padded 与 33-byte no-limits layout 分别映射为显式 legacy version `2` / `1`，只用于保守迁移，不改变后端 frame number 或 POD。公开快照同时包含五个 ZK-Prod 原始布尔字段、受控 `zkProdUnavailableReason` 与归一化 `zkProdReadiness`。readiness 固定为 `ready`、`disabled`、`verifier_missing`、`trusted_setup_unverified`、`credential_root_missing`、`policy_unavailable` 或 `contract_invalid`；只有当前版本、64-hex snapshot hash、所有必需布尔条件和空 unavailable reason 完整一致时才是 `ready`。旧 layout、字段缺失、类型损坏、未知 reason 或互相矛盾的字段组合都映射为 `contract_invalid`，禁止强匿名提交，也禁止自动降级为普通匿名或 public 发送。
+前端 comment policy contract 只从 Decoder/contract 层导出一个完整 `CommentPolicySnapshot`。当前 packed 41-byte POD、字段顺序、offset 与限制范围由 shared AEDS protocol authority 生成，前端只解码此布局，不暴露兼容版本。33-byte 与 48-byte 布局、缺失或非法 limits/hash/language/reason、非法 UTF-8 和 slice refs 在协议边界拒绝；前端不补业务默认值。公开快照同时包含五个 ZK-Prod 原始布尔字段、受控 `zkProdUnavailableReason` 与归一化 `zkProdReadiness`。readiness 固定为 `ready`、`disabled`、`verifier_missing`、`trusted_setup_unverified`、`credential_root_missing`、`policy_unavailable` 或 `contract_invalid`；只有 64-hex snapshot hash、所有必需布尔条件和空 unavailable reason 完整一致时才是 `ready`。互相矛盾的 readiness 组合继续 fail closed，禁止强匿名提交与自动降级。
 
-`CommentCreateV2Request` 是 `POST /api/binary/comment` 的唯一登录态评论创建 frame，但生产写入只允许显式公开/可归因发送：`AuthorMode` 必须为 `public`，且 `PublicSendExplicitlySelected` 必须为 `1`。`AnonymousScope`、`ProofToken`、`zkProof` 等字段仅作为既有 wire layout / legacy contract 字段保留，不能作为默认匿名或强匿名提交通道；完整强匿名评论发布必须使用 `AnonymousCommentTicketRequest` / `AnonymousCommentCreateRequest` ticket-submit 流程。`DisplayLanguage` 是展示语言提示。`CommentCreateV2RequestPod` 偏移 4 的旧 `replyToUserId` 兼容槽和偏移 11 的 presence flag 必须固定写入 `0/0`；回复目标只能通过 `replyToCommentId`、端上 nullifier 和作者快照解析。退休的数值 37 frame 不再保留 happy path，必须在预读或 payload decode 阶段作为协议错误拒绝。
+`CommentCreateRequest` 是 `POST /api/binary/comment` 的唯一登录态评论创建 frame，但生产写入只允许显式公开/可归因发送：`AuthorMode` 必须为 `public`，且 `PublicSendExplicitlySelected` 必须为 `1`。`AnonymousScope`、`ProofToken`、`zkProof` 等字段仅作为既有 wire layout / legacy contract 字段保留，不能作为默认匿名或强匿名提交通道；完整强匿名评论发布必须使用 `AnonymousCommentTicketRequest` / `AnonymousCommentCreateRequest` ticket-submit 流程。`DisplayLanguage` 是展示语言提示。`CommentCreateRequestPod` 由 shared AEDS authority 生成，固定区为 73 字节，不包含客户端通知接收者或兼容占位字段；回复目标只能通过 `replyToCommentId`、端上 nullifier 和作者快照解析。退休的数值 37 frame 不再保留 happy path，必须在预读或 payload decode 阶段作为协议错误拒绝。
 
 登录态 public 创建成功返回 `CommentCreateResult` (`205`) 而不是 `EmptySuccess`。40-byte `CommentCreateResultPod` 固定为 `commentId:int64`、`rootId:int64`、`parentId:int64`、`createdAtUnixMs:int64`、`moderationStatus:int32`、`visibilityState:uint8`、`isPubliclyVisible:uint8`、`idempotencyReplay:uint8`、`hasParentId:uint8`；`hasParentId=0` 时 `parentId` 必须为零并映射为 `null`。visibility 取值固定为 `0=pending`、`1=public`、`2=hidden`、`3=rejected`。客户端不得把非 `public` 结果自行插入公开评论流。强匿名创建改用 `AnonymousCommentCreateResult` (`214`)：只有首次成功响应携带独立 `managementSecret`，幂等 replay 不恢复 secret。服务端仅保存 SHA-256 commitment，响应固定 `Cache-Control: no-store`。
 
@@ -2362,6 +2362,63 @@ caller-facing verifier 只有在当前权限快照有效且所有 history entry 
 terminal projection 仅在同一当前权限快照有效且全部 entry 可投影时保留授权 metadata；否则保留原 status/reason，
 但使用 canonical empty projection，不返回 collection facts 或无权摘要。正常读取仍按服务端权限过滤可见 entry。
 
+### Author article entity query core (#2231)
+
+`FsusBlog.Contracts.Articles.AuthorArticleQueryContract` 定义独立于全文文档搜索和 command mode 的
+closed v1 输入。owner 必须由服务端 authenticated admin principal 与配置 site 派生；request ID、正数
+sequence、status/bucket scopes、locale、固定 collation、limit 和 cursor 均属于 query identity。未知或重复
+scope、超过 50 的 limit、超过 128 Unicode scalar 的 query、超过 8192 字符的 cursor 均拒绝。Inbox bucket
+在 #1908 实际 lifecycle admission 前返回 `author_article_query_inbox_unavailable`，不得构造替代 rows/counts。
+
+唯一 entity ranking core 是 `AuthorArticleQueryRanking`。比较文本采用 NFKC、trim 和 invariant uppercase，
+保留 diacritics 并统一 canonical combining 等价；CJK/RTL/emoji 以 Unicode scalar 计算 bounded edit distance。
+少于 4 scalar 不做 fuzzy，4–7 最多一次编辑，8–128 最多两次。排名 tuple 按 title exact/prefix/fuzzy 和
+distance、slug exact/prefix/fuzzy 和 distance、category/tag exact/prefix、verified server history ordinal、
+Draft/Published/Scheduled/Archived priority、stable article ID 升序比较；exact title 不受 recent rank 覆盖。
+比较不消费 updatedAt、views、local history、AI 或 embedding。重复 title/slug 仍保留各自 article ID。
+
+当前交付包含 input/ranking core 和独立的内部 permission-first source measurement；candidate construction
+不证明 permission/history admission。完整 query source adapter、verified history 接入、sealed response/receipt、
+authenticated cursor 的 query source wiring 和 AEDS route/compiled observation 尚未接入。此 core 不能作为
+可用 query API、完整 scale/cancel/privacy 验收，
+或 #2232 cache 可写入的 verified response。前端不得据此开启本地全量查询或 authority fallback。
+
+内部 `AuthorArticleQuerySourceInspection` 在只含 ID/revision/status 的读取前复用现有 live principal/site/session
+authority，并在管理元数据读取前只允许当前可 project 且可 write 的 ID。权限 digest 或 source coordinates
+变化时丢弃全部观察字段。规范 `ArticleService` projection 每批上限 1000；该内部测量不建立 ranked pagination、
+authorized query response、verified history projection 或 receipt，也不暴露 route。当前模型缺少 slug authority，
+空 corpus 同样明确为 `SlugUnavailable`；Archived read grant、verified Recent source wiring 和 query cursor
+分别保持 unavailable。内部观察不能作为成功响应写入 verified query cache 或 UI。
+
+`AuthorArticleQueryHistoryIdentityReader` 独立消费原规范 history projection，最多 1000 entries、每页 100。
+全部页面必须绑定同一 user/site、collection revision、permission/site/session identity、projection/cache references
+和完整 projection digest，再经原 `TryValidateProjectionPage` 重算每个 entry 和完整有序集合。失败时不返回 ordinal；
+成功仅交付 server history identity/ordinal，不签发 query receipt，也不把 history server revision 冒充当前文章 revision。
+
+独立 `AuthorArticleQueryCursorCodec` 使用专属 Data Protection purpose，绑定原 request ID/sequence、user/site、
+normalized query/status/bucket/locale/collation/limit identity、source/history/permission digests、permission/site/session
+revisions 和完整 rank tuple。scope 或当前 authority 改变时返回 stale，篡改或其他 cursor purpose 返回 invalid。
+codec 不证明输入 binding 的来源；完整 source adapter 尚不能提供必需 slug，因此当前没有 query route 发行该 cursor。
+
+现有 `IAuthorRecentArticleHistoryApplicationFacade.RevalidateSelectionAsync(articleId, serverRevision,
+permissionToken, requestId, cancellationToken)` 提供独立的单 article fresh selection 检查。owner 仍由服务端
+authenticated principal/session 与配置 site 派生。它通过原 live permission authority 重算单 ID 的 decision
+digest，在三次权限读取之间用原 ArticleService reader 两次读取当前 revision/row-version/lifecycle；变化、
+revocation、missing/deleted/Archived、无 write/project 权限或 token 不一致均不返回 current token。此调用
+不枚举 corpus、不返回 title/slug/score/count、不写 recent/cache、不打开文章、不生成 query receipt 或 long
+permission/lifecycle counter。结果绑定 request ID 和请求的 article/revision，是即时 revalidation observation，
+不能代替缺失的 ranked query response admission、query cursor 或 HTTP/AEDS route；后续 open/write 仍须原
+命令 authority 的重新授权和 CAS。
+
+### Author query request sequencing core (#2232)
+
+`AuthorQueryRequestCoordinator` 仅管理一个 in-flight slot，复用原 `privateRequestRuntime.open('admin')`
+的 generation 与 AbortSignal。每次 begin 取消旧 slot，生成独立 request ID/递增 sequence，并绑定非文本
+scope digest。异步 response、verification 与 cache write 每阶段都必须 `assertCurrent()`；旧 release
+不能清除新 slot。caller abort、admin generation drift 和 registered private cleanup 均阻止旧 response。
+`release()`/`dispose()` 重复调用安全。此底层组件不读取 index、不执行 query、不验证 source receipt，也不
+签发成功 response；缺失的 query transport、完整 receipt、verified cache 和 selection revalidation 不由它替代。
+
 ### Admin Author Workbench
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：
@@ -2531,7 +2588,7 @@ Security system IA and API boundaries:
 
 `POST /api/binary/comment/anonymous` 是强匿名最终提交端点：请求为 `AnonymousCommentCreateRequest` frame，只携带 article/reply context、credential epoch、scope、display language、content 和 opaque ticket；端点必须 `AllowAnonymous`、`public_read` 限流并通过 `RequireStrongAnonymousRequest()` 拒绝身份污染。服务端校验内容、consume-once ticket、reply context 与地区合规后写入匿名治理字段；ticket `RequiresModeration`、地区人工复核和模型开关会使初始状态为 `Pending`，`HideUntilReviewed` 为 `Hidden`，只有确定性低风险且无需模型时才直接 `Approved`。模型自动隐藏强匿名评论时无账号站内信收件人，只写审核和审计信号；ticket、proof、credential 原文和任何可逆用户身份不得写入 comment。
 
-登录态创建 `POST /api/binary/comment` 只接受 `CommentCreateV2Request`，AEDS frame 上限为 16 KiB；该端点仅用于显式公开/可归因发送，服务端要求 `authorMode=public` 且 `publicSendExplicitlySelected=true`，否则拒绝写入。`CommentCreateV2Dto.content` 与 `AnonymousCommentSubmitDto.content` 均表示受限 Markdown 源文，不存 HTML，长度由当前匿名评论策略统一控制。退休的数值 37 frame 不得执行评论写入。目标文章必须是未删除、已发布且发布时间/定时发布时间已到达的公开文章。回复必须引用同文章、未删除、已通过的父评论和根评论，回复展示使用 `reply_to_comment_id` 对应的作者投影，不要求父评论存在非空 `reply_to_user_id`。普通用户删除只允许删除自身可归因 public 评论；强匿名评论暂不支持账号侧自删，需后续 receipt/capability/nullifier proof 方案或由管理员处理。管理员删除匿名评论时，通知和用户评论缓存失效不得假设存在可通知的 `user_id`。`POST /api/binary/comment` 先通过 `CommentRiskActionFilter` 预读 AEDS frame 判定 root create / reply 并写 RiskControl action metadata；低风险继续要求 legacy `X-Fsus-Pow-Proof`，中风险要求当前策略指定的 challenge proof 后再校验 PoW，高风险 `queue` 允许写入但把初始原因标记为 `published_risk_control_queue`，极高风险 `block` 返回 429。内容过滤、地区合规和匿名 nullifier 重复/封禁会写入 comment 风险信号，但不得反查匿名 nullifier 到真实账号，也不得改写匿名 display name 生成规则。
+登录态创建 `POST /api/binary/comment` 只接受 `CommentCreateRequest`，AEDS frame 上限为 16 KiB；该端点仅用于显式公开/可归因发送，服务端要求 `authorMode=public` 且 `publicSendExplicitlySelected=true`，否则拒绝写入。`CommentCreateDto.content` 与 `AnonymousCommentSubmitDto.content` 均表示受限 Markdown 源文，不存 HTML，长度由当前匿名评论策略统一控制。退休的数值 37 frame 不得执行评论写入。目标文章必须是未删除、已发布且发布时间/定时发布时间已到达的公开文章。回复必须引用同文章、未删除、已通过的父评论和根评论，回复展示使用 `reply_to_comment_id` 对应的作者投影，不要求父评论存在非空 `reply_to_user_id`。普通用户删除只允许删除自身可归因 public 评论；强匿名评论暂不支持账号侧自删，需后续 receipt/capability/nullifier proof 方案或由管理员处理。管理员删除匿名评论时，通知和用户评论缓存失效不得假设存在可通知的 `user_id`。`POST /api/binary/comment` 先通过 `CommentRiskActionFilter` 预读 AEDS frame 判定 root create / reply 并写 RiskControl action metadata；低风险继续要求 legacy `X-Fsus-Pow-Proof`，中风险要求当前策略指定的 challenge proof 后再校验 PoW，高风险 `queue` 允许写入但把初始原因标记为 `published_risk_control_queue`，极高风险 `block` 返回 429。内容过滤、地区合规和匿名 nullifier 重复/封禁会写入 comment 风险信号，但不得反查匿名 nullifier 到真实账号，也不得改写匿名 display name 生成规则。
 
 `CommentModerationItemResponse.id` 使用字符串承载 Snowflake ID，避免前端整数精度损失；响应同时包含文章、内容、状态、审核原因、审核人、审核时间、`hitReasons`、`submitRegion`、`submitRegionConfidence`、`blockedRegions`、`regionPolicyVersion`、`regionDecisionReason`、`regionCanPublish`、`regionRequiresManualReview`、`regionHideUntilReviewed`。审核队列响应契约不包含真实 `userId` 或 `userName`；管理端只读取 `authorDisplayName` 和作者安全快照字段生成展示与过滤。v5 强匿名作者投影只包含 `authorMode`、`anonymousDisplayLanguage`、`moderationSubjectHash`、`anonymousNullifierHash`、`anonymousScope`、`rateClass=common|unknown` 与 `requiresModeration`；精确 credential/reputation/account-age 属性不得进入审核响应。coarse rate class、moderation predicate 和 nullifier 状态用于审核解释、封禁和本地队列过滤，不暴露 account id、username、credential commitment 或 nullifier 原文。作者展示名统一由评论行快照投影生成：public 使用 `public_handle` 后接 `未署名用户` 兜底，anonymous/zk anonymous 使用 `anonymous_display_name` 后接匿名兜底；审核读取、审核通过实时推送和回复站内通知均不得 join `sys_user` 或回退 `sys_user.username` / 账号 `public_handle`。启用可选反垃圾模型后，响应追加最新 `modelSignals` 及摘要字段 `modelLabel/modelConfidence/modelPrimaryReason/modelProvider/modelUnavailable`；这些字段只表示风险信号，不包含或代表最终审核动作。`hitReasons` 来自内容过滤器、HTML 风险、密集链接、重复刷屏、人工原因、地区风险标签和 `model:{category}`，用于解释敏感词/垃圾评论/地区策略/模型命中；管理端可按命中原因、blocked region、模型标签、provider 和匿名作者投影做本地队列过滤。审核读取和写入受 `fixed_ip` 限流，并显式要求 `comment.moderate`；该权限只覆盖普通评论审核，不覆盖匿名评论策略、nullifier 封禁或匿名凭证撤销。单条与批量审核需要先完成 `/api/binary/auth/admin/step-up/passkey/begin` / `/api/binary/auth/admin/step-up/passkey/complete`，再把返回的 action=`admin-sensitive` 一次性 proof 放入 `X-Fsus-Mfa-Proof`。proof 缺失、过期、跨 session 或已被消费时返回 `428` + `MFA_PROOF_REQUIRED`；普通用户 MFA proof 不能用于 admin-sensitive 操作。
 
@@ -2891,3 +2948,23 @@ render: key-value-table
 | UserCommentCursorVersion | {"class":"blog","domain":"blog","id":"UserCommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-version","securityCritical":false} |
 | VisitLock | {"class":"security-critical","domain":"sec","id":"VisitLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"visit-lock","securityCritical":true} |
 <!-- FSUSBLOG-GENERATED:END api.security-cache-policies -->
+
+
+## Generated binary request ownership
+
+前端 binary 请求只能提交 `binaryRoute.operationId`、route params 和 query；`fsusBinaryRouteDescriptors` 是 method、auth、credentials、rate-limit、PoW 和 private generation scope 的唯一来源。compiled endpoint metadata 决定 credential policy：StrongAnonymousRequest 与公开只读 artifact 使用 `omit`；登录、bootstrap、security challenge 等需要 cookie 接收或绑定的端点保留 `include`。其他有意不带凭据的端点在 backend 登记 BinaryCredentialPolicyMetadata。生成器拒绝缺失 policy，或为 optional/user/admin 登记 `omit`。调用方传 method、credentials 或 requiresPow 会在请求发出前被拒绝；缺失 operation 或 params 不会回退到 public/unknown URL。原有 public-read 428 重试仍在 transport 内部依据 descriptor 执行。
+
+既有 management JSON payload 通过 composition 的 requestBinaryJson 使用相同寻址、AEDS frame 校验与 generation lease，但保留主线程 JSON decoder；大于 4 KiB 也不得交给仅支持 packed models 的 worker。标准 packed 请求继续使用原有 worker 阈值、队列与取消语义。
+
+匿名撤销分发 metadata 的 `snapshot`/`delta` 使用 `{kind, epoch, version, revocationRoot}` 坐标；delta 另带 `baseVersion`。decoder 严格核对字段集合与当前 root，拒绝 URL/path、跨 epoch/version/root 和非法 base。客户端直接选择 full/delta generated operation 并编码 params，不增加一次换取 URL 的网络请求。旧 `snapshotPath`/`deltaPath` 不被接受。
+## Author full-text token query stage (#2318)
+
+`AuthorFullTextSearchQueryEvaluator` consumes the sole `AuthorFullTextSearchIndex.ReadSnapshotAsync` and the original `AuthorFullTextSearchContract` closed AST/registry/tokenizer. Query operands use the original `TokenizeQueryValue` normalization API and receive no fabricated source coordinates. `InspectIndexAsync` executes conjunctive plain/quoted/field clauses and indexed status/category/tag filters, preserves original raw UTF-16/UTF-8 token ranges and heading identities, and retains at most `PageSize` candidates. Each document has at most 256 matched ranges; an article has at most 512 matching fields. Excess matches refuse explicitly. Partial phrase/range/field-weight metrics use the registry and stable site/article/field/raw-start ties. Cancellation is checked during scanning and before return. The final immutable-index reread rejects concurrent source replacement; the canonical index advances its published generation for each actual replacement.
+
+This is internal unadmitted index evidence, without a route, public result, count, facet, snippet, receipt or selection target. Indexed `Allowed` is not a fresh permission grant. `RevalidateIndexAsync` rejects query/snapshot reuse; `RevalidateSourceAsync` invokes the original bounded `IAuthorFullTextSearchIndexSource` and independent index verifier, then repeats the index check. The actual canonical source/permission/parse/property adapter is required before production admission; passing an algorithm fixture does not supply it. No source corpus is returned or stored by this query stage.
+
+`MaterializeSourceSnippetsAsync` consumes that same original source port. It rederives the candidate page and rejects altered, omitted or reordered candidates before any source read. Complete independent source parity precedes candidate-field reads and is repeated before return. Contexts and merged highlights preserve original UTF-16/UTF-8 ranges, raw text bytes, heading identity, parser version, document epoch and source revision. Context expansion respects original grapheme boundaries. The stage permits at most 100 contexts, 512 UTF-16 units per context and 256 KiB of total UTF-8 text; excessive contexts or matches refuse rather than silently discarding highlights. Cancellation and source/index drift prevent late text delivery. Its `AuthorSearchSourceSnippetEvaluation` remains internal unadmitted evidence: no current permission grant, complete ranking, total, facet, receipt, AEDS route or frontend selection is supplied by this method.
+
+The production source adapter must consume a complete current field set and an original monotonically changing source generation. The existing history permission provider returns string permission/site/session revisions; these must not be converted into invented numeric permission or lifecycle revisions for the search contract. The existing revision comparison reader provides raw Markdown and revision facts, while FsusUI's `createMarkdownSourceCoordinateMap` provides raw/normalized coordinate conversion. Neither API supplies the missing whole-field source generation, typed-value projections or a server search parse/epoch admission. The query layer does not replace these authorities or expose internal snippet evidence through a temporary transport.
+
+The supplied index identity has no current source update timestamp. Date predicates therefore refuse with `author_search_current_updated_at_unavailable`; filter-only scans refuse, and pagination refuses until complete ranking exists. Typed property operands remain unavailable under the original contract. Heading/body proximity, lifecycle ordering and source-update ranking facts, fresh permission/lifecycle/source admission, canonical raw-source snippet reads, facets/totals, request-sequence transport, complete cursors and independently verified result receipts remain required before a successful query API can expose candidates. This stage supplies no DB `LIKE`, frontend scan, HTML snippet, AI rank, legacy or fabricated source fallback.

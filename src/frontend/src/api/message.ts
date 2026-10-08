@@ -156,8 +156,6 @@ export const messageApi = {
             frameType: FrameType.ConversationDetailV2,
             signal: config?.signal,
             requestOptions: {
-                method: 'POST',
-                requiresPow: true,
                 headers: { 'X-Fsus-Client-Mutation-Id': identity.value },
                 body: encodeMessageContentFrame(FrameType.ConversationCreateRequest, encodeConversationCreateRequest(normalized))
             }
@@ -179,8 +177,6 @@ export const messageApi = {
             frameType: FrameType.ConversationMessage,
             signal: config?.signal,
             requestOptions: {
-                method: 'POST',
-                requiresPow: true,
                 headers: { 'X-Fsus-Client-Mutation-Id': identity.value },
                 body: encodeMessageContentFrame(
                     FrameType.AccountConversationReplyRequest,
@@ -200,7 +196,6 @@ export const messageApi = {
             frameType: FrameType.EmptySuccess,
             signal: config?.signal,
             requestOptions: {
-                method: 'POST',
                 body: encodeAedsFrame(
                     FrameType.ConversationReadRequest,
                     encodeConversationReadRequest(readThroughMessageId)
@@ -252,8 +247,6 @@ export const messageApi = {
             frameType: FrameType.ConversationMessage,
             signal: config?.signal,
             requestOptions: {
-                method: 'POST',
-                requiresPow: true,
                 headers: { 'X-Fsus-Client-Mutation-Id': identity.value },
                 body: encodeMessageContentFrame(FrameType.ConversationReplyRequest, encodeStringMutationRequest(body))
             }
@@ -270,8 +263,6 @@ export const messageApi = {
             frameType: FrameType.ConversationStatusMutationResult,
             signal: config?.signal,
             requestOptions: {
-                method: 'POST',
-                requiresPow: true,
                 body: encodeAedsFrame(FrameType.ConversationStatusRequest, encodeConversationStatusRequest(data.status, data.reason))
             }
         });
@@ -293,8 +284,6 @@ export const messageApi = {
             frameType: FrameType.ConversationDetailV2,
             signal: config?.signal,
             requestOptions: {
-                method: 'POST',
-                requiresPow: true,
                 headers: { 'X-Fsus-Source-Event-Id': identity.value },
                 body: encodeMessageContentFrame(FrameType.SystemMessageRequest, encodeSystemMessageRequest(normalized))
             }

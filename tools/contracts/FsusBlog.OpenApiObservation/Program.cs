@@ -217,7 +217,10 @@ internal static class OpenApiObservationHost
                         SourceIdentity: endpoint.DisplayName,
                         RequestTypes: requestTypes,
                         RequestParameters: requestParameters,
-                        CompiledErrorStatusEvidence: errorStatuses));
+                        CompiledErrorStatusEvidence: errorStatuses)
+                    {
+                        CredentialPolicy = ClassifyCredentialPolicy(endpoint, method)
+                    });
                 }
             }
 
@@ -338,6 +341,7 @@ internal static class OpenApiObservationHost
         app.MapSecurityEndpoints();
         app.MapFontAdminEndpoints();
         app.MapThemeAdminEndpoints();
+        app.MapClusterMembershipEndpoints();
         return app;
     }
 
@@ -392,6 +396,33 @@ internal static class OpenApiObservationHost
             .ToArray();
 
         return permissions.Length == 0 ? "none" : string.Join(',', permissions);
+    }
+
+    internal static string ClassifyCredentialPolicy(RouteEndpoint endpoint, string method)
+    {
+        string auth = ClassifyAuth(endpoint);
+        BinaryCredentialPolicyMetadata? explicitPolicy = endpoint.Metadata.GetMetadata<BinaryCredentialPolicyMetadata>();
+        if (explicitPolicy is not null)
+        {
+            if (explicitPolicy.Policy == BinaryCredentialPolicy.Omit && auth != "anonymous")
+            {
+                throw new InvalidOperationException("authenticated binary endpoint cannot omit credentials");
+            }
+            return explicitPolicy.Policy switch
+            {
+                BinaryCredentialPolicy.Include => "include",
+                BinaryCredentialPolicy.Omit => "omit",
+                _ => throw new InvalidOperationException("binary endpoint credential policy is invalid")
+            };
+        }
+        if (endpoint.Metadata.GetMetadata<StrongAnonymousRequestMetadata>() is not null)
+        {
+            if (auth != "anonymous") throw new InvalidOperationException("strong anonymous endpoint has conflicting authentication");
+            return "omit";
+        }
+        return auth == "anonymous" && method == "GET" && ClassifyCache(endpoint) == "public-read"
+            && endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == "public_read"
+            ? "omit" : "include";
     }
 
     private static string ClassifyCache(RouteEndpoint endpoint)
@@ -509,7 +540,7 @@ internal static class OpenApiObservationHost
                     [StatusCodes.Status428PreconditionRequired] = ["compiled-public-hot-read:PublicHotReadSecurityGateMiddleware"],
                     [StatusCodes.Status429TooManyRequests] = ["compiled-public-hot-read:PublicHotReadSecurityGateMiddleware"],
                     [StatusCodes.Status500InternalServerError] = ["compiled-middleware:GlobalExceptionMiddleware"]
-                });
+                }) { CredentialPolicy = "omit" };
         }
     }
 

@@ -1,3 +1,5 @@
+using FsusBlog.Server.Infrastructure.Operations;
+
 using Microsoft.Extensions.FileProviders;
 
 namespace FsusBlog.Server.Infrastructure.Storage;
@@ -40,7 +42,17 @@ public static class ReleaseAssetStaticFileExtensions
                 bool mutableEntry = s_mutableEntryNames.Contains(fileName);
                 context.Context.Response.Headers.CacheControl = ReleaseStorageLayout.CacheControlFor(!mutableEntry);
                 context.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-                context.Context.Response.Headers["X-Fsus-Frontend-Build"] = ResolveBuildId(context.Context.Request.Path);
+                string buildId = ResolveBuildId(context.Context.Request.Path);
+                context.Context.Response.Headers["X-Fsus-Frontend-Build"] = buildId;
+                if (ReleaseIdContract.TryParse(buildId, out _, out _)
+                    && string.Equals(context.Context.Request.Path.Value, $"{RequestPath}/{buildId}/sw.js", StringComparison.Ordinal)
+                    && context.Context.Request.Query.Count == 1
+                    && context.Context.Request.Query.Single().Key == "build"
+                    && context.Context.Request.Query["build"].Count == 1
+                    && context.Context.Request.Query["build"][0] == buildId)
+                {
+                    context.Context.Response.Headers["Service-Worker-Allowed"] = "/";
+                }
             }
         });
     }

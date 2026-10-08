@@ -758,7 +758,7 @@ public partial class CommentCommandService(
 
     public Task<CommentCreateResult> CreateAttributablePublicCommentResultAsync(
         AccountPrincipalContext account,
-        CommentCreateV2RequestCoreModel request,
+        CommentCreateRequestCoreModel request,
         RegionModerationDecision? regionDecision = null)
         => CreateAttributablePublicCommentResultAsync(
             account,
@@ -768,7 +768,7 @@ public partial class CommentCommandService(
 
     public Task<CommentCreateResult> CreateAttributablePublicCommentResultAsync(
         AccountPrincipalContext account,
-        CommentCreateV2RequestCoreModel request,
+        CommentCreateRequestCoreModel request,
         string clientMutationId,
         RegionModerationDecision? regionDecision = null)
     {
@@ -787,7 +787,6 @@ public partial class CommentCommandService(
             ParentId = request.ParentId,
             RootId = request.RootId,
             ReplyToCommentId = request.ReplyToCommentId,
-            ReplyToUserId = null,
             AuthorMode = CommentAuthorModes.Public,
             PublicSendExplicitlySelected = true,
             AnonymousScope = null,
@@ -817,7 +816,7 @@ public partial class CommentCommandService(
 
     public async Task<bool> CreateAttributablePublicCommentAsync(
         AccountPrincipalContext account,
-        CommentCreateV2RequestCoreModel request,
+        CommentCreateRequestCoreModel request,
         RegionModerationDecision? regionDecision = null)
         => (await CreateAttributablePublicCommentResultAsync(account, request, regionDecision)).Created;
 

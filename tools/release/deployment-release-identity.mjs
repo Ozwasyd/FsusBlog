@@ -38,9 +38,9 @@ export function validateDeploymentReleaseIdentity(value, label = 'releaseIdentit
     {
         throw new Error(`${label} is required`);
     }
-    if (value.manifestSchema !== 'fsusblog.release-manifest.v2')
+    if (value.manifestSchema !== 'fsusblog.release-manifest.v3')
     {
-        throw new Error(`${label}.manifestSchema must be fsusblog.release-manifest.v2`);
+        throw new Error(`${label}.manifestSchema must be fsusblog.release-manifest.v3`);
     }
     const rawManifestPath = String(value.manifestPath ?? '');
     if (!rawManifestPath || !path.isAbsolute(rawManifestPath) || rawManifestPath.includes('\0'))

@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using FsusBlog.Contracts.Schema;
+
 namespace FsusBlog.RuntimeRoleObservation;
 
 internal sealed record RuntimeRoleObservation(
@@ -9,7 +11,7 @@ internal sealed record RuntimeRoleObservation(
     IReadOnlyList<UnsupportedCombinationObservation> UnsupportedCombinations,
     OwnershipObservation Ownership,
     DeploymentAuthorityObservation DeploymentAuthority,
-    SchemaOverlapObservation SchemaOverlap,
+    CurrentSchemaContractObservation CurrentSchemaContract,
     string ObservationDigest);
 
 internal sealed record RuntimeModeObservation(
@@ -45,26 +47,20 @@ internal sealed record DeploymentAuthorityObservation(
 
 internal sealed record SourceDigestObservation(string Path, string Digest);
 
-internal sealed record SchemaOverlapObservation(
+internal sealed record CurrentSchemaContractObservation(
     string Schema,
+    string Stage,
     string EvidenceClass,
-    int ManifestDescriptorCount,
-    int CatalogMetadataCount,
-    string ManifestDigest,
-    string CatalogDigest,
-    string DatabaseObservationDigest,
-    string SourceReleaseId,
-    string TargetReleaseId,
-    string PreviousRollbackReleaseId,
-    string SourceReleaseManifestDigest,
-    string TargetReleaseManifestDigest,
-    string SameReleaseFailureCode,
-    string SourceReadiness,
-    string TargetReadiness,
-    IReadOnlyList<string> MissingExpandFailureCodes,
-    IReadOnlyList<string> ConcurrentContractFailureCodes,
-    string AuthorityState,
-    bool ClaimEligible);
+    string ReceiptFormat,
+    CurrentSchemaIdentity Target,
+    CurrentSchemaProducerIdentity Producer,
+    int EntityTableCount,
+    int RequiredRecipeCount,
+    string InputDigest,
+    string NativeVerifier,
+    string NativeStage,
+    bool ActualDatabaseObserved,
+    bool NativeClaimEligible);
 
 internal sealed record RuntimeRoleDeploymentProbe(
     string Schema,

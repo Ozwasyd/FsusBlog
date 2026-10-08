@@ -660,13 +660,12 @@ public sealed class CommentThreadFixturePort(
         {
             if (operation.AccountId is not > 0)
                 throw new InvalidOperationException($"Public role {operation.SemanticRole} requires an account reference.");
-            var request = new CommentCreateV2RequestCoreModel(
+            var request = new CommentCreateRequestCoreModel(
                 plan.Binding.ArticleId,
                 operation.Content,
                 parentId,
                 rootId,
                 parentId,
-                null,
                 CommentAuthorModes.Public,
                 true,
                 null,

@@ -738,8 +738,8 @@
                         },
                         "command": {
                             "type": "array",
-                            "minItems": 14,
-                            "maxItems": 14,
+                            "minItems": 15,
+                            "maxItems": 15,
                             "prefixItems": [
                                 {
                                     "const": "dotnet"
@@ -777,6 +777,10 @@
                                 },
                                 {
                                     "const": "/p:PathMap={OUTPUT_ROOT}=/_/artifacts%2C{REPOSITORY_ROOT}=/_/src"
+                                },
+                                {
+                                    "type": "string",
+                                    "pattern": "^/p:FsusBlogCommitSha=[a-f0-9]{40}$"
                                 },
                                 {
                                     "const": "/p:NuGetAudit=false"

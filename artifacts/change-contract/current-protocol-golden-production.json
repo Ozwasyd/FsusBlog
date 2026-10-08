@@ -1,0 +1,33 @@
+{
+    "schema": "fsusblog.task-current-protocol-golden-production.v1",
+    "testedCommit": "cddbd39b967ce947556a76d7fce1bd57e9aaebd9",
+    "testedTree": "fe14d5896566520080216e6f279d76bbe61a80b1",
+    "runIdentity": "chain-3657-20261008-lock-handoff/current-comment-risk-and-original-golden-producers-full40",
+    "runWindowUtc": [
+        "2026-10-08T05:17:42Z",
+        "2026-10-08T05:20:50Z"
+    ],
+    "producerSourceCommit": "3080e11ed8fc8d84554b62c7b1928dcd1b11d5ff",
+    "producerSource": "tests/backend/Unit/AedsProtocolCrossLanguageTests.cs",
+    "producerMethods": [
+        "BackendEncoder_EmitsArticleListWithExactPublicationCoordinates",
+        "BackendEncoder_EmitsArticleSearchWithExactPublicationCoordinates"
+    ],
+    "producerEnvironmentKey": "FSUSBLOG_PROTOCOL_GOLDEN_OUTPUT_DIRECTORY",
+    "originalBackendSelection": {
+        "passed": 287,
+        "failed": 0,
+        "skipped": 0
+    },
+    "qualification": "Actual original C# producer bytes only. This record does not grant current runtime/schema/browser/performance admission.",
+    "outputs": [
+        {
+            "path": "tests/fixtures/protocol/article-list-frame.hex",
+            "sha256": "d422aadd07c97cb9177bd85fbd6fd4daea4141826908996a54093d7345784920"
+        },
+        {
+            "path": "tests/fixtures/protocol/article-search-frame.hex",
+            "sha256": "8591a06b7f80f350566e73a70e2f59871cba4352df849f347d0613fa3691a465"
+        }
+    ]
+}

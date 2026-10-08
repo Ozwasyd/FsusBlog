@@ -258,7 +258,7 @@ public sealed class PerceptionCharacterV3ContractCutover(
         {
             throw new InvalidOperationException("The active V3 pool is not healthy for cutover.");
         }
-        if (!FixedEquals(policyProvider.CurrentRiskPolicyV2.PolicyVersion, target.PolicySnapshotVersion))
+        if (!FixedEquals(policyProvider.CurrentRiskPolicy.PolicyVersion, target.PolicySnapshotVersion))
         {
             throw new InvalidOperationException("The active RiskControl policy version does not match the V3 target.");
         }

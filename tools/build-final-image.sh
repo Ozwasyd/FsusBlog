@@ -131,6 +131,29 @@ if [[ -n "$REQUESTED_RELEASE_ID" && "$REQUESTED_RELEASE_ID" != "$RELEASE_ID" ]];
     Fail "FSUSBLOG_RELEASE_ID does not match the canonical release identity snapshot"
 fi
 
+# Release byte binding is separate from canonical offline verification and live
+# startup admission; the build cannot manufacture a current-schema receipt.
+if [[ "$PUSH_IMAGE" == "1" ]]; then
+    [[ -n "${FSUSBLOG_RELEASE_SIGNING_KEY:-}" && -n "${FSUSBLOG_RELEASE_SIGNING_KEY_SHA256:-}" &&
+       -n "${FSUSBLOG_RELEASE_TRUST_POLICY:-}" && -n "${FSUSBLOG_RELEASE_TRUST_POLICY_SHA256:-}" ]] ||
+        Fail "PUSH=1 requires a process-owned signing key, pinned bytes and independent trust policy"
+    [[ -n "${FSUSBLOG_RELEASE_IDENTITY_ROSTER:-}" && -n "${FSUSBLOG_RELEASE_IDENTITY_ROSTER_SHA256:-}" ]] ||
+        Fail "PUSH=1 requires an explicit closed release identity roster and artifact SHA-256"
+    node "$ROOT_DIR/tools/release/check-release-manifest.mjs" --identity-roster-byte-binding true \
+        --identity-roster "$FSUSBLOG_RELEASE_IDENTITY_ROSTER" \
+        --identity-roster-sha256 "$FSUSBLOG_RELEASE_IDENTITY_ROSTER_SHA256" >/dev/null ||
+        Fail "release identity roster byte binding failed"
+    [[ ! -v FSUSBLOG_SCHEMA_MINIMUM_COORDINATE && ! -v FSUSBLOG_SCHEMA_MAXIMUM_COORDINATE ]] ||
+        Fail "schema compatibility inputs are unsupported"
+    [[ -n "${FSUSBLOG_CURRENT_SCHEMA_RECEIPT:-}" && -n "${FSUSBLOG_CURRENT_SCHEMA_RECEIPT_SHA256:-}" ]] ||
+        Fail "production release requires an explicit current-schema receipt and artifact SHA-256"
+    node "$ROOT_DIR/tools/release/check-release-manifest.mjs" \
+        --receipt-byte-binding true \
+        --current-schema-receipt "$FSUSBLOG_CURRENT_SCHEMA_RECEIPT" \
+        --current-schema-receipt-sha256 "$FSUSBLOG_CURRENT_SCHEMA_RECEIPT_SHA256" >/dev/null ||
+        Fail "current-schema receipt byte binding failed"
+fi
+
 mapfile -t runtime_profile_fields < <(node "$ROOT_DIR/tools/runtime-profiles/resolve-runtime-publish-profile.mjs" \
     --manifest "$RUNTIME_PROFILE_MANIFEST" \
     --profile "$RUNTIME_PROFILE_ID" \
@@ -446,13 +469,15 @@ dockerfile_digest="sha256:$(sha256sum "$ROOT_DIR/ops/docker/FsusBlog.Server.Dock
 dotnet_version="$(dotnet --version)"
 node_version="$(node --version)"
 docker_version="$(docker version --format '{{.Client.Version}}')"
-schema_minimum_coordinate="${FSUSBLOG_SCHEMA_MINIMUM_COORDINATE:-$RELEASE_ID}"
-schema_maximum_coordinate="${FSUSBLOG_SCHEMA_MAXIMUM_COORDINATE:-$RELEASE_ID}"
 manifest_dir="${FSUSBLOG_RELEASE_MANIFEST_DIR:-$ROOT_DIR/build/releases/$RELEASE_ID}"
 manifest_file="$manifest_dir/release-manifest.json"
 
 node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --output "$manifest_file" \
+    --signing-key "$FSUSBLOG_RELEASE_SIGNING_KEY" \
+    --signing-key-sha256 "$FSUSBLOG_RELEASE_SIGNING_KEY_SHA256" \
+    --trust-policy "$FSUSBLOG_RELEASE_TRUST_POLICY" \
+    --trust-policy-sha256 "$FSUSBLOG_RELEASE_TRUST_POLICY_SHA256" \
     --release-id "$RELEASE_ID" \
     --created-at-utc "$RELEASE_CREATED_AT_UTC" \
     --commit-sha "$COMMIT_SHA" \
@@ -461,8 +486,10 @@ node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --image-digest "$image_digest" \
     --frontend-manifest-hash "$frontend_manifest_hash" \
     --wasm-artifact-hash "$wasm_artifact_hash" \
-    --schema-minimum-coordinate "$schema_minimum_coordinate" \
-    --schema-maximum-coordinate "$schema_maximum_coordinate" \
+    --identity-roster "$FSUSBLOG_RELEASE_IDENTITY_ROSTER" \
+    --identity-roster-sha256 "$FSUSBLOG_RELEASE_IDENTITY_ROSTER_SHA256" \
+    --current-schema-receipt "$FSUSBLOG_CURRENT_SCHEMA_RECEIPT" \
+    --current-schema-receipt-sha256 "$FSUSBLOG_CURRENT_SCHEMA_RECEIPT_SHA256" \
     --dotnet-version "$dotnet_version" \
     --node-version "$node_version" \
     --docker-version "$docker_version" \

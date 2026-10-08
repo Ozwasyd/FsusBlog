@@ -41,15 +41,12 @@ export interface BinaryRouteRequest {
 }
 
 export interface BinaryTransportRequest {
-    binaryUrl?: string;
-    binaryRoute?: BinaryRouteRequest;
+    binaryRoute: BinaryRouteRequest;
     frameType: FrameType;
-    requestOptions?: BinaryRequestOptions;
+    requestOptions?: Omit<BinaryRequestOptions, 'method' | 'credentials' | 'requiresPow'>;
     signal?: AbortSignal;
     suppressAuthFailureTelemetry?: boolean;
     accessProfile?: AedsAccessProfileId;
-    /** Required by the static gate for legacy binaryUrl calls. Generated routes infer it from auth metadata. */
-    privateScope?: PrivateRequestScope;
 }
 
 export type TransportFailureKind =

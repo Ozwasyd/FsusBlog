@@ -2,24 +2,6 @@ using FsusBlog.Server.Infrastructure.Helpers;
 
 namespace FsusBlog.Server.Models.Security;
 
-public static class SecuritySystemModes
-{
-    public const string Disabled = "disabled";
-    public const string Observe = "observe";
-    public const string Enforce = "enforce";
-    public const string Strict = "strict";
-    public const string Lockdown = "lockdown";
-
-    public static string Normalize(string? mode)
-    {
-        string value = TextHelpers.LowerTrimmed(mode) ?? Enforce;
-        return value is Disabled or Observe or Enforce or Strict or Lockdown ? value : Enforce;
-    }
-
-    public static bool IsEnforcing(string mode)
-        => Normalize(mode) is Enforce or Strict or Lockdown;
-}
-
 public sealed record AntiCrawlerPolicyOptions(
     string Mode,
     bool PublicReadChallengeEnabled,
@@ -117,15 +99,6 @@ public sealed record PowPolicySnapshot(
     string? Reason,
     PowPolicyOptions Options);
 
-public sealed record SecurityRiskPolicySnapshot(
-    string SnapshotId,
-    int RequireChallengeScore,
-    int BlockScore,
-    int MaxRiskScore,
-    bool PublicReadChallengeEnabled,
-    bool RiskScoringEnabled,
-    string AntiCrawlerMode);
-
 public sealed record SecurityOverviewResponse(
     string Status,
     DateTimeOffset CheckedAtUtc,
@@ -134,7 +107,7 @@ public sealed record SecurityOverviewResponse(
     SecurityRiskOverviewResponse Risk);
 
 public sealed record RiskControlConsoleResponse(
-    SecurityRiskPolicySnapshotV2 ActivePolicy,
+    SecurityRiskPolicy ActivePolicy,
     SecurityRiskOverviewResponse Risk,
     IReadOnlyList<SecurityRiskEventAggregateResponse> RiskEventAggregate,
     SecurityChallengeMetricsResponse ChallengeMetrics,
@@ -174,7 +147,7 @@ public sealed record PerceptionSealedV2PolicySnapshot(
 public sealed record PerceptionSealedV2ConsoleResponse(
     PerceptionSealedV2PolicySnapshot Policy,
     PerceptionSealedV2MetricsResponse Metrics,
-    SecurityRiskPolicySnapshotV2 ActiveRiskPolicy);
+    SecurityRiskPolicy ActiveRiskPolicy);
 
 public sealed record PerceptionSealedV2MetricsResponse(
     DateTimeOffset WindowStartedAtUtc,
@@ -286,7 +259,7 @@ public sealed record SecurityChallengeAttemptSummaryResponse(
     DateTimeOffset AttemptedAtUtc);
 
 public sealed record SecurityPolicyConsoleResponse(
-    SecurityRiskPolicySnapshotV2 ActivePolicy,
+    SecurityRiskPolicy ActivePolicy,
     AntiCrawlerPolicySnapshot AntiCrawler,
     PowPolicySnapshot Pow,
     IReadOnlyList<SecurityPolicyVersionSummaryResponse> PolicyVersions);

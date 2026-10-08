@@ -79,7 +79,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PolicyService_AllowsPoSpaceAfterExecutorAndHostsAreRegistered()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         var request = new RiskControlPolicyUpdateRequest(
             null,
             PoSpaceV1Enabled: true,
@@ -89,7 +89,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
             StrictRiskMultiplierPercent: null,
             Reason: "test");
 
-        SecurityRiskPolicySnapshotV2 updated = service.UpdateRiskControlPolicy(request, "test");
+        SecurityRiskPolicy updated = service.UpdateRiskControlPolicy(request, "test");
         Assert.Equal(SecuritySystemModes.Enforce, updated.SubsystemModes[SecurityRiskSources.PoSpace]);
     }
 
@@ -97,24 +97,24 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PolicyService_AcceptsOrderedTwoMemberAndSingleMemberSnapshots()
     {
-        var service = new SecurityAdminPolicyService(CreateCharacterProviderEnabledConfiguration());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(CreateCharacterProviderEnabledConfiguration()));
         string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
         string poSpace = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1);
 
         service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([characterChallenge, poSpace]));
 
-        Assert.Equal([characterChallenge, poSpace], service.CurrentRiskPolicyV2.DefaultAction.HardChallengeKinds);
+        Assert.Equal([characterChallenge, poSpace], service.CurrentRiskPolicy.DefaultAction.HardChallengeKinds);
 
         service.ApplyRiskControlPolicySnapshot(CreateRiskPolicy([characterChallenge]));
 
-        Assert.Equal([characterChallenge], service.CurrentRiskPolicyV2.DefaultAction.HardChallengeKinds);
+        Assert.Equal([characterChallenge], service.CurrentRiskPolicy.DefaultAction.HardChallengeKinds);
     }
 
     [Fact]
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-ordered-member-unavailable-reject")]
     public void PolicyService_RejectsSnapshotWhenAnyOrderedMemberIsUnavailable()
     {
-        var service = new SecurityAdminPolicyService(CreateCharacterProviderEnabledConfiguration());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(CreateCharacterProviderEnabledConfiguration()));
         string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
         string unavailable = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.AdminPasskeyStepUpV1);
 
@@ -128,7 +128,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-duplicate-overlimit-noncanonical-reject")]
     public void PolicyService_RejectsDuplicateOverLimitAndNoncanonicalSets()
     {
-        var service = new SecurityAdminPolicyService(CreateCharacterProviderEnabledConfiguration());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(CreateCharacterProviderEnabledConfiguration()));
         string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
 
         ArgumentException duplicate = Assert.Throws<ArgumentException>(() =>
@@ -148,7 +148,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-character-provider-disabled-reject")]
     public void PolicyService_RejectsCharacterSnapshotWhenRuntimeProviderIsDisabled()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         string characterChallenge = SecurityChallengeContracts.ToWireName(
             SecurityChallengeKind.PerceptionCharacterV3);
 
@@ -166,7 +166,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
             })
             .Build();
 
-    private static SecurityRiskPolicySnapshotV2 CreateRiskPolicy(
+    private static SecurityRiskPolicy CreateRiskPolicy(
         IReadOnlyList<string> challengeKinds,
         string actionName = RiskActionNames.CommentCreate)
         => new(

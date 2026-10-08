@@ -227,7 +227,7 @@
                 "docs/security.md",
                 "src/backend/Infrastructure/Operations/ProductionHealth.cs",
                 "src/backend/Infrastructure/Security/RiskActionRegistry.cs",
-                "src/backend/Infrastructure/Security/SecurityRiskPolicySnapshotV2Adapter.cs",
+                "src/backend/Infrastructure/Security/SecurityRiskPolicyFactory.cs",
                 "src/backend/Services/Security/SecurityAdminPolicyService.cs"
             ],
             "externalPattern": "^[A-Z][A-Z0-9_]*$",

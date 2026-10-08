@@ -85,7 +85,7 @@ public static class PodSizeCatalog
     public static readonly int UserCommentPod = PodContractValidation.SizeOf<UserCommentPod>();
     public static readonly int CommentPolicySnapshotPod = 41;
     public static readonly int CommentPolicyUpdateRequestPod = 26;
-    public static readonly int CommentCreateV2RequestPod = PodContractValidation.SizeOf<CommentCreateV2RequestPod>();
+    public static readonly int CommentCreateRequestPod = PodContractValidation.SizeOf<CommentCreateRequestPod>();
     public static readonly int CommentCreateResultPod = PodContractValidation.SizeOf<CommentCreateResultPod>();
     public static readonly int CommentAuthorViewPod = PodContractValidation.SizeOf<CommentAuthorViewPod>();
     public static readonly int BlindCredentialIssuerMetadataPod = PodContractValidation.SizeOf<BlindCredentialIssuerMetadataPod>();

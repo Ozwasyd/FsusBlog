@@ -290,7 +290,9 @@ public sealed record ProductionRiskControlHealthCheck(
     bool PerceptionAeadKey,
     string PerceptionMode,
     SecurityChallengeV2PerformanceBudgetSnapshot PerceptionPerformanceBudget,
-    string? Error = null) : IProductionHealthCheck;
+    string? Error = null,
+    string? PolicySnapshotId = null,
+    string? PolicyDigest = null) : IProductionHealthCheck;
 
 internal sealed record RedisConsumeOnceReadiness(bool Ok);
 
@@ -948,7 +950,7 @@ public sealed class ProductionReadinessProbe(
     {
         try
         {
-            SecurityRiskPolicySnapshotV2? policy = serviceProvider.GetService<ISecurityRiskPolicyProvider>()?.CurrentRiskPolicyV2;
+            SecurityRiskPolicy? policy = serviceProvider.GetService<ISecurityRiskPolicyProvider>()?.CurrentRiskPolicy;
             string? policyVersion = policy?.PolicyVersion;
             bool activePolicy = policy is not null
                 && !string.IsNullOrWhiteSpace(policy.SnapshotId)
@@ -981,7 +983,9 @@ public sealed class ProductionReadinessProbe(
                 perceptionAeadKey,
                 perceptionMode,
                 perceptionBudget,
-                ok ? null : "risk_control_dependency_unavailable");
+                ok ? null : "risk_control_dependency_unavailable",
+                policy?.SnapshotId,
+                policy?.Digest);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -1001,7 +1005,7 @@ public sealed class ProductionReadinessProbe(
         }
     }
 
-    private string ResolvePerceptionMode(SecurityRiskPolicySnapshotV2? policy)
+    private string ResolvePerceptionMode(SecurityRiskPolicy? policy)
     {
         if (policy is null)
         {
@@ -1110,7 +1114,7 @@ public sealed class ProductionReadinessProbe(
 
     internal static bool ChallengeProviderRegistryReady(
         IReadOnlyList<string> providers,
-        SecurityRiskPolicySnapshotV2? policy)
+        SecurityRiskPolicy? policy)
     {
         if (providers.Count == 0)
         {
@@ -1382,9 +1386,9 @@ public sealed class ConfigurationHealthSnapshot(
         Refresh();
     }
 
-    private ZkProdRuntimeReadiness ResolveZkProdReadiness()
+    private ZkCommentRuntimeReadiness ResolveZkProdReadiness()
     {
-        IZkProofVerifier? verifier = serviceProvider.GetService<IZkProofVerifier>();
+        ZkVerifierReadinessSnapshot verifier = serviceProvider.GetService<IZkVerifierReadiness>()?.Current ?? default;
         IAnonymousCredentialRootReader? rootReader = serviceProvider.GetService<IAnonymousCredentialRootReader>();
         IRfc9474BlindCredentialSigner? credentialSigner = serviceProvider.GetService<IRfc9474BlindCredentialSigner>();
         IBlindCredentialRuntimeGate? credentialGate = serviceProvider.GetService<IBlindCredentialRuntimeGate>();
@@ -1396,10 +1400,12 @@ public sealed class ConfigurationHealthSnapshot(
             !string.IsNullOrWhiteSpace(root.IssuerPublicKeyHash) &&
             (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
              string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal))) == true;
-        return new ZkProdRuntimeReadiness(
-            verifier?.IsConfigured == true,
+        return new ZkCommentRuntimeReadiness(
+            verifier.NativeVerifierConfigured,
             rootReady,
-            credentialSigner?.IsConfigured == true && credentialGate?.IsEnabled == true);
+            credentialSigner?.IsConfigured == true && credentialGate?.IsEnabled == true,
+            verifier.TrustedSetupVerified,
+            verifier.NativeBackendConfigured);
     }
 }
 

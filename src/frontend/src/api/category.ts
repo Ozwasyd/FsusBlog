@@ -27,7 +27,6 @@ export const getCategories = (config?: { signal?: AbortSignal; }) =>
         frameType: FrameType.CategoryList,
         signal: config?.signal,
         requestOptions: {
-            method: 'GET'
         }
     });
 
@@ -37,7 +36,6 @@ export const getCategoryExactMetadata = (id: number, config?: { signal?: AbortSi
         frameType: FrameType.TaxonomyExactMetadata,
         signal: config?.signal,
         requestOptions: {
-            method: 'GET'
         }
     });
 
@@ -52,8 +50,6 @@ export const createCategory = (request: string | TaxonomyMetadataMutationRequest
         signal: config?.signal as AbortSignal | undefined,
         requestOptions: {
             ...config,
-            method: 'POST',
-            requiresPow: true,
             body: encodeAedsFrame(FrameType.CategoryWriteRequest, encodeTaxonomyMetadataMutationRequest(toMetadataRequest(request)))
         }
     });
@@ -69,8 +65,6 @@ export const updateCategory = (id: number, request: string | TaxonomyMetadataMut
         signal: config?.signal as AbortSignal | undefined,
         requestOptions: {
             ...config,
-            method: 'PUT',
-            requiresPow: true,
             body: encodeAedsFrame(FrameType.CategoryWriteRequest, encodeTaxonomyMetadataMutationRequest(toMetadataRequest(request)))
         }
     });
@@ -86,8 +80,6 @@ export const deleteCategory = (id: number, config?: RequestInit) =>
         signal: config?.signal as AbortSignal | undefined,
         requestOptions: {
             ...config,
-            method: 'DELETE',
-            requiresPow: true
         }
     });
 

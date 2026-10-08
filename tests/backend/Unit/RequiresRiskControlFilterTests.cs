@@ -106,7 +106,7 @@ public sealed class RequiresRiskControlFilterTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_MultiChallengeDecisionConsumesOneAggregateProofBeforeBusinessLogic()
     {
-        SecurityRiskPolicySnapshotV2 policy = CreateMultiChallengePolicy();
+        SecurityRiskPolicy policy = CreateMultiChallengePolicy();
         FilterFixture fixture = CreateFixture(riskScore: 65, policy);
         fixture.ProofService.NextConsumeResult = SecurityChallengeProofConsumeResult.Success(CreateClaims());
         var context = CreateContext();
@@ -346,7 +346,7 @@ public sealed class RequiresRiskControlFilterTests
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status429TooManyRequests, await ExecuteStatusAsync(result, context));
         Assert.Equal("block", context.Response.Headers[RequiresRiskControlFilter.RiskDecisionHeaderName]);
-        Assert.Equal(SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion, context.Response.Headers[RequiresRiskControlFilter.ChallengePolicyVersionHeaderName]);
+        Assert.Equal(SecurityRiskPolicyFactory.DefaultPolicyVersion, context.Response.Headers[RequiresRiskControlFilter.ChallengePolicyVersionHeaderName]);
         Assert.Empty(fixture.ProofService.ConsumeRequests);
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Contains("risk_control_blocked", signal.Detail, StringComparison.Ordinal);
@@ -356,7 +356,7 @@ public sealed class RequiresRiskControlFilterTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_CommentQueueDecision_StoresDecisionContextAndEntersBusinessLogic()
     {
-        SecurityRiskPolicySnapshotV2 policy = CreateCommentQueuePolicy();
+        SecurityRiskPolicy policy = CreateCommentQueuePolicy();
         FilterFixture fixture = CreateFixture(riskScore: 90, policy);
         var context = CreateContext(RiskActionNames.CommentCreate, "comment.create");
         bool nextCalled = false;
@@ -386,7 +386,7 @@ public sealed class RequiresRiskControlFilterTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_CriticalAuthThrottle_RecordsRiskControlEventWithoutProofOrBusinessLogic()
     {
-        SecurityRiskPolicySnapshotV2 policy = CreateCriticalAuthThrottlePolicy();
+        SecurityRiskPolicy policy = CreateCriticalAuthThrottlePolicy();
         FilterFixture fixture = CreateFixture(riskScore: 80, policy);
         var context = CreateContext(RiskActionNames.AuthLogin, "auth.login");
         AddProofHeaders(context, "proof-unused");
@@ -403,7 +403,7 @@ public sealed class RequiresRiskControlFilterTests
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status429TooManyRequests, await ExecuteStatusAsync(result, context));
         Assert.Equal("throttle", context.Response.Headers[RequiresRiskControlFilter.RiskDecisionHeaderName]);
-        Assert.Equal(SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion, context.Response.Headers[RequiresRiskControlFilter.ChallengePolicyVersionHeaderName]);
+        Assert.Equal(SecurityRiskPolicyFactory.DefaultPolicyVersion, context.Response.Headers[RequiresRiskControlFilter.ChallengePolicyVersionHeaderName]);
         Assert.Empty(fixture.ProofService.ConsumeRequests);
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Equal(SecurityRiskSources.RiskControl, signal.Source);
@@ -453,7 +453,7 @@ public sealed class RequiresRiskControlFilterTests
             || string.Equals(descriptor.ServiceType.FullName, LegacyTypeName, StringComparison.Ordinal));
     }
 
-    private static FilterFixture CreateFixture(int riskScore, SecurityRiskPolicySnapshotV2? policy = null)
+    private static FilterFixture CreateFixture(int riskScore, SecurityRiskPolicy? policy = null)
     {
         policy ??= CreatePolicy();
         var riskSink = new CapturingRiskSink();
@@ -470,7 +470,7 @@ public sealed class RequiresRiskControlFilterTests
         return new FilterFixture(filter, proof, riskSink);
     }
 
-    private static RealProofFilterFixture CreateRealProofFixture(int riskScore, SecurityRiskPolicySnapshotV2? policy = null)
+    private static RealProofFilterFixture CreateRealProofFixture(int riskScore, SecurityRiskPolicy? policy = null)
     {
         policy ??= CreatePolicy();
         var riskSink = new CapturingRiskSink();
@@ -529,7 +529,7 @@ public sealed class RequiresRiskControlFilterTests
                 binding.SubjectHash,
                 binding.ClientIpHash,
                 binding.DeviceFpHash,
-                SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+                SecurityRiskPolicyFactory.DefaultPolicyVersion,
                 DateTimeOffset.UtcNow,
                 DateTimeOffset.UtcNow.AddMinutes(5)),
             CancellationToken.None);
@@ -566,7 +566,7 @@ public sealed class RequiresRiskControlFilterTests
         Assert.Equal(action, context.Response.Headers[RequiresRiskControlFilter.ChallengeActionHeaderName]);
         Assert.Equal(routeKey, context.Response.Headers[RequiresRiskControlFilter.ChallengeRouteKeyHeaderName]);
         Assert.Equal(
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            SecurityRiskPolicyFactory.DefaultPolicyVersion,
             context.Response.Headers[RequiresRiskControlFilter.ChallengePolicyVersionHeaderName]);
     }
 
@@ -584,9 +584,9 @@ public sealed class RequiresRiskControlFilterTests
             DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow.AddMinutes(5),
             "nonce",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion);
+            SecurityRiskPolicyFactory.DefaultPolicyVersion);
 
-    private static SecurityRiskPolicySnapshotV2 CreatePolicy()
+    private static SecurityRiskPolicy CreatePolicy()
     {
         var defaultPolicy = new SecurityRiskActionPolicy(
             "*",
@@ -604,9 +604,9 @@ public sealed class RequiresRiskControlFilterTests
             }
         };
 
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "risk:test",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            SecurityRiskPolicyFactory.DefaultPolicyVersion,
             DateTimeOffset.UnixEpoch,
             SecuritySystemModes.Enforce,
             200,
@@ -620,7 +620,7 @@ public sealed class RequiresRiskControlFilterTests
             });
     }
 
-    private static SecurityRiskPolicySnapshotV2 CreateCommentQueuePolicy()
+    private static SecurityRiskPolicy CreateCommentQueuePolicy()
     {
         var commentPolicy = new SecurityRiskActionPolicy(
             RiskActionNames.CommentCreate,
@@ -639,7 +639,7 @@ public sealed class RequiresRiskControlFilterTests
         };
     }
 
-    private static SecurityRiskPolicySnapshotV2 CreateCriticalAuthThrottlePolicy()
+    private static SecurityRiskPolicy CreateCriticalAuthThrottlePolicy()
     {
         var authPolicy = new SecurityRiskActionPolicy(
             RiskActionNames.AuthLogin,
@@ -649,7 +649,7 @@ public sealed class RequiresRiskControlFilterTests
             null,
             AnonymousWriteAllowed: false)
         {
-            DecisionMatrix = SecurityRiskPolicySnapshotV2Adapter.PerceptionSealedV2Matrix,
+            DecisionMatrix = SecurityRiskPolicyFactory.PerceptionSealedV2Matrix,
             DecisionBands =
             [
                 new SecurityRiskDecisionBand(SecurityRiskPolicyOutcomes.Allow, 0, 19, [], 0, "perception_sealed_v2_allow"),
@@ -666,7 +666,7 @@ public sealed class RequiresRiskControlFilterTests
         };
     }
 
-    private static SecurityRiskPolicySnapshotV2 CreateMultiChallengePolicy()
+    private static SecurityRiskPolicy CreateMultiChallengePolicy()
     {
         var policy = new SecurityRiskActionPolicy(
             RiskActionNames.PublicRead,
@@ -727,11 +727,9 @@ public sealed class RequiresRiskControlFilterTests
             => Task.CompletedTask;
     }
 
-    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy) : ISecurityRiskPolicyProvider
+    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicy policy) : ISecurityRiskPolicyProvider
     {
-        public SecurityRiskPolicySnapshot CurrentRiskPolicy => SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
-
-        public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+        public SecurityRiskPolicy CurrentRiskPolicy => policy;
     }
 
     private sealed class CapturingRiskSink : ISecurityRiskSignalSink

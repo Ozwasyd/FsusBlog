@@ -906,7 +906,7 @@ public sealed class ProductionHealthTests
         string poSpace = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1);
         string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
 
-        SecurityRiskPolicySnapshotV2 ordered = CreateRiskPolicyWithChallengeSet(
+        SecurityRiskPolicy ordered = CreateRiskPolicyWithChallengeSet(
             SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
             [pow, poSpace]);
 
@@ -921,10 +921,10 @@ public sealed class ProductionHealthTests
         string poSpace = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Argon2IdPoSpaceV1);
         string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
         string unavailable = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.AdminPasskeyStepUpV1);
-        SecurityRiskPolicySnapshotV2 missingProvider = CreateRiskPolicyWithChallengeSet(
+        SecurityRiskPolicy missingProvider = CreateRiskPolicyWithChallengeSet(
             SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
             [pow, poSpace]);
-        SecurityRiskPolicySnapshotV2 unavailableCapability = CreateRiskPolicyWithChallengeSet(
+        SecurityRiskPolicy unavailableCapability = CreateRiskPolicyWithChallengeSet(
             RiskActionNames.CommentCreate,
             [characterChallenge, unavailable]);
 
@@ -937,13 +937,13 @@ public sealed class ProductionHealthTests
     {
         string characterChallenge = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3);
         string pow = SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1);
-        SecurityRiskPolicySnapshotV2 duplicate = CreateRiskPolicyWithChallengeSet(
+        SecurityRiskPolicy duplicate = CreateRiskPolicyWithChallengeSet(
             RiskActionNames.CommentCreate,
             [characterChallenge, characterChallenge]);
-        SecurityRiskPolicySnapshotV2 overLimit = CreateRiskPolicyWithChallengeSet(
+        SecurityRiskPolicy overLimit = CreateRiskPolicyWithChallengeSet(
             RiskActionNames.CommentCreate,
             Enumerable.Repeat(characterChallenge, SecurityChallengeContracts.MaxAssignmentsPerEnvelope + 1).ToArray());
-        SecurityRiskPolicySnapshotV2 noncanonical = CreateRiskPolicyWithChallengeSet(
+        SecurityRiskPolicy noncanonical = CreateRiskPolicyWithChallengeSet(
             SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
             ["security.pow"]);
 
@@ -965,33 +965,33 @@ public sealed class ProductionHealthTests
             SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionLocalizationV2),
             SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionMicroInteractionV2)
         ];
-        var disabled = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
-        var enabled = new SecurityAdminPolicyService(
+        var disabled = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
+        var enabled = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(
             new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Security:PerceptionCharacterV3:Enabled"] = SecuritySystemModes.Enforce
                 })
-                .Build());
+                .Build()));
 
         Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady(
             providersWithoutCharacter,
-            disabled.CurrentRiskPolicyV2));
+            disabled.CurrentRiskPolicy));
         Assert.False(ProductionReadinessProbe.ChallengeProviderRegistryReady(
             providersWithoutCharacter,
-            enabled.CurrentRiskPolicyV2));
+            enabled.CurrentRiskPolicy));
         string[] providersWithCharacter =
         [
             .. providersWithoutCharacter,
             SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionCharacterV3)
         ];
-        foreach (SecurityRiskActionPolicy action in enabled.CurrentRiskPolicyV2.ActionOverrides.Values
-            .Prepend(enabled.CurrentRiskPolicyV2.DefaultAction))
+        foreach (SecurityRiskActionPolicy action in enabled.CurrentRiskPolicy.ActionOverrides.Values
+            .Prepend(enabled.CurrentRiskPolicy.DefaultAction))
         {
             Assert.True(
                 ProductionReadinessProbe.ChallengeProviderRegistryReady(
                     providersWithCharacter,
-                    enabled.CurrentRiskPolicyV2 with
+                    enabled.CurrentRiskPolicy with
                     {
                         DefaultAction = action,
                         ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
@@ -1001,7 +1001,7 @@ public sealed class ProductionHealthTests
 
         Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady(
             providersWithCharacter,
-            enabled.CurrentRiskPolicyV2));
+            enabled.CurrentRiskPolicy));
     }
 
     [Fact]
@@ -1017,9 +1017,9 @@ public sealed class ProductionHealthTests
             SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionLocalizationV2),
             SecurityChallengeContracts.ToWireName(SecurityChallengeKind.PerceptionMicroInteractionV2)
         ];
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
-        AssertExecutable(service.CurrentRiskPolicyV2);
+        AssertExecutable(service.CurrentRiskPolicy);
         service.UpdateRiskControlPolicy(
             new RiskControlPolicyUpdateRequest(
                 SecuritySystemModes.Observe,
@@ -1030,9 +1030,9 @@ public sealed class ProductionHealthTests
                 StrictRiskMultiplierPercent: 125,
                 Reason: "lifecycle-test"),
             "test");
-        AssertExecutable(service.CurrentRiskPolicyV2);
+        AssertExecutable(service.CurrentRiskPolicy);
         service.RollbackRiskControlPolicy("test");
-        AssertExecutable(service.CurrentRiskPolicyV2);
+        AssertExecutable(service.CurrentRiskPolicy);
         service.UpdatePerceptionSealedV2Policy(
             new PerceptionSealedV2PolicyUpdateRequest(
                 Enabled: true,
@@ -1045,11 +1045,11 @@ public sealed class ProductionHealthTests
                 MaxSolveDurationMs: 45000,
                 Reason: "lifecycle-test"),
             "test");
-        AssertExecutable(service.CurrentRiskPolicyV2);
+        AssertExecutable(service.CurrentRiskPolicy);
         service.RollbackPerceptionSealedV2Policy("test");
-        AssertExecutable(service.CurrentRiskPolicyV2);
+        AssertExecutable(service.CurrentRiskPolicy);
 
-        void AssertExecutable(SecurityRiskPolicySnapshotV2 policy)
+        void AssertExecutable(SecurityRiskPolicy policy)
         {
             Assert.True(ProductionReadinessProbe.ChallengeProviderRegistryReady(
                 providersWithoutCharacter,
@@ -1075,7 +1075,7 @@ public sealed class ProductionHealthTests
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
-    private static SecurityRiskPolicySnapshotV2 CreateRiskPolicy()
+    private static SecurityRiskPolicy CreateRiskPolicy()
         => new(
             "risk-policy-snapshot-1",
             "risk-policy-v2",
@@ -1099,11 +1099,11 @@ public sealed class ProductionHealthTests
                 [SecurityRiskSources.PoSpace] = SecuritySystemModes.Disabled
             });
 
-    private static SecurityRiskPolicySnapshotV2 CreateRiskPolicyWithChallengeSet(
+    private static SecurityRiskPolicy CreateRiskPolicyWithChallengeSet(
         string actionName,
         IReadOnlyList<string> challengeKinds)
     {
-        SecurityRiskPolicySnapshotV2 policy = CreateRiskPolicy();
+        SecurityRiskPolicy policy = CreateRiskPolicy();
         SecurityRiskActionPolicy action = policy.DefaultAction with
         {
             ActionName = actionName,
@@ -1195,11 +1195,9 @@ public sealed class ProductionHealthTests
         public SpaAssetManifestReadiness GetReadiness() => readiness;
     }
 
-    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy) : ISecurityRiskPolicyProvider
+    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicy policy) : ISecurityRiskPolicyProvider
     {
-        public SecurityRiskPolicySnapshot CurrentRiskPolicy => SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
-
-        public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+        public SecurityRiskPolicy CurrentRiskPolicy => policy;
     }
 
     private sealed class HealthChallengeProvider(string kind) : ISecurityChallengeProvider

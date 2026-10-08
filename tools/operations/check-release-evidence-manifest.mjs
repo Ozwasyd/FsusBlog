@@ -6,7 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 const { assertReleaseIdentity, isValidReleaseId } = await import(new URL('../release/release-id.mjs', import.meta.url));
-const { validateReleaseManifest } = await import(new URL('../release/release-manifest.mjs', import.meta.url));
+const { validateReleaseManifest, deriveReleaseCandidateId, deriveReleaseManifestContentDigest } = await import(new URL('../release/release-manifest.mjs', import.meta.url));
 const { validateReleaseRuntimeMatrix } = await import(new URL('../runtime-profiles/release-runtime-matrix.mjs', import.meta.url));
 const {
     createProductionFreshRunBoundLocator,
@@ -826,7 +826,7 @@ function rolloutAuxiliarySemanticsOk(name, value, rollout)
     };
     if (name === 'releaseManifest')
     {
-        return value.schema === 'fsusblog.release-manifest.v2'
+        return value.schema === 'fsusblog.release-manifest.v3'
       && value.releaseId === rollout.target.releaseId
       && value.imageDigest === rollout.target.imageDigest;
     }
@@ -2137,7 +2137,7 @@ async function runSelfTest()
         workflowRun: { id: '123', attempt: '1', workflow: 'Quality Gate' },
         imageDigest,
         releaseIdentity: {
-            schema: 'fsusblog.release-manifest.v2',
+            schema: 'fsusblog.release-manifest.v3',
             releaseId,
             commitSha,
             imageRepository: 'ghcr.io/fsusblog/app',
@@ -2148,7 +2148,7 @@ async function runSelfTest()
             createdAtUtc: '2026-07-11T01:01:01.000Z',
             frontendManifestHash: `sha256:${'b'.repeat(64)}`,
             wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-            schemaCompatibility: { minimumCoordinate: releaseId, maximumCoordinate: releaseId },
+            currentSchema: { receiptFormat: 'fsusblog.current-schema-receipt.v1', receipt: { reference: '/unit-fixture/current-schema-receipt.json', sha256: 'a'.repeat(64) }, receiptContentDigest: 'b'.repeat(64), target: { modelVersion: 'unit-model-v1', extractorVersion: 'unit-extractor-v1', generatorVersion: 'unit-generator-v1', sourceDigest: 'c'.repeat(64), contentDigest: 'd'.repeat(64) }, database: { provider: 0, instanceId: 'unit-instance', databaseId: 'unit-database' }, actualSchemaDigest: 'e'.repeat(64) },
             toolchain: {
                 dotnetVersion: '10.0.100',
                 nodeVersion: 'v20.19.0',
@@ -2222,6 +2222,13 @@ async function runSelfTest()
             }
         }
     };
+    const { createReleaseIdentityRosterFixture } = await import('../../tests/tools/support/release-readiness-test-helpers.mjs');
+    base.releaseIdentity.identity = createReleaseIdentityRosterFixture(base.releaseIdentity);
+    base.releaseIdentity.signature = null;
+    const { releaseSlot: unitSlot, ...unitManifest } = base.releaseIdentity;
+    unitManifest.candidateId = deriveReleaseCandidateId(unitManifest);
+    unitManifest.contentDigest = deriveReleaseManifestContentDigest(unitManifest);
+    base.releaseIdentity = { ...unitManifest, releaseSlot: unitSlot };
     base.artifacts.authenticatedDast = 'authenticatedDast';
     base.artifacts.fuzz = 'fuzz';
     base.artifacts.faultInjection = 'faultInjection';

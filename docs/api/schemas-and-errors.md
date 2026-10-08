@@ -310,9 +310,9 @@ Retired, non-reusable AEDS values are recorded in `retiredFrameValues`: `40` is 
 | 161 | `RecoveryKeyVerifyResponse` | `RecoveryKeyVerifyResponsePod` | Successful Recovery Key verification; returns only the recovery-session token and expiry. |
 | 162 | `RecoveryKeySessionRequest` | `StringMutationRequestPod` | Recovery-session token request body for Passkey recovery begin. |
 | 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | `GET /api/binary/auth/me`; anonymous account ID, identity kind, public handle, Passkey/Recovery/TOTP/anonymous-credential and status fields; does not expose internalUserId; access expiry is carried only in the `X-Fsus-Access-Expires-At-Utc` HTTP header and does not consume POD space. |
-| 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | Pre-render comment-composer policy: anonymous/public/ZK switches, complete raw ZK-Prod bit and controlled unavailable reason, default author mode, language list, and policy snapshot hash; frontend 41-byte layout maps to client contract v3, while old/corrupt layouts always return `contract_invalid`. |
+| 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | Pre-render comment-composer policy: anonymous/public/ZK switches, complete raw ZK-Prod bit and controlled unavailable reason, default author mode, language list, and policy snapshot hash; the exact current 41-byte layout and all field offsets are generated from the shared AEDS authority; retired or malformed payloads fail protocol admission. |
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | Admin anonymous-comment policy patch request body. |
-| 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | Signed-in public comment; explicit opt-in required. Legacy `anonymous` returns `anonymous_author_mode_retired` with zero business writes; `zk_anonymous` returns `anonymous_ticket_required`; legacy scope/proof slots remain wire layout only. |
+| 166 | `CommentCreateRequest` | `CommentCreateRequestPod` | Signed-in public comment; explicit opt-in required. Legacy `anonymous` returns `anonymous_author_mode_retired` with zero business writes; `zk_anonymous` returns `anonymous_ticket_required`; legacy scope/proof slots remain wire layout only. |
 | 167 | `CommentAuthorView` | `CommentAuthorViewPod` | Comment-author display projection; comment cursors must carry it explicitly, and clients must not fabricate anonymous/public names from legacy identity strings. |
 | 177 | reserved | none | Unassigned; no decoder or compatibility path. |
 | 178 | reserved | none | Unassigned; no decoder or compatibility path. |
@@ -438,7 +438,7 @@ The notification-stream `ArticleChangedPayload` schema is `{articleId:int32,acti
 | `CommentPod` | ~256 |
 | `CommentPolicySnapshotPod` | 41 |
 | `CommentPolicyUpdateRequestPod` | 26 |
-| `CommentCreateV2RequestPod` | 80 |
+| `CommentCreateRequestPod` | 73 |
 | `CommentAuthorViewPod` | 36 |
 | `CommentTreeNodePod` | 60 |
 | `CommentChildCursorPod` | 32 |

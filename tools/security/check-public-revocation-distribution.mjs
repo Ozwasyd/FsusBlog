@@ -44,8 +44,8 @@ forbidText(
 requireText(
   'src/frontend/src/api/comment.ts',
   'getAnonymousCredentialRevocationArtifact',
-  "method: 'GET'",
-  "credentials: 'omit'")
+  "binary_get_anonymous_credential_revocation_full",
+  "binary_get_anonymous_credential_revocation_delta")
 forbidText(
   'src/frontend/src/api/comment.ts',
   'AnonymousCredentialRevocationWitnessRequest',
@@ -69,7 +69,7 @@ const transcriptTest = requireText(
   'tests/frontend/unit/api/comment.test.ts',
   'same bodyless public artifact transcript for every credential',
   'requestOptions?.body).toBeUndefined()',
-  "credentials: 'omit'")
+  "credentialPolicy).toBe('omit')")
 for (const forbidden of ['credentialCommitment', 'revocationHandleHash', 'leafKey', 'stableId']) {
   const testBlock = transcriptTest.slice(transcriptTest.indexOf('same bodyless public artifact transcript'))
   if (testBlock.slice(0, 1800).includes(forbidden)) errors.push(`transcript fixture contains ${forbidden}`)

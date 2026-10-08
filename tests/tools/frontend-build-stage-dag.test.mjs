@@ -16,7 +16,8 @@ const {
     prepareFrontendBuildOutputRoot,
     renderStablePublicBootKernelAlias,
     renderStableSpaEntryAlias,
-    resolveProductionFrontendBuildEnv
+    resolveProductionFrontendBuildEnv,
+    resolveReleaseBrowserBuildTrust
 } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/frontend/build.mjs')).href);
 
 function resources(overrides = {})
@@ -218,6 +219,58 @@ test('release build declares independent prebuild stages and explicit postbuild 
         byId.get('sync-fsusui-markdown-runtime-assets').consumedInputs[0],
         /(?:FsusUI\/vue\/packages\/wasm\/dist|node_modules\/@ozwasyd\/element-plus\/es\/wasm\/dist)$/u
     );
+});
+
+test('current browser build fixes only public trust before Vite and preserves the run-bound consumer', () =>
+{
+    const frontendRoot = path.join(repositoryRoot, 'src/frontend');
+    const dist = path.join(repositoryRoot, '.tmp/build/browser-trust-dist');
+    const env = {
+        ...process.env,
+        FSUSBLOG_FRONTEND_DIST_ROOT: dist,
+        FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY: '/tmp/explicit-public-key.pem',
+        FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY_SHA256: `sha256:${'a'.repeat(64)}`,
+        FSUSBLOG_RELEASE_BROWSER_KEY_ID: 'release-test-key'
+    };
+    const stages = validateFrontendBuildStages(createFrontendBuildStages([], 'generate', { frontendRoot, env }));
+    const byId = new Map(stages.map((entry) => [entry.id, entry]));
+    const trust = byId.get('prepare-current-release-browser-trust');
+    assert.deepEqual(trust.dependsOn, []);
+    assert.deepEqual(trust.consumedInputs, [env.FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY]);
+    assert.deepEqual(trust.ownedOutputs, [path.join(frontendRoot, 'public/generated/current-release-trust.js')]);
+    assert.deepEqual(trust.command.slice(1), [path.join(repositoryRoot, 'tools/storage/create-release-browser-artifacts.mjs'),
+        '--mode', 'trust', '--public-key', env.FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY,
+        '--public-key-sha256', env.FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY_SHA256,
+        '--key-id', env.FSUSBLOG_RELEASE_BROWSER_KEY_ID, '--out', trust.ownedOutputs[0]]);
+    assert.ok(byId.get('vite-build').dependsOn.includes(trust.id));
+    assert.ok(byId.get('sync-run-bound-public-assets').producedArtifacts.includes(path.join(dist, 'current-release-assets.js')));
+    assert.ok(byId.get('sync-run-bound-public-assets').dependsOn.includes('vite-build'));
+});
+
+test('partial or malformed public build trust refuses instead of inferring a key or candidate', () =>
+{
+    assert.equal(resolveReleaseBrowserBuildTrust({}), null);
+    const complete = {
+        FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY: '/tmp/explicit-public-key.pem',
+        FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY_SHA256: 'a'.repeat(64),
+        FSUSBLOG_RELEASE_BROWSER_KEY_ID: 'release-test-key'
+    };
+    for (const missing of Object.keys(complete))
+    {
+        const partial = { ...complete };
+        delete partial[missing];
+        assert.throws(() => resolveReleaseBrowserBuildTrust(partial), /all three explicit canonical pinned public inputs/u);
+    }
+    for (const invalid of [
+        { FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY: 'relative.pem' },
+        { FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY: '/tmp/../key.pem' },
+        { FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY_SHA256: 'sha256:short' },
+        { FSUSBLOG_RELEASE_BROWSER_KEY_ID: 'bad key' },
+        { FSUSBLOG_RELEASE_BROWSER_KEY_ID: ' release-test-key' }
+    ])
+    {
+        assert.throws(() => resolveReleaseBrowserBuildTrust({ ...complete, ...invalid }), /all three explicit canonical pinned public inputs/u);
+    }
 });
 
 test('frontend stage declarations are identical across caller cwd and bind the explicit frontend root', () =>

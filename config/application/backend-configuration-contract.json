@@ -803,9 +803,9 @@
       "deprecation": null
     },
     {
-      "key": "AnonymousIdentity:ZkProd:AllowDevVerifier",
+      "key": "AnonymousIdentity:ZkCommentPolicy:Enabled",
       "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: AllowDevVerifier",
+      "purpose": "Current ZK comment product policy: Enabled",
       "valueType": "boolean",
       "environments": [
         "Development",
@@ -817,7 +817,8 @@
         "repository-production-overlay"
       ],
       "environmentVariables": [
-        "AnonymousIdentity__ZkProd__AllowDevVerifier"
+        "AnonymousIdentity__ZkCommentPolicy__Enabled",
+        "FSUSBLOG_ZK_COMMENT_POLICY_ENABLED"
       ],
       "secret": false,
       "requiredStatus": "optional",
@@ -834,9 +835,71 @@
       "deprecation": null
     },
     {
-      "key": "AnonymousIdentity:ZkProd:CircuitManifestPath",
+      "key": "AnonymousIdentity:ZkCommentPolicy:RequireCredential",
       "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: CircuitManifestPath",
+      "purpose": "Current ZK comment product policy: RequireCredential",
+      "valueType": "boolean",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "AnonymousIdentity__ZkCommentPolicy__RequireCredential"
+      ],
+      "secret": false,
+      "requiredStatus": "optional",
+      "requiredWhen": "optional",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "consumer",
+        "owner": "anonymous identity feature validator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Services/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "AnonymousIdentity:ZkCommentPolicy:RequireTrustedSetupVerified",
+      "owner": "anonymous-identity",
+      "purpose": "Current ZK comment product policy: RequireTrustedSetupVerified",
+      "valueType": "boolean",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "AnonymousIdentity__ZkCommentPolicy__RequireTrustedSetupVerified"
+      ],
+      "secret": false,
+      "requiredStatus": "optional",
+      "requiredWhen": "optional",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "consumer",
+        "owner": "anonymous identity feature validator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Services/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "AnonymousIdentity:ZkVerifier:TrustedSetupManifestPath",
+      "owner": "anonymous-identity",
+      "purpose": "Verifier-owned trusted setup manifest admission",
       "valueType": "path",
       "environments": [
         "Development",
@@ -849,356 +912,7 @@
         "repository-production-overlay"
       ],
       "environmentVariables": [
-        "AnonymousIdentity__ZkProd__CircuitManifestPath"
-      ],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": true,
-      "validation": {
-        "kind": "consumer",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:CredentialReady",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: CredentialReady",
-      "valueType": "boolean",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__CredentialReady",
-        "FSUSBLOG_ZK_CREDENTIAL_READY"
-      ],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": false,
-      "validation": {
-        "kind": "consumer",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:Enabled",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: Enabled",
-      "valueType": "boolean",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__Enabled",
-        "FSUSBLOG_ZK_PROD_ENABLED"
-      ],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": false,
-      "validation": {
-        "kind": "consumer",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: FallbackToLegacyAnonymous",
-      "valueType": "boolean",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__FallbackToLegacyAnonymous"
-      ],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": false,
-      "validation": {
-        "kind": "consumer",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:RequireCredential",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: RequireCredential",
-      "valueType": "boolean",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__RequireCredential"
-      ],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": false,
-      "validation": {
-        "kind": "consumer",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:RequireNativeVerifier",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: RequireNativeVerifier",
-      "valueType": "boolean",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__RequireNativeVerifier"
-      ],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": false,
-      "validation": {
-        "kind": "consumer",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:RequireTrustedSetupVerified",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: RequireTrustedSetupVerified",
-      "valueType": "boolean",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__RequireTrustedSetupVerified"
-      ],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": false,
-      "validation": {
-        "kind": "consumer",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:TrustedSetupManifestPath",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: TrustedSetupManifestPath",
-      "valueType": "path",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "mounted-file",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__TrustedSetupManifestPath",
-        "FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST"
-      ],
-      "secret": false,
-      "requiredStatus": "conditional",
-      "requiredWhen": "when the owning feature is enabled",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": true,
-      "validation": {
-        "kind": "feature-gate",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:TrustedSetupVerified",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: TrustedSetupVerified",
-      "valueType": "boolean",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__TrustedSetupVerified",
-        "FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED"
-      ],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": false,
-      "validation": {
-        "kind": "consumer",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:VerifierBackend",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: VerifierBackend",
-      "valueType": "string",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__VerifierBackend"
-      ],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": false,
-      "validation": {
-        "kind": "consumer",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:VerifyingKeyHash",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: VerifyingKeyHash",
-      "valueType": "sha256",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__VerifyingKeyHash",
-        "FSUSBLOG_ZK_VERIFYING_KEY_HASH"
-      ],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": true,
-      "validation": {
-        "kind": "consumer",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkProd:VerifyingKeyManifestPath",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: VerifyingKeyManifestPath",
-      "valueType": "path",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "mounted-file",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkProd__VerifyingKeyManifestPath",
-        "FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST"
+        "AnonymousIdentity__ZkVerifier__TrustedSetupManifestPath"
       ],
       "secret": false,
       "requiredStatus": "conditional",
@@ -1227,7 +941,9 @@
         "repository-base",
         "repository-production-overlay"
       ],
-      "environmentVariables": [],
+      "environmentVariables": [
+        "AnonymousIdentity__ZkVerifier__Backend"
+      ],
       "secret": false,
       "requiredStatus": "optional",
       "requiredWhen": "optional",
@@ -1464,38 +1180,6 @@
       "environmentVariables": [
         "AnonymousIdentity__ZkVerifier__NativeGroth16__VerifyingKeyPath",
         "FSUSBLOG_ZK_GROTH16_VERIFYING_KEY"
-      ],
-      "secret": false,
-      "requiredStatus": "conditional",
-      "requiredWhen": "when the owning feature is enabled",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": true,
-      "validation": {
-        "kind": "feature-gate",
-        "owner": "anonymous identity feature validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeySha256",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: VerifyingKeySha256",
-      "valueType": "sha256",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "AnonymousIdentity__ZkVerifier__NativeGroth16__VerifyingKeySha256",
-        "FSUSBLOG_ZK_VERIFYING_KEY_HASH"
       ],
       "secret": false,
       "requiredStatus": "conditional",
@@ -6340,6 +6024,68 @@
       "deprecation": null
     },
     {
+      "key": "Security:RiskControl:GlobalMode",
+      "owner": "security",
+      "purpose": "Required current canonical risk policy mode; subsystem-only and legacy-only configuration cannot admit startup.",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__RiskControl__GlobalMode"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "all environments",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "SecurityAdminPolicyService"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Services/Security/SecurityAdminPolicyService.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:RiskControl:MaxRiskScore",
+      "owner": "security",
+      "purpose": "Canonical risk-score bound; current default is 200 and valid values are 90 through 2000.",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__RiskControl__MaxRiskScore"
+      ],
+      "secret": false,
+      "requiredStatus": "optional",
+      "requiredWhen": "optional",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "SecurityAdminPolicyService"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Services/Security/SecurityAdminPolicyService.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
       "key": "Seo:BaseUrl",
       "owner": "public-origin",
       "purpose": "Canonical public origin setting: BaseUrl",
@@ -7039,160 +6785,74 @@
       "deprecation": null
     },
     {
-      "name": "AnonymousIdentity__ZkProd__AllowDevVerifier",
+      "name": "AnonymousIdentity__ZkCommentPolicy__Enabled",
       "category": "application-configuration",
       "owner": "release-lifecycle",
       "secret": false,
       "mapsTo": [
-        "AnonymousIdentity:ZkProd:AllowDevVerifier"
+        "AnonymousIdentity:ZkCommentPolicy:Enabled"
       ],
       "sources": [
         "ops/docker/docker-compose.production.yml"
       ],
-      "deprecation": null
+      "deprecation": null,
+      "mappedConfigurationKeys": []
     },
     {
-      "name": "AnonymousIdentity__ZkProd__CredentialReady",
+      "name": "AnonymousIdentity__ZkCommentPolicy__RequireCredential",
       "category": "application-configuration",
       "owner": "release-lifecycle",
       "secret": false,
       "mapsTo": [
-        "AnonymousIdentity:ZkProd:CredentialReady"
+        "AnonymousIdentity:ZkCommentPolicy:RequireCredential"
       ],
       "sources": [
         "ops/docker/docker-compose.production.yml"
       ],
-      "deprecation": null
+      "deprecation": null,
+      "mappedConfigurationKeys": []
     },
     {
-      "name": "AnonymousIdentity__ZkProd__Enabled",
+      "name": "AnonymousIdentity__ZkCommentPolicy__RequireTrustedSetupVerified",
       "category": "application-configuration",
       "owner": "release-lifecycle",
       "secret": false,
       "mapsTo": [
-        "AnonymousIdentity:ZkProd:Enabled"
+        "AnonymousIdentity:ZkCommentPolicy:RequireTrustedSetupVerified"
       ],
       "sources": [
         "ops/docker/docker-compose.production.yml"
       ],
-      "deprecation": null
+      "deprecation": null,
+      "mappedConfigurationKeys": []
     },
     {
-      "name": "AnonymousIdentity__ZkProd__FallbackToLegacyAnonymous",
+      "name": "AnonymousIdentity__ZkVerifier__TrustedSetupManifestPath",
       "category": "application-configuration",
       "owner": "release-lifecycle",
       "secret": false,
       "mapsTo": [
-        "AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous"
+        "AnonymousIdentity:ZkVerifier:TrustedSetupManifestPath"
       ],
       "sources": [
         "ops/docker/docker-compose.production.yml"
       ],
-      "deprecation": null
+      "deprecation": null,
+      "mappedConfigurationKeys": []
     },
     {
-      "name": "AnonymousIdentity__ZkProd__RequireCredential",
+      "name": "AnonymousIdentity__ZkVerifier__VerifyingKeyManifestPath",
       "category": "application-configuration",
       "owner": "release-lifecycle",
       "secret": false,
       "mapsTo": [
-        "AnonymousIdentity:ZkProd:RequireCredential"
+        "AnonymousIdentity:ZkVerifier:VerifyingKeyManifestPath"
       ],
       "sources": [
         "ops/docker/docker-compose.production.yml"
       ],
-      "deprecation": null
-    },
-    {
-      "name": "AnonymousIdentity__ZkProd__RequireNativeVerifier",
-      "category": "application-configuration",
-      "owner": "release-lifecycle",
-      "secret": false,
-      "mapsTo": [
-        "AnonymousIdentity:ZkProd:RequireNativeVerifier"
-      ],
-      "sources": [
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
-    },
-    {
-      "name": "AnonymousIdentity__ZkProd__RequireTrustedSetupVerified",
-      "category": "application-configuration",
-      "owner": "release-lifecycle",
-      "secret": false,
-      "mapsTo": [
-        "AnonymousIdentity:ZkProd:RequireTrustedSetupVerified"
-      ],
-      "sources": [
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
-    },
-    {
-      "name": "AnonymousIdentity__ZkProd__TrustedSetupManifestPath",
-      "category": "application-configuration",
-      "owner": "release-lifecycle",
-      "secret": false,
-      "mapsTo": [
-        "AnonymousIdentity:ZkProd:TrustedSetupManifestPath"
-      ],
-      "sources": [
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
-    },
-    {
-      "name": "AnonymousIdentity__ZkProd__TrustedSetupVerified",
-      "category": "application-configuration",
-      "owner": "release-lifecycle",
-      "secret": false,
-      "mapsTo": [
-        "AnonymousIdentity:ZkProd:TrustedSetupVerified"
-      ],
-      "sources": [
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
-    },
-    {
-      "name": "AnonymousIdentity__ZkProd__VerifierBackend",
-      "category": "application-configuration",
-      "owner": "release-lifecycle",
-      "secret": false,
-      "mapsTo": [
-        "AnonymousIdentity:ZkProd:VerifierBackend"
-      ],
-      "sources": [
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
-    },
-    {
-      "name": "AnonymousIdentity__ZkProd__VerifyingKeyHash",
-      "category": "application-configuration",
-      "owner": "release-lifecycle",
-      "secret": false,
-      "mapsTo": [
-        "AnonymousIdentity:ZkProd:VerifyingKeyHash"
-      ],
-      "sources": [
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
-    },
-    {
-      "name": "AnonymousIdentity__ZkProd__VerifyingKeyManifestPath",
-      "category": "application-configuration",
-      "owner": "release-lifecycle",
-      "secret": false,
-      "mapsTo": [
-        "AnonymousIdentity:ZkProd:VerifyingKeyManifestPath"
-      ],
-      "sources": [
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
+      "deprecation": null,
+      "mappedConfigurationKeys": []
     },
     {
       "name": "AnonymousIdentity__ZkVerifier__Enabled",
@@ -7227,19 +6887,6 @@
       "secret": false,
       "mapsTo": [
         "AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeyPath"
-      ],
-      "sources": [
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
-    },
-    {
-      "name": "AnonymousIdentity__ZkVerifier__NativeGroth16__VerifyingKeySha256",
-      "category": "application-configuration",
-      "owner": "release-lifecycle",
-      "secret": false,
-      "mapsTo": [
-        "AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeySha256"
       ],
       "sources": [
         "ops/docker/docker-compose.production.yml"
@@ -9182,20 +8829,6 @@
       "deprecation": null
     },
     {
-      "name": "FSUSBLOG_ZK_CREDENTIAL_READY",
-      "category": "deployment-control",
-      "owner": "anonymous-identity",
-      "secret": false,
-      "mapsTo": [
-        "AnonymousIdentity:ZkProd:CredentialReady"
-      ],
-      "sources": [
-        "config/examples/.env.production.example",
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
-    },
-    {
       "name": "FSUSBLOG_ZK_GROTH16_VERIFYING_KEY",
       "category": "secret-file-path",
       "owner": "anonymous-identity",
@@ -9267,12 +8900,12 @@
       "deprecation": null
     },
     {
-      "name": "FSUSBLOG_ZK_PROD_ENABLED",
+      "name": "FSUSBLOG_ZK_COMMENT_POLICY_ENABLED",
       "category": "deployment-control",
       "owner": "anonymous-identity",
       "secret": false,
       "mapsTo": [
-        "AnonymousIdentity:ZkProd:Enabled"
+        "AnonymousIdentity:ZkCommentPolicy:Enabled"
       ],
       "sources": [
         "config/examples/.env.production.example",
@@ -9321,21 +8954,7 @@
       "owner": "anonymous-identity",
       "secret": false,
       "mapsTo": [
-        "AnonymousIdentity:ZkProd:TrustedSetupManifestPath"
-      ],
-      "sources": [
-        "config/examples/.env.production.example",
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
-    },
-    {
-      "name": "FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED",
-      "category": "deployment-control",
-      "owner": "anonymous-identity",
-      "secret": false,
-      "mapsTo": [
-        "AnonymousIdentity:ZkProd:TrustedSetupVerified"
+        "AnonymousIdentity:ZkVerifier:TrustedSetupManifestPath"
       ],
       "sources": [
         "config/examples/.env.production.example",
@@ -9360,8 +8979,6 @@
       "owner": "anonymous-identity",
       "secret": false,
       "mapsTo": [
-        "AnonymousIdentity:ZkProd:VerifyingKeyHash",
-        "AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeySha256",
         "AnonymousIdentity:ZkVerifier:VerifyingKeyHash"
       ],
       "sources": [
@@ -9376,7 +8993,7 @@
       "owner": "anonymous-identity",
       "secret": false,
       "mapsTo": [
-        "AnonymousIdentity:ZkProd:VerifyingKeyManifestPath"
+        "AnonymousIdentity:ZkVerifier:VerifyingKeyManifestPath"
       ],
       "sources": [
         "config/examples/.env.production.example",
@@ -9851,6 +9468,19 @@
         "tools/deployment/zero-downtime-rehearsal.sh"
       ],
       "deprecation": null
+    },
+    {
+      "name": "AnonymousIdentity__ZkVerifier__Backend",
+      "category": "application-configuration",
+      "owner": "anonymous-identity",
+      "secret": false,
+      "mapsTo": [
+        "AnonymousIdentity:ZkVerifier:Backend"
+      ],
+      "sources": [
+        "ops/docker/docker-compose.production.yml"
+      ],
+      "deprecation": null
     }
   ],
   "mountedFiles": [
@@ -9871,17 +9501,17 @@
       "permissions": "container service account read-only",
       "requiredWhen": "native Groth16 verifier is enabled",
       "identityValidation": "SHA-256 must match the configured verifying-key identity",
-      "integritySettingKey": "AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeySha256",
+      "integritySettingKey": "AnonymousIdentity:ZkVerifier:VerifyingKeyHash",
       "locationScope": "host FSUSBLOG_ZK_CONFIG_DIR mounted read-only into the container"
     },
     {
-      "pathSettingKey": "AnonymousIdentity:ZkProd:TrustedSetupManifestPath",
+      "pathSettingKey": "AnonymousIdentity:ZkVerifier:TrustedSetupManifestPath",
       "expectedFileClass": "trusted setup manifest",
       "owner": "anonymous-identity",
       "permissions": "container service account read-only",
       "requiredWhen": "ZK-Prod is enabled",
       "identityValidation": "trusted setup and release manifest gates validate immutable hashes",
-      "integritySettingKey": "AnonymousIdentity:ZkProd:VerifyingKeyHash",
+      "integritySettingKey": "AnonymousIdentity:ZkVerifier:VerifyingKeyHash",
       "locationScope": "host FSUSBLOG_ZK_CONFIG_DIR mounted read-only into the container"
     },
     {

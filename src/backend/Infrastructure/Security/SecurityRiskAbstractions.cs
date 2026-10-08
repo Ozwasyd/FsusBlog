@@ -119,17 +119,11 @@ public interface ISecurityRiskScoreReader
     Task ResetRiskAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Exposes the current legacy and versioned security-risk policy snapshots.</summary>
+/// <summary>Exposes the immutable canonical security-risk policy.</summary>
 public interface ISecurityRiskPolicyProvider
 {
-    /// <summary>Gets the compatibility snapshot used by legacy risk-policy consumers.</summary>
-    SecurityRiskPolicySnapshot CurrentRiskPolicy
-    {
-        get;
-    }
-
-    /// <summary>Gets the versioned action and subsystem policy used by current risk decisions.</summary>
-    SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2
+    /// <summary>Gets the canonical action and subsystem policy used by current risk decisions.</summary>
+    SecurityRiskPolicy CurrentRiskPolicy
     {
         get;
     }

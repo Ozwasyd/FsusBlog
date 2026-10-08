@@ -2,6 +2,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -23,6 +24,7 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken) =>
             await HandleSiteSubscriptionAsync(httpContext, db, aeds, configuration, subscribe: true, cancellationToken))
         .AllowAnonymous()
+        .WithMetadata(new BinaryCredentialPolicyMetadata(BinaryCredentialPolicy.Omit))
         .RequireRateLimiting("fixed_ip");
 
         group.MapDelete("/subscriptions", static async Task<BinaryFrameResult> (
@@ -34,6 +36,7 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken) =>
             await HandleSiteSubscriptionAsync(httpContext, db, aeds, configuration, subscribe: false, cancellationToken, proofService))
         .AllowAnonymous()
+        .WithMetadata(new BinaryCredentialPolicyMetadata(BinaryCredentialPolicy.Omit))
         .RequireRateLimiting("fixed_ip");
     }
 

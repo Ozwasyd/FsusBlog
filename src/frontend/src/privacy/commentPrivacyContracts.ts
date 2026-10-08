@@ -30,13 +30,20 @@ export interface CommentPrivacyCredentialIssuerMetadata {
     revocationDistribution: CommentPrivacyRevocationDistribution;
 }
 
+/** Server-issued coordinates for exactly one public revocation operation; never a URL. */
+export type CommentPrivacyRevocationArtifactReference = {
+    kind: 'snapshot'; epoch: number; version: number; revocationRoot: string;
+} | {
+    kind: 'delta'; epoch: number; version: number; revocationRoot: string; baseVersion: number;
+};
+
 export interface CommentPrivacyRevocationDistribution {
     protocol: 'public-snapshot-delta.v1';
     epoch: number;
     version: number;
     contentAddress: string;
-    snapshotPath: string;
-    deltaPath: string | null;
+    snapshot: CommentPrivacyRevocationArtifactReference;
+    delta: CommentPrivacyRevocationArtifactReference | null;
     entryBytes: 32;
     maxArtifactBytes: number;
 }

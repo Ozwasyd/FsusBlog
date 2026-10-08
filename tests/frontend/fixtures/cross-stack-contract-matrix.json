@@ -1491,7 +1491,7 @@
           "path": "/comment",
           "auth": "user",
           "pow": true,
-          "requestFrame": "CommentCreateV2Request",
+          "requestFrame": "CommentCreateRequest",
           "responseFrame": "CommentCreateResult"
         },
         {
@@ -2742,6 +2742,53 @@
           "path": "/author/ops/themes/registry/{themeId}",
           "auth": "admin",
           "responseFrame": "ThemeRegistryDetail"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/ClusterMembershipEndpoints.cs",
+      "frontendWrapper": "src/frontend/src/api/clusterOperations.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/authoringAdapter.ts",
+      "id": "authoring-cluster-runtime",
+      "routes": [
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/ops/cluster/leases/{leaseId}/release-expired",
+          "pow": false,
+          "responseFrame": "ClusterRuntimeSnapshot",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "ClusterLeaseReleaseRequest"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/cluster/nodes",
+          "pow": false,
+          "responseFrame": "ClusterRuntimeSnapshot",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/ops/cluster/nodes/{nodeId}/state",
+          "pow": false,
+          "responseFrame": "ClusterRuntimeSnapshot",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "ClusterNodeStateRequest"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/ops/cluster/scheduler",
+          "pow": false,
+          "responseFrame": "ClusterRuntimeSnapshot",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "ClusterSchedulerStateRequest"
         }
       ]
     }

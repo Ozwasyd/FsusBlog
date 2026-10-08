@@ -4,7 +4,7 @@ import {
   BLIND_CREDENTIAL_SCHEME,
   createBlindRsaCredentialSuite
 } from '@/privacy/commentPrivacyBlindRsaSuite'
-import { createCommentPrivacyCredentialProvider } from '@/privacy/commentPrivacyCredentialProvider'
+import { createCommentPrivacyCredentialProvider, decodeCommentPrivacyRevocationDistribution } from '@/privacy/commentPrivacyCredentialProvider'
 import type {
   CommentPrivacyCredentialIssueResponse,
   CommentPrivacyCredentialIssuerMetadata,
@@ -296,8 +296,8 @@ function issuerMetadata(): CommentPrivacyCredentialIssuerMetadata {
       epoch: 42,
       version: 0,
       contentAddress: '02'.repeat(32),
-      snapshotPath: `/api/binary/anonymous-credential/revocation/42/0/${'02'.repeat(32)}/full.aeds`,
-      deltaPath: null,
+      snapshot: { kind: 'snapshot', epoch: 42, version: 0, revocationRoot: '02'.repeat(32) },
+      delta: null,
       entryBytes: 32,
       maxArtifactBytes: 4 * 1024 * 1024
     }
@@ -395,3 +395,32 @@ function mod(value: bigint, modulus: bigint): bigint {
 function hex(bytes: Uint8Array): string {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
 }
+
+
+describe('server-issued revocation route references', () => {
+  const rootHash = 'ab'.repeat(32)
+  const snapshot = { kind: 'snapshot', epoch: 42, version: 1, revocationRoot: rootHash }
+  const delta = { kind: 'delta', epoch: 42, version: 1, revocationRoot: rootHash, baseVersion: 0 }
+  const decode = (reference: unknown) => decodeCommentPrivacyRevocationDistribution({
+    credentialEpoch: 42,
+    revocationRoot: new Uint8Array(32).fill(0xab),
+    circuitMetadata: new TextEncoder().encode(JSON.stringify({ revocationDistribution: {
+      protocol: 'public-snapshot-delta.v1', epoch: 42, version: 1, contentAddress: rootHash,
+      snapshot: reference, delta, entryBytes: 32, maxArtifactBytes: 1048576
+    } }))
+  } as never)
+
+  it('admits snapshot and delta coordinates bound to the current root', () => {
+    expect(decode(snapshot)).toMatchObject({ snapshot, delta })
+  })
+  it.each([
+    '//evil.example/path',
+    { ...snapshot, url: '//evil.example/path' },
+    { ...snapshot, revocationRoot: '//evil.example/path' },
+    { ...snapshot, epoch: 43 },
+    { ...snapshot, version: 2 },
+    { ...snapshot, kind: 'delta', baseVersion: 0 }
+  ])('rejects a non-contract or unbound artifact reference', (reference) => {
+    expect(decode(reference)).toBeNull()
+  })
+})
