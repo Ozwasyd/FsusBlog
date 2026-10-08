@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing canonical execution-authority JSON keys while adding only the current C++ SOURCE port and its real source input bindings."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "Preserve the maintained caller-visible checker/compile-context command spellings; no token or selector is renamed."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/configuration/check-cpp-source.mjs",
+                "tools/configuration/cpp-source.test.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/source-governance.mjs"
+            ],
+            "reason": "Preserve the actual existing compiler environment names and checker/planner interfaces while keeping implicit compile context and unsupported flags refused."
+        }
+    ]
+}
