@@ -162,6 +162,7 @@ export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleC
             throw new Error('canonical article has duplicate tag references');
         }
     }
+    const commentsById = new Map(visibleComments.map((row) => [String(row.id), row]));
     for (const row of visibleComments)
     {
         identifier(row.articleId);
@@ -176,7 +177,7 @@ export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleC
         }
         if (row.parentId !== null)
         {
-            const parent = visibleComments.find((item) => String(item.id) === String(row.parentId));
+            const parent = commentsById.get(String(row.parentId));
             if (!parent || String(parent.articleId) !== String(row.articleId)
                 || String(row.rootId) !== String(parent.rootId ?? parent.id))
             {

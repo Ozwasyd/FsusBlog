@@ -16,6 +16,7 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
     private static readonly AsyncLocal<RuntimeCacheEvidenceObservation?> s_current = new();
     private readonly RuntimeCacheEvidenceObservation? _parent = s_current.Value;
     private readonly RuntimeCacheDatabaseObservationLimits _databaseLimits;
+    private readonly QueryPlanCommandCapture? _queryPlanCapture;
     private readonly object _databaseGate = new();
     private readonly List<RuntimeCacheBuildObservation> _cacheEvents = [];
     private readonly List<string> _databaseFingerprints = [];
@@ -45,15 +46,18 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
         string requestId,
         string method,
         string path,
-        RuntimeCacheDatabaseObservationLimits databaseLimits)
+        RuntimeCacheDatabaseObservationLimits databaseLimits,
+        QueryPlanCommandCapture? queryPlanCapture)
     {
         RequestId = requestId;
         Method = method;
         Path = path;
         _databaseLimits = databaseLimits;
+        _queryPlanCapture = queryPlanCapture;
     }
 
     internal static RuntimeCacheEvidenceObservation? Current => s_current.Value;
+    internal QueryPlanCommandCapture? QueryPlanCapture => _queryPlanCapture;
     internal string RequestId
     {
         get;
@@ -72,14 +76,16 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
         string requestId,
         string method,
         string path,
-        RuntimeCacheDatabaseObservationLimits? databaseLimits = null)
+        RuntimeCacheDatabaseObservationLimits? databaseLimits = null,
+        QueryPlanCommandCapture? queryPlanCapture = null)
     {
         RuntimeCacheDatabaseActivityObserver.EnsureStarted();
         var observation = new RuntimeCacheEvidenceObservation(
             requestId,
             method,
             path,
-            databaseLimits ?? RuntimeCacheDatabaseObservationLimits.Default);
+            databaseLimits ?? RuntimeCacheDatabaseObservationLimits.Default,
+            queryPlanCapture);
         s_current.Value = observation;
         return observation;
     }
@@ -246,7 +252,9 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
             }
 
             _completionSink = completionSink;
-            completionSink(CreateSnapshotLocked());
+            RuntimeCacheRequestObservation snapshot = CreateSnapshotLocked();
+            completionSink(snapshot);
+            _queryPlanCapture?.Publish(snapshot);
         }
     }
 
@@ -279,7 +287,9 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
     {
         if (_completed && _completionSink is not null)
         {
-            _completionSink(CreateSnapshotLocked());
+            RuntimeCacheRequestObservation snapshot = CreateSnapshotLocked();
+            _completionSink(snapshot);
+            _queryPlanCapture?.Publish(snapshot);
         }
     }
 

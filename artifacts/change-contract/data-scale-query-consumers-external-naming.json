@@ -5,7 +5,9 @@
             "id": "environment-variable",
             "paths": [
                 "tools/data-scale/query-case-registry.mjs",
-                "tools/data-scale/query-matrix.mjs"
+                "tools/data-scale/query-matrix.mjs",
+                "tools/data-scale/query-plan-capture.mjs",
+                "tools/data-scale/query-payload-decoders.mjs"
             ],
             "reason": "The trusted registry governs tools/**/*.mjs under environment-variable. These modules declare that existing surface, introduce no process-environment keys, and keep internal bindings in camelCase; runtime and protocol adapters retain their existing ownership."
         }
