@@ -110,6 +110,24 @@ public sealed class ArticleVaultDependencyExecutionPreflightTests
         Assert.Null(ArticleVaultDependencyPlanner.Build(plan, request, context, staleInputs, s_budgets).Plan);
         Assert.False(ArticleVaultDependencyPlanner.VerifyCurrent(freshDependencies.Plan,
             plan, request, context, staleInputs, s_budgets).IsValid);
+
+        ArticleVaultDependencyPlan legacy = freshDependencies.Plan! with
+        {
+            Items = [Assert.Single(freshDependencies.Plan.Items) with
+            {
+                Manifest = oldGraph
+            }],
+            ContentSha256 = string.Empty
+        };
+        legacy = legacy with
+        {
+            ContentSha256 = PortableDependencyCodec.PlanDigest(legacy)
+        };
+        Assert.True(ArticleVaultDependencyPlanner.ValidateStructure(legacy).IsValid);
+        Assert.False(ArticleVaultDependencyPlanner.VerifyCurrent(legacy,
+            plan, request, context, freshInputs, s_budgets).IsValid);
+        Assert.False(ArticleVaultDependencyPlanner.VerifyCurrent(legacy,
+            plan, request, context, staleInputs, s_budgets).IsValid);
     }
 
     [Fact]
