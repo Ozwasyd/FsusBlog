@@ -20,9 +20,14 @@ internal static class OsNumaTopologySource
     private const int MaximumCharacters = 65536;
     private const int MaximumNodes = 4096;
 
-    public static OsNumaTopologyObservation Observe()
+    public static OsNumaTopologyObservation Observe(MemoryCapabilityMode mode = MemoryCapabilityMode.Auto)
     {
         DateTimeOffset sampledAt = DateTimeOffset.UtcNow;
+        if (MemoryCapabilityPolicy.Validate(mode) == MemoryCapabilityMode.Disabled)
+        {
+            return new(MemoryDetection.Unknown, Array.Empty<int>(), null,
+                "os-numa", sampledAt, "Disabled; no NUMA source probes attempted.");
+        }
         if (!OperatingSystem.IsLinux())
         {
             return new(MemoryDetection.Unsupported, Array.Empty<int>(), null,
