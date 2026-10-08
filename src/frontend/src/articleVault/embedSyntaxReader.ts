@@ -23,10 +23,12 @@ export interface VaultEmbedSyntaxSnapshot {
  * Consumes #290 syntax without interpreting Blog targets or fetching their content.
  * Identity/permission/frozen-coordinate admission belongs to the canonical Blog contracts.
  */
-export async function readVaultEmbedSyntax(source: string, expectedSourceSha256: string): Promise<VaultEmbedSyntaxSnapshot> {
+export async function readVaultEmbedSyntax(source: string, expectedSourceSha256: string): Promise<VaultEmbedSyntaxSnapshot>
+{
     const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const sourceSha256 = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
-    if (sourceSha256 !== expectedSourceSha256) {
+    if (sourceSha256 !== expectedSourceSha256)
+    {
         throw new Error('vault_embed_source_digest_mismatch');
     }
     const nodes = collectMarkdownEmbedNodes(source);
@@ -51,18 +53,21 @@ export async function readVaultEmbedSyntax(source: string, expectedSourceSha256:
 }
 
 /** Replays the public parser against exact source rather than trusting serialized token/range fields. */
-export async function verifyVaultEmbedSyntax(source: string, expectedSourceSha256: string, candidate: VaultEmbedSyntaxSnapshot): Promise<boolean> {
+export async function verifyVaultEmbedSyntax(source: string, expectedSourceSha256: string, candidate: VaultEmbedSyntaxSnapshot): Promise<boolean>
+{
     const actual = await readVaultEmbedSyntax(source, expectedSourceSha256);
     return candidate.sourceSha256 === actual.sourceSha256 && candidate.valid === actual.valid
         && candidate.directives.length === actual.directives.length
-        && candidate.directives.every((directive, index) => {
+        && candidate.directives.every((directive, index) =>
+        {
             const checked = actual.directives[index];
             return checked !== undefined && directive.parserContract === checked.parserContract
                 && directive.targetToken === checked.targetToken && directive.mode === checked.mode
                 && directive.start === checked.start && directive.end === checked.end;
         })
         && candidate.diagnostics.length === actual.diagnostics.length
-        && candidate.diagnostics.every((diagnostic, index) => {
+        && candidate.diagnostics.every((diagnostic, index) =>
+        {
             const checked = actual.diagnostics[index];
             return checked !== undefined && diagnostic.code === checked.code
                 && diagnostic.start === checked.start && diagnostic.end === checked.end;

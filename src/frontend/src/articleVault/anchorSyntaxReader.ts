@@ -33,7 +33,8 @@ export async function readVaultAnchorSyntax(
     source: string,
     binding: VaultAnchorSourceBinding,
     expected: VaultAnchorSourceBinding
-): Promise<VaultAnchorSyntaxSnapshot> {
+): Promise<VaultAnchorSyntaxSnapshot>
+{
     if (binding.siteIdentity !== expected.siteIdentity
         || binding.vaultIdentity !== expected.vaultIdentity
         || binding.portableArticleIdentity !== expected.portableArticleIdentity
@@ -41,13 +42,15 @@ export async function readVaultAnchorSyntax(
         || binding.sourceSha256 !== expected.sourceSha256
         || !Number.isSafeInteger(binding.sourceRevision)
         || binding.sourceRevision < 1
-        || !binding.siteIdentity || !binding.vaultIdentity || !binding.portableArticleIdentity) {
+        || !binding.siteIdentity || !binding.vaultIdentity || !binding.portableArticleIdentity)
+    {
         throw new Error('vault_anchor_source_binding_mismatch');
     }
     const bytes = new TextEncoder().encode(source);
     const hash = await crypto.subtle.digest('SHA-256', bytes);
     const sourceSha256 = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
-    if (sourceSha256 !== binding.sourceSha256) {
+    if (sourceSha256 !== binding.sourceSha256)
+    {
         throw new Error('vault_anchor_source_digest_mismatch');
     }
     const nodes = collectMarkdownAnchorNodes(source);
@@ -74,7 +77,8 @@ export async function verifyVaultAnchorSyntax(
     source: string,
     expected: VaultAnchorSourceBinding,
     candidate: VaultAnchorSyntaxSnapshot
-): Promise<boolean> {
+): Promise<boolean>
+{
     const actual = await readVaultAnchorSyntax(source, expected, expected);
     return candidate.binding.siteIdentity === actual.binding.siteIdentity
         && candidate.binding.vaultIdentity === actual.binding.vaultIdentity
@@ -83,13 +87,15 @@ export async function verifyVaultAnchorSyntax(
         && candidate.binding.sourceSha256 === actual.binding.sourceSha256
         && candidate.valid === actual.valid
         && candidate.anchors.length === actual.anchors.length
-        && candidate.anchors.every((anchor, index) => {
+        && candidate.anchors.every((anchor, index) =>
+        {
             const checked = actual.anchors[index];
             return checked !== undefined && anchor.anchorIdentity === checked.anchorIdentity
                 && anchor.start === checked.start && anchor.end === checked.end;
         })
         && candidate.diagnostics.length === actual.diagnostics.length
-        && candidate.diagnostics.every((diagnostic, index) => {
+        && candidate.diagnostics.every((diagnostic, index) =>
+        {
             const checked = actual.diagnostics[index];
             return checked !== undefined && diagnostic.code === checked.code
                 && diagnostic.start === checked.start && diagnostic.end === checked.end;
