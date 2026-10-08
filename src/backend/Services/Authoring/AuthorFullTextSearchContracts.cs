@@ -19,7 +19,7 @@ public static class AuthorFullTextSearchContract
     public const int SchemaVersion = 1;
     public const string DocumentSchema = "fsusblog.author-full-text-document.v1";
     public const string QuerySchema = "fsusblog.author-full-text-query.v1";
-    public const string TokenizerVersion = "fsusblog.author-full-text-tokenizer.v1";
+    public const string TokenizerVersion = "fsusblog.author-full-text-tokenizer.v2";
     public const string RankingVersion = "fsusblog.author-full-text-ranking.v1";
     public const string IndexOwner = "author-full-text-index";
     public const string SourceCoordinateAuthority = "fsusui.markdown-source-coordinate-map";
@@ -51,7 +51,8 @@ public static class AuthorFullTextSearchContract
         "NFC", "invariant-simple-case-fold", "preserve-diacritics",
         "unicode-letter-number-with-attached-marks", "unicode-scalar-unigram",
         "extended-grapheme-sequence", "logical-source-order", "punctuation-separator",
-        "source-range-map-required", "ordered-adjacent-tokens");
+        "source-range-map-required", "ordered-adjacent-tokens",
+        AuthorFullTextSearchTokenizer.UnicodeCaseFoldingVersion, "dotnet10-string-info-text-elements");
 
     public static ImmutableArray<AuthorSearchRankingFactor> RankingFactors
     {
@@ -448,7 +449,8 @@ public enum AuthorSearchRankingFactor
 public sealed record AuthorSearchTokenizerDescriptor(
     string Version, string UnicodeNormalization, string CaseFolding, string Diacritics,
     string LatinCyrillicWordBoundary, string CjkBoundary, string EmojiBoundary,
-    string RtlOrder, string PunctuationBoundary, string HighlightMapping, string PhraseBoundary);
+    string RtlOrder, string PunctuationBoundary, string HighlightMapping, string PhraseBoundary,
+    string UnicodeCaseFoldingVersion, string GraphemeSegmentation);
 
 public sealed record AuthorSearchOwnerBoundary(string Consumer, string Owner, string Facts, string Permission);
 
