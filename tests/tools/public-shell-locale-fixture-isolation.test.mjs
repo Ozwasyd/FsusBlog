@@ -613,7 +613,6 @@ test('account/device matrix plans cannot become prepared HTTP scenes through syn
         && item.id.startsWith(`${matrix.locales[0].code}/`)))
     {
         const scene = matrix.scenes.find(item => item.negotiationId === plan.id && item.route === 'Home');
-        const { request } = await model(t, scene);
-        await assert.rejects(resolvePublicShellLocaleSceneAuthority(request), /requires verified login\/refresh or explicit-auto cookie preparation/u);
+        await assert.rejects(model(t, scene), /requires verified login\/refresh or explicit-auto cookie preparation/u);
     }
 });
