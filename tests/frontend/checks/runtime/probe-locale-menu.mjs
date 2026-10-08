@@ -104,6 +104,7 @@ try
     browser = await chromium.launch({ headless: true });
     report.browserVersion = browser.version();
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    page.on('pageerror', (error) => report.errors.push(`browser: ${error.message}`));
     page.setDefaultTimeout(5000);
     page.on('pageerror', (error) => report.errors.push(error.message));
     await page.goto(server.resolvedUrls.local[0]);
@@ -372,6 +373,7 @@ try
     browser = null;
     const observations = report.observations;
     report.failures = [
+        ...(report.errors.length ? ['browser-errors'] : []),
         ...(observations.radioItem.role !== 'menuitemradio' ? ['dropdown-single-selection-role'] : []),
         ...(!observations.escapeFocusReturn ? ['escape-focus-return'] : []),
         ...(!observations.keyboardEntry ? ['keyboard-entry'] : []),
