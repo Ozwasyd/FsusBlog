@@ -7,8 +7,9 @@ import { calculateOpenArticleDocumentDigest as digest } from './openArticleDocum
 import type { ArticleAnchorContextAdapter } from './articleAnchorContext';
 import type { ArticleDocumentContext, ArticleDocumentContextAdapter, ArticleDocumentTaskLease } from './articleDocumentContext';
 import type { ArticleEditorContinuityAdapter, ArticleEditorContinuityReceipt } from './articleEditorContinuity';
+import type { ArticleEditorRuntimeBinding } from './articleEditorRuntimeBinding';
 import type { ArticleEditorSurface } from './articleEditorSurface';
-import type { ArticleRenderCache, ArticleRenderIdentity, ArticleRenderState } from './articleRenderCache';
+import type { ArticleRenderIdentity, ArticleRenderState } from './articleRenderCache';
 
 export const articleSourceCompareRequestSchema = 'fsusblog.article-source-compare-request.v1' as const;
 
@@ -92,11 +93,23 @@ export class ArticleSourceCompareSession
 
     public constructor(
         private readonly owner: ArticleDocumentContextAdapter,
-        private readonly continuity: ArticleEditorContinuityAdapter,
-        private readonly cache: ArticleRenderCache,
-        private readonly anchors: ArticleAnchorContextAdapter
+        private readonly runtime: ArticleEditorRuntimeBinding
     )
     {
+        if (runtime.context.contextDigest !== owner.context.contextDigest)
+        {
+            throw new Error('article-source-compare-runtime-context-invalid');
+        }
+    }
+
+    private get continuity(): ArticleEditorContinuityAdapter
+    {
+        return this.runtime.continuity;
+    }
+
+    private get anchors(): ArticleAnchorContextAdapter
+    {
+        return this.runtime.anchors;
     }
 
     public open(
@@ -140,9 +153,10 @@ export class ArticleSourceCompareSession
         render: ArticleRenderState | null;
     }
     {
-        const sourceReady = this.opening !== null && (this.sourceTransitionRef === null
+        const currentTask = this.lease !== null && !this.lease.signal.aborted;
+        const sourceReady = this.opening !== null && currentTask && (this.sourceTransitionRef === null
             || this.continuity.receipts.some(receipt => receipt.requestRef === this.sourceTransitionRef && receipt.status === 'restored'));
-        const render = this.opening === null ? null : this.cache.state;
+        const render = this.opening === null || !currentTask ? null : this.runtime.renderState;
         const valid = render?.content === null || render === null || validateArticleRenderCacheEntry(render.content)
             && render.currentRevision === this.owner.context.sourceRevision
             && render.content.context.documentId === this.owner.context.documentId
@@ -165,6 +179,12 @@ export class ArticleSourceCompareSession
         return this.lease?.signal ?? null;
     }
 
+    /** The sole producer's retained payload; the host must not start another renderer for this tool. */
+    public get retainedRender(): ArticleEditorRuntimeBinding['retainedRender']
+    {
+        return this.state.render?.content ? this.runtime.retainedRender : null;
+    }
+
     public adaptViewport(viewport: ArticleSourceCompareViewport, binding: LifecycleArguments[1], capture: LifecycleArguments[2], restore: LifecycleArguments[3]): ArticleEditorContinuityReceipt | null
     {
         return this.opening !== null && !isArticleSourceCompareAvailable(viewport) ? this.close(binding, capture, restore) : null;
@@ -184,12 +204,12 @@ export class ArticleSourceCompareSession
         this.createRequest(current.anchor.contentDigest);
         const lease = this.lease!;
         const request = this.currentRequest!;
-        const receipt = await this.cache.refresh();
+        const receipt = await this.runtime.autoRefresh();
         if (!this.owner.isCurrentContext(request.document) || lease.signal.aborted || this.currentRequest !== request)
         {
             return 'stale';
         }
-        if (receipt.status !== 'committed' || receipt.task.context.contextDigest !== request.document.contextDigest
+        if (receipt?.status !== 'committed' || receipt.task.context.contextDigest !== request.document.contextDigest
             || digest(receipt.identity) !== digest(request.identity) || receipt.result?.resultRef === null || !receipt.result?.resultDigest)
         {
             return 'invalid';
@@ -249,7 +269,7 @@ export class ArticleSourceCompareSession
     private createRequest(anchorDigest: string): void
     {
         this.lease?.cancel('compare-superseded');
-        this.lease = this.owner.beginTask('compare', 'article-source-compare', 'v1.0');
+        this.lease = this.runtime.beginToolTask('source-compare');
         const value = {
             schema: articleSourceCompareRequestSchema,
             document: this.owner.context,
