@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+
 import { decodeAedsFrame } from './aeds-decoders.mjs';
 
 export const DATA_SCALE_SEARCH_RECEIPT_SCHEMA = 'fsusblog.data-scale-search-receipt.v1';
@@ -14,6 +15,12 @@ export const SEARCH_INDEX_GENERATION_HEADER = 'x-fsus-search-index-generation';
 
 const ARTICLE_SEARCH_V4_MAGIC = 0x34534146; // FAS4
 const ARTICLE_SEARCH_V4_VERSION = 4;
+// Canonical #3657 selected source aa67f031d453f0040d621992f8123caaf8a19c97:
+// shared payloadLayouts.ArticleSearch, generated TS/C++ wire and original C# writer agree.
+const PACKED_SEARCH_MAGIC = 0x34525346; // FSR4
+const PACKED_SEARCH_HEADER_BYTES = 24;
+const PACKED_SEARCH_RECORD_BYTES = 76;
+const PACKED_SEARCH_TAG_BYTES = 12;
 const UTF8_FIXED_128 = 128;
 const UTF8_FIXED_256 = 256;
 const ARTICLE_CATEGORY_VIEW_POD = 4 + UTF8_FIXED_128;
@@ -51,6 +58,10 @@ function readI32LE(view, offset)
  */
 export function extractArticleSearchHitIds(payload, { contract = PRODUCT_SEARCH_PAYLOAD_CONTRACT } = {})
 {
+    if (contract === 'fsr4-v4')
+    {
+        return extractPackedSearchHitIds(payload);
+    }
     if (!['fas4-v4', 'fixed-pod'].includes(contract))
     {
         throw new Error('article_search_payload_contract_unavailable');
@@ -126,6 +137,85 @@ export function extractArticleSearchHitIds(payload, { contract = PRODUCT_SEARCH_
         offset += blobLen + (versioned ? VERSION_COORD_BYTES : 0);
     }
     if (offset !== payload.byteLength)
+    {
+        throw new Error('article_search_payload_trailing_bytes');
+    }
+    return ids;
+}
+
+function extractPackedSearchHitIds(payload)
+{
+    if (!(payload instanceof Uint8Array) || payload.byteLength < PACKED_SEARCH_HEADER_BYTES)
+    {
+        throw new Error('article_search_payload_too_short');
+    }
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+    const total = readI32LE(view, 8);
+    const count = readI32LE(view, 12);
+    const tagOffset = readI32LE(view, 16);
+    const blobOffset = readI32LE(view, 20);
+    if (readI32LE(view, 0) !== PACKED_SEARCH_MAGIC || readI32LE(view, 4) !== ARTICLE_SEARCH_V4_VERSION
+        || count < 0 || count > 10_000 || total < count
+        || tagOffset !== PACKED_SEARCH_HEADER_BYTES + count * PACKED_SEARCH_RECORD_BYTES
+        || blobOffset < tagOffset || blobOffset > payload.byteLength
+        || (blobOffset - tagOffset) % PACKED_SEARCH_TAG_BYTES !== 0)
+    {
+        throw new Error('article_search_packed_layout_invalid');
+    }
+    const tagCount = (blobOffset - tagOffset) / PACKED_SEARCH_TAG_BYTES;
+    if (tagCount > count * 1_000)
+    {
+        throw new Error('article_search_packed_tag_count_invalid');
+    }
+    const utf8 = new TextDecoder('utf-8', { fatal: true });
+    let blobEnd = 0;
+    const validateSlice = (offset) =>
+    {
+        const start = readI32LE(view, offset);
+        const length = readI32LE(view, offset + 4);
+        if (start < 0 || length < 0 || start > payload.byteLength - blobOffset
+            || length > payload.byteLength - blobOffset - start)
+        {
+            throw new Error('article_search_packed_slice_invalid');
+        }
+        utf8.decode(payload.subarray(blobOffset + start, blobOffset + start + length));
+        blobEnd = Math.max(blobEnd, start + length);
+    };
+    const ids = [];
+    const seenIds = new Set();
+    let usedTags = 0;
+    for (let index = 0; index < count; index += 1)
+    {
+        const offset = PACKED_SEARCH_HEADER_BYTES + index * PACKED_SEARCH_RECORD_BYTES;
+        const id = readI32LE(view, offset);
+        const itemTagStart = readI32LE(view, offset + 44);
+        const itemTagCount = readI32LE(view, offset + 48);
+        if (id < 1 || seenIds.has(id) || itemTagStart !== usedTags
+            || itemTagCount < 0 || itemTagCount > 1_000 || itemTagCount > tagCount - usedTags)
+        {
+            throw new Error('article_search_packed_record_invalid');
+        }
+        const revisionId = view.getBigInt64(offset + 52, true);
+        const revisionNo = readI32LE(view, offset + 60);
+        const publicationId = view.getBigInt64(offset + 64, true);
+        const publicationNo = readI32LE(view, offset + 72);
+        if (revisionId <= 0n || revisionNo <= 0 || publicationId < 0n || publicationNo < 0
+            || (publicationId === 0n) !== (publicationNo === 0))
+        {
+            throw new Error('article_search_packed_version_coordinates_invalid');
+        }
+        validateSlice(offset + 20);
+        validateSlice(offset + 28);
+        validateSlice(offset + 36);
+        for (let tag = 0; tag < itemTagCount; tag += 1)
+        {
+            validateSlice(tagOffset + (usedTags + tag) * PACKED_SEARCH_TAG_BYTES + 4);
+        }
+        usedTags += itemTagCount;
+        seenIds.add(id);
+        ids.push(id);
+    }
+    if (usedTags !== tagCount || blobEnd !== payload.byteLength - blobOffset)
     {
         throw new Error('article_search_payload_trailing_bytes');
     }
@@ -347,7 +437,9 @@ export function buildSearchApiExecution({
     apiKind = PRODUCT_SEARCH_API_KIND,
     source = PRODUCT_SEARCH_API_KIND,
     reason = null,
-    responseDigest = null
+    responseDigest = null,
+    payloadContract = null,
+    protocolError = null
 } = {})
 {
     const errors = [];
@@ -375,6 +467,10 @@ export function buildSearchApiExecution({
     {
         errors.push(`search_api_route_invalid:${route}`);
     }
+    if (protocolError)
+    {
+        errors.push(`search_api_protocol_invalid:${protocolError}`);
+    }
 
     const execution = {
         schema: DATA_SCALE_SEARCH_EXECUTION_SCHEMA,
@@ -391,6 +487,7 @@ export function buildSearchApiExecution({
         indexGeneration: indexGeneration || null,
         articleIds: Array.isArray(articleIds) ? articleIds.map((id) => Number(id)) : [],
         responseDigest: responseDigest || null,
+        ...(payloadContract ? { payloadContract } : {}),
         errors,
         reason: reason || (errors.length > 0 ? errors.join('; ') : null)
     };
@@ -420,6 +517,7 @@ export async function executeProductSearchHttpApi({
     query,
     tokenKind = null,
     expectedGeneration = null,
+    payloadContract = PRODUCT_SEARCH_PAYLOAD_CONTRACT,
     fetchImpl = globalThis.fetch,
     signal = undefined
 } = {})
@@ -505,7 +603,7 @@ export async function executeProductSearchHttpApi({
             : (frame?.payload ? new Uint8Array(frame.payload) : body);
         if (Number(frameType) === PRODUCT_SEARCH_FRAME_TYPE || frameType === 'ArticleSearch')
         {
-            articleIds = extractArticleSearchHitIds(payload);
+            articleIds = extractArticleSearchHitIds(payload, { contract: payloadContract });
         }
         else
         {
@@ -526,6 +624,8 @@ export async function executeProductSearchHttpApi({
         articleIds,
         indexGeneration: generation,
         responseDigest,
+        payloadContract,
+        protocolError: decodeError,
         reason: decodeError
             || (response.status !== 200 ? `search_api_http_status:${response.status}` : null)
     });

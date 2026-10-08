@@ -11,7 +11,7 @@ const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-p
 const { buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIds, queryRegistrySchemas, threadReplyCaseId } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
-const { extractArticleSearchHitIds } = await import(new URL('../../tools/data-scale/search-evidence.mjs', import.meta.url));
+const { extractArticleSearchHitIds, executeProductSearchHttpApi } = await import(new URL('../../tools/data-scale/search-evidence.mjs', import.meta.url));
 const { loadQueryPayloadDecoders } = await import(new URL('../../tools/data-scale/query-payload-decoders.mjs', import.meta.url));
 const { verifyQueryTraversal } = await import(new URL('../../tools/data-scale/query-matrix.mjs', import.meta.url));
 const { encodeAedsFrame } = await import(new URL('../../tools/data-scale/aeds-decoders.mjs', import.meta.url));
@@ -264,4 +264,87 @@ test('search extractor honors current original FAS4 and explicit fixed-POD contr
     new DataView(empty.buffer).setInt32(8, 0, true);
     assert.deepEqual(extractArticleSearchHitIds(empty), []);
     // This is the current source contract, not a relabeled or accepted FSR4 candidate.
+});
+
+test('single extractor decodes original native FSR4 pages only by explicit contract and rejects malformed HTTP payloads', async () =>
+{
+    const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+    const directory = path.join(root, '.tmp/query-matrix-search-codec-controls', randomUUID());
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const nativeSource = 'src/frontend/wasm/search/src/search_index.cpp';
+    const harness = path.join(directory, 'control.cpp');
+    fs.writeFileSync(harness, `#include "${path.join(root, nativeSource)}"
+#include <fstream>
+int main(int argc, char** argv)
+{
+    if (argc != 3) return 1;
+    static_assert(KSearchResultMagic == 0x34525346u && KSearchResultVersion == 4u);
+    SearchDoc first{};
+    first.ArticleId = 1; first.CategoryId = 1; first.RevisionId = 11; first.RevisionNo = 1;
+    first.PublicationId = 21; first.PublicationNo = 1;
+    first.Title = "codec control"; first.Summary = "control only"; first.CategoryName = "category";
+    first.Tags = {{1, "tag"}, {2, "中文"}};
+    SearchDoc second = first; second.ArticleId = 2; second.Tags.clear();
+    t_state.Docs = {first, second};
+    BuildBinaryPage({ScoreEntry{0}, ScoreEntry{1}}, 1, 2);
+    std::ofstream(argv[1], std::ios::binary).write(t_lastResult.data(), t_lastResult.size());
+    BuildBinaryPage({}, 1, 2);
+    std::ofstream(argv[2], std::ios::binary).write(t_lastResult.data(), t_lastResult.size());
+}
+`, { mode: 0o600 });
+    const binary = path.join(directory, 'control');
+    const compile = spawnSync('g++', ['-std=c++23', '-O0', harness, '-o', binary], { cwd: root, encoding: 'utf8', timeout: 60_000 });
+    assert.equal(compile.status, 0, compile.stderr);
+    const payloadPath = path.join(directory, 'page.bin');
+    const emptyPath = path.join(directory, 'empty.bin');
+    const native = spawnSync(binary, [payloadPath, emptyPath], { cwd: root, encoding: 'utf8', timeout: 60_000 });
+    assert.equal(native.status, 0, native.stderr);
+    const payload = new Uint8Array(fs.readFileSync(payloadPath));
+    const empty = new Uint8Array(fs.readFileSync(emptyPath));
+    const decode = (bytes) => extractArticleSearchHitIds(bytes, { contract: 'fsr4-v4' });
+    assert.deepEqual(decode(payload), [1, 2]);
+    assert.deepEqual(decode(empty), []);
+    assert.throws(() => extractArticleSearchHitIds(payload));
+    assert.throws(() => extractArticleSearchHitIds(payload, { contract: 'fixed-pod' }));
+    const changeI32 = (offset, value) => (bytes) =>
+    {
+        new DataView(bytes.buffer).setInt32(offset, value, true);
+        return bytes;
+    };
+    const refusals = [
+        (bytes) => bytes.slice(0, -1), (bytes) => Uint8Array.from([...bytes, 0]),
+        changeI32(0, 0x34534146), changeI32(4, 5), changeI32(8, 1), changeI32(12, -1), changeI32(12, 10001),
+        changeI32(16, 25), changeI32(20, payload.length + 1), changeI32(20, 177),
+        changeI32(24, 0), changeI32(100, 1), changeI32(68, 1), changeI32(72, -1), changeI32(72, 1001),
+        changeI32(76, 0), changeI32(84, 0), changeI32(96, 0),
+        changeI32(44, -1), changeI32(48, 2147483647), changeI32(180, -1),
+        (bytes) =>
+        {
+            bytes[new DataView(bytes.buffer).getInt32(20, true)] = 0xff;
+            return bytes;
+        }
+    ];
+    for (const alter of refusals)
+    {
+        assert.throws(() => decode(alter(payload.slice())));
+    }
+    // Ordinary transport controls exercise the real extractor, with no live product/index receipt.
+    const execute = (bytes, payloadContract) => executeProductSearchHttpApi({ baseUrl: 'http://codec-control.invalid',
+        query: 'codec-control', payloadContract, fetchImpl: async () => new Response(encodeAedsFrame(4, bytes), { status: 200 }) });
+    const accepted = await execute(payload, 'fsr4-v4');
+    assert.equal(accepted.status, 'ok');
+    assert.deepEqual(accepted.articleIds, [1, 2]);
+    assert.equal(accepted.payloadContract, 'fsr4-v4');
+    for (const [bytes, contract] of [[payload, undefined], [payload, 'unknown'], [empty.slice(0, -1), 'fsr4-v4']])
+    {
+        const refused = await execute(bytes, contract);
+        assert.equal(refused.status, 'failed');
+        assert.ok(refused.errors.some((error) => error.startsWith('search_api_protocol_invalid:')));
+    }
+    const sourceBlob = spawnSync('git', ['rev-parse', `HEAD:${nativeSource}`], { cwd: root, encoding: 'utf8' }).stdout.trim();
+    fs.writeFileSync(path.join(directory, 'fsr4-controls.json'), JSON.stringify({ sourceCommit, nativeSource, sourceBlob,
+        contract: 'fsr4-v4', selectedContractSource: 'aa67f031d453f0040d621992f8123caaf8a19c97',
+        scope: 'original-native-search-page-encoder-and-ordinary-transport-controls-only', qualification: 'not-performed',
+        payloadDigest: computeSha256(Buffer.from(payload).toString('base64')), compileExit: compile.status, nativeExit: native.status,
+        refusedFormats: refusals.length, acceptedIds: accepted.articleIds }, null, 2), { mode: 0o600 });
 });
