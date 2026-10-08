@@ -404,7 +404,7 @@ function collectLocalFunctionBodies(sourceFile)
     return functions;
 }
 
-function collectImports(root, file, sourceFile, source)
+function collectImports(sourceFile, source)
 {
     const imports = new Map();
     const addBinding = (localName, moduleSpecifier, exportedName) =>
@@ -496,7 +496,7 @@ function baseIdentifier(node)
 function createExtractionContext({ root, file, adapter, source, sourceFile })
 {
     const declaredNames = collectDeclaredNames(sourceFile);
-    const imports = collectImports(root, file, sourceFile, source);
+    const imports = collectImports(sourceFile, source);
     const localFunctions = collectLocalFunctionBodies(sourceFile);
     return {
         root,
@@ -787,7 +787,7 @@ function resolveCallIdentity(ctx, call)
     return { methodName: '<expression>', containingType: undefined, rootName: null, moduleSpecifier: null, isAssertion: false };
 }
 
-function callFacts(ctx, body, caseId, testIdByCallbackName)
+function callFacts(ctx, body, testIdByCallbackName)
 {
     if (!body)
     {
@@ -907,7 +907,7 @@ function ensureRootSuite(ctx)
     return ctx.rootSuite;
 }
 
-function currentSuitePath(ctx, stack)
+function currentSuitePath(stack)
 {
     return stack.map((suite) => suite.title).join(' › ');
 }
@@ -953,7 +953,7 @@ function attachBodyAndFacts(ctx, entry, callback)
             entry.bodySource = bodySource;
         }
     }
-    const facts = callback?.body ? callFacts(ctx, callback.body, entry.id, ctx.namedCallbacks) : null;
+    const facts = callback?.body ? callFacts(ctx, callback.body, ctx.namedCallbacks) : null;
     if (facts?.facts && (facts.facts.invocations.length > 0 || facts.facts.assertionCandidates.length > 0 || facts.facts.returnStatements.length > 0))
     {
         entry.methodFacts = facts.facts;
@@ -979,7 +979,7 @@ function handleTestCall(ctx, stack, call, api)
             kind: 'test',
             identity: 'dynamic',
             ownerFile: ctx.file,
-            ownerSuite: currentSuitePath(ctx, stack) || undefined,
+            ownerSuite: currentSuitePath(stack) || undefined,
             ownerClass: stack.length > 0 ? stack[stack.length - 1].title : undefined,
             adapter: api.framework,
             sourceSpan: spanOf(ctx.sourceFile, call),
@@ -1048,7 +1048,7 @@ function handleTestCall(ctx, stack, call, api)
         kind: 'test',
         identity: 'static',
         ownerFile: ctx.file,
-        ownerSuite: currentSuitePath(ctx, stack) || undefined,
+        ownerSuite: currentSuitePath(stack) || undefined,
         ownerClass: stack.length > 0 ? stack[stack.length - 1].title : undefined,
         adapter: api.framework,
         sourceSpan: spanOf(ctx.sourceFile, call),
@@ -1101,7 +1101,7 @@ function handleEachCall(ctx, stack, call, api)
             kind: 'theory',
             identity: 'dynamic',
             ownerFile: ctx.file,
-            ownerSuite: currentSuitePath(ctx, stack) || undefined,
+            ownerSuite: currentSuitePath(stack) || undefined,
             ownerClass: stack.length > 0 ? stack[stack.length - 1].title : undefined,
             adapter: api.framework,
             sourceSpan: spanOf(ctx.sourceFile, call),
@@ -1167,7 +1167,7 @@ function handleEachCall(ctx, stack, call, api)
             kind: 'theory',
             identity: 'static',
             ownerFile: ctx.file,
-            ownerSuite: currentSuitePath(ctx, stack) || undefined,
+            ownerSuite: currentSuitePath(stack) || undefined,
             ownerClass: stack.length > 0 ? stack[stack.length - 1].title : undefined,
             adapter: api.framework,
             sourceSpan: spanOf(ctx.sourceFile, call),
@@ -1261,7 +1261,7 @@ function handleBehaviorTestCall(ctx, stack, call, api)
             kind: 'behavior-test',
             identity: 'dynamic',
             ownerFile: ctx.file,
-            ownerSuite: currentSuitePath(ctx, stack) || undefined,
+            ownerSuite: currentSuitePath(stack) || undefined,
             adapter: api.framework,
             sourceSpan: spanOf(ctx.sourceFile, call),
             dynamicCaseInfo: {
@@ -1292,7 +1292,7 @@ function handleBehaviorTestCall(ctx, stack, call, api)
         kind: 'behavior-test',
         identity: 'static',
         ownerFile: ctx.file,
-        ownerSuite: currentSuitePath(ctx, stack) || undefined,
+        ownerSuite: currentSuitePath(stack) || undefined,
         ownerClass: stack.length > 0 ? stack[stack.length - 1].title : undefined,
         adapter: api.framework,
         sourceSpan: spanOf(ctx.sourceFile, call),
