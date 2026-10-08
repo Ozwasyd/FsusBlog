@@ -35,7 +35,32 @@
             "reason": "precise-anonymous-credential-ticket-response"
         }
     ],
-    "reservedFrameValues": [],
+    "reservedFrameValues": [
+        {
+            "name": "DocumentExportRequest",
+            "value": 278,
+            "ownerIssue": 3735,
+            "reason": "Exact Export proposal aa1e3d; source wire parity pending; not runtime activation"
+        },
+        {
+            "name": "DocumentExportTaskRequest",
+            "value": 279,
+            "ownerIssue": 3735,
+            "reason": "Exact Export proposal aa1e3d; source wire parity pending; not runtime activation"
+        },
+        {
+            "name": "DocumentExportJobResponse",
+            "value": 280,
+            "ownerIssue": 3735,
+            "reason": "Exact Export proposal aa1e3d; source wire parity pending; not runtime activation"
+        },
+        {
+            "name": "DocumentExportPageResponse",
+            "value": 281,
+            "ownerIssue": 3735,
+            "reason": "Exact Export proposal aa1e3d; source wire parity pending; not runtime activation"
+        }
+    ],
     "anonymousPrivacyContract": {
         "circuitId": "fsus.anonymous.comment.v5",
         "publicInputLayoutVersion": 6,

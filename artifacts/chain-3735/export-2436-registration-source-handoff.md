@@ -1,0 +1,7 @@
+# Export registration source handoff
+
+Related to #2436, #3653 and #3735. Exact proposal aa1e3d24318651a5208083bc956a817098a6ecc6 SHA256c8044059b105e951ed9a0d3142224754da8e07fc14ecccfca7199c1054edac1c was verified against original Core constructors, codec and five literal golden payloads. Only those two canonical Core files and the unchanged fixture were imported; no peer endpoint/DI/freezer/jobs/route/UI branch.
+
+Shared reserves278 DocumentExportRequest,279 DocumentExportTaskRequest,280 DocumentExportJobResponse,281 DocumentExportPageResponse, with respective families document-export-request/document-export-task-request/document-export-job-response/document-export-page-response. Native error18 DocumentExportPayloadInvalid/document_export_payload_invalid is allocated in the wire specification; runtime dispatch is not yet active. Payload/fullframe caps16368/16384,1008/1024,32768/32784,2097152/2097168. Existing275/276/277, original236oracle, retirement and unknown behavior are preserved. The original generator retains all five current products byte-for-byte while reservations remain inert.
+
+Existing managed source enforces per-root payload guards and actual grammar. TS/native generated parity and selected permitted-case controls are the next source step. No authenticated HTTP/task/DI/freezer/download/provider/job receipt or acceptance is fabricated;3653 and2436 retain their respective production owners.
