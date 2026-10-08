@@ -25,6 +25,19 @@ loss. No raw-fact operation can mark a watermark clean. #2112 owns rescan proof
 and admission. Cancellation drains outstanding I/O before freeing native buffers
 and closing the directory/event handles. Observation does not mutate user files.
 
+The canonical observation source at
+`e1b4ffba4781bf6729e38b240df8c7647f19768e` is consumed as six byte-identical
+Shared source units, listed with Git blob identities in the inventory. Their
+owners remain #2109/#2110/#2112. `WindowsVaultObservationAdapter.Convert` checks
+an independently supplied manifest/root/watch binding, retains raw sequence and
+digest references, and projects Windows separators without changing case or
+raw facts. It preserves duplicates/order, does not pair rename names, and keeps
+all watermarks invalid. Unsafe portable projections become rescan-required
+facts. Over-bound windows require explicit splitting before conversion. Only
+the canonical #2112 normalizer processes the derived observations; this module
+contains no second normalizer or rescan tracker. Pure contract availability does
+not establish native snapshots, atomic writes or native terminal receipts.
+
 The inventory fixes commands and owners:
 `artifacts/article-vault/windows-watcher-package-inventory.json`.
 
