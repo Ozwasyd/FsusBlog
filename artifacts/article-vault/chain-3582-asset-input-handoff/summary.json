@@ -24,7 +24,7 @@
         "head": "e5991c09e9ee31b68015ad4659466df571593ef3",
         "exitCode": 0,
         "body": "pending-pr-body.txt",
-        "gate": "prepared-pr-gate.log",
+        "gate": "prepared-pr-gate.log.gz",
         "remoteBodyUpdated": false
     }
 }

@@ -54,9 +54,9 @@
             "bytes": 13915
         },
         {
-            "path": "prepared-pr-gate.log",
-            "sha256": "b04bc3f1b29cef61e31415d44b8956d90e300d184c1de212006c954f627bfd41",
-            "bytes": 44
+            "path": "prepared-pr-gate.log.gz",
+            "sha256": "0e74c564cf2ba0888e0da80206b9045d94bc537b45340c6cd07c5b8cd8feff82",
+            "bytes": 64
         },
         {
             "path": "source-binding.json",
@@ -70,8 +70,8 @@
         },
         {
             "path": "summary.json",
-            "sha256": "ce78602065f43515dffc288977e0958f78909f7d35c500ef974303819a097bd8",
-            "bytes": 1529
+            "sha256": "792b26c719586d00b48e25dfc411636edb2c674482cce408f8d1e457651cfdd8",
+            "bytes": 1532
         },
         {
             "path": "supplier-requirements.json",
