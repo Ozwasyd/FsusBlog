@@ -1,7 +1,12 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "config/contracts/behavior-contracts.json"
+        "config/contracts/behavior-contracts.json",
+        "tools/docs/check-document-claim-migration-ledger.mjs",
+        "tools/docs/global-claim-exactness-final.mjs",
+        "tools/docs/post-runtime-accepted-claims.mjs",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/test-matrix/post-runtime-producer-registry.mjs"
     ],
     "outputs": [
         {
@@ -15,6 +20,10 @@
         {
             "path": "src/shared/Contracts/Governance/BehaviorContractCatalog.g.cs",
             "sha256": "06b2d466660849fd1cfccc45f3cfb0ceee8bc9e314c7c4e2ab4c3815e2f42d27"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "11455248470de12b6c745320977b57cd9d5b512de47f5016ad6b2ac0922d8d39"
         }
     ]
 }
