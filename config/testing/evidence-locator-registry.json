@@ -3865,7 +3865,39 @@
             "handoffBindingKey": "FSUSBLOG_REQUIRED_EVIDENCE_TEST_QUALITY_LINT_EVIDENCE_HANDOFF_PATH",
             "payloadBindingKey": "FSUSBLOG_REQUIRED_EVIDENCE_TEST_QUALITY_LINT_EVIDENCE_PAYLOAD_PATH",
             "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.required-evidence.test-quality-lint"
+        },
+        {
+            "consumerId": "evidence-consumer.release.publish-release-final-bindings",
+            "authorityId": "evidence-consumer.release.publish-release-final-bindings.current-run",
+            "producerId": "evidence-consumer.release.publish-release-final-bindings.producer",
+            "receiptSchema": "fsusblog.current-run-evidence-reference.v1",
+            "locatorMode": "explicit-run-path",
+            "requiredIdentityFields": [
+                "attemptId",
+                "buildIdentity",
+                "candidateIdentity",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint"
+            ],
+            "requiredDigestFields": [
+                "contentDigest",
+                "producerReceiptDigest"
+            ],
+            "expectedCardinality": "exact-one",
+            "allowedRoots": [
+                "artifacts/current-run"
+            ],
+            "publicationMode": "embedded",
+            "producerSource": "tools/release/publish-release-final-bindings.mjs",
+            "producerCallsite": "tools/release/publish-release-final-bindings.mjs",
+            "producerExecutable": "node tools/release/publish-release-final-bindings.mjs",
+            "producerCommand": "node tools/release/publish-release-final-bindings.mjs",
+            "producerBindingClass": "cli",
+            "outputBindingKey": "FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_PATH",
+            "handoffBindingKey": "FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_HANDOFF_PATH",
+            "checkpointCommand": "node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer evidence-consumer.release.publish-release-final-bindings"
         }
     ],
-    "contentDigest": "sha256:5b0014edc8ed8c889b537f8be89efab31700648a3cec7920c70376681fd69aca"
+    "contentDigest": "sha256:3a2ca869f930d37ba8dbce2683b1d65129a64b0d5540dd5128394089f7a4f7db"
 }
