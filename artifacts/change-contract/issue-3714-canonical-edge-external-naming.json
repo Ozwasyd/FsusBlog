@@ -8,8 +8,7 @@
                 "config/development/frontend-style-policy.json",
                 "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "config/testing/test-execution-envelope-applicability.json",
-                "tests/test-retention-replacements.json"
+                "config/testing/test-execution-envelope-applicability.json"
             ],
             "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         },
@@ -24,8 +23,7 @@
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/development/frontend-style-enforcement.md",
-                "docs/testing.md"
+                "docs/development/frontend-style-enforcement.md"
             ],
             "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         },
