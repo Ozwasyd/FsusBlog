@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "preserve NuGet consumer lock keys and canonical lifecycle registry identities while consuming the exact dependency corrections supplied by their existing owners"
+        }
+    ]
+}
