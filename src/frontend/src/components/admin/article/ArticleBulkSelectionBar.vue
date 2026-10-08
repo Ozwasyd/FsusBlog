@@ -5,6 +5,11 @@
         aria-label="文章批量选择"
     >
         <p aria-live="polite">已选择 {{ selection.count }} 篇 · {{ articleBulkSelectionLabel(selection.kind) }}</p>
+        <details>
+            <summary>冻结选择标识</summary>
+            <p>集合引用：{{ selection.reference }}</p>
+            <p>集合摘要：{{ selection.digest }}</p>
+        </details>
         <ElSelect
             :model-value="operationId ?? undefined"
             aria-label="选择一个文章操作"
@@ -59,6 +64,7 @@ const available = computed(() => props.operations.filter(operation => operation.
     flex-wrap: wrap;
     align-items: center;
     gap: var(--fsus-space-3);
+    overflow-wrap: anywhere;
     min-width: 0;
 }
 </style>

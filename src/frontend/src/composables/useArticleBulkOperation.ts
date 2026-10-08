@@ -10,6 +10,8 @@ import {
     type ArticleBulkItemPage,
     type ArticleBulkOperationOption,
     type ArticleBulkPlanSummary,
+    type ArticleBulkPlanConfirmation,
+    type ArticleBulkPlanInvalidation,
     type ArticleBulkProgress,
     type ArticleBulkResultSummary,
     type ArticleBulkSelectionSummary
@@ -29,6 +31,8 @@ export function useArticleBulkOperation(gateway: ArticleBulkGateway, now: () => 
     let generation = 0;
     let expiryTimer: ReturnType<typeof setTimeout> | undefined;
     let executionKey: string | null = null;
+    let resultPageRequest: symbol | null = null;
+    let impactPageRequest: symbol | null = null;
 
     function clearExpiry(): void
     {
@@ -51,6 +55,8 @@ export function useArticleBulkOperation(gateway: ArticleBulkGateway, now: () => 
             }
         }
         generation++;
+        resultPageRequest = null;
+        impactPageRequest = null;
         clearExpiry();
         selection.value = value ? Object.freeze({ ...value }) : null;
         plan.value = null;
@@ -104,6 +110,8 @@ export function useArticleBulkOperation(gateway: ArticleBulkGateway, now: () => 
             throw new Error('article-bulk.preview-unavailable');
         }
         const currentGeneration = ++generation;
+        resultPageRequest = null;
+        impactPageRequest = null;
         clearExpiry();
         plan.value = null;
         result.value = null;
@@ -143,12 +151,42 @@ export function useArticleBulkOperation(gateway: ArticleBulkGateway, now: () => 
         }
     }
 
-    async function executeConfirmed(): Promise<void>
+    function invalidateInputs(reason: ArticleBulkPlanInvalidation): void
+    {
+        if (!['permission-changed', 'revision-changed', 'parameters-changed'].includes(reason))
+        {
+            throw new Error('article-bulk.invalidation-unbound');
+        }
+        if (phase.value === 'executing' || phase.value === 'recovery-required')
+        {
+            // An admission may already have happened. Preserve its identity and await canonical receipts.
+            return;
+        }
+        generation++;
+        clearExpiry();
+        errorCode.value = `article-bulk.${reason}`;
+        phase.value = 'stale';
+    }
+
+    function invalidatePlan(planDigest: string, reason: ArticleBulkPlanInvalidation): void
+    {
+        if (plan.value?.digest !== planDigest)
+        {
+            throw new Error('article-bulk.invalidation-unbound');
+        }
+        invalidateInputs(reason);
+    }
+
+    async function executeConfirmed(confirmation: ArticleBulkPlanConfirmation): Promise<void>
     {
         const confirmed = plan.value;
         if (phase.value !== 'ready' || !confirmed?.executable || !executionKey)
         {
             throw new Error('article-bulk.confirmation-required');
+        }
+        if (confirmation?.planReference !== confirmed.reference || confirmation.planDigest !== confirmed.digest)
+        {
+            throw new Error('article-bulk.confirmation-plan-mismatch');
         }
         if (Date.parse(confirmed.expiresAtUtc) <= now())
         {
@@ -186,7 +224,7 @@ export function useArticleBulkOperation(gateway: ArticleBulkGateway, now: () => 
                 || !value.executionReference || counts.some(count => !Number.isSafeInteger(count) || count < 0 || count > 10_000)
                 || typeof value.cancelAllowed !== 'boolean'
                 || value.succeededCount + value.failedCount + value.cancelledCount > value.eligibleCount
-                || value.strategy === 'all-or-nothing' && value.succeededCount > 0 && value.succeededCount !== value.eligibleCount)
+                || value.strategy === 'all-or-nothing' && value.succeededCount !== 0)
             {
                 throw new Error('article-bulk.progress-inexact');
             }
@@ -244,19 +282,35 @@ export function useArticleBulkOperation(gateway: ArticleBulkGateway, now: () => 
         {
             throw new Error('article-bulk.results-unavailable');
         }
-        const currentGeneration = generation;
-        const page = await gateway.readResultPage(reference);
-        if (currentGeneration !== generation || result.value?.receiptDigest !== current.receiptDigest)
+        if (resultPageRequest)
         {
-            return;
+            throw new Error('article-bulk.result-page-pending');
         }
-        if (page.planDigest !== current.planDigest || page.receiptDigest !== current.receiptDigest
+        const request = Symbol();
+        resultPageRequest = request;
+        const currentGeneration = generation;
+        try
+        {
+            const page = await gateway.readResultPage(reference);
+            if (currentGeneration !== generation || result.value?.receiptDigest !== current.receiptDigest)
+            {
+                return;
+            }
+            if (page.planDigest !== current.planDigest || page.receiptDigest !== current.receiptDigest
             || page.reference !== reference || page.items.length > 50
             || new Set(page.items.map(item => item.receiptReference)).size !== page.items.length)
-        {
-            throw new Error('article-bulk.result-page-inexact');
+            {
+                throw new Error('article-bulk.result-page-inexact');
+            }
+            resultPage.value = Object.freeze({ ...page, items: Object.freeze(page.items.map(item => Object.freeze({ ...item }))) });
         }
-        resultPage.value = Object.freeze({ ...page, items: Object.freeze(page.items.map(item => Object.freeze({ ...item }))) });
+        finally
+        {
+            if (resultPageRequest === request)
+            {
+                resultPageRequest = null;
+            }
+        }
     }
 
     async function loadImpactPage(reference: string): Promise<void>
@@ -266,18 +320,34 @@ export function useArticleBulkOperation(gateway: ArticleBulkGateway, now: () => 
         {
             throw new Error('article-bulk.impact-unavailable');
         }
+        if (impactPageRequest)
+        {
+            throw new Error('article-bulk.impact-page-pending');
+        }
+        const request = Symbol();
+        impactPageRequest = request;
         const currentGeneration = generation;
-        const page = await gateway.readImpactPage(reference);
-        if (currentGeneration !== generation || plan.value?.digest !== confirmed.digest)
+        try
         {
-            return;
-        }
-        if (page.planDigest !== confirmed.digest || page.reference !== reference || page.items.length > 50
+            const page = await gateway.readImpactPage(reference);
+            if (currentGeneration !== generation || plan.value?.digest !== confirmed.digest)
+            {
+                return;
+            }
+            if (page.planDigest !== confirmed.digest || page.reference !== reference || page.items.length > 50
             || new Set(page.items.map(item => item.articleIdentity)).size !== page.items.length)
-        {
-            throw new Error('article-bulk.impact-page-inexact');
+            {
+                throw new Error('article-bulk.impact-page-inexact');
+            }
+            impactPage.value = Object.freeze({ ...page, items: Object.freeze(page.items.map(item => Object.freeze({ ...item }))) });
         }
-        impactPage.value = Object.freeze({ ...page, items: Object.freeze(page.items.map(item => Object.freeze({ ...item }))) });
+        finally
+        {
+            if (impactPageRequest === request)
+            {
+                impactPageRequest = null;
+            }
+        }
     }
 
     async function cancel(): Promise<void>
@@ -307,7 +377,7 @@ export function useArticleBulkOperation(gateway: ArticleBulkGateway, now: () => 
             || itemReceiptReferences.length === 0 || itemReceiptReferences.length > 50
             || new Set(itemReceiptReferences).size !== itemReceiptReferences.length
             || itemReceiptReferences.some(reference => !page.items.some(item => item.receiptReference === reference
-                && item.retryEligible && item.outcome !== 'success')))
+                && item.retryEligible && item.outcome !== 'success' && item.outcome !== 'infra-no-conclusion')))
         {
             throw new Error('article-bulk.retry-not-eligible');
         }
@@ -334,6 +404,7 @@ export function useArticleBulkOperation(gateway: ArticleBulkGateway, now: () => 
                 throw new Error('article-bulk.retry-plan-inexact');
             }
             bindPlan(value, value.selection);
+            selection.value = Object.freeze({ ...value.selection });
             resultPage.value = null;
             impactPage.value = null;
         }
@@ -367,6 +438,6 @@ export function useArticleBulkOperation(gateway: ArticleBulkGateway, now: () => 
     return {
         phase: readonly(phase), selection: readonly(selection), plan: readonly(plan),
         result: readonly(result), resultPage: readonly(resultPage), impactPage: readonly(impactPage), progress: readonly(progress), errorCode: readonly(errorCode),
-        setSelection, preview, executeConfirmed, loadResultPage, loadImpactPage, cancel, refreshProgress, recoverExecution, retryExact, downloadReceipt
+        setSelection, preview, invalidateInputs, invalidatePlan, executeConfirmed, loadResultPage, loadImpactPage, cancel, refreshProgress, recoverExecution, retryExact, downloadReceipt
     };
 }

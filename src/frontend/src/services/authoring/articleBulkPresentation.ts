@@ -26,6 +26,13 @@ export interface ArticleBulkOperationOption {
     parameters: readonly ArticleBulkParameterControl[];
 }
 
+export interface ArticleBulkPlanConfirmation {
+    planReference: string;
+    planDigest: string;
+}
+
+export type ArticleBulkPlanInvalidation = 'permission-changed' | 'revision-changed' | 'parameters-changed';
+
 export interface ArticleBulkPlanSummary {
     reference: string;
     digest: string;
@@ -147,8 +154,8 @@ export function articleBulkStrategyLabel(strategy: ArticleBulkStrategy): string
 {
     switch (strategy)
     {
-        case 'all-or-nothing': return '全部成功才提交；任一失败则全部不提交';
-        case 'per-item-isolated': return '逐篇独立处理，可能部分完成';
+        case 'all-or-nothing': return '任一失败则全部不提交。';
+        case 'per-item-isolated': return '逐篇独立，可能部分完成。';
         default: throw new Error('article-bulk.strategy-invalid');
     }
 }

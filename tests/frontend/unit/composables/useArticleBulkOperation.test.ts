@@ -61,7 +61,7 @@ describe('frozen article bulk UI protocol', () => {
     it('executes the exact confirmed plan reference without IDs, parameters or a second query', async () => {
         const { model, gateway } = fixture();
         await model.preview(operation, { tagId: 'tag:stable' });
-        await model.executeConfirmed();
+        await model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') });
         expect(gateway.createPlan).toHaveBeenCalledTimes(1);
         expect(gateway.execute).toHaveBeenCalledTimes(1);
         expect(vi.mocked(gateway.execute).mock.calls[0]![0]).toEqual({
@@ -69,7 +69,7 @@ describe('frozen article bulk UI protocol', () => {
         });
         expect(model.phase.value).toBe('results');
         expect(model.result.value?.state).toBe('partial');
-        await expect(model.executeConfirmed()).rejects.toThrow('confirmation-required');
+        await expect(model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') })).rejects.toThrow('confirmation-required');
         expect(gateway.execute).toHaveBeenCalledTimes(1);
     });
 
@@ -98,7 +98,7 @@ describe('frozen article bulk UI protocol', () => {
         const { model, gateway, advance } = fixture();
         await model.preview(operation, {});
         advance(31 * 60_000);
-        await expect(model.executeConfirmed()).rejects.toThrow('plan-expired');
+        await expect(model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') })).rejects.toThrow('plan-expired');
         expect(model.phase.value).toBe('stale');
         expect(gateway.execute).not.toHaveBeenCalled();
         expect(gateway.createPlan).toHaveBeenCalledTimes(1);
@@ -108,10 +108,10 @@ describe('frozen article bulk UI protocol', () => {
         const { model, gateway } = fixture();
         vi.mocked(gateway.execute).mockRejectedValue(new Error('private title and property value'));
         await model.preview(operation, {});
-        await model.executeConfirmed();
+        await model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') });
         expect(model.phase.value).toBe('recovery-required');
         expect(model.errorCode.value).toBe('article-bulk.execution-conclusion-unknown');
-        await expect(model.executeConfirmed()).rejects.toThrow();
+        await expect(model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') })).rejects.toThrow();
         expect(() => model.setSelection(selection)).toThrow('selection-locked');
         expect(gateway.execute).toHaveBeenCalledTimes(1);
     });
@@ -120,7 +120,7 @@ describe('frozen article bulk UI protocol', () => {
         const { model, gateway } = fixture();
         vi.mocked(gateway.execute).mockRejectedValue(new Error('connection lost'));
         await model.preview(operation, {});
-        await model.executeConfirmed();
+        await model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') });
         vi.mocked(gateway.readExecutionByIdempotency).mockRejectedValueOnce(new Error('still unavailable'));
         await model.recoverExecution();
         expect(model.phase.value).toBe('recovery-required');
@@ -139,14 +139,14 @@ describe('frozen article bulk UI protocol', () => {
         vi.mocked(gateway.createPlan).mockResolvedValue(makePlan());
         await model.preview(operation, {});
         vi.mocked(gateway.execute).mockResolvedValue({ ...makeResult(), state: 'completed' });
-        await model.executeConfirmed();
+        await model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') });
         expect(model.phase.value).toBe('recovery-required');
     });
 
     it('loads one bounded results page, rejects oversized data and retries exact failed receipt only', async () => {
         const { model, gateway } = fixture();
         await model.preview(operation, {});
-        await model.executeConfirmed();
+        await model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') });
         await model.loadResultPage('items:first');
         expect(gateway.readResultPage).toHaveBeenCalledTimes(1);
         const original = model.result.value!.receiptDigest;
@@ -161,7 +161,7 @@ describe('frozen article bulk UI protocol', () => {
     it('failed retry preview preserves the original receipts and permits another preview', async () => {
         const { model, gateway } = fixture();
         await model.preview(operation, {});
-        await model.executeConfirmed();
+        await model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') });
         await model.loadResultPage('items:first');
         vi.mocked(gateway.retry).mockRejectedValueOnce(new Error('private article data'));
         await model.retryExact(['item:failed'], 'revision-policy:explicit');
@@ -176,7 +176,7 @@ describe('frozen article bulk UI protocol', () => {
     it('freezes exact retry receipts and ignores a late retry plan after the selection changes', async () => {
         const { model, gateway } = fixture();
         await model.preview(operation, {});
-        await model.executeConfirmed();
+        await model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') });
         await model.loadResultPage('items:first');
         let resolve!: (value: ArticleBulkPlanSummary) => void;
         vi.mocked(gateway.retry).mockImplementation(() => new Promise(done => { resolve = done; }));
@@ -194,7 +194,7 @@ describe('frozen article bulk UI protocol', () => {
     it('rejects retry successes and missing explicit revision policy', async () => {
         const { model, gateway } = fixture();
         await model.preview(operation, {});
-        await model.executeConfirmed();
+        await model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') });
         await model.loadResultPage('items:first');
         await expect(model.retryExact(['item:success'], 'revision-policy:explicit')).rejects.toThrow('retry-not-eligible');
         await expect(model.retryExact(['item:failed'], '')).rejects.toThrow('retry-not-eligible');
@@ -204,7 +204,7 @@ describe('frozen article bulk UI protocol', () => {
     it('refuses an unbounded page and receipt/plan tamper before rendering', async () => {
         const { model, gateway } = fixture();
         await model.preview(operation, {});
-        await model.executeConfirmed();
+        await model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') });
         const items: ArticleBulkItemPage['items'] = Array.from({ length: 51 }, (_, index) => ({
             articleIdentity: `article:${index}`, receiptReference: `item:${index}`, outcome: 'success', reason: '成功', retryEligible: false
         }));
@@ -218,7 +218,7 @@ describe('frozen article bulk UI protocol', () => {
         vi.mocked(gateway.execute).mockResolvedValue({ executionReference: 'attempt:one', planDigest: digest('c'), strategy: operation.strategy,
             state: 'executing', selectedCount: 10_000, eligibleCount: 10_000, succeededCount: 5, failedCount: 0, cancelledCount: 0, cancelAllowed: true });
         await model.preview(operation, {});
-        await model.executeConfirmed();
+        await model.executeConfirmed({ planReference: 'plan:one', planDigest: digest('c') });
         expect(model.phase.value).toBe('executing');
         await model.cancel();
         expect(gateway.cancel).toHaveBeenCalledWith('attempt:one');
