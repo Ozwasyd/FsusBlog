@@ -231,7 +231,7 @@ test('anonymous credential root bootstrap runbook documents rotate, gate and rol
     assert.match(doc, /AnonymousCredentialRootLifecycleService\.RotateAsync/);
     assert.match(doc, /--root-bootstrap-evidence/);
     assert.match(doc, /staging DB rotate is not satisfied by the offline evidence/);
-    assert.match(doc, /AnonymousIdentity:ZkProd:Enabled=false/);
+    assert.match(doc, /AnonymousIdentity:ZkCommentPolicy:Enabled=false/);
     assert.match(doc, /不删除已写入的匿名评论/);
 });
 

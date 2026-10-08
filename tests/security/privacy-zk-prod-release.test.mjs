@@ -51,6 +51,24 @@ test('privacy ZK production release gate rejects bypass flags even when disabled
     });
 });
 
+test('privacy ZK release admission rejects retired sections, fallback switches and duplicate hashes', () =>
+{
+    withTempDir((dir) =>
+    {
+        for (const [identity, expected] of [
+            [{ ZkProd: { Enabled: true } }, /retired configuration section/u],
+            [{ ZkCommentPolicy: { Enabled: false, FallbackToLegacyAnonymous: true } }, /FallbackToLegacyAnonymous/u],
+            [{ ZkCommentPolicy: { Enabled: false }, ZkVerifier: { VerifyingKeyHash: hex('a'), NativeGroth16: { VerifyingKeySha256: hex('b') } } }, /duplicate verifying-key hash/u]
+        ])
+        {
+            const config = writeJson(dir, 'forbidden.json', { AnonymousIdentity: identity });
+            const result = runGate('--config', config, '--summary', path.join(dir, 'summary.json'));
+            assert.notEqual(result.status, 0);
+            assert.match(result.stderr, expected);
+        }
+    });
+});
+
 test('privacy ZK production release gate fails closed when enabled smoke evidence is missing', () =>
 {
     withTempDir((dir) =>
