@@ -1577,6 +1577,92 @@
                 "currentPublicationId": 64,
                 "publicationNo": 72
             }
+        },
+        "CommentPolicySnapshot": {
+            "podBytes": 41,
+            "minMaxChars": 100,
+            "hardMaxChars": 3000,
+            "minMaxUtf8Bytes": 1024,
+            "hardMaxUtf8Bytes": 12288,
+            "authorModes": [
+                3,
+                4
+            ],
+            "fields": [
+                {
+                    "name": "anonymousCommentsEnabled",
+                    "offset": 0,
+                    "type": "byte"
+                },
+                {
+                    "name": "publicCommentsEnabled",
+                    "offset": 1,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkAnonymousEnabled",
+                    "offset": 2,
+                    "type": "byte"
+                },
+                {
+                    "name": "defaultAuthorMode",
+                    "offset": 3,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkProdEnabled",
+                    "offset": 4,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkProdNativeVerifierConfigured",
+                    "offset": 5,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkProdTrustedSetupVerified",
+                    "offset": 6,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkProdCredentialRequired",
+                    "offset": 7,
+                    "type": "byte"
+                },
+                {
+                    "name": "zkProdCredentialRootReady",
+                    "offset": 8,
+                    "type": "byte"
+                },
+                {
+                    "name": "commentMaxChars",
+                    "offset": 9,
+                    "type": "int32"
+                },
+                {
+                    "name": "commentMaxUtf8Bytes",
+                    "offset": 13,
+                    "type": "int32"
+                },
+                {
+                    "name": "supportedDisplayLanguages",
+                    "offset": 17,
+                    "type": "slice"
+                },
+                {
+                    "name": "snapshotHash",
+                    "offset": 25,
+                    "type": "slice"
+                },
+                {
+                    "name": "zkProdUnavailableReason",
+                    "offset": 33,
+                    "type": "slice"
+                }
+            ],
+            "booleanMaxByte": 1,
+            "publicAuthorMode": 3,
+            "zkAnonymousAuthorMode": 4
         }
     }
 }

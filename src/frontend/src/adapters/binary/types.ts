@@ -1,3 +1,4 @@
+import { COMMENT_POLICY_WIRE } from '@/generated/commentPolicyWire';
 export interface SliceRef { offset: number; length: number; }
 
 export const TAG_POD_SIZE = 132;
@@ -9,7 +10,7 @@ export const RELATED_READING_ITEM_POD_SIZE = 40;
 export const HUMAN_READ_CHALLENGE_RESPONSE_POD_SIZE = 52;
 export const HUMAN_READ_SUBMIT_RESPONSE_POD_SIZE = 12;
 export const USER_COMMENT_POD_SIZE = 460;
-export const COMMENT_POLICY_SNAPSHOT_POD_SIZE = 41;
+export const COMMENT_POLICY_SNAPSHOT_POD_SIZE = COMMENT_POLICY_WIRE.podBytes;
 export const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 48;
 export const BLIND_CREDENTIAL_ISSUER_METADATA_POD_SIZE = 72;
 export const BLIND_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE = 64;

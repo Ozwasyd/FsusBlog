@@ -9,6 +9,7 @@
 #include "aeds_decode.hpp"
 #include "aeds_frame.hpp"
 #include "article_list_wire_validation.hpp"
+#include "comment_policy_wire.generated.hpp"
 #include "font_theme_admin_pods.hpp"
 
 namespace

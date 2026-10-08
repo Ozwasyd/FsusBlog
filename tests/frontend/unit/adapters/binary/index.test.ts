@@ -1,9 +1,10 @@
+import { ARTICLE_SEARCH_WIRE } from '@/generated/aedsArticleSearchWire'
 import { createHash } from 'node:crypto'
 import { describe, it, expect, vi } from 'vitest'
 import articleDetailFrameHex from '../../../../fixtures/protocol/article-detail-frame.hex?raw'
 import routingReplacementLedger from '../../../../fixtures/binary-decoder-routing-replacements.json'
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
-import { CommentPolicyContractVersion, CommentPolicyReadiness } from '@/contracts/commentPolicy'
+import { CommentPolicyReadiness } from '@/contracts/commentPolicy'
 import {
   binaryFrameDecoderFrameTypes,
   binaryFrameDecoderRegistrations,
@@ -240,7 +241,14 @@ const validPayloadByDecoder = new Map<string, () => Uint8Array>([
   }],
   ['mapArticleDetailFromPodPayload', () => protocolFixturePayload(articleDetailFrameHex)],
   ['mapArticleHotFromPodPayload', zeroPayload(8)],
-  ['mapArticleSearchFromPodPayload', zeroPayload(4)],
+  ['mapArticleSearchFromPodPayload', () => {
+    const payload = new Uint8Array(ARTICLE_SEARCH_WIRE.headerBytes)
+    writeInt32(payload, 0, ARTICLE_SEARCH_WIRE.magic)
+    writeInt32(payload, 4, ARTICLE_SEARCH_WIRE.version)
+    writeInt32(payload, 16, ARTICLE_SEARCH_WIRE.headerBytes)
+    writeInt32(payload, 20, ARTICLE_SEARCH_WIRE.headerBytes)
+    return payload
+  }],
   ['mapArticleFeaturedFromPodPayload', zeroPayload(4)],
   ['mapRelatedReadingFromPodPayload', zeroPayload(12)],
   ['mapHumanReadChallengeFromPayload', zeroPayload(56)],
@@ -541,7 +549,6 @@ describe('decodeBinaryFramePayload', () => {
 
   it('maps CommentPolicySnapshot for composer author-mode controls', () => {
     expect(decodeBinaryFramePayload(FrameType.CommentPolicySnapshot, commentPolicyPayload('zh-CN\nen'))).toEqual({
-      contractVersion: CommentPolicyContractVersion.Current,
       anonymousCommentsEnabled: true,
       publicCommentsEnabled: true,
       zkAnonymousEnabled: true,
