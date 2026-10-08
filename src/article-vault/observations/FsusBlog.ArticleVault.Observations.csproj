@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../linux/FsusBlog.ArticleVault.Linux.csproj" />
+        <ProjectReference Include="../../shared/FsusBlog.Shared.csproj" />
+    </ItemGroup>
+</Project>
