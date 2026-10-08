@@ -1,0 +1,610 @@
+Writer scoped shortcut integration: historical observation, 2026-10-08 UTC
+Refs #2234. WIP, ordinary QA source only. This is not merge approval.
+
+SOURCE CLOSURE AND OWNERSHIP
+Published Writer source: 17c2153f44b5d04cbecc81ee30c613c327afeee3.
+Published Blog keyboard offer: c855e9da49ce9e494e10a2c4818f28efd6d459de.
+Published local-alias UI source: bac31dfabcc78b2bd13d1d30898fdeb9983e73cf.
+The full c855 branch merge onto 17c conflicted in the original-owner composable
+and its unit test and would introduce unrelated ancestry. It was aborted;
+first index-stage evidence is retained below. No conflicted owner file was edited.
+Only the exact offered c855 commit was applied with git cherry-pick -x, cleanly,
+to 17c. Result: bc3415edb67015e68c11181105968574f41a2f3d.
+This is a LOCAL QA composition, not a published merged candidate. The owner
+composable blob is e3c2277d94d620a6da79af0bea9dd3c3802fb75c, exactly c855.
+The two canonical source changes are the owner composable and original unit test.
+QA source commit: 3ab965725905284795881da6387b44ff11f09ab4, parent bc3415ed.
+It adds only WriterScopedShortcutProbe.spec.ts and .config.ts.
+This separate evidence record is added afterward; no production runtime changes.
+Frozen WriterCommandFocusRegression spec/config/fixture remain byte-identical
+to 17c. Frozen spec blob: 4008bfe903ed226273b52a6f285665f68e9e0c83.
+Independent read-only reviewer confirmed mounted original Write.vue, public
+editor/palette, local temporary observer cleanup, no new global keydown listener,
+and no new major probe reliability defect. Independent maintainer owns merge.
+
+OBSERVED RESULTS, NOT COMBINED INTO AN ACCEPTANCE COUNT
+Frozen run on Blog bc3415ed + UI bac31dfa: 8 PASS / 2 FAIL / 0 SKIP / 0 FLAKY.
+Separate final probes on Blog 3ab96572 + UI bac31dfa: 5 PASS / 1 FAIL / 0 SKIP / 0 FLAKY.
+Frozen production and test blobs are unchanged by the two new probe files.
+The earlier 17c + UI 75f8182f82db9cd9c6d6b038e6a0a9a57b5f2ed2 10/10 observation
+belongs only to that older source pair. Its record is preserved at QA evidence
+commit 5007209f865a54b08b3493580a990b3d51d561d5 on the prior replay branch.
+It does not qualify the new source pair.
+
+FAILURES AND PRECISE ORIGINAL-OWNER REQUESTS
+1. Frozen spec 118 fails at assertion 134 during active editor composition:
+   expected prevented [false,false,false], actual [false,false,true].
+   isComposing=true and keyCode=229 events remain native; an unflagged repeated
+   Mod+P after compositionstart is claimed by the Blog host capture handler.
+   Separate probe 154/158 confirms prevented=true, propagated=false. A soft
+   assertion retains the failure while allowing compositionend and the subsequent
+   hard valid-repeat assertion (161) to execute successfully. No red expectation
+   was removed or changed to accept the defect.
+   Request to original Blog command owner: reconcile local capture admission
+   with the existing editor composition owner, including unflagged repeat while
+   composition is active, without a second keydown kernel, global listener,
+   private editor access or invented production API.
+   Frozen assertion 144 after compositionend is UNRUN because 134 stops the test.
+   Its historical expected-false repeat policy differs from the new offer's
+   valid-repeat consume semantics. It is left unchanged, not claimed as a newly
+   observed failure. The separate probe verifies the new valid-repeat behavior.
+2. Frozen mobile touch case 294 fails at 311: after Escape closes the inspector,
+   document.activeElement is BODY; the real editor is inactive. Backward selection
+   3..12 and body value survive, and horizontal overflow remains absent.
+   Request to original Writer/inspector and FsusUI focus owners: investigate the
+   actual compact ElDrawer close/restoration ordering and public closed/focus
+   boundary, preserving one editor and backward selection. Root cause is NOT
+   established. The drawer and shared focus-trap body fallback are candidate
+   inspection paths, not a proven diagnosis. No QA-forced focus repair is applied.
+
+PASS BOUNDARIES AND MATERIAL LIMITS
+Valid Ctrl/Cmd host repeat is consumed without reopening; the teleported active
+palette owns Ctrl/Cmd+P including repeat without resetting query/focused combobox;
+flagged composition, unrelated keys/modifiers, already-handled events, dirty-modal
+host denial and unrelated targets are respected; real Writer unmount retires the
+old combobox. Frozen composing Enter remains green, as do desktop restoration,
+permission, dirty leave, source compare, focus trap and nested Escape cases.
+Temporary observers attach only to a local main/dialog ancestor and are removed
+in finally. DOM synthetic event ownership does not prove native browser print
+suppression, native OS IME or a physical keyboard/device behavior. A detached
+old element alone does not prove global listener cleanup; source inspection
+separately establishes local binding and disposal.
+An actively open palette with UI editingBlocked/readOnly cannot be configured
+through the available actual Writer route: UNRUN, no fake product port supplied.
+Real screen reader, physical touch device and OS-native IME/print remain UNRUN.
+Browser accessibility trees and rendered failures were captured; this is not
+screen-reader certification or complete accessibility qualification.
+Console health FAIL: PoW glue FACTORY_MISSING and intentionally aborted binary
+backend requests remain present. Loopback /api/** is aborted fail-closed; no mock
+successful AEDS/server receipt or package-release claim is supplied.
+Conflict/server permission scenarios beyond the exposed frozen gates remain WIP.
+
+REPRODUCTION (from Blog QA root with installed saved-environment dependencies)
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/tmp/command-focus-qa/FsusUI-bac31dfa COMMAND_FOCUS_EVIDENCE_ROOT=/tmp/command-focus-qa/replay-bc3415-bac-frozen node src/frontend/node_modules/@playwright/test/cli.js test --config tests/frontend/e2e/command-focus/WriterCommandFocusRegression.config.ts
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/tmp/command-focus-qa/FsusUI-bac31dfa COMMAND_FOCUS_EVIDENCE_ROOT=/tmp/command-focus-qa/replay-bac-probes-exact node src/frontend/node_modules/@playwright/test/cli.js test --config tests/frontend/e2e/command-focus/WriterScopedShortcutProbe.config.ts
+Both commands exit 1 with the above retained failures, retries=0. The same frozen
+Vite actual Writer fixture and real local alias are used, not an unmounted component.
+System Chromium /usr/bin/chromium 151.0.7922.173; Playwright 1.59.1; Node v24.19.0.
+The final evidence-only commit requires no unchanged browser-suite replay.
+
+EXACT UI SOURCE BUILDS (cwd /tmp/command-focus-qa/FsusUI-bac31dfa, all exit 0)
+COREPACK_HOME=/tmp/command-focus-qa/corepack corepack pnpm -C vue/internal/build-utils run stub
+COREPACK_HOME=/tmp/command-focus-qa/corepack corepack pnpm run build:theme
+COREPACK_HOME=/tmp/command-focus-qa/corepack corepack pnpm -C vue/packages/wasm run build
+PATH="/workspace/.setup/dependency-cache/cmake/4.3.3/bin:/workspace/.setup/python-tools/bin:$PATH" PYTHONPATH=/workspace/.setup/python-tools EMSDK=/workspace/.setup/emsdk COREPACK_HOME=/tmp/command-focus-qa/corepack WASM_BUILD_JOBS=4 EMCC_CORES=4 corepack pnpm -C vue/packages/wasm run build:wasm
+Workspace package links point to this exact checkout. Native and CSS assets are
+built here with saved Emscripten/CMake/Ninja, not copied from the old UI checkout.
+This authorized local alias is not proof of published npm/package artifacts.
+
+STATIC / DELIVERY CHECKS
+Scoped canonical AST inventory: 6 cases, 1 suite, 0 diagnostics.
+node tools/test-inventory/ts-ast-adapter/index.mjs /tmp/command-focus-qa/key-probe-inventory-request.json
+First owned type failure TS2589 is retained below, fixed only by narrowing the
+serializable event options to Pick<KeyboardEventInit,...>. Corrected scoped check
+exits 2 with one imported Vite watch-policy declaration TS7016, zero owned-file
+diagnostics. It is not a full frontend typecheck or baseline-equivalence proof.
+node src/frontend/node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p /tmp/command-focus-qa/key-probe-tsconfig.json
+Full scoped tsconfig is retained below to make scope/dependencies inspectable.
+git diff --check bc3415edb67015e68c11181105968574f41a2f3d HEAD: exit 0 before this record.
+Trusted 0b1c804f9ac82b93246a29e5abc026c630328ba3 checker commit-range: exit 0 for bc..3ab.
+node /tmp/command-focus-qa/trusted-base/tools/governance/check-change-contract.mjs --root /tmp/command-focus-qa/FsusBlog-key-closure --range bc3415edb67015e68c11181105968574f41a2f3d..HEAD
+No full matrix, source-policy acceptance, remote CI or available-platform device
+result is claimed. No tests/snapshots/gates/product code were weakened by QA.
+GitHub content API writes remain paused for secondary-rate-limit coordination.
+Draft PR #4006 is the earlier delivery and is NOT represented as updated to this
+new branch. A source-only QA branch push is separate; no merge or deploy performed.
+Rollback: drop only these new QA files/evidence; canonical owner code is consumed
+verbatim and no package, deployment or credential setting is changed.
+
+PRESERVED LOCAL ARTIFACT INDEX AND SHA256
+b03978c09e8f685478a8f9b3076ec10c0cba43f3f657d3b73ecadea04b5037e2  /tmp/command-focus-qa/key-closure-first-conflict.log
+3b7d3888aa423866677fb406ef46a456467a4c432464534f61b3ab41ea5c03aa  /tmp/command-focus-qa/key-probe-types-first.log
+89a52ca03e796d58fe274beeaab82dad3a41b3653e67ee704cd6d94743eb5002  /tmp/command-focus-qa/key-probe-types-corrected.log
+915ee81ee41cc2bd87ce498c39e3e23018e4bb97ce90e454deba85b5492fd814  /tmp/command-focus-qa/key-probe-tsconfig.json
+72b77f30ee8908254739ca72603fb6b87e96150f0f9e371a978e658f713f4183  /tmp/command-focus-qa/key-probe-inventory-request.json
+03f5bc4ba54db8e8c3e19bdf4e3a3b15249b1e84f1bf6afcbf538e900d3f7392  /tmp/command-focus-qa/key-probe-inventory.json
+5cfddd7e9355ec0377239a47701b164d84521e616fd9cdb97bdccb8d33a71929  /tmp/command-focus-qa/replay-bc3415-bac-frozen.log
+37c176a912cbea289e28e3cb9fc3a1e8400b4dd4e3e67e58f04de42673f8f0be  /tmp/command-focus-qa/replay-bc3415-bac-frozen/results.json
+d3f31c5a3026e0d4573f346a0875916d2742015cb451cb46b05754cb165ae941  /tmp/command-focus-qa/replay-bc3415-bac-frozen/artifacts/WriterCommandFocusRegressi-2beef-reachable-in-the-modal-host/trace.zip
+a5c04d0c2f76822d38a0fd8f1d43ba6b31cb520a21c63f94847887faf8b6c9d8  /tmp/command-focus-qa/replay-bc3415-bac-frozen/artifacts/WriterCommandFocusRegressi-f0a1d-tte-before-composition-ends/trace.zip
+152b25d9ca82315bb93d4ac4a413274080e9524ad8a7d84fcc9512a7f581c8c3  /tmp/command-focus-qa/replay-bc3415-bac-frozen/artifacts/WriterCommandFocusRegressi-2beef-reachable-in-the-modal-host/test-failed-1.png
+302957fd0f710bc465a81834858191c11a42e314e7e05407ce0d9e86771e4190  /tmp/command-focus-qa/replay-bc3415-bac-frozen/artifacts/WriterCommandFocusRegressi-f0a1d-tte-before-composition-ends/test-failed-1.png
+5005ceca7835bc1cdc069b6b3336a8dbba22fd7da515001f7206e7379cdbc828  /tmp/command-focus-qa/replay-bc3415-bac-probes-first.log
+b12df8a2eadb158e5aa639f9028cba9867a366a3117b6ece86f47bb7ec2ff6d7  /tmp/command-focus-qa/replay-bc3415-bac-probes-first/results.json
+a874fb0f9d497407b6ad2a60066257e517e0bafc970f829181d7298c8da1bf77  /tmp/command-focus-qa/replay-bc3415-bac-probes-first/artifacts/WriterScopedShortcutProbe--5efe2-peated-host-shortcut-native/trace.zip
+c5a40209c9781420a6c80fc157496c0468a089bf404c49c4e7c1b51010c76ae0  /tmp/command-focus-qa/replay-bc3415-bac-probes-first/artifacts/WriterScopedShortcutProbe--5efe2-peated-host-shortcut-native/test-failed-1.png
+c8bd70ddc214f9475070e87564b85401c76d320431739294333e49c9e3d05c40  /tmp/command-focus-qa/replay-bac-probes-exact.log
+d645dccd992b7f3fd33318199e2c5982b97ec4ebd6650913fabe661df11cbc40  /tmp/command-focus-qa/replay-bac-probes-exact/results.json
+11ac1d4329561097a57aa21b04fea98b208bbda82193819e9d078bef33c982ca  /tmp/command-focus-qa/replay-bac-probes-exact/artifacts/WriterScopedShortcutProbe--5efe2-peated-host-shortcut-native/trace.zip
+e4e57565d0bf3cb65403b51ac40b4b3fc2a9ffb71eca70cfbc8e4cfe65160f7d  /tmp/command-focus-qa/replay-bac-probes-exact/artifacts/WriterScopedShortcutProbe--5efe2-peated-host-shortcut-native/test-failed-1.png
+df1fc765fda07a477f6c07c694f1e76ef63b880156bfaac590edca7067a7499e  /tmp/command-focus-qa/key-probe-first-source/WriterScopedShortcutProbe.config.ts
+143bc8fe0a49ec56b4f3b27437562a4df86306ba63493134996226fa38261a34  /tmp/command-focus-qa/key-probe-first-source/WriterScopedShortcutProbe.spec.ts
+080d860d5d5e75507f2b13ed4f61973a0d255a88ed60d6f49569a438b0d5ff98  /tmp/command-focus-qa/ui-bac-build-theme.log
+6a285d03d615b19efe072cb20b2f579c8eb5e42afb47c0cb54be415402fc03c8  /tmp/command-focus-qa/ui-bac-build-utils.log
+c585c1af44b302de74e406e0cbe5f561f278fa2a536f5eb417632832aa9aab65  /tmp/command-focus-qa/ui-bac-build-wasm-bundle.log
+d15baba7a5e35e8561ddc0e4963d27d3339b236b57edc232ce9db8f39bbbb7b1  /tmp/command-focus-qa/ui-bac-build-wasm-native.log
+4777deff651bb46fd7a420b5dda792d270dc36e14f7dfba39adb06f8e1fc03d1  /tmp/command-focus-qa/FsusUI-bac31dfa/dist/element-plus/theme-chalk/index.css
+ee07c5fc1b189325236fbfd983bb95dda723e475197c626a1fdbf2802db6b2e8  /tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/wasm/dist/index.mjs
+6c1b79200b77ebb02a66b51780bb84df7a06fdc5400d0ed169604c99599ed295  /tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/wasm/dist/ep_wasm.mjs
+28d96e86ab15e187a44a71f93e78f89670e137216b22cd5ce652211d1112b68a  /tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/wasm/dist/ep_wasm.wasm
+3bdc57de918232d07af54451f31268d6233f934408de6d58a7102ae26069bdfd  /tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/wasm/dist/markdown_basic.js
+9b96f43c4248572cf375d826973aa9aeda06d8074d10cb404e1aaff508d2311d  /tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/wasm/dist/markdown_basic.wasm
+b9b84d6402b9fb69461bb4281d746b49ac5e02fad398304a1f89deed44ce56c8  /tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/wasm/dist/markdown_simd.js
+c25f2596c189efcec91ec71cdc355d5275725eae8bab64c8bf132d8c1230eca3  /tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/wasm/dist/markdown_simd.wasm
+
+PRESERVED FIRST INDEX CONFLICT
+100644 7a30a661e88bca10a5e8633f1a858d84f0871924 2	src/frontend/src/composables/useArticleAuthorCommandPalette.ts
+100644 e3c2277d94d620a6da79af0bea9dd3c3802fb75c 3	src/frontend/src/composables/useArticleAuthorCommandPalette.ts
+100644 d9d3e5d94fef7a32cc95b43eeed8b5fcc877dab3 2	tests/frontend/unit/composables/useArticleAuthorCommandPalette.test.ts
+100644 3e6787ecd15bccdb8ebba53d7628d043ea57e43f 3	tests/frontend/unit/composables/useArticleAuthorCommandPalette.test.ts
+
+PRESERVED FIRST OWNED TYPE FAILURE
+src/frontend/vite.config.ts(11,54): error TS7016: Could not find a declaration file for module './scripts/vite-watch-policy.mjs'. '/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/scripts/vite-watch-policy.mjs' implicitly has an 'any' type.
+tests/frontend/e2e/command-focus/WriterScopedShortcutProbe.spec.ts(21,28): error TS2589: Type instantiation is excessively deep and possibly infinite.
+
+CORRECTED SCOPED TYPE DIAGNOSTICS
+src/frontend/vite.config.ts(11,54): error TS7016: Could not find a declaration file for module './scripts/vite-watch-policy.mjs'. '/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/scripts/vite-watch-policy.mjs' implicitly has an 'any' type.
+
+SCOPED TYPE CONFIGURATION
+{
+  "extends": "/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/tsconfig.playwright.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/src/*"
+      ],
+      "@wasm/*": [
+        "/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/wasm/web/*"
+      ],
+      "vue": [
+        "/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/node_modules/vue"
+      ],
+      "@vue/*": [
+        "/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/node_modules/@vue/*"
+      ],
+      "@ozwasyd/element-plus": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/element-plus/index.ts"
+      ],
+      "element-plus": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/element-plus/index.ts"
+      ],
+      "@ozwasyd/element-plus/icons-vue": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/element-plus/icons-vue.ts"
+      ],
+      "@ozwasyd/element-plus/markdown-runtime": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/element-plus/markdown-runtime.ts"
+      ],
+      "@ozwasyd/element-plus/motion": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/element-plus/motion.ts"
+      ],
+      "@ozwasyd/element-plus/perception-challenge": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/element-plus/perception-challenge.ts"
+      ],
+      "@ozwasyd/element-plus/render-pipeline": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/element-plus/render-pipeline.ts"
+      ],
+      "@ozwasyd/element-plus/result": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/element-plus/result.ts"
+      ],
+      "@ozwasyd/element-plus/theme": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/element-plus/theme.ts"
+      ],
+      "@ozwasyd/element-plus/wasm": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/element-plus/wasm.ts"
+      ],
+      "@element-plus/icons-vue": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/icons-vue/src/index.ts"
+      ],
+      "@element-plus/icons-vue/*": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/icons-vue/src/*"
+      ],
+      "@element-plus/theme-chalk/src": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/theme-chalk/src"
+      ],
+      "@element-plus/theme-chalk/src/*": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/theme-chalk/src/*"
+      ],
+      "@element-plus/wasm": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/wasm/index.ts"
+      ],
+      "@element-plus/wasm/*": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/wasm/*"
+      ],
+      "@element-plus/*": [
+        "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/packages/*"
+      ],
+      "@playwright/test": [
+        "/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/node_modules/@playwright/test/index.d.ts"
+      ],
+      "@playwright/test/*": [
+        "/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/node_modules/@playwright/test/*"
+      ]
+    },
+    "baseUrl": "/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend",
+    "jsx": "preserve",
+    "jsxImportSource": "vue",
+    "erasableSyntaxOnly": false,
+    "typeRoots": [
+      "/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/node_modules/@types"
+    ],
+    "types": [
+      "node"
+    ],
+    "skipLibCheck": true
+  },
+  "include": [
+    "/tmp/command-focus-qa/FsusBlog-key-closure/tests/frontend/e2e/command-focus/WriterScopedShortcutProbe*.ts",
+    "/tmp/command-focus-qa/FsusBlog-key-closure/src/frontend/src/vite-env.d.ts",
+    "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/global.d.ts",
+    "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/typings/components.d.ts",
+    "/tmp/command-focus-qa/FsusUI-bac31dfa/vue/typings/env.d.ts"
+  ]
+}
+
+ACTUAL REPORT replay-bc3415-bac-frozen
+{"startTime": "2026-10-08T13:12:04.116Z", "duration": 108208.807, "expected": 8, "skipped": 0, "unexpected": 2, "flaky": 0}
+WriterCommandFocusRegression.spec.ts:63 Writer palette command hands focus to the real inspector and Escape restores body selection: passed
+WriterCommandFocusRegression.spec.ts:90 repeated shortcut and pointer entry closes with Escape without replacing the dirty editor: passed
+WriterCommandFocusRegression.spec.ts:118 body composition and repeated keydown cannot open the palette before composition ends: failed
+Error: expect(received).toEqual(expected) // deep equality
+
+- Expected  - 1
++ Received  + 1
+
+  Array [
+    false,
+    false,
+-   false,
++   true,
+  ]
+
+  132 |         return event.defaultPrevented;
+  133 |     }));
+> 134 |     expect(prevented).toEqual([false, false, false]);
+      |                       ^
+  135 |     await expect(page.getByRole('dialog', { name: '命令面板' })).toHaveCount(0);
+  136 |     await body.dispatchEvent('compositionend', { data: '中文' });
+  137 |     const repeatClaimed = await body.evaluate(element =>
+    at /tmp/command-focus-qa/FsusBlog-key-closure/tests/frontend/e2e/command-focus/WriterCommandFocusRegression.spec.ts:134:23
+WriterCommandFocusRegression.spec.ts:153 composing Enter in palette search cannot launch an inspector command: passed
+WriterCommandFocusRegression.spec.ts:172 revoked permission disables current palette commands without changing the unsaved body: passed
+WriterCommandFocusRegression.spec.ts:194 dirty leave confirmation gates palette entry and cancellation retains the real editor: passed
+WriterCommandFocusRegression.spec.ts:218 source compare transitions retain one editor, backward selection and palette focus restoration: passed
+WriterCommandFocusRegression.spec.ts:245 palette focus trap and active-descendant identity remain valid before inspector handoff: passed
+WriterCommandFocusRegression.spec.ts:267 Escape closes the palette alone while a rail-opened inspector remains active: passed
+WriterCommandFocusRegression.spec.ts:294 visible palette entry and touch inspector command remain reachable in the modal host: failed
+Error: expect(locator).toBeFocused() failed
+
+Locator:  getByRole('region', { name: '正文', exact: true }).getByRole('textbox')
+Expected: focused
+Received: inactive
+Timeout:  10000ms
+
+Call log:
+  - Expect "soft toBeFocused" with timeout 10000ms
+  - waiting for getByRole('region', { name: '正文', exact: true }).getByRole('textbox')
+    14 × locator resolved to <textarea lang="" rows="12" autocorrect="on" spellcheck="true" autocomplete="off" id="article-content" aria-disabled="false" name="articleContent" placeholder="从这里开始写正文。" writingsuggestions="true" autocapitalize="sentences" aria-label="Markdown 源码编辑区" value="Touch unsaved editor body" class="el-markdown-editor__textarea"></textarea>
+       - unexpected value "inactive"
+
+
+  309 |         await page.keyboard.press('Escape');
+  310 |         await expect(inspector).toBeHidden();
+> 311 |         await expect.soft(body).toBeFocused();
+      |                                 ^
+  312 |         expect(await body.evaluate((element: HTMLTextAreaElement) => [
+  313 |             element.selectionStart, element.selectionEnd, element.selectionDirection
+  314 |         ])).toEqual([3, 12, 'backward']);
+    at /tmp/command-focus-qa/FsusBlog-key-closure/tests/frontend/e2e/command-focus/WriterCommandFocusRegression.spec.ts:311:33
+
+ACTUAL REPORT replay-bc3415-bac-probes-first
+{"startTime": "2026-10-08T13:14:41.111Z", "duration": 76605.91, "expected": 5, "skipped": 0, "unexpected": 1, "flaky": 0}
+WriterScopedShortcutProbe.spec.ts:73 valid host repeats are claimed without opening or replacing the selected editor: passed
+WriterScopedShortcutProbe.spec.ts:91 active teleported palette owns Mod+P and repeats without resetting query or editor: passed
+WriterScopedShortcutProbe.spec.ts:123 flagged composition and unrelated keys remain unclaimed on host and palette: passed
+WriterScopedShortcutProbe.spec.ts:152 active editor composition leaves an unflagged repeated host shortcut native: failed
+Error: expect(received).toEqual(expected) // deep equality
+
+- Expected  - 2
++ Received  + 2
+
+  Object {
+-   "prevented": false,
+-   "propagated": true,
++   "prevented": true,
++   "propagated": false,
+  }
+
+  154 |     const body = await mountWriter(page);
+  155 |     await body.dispatchEvent('compositionstart', { data: '中' });
+> 156 |     expect(await key(body, { repeat: true })).toEqual({ prevented: false, propagated: true });
+      |                                               ^
+  157 |     await expect(page.getByRole('dialog', { name: '命令面板' })).toHaveCount(0);
+  158 |     await body.dispatchEvent('compositionend', { data: '中' });
+  159 |     expect(await key(body, { repeat: true })).toEqual({ prevented: true, propagated: false });
+    at /tmp/command-focus-qa/FsusBlog-key-closure/tests/frontend/e2e/command-focus/WriterScopedShortcutProbe.spec.ts:156:47
+WriterScopedShortcutProbe.spec.ts:163 dirty modal disables host admission and unrelated targets stay outside the owner: passed
+WriterScopedShortcutProbe.spec.ts:191 retired teleported palette does not retain ownership after real Writer unmount: passed
+
+ACTUAL REPORT replay-bac-probes-exact
+{"startTime": "2026-10-08T13:19:43.542Z", "duration": 66144.041, "expected": 5, "skipped": 0, "unexpected": 1, "flaky": 0}
+WriterScopedShortcutProbe.spec.ts:75 valid host repeats are claimed without opening or replacing the selected editor: passed
+WriterScopedShortcutProbe.spec.ts:93 active teleported palette owns Mod+P and repeats without resetting query or editor: passed
+WriterScopedShortcutProbe.spec.ts:125 flagged composition and unrelated keys remain unclaimed on host and palette: passed
+WriterScopedShortcutProbe.spec.ts:154 active editor composition leaves an unflagged repeated host shortcut native: failed
+Error: expect(received).toEqual(expected) // deep equality
+
+- Expected  - 2
++ Received  + 2
+
+  Object {
+-   "prevented": false,
+-   "propagated": true,
++   "prevented": true,
++   "propagated": false,
+  }
+
+  156 |     const body = await mountWriter(page);
+  157 |     await body.dispatchEvent('compositionstart', { data: '中' });
+> 158 |     expect.soft(await key(body, { repeat: true })).toEqual({ prevented: false, propagated: true });
+      |                                                    ^
+  159 |     await expect(page.getByRole('dialog', { name: '命令面板' })).toHaveCount(0);
+  160 |     await body.dispatchEvent('compositionend', { data: '中' });
+  161 |     expect(await key(body, { repeat: true })).toEqual({ prevented: true, propagated: false });
+    at /tmp/command-focus-qa/FsusBlog-key-closure/tests/frontend/e2e/command-focus/WriterScopedShortcutProbe.spec.ts:158:52
+WriterScopedShortcutProbe.spec.ts:165 dirty modal disables host admission and unrelated targets stay outside the owner: passed
+WriterScopedShortcutProbe.spec.ts:193 retired teleported palette does not retain ownership after real Writer unmount: passed
+
+FROZEN FAILURE 118 focus-and-selection.json
+{
+  "url": "http://127.0.0.1:4317/__writer-command-focus-regression",
+  "focused": {
+    "tag": "TEXTAREA",
+    "id": "article-content",
+    "role": null,
+    "label": "Markdown 源码编辑区",
+    "text": ""
+  },
+  "body": {
+    "value": "中文 composition remains unsaved",
+    "start": 30,
+    "end": 30,
+    "direction": "forward",
+    "focused": true
+  }
+}
+
+FROZEN FAILURE 118 accessibility-tree.txt
+- main "新建文章":
+  - heading "返回 新建文章 待发布" [level=1]:
+    - button "返回"
+    - text: 新建文章 待发布
+  - status: 自动保存已就绪
+  - button "保存草稿"
+  - button "发布文章"
+  - region "文章文档":
+    - textbox "文章标题":
+      - /placeholder: 写下文章标题
+    - text: 0 / 100
+    - button "文章检查器"
+    - heading "正文" [level=2]
+    - button "打开文章大纲"
+    - region "正文":
+      - region "Markdown 编辑器":
+        - button "heading"
+        - button "bold"
+        - button "italic"
+        - button "link"
+        - button "quote"
+        - button "code"
+        - button "粘贴为 Markdown" [disabled]
+        - button "更多命令 (15)": 更多命令 15
+        - text: 文字组合输入期间不可用。
+        - textbox "Markdown 源码编辑区":
+          - /placeholder: 从这里开始写正文。
+          - text: 中文 composition remains unsaved
+    - group "编辑表面与对照工具":
+      - group "编辑表面":
+        - button "实时"
+        - button "源码" [pressed]
+      - button "源码对照"
+  - navigation "文章检查器":
+    - button "发布"
+    - button "版权"
+    - button "检查"
+    - button "预览"
+    - button "版本"
+    - button "资源"
+- alert: 无法同步远程配置资源
+
+FROZEN FAILURE 118 console-and-runtime.txt
+requestfailed: http://127.0.0.1:4317/api/binary/category.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/tag.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/seo net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/compliance net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+error: [Write Init Error] BinaryTransportError: Failed to fetch
+    at executeBinaryRequest (http://127.0.0.1:4317/src/services/binaryTransport.ts:520:16)
+    at async requestBinaryOnlyWithDecoder (http://127.0.0.1:4317/src/services/binaryTransport.ts:484:17)
+    at async requestBinaryOnly (http://127.0.0.1:4317/src/services/binaryTransport.ts:588:49)
+    at async Promise.all (index 0)
+    at async refreshTaxonomy (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1295:28)
+    at async Promise.all (index 0)
+    at async http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1750:5
+    at async Object.run (http://127.0.0.1:4317/src/composables/useAbortableTask.ts:29:19)
+    at async initData (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1749:4)
+error: Failed to load resource: the server responded with a status of 404 (Not Found)
+requestfailed: http://127.0.0.1:4317/wasm/image_codec_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_threads.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_relaxed.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_basic.js net::ERR_ABORTED
+error: [Worker] Initialization Error: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+error: [Worker] PING Failed: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+
+FROZEN FAILURE 294 focus-and-selection.json
+{
+  "url": "http://127.0.0.1:4317/__writer-command-focus-regression",
+  "focused": {
+    "tag": "BODY",
+    "id": "",
+    "role": null,
+    "label": null,
+    "text": "返回 新建文章待发布服务端草稿暂不可用；当前页面仍保留更改，请勿关闭 保存草稿 发布文章0 / 100文章检查器 正文 打开文章大纲文章大纲headingbolditaliclinkquotecode更多命令15已完成bolditalicheadingquotecodelink插入图片小节四级标题五级标题六级标题无序列表有序列表任务列表表格分割线代码块公式流程图 实时  源码  源码对照 文章检查器发布版权检查预览版本资源发布状态与定时状态草稿定时发布归档文章信息分类、标签和摘要分类No data 新建 标签No data 新建 摘要0 / 250头图首页和文章页展示图头图未设置建议比例 16:9。用于首页和文章页展示。上传头图 默认使用站点版权设置；需要单篇不同规则时切换为自定义。 版权来源继承站点设置自定义本文版权当前继承：未设置版权主体，按站点年份，保留所有权利。启用策略许可类型权利人版权年份权利声明署名模板复制策略摘录长度 允许代码块复制  公开页显示版权标识  启用 proof 绑定 SEO 与发布前检查站点 SEO 配置暂不可用，canonical 使用当前访问域名http://127.0.0.1:4317/article/draft-preview未命名文章Touch unsaved editor body未命名文章Touch unsaved editor body地址片段/article/draft-preview标题长度5/60摘要长度25/180内容检查生成可选摘要建议、标题备选和标签匹配。建议仅供参考，应用前可继续编辑。 生成摘要建议  检查内容 私有预览预览仅在作者工作台内生成 生成预览 暂无预览快照。资产库资产库等待同步暂无可复用资产。图片上传策略上传与输出策略 重置 输出格式压缩质量缩放倍率最大边长透明通道 (Alpha Channel)保留图片原始透明度信息。WASM-only 模式仅使用 WASM codec；不支持时直接报错。WASM 支持：png\n                            \n                            保留所有权利CC BY 4.0CC BY-SA 4.0CC BY-NC 4.0CC0 1.0复制时追加署名仅允许摘录复制禁用复制增强WebPAVIFPNGJPEGGIF（原图）8211920"
+  },
+  "body": {
+    "value": "Touch unsaved editor body",
+    "start": 3,
+    "end": 12,
+    "direction": "backward",
+    "focused": false
+  }
+}
+
+FROZEN FAILURE 294 accessibility-tree.txt
+- main "新建文章":
+  - heading "返回 新建文章 待发布" [level=1]:
+    - button "返回"
+    - text: 新建文章 待发布
+  - button "服务端草稿暂不可用；当前页面仍保留更改，请勿关闭"
+  - button "保存草稿"
+  - button "发布文章"
+  - region "文章文档":
+    - textbox "文章标题":
+      - /placeholder: 写下文章标题
+    - button "文章检查器"
+    - heading "正文" [level=2]
+    - button "打开文章大纲"
+    - region "正文":
+      - region "Markdown 编辑器":
+        - button "heading"
+        - button "bold"
+        - button "italic"
+        - button "link"
+        - button "quote"
+        - button "code"
+        - button "更多命令 (15)": 更多命令 15
+        - textbox "Markdown 源码编辑区":
+          - /placeholder: 从这里开始写正文。
+          - text: Touch unsaved editor body
+        - text: 已完成
+        - toolbar "选区工具":
+          - button "bold"
+          - button "italic"
+          - button "heading"
+          - button "quote"
+          - button "code"
+          - button "link"
+          - button "插入图片"
+          - button "小节"
+          - button "四级标题"
+          - button "五级标题"
+          - button "六级标题"
+          - button "无序列表"
+          - button "有序列表"
+          - button "任务列表"
+          - button "表格"
+          - button "分割线"
+          - button "代码块"
+          - button "公式"
+          - button "流程图"
+    - group "编辑表面与对照工具":
+      - group "编辑表面":
+        - button "实时"
+        - button "源码" [pressed]
+      - button "源码对照"
+  - button "打开文章检查器"
+
+FROZEN FAILURE 294 console-and-runtime.txt
+requestfailed: http://127.0.0.1:4317/api/binary/category.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/tag.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/seo net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/compliance net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+error: [Write Init Error] BinaryTransportError: Failed to fetch
+    at executeBinaryRequest (http://127.0.0.1:4317/src/services/binaryTransport.ts:520:16)
+    at async requestBinaryOnlyWithDecoder (http://127.0.0.1:4317/src/services/binaryTransport.ts:484:17)
+    at async requestBinaryOnly (http://127.0.0.1:4317/src/services/binaryTransport.ts:588:49)
+    at async Promise.all (index 0)
+    at async refreshTaxonomy (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1295:28)
+    at async Promise.all (index 0)
+    at async http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1750:5
+    at async Object.run (http://127.0.0.1:4317/src/composables/useAbortableTask.ts:29:19)
+    at async initData (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1749:4)
+error: Failed to load resource: the server responded with a status of 404 (Not Found)
+requestfailed: http://127.0.0.1:4317/wasm/image_codec_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_threads.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_relaxed.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_basic.js net::ERR_ABORTED
+error: [Worker] Initialization Error: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+error: [Worker] PING Failed: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+
+FIRST EVIDENCE-COMMIT GOVERNANCE FAILURE (preserved)
+Trusted range check bc3415ed..2068d90d exited 1:
+[change-contract] 2068d90d4e37b55cd59f24be2481c60248c3a9a7: commit message must contain a Refs: #1234 footer
+The isolated QA branch was pushed at 2068d90d before this failure was corrected.
+The record is amended only to repair the missing canonical Refs: footer and retain
+this first failure. Tests, owner code and gates are unchanged. The failed head
+is not qualified; branch replacement uses an exact expected-head force-with-lease.
