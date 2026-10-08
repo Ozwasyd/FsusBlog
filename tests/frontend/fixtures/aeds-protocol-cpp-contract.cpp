@@ -10,6 +10,7 @@
 #include "aeds_frame.hpp"
 #include "article_list_wire_validation.hpp"
 #include "comment_policy_wire.generated.hpp"
+#include "comment_create_wire.generated.hpp"
 #include "font_theme_admin_pods.hpp"
 
 namespace

@@ -141,7 +141,7 @@ public static partial class BinaryEndpoints
             var payload = await ReadBinaryRequestPayloadAsync(
                 httpContext,
                 aeds,
-                [AedsFrameType.CommentCreateV2Request],
+                [AedsFrameType.CommentCreateRequest],
                 cancellationToken,
                 CommentLimits.CreatePayloadMaxBytes);
             if (!payload.IsSuccess)
@@ -149,7 +149,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(payload.Error, aeds);
             }
 
-            if (!PodBinaryCodec.TryDecodeCommentCreateV2Request(payload.Payload, out CommentCreateV2RequestCoreModel request))
+            if (!PodBinaryCodec.TryDecodeCommentCreateRequest(payload.Payload, out CommentCreateRequestCoreModel request))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "评论请求体非法"), aeds);
             }

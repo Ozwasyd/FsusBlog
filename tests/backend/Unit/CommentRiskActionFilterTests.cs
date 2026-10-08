@@ -247,14 +247,13 @@ public sealed class CommentRiskActionFilterTests
 
     private static byte[] CreateFrame(AedsEncoder aeds, bool isReply)
         => aeds.Encode(
-            AedsFrameType.CommentCreateV2Request,
-            PodBinaryCodec.EncodeCommentCreateV2Request(new CommentCreateV2RequestCoreModel(
+            AedsFrameType.CommentCreateRequest,
+            PodBinaryCodec.EncodeCommentCreateRequest(new CommentCreateRequestCoreModel(
                 ArticleId: 42,
                 Content: isReply ? "reply" : "root",
                 ParentId: isReply ? "100" : null,
                 RootId: isReply ? "100" : null,
                 ReplyToCommentId: isReply ? "100" : null,
-                ReplyToUserId: isReply ? 7 : null,
                 AuthorMode: "anonymous",
                 PublicSendExplicitlySelected: false,
                 AnonymousScope: null,
@@ -388,7 +387,7 @@ public sealed class CommentRiskActionFilterTests
         }
 
         public Task<bool> CreateCommentAsync(int userId, CommentDto dto) => throw new NotSupportedException();
-        public Task<bool> CreateAttributablePublicCommentAsync(AccountPrincipalContext account, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null) => throw new NotSupportedException();
+        public Task<bool> CreateAttributablePublicCommentAsync(AccountPrincipalContext account, CommentCreateRequestCoreModel request, RegionModerationDecision? regionDecision = null) => throw new NotSupportedException();
         public Task<CursorResponse<CommentThreadItemDto>> GetCommentThreadsByCursorAsync(int articleId, CursorPageRequest<long> request, int previewLimit = 3, string viewerRegion = "GLOBAL") => throw new NotSupportedException();
         public Task<CursorResponse<CommentReplyItemDto>> GetThreadRepliesByCursorAsync(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion = "GLOBAL") => throw new NotSupportedException();
         public Task<bool> DeleteCommentAsAccountAsync(long id, int accountId, string reason = "违反社区管理条例") => throw new NotSupportedException();

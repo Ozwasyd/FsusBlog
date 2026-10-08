@@ -387,7 +387,7 @@ public sealed class AnonymousCommentTicketServiceTests
     public async Task BinaryEndpoint_ZkProdUnavailableFailsClosedBeforePayloadDecodeOrTicketIssue()
     {
         var aeds = new AedsEncoder();
-        DefaultHttpContext context = CreateContext(aeds, AedsFrameType.CommentCreateV2Request, "not-ticket"u8.ToArray());
+        DefaultHttpContext context = CreateContext(aeds, AedsFrameType.CommentCreateRequest, "not-ticket"u8.ToArray());
         var proofService = new RecordingProofService(ZkProofVerificationResult.Success(), s_disabledZkProdPolicy);
 
         BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCommentTicketAsync(

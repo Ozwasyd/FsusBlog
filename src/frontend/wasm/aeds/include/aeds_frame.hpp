@@ -199,7 +199,7 @@ enum class FrameType : std::uint16_t
     IdentityAccountSnapshot = 163,
     CommentPolicySnapshot = 164,
     CommentPolicyUpdateRequest = 165,
-    CommentCreateV2Request = 166,
+    CommentCreateRequest = 166,
     CommentAuthorView = 167,
     AnonymousGovernanceActionRequest = 168,
     AnonymousGovernanceActionResponse = 169,
@@ -468,7 +468,7 @@ enum class FrameType : std::uint16_t
         case FrameType::IdentityAccountSnapshot:
         case FrameType::CommentPolicySnapshot:
         case FrameType::CommentPolicyUpdateRequest:
-        case FrameType::CommentCreateV2Request:
+        case FrameType::CommentCreateRequest:
         case FrameType::CommentAuthorView:
         case FrameType::AnonymousGovernanceActionRequest:
         case FrameType::AnonymousGovernanceActionResponse:

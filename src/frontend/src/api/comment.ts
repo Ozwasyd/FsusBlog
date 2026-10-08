@@ -1,4 +1,3 @@
-import type { CommentPrivacyRevocationArtifactReference } from '@/privacy/commentPrivacyContracts';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
 import type {
     AnonymousCommentCreateRequestDto,
@@ -13,28 +12,23 @@ import type {
     BlindCredentialIssueRequestDto,
     BlindCredentialIssueResponse,
     BlindCredentialIssuerMetadata,
-    CommentAuthorMode,
     CommentAuthorMutationResult,
     CommentAuthorStatusResult,
-    CommentAuthorView,
-    CommentAuthorViewMode,
-    CommentCreateV2Dto as CommentCreateV2ContractDto,
+    CommentCreateDto as CommentCreateContractDto,
     CommentCreateResult,
-    CommentDisplayLanguage,
     CommentPermalinkContext,
-    CommentPermalinkStatus,
     CommentPolicySnapshot,
     CommentManagementChallengeResult,
     CommentReplyItem,
-    CommentReplyPreviewItem,
-    CommentThreadItem,
     CommentTreeNode,
     CommentTreeRoot,
     CursorResponse,
     PublicCommentCreateInput,
     UserCommentResponse
 } from '@/contracts/binaryApi';
+import { COMMENT_CREATE_POD_BYTES, COMMENT_CREATE_OFFSETS } from '@/generated/commentCreateWire';
 import type { FsusBinaryOperationId } from '@/generated/fsusBinaryRoutes';
+import type { CommentPrivacyRevocationArtifactReference } from '@/privacy/commentPrivacyContracts';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { validateCommentContent } from '@/utils/contentFilter';
 
@@ -57,20 +51,13 @@ export type {
     BlindCredentialIssueRequestDto,
     BlindCredentialIssueResponse,
     BlindCredentialIssuerMetadata,
-    CommentAuthorMode,
     CommentAuthorMutationResult,
     CommentAuthorStatusResult,
-    CommentAuthorView,
-    CommentAuthorViewMode,
     CommentCreateResult,
-    CommentDisplayLanguage,
     CommentPermalinkContext,
-    CommentPermalinkStatus,
     CommentPolicySnapshot,
     CommentManagementChallengeResult,
     CommentReplyItem,
-    CommentReplyPreviewItem,
-    CommentThreadItem,
     CommentTreeNode,
     CommentTreeRoot,
     CursorResponse,
@@ -78,10 +65,7 @@ export type {
     UserCommentResponse
 } from '@/contracts/binaryApi';
 
-export interface CommentCreateV2Dto extends CommentCreateV2ContractDto {
-    /** @deprecated 匿名模式不应设置 replyToUserId；编码器始终写入兼容占位。 */
-    replyToUserId?: number | null;
-}
+export type CommentCreateDto = CommentCreateContractDto;
 
 // =================================================================================
 // API methods
@@ -91,7 +75,7 @@ export interface CommentCreateV2Dto extends CommentCreateV2ContractDto {
  * 所有方法接受可选的 config.signal，以便调用方通过 AbortSignal 中断请求。
  */
 
-export const createCommentV2 = (data: CommentCreateV2Dto, config?: ApiRequestConfig) =>
+export const createComment = (data: CommentCreateDto, config?: ApiRequestConfig) =>
 {
     return sendCommentMutation(data, config);
 };
@@ -239,7 +223,7 @@ export const issueAnonymousCommentTicket = (
 };
 
 function sendCommentMutation(
-    data: CommentCreateV2Dto,
+    data: CommentCreateDto,
     config?: ApiRequestConfig
 )
 {
@@ -254,7 +238,7 @@ function sendCommentMutation(
         return Promise.reject(new Error(validation.message));
     }
 
-    const payload = encodeCommentCreateV2Request(data);
+    const payload = encodeCommentCreateRequest(data);
     const clientMutationId = normalizeCommentMutationId(data.clientMutationId);
 
     return requestBinaryOnly<CommentCreateResult>({
@@ -266,7 +250,7 @@ function sendCommentMutation(
             headers: {
                 'X-Fsus-Client-Mutation-Id': clientMutationId
             },
-            body: encodeAedsFrame(FrameType.CommentCreateV2Request, payload)
+            body: encodeAedsFrame(FrameType.CommentCreateRequest, payload)
         }
     });
 }
@@ -555,7 +539,7 @@ function requestCommentManagementJson<T>(
     });
 }
 
-export function encodeCommentCreateV2Request(data: CommentCreateV2Dto): Uint8Array
+export function encodeCommentCreateRequest(data: CommentCreateDto): Uint8Array
 {
     const anonymousScope = new Uint8Array();
     const displayLanguage = encodeText(data.displayLanguage ?? '');
@@ -563,32 +547,31 @@ export function encodeCommentCreateV2Request(data: CommentCreateV2Dto): Uint8Arr
     const zkProof = new Uint8Array();
     const content = encodeText(data.content ?? '');
     const blobLength = anonymousScope.byteLength + displayLanguage.byteLength + proofToken.byteLength + zkProof.byteLength + content.byteLength;
-    const bytes = new Uint8Array(80 + 4 + blobLength);
+    const bytes = new Uint8Array(COMMENT_CREATE_POD_BYTES + 4 + blobLength);
     const view = new DataView(bytes.buffer);
     const parentId = parseOptionalId(data.parentId);
     const rootId = parseOptionalId(data.rootId);
     const replyToCommentId = parseOptionalId(data.replyToCommentId);
 
-    view.setInt32(0, data.articleId, true);
-    view.setInt32(4, 0, true);
-    bytes[8] = parentId === null ? 0 : 1;
-    bytes[9] = rootId === null ? 0 : 1;
-    bytes[10] = replyToCommentId === null ? 0 : 1;
-    bytes[11] = 0;
-    bytes[12] = encodeCommentAuthorMode(data.authorMode);
-    bytes[13] = data.publicSendExplicitlySelected ? 1 : 0;
-    view.setUint16(14, 0, true);
-    view.setBigInt64(16, parentId ?? 0n, true);
-    view.setBigInt64(24, rootId ?? 0n, true);
-    view.setBigInt64(32, replyToCommentId ?? 0n, true);
+    const o = COMMENT_CREATE_OFFSETS;
+    const blobStart = COMMENT_CREATE_POD_BYTES + 4;
+    view.setInt32(o.articleId, data.articleId, true);
+    bytes[o.hasParentId] = parentId === null ? 0 : 1;
+    bytes[o.hasRootId] = rootId === null ? 0 : 1;
+    bytes[o.hasReplyToCommentId] = replyToCommentId === null ? 0 : 1;
+    bytes[o.authorMode] = encodeCommentAuthorMode(data.authorMode);
+    bytes[o.publicSendExplicitlySelected] = data.publicSendExplicitlySelected ? 1 : 0;
+    view.setBigInt64(o.parentId, parentId ?? 0n, true);
+    view.setBigInt64(o.rootId, rootId ?? 0n, true);
+    view.setBigInt64(o.replyToCommentId, replyToCommentId ?? 0n, true);
 
     let offset = 0;
-    offset = writeBlobPart(bytes, view, 40, 84, offset, anonymousScope);
-    offset = writeBlobPart(bytes, view, 48, 84, offset, displayLanguage);
-    offset = writeBlobPart(bytes, view, 56, 84, offset, proofToken);
-    offset = writeBlobPart(bytes, view, 64, 84, offset, zkProof);
-    writeBlobPart(bytes, view, 72, 84, offset, content);
-    view.setInt32(80, blobLength, true);
+    offset = writeBlobPart(bytes, view, o.anonymousScope, blobStart, offset, anonymousScope);
+    offset = writeBlobPart(bytes, view, o.displayLanguage, blobStart, offset, displayLanguage);
+    offset = writeBlobPart(bytes, view, o.proofToken, blobStart, offset, proofToken);
+    offset = writeBlobPart(bytes, view, o.zkProof, blobStart, offset, zkProof);
+    writeBlobPart(bytes, view, o.content, blobStart, offset, content);
+    view.setInt32(COMMENT_CREATE_POD_BYTES, blobLength, true);
     return bytes;
 }
 
@@ -721,7 +704,7 @@ function writeBlobPart(bytes: Uint8Array, view: DataView, sliceOffset: number, b
     return offset + value.byteLength;
 }
 
-function encodeCommentAuthorMode(mode: CommentCreateV2Dto['authorMode']): number
+function encodeCommentAuthorMode(mode: CommentCreateDto['authorMode']): number
 {
     switch (mode.trim().toLowerCase().replace('-', '_'))
     {

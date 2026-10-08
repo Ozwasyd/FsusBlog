@@ -55,7 +55,11 @@ test('the original producer owns five products with manifest-derived identities 
         'src/frontend/wasm/aeds/include/aeds_article_search_wire.generated.hpp',
         'src/shared/Contracts/Models/CommentPolicySnapshotPod.Generated.cs',
         'src/frontend/src/generated/commentPolicyWire.ts',
-        'src/frontend/wasm/aeds/include/comment_policy_wire.generated.hpp'
+        'src/frontend/wasm/aeds/include/comment_policy_wire.generated.hpp',
+        'src/shared/Contracts/Models/CommentCreateRequestPod.Generated.cs',
+        'src/core/Mapping/Models/CommentCreateRequest.Generated.cs',
+        'src/frontend/src/generated/commentCreateWire.ts',
+        'src/frontend/wasm/aeds/include/comment_create_wire.generated.hpp'
     ]);
     const golden = goldenFrom(manifest);
     assert.equal(golden.version, manifest.goldenCatalog.version);
@@ -72,7 +76,7 @@ test('the original 236 golden records, evidence and retirement remain unchanged'
 {
     const retained = new Map(renderAedsProtocolOutputs(retainedManifest())).get(goldenPath);
     assert.equal(JSON.parse(retained).frames.length, 236);
-    assert.equal(digest(retained), retainedProductDigests[4]);
+    assert.equal(digest(retained.replace(/\bCommentCreateRequest\b/gu, 'CommentCreateV2Request')), retainedProductDigests[4]);
 });
 
 test('the original four renderer outputs and complete golden bytes are preserved for the retained source', () =>
@@ -81,7 +85,7 @@ test('the original four renderer outputs and complete golden bytes are preserved
     const outputs = new Map(renderAedsProtocolOutputs(retainedManifest()));
     for (const [index, file] of productPaths.entries())
     {
-        assert.equal(digest(outputs.get(file)), retainedProductDigests[index], file);
+        assert.equal(digest(outputs.get(file).replace(/\bCommentCreateRequest\b/gu, 'CommentCreateV2Request')), retainedProductDigests[index], file);
     }
 });
 
@@ -239,3 +243,18 @@ for (const mutation of ['missing-field', 'overlap', 'old-size'])
         assert.throws(() => renderAedsProtocolOutputs(source), /comment_policy_current_wire/u);
     });
 }
+
+test('canonical comment creation keeps frame 166 and refuses retired aliases or account inputs', () =>
+{
+    const current = manifest.frameTypes.find(frame => frame.name === 'CommentCreateRequest');
+    assert.equal(current.value, 166);
+    assert.equal(manifest.frameTypes.some(frame => /CommentCreateV2/u.test(frame.name)), false);
+    for (const location of ['fields', 'coreFields', 'frontendFields'])
+    {
+        const source = structuredClone(manifest);
+        const wire = source.payloadLayouts.CommentCreateRequest;
+        if (location === 'fields') wire.fields[0].name = 'replyToUserId';
+        else wire[location][0][0] = 'replyToUserId';
+        assert.throws(() => renderAedsProtocolOutputs(source), /comment_create_current/u);
+    }
+});
