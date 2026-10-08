@@ -86,17 +86,61 @@ authorization and current observation revalidation remain mandatory before any
 business write. Unit adapter controls use synthetic responses and do not qualify
 real native IO or a live ledger.
 
+The [asset staging adapter](../../src/backend/Services/ArticleVault/Assets/ArticleVaultAssetStagingAdapter.cs)
+adds exact plan scope to that observation. It loads the named immutable execution
+bundle through `IArticleVaultExecutionStore.LoadSealedAsync`, uses the original
+`ArticleVaultOperationVerifier` from `9cd6ae50b233eee35f291c9690d316bbfee37941`,
+and verifies the dependency extension against supplied current canonical inputs.
+The whole-plan operation identity and article item identity remain distinct.
+Only a named push item and its unique planned AssetId can produce a handoff;
+the upload principal must match the sealed bundle principal. Current input,
+deadline and cancellation checks surround the original upload observation.
+
+The [upload handoff](../../src/backend/Services/ArticleVault/Assets/ArticleVaultAssetUploadHandoff.cs)
+binds site/vault/device/agent, exact plan, operation, group/item, article source,
+dependency extension, asset and original observation. Its preparation identity is
+deterministic for that scope. Identical retries reread the same original upload
+session; they do not initialize or complete another upload. Observation drift
+changes the content seal and makes `RevalidateAsync` refuse a previous handoff.
+Returned reference collections are immutable copies. No grant/token is retained.
+
+This is content-addressed staging preparation and a future materialization
+handoff, not durable asset staging or a receipt. The existing resolution proposal
+store accepts only resolution proposals; it is not repurposed. The existing
+operation checkpoint store persists operation history, with no asset-stage API.
+The adapter never writes either store, rolls back a committed upload, deletes an
+asset or changes a synced base. Its `CanStartUpload`, `CanMaterialize` and
+`CanCommitBase` remain false. Calling composition must acquire fresh canonical
+source/permission inputs; this adapter does not implement their acquisition or
+grant Vault rights.
+
 ## Outstanding integration
 
 The canonical package owner must provide its actual portable mapping and manifest
 extension API. The current `IAssetStore` exposes deletion only; the committed
 upload observation now supplies verified upload bytes and asset/reference facts,
 but no intended AssetId operation/plan binding, Vault rights, revision or explicit
-reuse receipt. Those APIs,
+reuse receipt. It also lacks a method to persist an asset stage under the exact
+plan/item/AssetId and replay it without initializing a new upload. Those APIs,
 and the canonical stable snapshot/path capability, are required before pull,
 upload, local materialization, recovery obligations and ledger receipts can be
 implemented. No replacement port, direct database/storage writer or production
 mock is introduced here.
+
+Actual native root APIs now include root-issued enumeration and
+`OpenMutationBoundary`/`CreateTemporarySource` from
+`5e7fd98bdefc8cbd5c0a405accc383da917dfa3a`. Their admission is limited to registered
+article source projections; the dependency asset node has no canonical portable
+asset path. The native boundary explicitly cannot execute final replacement or
+commit a base. It must not be used to write an asset through an article path.
+The accepted-source adapter reads an exact accepted article revision and rechecks
+permissions, but supplies neither an asset read grant nor an asset projection.
+
+Required owner methods remain: the #1779/#2258 plan/item-bound upload initializer
+and exact immutable asset-stage read/replay; #1779 authorized AssetId byte/ledger
+read; #1865 portable AssetId projection; and #1910/#2128 asset-specific conditional
+materialization/readback/recovery and verified receipt/base commit. These are
+capability requests, not alternative production interfaces declared here.
 
 The original integration owner registers the schema resource, documentation,
 test matrix, coverage and lifecycle entry. The adapter
