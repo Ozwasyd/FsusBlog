@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "docs/online-database-migration-operations.md"
+    ],
+    "outputs": [
+        {
+            "path": "config/development/document-inventory.generated.json",
+            "sha256": "e7d9eac18b07f2b338477751d2a26d1ef5dbaf073841ba23d941b55c599a05ee"
+        },
+        {
+            "path": "docs/index.md",
+            "sha256": "961827776e2580e6e03ce3c45f511e7afc7e879c3b0b383e03b0473950bee629"
+        }
+    ]
+}

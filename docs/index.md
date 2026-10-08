@@ -263,7 +263,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Internationalization](i18n.md)
 - [Known Limitations](known-limitations.md)
 - [Message schema field matrix](message-schema-field-matrix.md)
-- [Online Migration Operations](online-database-migration-operations.md)
+- [Migration Operations](online-database-migration-operations.md)
 - [Online Database Migration Protocol](online-database-migration.md)
 - [Open Source Readiness](open-source-readiness.md)
 - [Runtime mode gates](operations/runtime-modes.md)

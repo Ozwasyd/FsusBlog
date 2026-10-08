@@ -27,6 +27,8 @@ using Microsoft.AspNetCore.WebUtilities;
 
 using Npgsql;
 
+using SqlSugar;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
@@ -117,12 +119,14 @@ public sealed record ProductionObservabilityHealthCheck(
     int CustomAttributeCount,
     string? Error = null) : IProductionHealthCheck;
 
-public sealed record ProductionOnlineSchemaCompatibilityHealthCheck(
+/// <summary>Protected current admission detail; only its stable failure code enters the public readiness report.</summary>
+public sealed record ProductionCurrentSchemaAdmissionHealthCheck(
     string Status,
     string? PublicErrorCode,
-    string? ReleaseId,
-    string? SchemaCompatibilityCoordinate,
-    IReadOnlyList<OnlineSchemaCompatibilityIssue> Issues,
+    string? ArtifactSha256,
+    string? CandidateSourceRevision,
+    string? TargetContentDigest,
+    string? ActualSchemaDigest,
     string? Error = null) : IProductionHealthCheck;
 
 public sealed record ProductionReleaseIdentityHealthCheck(
@@ -457,8 +461,8 @@ public static class ProductionReadinessPublicReport
             ["checkedAt"] = report.CheckedAt
         };
         if (!string.Equals(report.Status, "ready", StringComparison.Ordinal)
-            && report.Checks.TryGetValue("schemaCompatibility", out object? schemaValue)
-            && schemaValue is ProductionOnlineSchemaCompatibilityHealthCheck schema
+            && report.Checks.TryGetValue("currentSchema", out object? schemaValue)
+            && schemaValue is ProductionCurrentSchemaAdmissionHealthCheck schema
             && string.Equals(schema.PublicErrorCode, "schema_incompatible", StringComparison.Ordinal))
         {
             result["code"] = "schema_incompatible";
@@ -515,7 +519,7 @@ public sealed class ProductionReadinessProbe(
         };
         if (environment.IsProduction())
         {
-            checks["schemaCompatibility"] = CheckOnlineSchemaCompatibility();
+            checks["currentSchema"] = await CheckCurrentSchemaAdmissionAsync(cancellationToken).ConfigureAwait(false);
         }
         ProductionReadinessAsyncResults asyncChecks = await asyncChecksTask;
 
@@ -622,30 +626,53 @@ public sealed class ProductionReadinessProbe(
         return configurationSnapshot.Current;
     }
 
-    private ProductionOnlineSchemaCompatibilityHealthCheck CheckOnlineSchemaCompatibility()
+    internal async Task<ProductionCurrentSchemaAdmissionHealthCheck> CheckCurrentSchemaAdmissionAsync(
+        CancellationToken cancellationToken)
     {
-        OnlineSchemaCompatibilityReport? report = serviceProvider
-            .GetService<OnlineSchemaCompatibilityRuntimeState>()?
+        cancellationToken.ThrowIfCancellationRequested();
+        CurrentSchemaAdmissionResult? startup = serviceProvider
+            .GetService<CurrentSchemaAdmissionState>()?
             .Current;
-        if (report is null)
+        if (startup is null)
         {
-            return new ProductionOnlineSchemaCompatibilityHealthCheck(
-                "failed",
-                "schema_incompatible",
-                releaseIdentity.Current.ReleaseId,
-                null,
-                [],
-                "schema_compatibility_unavailable");
+            return FailedCurrentAdmission("current_schema_admission_unavailable");
         }
-
-        return new ProductionOnlineSchemaCompatibilityHealthCheck(
-            report.Ready ? "ok" : "failed",
-            report.PublicErrorCode,
-            report.ReleaseId,
-            report.SchemaCompatibilityCoordinate,
-            report.Issues,
-            report.Ready ? null : "schema_incompatible");
+        string source = configuration["SchemaMigration:CurrentReceipt:CandidateSourceRevision"] ?? string.Empty;
+        string artifactSha256 = configuration["SchemaMigration:CurrentReceipt:Sha256"] ?? string.Empty;
+        ReleaseIdentitySnapshot release = releaseIdentity.Current;
+        if (!release.Configured || source != release.CommitSha
+            || source != startup.CandidateSourceRevision || artifactSha256 != startup.ArtifactSha256)
+        {
+            return FailedCurrentAdmission("current_schema_admission_binding_mismatch");
+        }
+        try
+        {
+            await using AsyncServiceScope scope = serviceProvider.CreateAsyncScope();
+            CurrentSchemaAdmissionResult fresh = await CurrentSchemaReceiptAdmission.VerifyAsync(
+                configuration["SchemaMigration:CurrentReceipt:Path"] ?? string.Empty,
+                artifactSha256,
+                source,
+                scope.ServiceProvider.GetRequiredService<ISqlSugarClient>(),
+                scope.ServiceProvider.GetRequiredService<ISchemaModelInspector>(),
+                cancellationToken).ConfigureAwait(false);
+            if (fresh.Receipt.Target != startup.Receipt.Target || fresh.Receipt.Database != startup.Receipt.Database
+                || fresh.Receipt.ActualSchemaDigest != startup.Receipt.ActualSchemaDigest)
+            {
+                return FailedCurrentAdmission("current_schema_admission_observation_changed");
+            }
+            return new ProductionCurrentSchemaAdmissionHealthCheck(
+                "ok", null, fresh.ArtifactSha256, fresh.CandidateSourceRevision,
+                fresh.Receipt.Target.ContentDigest, fresh.Receipt.ActualSchemaDigest);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Current-schema readiness observation failed closed.");
+            return FailedCurrentAdmission("current_schema_admission_failed");
+        }
     }
+
+    private static ProductionCurrentSchemaAdmissionHealthCheck FailedCurrentAdmission(string error)
+        => new("failed", "schema_incompatible", null, null, null, null, error);
 
     private static ProductionConfigurationHealthCheck RedactConfigurationHealth(ProductionConfigurationHealthCheck check)
         => string.Equals(check.Status, "ok", StringComparison.Ordinal)

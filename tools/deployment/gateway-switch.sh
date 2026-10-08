@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --kind)
-            [[ $# -ge 2 ]] || SlotFail "--kind requires switch or rollback"
+            [[ $# -ge 2 ]] || SlotFail "--kind requires switch"
             TRANSITION_KIND="$2"
             shift 2
             ;;
@@ -103,9 +103,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+[[ "$TRANSITION_KIND" != "rollback" ]] || SlotFail "schema_image_only_rollback_retired"
+[[ "$TRANSITION_KIND" == "switch" ]] || SlotFail "--kind must be switch"
 SlotRequire "$TARGET_SLOT"
 [[ -n "$EXPECTED_RELEASE_ID" ]] || SlotFail "--release is required"
-[[ "$TRANSITION_KIND" == "switch" || "$TRANSITION_KIND" == "rollback" ]] || SlotFail "--kind must be switch or rollback"
 [[ -f "$ACTIVE_UPSTREAM_FILE" ]] || SlotFail "active upstream file is missing: $ACTIVE_UPSTREAM_FILE"
 [[ -f "$GATEWAY_CONFIG_FILE" ]] || SlotFail "gateway config is missing: $GATEWAY_CONFIG_FILE"
 [[ "$PUBLIC_PROBE_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/health/ready$ ]] ||
@@ -120,14 +121,11 @@ if [[ "$DEFER_SOURCE_DRAIN" == "1" ]]; then
     rollout_guard="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")" ||
         SlotFail "unable to read rollout state for deferred drain"
     deferred_guard_ok="$(jq -r --arg slot "$TARGET_SLOT" --arg release "$EXPECTED_RELEASE_ID" '
-    (.status == "running" and .currentStage == "gateway-switch"
-      and .target.slot == $slot and .target.releaseId == $release)
-    or
-    (.status == "recovery_required" and .recovery.action == "rollback-gateway-to-source"
-      and .source.slot == $slot and .source.releaseId == $release)
+    .status == "running" and .currentStage == "gateway-switch"
+    and .target.slot == $slot and .target.releaseId == $release
   ' <<<"$rollout_guard")"
     [[ "$deferred_guard_ok" == "true" ]] ||
-        SlotFail "deferred drain is allowed only from the unique rollout gateway stage or its durable source rollback recovery"
+        SlotFail "deferred drain is allowed only from the unique rollout gateway stage"
     POST_SWITCH_PROBE_URL="${PUBLIC_PROBE_URL%/health/ready}/health/live"
     POST_SWITCH_LOOPBACK_PATH="/health/live"
 else
@@ -174,7 +172,7 @@ target_activation_ok=false
 source_drain_ok=false
 source_drain_deferred=false
 target_neutralized_on_recovery=false
-target_activated=0
+target_activation_attempted=0
 source_port=0
 source_generation=0
 target_generation=0
@@ -371,12 +369,6 @@ source_runtime_raw="$(DeploymentControl status "$source_port")" ||
 source_runtime_before="$(SanitizeRuntimeSnapshot <<<"$source_runtime_raw")"
 source_runtime_status_ok=true
 
-if [[ "$TRANSITION_KIND" == "rollback" ]]; then
-    [[ "$(jq -r '.previousSlot // ""' <<<"$state")" == "$TARGET_SLOT" &&
-    "$(jq -r '.previousReleaseId // ""' <<<"$state")" == "$EXPECTED_RELEASE_ID" ]] ||
-        GatewayFail rollback-target "recorded previous release does not match rollback request"
-fi
-
 current_upstream="$(node "$ROOT_DIR/tools/deployment/gateway-control.mjs" inspect --file "$ACTIVE_UPSTREAM_FILE")" ||
     GatewayFail upstream-read "active upstream file is invalid"
 [[ "$(jq -r '.slot' <<<"$current_upstream")" == "$source_slot" ]] ||
@@ -412,18 +404,15 @@ target_runtime_raw="$(DeploymentControl status "$target_port")" ||
 target_runtime_acceptable="$(jq -r \
     --arg release "$EXPECTED_RELEASE_ID" \
     --arg slot "$TARGET_SLOT" \
-    --arg kind "$TRANSITION_KIND" \
     --argjson generation "$target_generation" '
     .releaseId == $release
     and .slot == $slot
     and .generation == $generation
-    and (
-      (.mode == "candidate" and .state == "ready" and .canReceiveTraffic == false and .canClaimBackgroundWork == false)
-      or ($kind == "rollback" and .mode == "active" and .state == "active" and .canReceiveTraffic == true)
-    )
+    and .mode == "candidate" and .state == "ready"
+    and .canReceiveTraffic == false and .canClaimBackgroundWork == false
   ' <<<"$target_runtime_raw")"
 [[ "$target_runtime_acceptable" == "true" ]] ||
-    GatewayFail target-runtime-status "target runtime is neither an exact ready candidate nor an undrained active rollback target"
+    GatewayFail target-runtime-status "target runtime is not an exact ready candidate"
 target_runtime_before="$(SanitizeRuntimeSnapshot <<<"$target_runtime_raw")"
 target_runtime_status_ok=true
 ProbeReleaseOnce "$PUBLIC_PROBE_URL" "$source_release" "$source_slot" ||
@@ -496,7 +485,11 @@ RecoverSource() {
     local failureStage="$1"
     local message="$2"
     local recovered=0
-    local targetNeutralized=1
+    if [[ "$target_activation_attempted" == "1" ]]; then
+        node "$ROOT_DIR/tools/deployment/slot-state.mjs" rollback-required \
+            --state "$SLOT_STATE_FILE" --message "$failureStage: verified database restore or forward recovery required" >/dev/null 2>&1 || true
+        GatewayFail "$failureStage" "$message" "schema-restore-or-forward-required"
+    fi
     if [[ "$installed" == "1" && -n "$backup_file" && -f "$backup_file" ]]; then
         if node "$ROOT_DIR/tools/deployment/gateway-control.mjs" restore --active "$ACTIVE_UPSTREAM_FILE" --backup "$backup_file" >/dev/null &&
             "$OPENRESTY_BIN" -t -c "$GATEWAY_CONFIG_FILE" &&
@@ -508,20 +501,7 @@ RecoverSource() {
         recovered=1
     fi
 
-    if [[ "$target_activated" == "1" ]]; then
-        if neutralized_raw="$(DeploymentControl drain "$target_port" \
-            --slot "$TARGET_SLOT" \
-            --release "$EXPECTED_RELEASE_ID" \
-            --generation "$target_generation" \
-            --timeout-seconds "$DRAIN_TIMEOUT_SECONDS")"; then
-            target_runtime_after="$(jq -c '.snapshot' <<<"$neutralized_raw" | SanitizeRuntimeSnapshot)"
-            target_neutralized_on_recovery=true
-        else
-            targetNeutralized=0
-        fi
-    fi
-
-    if [[ "$recovered" == "1" && "$targetNeutralized" == "1" ]]; then
+    if [[ "$recovered" == "1" ]]; then
         node "$ROOT_DIR/tools/deployment/slot-state.mjs" abort-transition \
             --state "$SLOT_STATE_FILE" --message "$failureStage: $message" >/dev/null ||
             GatewayFail state-abort "source upstream recovered but stable state could not be persisted" "source-restored-state-write-failed"
@@ -547,13 +527,13 @@ if ! "$OPENRESTY_BIN" -t -c "$GATEWAY_CONFIG_FILE"; then
     RecoverSource active-config-test "OpenResty rejected installed target upstream"
 fi
 active_config_ok=true
+target_activation_attempted=1
 if ! target_activation_raw="$(DeploymentControl activate "$target_port" \
     --slot "$TARGET_SLOT" \
     --release "$EXPECTED_RELEASE_ID" \
     --generation "$target_generation")"; then
     RecoverSource target-activation "candidate runtime activation failed"
 fi
-target_activated=1
 target_activation_ok=true
 target_runtime_after="$(jq -c '.snapshot' <<<"$target_activation_raw" | SanitizeRuntimeSnapshot)"
 if ! "$OPENRESTY_BIN" -s reload -c "$GATEWAY_CONFIG_FILE"; then

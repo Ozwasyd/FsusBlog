@@ -22,6 +22,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
+import { validateCurrentSchemaCodeContractObservation } from '../docs/behavior-doc-minimal-contract-build-v3-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     validateBrowserContractReceipt,
     validatePublicPreviewEvidenceBinding
@@ -1873,9 +1874,12 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
             `${label} runtime-role deployment observation`
         );
         const buildReceipt = artifact.buildReceipt;
-        if (observation.value.schema !== 'fsusblog.runtime-role-observation.v2'
+        if (observation.value.schema !== 'fsusblog.runtime-role-observation.v3'
             || buildReceipt.schema
-                !== 'fsusblog.runtime-role-observation-build-receipt.v3'
+                !== 'fsusblog.runtime-role-observation-build-receipt.v4'
+            || buildReceipt.observationSchema !== observation.value.schema
+            || buildReceipt.evidenceStage !== 'pre-runtime'
+            || buildReceipt.evidenceClass !== 'compiled-production-code-model'
             || observation.value.ownership?.claimEligible !== true
             || deployment.value.ownership?.claimEligible !== true
             || observation.value.deploymentAuthority?.observationDigest
@@ -1886,8 +1890,9 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
             || deployment.fileDigest
                 !== `sha256:${artifact.deploymentArtifactDigest}`)
         {
-            fail(`${label} runtime-role v2 observation authority is stale or incomplete`);
+            fail(`${label} runtime-role v3 observation authority is stale or incomplete`);
         }
+        validateCurrentSchemaCodeContractObservation(observation.value.currentSchemaContract);
     }
     else if (current.value.schema !== contract.schema
         || !digestPattern.test(prefixedDigest(current.value.contentDigest))

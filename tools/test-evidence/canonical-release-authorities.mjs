@@ -87,9 +87,13 @@ export function createCanonicalReleaseAuthorityReader(repositoryRoot)
 export function verifyCanonicalReleaseAuthorities({ candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot })
 {
   if (!plan || !repositoryRoot) fail('candidate plan and repository root are required')
-  return verifyCanonicalReleaseAuthorityValues({
+  verifyCanonicalReleaseAuthorityValues({
     candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot,
     ...createCanonicalReleaseAuthorityReader(repositoryRoot),
     now: Date.now()
   })
+  // Immutable input/value bindings and pre-runtime compiled model controls do
+  // not prove execution of the owned native collector for this admitted attempt.
+  // Refuse authority publication until that original execution seam is connected.
+  fail('current-schema post-runtime admitted native collector is not connected')
 }

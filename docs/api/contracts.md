@@ -1591,53 +1591,37 @@ lossless/state/low lane 无法继续安全实时投递时必须按 delivery poli
 
 服务端通过真实 `INotificationStreamPublisher` 写入 backlog 并触发本机 fanout，响应包含 `status`、`drillId`、`routeKey`、`eventType`、`count` 与 `eventIds`。该入口只供 resilience evidence 使用，生产环境不映射，未配置 secret 时返回 `404`。
 
-### Test-only schema migration qualification
+### Retired Test-only schema migration qualification
 
 以下两个 JSON tooling routes 仅在 environment 精确为 `Test` 且
 `SchemaMigration:QualificationEnabled=true` 时映射；两者均要求 admin
 `system.config` 并应用 `fixed_ip` rate limit。Production/Development 中配置为 true
-Nor will it register.
+也不会注册。当前保留的是明确拒绝的过渡 route，不是 bridge write 或迁移准入。
 
 `POST /api/release-evidence/schema-bridge/write`
 
-ask:
-
-```json
-{
-  "operationId": "source-migration-run-001",
-  "sequence": 1
-}
-```
-
-`operationId` trim 后必须为 3..96 个 ASCII letters/digits/`-_.`；`sequence` 必须为
-1..1,000,000。无效输入返回 `400 {"code":"schema_qualification_write_invalid"}`。
-Successfully executes the idempotent upsert of the qualification control table and returns:
-
-```json
-{
-  "bridgeWrite": true,
-  "operationId": "source-migration-run-001",
-  "sequence": 1,
-  "releaseId": "release-blue-...",
-  "slot": "blue"
-}
-```
+固定返回 HTTP 410，`{"code":"schema_qualification_retired"}`。
+handler 不解析原 bridge payload，不创建 qualification table，也不执行 upsert。
+历史输入 normalization 与回归 fixture 保留不代表仍可调用旧写入行为。
 
 `GET /api/release-evidence/schema-qualification/readiness`
 
-- ready：HTTP 200，`{"status":"ready","code":"ok"}`；
-- isolated missing Expand：HTTP 503，
-  `{"status":"not_ready","code":"schema_incompatible"}`。
-
-受保护的 qualification 诊断字段中，`releaseId` 是严格
-`YYYYMMDDHHmmss-sha12` 部署身份，`schemaCompatibilityCoordinate` 是独立的数据库
-兼容坐标。坐标允许规范 min/max fence，但 fence 不得出现在 `releaseId` 字段；历史
-记录的 `appliedByRelease` 也必须始终是规范部署身份。
+固定返回 HTTP 503，
+`{"status":"failed","code":"schema_incompatible","reason":"schema_qualification_retired"}`。
+handler 不解析旧 online coordinator，也不能通过缺失 Expand、release window 或
+旧 shape 来授予 readiness。
 
 两条响应都携带 `X-Fsus-Release-Id`、`X-Fsus-Release-Slot` 与
 `Cache-Control: no-store`。这些 header 用于 source/target identity 对账，不是认证
-Credentials. route is only for #1031 isolation migration qualification; real production migrations can still only be made by
-`tools/deployment/release-rollout.sh` 串联正式 migration runner。
+credentials，更不是 current-schema/database receipt。原 #1031 qualification
+实验不再是生产迁移入口；历史 descriptors、fixture 和历史 `appliedByRelease`
+身份约束仍由离线迁移 owner 保留。
+
+Server 不执行 schema migration。正式迁移只属于唯一离线 executable 的
+plan/apply/verify 链，release/startup 必须消费与实际 candidate、current target、
+database 及独立 fresh observation 相符的 current-schema receipt。上述 refusal
+slice 本身不证明该整条链已实现或通过验收；剩余 producer、操作准入和最终
+route-inventory 产物删除仍须各自原始验证，不能从 410/503 推导成迁移成功。
 
 ### Development local auth fixture
 

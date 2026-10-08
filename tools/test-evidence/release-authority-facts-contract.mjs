@@ -2,17 +2,24 @@ import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
 
 const semanticDigest = (value) => `sha256:${digestValue(stable(value))}`
 
+// A manifest reference, legacy window or caller JSON cannot mint native facts.
+// The original admitted collector capability is not connected to this owner yet.
+function requireAdmittedCurrentSchemaMaterial()
+{
+  throw new Error('[canonical-release-authorities] current-schema post-runtime admitted native collector is not connected')
+}
+
 // Input authorities must already have passed the canonical I/O verifier.
 export function deriveReleaseReadinessAuthorityFacts({ plan, authorities, build })
 {
+  const current = requireAdmittedCurrentSchemaMaterial()
   const rollout = authorities.rollout.value
   const runtime = authorities.runtimeRole
   const legacyFacts = {
     imageDigest: rollout.target.imageDigest,
     packageDigest: build.packageDigest,
     configDigest: runtime.deployment.ref.fileDigest,
-    schemaDigest: authorities.manifest.value.schemaCompatibility?.contentDigest
-      ?? semanticDigest(authorities.manifest.value.schemaCompatibility),
+    schemaDigest: semanticDigest({ target: current.receipt.target, actualSchemaDigest: current.receipt.actualSchemaDigest }),
     manifestDigest: authorities.manifest.ref.fileDigest,
     signingDigest: rollout.auxiliary?.releaseManifest?.sha256,
     trustDigest: semanticDigest({ image: rollout.target.imageDigest, manifest: authorities.manifest.ref.fileDigest }),
@@ -37,6 +44,7 @@ export function deriveReleaseReadinessAuthorityFacts({ plan, authorities, build 
 
 export function deriveBlueGreenAuthorityFacts({ authorities })
 {
+  requireAdmittedCurrentSchemaMaterial()
   const rollout = authorities.rollout.value
   const stage = (id) => rollout.stages.find(({ stage: stageId }) => stageId === id)
   const sourceIdentity = rollout.source
