@@ -98,14 +98,65 @@ public sealed record ArticleTemplateAssetPin(
 /// Current revision truth for every external reference the plan relies on. Pins record the
 /// authority state observed while planning so staleness is detectable, never repaired by name.
 /// </summary>
-public sealed record ArticleTemplateExpansionDependencies(
-    int? CategoryId,
-    IReadOnlyList<int> TagIds,
-    IReadOnlyList<ArticleTemplateAssetPin> AssetPins,
-    IReadOnlyList<ArticleTemplatePropertyDefault> PropertyDefaults,
-    ArticleTemplateProfileReference? RightsProfile,
-    ArticleTemplateProfileReference? ResponsibilityProfile,
-    ArticleTemplateProfileReference? PrepublishProfile);
+public sealed record ArticleTemplateExpansionDependencies
+{
+    public ArticleTemplateExpansionDependencies(
+        int? categoryId,
+        IReadOnlyList<int> tagIds,
+        IReadOnlyList<ArticleTemplateAssetPin> assetPins,
+        IReadOnlyList<ArticleTemplatePropertyDefault> propertyDefaults,
+        ArticleTemplateProfileReference? rightsProfile,
+        ArticleTemplateProfileReference? responsibilityProfile,
+        ArticleTemplateProfileReference? prepublishProfile)
+    {
+        ArgumentNullException.ThrowIfNull(tagIds);
+        ArgumentNullException.ThrowIfNull(assetPins);
+        ArgumentNullException.ThrowIfNull(propertyDefaults);
+        if (tagIds.Count > ArticleTemplateContract.MaxTags
+            || assetPins.Count > ArticleTemplateContract.MaxAssets
+            || propertyDefaults.Count > ArticleTemplateContract.MaxPropertyDefaults)
+        {
+            throw new ArticleTemplateBudgetExceededException("article_template_expansion_dependency_budget_exceeded");
+        }
+
+        CategoryId = categoryId;
+        TagIds = Array.AsReadOnly(tagIds.ToArray());
+        AssetPins = Array.AsReadOnly(assetPins.ToArray());
+        PropertyDefaults = Array.AsReadOnly(propertyDefaults.ToArray());
+        RightsProfile = rightsProfile;
+        ResponsibilityProfile = responsibilityProfile;
+        PrepublishProfile = prepublishProfile;
+    }
+
+    public int? CategoryId
+    {
+        get;
+    }
+    public IReadOnlyList<int> TagIds
+    {
+        get;
+    }
+    public IReadOnlyList<ArticleTemplateAssetPin> AssetPins
+    {
+        get;
+    }
+    public IReadOnlyList<ArticleTemplatePropertyDefault> PropertyDefaults
+    {
+        get;
+    }
+    public ArticleTemplateProfileReference? RightsProfile
+    {
+        get;
+    }
+    public ArticleTemplateProfileReference? ResponsibilityProfile
+    {
+        get;
+    }
+    public ArticleTemplateProfileReference? PrepublishProfile
+    {
+        get;
+    }
+}
 
 /// <summary>
 /// Immutable, recomputable expansion result. The plan intentionally carries no article
@@ -114,6 +165,8 @@ public sealed record ArticleTemplateExpansionDependencies(
 /// </summary>
 public sealed class ArticleTemplateExpansionPlan
 {
+    private readonly byte[] _expandedSource;
+
     public ArticleTemplateExpansionPlan(
         ArticleTemplateExpansionInput input,
         Guid versionId,
@@ -150,7 +203,7 @@ public sealed class ArticleTemplateExpansionPlan
         VersionNumber = versionNumber;
         TemplateRevision = templateRevision;
         Scope = scope;
-        ExpandedSource = [.. expandedSource];
+        _expandedSource = [.. expandedSource];
         ExpandedSourceDigest = expandedSourceDigest;
         Defaults = defaults;
         DefaultsDigest = defaultsDigest;
@@ -181,10 +234,8 @@ public sealed class ArticleTemplateExpansionPlan
     {
         get;
     }
-    public byte[] ExpandedSource
-    {
-        get;
-    }
+    /// <summary>Returns a detached copy so validation and consumption observe the same immutable bytes.</summary>
+    public byte[] ExpandedSource => [.. _expandedSource];
     public string ExpandedSourceDigest
     {
         get;
