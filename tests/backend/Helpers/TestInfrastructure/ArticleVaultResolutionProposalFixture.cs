@@ -9,8 +9,9 @@ internal static class ArticleVaultResolutionProposalFixture
     internal const string Digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     internal const long Now = 1_800_000_000_000;
 
-    internal static ArticleVaultResolutionPlanInput Create()
+    internal static ArticleVaultResolutionPlanInput Create(long? nowUnixMs = null)
     {
+        long now = nowUnixMs ?? Now;
         ArticleVaultMetadataManifest baseline = Seal(new ArticleVaultMetadataManifest(ArticleVaultSchemas.MetadataManifest, 1, "site-one", "vault-one", "device-one",
             "article-one", "server-one", "base title", "base summary", "base-slug", Digest, Digest, string.Empty));
         ArticleVaultMetadataManifest local = Seal(baseline with
@@ -59,12 +60,12 @@ internal static class ArticleVaultResolutionProposalFixture
             ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(root)
         };
         ArticleVaultSyncPlan plan = ArticleVaultSyncPlanner.Build(new(root, [article], [observation],
-            [new("group-one", ["article-one"], [])], VaultSyncDirection.Sync, Now, Now + 60_000, false)).Plan!;
+            [new("group-one", ["article-one"], [])], VaultSyncDirection.Sync, now, now + 60_000, false)).Plan!;
         VaultSyncPlanItem item = plan.Groups[0].Items[0];
         VaultConflictBinding binding = new(plan.SiteIdentity, plan.VaultIdentity, plan.DeviceIdentity, item.PortableArticleIdentity,
             item.ServerArticleIdentity, plan.PlanCandidateIdentity, plan.ContentSha256, item.GroupIdentity, item.OperationIdentity,
             article.ContentSha256, observation.ContentSha256, new(item.Base, item.Local, item.Server));
-        ArticleVaultScalarMetadataInput metadata = new(plan, root, [article], [observation], new(Now, VaultSyncDirection.Sync, false), binding,
+        ArticleVaultScalarMetadataInput metadata = new(plan, root, [article], [observation], new(now, VaultSyncDirection.Sync, false), binding,
             ArticleVaultManifestCodec.Serialize(baseline), ArticleVaultManifestCodec.Serialize(local), ArticleVaultManifestCodec.Serialize(server));
         ArticleVaultScalarMetadataCandidate candidate = ArticleVaultScalarMetadataMerge.Build(metadata).Candidate!;
         VaultConflictRegistryEntry entry = ArticleVaultConflictRegistry.Find(VaultConflictType.MetadataDisjoint)!;
@@ -93,7 +94,7 @@ internal static class ArticleVaultResolutionProposalFixture
         };
         return new(metadata, evidence, git,
             [new(entry.Type, VaultConflictAction.PrepareMetadataCandidate, entry.Disposition, candidate.ContentSha256)],
-            candidate, new("confirmation-one", "actor-one", Now), Now + 30_000);
+            candidate, new("confirmation-one", "actor-one", now), now + 30_000);
     }
 
     internal static VaultArticleCoordinate Seal(VaultArticleCoordinate coordinate)
