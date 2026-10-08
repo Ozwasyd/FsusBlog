@@ -51,6 +51,8 @@ public sealed class ContentAssetContractTests
     [InlineData("class OldQueue { string Sql = \"CREATE TABLE article_asset_cleanup_queue (url text)\"; }")]
     [InlineData("class OldView { string Sql = \"CREATE VIEW asset_library_article_ref AS SELECT 1\"; }")]
     [InlineData("class UrlDelete { void DeleteImageAsync(string imageUrl) { } }")]
+    [InlineData("interface IAssetStore { Task DeleteAsync(string imageUrl); }")]
+    [InlineData("class OtherStore : IAssetStore { Task DeleteAsync(string path) => null; }")]
     [InlineData("class PathDelete { void TryNormalizeImageDeletePath(string path) { } }")]
     [InlineData("class UrlIdentity { ArticleAssetUrlNormalizer normalizer; }")]
     [InlineData("[SugarTable(\"content_asset_reference\")] class DuplicateLedger { }")]
@@ -107,6 +109,19 @@ public sealed class ContentAssetContractTests
 
             foreach (var entity in syntax.DescendantNodes().OfType<TypeDeclarationSyntax>())
             {
+                if (entity.Identifier.ValueText is "IAssetStore" or "LocalContentAssetStore"
+                    || entity.BaseList?.Types.Any(static type => type.Type.ToString().Split('.').Last() == "IAssetStore") == true)
+                {
+                    foreach (var method in entity.Members.OfType<MethodDeclarationSyntax>())
+                    {
+                        if (method.Identifier.ValueText.StartsWith("Delete", StringComparison.Ordinal)
+                            && method.ParameterList.Parameters.Any(static parameter => parameter.Type is PredefinedTypeSyntax type
+                                && type.Keyword.IsKind(SyntaxKind.StringKeyword)))
+                        {
+                            violations.Add(file + ": URL/path deletion overload");
+                        }
+                    }
+                }
                 foreach (var attribute in entity.AttributeLists.SelectMany(static list => list.Attributes))
                 {
                     if (attribute.Name.ToString().Split('.').Last() is not ("SugarTable" or "SugarTableAttribute"))
