@@ -1,0 +1,28 @@
+{
+  "kind": "ordinary local diagnostic; not native or full matrix acceptance",
+  "source": "a4e68aead16531c3522756bb59fd35018adff058",
+  "runId": "mem3463-current-reproducible-diagnostic",
+  "total": 15,
+  "passed": 15,
+  "failed": 0,
+  "skipped": 0,
+  "ownedTests": 14,
+  "originalNegativeControl": 1,
+  "exactTests": {
+    "FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.T11_CanceledOuterWaitDoesNotReturnTheStillRunningConsumer": "Passed",
+    "FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.T01_IndependentPoolsCompeteForTheSameFinalHostBudget": "Passed",
+    "FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.AdmissionRejectedBeforeTheQueryCallbackOrMaterialization": "Passed",
+    "FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.CancellationOfOuterWaitRetainsWorkspaceUntilUnderlyingQueryEnds": "Passed",
+    "FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests.RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny": "Passed",
+    "FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.StringLengthIsProbedBeforeAllocatingOrReadingOversizeCharacters": "Passed",
+    "FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.PinCopiesKeepBackingChargedThroughCloseAndReturnOnlyOnce": "Passed",
+    "FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.AutoRetention_DisableDrainsIdleCapacityAndPreservesMandatoryAdmission": "Passed",
+    "FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.T08_ReturnRetainsActualBucketCharge_TrimRefundsExactlyOnce": "Passed",
+    "FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.DisposedPinCopyDoesNotKeepARefundedArrayAlive": "Passed",
+    "FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests.T41_ShutdownDisposesQueuedHoldsButKeepsInFlightOwnerAndReplayObligation": "Passed",
+    "FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.RowFrameAndWorkspaceBoundsFailBeforeTheNextAllocation": "Passed",
+    "FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests.T40_ByteLimitIsIndependentOfFrameCount": "Passed",
+    "FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests.T40_OnePayloadRemainsChargedThroughFastAndSlowRecipientCompletion": "Passed",
+    "FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.RepeatedParallelBurstsNeverExceedCapacityOrRetentionLimits": "Passed"
+  }
+}

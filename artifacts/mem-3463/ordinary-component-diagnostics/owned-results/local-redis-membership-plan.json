@@ -1,0 +1,38 @@
+{
+  "schema": "fsusblog.ordinary-local-redis-membership-plan.v1",
+  "lane": "backend-unit-affected",
+  "executionFilter": "Category!=Integration&Fixture!=LocalRedis&(FullyQualifiedName~TransientBufferPoolTests|FullyQualifiedName~DatabaseMaterializationScopeTests|FullyQualifiedName~NotificationPayloadLeaseTests|FullyQualifiedName~RealConcurrencyHarnessTests.RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny)",
+  "runId": "mem3463-current-reproducible-diagnostic",
+  "sourceCommit": "a4e68aead16531c3522756bb59fd35018adff058",
+  "sourceFingerprint": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "tests": [
+    {
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply",
+      "result": "not-selected",
+      "planned": false,
+      "owner": "perception-character-v3-redis-fixture",
+      "reason": "Fixture=LocalRedis is owned exclusively by the canonical LocalRedis producer"
+    },
+    {
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed",
+      "result": "not-selected",
+      "planned": false,
+      "owner": "perception-character-v3-redis-fixture",
+      "reason": "Fixture=LocalRedis is owned exclusively by the canonical LocalRedis producer"
+    },
+    {
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity",
+      "result": "not-selected",
+      "planned": false,
+      "owner": "perception-character-v3-redis-fixture",
+      "reason": "Fixture=LocalRedis is owned exclusively by the canonical LocalRedis producer"
+    },
+    {
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.PerceptionCharacterV3ContractCutoverTests.RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently",
+      "result": "not-selected",
+      "planned": false,
+      "owner": "perception-character-v3-redis-fixture",
+      "reason": "Fixture=LocalRedis is owned exclusively by the canonical LocalRedis producer"
+    }
+  ]
+}

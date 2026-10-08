@@ -1,0 +1,55 @@
+{
+  "kind": "generated source boundary check",
+  "base": "d9c56e881c1d8c6e8865c9c3660611dd3e4d6340",
+  "previousHelperFailure": "git blob read exceeded Node default1MiB maxBuffer; this actual complete read uses64MiB, no checker/policy changed",
+  "documents": [
+    {
+      "path": "docs/api.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/api/aeds-only-policy.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/api/quick-reference.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/api/schemas-and-errors.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/api/stability.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/architecture/comment-query-boundary.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/architecture/monolithic-distributed-boundary.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/releases/blue-green-deployment-runbook.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/releases/release-identity.md",
+      "exteriorUnchanged": true
+    },
+    {
+      "path": "docs/testing.md",
+      "exteriorUnchanged": true
+    }
+  ]
+}

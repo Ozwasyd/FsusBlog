@@ -1,0 +1,416 @@
+{
+  "schema": "fsusblog.doc-claim-verification-receipt.v1",
+  "sourceCommit": "a4e68aead16531c3522756bb59fd35018adff058",
+  "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48",
+  "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+  "parseReceiptDigest": "a97e9e75531bb00a2f407944c54b554f91cdac8ff11c06b482ecc2932ee47fa4",
+  "factObservationDigests": [
+    {
+      "extractorId": "auth-session-permission-fact-extractor",
+      "contentDigest": "ddc5572b0c1bafef3992f51e2fc2996f431bc16c42b31b4fc9fe7d2b5a76c21c"
+    },
+    {
+      "extractorId": "code-intent-fact-extractor",
+      "contentDigest": "48a50e29b8d61593b90f204866da7adce1eae4c6d9572c7f7ffca74ed50f8f54"
+    },
+    {
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "contentDigest": "58e132ff15abc82b0c872a4de8839b94cabe287d17bf7ae0addb334b47ec6fbb"
+    },
+    {
+      "extractorId": "content-lifecycle-fact-extractor",
+      "contentDigest": "c8c98c320e61998abf1616944b5fa0c7376f963856543e14969dae0f493f5fd2"
+    },
+    {
+      "extractorId": "document-lifecycle-fact-extractor",
+      "contentDigest": "d7cc45b8f4988e2d9ae0d498fc5cd88c38c185b6346c5414b1daefa8f22c79a4"
+    },
+    {
+      "extractorId": "openapi-aeds-fact-extractor",
+      "contentDigest": "591b78ebef42f12f4081becc871e488b4149b27e096a7f5ddcfc898a555b9b22"
+    },
+    {
+      "extractorId": "test-asset-audit-fact-extractor",
+      "contentDigest": "37da074ee653263215cd370c75d3339706cd16650e98d78ce768dca88a24bee8"
+    },
+    {
+      "extractorId": "test-matrix-fact-extractor",
+      "contentDigest": "726fb9e2cb127cded521bff2ad49de5038dbab7a173bf75f659669a0171cca0c"
+    }
+  ],
+  "results": [
+    {
+      "claimId": "article-comment-lifecycle-outbox.delete-causal",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "claimType": "binary-relation",
+      "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+      "documentStatus": "current",
+      "factPath": "facts.article.delete.causal",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "article-comment-lifecycle-outbox.deleted-root-admin",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "claimType": "binary-relation",
+      "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+      "documentStatus": "current",
+      "factPath": "facts.comment.deletedRoot.adminDescendants",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "article-comment-lifecycle-outbox.deleted-root-public",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "claimType": "binary-relation",
+      "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+      "documentStatus": "current",
+      "factPath": "facts.comment.deletedRoot.publicDescendants",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "article-comment-lifecycle-outbox.restore-causal",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "claimType": "binary-relation",
+      "documentPath": "docs/api/article-publication-revisions.md",
+      "documentStatus": "current",
+      "factPath": "facts.article.restore.causal",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "article-comment-lifecycle-outbox.rollback-causal",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "claimType": "binary-relation",
+      "documentPath": "docs/architecture/article-revision-concurrency.md",
+      "documentStatus": "current",
+      "factPath": "facts.article.rollback.causal",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "article-comment-lifecycle-outbox.scheduled-due",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "claimType": "binary-relation",
+      "documentPath": "docs/api/article-publication-revisions.md",
+      "documentStatus": "current",
+      "factPath": "facts.article.scheduled.dueTransition",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "article-comment-lifecycle-outbox.scheduled-pre-due",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "claimType": "binary-relation",
+      "documentPath": "docs/api/article-publication-revisions.md",
+      "documentStatus": "current",
+      "factPath": "facts.article.scheduled.preDueCurrent",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "article-comment-lifecycle-outbox.scheduled-stale",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "claimType": "binary-relation",
+      "documentPath": "docs/api/article-publication-revisions.md",
+      "documentStatus": "current",
+      "factPath": "facts.article.scheduled.replaceCancelStale",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.mfa-enabled-step-up-method",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.mfaEnabledStepUpMethod",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.passkey-auth-strength",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.passkeyAuthStrength",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.passkey-delete-does-not-revoke-unbound-sessions",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.passkeyDeleteDoesNotRevokeUnboundSessions",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.passkey-delete-revokes-bound-sessions",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.passkeyDeleteRevokesBoundSessions",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.passkey-is-not-totp",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.passkeyIsNotTotp",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.recovery-auth-strength",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.recoveryAuthStrength",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.recovery-does-not-mint-step-up",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.recoveryDoesNotMintStepUp",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.refresh-does-not-rebuild-step-up",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.refreshDoesNotRebuildStepUp",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.refresh-preserves-auth-context",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.refreshPreservesAuthContext",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.step-up-binding",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.stepUpBinding",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "authentication-session-permission.relation.step-up-consume-once",
+      "behaviorId": "authentication-session-permission",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "documentStatus": "current",
+      "factPath": "facts.authRelationClaims.stepUpConsumeOnce",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "binary-api-aeds-contract.aeds-only",
+      "behaviorId": "binary-api-aeds-contract",
+      "claimType": "boolean",
+      "documentPath": "docs/api/aeds-only-policy.md",
+      "documentStatus": "current",
+      "factPath": "protocolStates.aedsOnly",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "binary-api-aeds-contract.migration-only-state",
+      "behaviorId": "binary-api-aeds-contract",
+      "claimType": "failure-mode",
+      "documentPath": "docs/api/aeds-only-policy.md",
+      "documentStatus": "current",
+      "factPath": "protocolStates.migrationOnlyState",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "binary-api-aeds-contract.operation-active-state",
+      "behaviorId": "binary-api-aeds-contract",
+      "claimType": "failure-mode",
+      "documentPath": "docs/api.md",
+      "documentStatus": "current",
+      "factPath": "operations",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "binary-api-aeds-contract.public-error-authority-owner",
+      "behaviorId": "binary-api-aeds-contract",
+      "claimType": "failure-mode",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "documentStatus": "current",
+      "factPath": "errorAuthority.behaviorId",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "binary-api-aeds-contract.public-error-reference-state",
+      "behaviorId": "binary-api-aeds-contract",
+      "claimType": "failure-mode",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "documentStatus": "current",
+      "factPath": "operations",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "binary-api-aeds-contract.request-non-nullable",
+      "behaviorId": "binary-api-aeds-contract",
+      "claimType": "boolean",
+      "documentPath": "docs/api.md",
+      "documentStatus": "current",
+      "factPath": "operations",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "binary-api-aeds-contract.request-required",
+      "behaviorId": "binary-api-aeds-contract",
+      "claimType": "boolean",
+      "documentPath": "docs/api.md",
+      "documentStatus": "current",
+      "factPath": "operations",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "binary-api-aeds-contract.request-source",
+      "behaviorId": "binary-api-aeds-contract",
+      "claimType": "failure-mode",
+      "documentPath": "docs/api.md",
+      "documentStatus": "current",
+      "factPath": "operations",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "binary-api-aeds-contract.response-non-nullable",
+      "behaviorId": "binary-api-aeds-contract",
+      "claimType": "boolean",
+      "documentPath": "docs/api.md",
+      "documentStatus": "current",
+      "factPath": "operations",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "binary-api-aeds-contract.response-result-placement",
+      "behaviorId": "binary-api-aeds-contract",
+      "claimType": "failure-mode",
+      "documentPath": "docs/api.md",
+      "documentStatus": "current",
+      "factPath": "operations",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "configuration-error-security-policy.challenge-verify-fail-policy",
+      "behaviorId": "configuration-error-security-policy",
+      "claimType": "failure-mode",
+      "documentPath": "docs/security.md",
+      "documentStatus": "current",
+      "factPath": "facts.securityPolicyClaims.challengeVerifyFailMode",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "configuration-error-security-policy.challenge-window-cache-relation",
+      "behaviorId": "configuration-error-security-policy",
+      "claimType": "binary-relation",
+      "documentPath": "docs/security.md",
+      "documentStatus": "current",
+      "factPath": "facts.securityPolicyClaims.windowCacheRelation",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "configuration-error-security-policy.rate-limiter-fail-policy",
+      "behaviorId": "configuration-error-security-policy",
+      "claimType": "failure-mode",
+      "documentPath": "docs/security.md",
+      "documentStatus": "current",
+      "factPath": "facts.securityPolicyClaims.rateLimiterFailMode",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "deployment-blue-green-runtime-role.claims-blocked-until-authority-verified",
+      "behaviorId": "deployment-blue-green-runtime-role",
+      "claimType": "boolean",
+      "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+      "documentStatus": "current",
+      "factPath": "deploymentBlueGreen.claimEligible",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "deployment-blue-green-runtime-role.distributed-issue-rationale",
+      "behaviorId": "deployment-blue-green-runtime-role",
+      "claimType": "rationale",
+      "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+      "documentStatus": "current",
+      "factPath": "deploymentBlueGreen.claimEligible",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "deployment-blue-green-runtime-role.monolithic-distributed-rationale",
+      "behaviorId": "deployment-blue-green-runtime-role",
+      "claimType": "rationale",
+      "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+      "documentStatus": "current",
+      "factPath": "topologyDigest",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "release-final-aggregate-contract.aggregate-artifact-only",
+      "behaviorId": "release-final-aggregate-contract",
+      "claimType": "boolean",
+      "documentPath": "docs/releases/release-identity.md",
+      "documentStatus": "current",
+      "factPath": "releaseFinalAggregate.artifactOnly",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    },
+    {
+      "claimId": "release-final-aggregate-contract.aggregate-only",
+      "behaviorId": "release-final-aggregate-contract",
+      "claimType": "boolean",
+      "documentPath": "docs/releases/release-identity.md",
+      "documentStatus": "current",
+      "factPath": "releaseFinalAggregate.executesTestCommands",
+      "status": "verified",
+      "reason": "claim matches current fact observation"
+    }
+  ],
+  "status": "ok",
+  "failureReasons": [],
+  "contentDigest": "1eaab8b945a273a24df64496febf0fd9cfcc94d1ddc470b718693fccab8facc0"
+}

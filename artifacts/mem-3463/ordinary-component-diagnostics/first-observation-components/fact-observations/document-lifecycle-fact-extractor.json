@@ -1,0 +1,31 @@
+{
+  "schema": "fsusblog.fact-observation-receipt.v1",
+  "extractorId": "document-lifecycle-fact-extractor",
+  "behaviorIds": [
+    "document-lifecycle-governance"
+  ],
+  "sourceCommit": "d9c56e881c1d8c6e8865c9c3660611dd3e4d6340",
+  "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48",
+  "buildIdentity": null,
+  "extractorDigest": "bbdcd7fa07c88087c5950578b703d3c157b6dadf588288c48410036f88985efa",
+  "registryDigest": "dd2566d3d9c34900fb7b13220adc8b1243fae897b7839eeeccd0cbdcd1632bc2",
+  "consumedInputDigests": [
+    {
+      "path": "config/development/document-lifecycle.json",
+      "digest": "0d962e5b5d6d90b82b41d806b3a5afa097ee9b797c9dca01147b571c38ec1ccb"
+    }
+  ],
+  "observations": {
+    "catalogSchema": "fsusblog.document-lifecycle-policy.v3",
+    "documentCount": 372,
+    "documentStatuses": [
+      "current",
+      "generated",
+      "historical",
+      "proposed"
+    ]
+  },
+  "status": "ok",
+  "failureReasons": [],
+  "contentDigest": "1bb649b2d65aa02a2d7d5c56aff10bf0d69cb6b98210b0ae5fc5993647b0d3ce"
+}

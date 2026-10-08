@@ -1,0 +1,7 @@
+[dotnet:affected] selection=affected base=1cd4e060acedfd7838a477842685e0052d8e4107
+[dotnet:affected] selection=affected effective=full reason=backend-shared-core-or-tests changed=38
+Test run for /workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/scratch/mem-3463/current-source/.tmp/backend-unit/affected.trx
+
+Passed!  - Failed:     0, Passed:    15, Skipped:     0, Total:    15, Duration: 129 ms - FsusBlog.Server.Tests.dll (net10.0)

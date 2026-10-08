@@ -1,0 +1,21 @@
+[
+  "node",
+  "tools/docs/generate-fact-sections.mjs",
+  "--generate",
+  "--receipt",
+  "/workspace/scratch/mem-3463/current-source/.tmp/behavior-doc-static-admission/components/fact-observations/auth-session-permission-fact-extractor.json",
+  "--receipt",
+  "/workspace/scratch/mem-3463/current-source/.tmp/behavior-doc-static-admission/components/fact-observations/code-intent-fact-extractor.json",
+  "--receipt",
+  "/workspace/scratch/mem-3463/current-source/.tmp/behavior-doc-static-admission/components/fact-observations/config-error-security-policy-fact-extractor.json",
+  "--receipt",
+  "/workspace/scratch/mem-3463/current-source/.tmp/behavior-doc-static-admission/components/fact-observations/content-lifecycle-fact-extractor.json",
+  "--receipt",
+  "/workspace/scratch/mem-3463/current-source/.tmp/behavior-doc-static-admission/components/fact-observations/document-lifecycle-fact-extractor.json",
+  "--receipt",
+  "/workspace/scratch/mem-3463/current-source/.tmp/behavior-doc-static-admission/components/fact-observations/openapi-aeds-fact-extractor.json",
+  "--receipt",
+  "/workspace/scratch/mem-3463/current-source/.tmp/behavior-doc-static-admission/components/fact-observations/test-asset-audit-fact-extractor.json",
+  "--receipt",
+  "/workspace/scratch/mem-3463/current-source/.tmp/behavior-doc-static-admission/components/fact-observations/test-matrix-fact-extractor.json"
+]

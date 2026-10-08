@@ -1,0 +1,34 @@
+✔ catalog schema contract is fail-closed and forbids baseline allowlists (5.41615ms)
+✔ RendererRegistry exposes exactly the admitted typed renderers (1.127513ms)
+✔ typed renderers are deterministic across two runs (23.431396ms)
+✔ enum-set sorts by ordinal and ignores observation order / filesystem order (0.290497ms)
+✔ ordered-set preserves observation order (0.186341ms)
+✔ table observation text cannot become inline HTML or an HTML entity (0.343116ms)
+✔ transition-table and route-table emit fixed columns (0.275118ms)
+✔ emptyPolicy fail rejects empty sets; render-empty emits placeholder (0.221618ms)
+✔ marker parser requires unique paired non-nested begin/end (1.479377ms)
+✔ replaceGeneratedSections rewrites only owned ranges and drops manual extra rows (0.576105ms)
+✔ counter-example: observation adds permission but generated table stays stale → check fails (55.253285ms)
+✔ counter-example: manual deletion of a generated row fails check (54.538478ms)
+✔ receipt-canonical empty set {count:0} obeys render-empty without becoming a map row (0.280608ms)
+✔ counter-example: tampered generated value with only lastVerifiedCommit change still fails (38.154824ms)
+✔ counter-example: observation from old build is refused before write (54.526144ms)
+✔ counter-example: check mode never rewrites the file (33.295032ms)
+✔ generate replaces only owned sections; exterior prose and second section untouched if not owned (33.324638ms)
+✔ same input twice produces identical document bytes (70.940828ms)
+✔ catalog rejects duplicate fact ownership and forbidden baseline fields (0.691362ms)
+✔ resolveFactPath prefers exact keys then nested descent (0.326465ms)
+✔ renderSectionFromReceipt refuses failed or mismatched receipts (0.954938ms)
+✔ repository governance scan is clean and renderer has no extractor imports (396.919789ms)
+✔ repository governance rejects a lifecycle metadata write target (2.898579ms)
+✔ CLI --check on empty catalog succeeds with zero writes (677.654326ms)
+✔ CLI rejects unknown flags and missing mode (291.921081ms)
+✔ digest helper used by receipts stays stable for identical observation payloads (0.262304ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1951.685685

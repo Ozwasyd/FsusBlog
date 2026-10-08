@@ -1,0 +1,74 @@
+{
+  "kind": "issue scope/completion report; not acceptance receipt",
+  "issue": 3463,
+  "candidate": "a4e68aead16531c3522756bb59fd35018adff058",
+  "allMandatoryAcceptanceCriteriaRemainOpen": true,
+  "criteria": [
+    {
+      "id": "MEM-P14-AC01",
+      "result": "Partial / acceptance blocked",
+      "evidenceOrGap": "Eight finite workload labels and admitted owner APIs exist; actual P00 family denominator and application allocation bindings are owned by original3444 and unavailable in this source slice."
+    },
+    {
+      "id": "MEM-P14-AC02",
+      "result": "Component assertions passed; stage acceptance open",
+      "evidenceOrGap": "T08 and pool controls observe actual capacity reservation, return/retention/trim and complete-capacity clearing; global actual-site inventory and registered original data-class binding remain upstream."
+    },
+    {
+      "id": "MEM-P14-AC03",
+      "result": "Component assertions passed; integrated semantics NotVerified",
+      "evidenceOrGap": "Four DB controls run in original project: pre-callback rejection, row/frame/workspace and provider string probe, actual cancellation lifetime. Need concrete canonical query/projection bindings and frozen bounds to validate real transaction/order/auth/result mix."
+    },
+    {
+      "id": "MEM-P14-AC04",
+      "result": "Component assertions passed; full T40 NotVerified",
+      "evidenceOrGap": "Three payload controls plus original direct frame/connection controls pass. Need canonical qualified payload admission/selection call site, frozen fanout/slow-recipient workmix/deadline/performance fixture; no new qualification or clock authority invented."
+    },
+    {
+      "id": "MEM-P14-AC05",
+      "result": "Component assertions passed; catalog/full T41 NotVerified",
+      "evidenceOrGap": "T41 proves queued holds released, in-flight ownership charged, replay obligations retained until terminal owner completion. No new queue introduced. Full required/coalescible registered drain closure stays with delivery/integration owner."
+    },
+    {
+      "id": "MEM-P14-AC06",
+      "result": "Component assertions passed; integrated burst acceptance open",
+      "evidenceOrGap": "Competition, cancellation, pins, repeated parallel pool bursts and recipient bounds pass with finite fixtures. Full registered fanout/recovery producer-denominator closure requires existing call-site bindings."
+    },
+    {
+      "id": "MEM-P14-AC07",
+      "result": "Managed source behavior passed; online Auto acceptance open",
+      "evidenceOrGap": "Pool default Auto retention and Disabled exact-size nonretaining paths tested; reservations and live-hold drain remain. Automatic eligible qualification/online strategy selection belongs to common governor; not activated here."
+    },
+    {
+      "id": "MEM-P14-AC08",
+      "result": "Explicit source boundary retained; observation acceptance blocked",
+      "evidenceOrGap": "Pool snapshots expose controlled capacities only. CLR/provider/Kestrel/kernel/external overhead is not claimed controlled; measured observation/headroom policy inputs not provided by owner."
+    },
+    {
+      "id": "MEM-P14-AC09",
+      "result": "NotVerified / frozen baseline inputs missing",
+      "evidenceOrGap": "No frozen host capacity, tail-latency gates, baseline/work mix or authorized native/platform acceptance supplied; no invented thresholds, delivery loss or performance pass."
+    }
+  ],
+  "readyOwnedWork": "All currently authorized independent transient source and ordinary component checks completed; ten reviewed module/test C# blobs and manifest unchanged. Additional implementation requires named call-site/policy inputs or expands into retained common/delivery/integration ownership or production activation. No speculative independent allocator/catalog or backend added.",
+  "preciseIntegrationRequests": [
+    {
+      "owner": "original3444 / inventory integration",
+      "input": "P00 resolved allocation-site denominator (exact path/method and resource-domain IDs), frozen quota/priority/finite pool limits, eligible qualified strategy selection and admission/call-site wiring; existing APIs consume common coordinator, no extension requested to duplicate it."
+    },
+    {
+      "owner": "canonical DB/projection integration",
+      "input": "Exact materializer callback sites and registered row/string/frame/workspace bounds; canonical transaction/order/authorization/result fixtures."
+    },
+    {
+      "owner": "existing notification/delivery integration",
+      "input": "Qualified immutable encoded payload call site plus policy selection, frozen recipient count/byte/deadline/slow-client work mix, required/coalescible/replay drain classification. Current connection clock/delivery remains untouched."
+    },
+    {
+      "owner": "policy/baseline/oracle owners",
+      "input": "Frozen actual simultaneous rebuild/burst/slow-client capacity and tail-latency limits, runtime/external observed headroom, support-row device fixtures and independent acceptance."
+    }
+  ],
+  "safeDisableAndRollback": "ApplyMode(Disabled) prevents retained optimization for future rents, trims idle capacity and preserves live charged holds; original tests pass. Reverting this unactivated source increment must preserve existing notification public factories/delivery. No production state or DI/call-site change needs rollback.",
+  "draftPr": "not created/updated due parent content-creation hold; branch/full patch available for same reviewer, review/merge/closure remain parent-owned"
+}

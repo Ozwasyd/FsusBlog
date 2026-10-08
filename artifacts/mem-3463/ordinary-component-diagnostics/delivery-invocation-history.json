@@ -1,0 +1,9 @@
+{
+  "kind": "delivery command outcome history; no source/test change",
+  "supersededArtifactBranch": "codex/mem-3463-current-diagnostics",
+  "supersededArtifactCommit": "9ea0dcf40a5bb7c67729aba89d5ad002f2870a60",
+  "commitRangeResult": "failed: missing colon in required Refs: #3463 footer; earlier shell continued to push after validation failure",
+  "replacementBranch": "codex/mem-3463-current-diagnostics-v2",
+  "sourceCandidateUnchanged": "a4e68aead16531c3522756bb59fd35018adff058",
+  "repair": "New evidence-only commit from exact source candidate, correct Refs: footer; original published history retained, no force push, no source/test edits or reused execution."
+}
