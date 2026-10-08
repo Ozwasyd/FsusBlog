@@ -1,0 +1,122 @@
+[
+  {
+    "name": "commit-contract",
+    "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "sourceAfter": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "command": [
+      "node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "origin/master..HEAD"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/3ab22813a/commit-contract.log",
+    "startedAt": "2026-10-08T12:04:42.867766+00:00"
+  },
+  {
+    "name": "owned-style",
+    "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "sourceAfter": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "command": [
+      "node",
+      "tools/dotnet/check-csharp-style.mjs",
+      "--file",
+      "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+      "--file",
+      "src/backend/Infrastructure/Memory/Control/MemoryGovernor.cs",
+      "--file",
+      "tests/backend/Unit/MemoryGovernorTests.cs",
+      "--file",
+      "tests/backend/Unit/MemoryGovernorAdmissionTests.cs"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/3ab22813a/owned-style.log",
+    "startedAt": "2026-10-08T12:04:47.832926+00:00"
+  },
+  {
+    "name": "inventory-produce",
+    "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "sourceAfter": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "command": [
+      "node",
+      "tools/governance/memory-allocation-inventory.mjs",
+      "produce",
+      ".tmp/memory-integration/3ab22813a/intake.json",
+      "mem-3ab22813a-20261008-enforced-bounds"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/3ab22813a/inventory-produce.log",
+    "startedAt": "2026-10-08T12:05:14.585458+00:00"
+  },
+  {
+    "name": "inventory-replay",
+    "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "sourceAfter": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "command": [
+      "node",
+      "tools/governance/memory-allocation-inventory.mjs",
+      "verify",
+      ".tmp/memory-integration/3ab22813a/intake.json"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/3ab22813a/inventory-replay.log",
+    "startedAt": "2026-10-08T12:05:22.033751+00:00"
+  },
+  {
+    "name": "inventory-strict",
+    "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "sourceAfter": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "command": [
+      "node",
+      "tools/governance/memory-allocation-inventory.mjs",
+      "verify",
+      ".tmp/memory-integration/3ab22813a/intake.json",
+      "--require-complete"
+    ],
+    "exitCode": 1,
+    "artifact": ".tmp/memory-integration/3ab22813a/inventory-strict.log",
+    "startedAt": "2026-10-08T12:05:43.986059+00:00"
+  },
+  {
+    "name": "observer-controls",
+    "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "sourceAfter": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "command": [
+      "node",
+      "--test",
+      "tests/tools/memory-allocation-inventory.test.mjs"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/3ab22813a/observer-controls.log",
+    "startedAt": "2026-10-08T12:06:12.100926+00:00"
+  },
+  {
+    "name": "docs",
+    "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "sourceAfter": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "command": [
+      "node",
+      "tools/docs/generate-document-lifecycle.mjs",
+      "--check"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/3ab22813a/docs.log",
+    "startedAt": "2026-10-08T12:06:31.349599+00:00"
+  },
+  {
+    "name": "code-intent",
+    "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "status": "NotRun",
+    "existingFailureCandidate": "cd11cfee5147aa0d25ec1e89df6b58789299f046",
+    "existingFailureArtifact": ".tmp/memory-integration/cd11cfee5/code-intent.log",
+    "reason": "The unchanged cross-chain checker/GPU diagnostics and frontend code-intent claim are preserved; no repeated whole suite just to reproduce unchanged failures."
+  },
+  {
+    "name": "source-admission",
+    "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "status": "NotRun",
+    "existingFailureCandidate": "cd11cfee5147aa0d25ec1e89df6b58789299f046",
+    "existingFailureArtifact": ".tmp/memory-integration/cd11cfee5/source-admission.log",
+    "reason": "The unchanged cross-chain checker/GPU diagnostics and frontend code-intent claim are preserved; no repeated whole suite just to reproduce unchanged failures."
+  }
+]

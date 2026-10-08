@@ -1,0 +1,21 @@
+{
+  "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+  "sourceAfter": "3ab22813a1e593a9157e25b6a029b295c0721336",
+  "runId": "mem-3ab22813a-20261008-enforced-bounds",
+  "startedAt": "2026-10-08T12:04:28.562864+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName~NativeMemoryArenaTests|FullyQualifiedName~OsPageRegionTests|FullyQualifiedName~OsNumaTopologyTests|FullyQualifiedName~MemoryAllocationLayoutTests|FullyQualifiedName~ManagedMemoryBackingTests|FullyQualifiedName~MemoryReservationCoordinatorTests|FullyQualifiedName~MemoryAsyncOwnershipTests|FullyQualifiedName~MemoryContractTests|FullyQualifiedName~PortableMemoryPressureTests|FullyQualifiedName~MemoryArticlePageOracleTests|FullyQualifiedName~OwnedAedsFrameTests|FullyQualifiedName~BoundedTaskSingleFlightTests|FullyQualifiedName~ReleaseStorageTopologyTests|FullyQualifiedName~ReleaseStorageLifecycleTests|FullyQualifiedName~MemoryStorageBoundaryTests|FullyQualifiedName~GpuMemoryDeviceTests|FullyQualifiedName~GpuMetalTests|FullyQualifiedName~GpuNativeTests|FullyQualifiedName~GpuPeerCapabilitiesTests|FullyQualifiedName~GpuPeerMappingTests|FullyQualifiedName~GpuPeerTransferTests|FullyQualifiedName~FlatArtifactIndexTests|FullyQualifiedName~DiskBudgetAdmissionTests|FullyQualifiedName~DiskSpillEligibilityTests|FullyQualifiedName~OwnedSpillRootTests|FullyQualifiedName~DiskSegmentStoreTests|FullyQualifiedName~MemoryDiskPolicyTests|FullyQualifiedName~DatabaseMaterializationScopeTests|FullyQualifiedName~NotificationPayloadLeaseTests|FullyQualifiedName~TransientBufferPoolTests|FullyQualifiedName~MemoryCapabilityPolicyPlanTests|FullyQualifiedName~MemoryExistingAllocationTests|FullyQualifiedName~LinuxProcMemoryPressureTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests|FullyQualifiedName~MemoryCapabilityControllerTests",
+    "--logger",
+    "trx;LogFileName=memory-3ab22813a.trx",
+    "--results-directory",
+    ".tmp/memory-integration/3ab22813a/test-results"
+  ],
+  "exitCode": 0,
+  "artifact": ".tmp/memory-integration/3ab22813a/tests.log",
+  "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/3ab22813a/data"
+}

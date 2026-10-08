@@ -1,0 +1,15 @@
+{
+  "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+  "startedAt": "2026-10-08T12:10:10.292061+00:00",
+  "purpose": "Check whether a genuine disposable PID1/systemd environment could be constructed without changing host policy; this harmless namespace probe creates no service/measurement receipt.",
+  "command": [
+    "unshare",
+    "--user",
+    "--map-root-user",
+    "--pid",
+    "--fork",
+    "true"
+  ],
+  "exitCode": 1,
+  "artifact": ".tmp/memory-integration/3ab22813a/systemd-isolation-capability.log"
+}

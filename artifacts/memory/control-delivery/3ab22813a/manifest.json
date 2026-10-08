@@ -1,0 +1,143 @@
+{
+  "schema": "fsusblog.memory-source-delivery.v1",
+  "evidenceLevel": "DevelopmentSourceOnly_NotProductAcceptance",
+  "sourceCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+  "candidateFingerprint": "sha256:b368ea66a5174f371f63d69f30aa677b169a4ba753a7b66547108d043e6b14ae",
+  "branch": "codex/mem-3444-compliant-integration",
+  "runId": "mem-3ab22813a-20261008-enforced-bounds",
+  "recordedAt": "2026-10-08T12:14:08.742244+00:00",
+  "incorporatedMaster": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "latestFetchedMaster": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+  "latestMasterIncorporated": false,
+  "runtime": {
+    "candidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "sourceAfter": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "runId": "mem-3ab22813a-20261008-enforced-bounds",
+    "startedAt": "2026-10-08T12:04:28.562864+00:00",
+    "command": [
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--filter",
+      "FullyQualifiedName~NativeMemoryArenaTests|FullyQualifiedName~OsPageRegionTests|FullyQualifiedName~OsNumaTopologyTests|FullyQualifiedName~MemoryAllocationLayoutTests|FullyQualifiedName~ManagedMemoryBackingTests|FullyQualifiedName~MemoryReservationCoordinatorTests|FullyQualifiedName~MemoryAsyncOwnershipTests|FullyQualifiedName~MemoryContractTests|FullyQualifiedName~PortableMemoryPressureTests|FullyQualifiedName~MemoryArticlePageOracleTests|FullyQualifiedName~OwnedAedsFrameTests|FullyQualifiedName~BoundedTaskSingleFlightTests|FullyQualifiedName~ReleaseStorageTopologyTests|FullyQualifiedName~ReleaseStorageLifecycleTests|FullyQualifiedName~MemoryStorageBoundaryTests|FullyQualifiedName~GpuMemoryDeviceTests|FullyQualifiedName~GpuMetalTests|FullyQualifiedName~GpuNativeTests|FullyQualifiedName~GpuPeerCapabilitiesTests|FullyQualifiedName~GpuPeerMappingTests|FullyQualifiedName~GpuPeerTransferTests|FullyQualifiedName~FlatArtifactIndexTests|FullyQualifiedName~DiskBudgetAdmissionTests|FullyQualifiedName~DiskSpillEligibilityTests|FullyQualifiedName~OwnedSpillRootTests|FullyQualifiedName~DiskSegmentStoreTests|FullyQualifiedName~MemoryDiskPolicyTests|FullyQualifiedName~DatabaseMaterializationScopeTests|FullyQualifiedName~NotificationPayloadLeaseTests|FullyQualifiedName~TransientBufferPoolTests|FullyQualifiedName~MemoryCapabilityPolicyPlanTests|FullyQualifiedName~MemoryExistingAllocationTests|FullyQualifiedName~LinuxProcMemoryPressureTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests|FullyQualifiedName~MemoryCapabilityControllerTests",
+      "--logger",
+      "trx;LogFileName=memory-3ab22813a.trx",
+      "--results-directory",
+      ".tmp/memory-integration/3ab22813a/test-results"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/3ab22813a/tests.log",
+    "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/3ab22813a/data"
+  },
+  "counters": {
+    "total": "466",
+    "executed": "466",
+    "passed": "466",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "inventoryFamilies": 84,
+  "lexicalSites": 3762,
+  "resolvedSemanticSites": 0,
+  "platformRowsNotVerified": 7,
+  "acceptedIssues": 0,
+  "mandatoryCriteria": 237,
+  "acceptedCriteria": 0,
+  "previousImmutableReceipt": "artifacts/memory/control-delivery/5fa786b9a/manifest.json",
+  "priorFailuresPreservedAt": "artifacts/memory/control-delivery/5fa786b9a",
+  "inventoryReplayNote": "Replay only against sourceCandidate with the recorded real SDK observer/Node identity, not a later receipt commit. The stricter semantic/support completion correctly fails.",
+  "files": [
+    {
+      "path": "chain-status.json",
+      "sha256": "5bc25a4e11995a93d925b077b1582e844ad4e794b9fd70c40f3514443aefec71",
+      "bytes": 82785
+    },
+    {
+      "path": "chain-status.md",
+      "sha256": "ad54e26a2f532aa9dabde041195db182dbaa0837feb966eeb7429c4b4de290c5",
+      "bytes": 11870
+    },
+    {
+      "path": "commit-contract.log",
+      "sha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08",
+      "bytes": 54
+    },
+    {
+      "path": "docs.log",
+      "sha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6",
+      "bytes": 38
+    },
+    {
+      "path": "inventory-produce.log",
+      "sha256": "04451c4adf08a2f988f6687c4c16c53d6d9103cd770b04d489e03220a67ccbc2",
+      "bytes": 210
+    },
+    {
+      "path": "inventory-replay.log",
+      "sha256": "c4852380b332801840b4c4427aff9567199c73cc1582f1d72255da6b9d996f8c",
+      "bytes": 166
+    },
+    {
+      "path": "inventory-strict.log",
+      "sha256": "21733c2f62db5cbb15f2485916ae7e97649abc6605ceea9976ddaf5f2a0bcb13",
+      "bytes": 99
+    },
+    {
+      "path": "inventory.json",
+      "sha256": "da0af10bf26b00c1baefba8af31a17040405b86980910061103253a840c333d9",
+      "bytes": 6816132
+    },
+    {
+      "path": "observer-controls.log",
+      "sha256": "4145168e8cbbeb52efe9c3c1446566b2cd4b813adc6b02e898be7680132897fd",
+      "bytes": 1383
+    },
+    {
+      "path": "owned-style.log",
+      "sha256": "338c3460669d174026aff5806362826322bba8ad7b474d80ac85fdd8acbc56ec",
+      "bytes": 45
+    },
+    {
+      "path": "runtime-checks.json",
+      "sha256": "8624cb330a0ced529c26f26299dc22b60f21f336a3d70ee7432bc20d746a1217",
+      "bytes": 2268
+    },
+    {
+      "path": "source-checks.json",
+      "sha256": "6a7e64c50c2afdcdbb14a03cd85ef524eb2d030bc0e30c35a79aa85963ec2fd3",
+      "bytes": 4400
+    },
+    {
+      "path": "systemd-isolation-capability.json",
+      "sha256": "862430e538bfe4ff2fa583b269ad9d90249506f3d53e16166f755bc24bfbf4a0",
+      "bytes": 521
+    },
+    {
+      "path": "systemd-isolation-capability.log",
+      "sha256": "731fa347449bfb63ad97dd72dadf5ae4776694f1365e5638d81b7860c7819cfd",
+      "bytes": 63
+    },
+    {
+      "path": "tests.log",
+      "sha256": "673b57ba0f5b49f030e3f05013a2685f7ef47aaec09d4dd2d64f6d8a3f32c984",
+      "bytes": 445062
+    },
+    {
+      "path": "tests.trx",
+      "sha256": "fc8005e12d921f94630436c7252daf2cc858c87870ebf7f66a7725338b24b6a4",
+      "bytes": 673313
+    }
+  ]
+}
