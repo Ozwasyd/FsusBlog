@@ -90,3 +90,9 @@ focused algorithm tests do not establish package or native end-to-end acceptance
 Rollback consists of removing the unused dependency extension and validation
 modules before wiring any consumer. Once integrated, coordinate/schema drift must
 block admission and require an explicit new plan rather than a fallback writer.
+
+## Shared host composition increment
+
+The runtime domain composition registers the existing `PostgresArticleVaultOperationCheckpointStore` once per scope and exposes the same scoped instance through `IArticleVaultOperationCheckpointStore`. Registration executes no SQL and does not migrate a database. The explicit `AddFsusArticleVaultRecoveryReaders(trustedVaultSiteIdentity)` composition also registers the sole `ArticleVaultConflictReviewReader` from `6019f3834df477627cd59e55e297cf086ff0bae3`, using the existing permission projection, execution and checkpoint readers. A missing canonical proposal store remains an actual DI failure; no replacement persistence is supplied.
+
+The full supplied branches have unresolved add/add conflicts in resolution-plan and frontend files. The proposal store requires the conflicted owner's `TryDeserialize` capability and is not installed here. No HTTP route is registered: the current AEDS catalog has no Vault frame pair, and the canonical current-resolution-input producer and permission-site/Vault-site binding are not supplied. The current shared IPC request/lease contracts also do not provide a native peer/token dispatcher. Request assertions cannot fill these authority gaps. Native, current execution, browser transport and product qualification remain open.

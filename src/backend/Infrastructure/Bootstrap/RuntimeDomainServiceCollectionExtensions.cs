@@ -19,6 +19,7 @@ using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Services.Telemetry;
+using FsusBlog.Shared.Contracts.ArticleVault;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -57,6 +58,9 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleVaultCanonicalGroupWriter>(
             serviceProvider => serviceProvider.GetRequiredService<ArticleService>());
         services.AddScoped<IArticleVaultSyncPlanExecutor, ArticleVaultSyncPlanExecutor>();
+        services.AddScoped<PostgresArticleVaultOperationCheckpointStore>();
+        services.AddScoped<IArticleVaultOperationCheckpointStore>(
+            serviceProvider => serviceProvider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>());
         services.AddScoped<IArticlePublicationValidator, ArticlePublicationValidator>();
         services.AddScoped<CommentCommandService>();
         services.AddScoped<ICommentMutationOutbox, CommentMutationOutboxWriter>();
