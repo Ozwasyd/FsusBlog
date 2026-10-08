@@ -13,7 +13,7 @@ export const demoTemporalFieldMappings = Object.freeze([
     ['article-rights-snapshot.created-at', 'article.publication'],
     ['comment.create-time', 'comment.created'],
     ['comment.moderated-at', 'comment.moderated'],
-    ['comment-moderation-event.created-at', 'comment.moderated'],
+    ['comment-revision.created-at', 'comment.created'],
     ['profile.created-at', 'profile.created'],
     ['audit.occurred-at', 'audit.occurred']
 ].map(([field, roleId]) => Object.freeze({ field, roleId })));
