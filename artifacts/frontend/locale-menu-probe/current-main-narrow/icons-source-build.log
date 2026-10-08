@@ -1,0 +1,5 @@
+
+> @element-plus/icons-vue@2.3.2 build:build /workspace/FsusUI-dropdown-current-main/vue/packages/icons-vue
+> NODE_ENV=production node ../../../scripts/with-node-heap.mjs tsx build/build.ts
+
+icons-vue bundles generated.

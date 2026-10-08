@@ -1,0 +1,9 @@
+
+> @ avalonia:baseline:check /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/avalonia-vue-public-api-baseline.mjs --check
+
+Avalonia Vue public API baseline is stale:
+- spec/baselines/vue-current.json
+- docs/avalonia/vue-public-api-baseline.md
+Run pnpm run avalonia:baseline and commit the result.
+ ELIFECYCLE  Command failed with exit code 1.

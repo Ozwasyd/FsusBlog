@@ -1,0 +1,110 @@
+
+> @ test:visual:affected /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/run-visual-tests.mjs --profile=affected -- --base=a96047c3a281df6f0ae035f27fc471ad4a645173
+
+[visual-profile] profile=affected
+[visual-profile] base=a96047c3a281df6f0ae035f27fc471ad4a645173
+[visual-profile] changed-files=.changeset/dropdown-controlled-radio-items.md,.changeset/dropdown-forced-colors-focus.md,.changeset/dropdown-forced-colors-surface.md,docs/avalonia/vue-public-api-baseline.md,docs/components/dropdown.md,docs/design.md,spec/baselines/vue-current.json,spec/components/contracts/v2/contract-v2.json,vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts,vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts,vue/packages/components/dropdown/src/dropdown-item-impl.vue,vue/packages/components/dropdown/src/dropdown-item.vue,vue/packages/components/dropdown/src/dropdown-menu.vue,vue/packages/components/dropdown/src/dropdown.ts,vue/packages/components/dropdown/src/dropdown.vue,vue/packages/components/dropdown/src/tokens.ts,vue/packages/components/dropdown/src/viewport-modifiers.ts,vue/packages/theme-chalk/src/dropdown.scss
+[visual-profile] specs=vue/tests/visual/capture-all.spec.ts,vue/tests/visual/ui-audit-all.spec.ts
+[visual-profile] sections=navigation
+[visual-profile] audit-components=ElDropdown
+Visual capacity: 4 CPU, 16384 MiB
+Suites: serial; preview=3, dev=1, audit buckets=6
+Budgets: reserve=1024 MiB, server=512 MiB each, worker=768 MiB
+- capacity base: cgroup v2 CPU quota 4 included in capacity
+- capacity base: cgroup v2 memory limit included in effective capacity
+- capacity base: CPU constrained the repository parallel lane budget
+- capacity base: reserved 1408 MiB for OS, filesystem cache, package coordinators, and native processes
+- capacity base: Unit workload 310 files selected 3 shard(s) with 1 worker(s) each
+- CPU limited visual workers
+- reserved capacity for Node orchestration, reports, filesystem cache, and web server
+- preview and dev suites run serially to avoid nested overcommit
+[visual-plan] suite=preview
+[visual-plan] selected-projects=desktop-light,mobile-dark
+[visual-plan] argv=pnpm exec playwright test --config=vue/playwright.config.ts --project=desktop-light --project=mobile-dark vue/tests/visual/capture-all.spec.ts vue/tests/visual/ui-audit-all.spec.ts --grep capture (navigation)$|ui audit
+[visual-plan] workers=3
+[visual-plan] report-directory=playwright-report/profile-affected/suite-preview/shard-local
+[visual-plan] result-namespaces=vue/test-results/profile-affected/suite-preview/project-desktop-light/shard-local,vue/test-results/profile-affected/suite-preview/project-mobile-dark/shard-local
+[visual-plan] environment=FSUS_UI_AUDIT_COMPONENTS=ElDropdown
+[visual-plan] runtime-prepare=pnpm run visual:prepare
+
+> @ visual:prepare /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/prepare-visual-runtime.mjs
+
+[visual-runtime] icons rebuild: runtime manifest is missing; icons manifest entry is missing; icons runtime output is missing; icons runtime fingerprint file is missing
+[visual-runtime] wasm rebuild: runtime manifest is missing; wasm manifest entry is missing; wasm runtime output is missing; wasm runtime fingerprint file is missing
+[visual-runtime] demo rebuild: runtime manifest is missing; demo manifest entry is missing; demo runtime output is missing; demo runtime fingerprint file is missing
+[visual-runtime] command=pnpm run ensure:icons
+
+> @ ensure:icons /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/ensure-icons-artifacts.mjs
+
+[ensure-icons] cache-miss source-hash=caccef4c5cbb0cdc; rebuilding icons-vue artifacts.
+  - icons artifact fingerprint is missing
+
+> @element-plus/icons-vue@2.3.2 build /workspace/FsusUI-dropdown-current-main/vue/packages/icons-vue
+> node ../../../scripts/with-node-heap.mjs pnpm run build:generate && node ../../../scripts/with-node-heap.mjs run-p build:build build:types
+
+
+> @element-plus/icons-vue@2.3.2 build:generate /workspace/FsusUI-dropdown-current-main/vue/packages/icons-vue
+> node ../../../scripts/with-node-heap.mjs tsx build/generate.ts
+
+Generated 302 FsusUI design-aligned icons.
+
+> @element-plus/icons-vue@2.3.2 build:types /workspace/FsusUI-dropdown-current-main/vue/packages/icons-vue
+> node ../../../scripts/with-node-heap.mjs vue-tsc --declaration --emitDeclarationOnly
+
+
+> @element-plus/icons-vue@2.3.2 build:build /workspace/FsusUI-dropdown-current-main/vue/packages/icons-vue
+> NODE_ENV=production node ../../../scripts/with-node-heap.mjs tsx build/build.ts
+
+icons-vue bundles generated.
+[visual-runtime] command=pnpm run ensure:wasm
+
+> @ ensure:wasm /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/ensure-wasm-artifacts.mjs
+
+[ensure-wasm] cache-miss source-hash=743a7500a128f6e6; building vue/packages/wasm native artifacts...
+  - missing native artifacts: vue/packages/wasm/dist/ep_wasm.mjs, vue/packages/wasm/dist/ep_wasm.wasm, vue/packages/wasm/dist/markdown_basic.js, vue/packages/wasm/dist/markdown_basic.wasm, vue/packages/wasm/dist/markdown_simd.js, vue/packages/wasm/dist/markdown_simd.wasm
+  - native artifact fingerprint is missing
+
+> @ _build:wasm:artifacts /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs pnpm run -C vue/packages/wasm build:wasm && node ./scripts/with-node-heap.mjs pnpm run -C vue/packages/wasm build
+
+
+> @element-plus/wasm@1.0.0 build:wasm /workspace/FsusUI-dropdown-current-main/vue/packages/wasm
+> node ../../../scripts/with-node-heap.mjs node ../../../scripts/run-wasm-build.mjs
+
+错误: emcc 未找到。请先安装并激活 emsdk：
+  git clone https://github.com/emscripten-core/emsdk.git
+  cd emsdk && ./emsdk install latest && ./emsdk activate latest
+  source emsdk_env.sh
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.
+file:///workspace/FsusUI-dropdown-current-main/scripts/ensure-wasm-artifacts.mjs:32
+        new Error(
+        ^
+
+Error: pnpm run _build:wasm:artifacts exited with code 1
+    at ChildProcess.<anonymous> (file:///workspace/FsusUI-dropdown-current-main/scripts/ensure-wasm-artifacts.mjs:32:9)
+    at ChildProcess.emit (node:events:509:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:295:12)
+
+Node.js v24.19.0
+ ELIFECYCLE  Command failed with exit code 1.
+file:///workspace/FsusUI-dropdown-current-main/scripts/visual-runtime-core.mjs:371
+      throw new Error(
+            ^
+
+Error: wasm runtime preparation failed: command exited with 1. Local fallback: pnpm run ensure:wasm
+    at prepareVisualRuntime (file:///workspace/FsusUI-dropdown-current-main/scripts/visual-runtime-core.mjs:371:13)
+    at async file:///workspace/FsusUI-dropdown-current-main/scripts/prepare-visual-runtime.mjs:51:18 {
+  [cause]: Error: command exited with 1
+      at Object.buildGroup (file:///workspace/FsusUI-dropdown-current-main/scripts/prepare-visual-runtime.mjs:33:11)
+      at prepareVisualRuntime (file:///workspace/FsusUI-dropdown-current-main/scripts/visual-runtime-core.mjs:368:21)
+      at async file:///workspace/FsusUI-dropdown-current-main/scripts/prepare-visual-runtime.mjs:51:18
+}
+
+Node.js v24.19.0
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.

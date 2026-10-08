@@ -1,0 +1,5 @@
+
+> @ avalonia:baseline:check /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/avalonia-vue-public-api-baseline.mjs --check
+
+avalonia:baseline:check passed

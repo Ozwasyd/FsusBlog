@@ -1,0 +1,4 @@
+Checking formatting...
+[warn] vue/packages/components/dropdown/src/dropdown-menu.vue
+[warn] vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts
+[warn] Code style issues found in 2 files. Run Prettier with --write to fix.

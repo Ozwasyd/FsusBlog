@@ -1,0 +1,61 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog/src/frontend
+
+ ✓ ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts (9 tests) 556ms
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 2 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: [vitest-pool]: Failed to start forks worker for test files /workspace/FsusBlog/tests/frontend/unit/components/LocaleSelector.test.ts.
+ ❯ ../../../FsusUI-dropdown-current-main/node_modules/vitest/dist/chunks/cli-api.Cjt90eJu.js:3448:94
+ ❯ processTicksAndRejections node:internal/process/task_queues:104:5
+ ❯ Pool.schedule ../../../FsusUI-dropdown-current-main/node_modules/vitest/dist/chunks/cli-api.Cjt90eJu.js:3448:5
+
+Caused by: Error: Cannot find package 'happy-dom' imported from /workspace/FsusUI-dropdown-current-main/node_modules/vitest/dist/chunks/index.DC7d2Pf8.js
+ ❯ Object.getPackageJSONURL node:internal/modules/package_json_reader:301:9
+ ❯ packageResolve node:internal/modules/esm/resolve:768:81
+ ❯ moduleResolve node:internal/modules/esm/resolve:859:18
+ ❯ defaultResolve node:internal/modules/esm/resolve:992:11
+ ❯ #cachedDefaultResolve node:internal/modules/esm/loader:701:20
+ ❯ #resolveAndMaybeBlockOnLoaderThread node:internal/modules/esm/loader:721:38
+ ❯ ModuleLoader.resolveSync node:internal/modules/esm/loader:759:56
+ ❯ #resolve node:internal/modules/esm/loader:683:17
+ ❯ ModuleLoader.getOrCreateModuleJob node:internal/modules/esm/loader:603:35
+ ❯ node:internal/modules/esm/loader:632:32
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_MODULE_NOT_FOUND' }
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: [vitest-pool]: Failed to start forks worker for test files /workspace/FsusBlog/tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts.
+ ❯ ../../../FsusUI-dropdown-current-main/node_modules/vitest/dist/chunks/cli-api.Cjt90eJu.js:3448:94
+ ❯ processTicksAndRejections node:internal/process/task_queues:104:5
+ ❯ Pool.schedule ../../../FsusUI-dropdown-current-main/node_modules/vitest/dist/chunks/cli-api.Cjt90eJu.js:3448:5
+
+Caused by: Error: Cannot find package 'happy-dom' imported from /workspace/FsusUI-dropdown-current-main/node_modules/vitest/dist/chunks/index.DC7d2Pf8.js
+ ❯ Object.getPackageJSONURL node:internal/modules/package_json_reader:301:9
+ ❯ packageResolve node:internal/modules/esm/resolve:768:81
+ ❯ moduleResolve node:internal/modules/esm/resolve:859:18
+ ❯ defaultResolve node:internal/modules/esm/resolve:992:11
+ ❯ #cachedDefaultResolve node:internal/modules/esm/loader:701:20
+ ❯ #resolveAndMaybeBlockOnLoaderThread node:internal/modules/esm/loader:721:38
+ ❯ ModuleLoader.resolveSync node:internal/modules/esm/loader:759:56
+ ❯ #resolve node:internal/modules/esm/loader:683:17
+ ❯ ModuleLoader.getOrCreateModuleJob node:internal/modules/esm/loader:603:35
+ ❯ node:internal/modules/esm/loader:632:32
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_MODULE_NOT_FOUND' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+     Errors  2 errors
+   Start at  10:57:33
+   Duration  1.00s (transform 666ms, setup 274ms, import 46ms, tests 556ms, environment 0ms)
+
+JSON report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.xml

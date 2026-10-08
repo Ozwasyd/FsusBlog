@@ -1,0 +1,17 @@
+
+> @ typecheck:affected /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/run-affected-gate.mjs typecheck
+
+[affected:typecheck] files=.changeset/dropdown-controlled-radio-items.md,.changeset/dropdown-forced-colors-focus.md,.changeset/dropdown-forced-colors-surface.md,docs/avalonia/vue-public-api-baseline.md,docs/components/dropdown.md,docs/design.md,spec/baselines/vue-current.json,spec/components/contracts/v2/contract-v2.json,vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts,vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts,vue/packages/components/dropdown/src/dropdown-item-impl.vue,vue/packages/components/dropdown/src/dropdown-item.vue,vue/packages/components/dropdown/src/dropdown-menu.vue,vue/packages/components/dropdown/src/dropdown.ts,vue/packages/components/dropdown/src/dropdown.vue,vue/packages/components/dropdown/src/tokens.ts,vue/packages/components/dropdown/src/viewport-modifiers.ts,vue/packages/theme-chalk/src/dropdown.scss
+[affected:typecheck] run typecheck:web
+
+> @ typecheck:web /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs web
+
+[typecheck:web] cache-hit source-hash=d35c527d3ffc3394 tsbuildinfo=.tmp/typecheck-cache/web.tsbuildinfo
+[affected:typecheck] run typecheck:vitest
+
+> @ typecheck:vitest /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs vitest
+
+[typecheck:vitest] cache-hit source-hash=6da828eeff0587d1 tsbuildinfo=.tmp/typecheck-cache/vitest.tsbuildinfo

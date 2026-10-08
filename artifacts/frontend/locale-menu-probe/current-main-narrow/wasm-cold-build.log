@@ -1,0 +1,30 @@
+
+> @ ensure:wasm /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/ensure-wasm-artifacts.mjs
+
+[ensure-wasm] cache-miss source-hash=743a7500a128f6e6; building vue/packages/wasm native artifacts...
+  - missing native artifacts: vue/packages/wasm/dist/ep_wasm.mjs, vue/packages/wasm/dist/ep_wasm.wasm, vue/packages/wasm/dist/markdown_basic.js, vue/packages/wasm/dist/markdown_basic.wasm, vue/packages/wasm/dist/markdown_simd.js, vue/packages/wasm/dist/markdown_simd.wasm
+  - native artifact fingerprint is missing
+
+> @ _build:wasm:artifacts /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs pnpm run -C vue/packages/wasm build:wasm && node ./scripts/with-node-heap.mjs pnpm run -C vue/packages/wasm build
+
+
+> @element-plus/wasm@1.0.0 build:wasm /workspace/FsusUI-dropdown-current-main/vue/packages/wasm
+> node ../../../scripts/with-node-heap.mjs node ../../../scripts/run-wasm-build.mjs
+
+emcc 版本: emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.0 (afa15e0c56d1292e073c2c91bafc1d5e0cdf0dd3)
+emcmake: cmake executable not found on PATH: `cmake`
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.
+file:///workspace/FsusUI-dropdown-current-main/scripts/ensure-wasm-artifacts.mjs:32
+        new Error(
+        ^
+
+Error: pnpm run _build:wasm:artifacts exited with code 1
+    at ChildProcess.<anonymous> (file:///workspace/FsusUI-dropdown-current-main/scripts/ensure-wasm-artifacts.mjs:32:9)
+    at ChildProcess.emit (node:events:509:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:295:12)
+
+Node.js v24.19.0
+ ELIFECYCLE  Command failed with exit code 1.

@@ -1,0 +1,15 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog/src/frontend
+
+ ✓ ../../tests/frontend/unit/components/LocaleSelector.test.ts (17 tests) 2343ms
+     ✓ is driven only by props and projects ten catalog items without hardcoding  559ms
+ ✓ ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts (9 tests) 546ms
+ ✓ ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts (7 tests) 313ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  11:06:45
+   Duration  27.54s (transform 18.62s, setup 563ms, import 22.68s, tests 3.20s, environment 656ms)
+
+JSON report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.xml

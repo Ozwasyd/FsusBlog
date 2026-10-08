@@ -1,0 +1,5 @@
+
+> @ typecheck:vitest:no-cache /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs vitest --no-cache
+
+[typecheck:vitest] no-cache project=vue/tsconfig.vitest.json

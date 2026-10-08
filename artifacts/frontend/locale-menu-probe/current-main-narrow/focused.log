@@ -1,0 +1,76 @@
+
+ RUN  v4.1.5 /workspace/FsusUI-dropdown-current-main
+
+ ❯ vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts (0 test)
+ ❯ vue/packages/components/dropdown/__tests__/dropdown.test.ts (0 test)
+ ❯ vue/packages/components/focus-trap/__tests__/focus-trap.test.ts (0 test)
+ ❯ vue/packages/components/popper/__tests__/content.test.tsx (0 test)
+ ❯ vue/packages/components/focus-trap/__tests__/focus-trap-lifecycle.test.ts (0 test)
+ ❯ vue/packages/components/popper/__tests__/trigger.test.tsx (0 test)
+ ❯ vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts (0 test)
+ ❯ vue/packages/components/check-tag/__tests__/check-tag.test.tsx (0 test)
+ ❯ vue/packages/components/popper/__tests__/arrow.test.tsx (0 test)
+ ❯ vue/packages/components/popper/__tests__/popper.test.tsx (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 10 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  vue/packages/components/check-tag/__tests__/check-tag.test.tsx [ vue/packages/components/check-tag/__tests__/check-tag.test.tsx ]
+ FAIL  vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts [ vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts ]
+ FAIL  vue/packages/components/focus-trap/__tests__/focus-trap-lifecycle.test.ts [ vue/packages/components/focus-trap/__tests__/focus-trap-lifecycle.test.ts ]
+ FAIL  vue/packages/components/popper/__tests__/arrow.test.tsx [ vue/packages/components/popper/__tests__/arrow.test.tsx ]
+ FAIL  vue/packages/components/popper/__tests__/content.test.tsx [ vue/packages/components/popper/__tests__/content.test.tsx ]
+ FAIL  vue/packages/components/popper/__tests__/popper.test.tsx [ vue/packages/components/popper/__tests__/popper.test.tsx ]
+ FAIL  vue/packages/components/popper/__tests__/trigger.test.tsx [ vue/packages/components/popper/__tests__/trigger.test.tsx ]
+Error: Failed to resolve entry for package "@element-plus/icons-vue". The package may have incorrect main/module/exports specified in its package.json.
+  Plugin: vite:import-analysis
+  File: /workspace/FsusUI-dropdown-current-main/vue/packages/utils/vue/icon.ts:9:7
+  7  |    Loading,
+  8  |    Warning
+  9  |  } from "@element-plus/icons-vue";
+     |          ^
+  10 |  import { definePropType } from "./props";
+  11 |  export const iconPropType = definePropType([
+ ❯ packageEntryFailure node_modules/vite/dist/node/chunks/config.js:32816:32
+ ❯ resolvePackageEntry node_modules/vite/dist/node/chunks/config.js:32813:2
+ ❯ tryNodeResolve node_modules/vite/dist/node/chunks/config.js:32716:70
+ ❯ ResolveIdContext.handler node_modules/vite/dist/node/chunks/config.js:32555:16
+ ❯ EnvironmentPluginContainer.resolveId node_modules/vite/dist/node/chunks/config.js:28717:56
+ ❯ TransformPluginContext.resolve node_modules/vite/dist/node/chunks/config.js:28929:13
+ ❯ normalizeUrl node_modules/vite/dist/node/chunks/config.js:27111:22
+ ❯ node_modules/vite/dist/node/chunks/config.js:27177:32
+ ❯ TransformPluginContext.transform node_modules/vite/dist/node/chunks/config.js:27145:4
+ ❯ EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/config.js:28797:14
+ ❯ loadAndTransform node_modules/vite/dist/node/chunks/config.js:22670:26
+ ❯ fetchModule node_modules/vite/dist/node/chunks/config.js:33993:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+ FAIL  vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts [ vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts ]
+ FAIL  vue/packages/components/dropdown/__tests__/dropdown.test.ts [ vue/packages/components/dropdown/__tests__/dropdown.test.ts ]
+ FAIL  vue/packages/components/focus-trap/__tests__/focus-trap.test.ts [ vue/packages/components/focus-trap/__tests__/focus-trap.test.ts ]
+Error: Failed to resolve entry for package "@element-plus/icons-vue". The package may have incorrect main/module/exports specified in its package.json.
+  Plugin: vite:import-analysis
+  File: /workspace/FsusUI-dropdown-current-main/vue/packages/utils/vue/icon.ts:9:7
+  7  |    Loading,
+  8  |    Warning
+  9  |  } from "@element-plus/icons-vue";
+     |          ^
+  10 |  import { definePropType } from "./props";
+  11 |  export const iconPropType = definePropType([
+ ❯ packageEntryFailure node_modules/vite/dist/node/chunks/config.js:32816:32
+ ❯ resolvePackageEntry node_modules/vite/dist/node/chunks/config.js:32813:2
+ ❯ tryNodeResolve node_modules/vite/dist/node/chunks/config.js:32716:70
+ ❯ ResolveIdContext.handler node_modules/vite/dist/node/chunks/config.js:32555:16
+ ❯ EnvironmentPluginContainer.resolveId node_modules/vite/dist/node/chunks/config.js:28717:56
+ ❯ TransformPluginContext.resolve node_modules/vite/dist/node/chunks/config.js:28929:13
+ ❯ normalizeUrl node_modules/vite/dist/node/chunks/config.js:27111:22
+ ❯ node_modules/vite/dist/node/chunks/config.js:27177:32
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯
+
+
+ Test Files  10 failed | 2 passed (12)
+      Tests  10 passed (10)
+   Start at  10:54:37
+   Duration  9.97s (transform 1.67s, setup 1.35s, import 541ms, tests 551ms, environment 15.59s)
+

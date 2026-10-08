@@ -1,0 +1,5 @@
+
+> @ check:design-source-drift /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/check-design-source-drift.mjs
+
+design-source-drift check passed

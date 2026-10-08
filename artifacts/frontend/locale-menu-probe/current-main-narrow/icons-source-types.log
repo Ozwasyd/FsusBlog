@@ -1,0 +1,4 @@
+
+> @element-plus/icons-vue@2.3.2 build:types /workspace/FsusUI-dropdown-current-main/vue/packages/icons-vue
+> node ../../../scripts/with-node-heap.mjs vue-tsc --declaration --emitDeclarationOnly
+

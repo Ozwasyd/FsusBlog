@@ -1,0 +1,9 @@
+Setting up EMSDK environment (suppress these messages with EMSDK_QUIET=1)
+Adding directories to PATH:
+PATH += /workspace/.setup/emsdk
+PATH += /workspace/.setup/emsdk/upstream/emscripten
+
+Setting environment variables:
+PATH = /workspace/.setup/emsdk:/workspace/.setup/emsdk/upstream/emscripten:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback
+EMSDK = /workspace/.setup/emsdk
+EMSDK_NODE = /workspace/.setup/emsdk/node/22.16.0_64bit/bin/node
