@@ -45,13 +45,18 @@ public sealed class PostgresArticleVaultRecoveryStorage(
 
         await protectionAuthority.VerifyAsync(receipt, ciphertext, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
+        // The authority must not retain the array that will be persisted across later awaits.
+        ciphertext = ciphertext.ToArray();
         VerifyCiphertext(receipt, ciphertext.Span);
         RequireAvailable(receipt);
+        RequireProposalAvailable(proposal);
         byte[] receiptBytes = ArticleVaultOperationCodec.Serialize(receipt);
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         await LockAsync(connection, transaction, receipt.Binding.SiteIdentity + ":" + receipt.Binding.VaultIdentity,
             cancellationToken).ConfigureAwait(false);
+        RequireAvailable(receipt);
+        RequireProposalAvailable(proposal);
         await using (var existing = new NpgsqlCommand(
             "SELECT receipt_bytes FROM article_vault_recovery_backup WHERE backup_identity = @identity", connection, transaction))
         {
@@ -101,6 +106,8 @@ public sealed class PostgresArticleVaultRecoveryStorage(
         insert.Parameters.AddWithValue("expiry", receipt.Policy.DeleteAfterUnixMs);
         insert.Parameters.AddWithValue("receipt", receiptBytes);
         insert.Parameters.AddWithValue("ciphertext", ciphertext.ToArray());
+        RequireAvailable(receipt);
+        RequireProposalAvailable(proposal);
         await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -115,8 +122,10 @@ public sealed class PostgresArticleVaultRecoveryStorage(
         await connection.DisposeAsync().ConfigureAwait(false);
         await protectionAuthority.VerifyAsync(backup.Receipt, backup.Ciphertext, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
+        byte[] verifiedCiphertext = backup.Ciphertext.ToArray();
+        VerifyCiphertext(backup.Receipt, verifiedCiphertext);
         RequireAvailable(backup.Receipt);
-        return backup;
+        return new(backup.Receipt, verifiedCiphertext);
     }
 
     public async Task<int> EraseExpiredPayloadsAsync(string siteIdentity, string vaultIdentity, string deviceIdentity,
@@ -153,9 +162,14 @@ public sealed class PostgresArticleVaultRecoveryStorage(
         NpgsqlConnection connection = transaction.Connection ?? throw Rejected("writer_transaction_missing");
         // New execution preparation requires current admission. Obligations after an uncertain or
         // accepted server stage remain appendable when a proposal expires; this never admits resume.
-        RequireValid(journal.State is VaultRecoveryState.Prepared or VaultRecoveryState.ServerCommitting
+        bool requiresCurrent = journal.State is VaultRecoveryState.Prepared or VaultRecoveryState.ServerCommitting;
+        RequireValid(requiresCurrent
             ? ArticleVaultResolutionOperationPlanner.VerifyCurrent(operationPlan, proposal, current)
             : ArticleVaultResolutionOperationPlanner.ValidateStructure(operationPlan));
+        if (requiresCurrent)
+        {
+            RequireProposalAvailable(proposal);
+        }
         if (journal.CreatedAtUnixMs > timeProvider.GetUtcNow().ToUnixTimeMilliseconds())
         {
             throw Rejected("journal_future_time");
@@ -171,13 +185,33 @@ public sealed class PostgresArticleVaultRecoveryStorage(
                 throw Rejected("stored_proposal_binding_drift");
             }
         }
-        ArticleVaultRecoveryEncryptedBackup backup = await LoadBackupAsync(connection, transaction, journal.Backup,
-            cancellationToken).ConfigureAwait(false);
+        bool metadataOnly = journal.State is VaultRecoveryState.RecoveryRequired or VaultRecoveryState.Cancelled or VaultRecoveryState.Failed;
+        ArticleVaultRecoveryBackupReceipt receipt;
+        if (metadataOnly)
+        {
+            receipt = await LoadReceiptAsync(connection, journal.Backup, cancellationToken, transaction).ConfigureAwait(false);
+        }
+        else
+        {
+            ArticleVaultRecoveryEncryptedBackup backup = await LoadBackupAsync(connection, transaction, journal.Backup,
+                cancellationToken).ConfigureAwait(false);
+            await protectionAuthority.VerifyAsync(backup.Receipt, backup.Ciphertext, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            VerifyCiphertext(backup.Receipt, backup.Ciphertext.Span);
+            RequireAvailable(backup.Receipt);
+            receipt = backup.Receipt;
+        }
         RequireValid(ArticleVaultRecoveryStorageVerifier.VerifyAssociation(association, operationPlan, proposal,
-            journal, checkpoint, previousCheckpoint, backup.Receipt));
-        await protectionAuthority.VerifyAsync(backup.Receipt, backup.Ciphertext, cancellationToken).ConfigureAwait(false);
-        RequireAvailable(backup.Receipt);
+            journal, checkpoint, previousCheckpoint, receipt));
         await LockAsync(connection, transaction, proposal.ResolutionOperationIdentity, cancellationToken).ConfigureAwait(false);
+        if (!metadataOnly)
+        {
+            RequireAvailable(receipt);
+        }
+        if (requiresCurrent)
+        {
+            RequireProposalAvailable(proposal);
+        }
         List<ArticleVaultRecoveryStoredJournal> stored = await ReadRowsAsync(connection, transaction,
             proposal.ResolutionOperationIdentity, journal.Sequence, cancellationToken).ConfigureAwait(false);
         ArticleVaultRecoveryStoredJournal? replay = stored.SingleOrDefault(row => row.Journal.Sequence == journal.Sequence);
@@ -209,9 +243,17 @@ public sealed class PostgresArticleVaultRecoveryStorage(
         insert.Parameters.AddWithValue("operation", operationPlan.Operation.OperationIdentity);
         insert.Parameters.AddWithValue("operation_sequence", checkpoint.Sequence);
         insert.Parameters.AddWithValue("checkpoint_digest", checkpoint.ContentSha256);
-        insert.Parameters.AddWithValue("backup", backup.Receipt.BackupIdentity);
+        insert.Parameters.AddWithValue("backup", receipt.BackupIdentity);
         insert.Parameters.AddWithValue("journal", journalBytes);
         insert.Parameters.AddWithValue("association", associationBytes);
+        if (!metadataOnly)
+        {
+            RequireAvailable(receipt);
+        }
+        if (requiresCurrent)
+        {
+            RequireProposalAvailable(proposal);
+        }
         await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -270,13 +312,13 @@ public sealed class PostgresArticleVaultRecoveryStorage(
     }
 
     private static async Task<ArticleVaultRecoveryBackupReceipt> LoadReceiptAsync(NpgsqlConnection connection,
-        VaultRecoveryReference exactBackup, CancellationToken cancellationToken)
+        VaultRecoveryReference exactBackup, CancellationToken cancellationToken, NpgsqlTransaction? transaction = null)
     {
         RequireReference(exactBackup);
         await using var command = new NpgsqlCommand("""
             SELECT receipt_bytes FROM article_vault_recovery_backup
             WHERE backup_identity = @identity AND content_sha256 = @digest
-            """, connection);
+            """, connection, transaction);
         command.Parameters.AddWithValue("identity", exactBackup.Identity);
         command.Parameters.AddWithValue("digest", exactBackup.ContentSha256);
         byte[] bytes = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as byte[]
@@ -352,6 +394,14 @@ public sealed class PostgresArticleVaultRecoveryStorage(
         if (receipt.CreatedAtUnixMs > now || receipt.Policy.DeleteAfterUnixMs <= now)
         {
             throw Rejected("backup_expired_or_future");
+        }
+    }
+
+    private void RequireProposalAvailable(ArticleVaultResolutionPlan proposal)
+    {
+        if (timeProvider.GetUtcNow().ToUnixTimeMilliseconds() >= proposal.ExpiresAtUnixMs)
+        {
+            throw Rejected("proposal_expired");
         }
     }
 

@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using System.Text;
 
 using FsusBlog.Migration;
@@ -217,6 +219,224 @@ public sealed class ArticleVaultRecoveryStoragePostgresTests(PostgresSchemaMigra
         Assert.Equal(1, await CountAsync(database, "article_vault_recovery_backup"));
     }
 
+    [Fact]
+    public async Task ExpiredErasedBackup_PreservesUnknownServerObligationWithoutAdmittingRecovery()
+    {
+        await using Database database = await CreateAsync(retentionMs: 3_000);
+        await database.Storage.SealBackupAsync(database.Backup, database.Ciphertext);
+        await database.Operations.RegisterAsync(database.Plan.Operation, database.Plan.SyncPlan);
+        await database.Operations.AppendAsync(database.Plan.Operation, database.Plan.SyncPlan, database.Checkpoint);
+        await using (NpgsqlConnection connection = await database.Source.OpenConnectionAsync())
+        await using (NpgsqlTransaction transaction = await connection.BeginTransactionAsync())
+        {
+            await StageAsync(database, transaction);
+            await transaction.CommitAsync();
+        }
+        ArticleVaultOperationCheckpoint validating = NextCheckpoint(database.Checkpoint, VaultOperationState.Validating,
+            VaultServerCommitDisposition.NotStarted);
+        await database.Operations.AppendAsync(database.Plan.Operation, database.Plan.SyncPlan, validating);
+        // Only a controlled unknown-outcome protocol fact is recorded. No server writer runs.
+        ArticleVaultOperationCheckpoint committing = NextCheckpoint(validating, VaultOperationState.ExecutingServer,
+            VaultServerCommitDisposition.Unknown);
+        await database.Operations.AppendAsync(database.Plan.Operation, database.Plan.SyncPlan, committing);
+        ArticleVaultRecoveryJournal committingJournal = NextJournal(database.Journal, VaultRecoveryState.ServerCommitting);
+        await StageJournalAsync(database, committingJournal, committing, validating);
+        int remainingMs = checked((int)Math.Max(0, database.Backup.Policy.DeleteAfterUnixMs - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        await Task.Delay(remainingMs + 30);
+        Assert.Equal(1, await database.Storage.EraseExpiredPayloadsAsync("site-one", "vault-one", "device-one"));
+        database.Protection.Refuse = true;
+        int protectionCalls = database.Protection.Calls;
+        ArticleVaultOperationCheckpoint recovery = NextCheckpoint(committing, VaultOperationState.RecoveryRequired,
+            VaultServerCommitDisposition.Unknown);
+        await database.Operations.AppendAsync(database.Plan.Operation, database.Plan.SyncPlan, recovery);
+        ArticleVaultRecoveryJournal recoveryJournal = NextJournal(committingJournal, VaultRecoveryState.RecoveryRequired);
+        await StageJournalAsync(database, recoveryJournal, recovery, committing);
+        IReadOnlyList<ArticleVaultRecoveryStoredJournal> history = await database.Storage.ReadThroughAsync(
+            database.Plan, database.Proposal, 2, recoveryJournal.ContentSha256);
+        Assert.Equal(3, history.Count);
+        Assert.Equal(VaultRecoveryState.RecoveryRequired, history[^1].Journal.State);
+        Assert.Equal(protectionCalls, database.Protection.Calls);
+        Assert.All(history, row => Assert.Null(row.Journal.AfterBaseSha256));
+        ArticleVaultResolutionPlanInput now = database.Input with
+        {
+            Metadata = database.Input.Metadata with
+            {
+                Context = database.Input.Metadata.Context with
+                {
+                    NowUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                }
+            }
+        };
+        Assert.Equal("article_vault_recovery_backup_expired", ArticleVaultRecoveryJournalVerifier.RequireRecoveryAdmission(
+            database.Proposal, now, history.Select(static row => row.Journal).ToImmutableArray(),
+            new(database.Proposal.ResolutionOperationIdentity + "-checkpoint-2", recoveryJournal.ContentSha256)).ReasonCode);
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => database.Storage.ReadBackupAsync(database.Journal.Backup));
+        Assert.Equal(0, await CountAsync(database, "article_vault_execution_result"));
+    }
+
+    [Fact]
+    public async Task ProtectionAuthorityChangingVerifiedBytes_RefusesReadAndActiveJournal()
+    {
+        await using Database database = await CreateAsync();
+        await database.Storage.SealBackupAsync(database.Backup, database.Ciphertext);
+        database.Protection.MutateAfterVerification = true;
+        ArticleVaultExecutionRejectedException readError = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() =>
+            database.Storage.ReadBackupAsync(database.Journal.Backup));
+        Assert.Equal("article_vault_recovery_storage_backup_ciphertext_drift", readError.ReasonCode);
+        await using (NpgsqlConnection connection = await database.Source.OpenConnectionAsync())
+        await using (NpgsqlTransaction transaction = await connection.BeginTransactionAsync())
+        {
+            ArticleVaultExecutionRejectedException stageError = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() =>
+                StageAsync(database, transaction));
+            Assert.Equal("article_vault_recovery_storage_backup_ciphertext_drift", stageError.ReasonCode);
+            await transaction.RollbackAsync();
+        }
+        Assert.Equal(0, await CountAsync(database, "article_vault_recovery_journal"));
+        database.Protection.MutateAfterVerification = false;
+        Assert.Equal(database.Ciphertext, (await database.Storage.ReadBackupAsync(database.Journal.Backup)).Ciphertext.ToArray());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task ActualAdvisoryLockWait_RechecksExpiryAndPreservesPrivateVerifiedBytes(int scenario)
+    {
+        await using Database database = await CreateAsync(retentionMs: scenario == 2 ? 86_400_000 : 60_000);
+        bool stageJournal = scenario == 1;
+        if (stageJournal)
+        {
+            await database.Storage.SealBackupAsync(database.Backup, database.Ciphertext);
+        }
+        var clock = new DiagnosticTimeProvider(DateTimeOffset.UtcNow);
+        var storage = new PostgresArticleVaultRecoveryStorage(database.Source, database.Proposals, database.Operations,
+            database.Protection, clock);
+        // The actual PostgreSQL lock is held on a separate connection. Only the caller clock is
+        // controlled; this is temporal validation evidence, not native or key qualification.
+        await using var blocker = new NpgsqlConnection(database.ConnectionString);
+        await blocker.OpenAsync();
+        await using NpgsqlTransaction blockedTransaction = await blocker.BeginTransactionAsync();
+        string scope = stageJournal ? database.Proposal.ResolutionOperationIdentity : "site-one:vault-one";
+        await using (var takeLock = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtextextended(@scope, 0))", blocker, blockedTransaction))
+        {
+            takeLock.Parameters.AddWithValue("scope", scope);
+            await takeLock.ExecuteNonQueryAsync();
+        }
+        NpgsqlConnection? writer = stageJournal ? await database.Source.OpenConnectionAsync() : null;
+        await using (writer)
+        {
+            NpgsqlTransaction? writerTransaction = writer is null ? null : await writer.BeginTransactionAsync();
+            await using (writerTransaction)
+            {
+                Task pending = stageJournal
+                    ? storage.StageAsync(writerTransaction!, database.Plan, database.Proposal, database.Input,
+                        database.Journal, database.Checkpoint, null, database.Association)
+                    : storage.SealBackupAsync(database.Backup, database.Ciphertext);
+                bool waiting = false;
+                for (int attempt = 0; attempt < 100 && !waiting && !pending.IsCompleted; attempt++)
+                {
+                    await using var clearSnapshot = new NpgsqlCommand("SELECT pg_stat_clear_snapshot()", blocker, blockedTransaction);
+                    await clearSnapshot.ExecuteNonQueryAsync();
+                    await using var observe = new NpgsqlCommand("""
+                        SELECT EXISTS (SELECT 1 FROM pg_stat_activity
+                            WHERE datname = current_database() AND wait_event_type = 'Lock' AND wait_event = 'advisory')
+                        """, blocker, blockedTransaction);
+                    waiting = await observe.ExecuteScalarAsync() is true;
+                    if (!waiting)
+                    {
+                        await Task.Delay(20);
+                    }
+                }
+                Assert.True(waiting, "The actual storage command must wait on its PostgreSQL advisory lock.");
+                if (scenario == 3)
+                {
+                    Assert.True(MemoryMarshal.TryGetArray(database.Protection.LastVerifiedMemory, out ArraySegment<byte> authorityArray));
+                    authorityArray.AsSpan().Clear();
+                }
+                else
+                {
+                    clock.Now = DateTimeOffset.FromUnixTimeMilliseconds(
+                        (scenario == 2 ? database.Proposal.ExpiresAtUnixMs : database.Backup.Policy.DeleteAfterUnixMs) + 1);
+                }
+                await blockedTransaction.CommitAsync();
+                if (scenario == 3)
+                {
+                    await pending;
+                }
+                else
+                {
+                    ArticleVaultExecutionRejectedException error = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => pending);
+                    Assert.Equal(scenario == 2 ? "article_vault_recovery_storage_proposal_expired"
+                        : "article_vault_recovery_storage_backup_expired_or_future", error.ReasonCode);
+                }
+                if (writerTransaction is not null)
+                {
+                    await writerTransaction.RollbackAsync();
+                }
+            }
+        }
+        Assert.Equal(stageJournal || scenario == 3 ? 1 : 0, await CountAsync(database, "article_vault_recovery_backup"));
+        Assert.Equal(0, await CountAsync(database, "article_vault_recovery_journal"));
+        Assert.Equal(0, await CountAsync(database, "article_vault_operation_checkpoint"));
+        if (scenario == 3)
+        {
+            Assert.Equal(database.Ciphertext, (await database.Storage.ReadBackupAsync(database.Journal.Backup)).Ciphertext.ToArray());
+        }
+    }
+
+    private static ArticleVaultOperationCheckpoint NextCheckpoint(ArticleVaultOperationCheckpoint previous,
+        VaultOperationState state, VaultServerCommitDisposition commit)
+    {
+        ArticleVaultOperationCheckpoint result = previous with
+        {
+            Sequence = previous.Sequence + 1,
+            PreviousCheckpointSha256 = previous.ContentSha256,
+            RecordedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            State = state,
+            ServerCommit = commit,
+            ReasonCode = state == VaultOperationState.RecoveryRequired ? "diagnostic_backup_expired" : null
+        };
+        return result with
+        {
+            ContentSha256 = ArticleVaultOperationCodec.ComputeContentSha256(result)
+        };
+    }
+
+    private static ArticleVaultRecoveryJournal NextJournal(ArticleVaultRecoveryJournal previous, VaultRecoveryState state)
+    {
+        ArticleVaultRecoveryJournal result = previous with
+        {
+            Sequence = previous.Sequence + 1,
+            PreviousCheckpointSha256 = previous.ContentSha256,
+            CreatedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            State = state
+        };
+        return result with
+        {
+            ContentSha256 = ArticleVaultRecoveryJournalVerifier.ComputeContentSha256(result)
+        };
+    }
+
+    private static async Task StageJournalAsync(Database database, ArticleVaultRecoveryJournal journal,
+        ArticleVaultOperationCheckpoint checkpoint, ArticleVaultOperationCheckpoint previous)
+    {
+        ArticleVaultRecoveryJournalAssociation association = database.Association with
+        {
+            OperationSequence = checkpoint.Sequence,
+            OperationCheckpointSha256 = checkpoint.ContentSha256,
+            Journal = new(database.Proposal.ResolutionOperationIdentity + "-checkpoint-" + journal.Sequence, journal.ContentSha256)
+        };
+        association = association with
+        {
+            ContentSha256 = ArticleVaultRecoveryStorageVerifier.ComputeContentSha256(association)
+        };
+        await using NpgsqlConnection connection = await database.Source.OpenConnectionAsync();
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync();
+        await database.Storage.StageAsync(transaction, database.Plan, database.Proposal, database.Input, journal, checkpoint, previous, association);
+        await transaction.CommitAsync();
+    }
+
     private async Task<Database> CreateAsync(long retentionMs = 60_000)
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -307,21 +527,52 @@ public sealed class ArticleVaultRecoveryStoragePostgresTests(PostgresSchemaMigra
 
     private sealed class DiagnosticProtectionAuthority : IArticleVaultRecoveryBackupProtectionAuthority
     {
+        public int Calls
+        {
+            get; private set;
+        }
+
         public bool Refuse
         {
             get; set;
+        }
+
+        public bool MutateAfterVerification
+        {
+            get; set;
+        }
+
+        public ReadOnlyMemory<byte> LastVerifiedMemory
+        {
+            get; private set;
         }
 
         public Task VerifyAsync(ArticleVaultRecoveryBackupReceipt receipt, ReadOnlyMemory<byte> ciphertext,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Calls++;
+            LastVerifiedMemory = ciphertext;
             if (Refuse || ArticleVaultManifestCodec.ComputeSha256(ciphertext.Span) != receipt.CiphertextSha256)
             {
                 throw new ArticleVaultExecutionRejectedException("diagnostic_protection_authority_unavailable");
             }
+            if (MutateAfterVerification && MemoryMarshal.TryGetArray(ciphertext, out ArraySegment<byte> array))
+            {
+                array.AsSpan().Clear();
+            }
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class DiagnosticTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset Now
+        {
+            get; set;
+        } = now;
+
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 
     private sealed record Database(string ConnectionString, NpgsqlDataSource Source, SqlSugarClient Db,
