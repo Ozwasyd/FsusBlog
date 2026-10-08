@@ -1,0 +1,16 @@
+{
+  "currentSourceCandidate": "9d50f803f0eced061e7a0b2d369f7dbdd711000e",
+  "actualFormalTestedSha": "f88bafd70bafae90ae573d8c430b97732dde488a",
+  "actualFormalTests": 107,
+  "currentCandidateOnlyMetadataChanged": [
+    "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json"
+  ],
+  "actualSixProject2018SourceInputsIdentical": true,
+  "all49PackageInputGitBlobsIdentical": true,
+  "all57ProducedAssemblyAndRestoreHashesIdentical": true,
+  "explicitSdkVersionAndBinaryHashIdentical": true,
+  "formalSourceClosureEvidence": "f88-original-candidate-receipts/actual-formal-source-toolchain-closure.json",
+  "formalReceiptRelabeled": false,
+  "newFormalRunClaimed": false,
+  "wholeIssueAccepted": false
+}

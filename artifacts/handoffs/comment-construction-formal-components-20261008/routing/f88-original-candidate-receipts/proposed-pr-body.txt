@@ -1,0 +1,100 @@
+## Linked Issue
+
+Refs #2177
+
+## Scope Summary
+
+- Share the production initial outbox event selection and envelope constructor with compiled callers. Retain created/visibility/reply ordering and the approved-positive-recipient condition.
+- Exact 12-path candidate `f88bafd70bafae90ae573d8c430b97732dde488a` on actual policy/lock master `1cd4e060acedfd7838a477842685e0052d8e4107`; no frozen policy branch change, reader expansion, second writer or outbox revision field is introduced.
+- Add the exact public eight-parameter CommentCommandService.BuildRevision constructor used by production create/edit/delete. Preserve upstream content normalization, lowercase UTF-8 SHA-256, explicit actor/version/time facts and writer-assigned revision row IDs.
+- Integrate only the two exact previously published own mutation/delivery source commits. Four fixture adapter/test files remain byte-identical to the published owner; ten ordinary routing mocks exercise source dispatch only and do not qualify native admission. No new reader surface is implemented.
+- Scope is a source component; original #2177 transaction/atomic/privacy/nullifier/native acceptance remains WIP.
+
+## Change Classification
+
+- [x] Behavior change
+- [ ] Format-only
+- [ ] Naming-only
+- [ ] Generated output
+- [x] Public contract change
+- [x] External naming exception
+- Contract impact: compatible
+
+## Tests Run
+
+- [x] Targeted backend tests: original tests/backend/FsusBlog.Server.Tests.csproj passed 107/107, zero failures or skips, at this exact head using SDK10.0.302 and audit-on locked restore. No isolated harness, compile-item exclusion or --no-restore is used. Raw command, exit code and TRX are retained in the component handoff.
+- [x] Other: exact-base SOURCE and commit range passed; the single naming manifest covers every remaining registered surface without extra paths.
+- [ ] Other: full backend suite, held fixture audits and complete native/atomic/revision observation are not qualified.
+
+## UI Evidence
+
+- [ ] Screenshots or video attached for UI changes
+- [ ] Mobile layout checked
+- [ ] Dark mode checked
+- [ ] Accessibility and reduced-motion impact considered
+
+## Coding Convention
+
+- [x] C# mother-style mapping checked
+- [x] Formatter/linter run
+- [x] No tool default overrides repository style
+- [x] Mechanical formatting separated from logic
+- [x] `.git-blame-ignore-revs` updated when applicable
+- Formatter identity: none
+- Formatter version: none
+- Formatter command: none
+- Formatter idempotence evidence: none
+- Blame-ignore revision: none
+
+## External Naming Exception
+
+- Exceptions manifest: artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json
+
+## Documentation / Intent
+
+- [x] Public API docs updated
+- [x] Ownership/security/performance intent updated
+- [x] Historical handoff archived or source-of-truth updated
+- [x] TODO/FIXME references valid issues
+
+## Compatibility And Risk
+
+- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer
+- [x] External wire / ABI / database / third-party names preserved or explicitly adapted
+- [x] Public API impact reviewed
+- [x] AEDS frame / binary contract impact reviewed
+- [x] Database migration impact reviewed
+- [x] Security, auth, moderation, PoW, or privacy impact reviewed
+- [x] Docs updated or a reason is recorded below
+- [x] Known limitations updated if applicable
+
+## Performance Claim
+
+- Claim level: none
+- Evidence path: none
+- Non-goals: no performance or runtime qualification claim.
+
+## Release Note
+
+- Audience: internal
+- Category: Internal/Tooling
+- Summary: bind ordinary comment routing to current compiled inputs
+
+## Generated Output
+
+- Generator source: none
+- Generated outputs: none
+- Digest/evidence: none
+- Automation identity: none
+
+## Rollout / Rollback
+
+- Rollout: independent source component review and compatible compiled caller consumption only.
+- Rollback: revert the constructor extraction on initial event, normalization, hashing or revision fact regression.
+- Deferred work: original canonical transaction, privacy/nullifier/native atomicity, actor admission and persisted revision observation acceptance.
+- Known limitations: builders authenticate no actor, allocate no persisted row or stable receipt and add no exact-revision field to outbox envelopes. NU1903 SQLitePCLRaw.lib.e_sqlite3 2.1.11 remains with audit enabled.
+
+## Notes For Reviewers
+
+This is local proposed metadata for a separately isolated source component, not a PR/content API write or production qualification. No endpoint, AEDS/wire contract, database migration, generated output, product UI, formatter-only migration, threshold or sealed role/private-entitlement reader is changed. Applicable non-UI/format/generated checkboxes are impact assessments. Full #2177 acceptance remains WIP.

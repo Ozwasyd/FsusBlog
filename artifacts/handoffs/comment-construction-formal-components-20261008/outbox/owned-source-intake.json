@@ -1,0 +1,12 @@
+{
+  "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "canonicalOwnSourceCommit": "ef65043daec41df104dc65ce26cd93ff9996574f",
+  "integrationConflictPath": "docs/architecture/comment-command-boundary.md",
+  "scope": "same owned implementation increments; additive documentation sections only, not external sibling implementation conflict resolution",
+  "allCurrentMasterDocumentBytesPreservedExceptTrailingNewlineJoin": true,
+  "canonicalOutboxSectionExactBytesPreserved": true,
+  "canonicalOutboxSectionSha256": "431211711c465882eb63cbbdbf7993be371e237c540685b38e8996b04b960bf1",
+  "newDocumentSha256": "df6261bc42b114428fcbeccf1b6b6420b83ea93d5e115db8842c87c62f8d2481",
+  "productionFileAutoMerged": true,
+  "frozenPolicyBranchChanged": false
+}

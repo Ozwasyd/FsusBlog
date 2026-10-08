@@ -1,0 +1,3452 @@
+{
+  "purpose": "issue-by-issue task status audit, not canonical acceptance authority",
+  "date": "2026-10-08",
+  "masterSha": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "publishedCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+  "compiledAndMatrixTestedSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+  "sourceDeltaSinceRuntimeAttempt": "Frozen primary f481 runtime evidence remains unchanged. Independent source increments ea870fe5/6656a73e/b570346e have their own compiled ordinary controls and do not inherit native acceptance.",
+  "issues": [
+    {
+      "id": 2162,
+      "title": "test(test-fixtures): 删除 demo correctness comments、legacy actor、direct SQL 与旧helpers",
+      "githubState": "open",
+      "role": "tracking-only",
+      "status": "tracking-only, acceptance blocked",
+      "reason": "Bounded clock repair now published independently as 962801852, reviewed head b62c6f487 / PR #3923. Original comment governance 42/42 passes; full boundary 216/219, three catalog/profile failures remain. Independently observed non-model terminal evidence still missing. Tracking parent has no separate implementation or closure.",
+      "applicableCriterionLines": [
+        "- [ ] #2684：删除 demo correctness、legacy actor、direct SQL、first-row/count shortcuts、old helpers/second producer。",
+        "- [ ] #2685：只消费 #2684 receipt，执行 scanner/mutation/demo isolation/parallel/cache-queue governance并签 terminal receipt。",
+        "- [ ] #2684、#2685 completed。",
+        "- [ ] Parent/child依赖与顺序 DAG一致。",
+        "- [ ] Comment fixture exact-one producer/ports，无 demo correctness/legacy/direct/first-row/count/compat/second authority。",
+        "- [ ] Demo隔离、owned cleanup、consumer consistency与 terminal receipt通过。",
+        "- [ ] Comment fixture只有#2161一个producer和#2159/#2160权威ports。",
+        "- [ ] Demo correctness、legacy actor、direct SQL、first-row/queue-count与same-comment矩阵残留为0。",
+        "- [ ] Old helpers/aliases/compat/second producer残留为0。",
+        "- [ ] Parent反例与降级被治理杀死。",
+        "- [ ] Demo/correctness隔离，terminal receipt warnings=0。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2158, #2159, #2160, #2161"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2162.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified initial canonical comment/actor/security/admin permission/clock input refs are missing or held",
+        "Native atomic comment/revision/audit/outbox/nullifier/capability observation/rollback and operation-owned cleanup not qualified",
+        "Owner1653 exact current edge event/revision/queue/cache/reply terminal input and complete revision-coordinate contracts absent; ordinary mocks are not terminal receipts"
+      ]
+    },
+    {
+      "id": 1715,
+      "title": "tracking(test-fixtures): comment thread、moderation、region 与 evidence producer",
+      "githubState": "open",
+      "role": "tracking-only",
+      "status": "tracking-only, compiled foundations passed",
+      "reason": "Existing compiled thread/moderation contracts 22/22 and command/anonymous-provider contracts 14/14 pass at frozen f481. Actual live comment verify API exists. Separate current clock capability clears 23 model failures (42/42 governance) at b62c6f487, but does not provide production terminal acceptance or satisfy remaining catalog/profile gates. No aggregate closure.",
+      "applicableCriterionLines": [
+        "- [ ] comment/moderation capability由一个producer owner提供。",
+        "- [ ] 线程、回复、深度、编辑、软删除和审核矩阵使用独立实体，关系完整。",
+        "- [ ] actor mode全部来自当前canonical contract，无legacy值。",
+        "- [ ] public projection与admin queue对每种状态的包含/排除精确正确。",
+        "- [ ] region/signal/evidence状态有实际关系与postcondition，不是文本标签。",
+        "- [ ] producer只消费article/auth references，不修改其状态。",
+        "- [ ] cleanup只作用于owned comment域，rerun无重复。",
+        "- [ ] cache/queue invalidation失败不能verified。",
+        "- [ ] 代码搜索legacy actor、第一条pending发现、散落comment SQL返回0。",
+        "- [ ] 无旧helper、compat状态、双producer或feature flag。"
+      ],
+      "criterionExecutionStatus": "existing source/compiled foundations genuinely executed; later issue-specific acceptance waits on the named unmet prerequisite, not root OPEN state",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1707, #1709, #1710, #1712, #1713"
+      ],
+      "latestCommentSourceProgress": "Policy source centrally merged; outbox3b formal19, revisione816 formal92, composed routing9d with unchanged f88 formal107 closure available. Source results are not qualified canonical-positive fixture or terminal receipts.",
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/1715.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified initial canonical comment/actor/security/admin permission/clock input refs are missing or held",
+        "Native atomic comment/revision/audit/outbox/nullifier/capability observation/rollback and operation-owned cleanup not qualified",
+        "Owner1653 exact current edge event/revision/queue/cache/reply terminal input and complete revision-coordinate contracts absent; ordinary mocks are not terminal receipts"
+      ]
+    },
+    {
+      "id": 2046,
+      "title": "feat(test-fixtures): 建立唯一 verified fixture receipt reader 与 reason codes",
+      "githubState": "open",
+      "role": "execution",
+      "status": "partial refusing entry API source verified locally; full acceptance blocked",
+      "reason": "Bounded parent-authorized source increment bf59cf9c9a19650af940fc4c18da45a310143168 declares all four APIs/types/fixed refusal codes, 4/4 API controls and SOURCE/style/docs/range passed. Formal locator, sealed-metadata capability eligibility, semantic-role and private-entitlement contracts remain missing; #1715/full admission prerequisites and original acceptance are not satisfied. No consumer migration. Git push failed exit128: invalid configured credential. Existing Git access subsequently recovered for authorized2177 composition fetch/push; this2046 source branch remains local and its prior held push was not retried. Formal reader contracts remain the substantive acceptance blocker.",
+      "applicableCriterionLines": [
+        "- [ ] 存在唯一纯reader API与固定fixture reason codes。",
+        "- [ ] Identity/capability/role/private projection在产品请求前exact验证。",
+        "- [ ] Demo/old/stale/cross-run与任何fallback能力全部fail closed。",
+        "- [ ] 本PR不迁移业务consumer或删除旧路径。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1710, #1712, #1713, #1714, #1715, #1716, #1717"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2046.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 2047,
+      "title": "refactor(test-fixtures): 迁移 public SEO、hydration 与公开内容 correctness consumers",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2046 verified reader. Its public/SEO/AOT/hydration consumer migration cannot start without that actual API and per-test sealed role/capability bindings.",
+      "applicableCriterionLines": [
+        "- [ ] 所有 public/SEO/hydration/AOT correctness consumers 在首个请求前完成 current receipt admission。",
+        "- [ ] 每个 consumer 使用精确 capabilities 与 semantic roles，无固定 ID/handle/first-row/fallback。",
+        "- [ ] Fixture 失败以 fixture reason code 终止且产品请求数为 0。",
+        "- [ ] Demo/old/stale/cross-run evidence 全部 fail closed。",
+        "- [ ] 原产品断言与行为未改变。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2046"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2047.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 2049,
+      "title": "refactor(test-fixtures): 迁移 comments、replies 与 moderation correctness consumers",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2046 verified reader; current comment terminal evidence is also unmet. No moderation/private credential consumer migration performed.",
+      "applicableCriterionLines": [
+        "- [ ] 所有comments/moderation correctness consumers在首个请求前验证current receipt。",
+        "- [ ] Comment/article/user实体只按精确semantic roles解析。",
+        "- [ ] 无first pending/DB discovery/runtime seed/old file/local mock fallback。",
+        "- [ ] Fixture失败使用reason code且零产品请求。",
+        "- [ ] 原评论/审核/权限/cache断言未改变。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2046"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2049.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 2050,
+      "title": "refactor(test-fixtures): 迁移 messages、inbox 与 notification correctness consumers",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2046 verified reader and exact messaging/notification roles. Existing messaging contract controls are models; no new consumer acceptance.",
+      "applicableCriterionLines": [
+        "- [ ] 所有messages/notification correctness consumers在首个请求前验证current receipt。",
+        "- [ ] Thread/message/participant/unread实体只按semantic roles解析。",
+        "- [ ] 无first/latest row、environment discovery、old file、mock或default-user fallback。",
+        "- [ ] Fixture失败使用reason code且零产品/connection请求。",
+        "- [ ] 原消息/通知/权限/重连断言未改变。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2046"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2050.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 2051,
+      "title": "fix(test-fixtures): 封口 secret projections 的权限、digest 与 consumer entitlement",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2046. The full private projection entitlement/lifecycle contract must be delivered before auth projections; no secret schema or carrier compatibility authority invented.",
+      "applicableCriterionLines": [
+        "- [ ] Secret projections current-run、content-addressed、最小权限且exact绑定parent receipt。",
+        "- [ ] 只有明确entitled consumer可读取，stale/cross-run/path unsafe全部fail closed。",
+        "- [ ] Secret明文不进入普通evidence、logs、traces、screenshots、env/args或CI artifacts。",
+        "- [ ] Cleanup安全、可审计且不误删其他run。",
+        "- [ ] 本PR不迁移业务consumer。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2046"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2051.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 2048,
+      "title": "refactor(test-fixtures): 迁移 auth、MFA、权限与 security correctness consumers",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2046 and #2051. No auth/security consumer migration; production serializers/verified private entitlement remain mandatory.",
+      "applicableCriterionLines": [
+        "- [ ] 所有auth/security correctness consumers在首个请求前验证current receipt、capabilities、roles与private projection。",
+        "- [ ] 无默认handle、existing-user discovery、old manifest/storage或mock/demo fallback。",
+        "- [ ] Secret projection权限/identity精确且无明文泄漏。",
+        "- [ ] Fixture失败只报告fixture reason code且零产品请求。",
+        "- [ ] 原认证/授权/安全断言未改变。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2046"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2048.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 2151,
+      "title": "fix(test-fixtures): 生成 receipt-bound token、cookie 与 browser storage private projections",
+      "githubState": "open",
+      "role": "execution",
+      "status": "source foundations passed; waiting on #2051",
+      "reason": "Current original auth private projection 27/27 and composition root 11/11 C# tests pass; original auth/private Node controls pass in the combined 28/28 run. Source/current-production-issuer and cross-run/catalog/expiry refusal foundations are executable. #2051 private policy/entitlement/lifecycle is undelivered; the full user/admin/device DB-cache-token-cookie-storage matrix and actual browser import have not run. No projection production or consumer migration accepted.",
+      "applicableCriterionLines": [
+        "- [ ] Token/cookie/storage只由真实issuers从verifiedsession facts生成。",
+        "- [ ] Projection与DB/cache/claims/auth strength/MFA/device exact一致。",
+        "- [ ] Private root/consumer/expiry/revoke/redaction边界完整且fail closed。",
+        "- [ ] Invalid states不能伪装active storage。",
+        "- [ ] 本PR不迁移consumers或删除legacy paths。"
+      ],
+      "criterionExecutionStatus": "existing source/compiled foundations genuinely executed; later issue-specific acceptance waits on the named unmet prerequisite, not root OPEN state",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2150, #2147, #2148, #2051"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2151.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified private projection entitlement/lifecycle and validity-truth contracts absent",
+        "No actual per-device browser first-request/AOT or full auth refresh/permission/native cleanup receipt",
+        "Account/private carrier source alone does not provide verified aggregate cleanup; sealed private reader expansion remains held"
+      ]
+    },
+    {
+      "id": 2170,
+      "title": "fix(test-fixtures): 生成 account/device locale Cookie 与 browser storage projections",
+      "githubState": "open",
+      "role": "execution",
+      "status": "codec foundations passed; waiting on #2051",
+      "reason": "Correct direct prerequisites are #2169/#1704/#1705/#1706/#2051, not a direct #2046 dependency. Current original account-profile fixture service, locale cookie and locale codec tests 25/25 pass, plus preference Node controls in the combined 28/28 run. Existing complete preference PostgreSQL matrix with production commands, independent readers and owned cleanup passes 1/1; task containers absent after completion. #2051 private lifecycle remains undelivered; actual per-device browser first request/Public AOT source/locale/ACL/expiry/cleanup acceptance has not run. Narrow consumer handoff confirmed internal AccountLocaleDeviceProjection/PrepareAsync/VerifyAsync/CleanupAsync in source a4a8f9e40; actual Cookie/private browser projection and first-request AOT receipt API remains missing. Supplied account composer d722d67e was not consumed. Latest supplied composer 138c1254918d365d35b6019e1bd6d4a418bcafa3 already verifies exact immutable DTO then calls cleanup, explicitly cleanupCompletionVerified=false; not consumed or duplicated. Current #2170 prohibits account preference port implementation. Missing post-restoration preference cleanup readback belongs to closed #2169 existing canonical owner; owned #2170 gaps remain real Cookie/device-private storage and first-request AOT.",
+      "applicableCriterionLines": [
+        "- [ ] Cookie/storage projections只由verifiedaccount/device facts和production codec派生。",
+        "- [ ] Account/device/anonymous precedence与#1705/#1706 exact一致。",
+        "- [ ] Browser真实首请求/Public AOT验证source/locale，不以localStorage/store为authority。",
+        "- [ ] Private projection安全、device隔离、stale/tamper fail closed。",
+        "- [ ] 本PR不实现final producer或删除legacy keys。"
+      ],
+      "criterionExecutionStatus": "existing source/compiled foundations genuinely executed; later issue-specific acceptance waits on the named unmet prerequisite, not root OPEN state",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2169, #1704, #1705, #1706, #2051"
+      ],
+      "capabilityLookup": "/workspace/FsusBlog/.tmp/issue-1725-pure-source-20261008/account-consumer-capability-handoff.json",
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2170.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified private projection entitlement/lifecycle and validity-truth contracts absent",
+        "No actual per-device browser first-request/AOT or full auth refresh/permission/native cleanup receipt",
+        "Account/private carrier source alone does not provide verified aggregate cleanup; sealed private reader expansion remains held"
+      ]
+    },
+    {
+      "id": 2177,
+      "title": "feat(test-fixtures): 暴露 canonical comment command、actor、thread 与 privacy fixture port",
+      "githubState": "open",
+      "role": "execution",
+      "status": "bounded policy merged centrally; outbox and shared revision source published with original formal19/92; full authority acceptance OPEN",
+      "reason": "Actual master1cd includes policy and lock. Pure outbox source3b1b42e2639d63805b4efd4371232fc0f74df144 has4-path scope and original formal19/19 covering exactly all old isolated case names; no old receipt reuse. Public eight-parameter BuildRevision sourcee816562e42be2afbce0136e1c3fd0515659da215 has7-path scope, original formal92/92 including8 hash/identity value controls and1 native PostgreSQL edit normalization/identity case. Create/edit/delete share the existing lowercase UTF8 SHA constructor; native writer still allocates revision row IDs. Premoderated Pending/article_policy_premoderated branch unchanged. SOURCE/range/complete proposed metadata pass. Actual qualified actor/security/role/nullifier/capability inputs, native atomic/audit transaction and independent fixture receipts are still missing/held; no whole issue acceptance.",
+      "applicableCriterionLines": [
+        "- [ ] Canonical comment由单一production command transaction产生。",
+        "- [ ] Actor/thread/privacy/revision/region/outbox/nullifier/capability事实完整一致。",
+        "- [ ] 任一policy/nullifier/writer失败全回滚。",
+        "- [ ] 无legacy actor、private exact attrs、direct SQL或request-owned thread coordinates。",
+        "- [ ] 本PR不实现timeline/derived edges/rerun治理。"
+      ],
+      "criterionExecutionStatus": "existing source/compiled foundations genuinely executed; later issue-specific acceptance waits on the named unmet prerequisite, not root OPEN state",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": true,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1715, #1722, #1713, #1714"
+      ],
+      "sourceCapabilitySha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "pureSourceTestedSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "followupEvidence": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/capability-handoff.json",
+      "initialOutboxSourceTestedSha": "ef65043daec41df104dc65ce26cd93ff9996574f",
+      "formalPolicyCandidateSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+      "formalPolicyCandidateBranch": "codex/issue-2177-policy-post-lock-review-20261008",
+      "formalPolicyTestedSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+      "formalPolicyPassed": 80,
+      "wholeIssueAccepted": false,
+      "formalPolicyEvidence": "artifacts/handoffs/issue-2177-policy-post-lock-review-20261008/handoff.json",
+      "metadataGatePassed": true,
+      "independentCurrent18PathReviewReported": true,
+      "metadataGateMode": "complete proposed metadata; live PR not written",
+      "currentBuilderSourceSha": "e816562e42be2afbce0136e1c3fd0515659da215",
+      "currentOutboxFormalSourceSha": "3b1b42e2639d63805b4efd4371232fc0f74df144",
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2177.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified initial canonical comment/actor/security/admin permission/clock input refs are missing or held",
+        "Native atomic comment/revision/audit/outbox/nullifier/capability observation/rollback and operation-owned cleanup not qualified",
+        "Owner1653 exact current edge event/revision/queue/cache/reply terminal input and complete revision-coordinate contracts absent; ordinary mocks are not terminal receipts"
+      ]
+    },
+    {
+      "id": 2660,
+      "title": "test(test-fixtures): 清理旧 fixture readers 与 default 实体",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2046/#2047/#2048/#2049/#2050/#2051. No deletion of old readers/inventory cutover before verified replacement consumers.",
+      "applicableCriterionLines": [
+        "- [ ] `readPublicFixtureIds` 及其 active correctness调用点为0。",
+        "- [ ] 固定 IDs/handles/emails、first/latest/any-existing、old manifests、mock/demo/local fallback为0。",
+        "- [ ] `config/testing/fixture-consumers.json` 与 matrix/discovery双向 exact。",
+        "- [ ] `node --test tests/tools/fixture-reader-migration.test.mjs tests/tools/fixture-receipt.test.mjs` 通过。",
+        "- [ ] 每个 consumer只使用 #2046 verified current-run reader与精确 capability/role。",
+        "- [ ] 本 PR 未实现 admission sentinel或修改 producer/assertions。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2046, #2047, #2048, #2049, #2050, #2051"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2660.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 2661,
+      "title": "test(test-fixtures): runtime/browser correctness consumer admission 封口",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2660 exact inventory and #2046 reader. No admission sentinel implementation or zero-request acceptance without prerequisite bindings.",
+      "applicableCriterionLines": [
+        "- [ ] `tools/test-fixtures/admit-consumer.mjs` 是 runtime/browser/load correctness唯一 admission API。",
+        "- [ ] `node --test tests/tools/fixture-consumer-admission.test.mjs tests/browser-contract/fixture-lifecycle.test.mjs` 通过。",
+        "- [ ] 每个 inventory consumer在首个产品请求前完成 exact admission。",
+        "- [ ] 所有 admission失败 fixture的 HTTP/browser/DB-facing product请求数为0。",
+        "- [ ] stale generation/private entitlement/capability/role mismatch fail closed。",
+        "- [ ] 本 PR 未实现 scanner或修改业务 assertions/producers。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2660, #2046, #2047, #2048, #2049, #2050, #2051"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2661.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 2662,
+      "title": "evidence(test-fixtures): 全仓静态/终态治理 receipt 聚合",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2661 current admission implementation and #2660 cleanup evidence. Verification-only; no fabricated scanner/mutation/terminal receipt.",
+      "applicableCriterionLines": [
+        "- [ ] `node tools/test/check-fixture-consumer-governance.mjs` 返回0 violations。",
+        "- [ ] `node --test tests/tools/fixture-consumer-governance.test.mjs tests/tools/fixture-reader-migration.test.mjs tests/tools/fixture-consumer-admission.test.mjs` 通过。",
+        "- [ ] fixed/default/discovery/old reader/mock/demo/fallback/compat/per-test parser残留为0。",
+        "- [ ] 每个 correctness consumer exact-one、首请求前 admission，违规请求数0。",
+        "- [ ] secret plaintext/private root ordinary artifact occurrences为0。",
+        "- [ ] `fsusblog.fixture-consumer-acceptance.v1` status=accepted、warnings=0、可独立重算。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2660, #2661"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2662.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 2052,
+      "title": "test(test-fixtures): 删除旧 readers、默认实体与 fallback 并封口全仓 admission",
+      "githubState": "open",
+      "role": "tracking-only",
+      "status": "tracking-only",
+      "reason": "Aggregate #2660/#2661/#2662 and all migrated reader consumers. Each owned prerequisite is still waiting; no independent parent implementation or closure.",
+      "applicableCriterionLines": [
+        "- [ ] #2660：删除旧 readers/default IDs/handles/manifest/discovery/fallback，并建立 consumer inventory。",
+        "- [ ] #2661：所有 runtime/browser/load correctness consumers 在首个产品请求前完成 #2046 admission。",
+        "- [ ] #2662：只消费前两张 receipts，执行 scanner/mutation/secret治理并签 terminal receipt。",
+        "- [ ] #2660、#2661、#2662 completed。",
+        "- [ ] 全部 consumers exact-one 使用 #2046 reader/admission。",
+        "- [ ] Parent/child依赖与顺序 DAG一致。",
+        "- [ ] 固定/default/discovery/old reader/mock/demo/fallback/compat与 secret leak残留为0。",
+        "- [ ] 全部runtime/browser correctness consumers exact-one使用#2046并在首个产品请求前admit。",
+        "- [ ] 固定ID/handle、first/latest/any-existing、old reader/file、mock/demo/fallback与compat残留为0。",
+        "- [ ] 每个consumer capability精确、entity按semantic role、fixture错误零产品请求。",
+        "- [ ] Secret projection最小权限、entitled、redacted且不进入普通artifacts。",
+        "- [ ] Terminal receipt current-source、content-addressed、warnings=0。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2046, #2047, #2048, #2049, #2050, #2051"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2052.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 1719,
+      "title": "tracking(test-fixtures): correctness consumers 只读取本轮 verified fixture receipt",
+      "githubState": "open",
+      "role": "tracking-only",
+      "status": "tracking-only",
+      "reason": "Tracking-only: #2046 narrow refusing entry source is locally verified, but full eligibility/role/entitlement contracts and child consumer cutover/cleanup evidence are absent. No tracking parent implementation or closure.",
+      "applicableCriterionLines": [
+        "- [ ] 所有runtime/browser correctness consumer在首个产品请求前验证本轮receipt。",
+        "- [ ] 每个consumer声明精确capabilities并由reader验证。",
+        "- [ ] 所有业务实体按semantic role解析，不使用固定ID/handle/标题/数组第0项。",
+        "- [ ] 缺receipt/capability/entity时报告fixture reason code并零产品请求。",
+        "- [ ] demo/diagnostic receipt不能被correctness consumer接受。",
+        "- [ ] secret projection私有且绑定receipt，不泄露进普通log/evidence。",
+        "- [ ] projection service generation或receipt digest变化时拒绝使用。",
+        "- [ ] 代码搜索ID=1 fixture fallback、`requireCurrent=false`、默认fixture handle、环境发现返回0。",
+        "- [ ] 旧reader/schema不兼容读取，无双reader/adapter/feature flag。",
+        "- [ ] public SEO/hydration/auth/security/moderation/messages代表消费者有正负测试。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1710, #1712, #1713, #1714, #1715, #1716, #1717"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/1719.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Final receipt locator/producer identity contract plus sealed capability eligibility, semantic-role projection and private entitlement/lifecycle contracts not supplied",
+        "Current producer receipt source allows only kind/id/handle/digest/variantId/owner; semanticRole mapping cannot be invented from ID/order/title",
+        "Explicit reader/private-role expansion and held audit restriction persists; no verified replacement consumer/cleanup evidence"
+      ]
+    },
+    {
+      "id": 2054,
+      "title": "test(test-matrix): 计算 step test-ID capability union 并拒绝缺失或过度注入",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #1719 reader/consumer contract. Existing matrix/catalog controls fail exact fixture-profile/inventory checks; no capability-union implementation before actual reader eligibility.",
+      "applicableCriterionLines": [
+        "- [ ] 每个step的test-ID capability union可追溯、content-addressed且来自真实discovery。",
+        "- [ ] Profile覆盖exact：缺失与过度注入均fail closed。",
+        "- [ ] Empty-state、none与宽泛profile边界可机械验证。",
+        "- [ ] 新test/requirement变化自动使旧binding失效。",
+        "- [ ] 本PR不修改DAG、scheduler或profile业务定义。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1707, #2053, #1719"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2054.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified reader admission and per-test sealed role/capability metadata absent",
+        "No verified capability-union and fixture lifecycle DAG execution/identity receipt to feed scheduler/cleanup/final verifier",
+        "Owner3521 business-clock/matrix terminal evidence remains missing; no qualification or generated-policy repair is inferred"
+      ]
+    },
+    {
+      "id": 2055,
+      "title": "feat(test-matrix): 将 fixture plan、prepare、verify 与 cleanup 投影为显式 DAG 节点",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2054. Fixture lifecycle DAG cannot start before the per-step capability union is verified. Existing orchestrator contract checks do not qualify current scheduled product fixtures.",
+      "applicableCriterionLines": [
+        "- [ ] 每个executable step具有显式fixture lifecycle DAG。",
+        "- [ ] Producer topology exact-one来自#1709，无second DAG/tier inference。",
+        "- [ ] Consumer只有verified current receipt后才能admit。",
+        "- [ ] None/shared/data-scale/cleanup边界可机械验证且fail closed。",
+        "- [ ] 本PR不修改execution/cache/evidence binding。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1708, #1709, #1710, #2053, #2054"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2055.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified reader admission and per-test sealed role/capability metadata absent",
+        "No verified capability-union and fixture lifecycle DAG execution/identity receipt to feed scheduler/cleanup/final verifier",
+        "Owner3521 business-clock/matrix terminal evidence remains missing; no qualification or generated-policy repair is inferred"
+      ]
+    },
+    {
+      "id": 2056,
+      "title": "fix(test-matrix): 将 fixture profile 与 verified receipt 纳入 scheduler admission 和 execution identity",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2054/#2055 plus current closed scheduling/identity boundaries. No receipt admission or scheduler identity acceptance; current matrix reports explicit envelope/applicability drift.",
+      "applicableCriterionLines": [
+        "- [ ] Fixture identity和verified receipt是scheduler admission硬前置。",
+        "- [ ] Profile及所有相关digests进入execution/cache/checkpoint/evidence/release identity。",
+        "- [ ] 任何变化或cross-run/stale/override使旧result不可复用并fail closed。",
+        "- [ ] Diagnostic/correctness隔离且无第二identity/cache authority。",
+        "- [ ] 原state/resource conflict与业务语义不变。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2053, #2054, #2055, #1600, #1602, #1604"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2056.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified reader admission and per-test sealed role/capability metadata absent",
+        "No verified capability-union and fixture lifecycle DAG execution/identity receipt to feed scheduler/cleanup/final verifier",
+        "Owner3521 business-clock/matrix terminal evidence remains missing; no qualification or generated-policy repair is inferred"
+      ]
+    },
+    {
+      "id": 2057,
+      "title": "fix(test-matrix): 强制 correctness、diagnostic、demo、data-scale 与 none profile 边界",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2054/#2055/#2056. No profile/class boundaries accepted merely from existing catalogs; original exact admission negatives retained.",
+      "applicableCriterionLines": [
+        "- [ ] 五类execution/profile边界machine-readable且严格执行。",
+        "- [ ] Correctness拒绝demo/diagnostic，data-scale只用dedicated runtime，none有真实zero-data证明。",
+        "- [ ] Child/env/CLI无法覆盖sealed profile identity。",
+        "- [ ] Eligibility/identity变化使旧cache/evidence失效。",
+        "- [ ] 原producer/profile业务语义未改变。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1707, #2053, #2054, #2055, #2056"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2057.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified reader admission and per-test sealed role/capability metadata absent",
+        "No verified capability-union and fixture lifecycle DAG execution/identity receipt to feed scheduler/cleanup/final verifier",
+        "Owner3521 business-clock/matrix terminal evidence remains missing; no qualification or generated-policy repair is inferred"
+      ]
+    },
+    {
+      "id": 2663,
+      "title": "test(test-matrix): 删除 tier inference 与 default profile fixture",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #1719/#2054/#2055/#2056/#2057. No deletion of default profile/tier inference before verified replacement DAG.",
+      "applicableCriterionLines": [
+        "- [ ] `FSUSBLOG_FIXTURE_PROFILE` 及同类 correctness override active reads为0。",
+        "- [ ] tier-name/default/data-scale/old-field/compat profile推断 active paths为0。",
+        "- [ ] `node --test tests/tools/fixture-catalog.test.mjs tests/tools/fixture-orchestrator.test.mjs tests/tools/release-reliability-qualified-local.test.mjs` 通过。",
+        "- [ ] 所有 executable steps有 exact合法 `fixtureProfile`。",
+        "- [ ] profile/catalog digest进入 execution/cache/evidence identity。",
+        "- [ ] 本 PR 未修改 profile内容、producer或 assertions。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1719, #2053, #2054, #2055, #2056, #2057"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2663.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified reader admission and per-test sealed role/capability metadata absent",
+        "No verified capability-union and fixture lifecycle DAG execution/identity receipt to feed scheduler/cleanup/final verifier",
+        "Owner3521 business-clock/matrix terminal evidence remains missing; no qualification or generated-policy repair is inferred"
+      ]
+    },
+    {
+      "id": 2664,
+      "title": "test(test-matrix): 修正 fixture DAG 与 capability 绑定",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2663 and the actual matrix/reader contracts. Existing matrix fixture-profile test fails for validate-declarations/source-governance and stale generated matrix; no independent repair of sibling policy/fixture source.",
+      "applicableCriterionLines": [
+        "- [ ] 每个 executable consumer具有显式 fixture DAG与 verified receipt hard prerequisite。",
+        "- [ ] `node --test tests/tools/fixture-orchestrator.test.mjs tests/tools/test-matrix-scheduler.test.mjs tests/tools/test-matrix-topology-observation.test.mjs` 通过。",
+        "- [ ] Hidden bootstrap/lane fixture execution与第二 DAG active paths为0。",
+        "- [ ] Profile/capability/plan/receipt全部进入 execution/cache/evidence identity。",
+        "- [ ] Diagnostic/correctness state/receipt跨用为0。",
+        "- [ ] 本 PR 未修改 fixture producer/profile内容或业务 assertions。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1719, #2053, #2054, #2055, #2056, #2057, #2663"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2664.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified reader admission and per-test sealed role/capability metadata absent",
+        "No verified capability-union and fixture lifecycle DAG execution/identity receipt to feed scheduler/cleanup/final verifier",
+        "Owner3521 business-clock/matrix terminal evidence remains missing; no qualification or generated-policy repair is inferred"
+      ]
+    },
+    {
+      "id": 2058,
+      "title": "test(test-matrix): 删除 tier 推断、默认 profile、env override 与双拓扑并封口全链",
+      "githubState": "open",
+      "role": "tracking-only",
+      "status": "tracking-only",
+      "reason": "Aggregate #2663/#2664 and external #2665 (owner root #3521). Need exact #2665 terminal governance evidence and owned child acceptance; no parent implementation.",
+      "applicableCriterionLines": [
+        "- [ ] #2663：删除 tier-name inference、default profile、correctness env override、old fields/aliases/fallback。",
+        "- [ ] #2664：将 profile/capability/producer lifecycle/admission编译为唯一 explicit DAG。",
+        "- [ ] #2665：只消费前两张 receipts，执行 scanner/mutation/local-CI parity并签 terminal receipt。",
+        "- [ ] #2663、#2664、#2665 completed。",
+        "- [ ] Parent/child依赖与顺序 DAG一致。",
+        "- [ ] 所有 executable steps exact profile/capabilities/DAG/admission完整。",
+        "- [ ] tier/default/env/old-field/second-DAG/hidden-seed/data-scale fallback/diagnostic reuse残留为0。",
+        "- [ ] `fsusblog.fixture-matrix-acceptance.v1` warnings=0，可独立验证。",
+        "- [ ] 所有executable steps有exact合法profile并通过capability exactness。",
+        "- [ ] Fixture lifecycle显式DAG，verified receipt是consumer admission硬前置。",
+        "- [ ] Profile/capability/receipt完整进入execution/cache/evidence/release identity。",
+        "- [ ] Tier inference、default、env override、old fields、second topology、hidden seed与fallback残留为0。",
+        "- [ ] Terminal receipt current-source、content-addressed、warnings=0。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2053, #2054, #2055, #2056, #2057, #1719"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2058.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified reader admission and per-test sealed role/capability metadata absent",
+        "No verified capability-union and fixture lifecycle DAG execution/identity receipt to feed scheduler/cleanup/final verifier",
+        "Owner3521 business-clock/matrix terminal evidence remains missing; no qualification or generated-policy repair is inferred"
+      ]
+    },
+    {
+      "id": 1720,
+      "title": "tracking(test-matrix): runtime/browser steps 显式绑定 fixture profile 与 verified receipt",
+      "githubState": "open",
+      "role": "tracking-only",
+      "status": "tracking-only",
+      "reason": "Aggregate #1719 and #2054–#2058. Current matrix fails its original validation; no full fixture scheduling/admission acceptance. This is an issue-specific matrix condition, not a blanket runtime gate.",
+      "applicableCriterionLines": [
+        "- [ ] 每个executable matrix step恰有一个合法fixtureProfile，static/coordination明确none。",
+        "- [ ] step test-ID capability union与profile capability set精确匹配，缺失和过度注入均失败。",
+        "- [ ] fixture prepare/verify成为显式DAG前置，consumer不能越过receipt admission。",
+        "- [ ] profile/catalog/capability/producer plan digest进入execution/cache/evidence identity。",
+        "- [ ] correctness拒绝demo/diagnostic-only profile。",
+        "- [ ] data-scale profile只能使用#1617 dedicated runtime，无local/dev fallback。",
+        "- [ ] child/env不能覆盖sealed profile identity。",
+        "- [ ] 新增test requirement未更新profile时matrix validate失败。",
+        "- [ ] 代码搜索tier-name seed inference、default profile、env override、第二profile表返回0。",
+        "- [ ] 无旧字段compat parser、双DAG或feature flag。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1707, #1708, #1709, #1710, #1719"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/1720.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified reader admission and per-test sealed role/capability metadata absent",
+        "No verified capability-union and fixture lifecycle DAG execution/identity receipt to feed scheduler/cleanup/final verifier",
+        "Owner3521 business-clock/matrix terminal evidence remains missing; no qualification or generated-policy repair is inferred"
+      ]
+    },
+    {
+      "id": 1721,
+      "title": "test(test-fixtures): 一次迁移最终收口与零隐藏注入门禁",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Final verification only; requires #1715/#1719/#1720 and closed boundaries including current-body #1711. No producer/startup/source repairs are allowed here; missing child/current runtime/zero-legacy proof prevents final qualification.",
+      "applicableCriterionLines": [
+        "- [ ] 全部依赖issue各自完成机械验收，本issue不代修。",
+        "- [ ] catalog/profile/producer/matrix/consumer集合双向exact match。",
+        "- [ ] none、demo、correctness、diagnostic、data-scale边界明确且不可混用。",
+        "- [ ] 所有业务capability具有唯一producer和真实postcondition。",
+        "- [ ] DB/Redis/cache漂移稳定使run-once拒绝复用。",
+        "- [ ] correctness消费者无默认ID/handle/环境发现/fallback。",
+        "- [ ] matrix所有executable step显式profile且不过度注入。",
+        "- [ ] zero legacy scan逐项为0。",
+        "- [ ] dependency graph无orchestrator↔producer、producer↔consumer、catalog↔implementation循环。",
+        "- [ ] docs只描述最终profile/catalog/orchestrator/receipt架构，不保留迁移或旧命令。",
+        "- [ ] release evidence绑定同一commit/worktree/build/catalog/profile/receipt digest。",
+        "- [ ] 不存在兼容reader、旧CLI、双producer、feature flag或skip。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1707, #1708, #1709, #1710, #1711, #1712, #1713, #1714, #1715, #1716, #1717, #1718, #1719, #1720"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/1721.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified reader admission and per-test sealed role/capability metadata absent",
+        "No verified capability-union and fixture lifecycle DAG execution/identity receipt to feed scheduler/cleanup/final verifier",
+        "Owner3521 business-clock/matrix terminal evidence remains missing; no qualification or generated-policy repair is inferred"
+      ]
+    },
+    {
+      "id": 1723,
+      "title": "fix(test-fixtures): 隔离 migration、legacy、negative 与 diagnostic 数据消费边界",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #1719/#1720. No validity-class consumer/matrix/release cutover before sealed reader and scheduler admission; no legacy/demo widening.",
+      "applicableCriterionLines": [
+        "- [ ] 每个 executable test step 都有确定的 allowed validity classes。",
+        "- [ ] correctness 默认且最终只接受 canonical-positive。",
+        "- [ ] migration-legacy、diagnostic-only、scale-synthetic 均不能进入 correctness/release qualification。",
+        "- [ ] migration 后输出必须经 canonical postcondition 重新验证并生成新 receipt。",
+        "- [ ] consumer 在 validity 验证前零产品请求、零浏览器启动。",
+        "- [ ] profile、receipt、variant class 不一致时 fail closed。",
+        "- [ ] child env、CLI、test annotation 不能扩大 matrix sealed class。",
+        "- [ ] release aggregator 遇到非 canonical-positive correctness receipt时失败。",
+        "- [ ] demo-public 永远 qualificationEligible=false。",
+        "- [ ] 代码搜索 legacy/demo fallback reader、validity override、compat adapter 返回 0。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1722, #1719, #1720"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/1723.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified reader admission and per-test sealed role/capability metadata absent",
+        "No verified capability-union and fixture lifecycle DAG execution/identity receipt to feed scheduler/cleanup/final verifier",
+        "Owner3521 business-clock/matrix terminal evidence remains missing; no qualification or generated-policy repair is inferred"
+      ]
+    },
+    {
+      "id": 2181,
+      "title": "feat(test-fixtures): 定义 canonical-authenticated、authorization-bypass 与 migration-legacy truth classes",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Contract-only leaf requires #1723 plus #1713/#1722. Current required producer/consumer validity admission is not delivered; no new independent truth registry or session implementation.",
+      "applicableCriterionLines": [
+        "- [ ] 三类truth class唯一、closed、mutually exclusive、versioned。",
+        "- [ ] 每variant/consumer eligibility machine-readable且default fail closed。",
+        "- [ ] Bypass/legacy不能进入canonical authentication correctness/release evidence。",
+        "- [ ] Truth只来自verifiedreceipt，不由JWT/path/consumer猜测。",
+        "- [ ] 本PR不生成会话或修改产品。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1713, #1722, #1723"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2181.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified private projection entitlement/lifecycle and validity-truth contracts absent",
+        "No actual per-device browser first-request/AOT or full auth refresh/permission/native cleanup receipt",
+        "Account/private carrier source alone does not provide verified aggregate cleanup; sealed private reader expansion remains held"
+      ]
+    },
+    {
+      "id": 2183,
+      "title": "feat(test-fixtures): 隔离 authorization-bypass 与 migration-legacy auth fixtures",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2151/#2181. No bypass/legacy isolation before entitled private projection and truth classes; no canonical-positive bypass.",
+      "applicableCriterionLines": [
+        "- [ ] Bypass与legacy fixtures独立、显式、consumer/purpose-bound且默认拒绝。",
+        "- [ ] 两类都不能伪装或替代canonical authentication truth。",
+        "- [ ] Bypass不写canonicalsession/credential/proof facts，legacy仅供migration。",
+        "- [ ] Release/correctness/qualification完整拒绝bypass/legacy。",
+        "- [ ] 本PR不生成canonical sessions或删除旧路径。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2181, #1713, #2151"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2183.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified private projection entitlement/lifecycle and validity-truth contracts absent",
+        "No actual per-device browser first-request/AOT or full auth refresh/permission/native cleanup receipt",
+        "Account/private carrier source alone does not provide verified aggregate cleanup; sealed private reader expansion remains held"
+      ]
+    },
+    {
+      "id": 2680,
+      "title": "test(test-fixtures): 删除 auth 兼容 reset 与 default handles",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2151 plus closed auth/security boundaries. Actual auth cleanup test/ownership inventory requested by this issue is not present; deletion cannot start before the verified replacement projection. Narrow handoff confirmed CleanupPrivateAsync only for private admin carrier/session; no verified aggregate auth cleanup API. Required ownership/truth consumer inventories remain absent.",
+      "applicableCriterionLines": [
+        "- [ ] `ensureUserFixtureSession`万能reset、revoke-all、admin-full/defaultPermissions/default handles active paths为0。",
+        "- [ ] direct DB/Redis/JWT/WebAuthn、old manifests/readers、`prepare-auth-smoke-users.mjs`/second producer为0。",
+        "- [ ] `config/testing/auth-fixture-ownership.json` 与 #2146–#2150 双向 exact。",
+        "- [ ] `node --test tests/tools/auth-fixture-cleanup.test.mjs tests/tools/fixture-receipt.test.mjs` 通过。",
+        "- [ ] Auth/security owned facts严格隔离，secret ordinary leakage=0。",
+        "- [ ] 本 PR 未实现 #2681治理或修改产品语义。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1714, #2146, #2147, #2148, #2149, #2150, #2151"
+      ],
+      "capabilityLookup": "/workspace/FsusBlog/.tmp/issue-1725-pure-source-20261008/account-consumer-capability-handoff.json",
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2680.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified private projection entitlement/lifecycle and validity-truth contracts absent",
+        "No actual per-device browser first-request/AOT or full auth refresh/permission/native cleanup receipt",
+        "Account/private carrier source alone does not provide verified aggregate cleanup; sealed private reader expansion remains held"
+      ]
+    },
+    {
+      "id": 2178,
+      "title": "feat(test-fixtures): 通过正式 commands 生成 comment edit、delete、moderation 与 appeal timeline",
+      "githubState": "open",
+      "role": "execution",
+      "status": "existing ordinary source integrated and original formal controls verified; full native authority/edge acceptance OPEN",
+      "reason": "Exact previously published own6656a73e andb570346e source integrated on current policy/lock/revision inputs. Four fixture adapter/test file blobs are identical to canonical ownb570; no new reader surface implementation. Actual original formal107 passed atf88bafd70bafae90ae573d8c430b97732dde488a, including10 ordinary command/delivery routing mocks; these do not qualify native admission. Published metadata-only successor9d50f803f0eced061e7a0b2d369f7dbdd711000e fixes one extra unregistered naming path and preserves6 project/2018 git source inputs,49 package inputs,57 compiled/restore hashes and explicitSDK binary/version. Actual107 receipt remains atf88, not relabeled. Current9d SOURCE/range/completeproposed metadata0. No sealed role/private reader expansion or held audit. Missing qualified initial comment/actor/security/admin permission/clock refs, atomic audit/outbox rollback and granted-appeal continuity observation.",
+      "applicableCriterionLines": [
+        "- [ ] Edit/delete/moderation/report/appeal只由正式commands产生。",
+        "- [ ] Revision与event timeline连续、immutable，最终状态exact一致。",
+        "- [ ] Permission/capability/stale/policy失败全回滚。",
+        "- [ ] Nullifier/privacy/thread identity不被mutation破坏。",
+        "- [ ] 本PR不实现derived edges或legacy removal。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2177, #1715, #1713, #1714, #1601"
+      ],
+      "followupEvidence": "/workspace/FsusBlog-2178-comment-mutations/.tmp/issue-2179-comment-delivery-20261008/capability-handoff.json",
+      "currentSourceSha": "9d50f803f0eced061e7a0b2d369f7dbdd711000e",
+      "currentFormalTestedSha": "f88bafd70bafae90ae573d8c430b97732dde488a",
+      "currentFormalPassed": 107,
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2178.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified initial canonical comment/actor/security/admin permission/clock input refs are missing or held",
+        "Native atomic comment/revision/audit/outbox/nullifier/capability observation/rollback and operation-owned cleanup not qualified",
+        "Owner1653 exact current edge event/revision/queue/cache/reply terminal input and complete revision-coordinate contracts absent; ordinary mocks are not terminal receipts"
+      ]
+    },
+    {
+      "id": 2179,
+      "title": "feat(test-fixtures): 等待并验证 comment outbox、read-model、cache 与 reply notification edges",
+      "githubState": "open",
+      "role": "execution",
+      "status": "existing ordinary source integrated and original formal controls verified; full native authority/edge acceptance OPEN",
+      "reason": "Exact previously published own6656a73e andb570346e source integrated on current policy/lock/revision inputs. Four fixture adapter/test file blobs are identical to canonical ownb570; no new reader surface implementation. Actual original formal107 passed atf88bafd70bafae90ae573d8c430b97732dde488a, including10 ordinary command/delivery routing mocks; these do not qualify native admission. Published metadata-only successor9d50f803f0eced061e7a0b2d369f7dbdd711000e fixes one extra unregistered naming path and preserves6 project/2018 git source inputs,49 package inputs,57 compiled/restore hashes and explicitSDK binary/version. Actual107 receipt remains atf88, not relabeled. Current9d SOURCE/range/completeproposed metadata0. No sealed role/private reader expansion or held audit. Missing event/revision sealed payload/API coordinates, complete moderation queue, exact native Redis/stream/recipient observations and owner1653 current-run terminal evidence; first-page/ordinary mocks cannot qualify them.",
+      "applicableCriterionLines": [
+        "- [ ] Canonical comment只有全部required edges真实terminal success后verified。",
+        "- [ ] Public/admin/queue/cache/notification绑定sealed comment coordinates与privacy contract。",
+        "- [ ] Failure/stale/duplicate/superseded/poison语义fail closed且可审计。",
+        "- [ ] 无manual projection/Redis/notification/mock/count-only验收。",
+        "- [ ] 本PR不修改authority commands或legacy paths。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2177, #2178, #1653, #1716"
+      ],
+      "followupEvidence": "/workspace/FsusBlog-2178-comment-mutations/.tmp/issue-2179-comment-delivery-20261008/capability-handoff.json",
+      "currentSourceSha": "9d50f803f0eced061e7a0b2d369f7dbdd711000e",
+      "currentFormalTestedSha": "f88bafd70bafae90ae573d8c430b97732dde488a",
+      "currentFormalPassed": 107,
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2179.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified initial canonical comment/actor/security/admin permission/clock input refs are missing or held",
+        "Native atomic comment/revision/audit/outbox/nullifier/capability observation/rollback and operation-owned cleanup not qualified",
+        "Owner1653 exact current edge event/revision/queue/cache/reply terminal input and complete revision-coordinate contracts absent; ordinary mocks are not terminal receipts"
+      ]
+    },
+    {
+      "id": 2692,
+      "title": "test(test-fixtures): 修复 canonical comment rerun legacy 清理",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #1715/#2177/#2178/#2179. No legacy rerun cleanup before canonical operation-owned restoration is proven.",
+      "applicableCriterionLines": [
+        "- [ ] Canonical rerun只消费 verified plan/receipts，不发现环境 comment。",
+        "- [ ] `node --test tests/tools/comment-fixture-rerun.test.mjs` 通过。",
+        "- [ ] 同 plan重复执行不累计 revision/event/outbox/audit/notification/nullifier facts。",
+        "- [ ] legacy actor/private attrs/direct SQL/manual thread/first-row/count-only active paths为0。",
+        "- [ ] compat actor/writer/helper/fallback/feature flag/warning路径为0。",
+        "- [ ] 本 PR 未实现 #2693治理或修改产品 comment/privacy语义。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1715, #2177, #2178, #2179"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2692.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified initial canonical comment/actor/security/admin permission/clock input refs are missing or held",
+        "Native atomic comment/revision/audit/outbox/nullifier/capability observation/rollback and operation-owned cleanup not qualified",
+        "Owner1653 exact current edge event/revision/queue/cache/reply terminal input and complete revision-coordinate contracts absent; ordinary mocks are not terminal receipts"
+      ]
+    },
+    {
+      "id": 2693,
+      "title": "evidence(test-fixtures): comment rerun isolation 与终态 evidence",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Verification-only; requires #2692 cleanup. No genuine isolation/parallel/rerun terminal input exists for the owned later flow; no production repair.",
+      "applicableCriterionLines": [
+        "- [ ] `node tools/test/check-comment-fixture-rerun-governance.mjs` 返回0 violations。",
+        "- [ ] `node --test tests/tools/comment-fixture-rerun-governance.test.mjs tests/tools/comment-fixture-rerun.test.mjs` 通过。",
+        "- [ ] legacy actor/private attrs/direct SQL/manual thread/first-row/count-only/compat/second writer残留为0。",
+        "- [ ] DB/timeline/outbox/public-admin/queue/cache/notification/privacy对 canonical plan完全一致。",
+        "- [ ] Rerun幂等、owned cleanup、non-owned保护与 privacy通过。",
+        "- [ ] `fsusblog.comment-rerun-acceptance.v1` accepted、warnings=0、可独立重算。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2692"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2693.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified initial canonical comment/actor/security/admin permission/clock input refs are missing or held",
+        "Native atomic comment/revision/audit/outbox/nullifier/capability observation/rollback and operation-owned cleanup not qualified",
+        "Owner1653 exact current edge event/revision/queue/cache/reply terminal input and complete revision-coordinate contracts absent; ordinary mocks are not terminal receipts"
+      ]
+    },
+    {
+      "id": 2180,
+      "title": "test(test-fixtures): 修复 canonical comment rerun 并删除 legacy actor、private attrs、direct SQL 与 compat writer",
+      "githubState": "open",
+      "role": "tracking-only",
+      "status": "tracking-only",
+      "reason": "Aggregate #2179/#2692/#2693. All current prerequisites unresolved; no parent implementation or terminal acceptance.",
+      "applicableCriterionLines": [
+        "- [ ] #2692：实现 canonical comment exact-plan rerun并删除 legacy actor/private attrs/direct SQL/manual thread/first-row/count-only/compat paths。",
+        "- [ ] #2693：只消费 #2692 receipt，执行 scanner/mutation/isolation/consumer parity/privacy并签 terminal receipt。",
+        "- [ ] #2692、#2693 completed。",
+        "- [ ] Parent/child `Depends on` 与顺序 DAG 一致。",
+        "- [ ] Canonical rerun精确恢复 plan且不累计 revision/event/outbox/audit/notification/nullifier facts。",
+        "- [ ] legacy actor/private attrs/direct SQL/manual thread/first-row/count-only/compat/second writer残留为0。",
+        "- [ ] DB/timeline/outbox/projections/privacy一致，`fsusblog.comment-rerun-acceptance.v1` warnings=0。",
+        "- [ ] Rerun精确恢复 canonical comment plan且不累计业务/edge facts。",
+        "- [ ] Legacy actor、private attrs、direct SQL、manual thread、first-row/count-only残留为0。",
+        "- [ ] Compat actor/writer/helpers/fallback/feature flag/warning路径为0。",
+        "- [ ] Parent反例与降级实现被 mutation/static 治理稳定杀死。",
+        "- [ ] DB/timeline/outbox/projections/privacy一致，terminal receipt current-source、warnings=0。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2177, #2178, #2179, #1715"
+      ],
+      "latestCommentSourceProgress": "Policy source centrally merged; outbox3b formal19, revisione816 formal92, composed routing9d with unchanged f88 formal107 closure available. Source results are not qualified canonical-positive fixture or terminal receipts.",
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2180.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified initial canonical comment/actor/security/admin permission/clock input refs are missing or held",
+        "Native atomic comment/revision/audit/outbox/nullifier/capability observation/rollback and operation-owned cleanup not qualified",
+        "Owner1653 exact current edge event/revision/queue/cache/reply terminal input and complete revision-coordinate contracts absent; ordinary mocks are not terminal receipts"
+      ]
+    },
+    {
+      "id": 1725,
+      "title": "tracking(test-fixtures): canonical comment、moderation timeline 与 privacy truth",
+      "githubState": "open",
+      "role": "tracking-only",
+      "status": "tracking-only; source progress aggregated, acceptance OPEN",
+      "reason": "Aggregates #2177 pure source ea870fe5a / PR #3982 and #2178/#2179 formal mutation/readonly observation source 6656a73e/b570346e with current compiled ordinary evidence. These APIs are not verified producer receipts or native/transaction/queue acceptance. All required child and independent gates remain open; no tracking implementation or closure.",
+      "applicableCriterionLines": [
+        "- [ ] canonical comment 可由当前production command合法产生，无legacy actor和精确隐私属性。",
+        "- [ ] 每条comment的revision、thread、region、moderation、outbox、nullifier/capability关系按适用性完整。",
+        "- [ ] public/admin read model与DB/event timeline一致。",
+        "- [ ] actor/policy/region/thread任一拒绝时零comment/revision/outbox写入。",
+        "- [ ] anonymous nullifier重复/失效时fail closed且记录正确风险信号。",
+        "- [ ] reply notification只在真实approved reply条件下产生。",
+        "- [ ] rerun可修复故意破坏的author/privacy/timeline/thread/outbox状态且不累计重复。",
+        "- [ ] receipt记录writer contract、actor mode、timeline digest、revision/outbox IDs和隐私字段零暴露证明。",
+        "- [ ] 代码搜索legacy正向actor、direct comment SQL、private exact attrs返回0。",
+        "- [ ] 无compat actor、旧writer、allowlist或feature flag。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1715, #1722, #1713, #1714"
+      ],
+      "latestCommentSourceProgress": "Policy source centrally merged; outbox3b formal19, revisione816 formal92, composed routing9d with unchanged f88 formal107 closure available. Source results are not qualified canonical-positive fixture or terminal receipts.",
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/1725.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified initial canonical comment/actor/security/admin permission/clock input refs are missing or held",
+        "Native atomic comment/revision/audit/outbox/nullifier/capability observation/rollback and operation-owned cleanup not qualified",
+        "Owner1653 exact current edge event/revision/queue/cache/reply terminal input and complete revision-coordinate contracts absent; ordinary mocks are not terminal receipts"
+      ]
+    },
+    {
+      "id": 2182,
+      "title": "feat(test-fixtures): 生成并验证 production-semantic canonical authentication sessions",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2151/#2181 and external #1601 (root #3521), with closed auth lifecycle boundaries. No sessions/proofs/storage generation until private/truth/temporal contracts are satisfied.",
+      "applicableCriterionLines": [
+        "- [ ] Canonical variants只由对应production-semantic completion paths产生。",
+        "- [ ] DB/credential/proof/JWT/Cookie/storage/auth_time/strength/duration完全一致。",
+        "- [ ] Step-up exact action/session/TTL/consume-once，refresh不重建proof。",
+        "- [ ] Credential lifecycle只影响正确sessions。",
+        "- [ ] 本PR不实现bypass/legacy或删除旧路径。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2181, #1713, #2146, #2147, #2148, #2149, #2150, #2151, #1601"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2182.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified private projection entitlement/lifecycle and validity-truth contracts absent",
+        "No actual per-device browser first-request/AOT or full auth refresh/permission/native cleanup receipt",
+        "Account/private carrier source alone does not provide verified aggregate cleanup; sealed private reader expansion remains held"
+      ]
+    },
+    {
+      "id": 2694,
+      "title": "test(test-fixtures): 删除 auth truth fallback 与 compat path",
+      "githubState": "open",
+      "role": "execution",
+      "status": "waiting",
+      "reason": "Requires #2151/#2181/#2182/#2183. No deletion of auth truth fallback before verified canonical and isolated negative replacements. Narrow handoff confirmed CleanupPrivateAsync only for private admin carrier/session; no verified aggregate auth cleanup API. Required ownership/truth consumer inventories remain absent.",
+      "applicableCriterionLines": [
+        "- [ ] hand-signed JWT、direct DB/Redis、placeholder credentials、legacy strength、step-up flag active paths为0。",
+        "- [ ] hardcoded permissions、duration/refresh drift、old storage/readers/compat/second producer为0。",
+        "- [ ] `config/testing/auth-truth-consumers.json` 与 #2181–#2183/#1713双向 exact。",
+        "- [ ] `node --test tests/tools/auth-truth-cleanup.test.mjs tests/tools/fixture-receipt.test.mjs` 通过。",
+        "- [ ] canonical/bypass/legacy物理/逻辑隔离，secret ordinary leakage=0。",
+        "- [ ] 本 PR 未实现 #2695治理或修改 production auth policies。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1713, #2151, #2181, #2182, #2183"
+      ],
+      "capabilityLookup": "/workspace/FsusBlog/.tmp/issue-1725-pure-source-20261008/account-consumer-capability-handoff.json",
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2694.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified private projection entitlement/lifecycle and validity-truth contracts absent",
+        "No actual per-device browser first-request/AOT or full auth refresh/permission/native cleanup receipt",
+        "Account/private carrier source alone does not provide verified aggregate cleanup; sealed private reader expansion remains held"
+      ]
+    },
+    {
+      "id": 2184,
+      "title": "test(test-fixtures): 封口 auth truth、permissions、Cookie duration、refresh 并删除手签 JWT 与 compat paths",
+      "githubState": "open",
+      "role": "tracking-only",
+      "status": "tracking-only",
+      "reason": "Aggregate #2182/#2183/#2694 and external #2695 (root #3654). Need exact current permission/refresh terminal evidence; source presence is not auth acceptance.",
+      "applicableCriterionLines": [
+        "- [ ] #2694：删除 hand-signed JWT/direct DB/placeholder credentials/legacy strength/permission-duration-refresh compat与 second producer，并建立 consumer inventory。",
+        "- [ ] #2695：只消费 #2694 receipt，执行 scanner/mutation/truth-permission-duration-refresh parity/isolation/privacy并签 terminal receipt。",
+        "- [ ] #2694、#2695 completed。",
+        "- [ ] Parent/child `Depends on` 与顺序 DAG 一致。",
+        "- [ ] 所有 consumers 显式声明 truth class并 exact-one消费 #2182/#2183 verified receipts。",
+        "- [ ] Hand-sign/direct DB/placeholder/legacy/permission-duration-refresh compat/second authority残留为0。",
+        "- [ ] Canonical/bypass/legacy隔离、consumer parity、privacy通过，`fsusblog.auth-truth-acceptance.v1` warnings=0。",
+        "- [ ] 所有 auth consumers显式声明 truth class并消费 verified canonical/bypass/legacy receipts。",
+        "- [ ] Hand-signed JWT、direct storage、placeholder credentials、legacy strength/permission map、step-up flag残留为0。",
+        "- [ ] Cookie/session duration、refresh/revocation/credential/proof semantics与 production exact。",
+        "- [ ] Canonical/bypass/legacy物理逻辑隔离，secret ordinary artifacts泄漏为0。",
+        "- [ ] Parent反例与降级实现被 scanner/mutation稳定杀死，terminal receipt current-source、warnings=0。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2181, #2182, #2183, #2151"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2184.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified private projection entitlement/lifecycle and validity-truth contracts absent",
+        "No actual per-device browser first-request/AOT or full auth refresh/permission/native cleanup receipt",
+        "Account/private carrier source alone does not provide verified aggregate cleanup; sealed private reader expansion remains held"
+      ]
+    },
+    {
+      "id": 1726,
+      "title": "tracking(test-fixtures): canonical auth truth、bypass/legacy isolation 与 session coherence",
+      "githubState": "open",
+      "role": "tracking-only",
+      "status": "tracking-only",
+      "reason": "Aggregate #1723/#2181/#2182/#2183/#2184. Each owned truth/admission prerequisite remains waiting; no independent tracking implementation.",
+      "applicableCriterionLines": [
+        "- [ ] canonical Passkey/TOTP/Recovery/Enrollment会话各由对应生产同源完成路径建立。",
+        "- [ ] DB、credential、JWT、Cookie、auth_time、strength、duration完全一致。",
+        "- [ ] action-bound proof具有正确绑定、TTL、consume-once与重放拒绝。",
+        "- [ ] authorization-bypass有明确receipt标记，不能进入认证correctness/release evidence。",
+        "- [ ] legacy session只在migration profile可见。",
+        "- [ ] full/read-only/partial权限从生产catalog生成，`audit.investigate`等新增项自动纳入或触发失败。",
+        "- [ ] credential删除只影响相应session，不误撤销同账号其他credential session。",
+        "- [ ] refresh保留原始认证上下文且不重建step-up。",
+        "- [ ] 代码搜索手签canonical JWT、硬编码权限、伪stepupverified、普通legacy session返回0。",
+        "- [ ] 无compat session、旧storage schema、feature flag或双writer。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #1713, #1722, #1723"
+      ],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/1726.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Qualified private projection entitlement/lifecycle and validity-truth contracts absent",
+        "No actual per-device browser first-request/AOT or full auth refresh/permission/native cleanup receipt",
+        "Account/private carrier source alone does not provide verified aggregate cleanup; sealed private reader expansion remains held"
+      ]
+    },
+    {
+      "id": 3576,
+      "title": "test(backend): bind canonical publication fixture seams to compiled authority",
+      "githubState": "open",
+      "role": "execution",
+      "status": "compiled acceptance passed; original gates blocked",
+      "reason": "Original five production-source reads absent with no new findings. Genuine current compiled tests 140/140 pass: publication fixture 34, real PostgreSQL publication integration 18, DocumentExport 70, metadata helper 18. Preserved normalization/rights/responsibility/comment-port regressions 131/131, scanner/article/inventory 59/59, owner style, locked restore and full commit range pass. Original matrix exits 1; actual PR generated-repair gate exits 1; two current-epoch retirement declarations remain invalid. No whole-issue closure or merge qualification. Changed-owner C# style is also failed (78 whitespace diagnostics and four import-order diagnostics); original baseline formatter independently reports the same 78 whitespace diagnostics. GitHub CI is disabled and not a blocker; actual failed local gates remain binding.",
+      "applicableCriterionLines": [],
+      "criterionExecutionStatus": "compiled owner/integration/regression and scanner/style/range pass; original matrix/actual PR gate failed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [],
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/3576.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Original root matrix/generated-repair/current-epoch-retirement/style failed receipts remain preserved at original candidates and are not promoted by comment source tests",
+        "Canonical supplier owner runtime/format/gate evidence and actual domain qualification are still required",
+        "Held semantic/cohort/artifact/alias fixture audits cannot run under this request; current compilation is not root closure"
+      ]
+    },
+    {
+      "id": 2099,
+      "title": "test(layout-governance): 验证 critical archetypes 的真实几何、状态与响应式 continuity",
+      "githubState": "open",
+      "role": "execution",
+      "status": "partial source increment published; runtime/producer acceptance blocked",
+      "reason": "375/768 canonical catalog and planner increment ec09353, naming metadata head 7a9d30c4b / PR #3921. Original five suites 29/29, range and PR contract pass; scoped style fails. Geometry API/schema/verifier, verified scene/state admission, native zoom, font/artifact/transport and real local/published receipts remain unavailable. Exact sibling #2097 source bed5c5d was inspected only; no full acceptance inferred.",
+      "applicableCriterionLines": [
+        "- [ ] Critical archetypes全部requiredviewport/theme/zoom/state真实执行。",
+        "- [ ] Primary focus、content order、chrome、surface、actions、overflow/focus/a11y均符合contract。",
+        "- [ ] Local/published使用同一contract且identity完整，无fallback。",
+        "- [ ] Pixel/screenshot不能替代geometry/state evidence。",
+        "- [ ] 本PR不修改产品或签发视觉rubric pass。"
+      ],
+      "criterionExecutionStatus": "required prerequisite unmet; issue-specific later criteria not run or signed",
+      "closureAuthorizedButPerformed": false,
+      "stage1_ready_for_review": false,
+      "candidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "recordedDirectPrerequisiteLines": [
+        "Depends on: #2097, #2098, #1313, #1719, #1720"
+      ],
+      "followupEvidence": "/workspace/FsusBlog-2099-source/.tmp/issue-2099-source-20261008/capability-handoff.json",
+      "wholeIssueAccepted": false,
+      "currentIssueAndPrerequisiteReadback": "current-issue-readback/2099.json",
+      "stageFullAcceptanceReady": false,
+      "exactRemainingInputOrHold": [
+        "Actual geometry schema/API/verifier, native zoom/font/artifact/transport and qualified scene/state inputs absent",
+        "Owner1899/1894 exact critical archetype/scene acceptance evidence and qualified reader/scheduler admission still required",
+        "Existing375/768 planner/canonical catalog tests are source-only; no native/published UI receipt or held artifact audit is inferred"
+      ]
+    }
+  ],
+  "evidenceDirectory": ".tmp/issue-3576-compiler-recheck-20261008",
+  "prUrl": "https://github.com/Ozwasyd/FsusBlog/pull/3866",
+  "corrections": [
+    "Old ten-compiler-errors/zero-xUnit statements superseded by current real TRX.",
+    "#2170 direct prerequisite is #2051; #2046 is only its ancestor. Current issue body unchanged; prior audit reason corrected.",
+    "Actual comment producer live verification API is present; restrictive runtime-cache guard is a separate admission surface, not evidence that the live verifier is absent."
+  ],
+  "externalRequests": [
+    {
+      "scope": "closed #2685 current comment terminal boundary",
+      "path": "tools/test/run-comment-fixture-simulated-runtime.mjs",
+      "canonicalRefs": [
+        "#2685 initial collector",
+        "#1851 latest temporal plumbing"
+      ],
+      "need": "current canonical temporal context plus independently observed businessEpochUtc/backendCulture/postgresTimezone; preserve model authority and negative controls, then real terminal qualification",
+      "suppliedIdentity": null
+    },
+    {
+      "scope": "#3576 required matrix and exact PR admission",
+      "need": "exact original owner commits and independent evidence for matrix envelope/catalog/profile/content-field and generated-only repair admission; no blind branch merge or source touch",
+      "suppliedIdentity": null
+    },
+    {
+      "scope": "supplier/runtime owner controls",
+      "paths": [
+        "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+        "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs"
+      ],
+      "need": "original owner #2175 projection sidecar read-count and #3662 bootstrap stage discrepancies; pass original cases with assertions/budget retained",
+      "suppliedIdentity": null
+    },
+    {
+      "ownerRoot": 3521,
+      "issues": [
+        1601,
+        2665
+      ],
+      "need": "exact business-clock and matrix terminal commit/evidence"
+    },
+    {
+      "ownerRoot": 3657,
+      "issues": [
+        1653
+      ],
+      "need": "exact queue/outbox/cache/reply current-edge commit/evidence"
+    },
+    {
+      "ownerRoot": 1899,
+      "issues": [
+        2097
+      ],
+      "need": "exact critical archetype contract commit/evidence"
+    },
+    {
+      "ownerRoot": 1894,
+      "issues": [
+        2098
+      ],
+      "need": "exact archetype scene/viewports/state commit/evidence"
+    },
+    {
+      "ownerRoot": 3654,
+      "issues": [
+        2695
+      ],
+      "need": "exact auth truth/refresh terminal commit/evidence"
+    },
+    {
+      "ownerRoot": 3654,
+      "scope": "seven changed supplier C# owners style",
+      "need": "original-owner mechanical style reconciliation with canonical formatter/import groups; preserve every token/control and frozen candidate until exact handoff. Publication owner style already passes; do not alter baseline or thresholds."
+    },
+    {
+      "scope": "#2046 current #1710 role projection prerequisite",
+      "path": "tools/test-fixtures/receipt/producer-receipt.mjs",
+      "need": "exact current sealed identity-to-semantic-role projection contract/evidence; entityIdentities currently forbids semanticRole. Verify the real observation/projection owner rather than infer roles from IDs, order or title; no schema bypass or invented compatibility API."
+    }
+  ],
+  "ciPolicy": {
+    "basis": "applicable local checks on exact candidate",
+    "githubCiEnabled": false,
+    "dispatchOrWait": false,
+    "independentReviewPreserved": true
+  },
+  "environmentRecovery": {
+    "status": "ready",
+    "testCommandRunningAtRestart": false,
+    "sourceAndTrxPreserved": true,
+    "candidateRecreated": false
+  },
+  "checks": {
+    "compiledPublication": {
+      "total": 140,
+      "passed": 140,
+      "failed": 0,
+      "skipped": 0,
+      "postgresPublicationCases": 18,
+      "exitCode": 0
+    },
+    "publicationRegressionsAndCommentContracts": {
+      "total": 131,
+      "passed": 131,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "authPreferenceFoundations": {
+      "total": 63,
+      "passed": 63,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "preferencePostgresAndCommentFoundations": {
+      "total": 15,
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "scannerArticleInventory": {
+      "total": 59,
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "authPrivatePreferenceNode": {
+      "total": 28,
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "originalBoundaryControls": {
+      "total": 219,
+      "passed": 193,
+      "failed": 26,
+      "skipped": 0,
+      "exitCode": 1
+    },
+    "supplierCompleteClasses": {
+      "total": 248,
+      "passed": 244,
+      "failed": 4,
+      "skipped": 0,
+      "exitCode": 1
+    },
+    "isolatedProjectionRerun": {
+      "total": 112,
+      "passed": 110,
+      "failed": 2,
+      "skipped": 0,
+      "exitCode": 1
+    }
+  },
+  "masterDrift": {
+    "observedAtUtc": "2026-10-08T04:37:29.796796+00:00",
+    "startingMasterSha": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "latestFetchedMasterSha": "8b1c739cacef47995f441f096835863d377dc347",
+    "frozenCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+    "delta": "M\t.github/actionlint.yaml\n",
+    "scopeImpact": "one actionlint roster variable only; no owned source, runtime, prerequisites or issue graph change",
+    "mergedIntoCandidate": false,
+    "rebaseOrConflictResolutionPerformed": false
+  },
+  "followups": {
+    "clock": {
+      "purpose": "bounded closed-boundary clock capability; not a terminal runtime receipt",
+      "observedAt": "2026-10-08T05:14:17.952526+00:00",
+      "codeCommit": "9628018525d93e20cc5b3d418e88960432beb3fb",
+      "reviewHead": "b62c6f487737619ff78a4b0281e820cc75216a52",
+      "remoteVerifiedHead": "b62c6f487737619ff78a4b0281e820cc75216a52",
+      "parent": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "branch": "codex/issue-3576-comment-model-clock-v2-20261008",
+      "prUrl": "https://github.com/Ozwasyd/FsusBlog/pull/3923",
+      "supersededDiagnosticCommit": "844858a27aa4c4d603b13ddcbf8fa926cd55a453",
+      "consume": "962801852 code increment, plus b62c6f487 PR ancestry naming metadata when needed. Do not consume the invalid-footer diagnostic candidate or moving whole branch.",
+      "originalScope": {
+        "suites": 13,
+        "tests": 219,
+        "passed": 216,
+        "failed": 3,
+        "skipped": 0,
+        "priorCommentFailuresCleared": 23,
+        "commentGovernance": "42/42 passed; model-only terminal refusal retained"
+      },
+      "remainingFailures": [
+        "fixture catalogs are valid and profiles expand deterministically",
+        "generated inventory and profile documentation have no drift",
+        "every executable matrix step binds exactly one valid fixtureProfile"
+      ],
+      "timeSemantics": "2042-05-17T09:30:00.000Z unchanged; current canonical source/run context; server-owned simulated business clock/culture/timezone, not request reflection",
+      "authority": "local-simulated; model-contract-only; runtimeQualified=false; sourceOwnershipQualified=false",
+      "checks": {
+        "published-boundary": {
+          "runId": "comment-clock-6f482926-68ed-4fec-9838-854b3d007bf7",
+          "sha": "b62c6f487737619ff78a4b0281e820cc75216a52",
+          "name": "published-boundary",
+          "command": [
+            "node",
+            "--test",
+            "tests/tools/fixture-receipt.test.mjs",
+            "tests/tools/fixture-catalog.test.mjs",
+            "tests/tools/fixture-orchestrator.test.mjs",
+            "tests/tools/auth-session-fixture-producer.test.mjs",
+            "tests/tools/security-fixture-producer.test.mjs",
+            "tests/tools/comment-fixture-contract.test.mjs",
+            "tests/tools/comment-fixture-postconditions.test.mjs",
+            "tests/tools/comment-fixture-cleanup.test.mjs",
+            "tests/tools/comment-fixture-governance.test.mjs",
+            "tests/tools/messaging-fixture-contract.test.mjs",
+            "tests/tools/messaging-fixture-cleanup.test.mjs",
+            "tests/tools/messaging-fixture-governance.test.mjs",
+            "tests/tools/matrix-fixture-profile.test.mjs"
+          ],
+          "startedAt": "2026-10-08T05:11:16.585453+00:00",
+          "seconds": 18.49108303199864,
+          "exitCode": 1,
+          "logSha256": "d4379153bd0493df083d5ae9face24003d8b4b4b51e4869a88baca4e360d9e7b",
+          "scope": "model and boundary controls, no production runtime qualification"
+        },
+        "published-style": {
+          "runId": "comment-clock-6f482926-68ed-4fec-9838-854b3d007bf7",
+          "sha": "b62c6f487737619ff78a4b0281e820cc75216a52",
+          "name": "published-style",
+          "command": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "source-diff",
+            "--base",
+            "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+            "--file",
+            "tools/test/run-comment-fixture-simulated-runtime.mjs",
+            "--file",
+            "tests/tools/comment-fixture-governance.test.mjs"
+          ],
+          "startedAt": "2026-10-08T05:11:35.076984+00:00",
+          "seconds": 7.563061832999665,
+          "exitCode": 0,
+          "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7",
+          "scope": "model and boundary controls, no production runtime qualification"
+        },
+        "published-range": {
+          "runId": "comment-clock-6f482926-68ed-4fec-9838-854b3d007bf7",
+          "sha": "b62c6f487737619ff78a4b0281e820cc75216a52",
+          "name": "published-range",
+          "command": [
+            "node",
+            "tools/governance/check-change-contract.mjs",
+            "--range",
+            "f4817f13b5b86d51494ebfc0648a3f51f6b235bf..b62c6f487737619ff78a4b0281e820cc75216a52"
+          ],
+          "startedAt": "2026-10-08T05:11:42.640546+00:00",
+          "seconds": 1.1038256860010733,
+          "exitCode": 0,
+          "logSha256": "e12883bcfc2ae4f9e3b6990eeb49083e4a2a4aa05b005c2e4dcdf6f4f76e6db1",
+          "scope": "model and boundary controls, no production runtime qualification"
+        },
+        "published-whitespace": {
+          "runId": "comment-clock-6f482926-68ed-4fec-9838-854b3d007bf7",
+          "sha": "b62c6f487737619ff78a4b0281e820cc75216a52",
+          "name": "published-whitespace",
+          "command": [
+            "git",
+            "diff",
+            "--check",
+            "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+            "b62c6f487737619ff78a4b0281e820cc75216a52"
+          ],
+          "startedAt": "2026-10-08T05:11:43.745076+00:00",
+          "seconds": 0.005904007000935962,
+          "exitCode": 0,
+          "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "scope": "model and boundary controls, no production runtime qualification"
+        }
+      },
+      "prContract": {
+        "head": "b62c6f487737619ff78a4b0281e820cc75216a52",
+        "base": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+        "exitCode": 0,
+        "log": {
+          "path": "/workspace/FsusBlog-comment-clock/.tmp/issue-3576-comment-clock-20261008/review-head-pr-contract.log",
+          "sha256": "a7feb341e52a33bb3575a32835449632605bec0a76aec86aa3ef30312275dd62"
+        }
+      },
+      "additionalTemporalControls": {
+        "sha": "9628018525d93e20cc5b3d418e88960432beb3fb",
+        "command": [
+          "node",
+          "--test",
+          "tests/tools/test-temporal-context.test.mjs",
+          "tests/tools/test-temporal-producer-bindings.test.mjs"
+        ],
+        "exitCode": 1,
+        "tests": 45,
+        "passed": 40,
+        "failed": 5,
+        "skipped": 0,
+        "log": {
+          "path": "/workspace/FsusBlog-comment-clock/.tmp/issue-3576-comment-clock-20261008/temporal-controls.log",
+          "sha256": "bd375d20f47c2b6df0d12717ce794b4ce98ec760ab9878d0ff9ea18bb4ab7c41"
+        },
+        "blocker": "Canonical physical runner lacks the required cgroup/bus capability; actual systemd user service offline, cgroup mounted read-only. Original retained residual preflight blocks repeated flows. No residual deleted or diagnostic exposed as qualification.",
+        "residualPath": "/workspace/FsusBlog-comment-clock/.tmp/physical-execution-residuals/1791436214240-115582-2c2ba0f4-ade4-4569-870a-52986b759e81.json",
+        "smallestNextAction": "Provide the original supported physical containment/bus capability and reconcile retained residue through the canonical owner procedure; then rerun original runner controls."
+      },
+      "primaryCandidate": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf remains frozen, no C# runtime evidence relabeled to this head",
+      "closure": false,
+      "merge": false,
+      "deploy": false
+    },
+    "geometry": {
+      "purpose": "source capability handoff to coordinating parent and root #1899; not an acceptance receipt",
+      "observedAt": "2026-10-08T05:14:17.952526+00:00",
+      "issue": 2099,
+      "status": "partial source declaration/planner increment; original runtime acceptance blocked",
+      "branch": "codex/issue-2099-viewport-source-20261008",
+      "sourceIncrementSha": "ec09353b19d25d3eae4e315afdd8f99c53ff5653",
+      "metadataIncrementSha": "7a9d30c4bc57b449241930422f6ca19a9d0727eb",
+      "remoteVerifiedHeadSha": "7a9d30c4bc57b449241930422f6ca19a9d0727eb",
+      "baseSha": "8b1c739cacef47995f441f096835863d377dc347",
+      "prUrl": "https://github.com/Ozwasyd/FsusBlog/pull/3921",
+      "draft": true,
+      "canonicalSource": {
+        "path": "tests/frontend/fixtures/ux-viewport-matrix.json",
+        "pointer": "/viewports",
+        "newRecords": [
+          {
+            "name": "mobile-375",
+            "width": 375,
+            "height": 812
+          },
+          {
+            "name": "tablet-768",
+            "width": 768,
+            "height": 1024
+          }
+        ],
+        "consumerMode": "boundaries"
+      },
+      "declaredCoverageOnly": {
+        "fullNavigations": 1080,
+        "fullCases": 7416,
+        "riskNavigations": 32,
+        "riskCases": 224,
+        "safeAreaCases": 24,
+        "riskNavigationCeiling": 48
+      },
+      "actualProducerApi": null,
+      "geometryReceiptSchema": null,
+      "geometryVerifierApi": null,
+      "qualifiedAdapterCommit": null,
+      "sceneAdmission": null,
+      "stateAdmission": null,
+      "nativeZoomEvidence": null,
+      "publishedModeEvidence": null,
+      "browserFontBinding": null,
+      "artifactBinding": null,
+      "transportBinding": null,
+      "actualSuccessCounters": null,
+      "currentRenderedScenes": null,
+      "currentGeometryReceipts": null,
+      "runtimeQualified": false,
+      "existingHelpersOnly": [
+        "uxViewportByName",
+        "uxViewportsForMode",
+        "assertNoHorizontalOverflow",
+        "assertResponsiveLayoutContract",
+        "applyUxViewportMediaMode"
+      ],
+      "sourceHelperLimits": "Existing high-contrast helper selects forcedColors=active. Existing zoom-* helper uses CSS zoom; native browser zoom remains unimplemented/unverified. Legacy route defaults cannot supply verified fixture admission.",
+      "suppliedSibling": {
+        "sourceSha": "bed5c5d3aa589e954c29aed8c5287adde1e6d62c",
+        "pr": 3870,
+        "inspection": "read-only, not merged or copied",
+        "publicExports": [
+          "createCompositionIdentity",
+          "verifyCompositionIdentity",
+          "createLayoutAggregationPlan",
+          "inspectLayoutAggregation",
+          "requireFullLayoutAggregate"
+        ],
+        "catalogReference": "same canonical /viewports source",
+        "productionAdapters": "#2098/#2099 pending; no success counters promoted"
+      },
+      "prerequisiteLimits": {
+        "2097": "exact source supplied; runtime/adapter acceptance not inferred from its 84 source tests",
+        "2098": "need exact source public analyzer/schema/DOM admission/verifier and evidence from root #1894; #1895 foundation still unavailable",
+        "1719": "verified auth scene admission pending original matrix and runtime acceptance",
+        "1720": "verified security/signal scene admission pending original matrix and runtime acceptance",
+        "1313": "current API/source/runtime boundary qualification still required"
+      },
+      "checks": {
+        "controls": {
+          "runId": "viewport-source-aa07cbe6-266f-4387-9157-7c4b2efad1a5",
+          "sha": "7a9d30c4bc57b449241930422f6ca19a9d0727eb",
+          "command": [
+            "node",
+            "--test",
+            "tests/tools/ux-viewport-plan.test.mjs",
+            "tests/tools/ux-viewport-progress.test.mjs",
+            "tests/tools/ux-viewport-risk-settle.test.mjs",
+            "tests/tools/ux-viewport-runtime-contract.test.mjs",
+            "tests/tools/ux-viewport-runner.test.mjs"
+          ],
+          "exitCode": 0,
+          "seconds": 1.9740772819986887,
+          "logSha256": "615aa9a0a8c6fad3f9ac51512de7ac80b984d97fa51707bbbadc998223bc8242",
+          "authority": "source/planner checks only; no rendered acceptance"
+        },
+        "range": {
+          "runId": "viewport-source-aa07cbe6-266f-4387-9157-7c4b2efad1a5",
+          "sha": "7a9d30c4bc57b449241930422f6ca19a9d0727eb",
+          "command": [
+            "node",
+            "tools/governance/check-change-contract.mjs",
+            "--range",
+            "8b1c739cacef47995f441f096835863d377dc347..7a9d30c4bc57b449241930422f6ca19a9d0727eb"
+          ],
+          "exitCode": 0,
+          "seconds": 1.1015297379999538,
+          "logSha256": "ea57ad8dabaf3169d3050bf26dda1b6421527399cdf6195b78bae16e9c428793",
+          "authority": "source/planner checks only; no rendered acceptance"
+        },
+        "style": {
+          "runId": "viewport-source-aa07cbe6-266f-4387-9157-7c4b2efad1a5",
+          "sha": "7a9d30c4bc57b449241930422f6ca19a9d0727eb",
+          "command": [
+            "node",
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "source-diff",
+            "--base",
+            "8b1c739cacef47995f441f096835863d377dc347",
+            "--file",
+            "tests/tools/ux-viewport-plan.test.mjs"
+          ],
+          "exitCode": 1,
+          "seconds": 5.519237055999838,
+          "logSha256": "b5e75e86904c270fe9c827d10b07439940c468f644e21d03708bde6c747e774b",
+          "authority": "source/planner checks only; no rendered acceptance"
+        },
+        "prContract": {
+          "head": "7a9d30c4bc57b449241930422f6ca19a9d0727eb",
+          "base": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+          "command": [
+            "node",
+            "tools/governance/check-change-contract.mjs",
+            "--github-event",
+            ".tmp/issue-2099-source-20261008/final-pr-event.json"
+          ],
+          "exitCode": 0,
+          "log": {
+            "path": "/workspace/FsusBlog-2099-source/.tmp/issue-2099-source-20261008/final-pr-contract.log",
+            "sha256": "b684ece73522d85fb1739ca97d6b432e3d3f99486dad5dcc102047361e0ceaca"
+          }
+        }
+      },
+      "smallestNextAction": "Supply the exact #2098 analyzer/DOM admission and #1719/#1720 verified scene producer APIs/evidence before implementing or qualifying the real geometry collector. Consume the declared catalog increment now only as source."
+    },
+    "pureComment": {
+      "purpose": "high-fanout production-shared pure comment source handoff to coordinator for #2542/#2545; not a terminal/transaction receipt",
+      "observedAt": "2026-10-08T05:57:08.508771+00:00",
+      "ownerExecutionIssue": 2177,
+      "trackingParent": 1725,
+      "sourceApiCommit": "617c4e162b5faaa3af1e7deb965f1dbe94c9ec43",
+      "reviewHead": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+      "remoteVerifiedHead": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+      "branch": "codex/issue-2177-pure-comment-source-20261008",
+      "parent": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "prUrl": "https://github.com/Ozwasyd/FsusBlog/pull/3982",
+      "draft": true,
+      "consume": "Exact 617c4e162 API source plus ea870fe5a test/format guard increment; do not merge a moving sibling branch or duplicate the tracking parent implementation.",
+      "sdk": "official .NET SDK 10.0.302 / runtime 10.0.10",
+      "sourceBlobs": {
+        "src/backend/Services/ArticleCommentPolicyService.cs": "17dc99fed8d7375eec13da375e35650b8aaa5e40",
+        "src/backend/Services/Security/AnonymousCommentPolicyService.cs": "0e06d3df71fa2ab10f578af6ece328cc8277c875",
+        "src/backend/Services/CommentModerationService.cs": "1a9854726f4baa1a7c2ffb4dc12d02ab9c7b96f1",
+        "src/backend/Services/CommentService.cs": "e780e21342614401233f66d23447a168fdd26b01",
+        "src/backend/Services/Moderation/CommentModerationTransitions.cs": "077a3f74adfeef1463ba0bc4ef6deaa1387447e4",
+        "src/backend/Services/Security/AnonymousCommentScopePolicy.cs": "c11328abf5dfe6f0867154ce554c0f5efa9e5564",
+        "src/backend/Models/CommentIdentity/AnonymousCommentIdentityModels.cs": "3771bdebefae03add03d866f5388cf7b66e335f8",
+        "tools/test/temporal-role-resolver.mjs": "6a265ae4c9ed5d4df452709d3a680273ad995580",
+        "config/testing/temporal-shape-catalog.json": "0cd267e748b80faa919380cff3d7914a615a4044",
+        "config/testing/resolved-temporal-roles.schema.json": "9ea407a69826669749562fee8607da27dce85037",
+        "src/backend/Services/Fixtures/DataScale/CanonicalArticleGraphModels.cs": "8e4d8c552f42a31a94d608a2009bdd27b0def6d0",
+        "src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs": "510f79077ce55607d751bedf7c883f371cc2f0f2"
+      },
+      "publicStaticApis": [
+        "FsusBlog.Server.Services.Security.AnonymousCommentPolicyService.EvaluateAuthorMode(AnonymousCommentPolicySnapshot policy, string? requestedAuthorMode, bool publicSendExplicitlySelected) -> CommentAuthorModeDecision",
+        "FsusBlog.Server.Services.ArticleCommentPolicyService.Compose(int articleId, AnonymousCommentPolicySnapshot site, ArticleCommentPolicy? article, CommentThreadPolicy? thread) -> EffectiveArticleCommentPolicy",
+        "FsusBlog.Server.Services.ArticleCommentPolicyService.EvaluateWrite(EffectiveArticleCommentPolicy policy, string authorMode, DateTime utcNow) -> CommentPolicyWriteDecision",
+        "FsusBlog.Server.Services.CommentModerationService.ResolveInitialState(CommentActor actor, RegionModerationDecision regionDecision, bool modelEnabled, bool modelProviderAvailable) -> CommentInitialModerationDecision",
+        "FsusBlog.Server.Services.CommentCommandService.ResolveReplyRecipientId(int? targetAuthorAccountId, int? replyingActorAccountId) -> int?",
+        "FsusBlog.Server.Services.Moderation.CommentModerationTransitions.IsAllowed(CommentModerationStatus from, CommentModerationStatus to) -> bool",
+        "FsusBlog.Server.Services.Security.AnonymousCommentScopePolicy.CreateTopLevelScope(int), CreateThreadScope(int,long), TryParse(string?,out AnonymousCommentScopeDescriptor), TryCreateTicketScope(int,long?,long?,long?,out string)"
+      ],
+      "typedSchemas": {
+        "namespace": "FsusBlog.Server.Models.CommentIdentity / Services / Models.Moderation / Entities",
+        "inputs": [
+          "AnonymousCommentPolicySnapshot",
+          "CommentActor",
+          "EffectiveArticleCommentPolicy",
+          "RegionModerationDecision",
+          "ArticleCommentPolicy",
+          "CommentThreadPolicy"
+        ],
+        "outputs": [
+          "CommentAuthorModeDecision",
+          "CommentPolicyWriteDecision",
+          "CommentInitialModerationDecision",
+          "AnonymousCommentScopeDescriptor"
+        ],
+        "jsonCommentScalePlanSchema": null,
+        "currentStates": {
+          "Pending": 0,
+          "Approved": 1,
+          "Rejected": 2,
+          "Hidden": 3
+        },
+        "spamIsAState": false,
+        "currentAuthorModes": [
+          "public",
+          "zk_anonymous"
+        ],
+        "retiredModesRejected": [
+          "anonymous",
+          "legacy_server_visible_pseudonymous"
+        ],
+        "scopeVersion": 1,
+        "topLevelUsesPerCredential": 1,
+        "threadReplyUsesPerCredential": 3
+      },
+      "requiredCallOrder": [
+        "Admit author mode against the actual site policy before article write policy. EvaluateWrite alone is not an actor validator.",
+        "Reject a non-publishable region before resolving initial moderation. Bind model settings to actual policy/configuration; never force modelEnabled=false merely to manufacture Approved.",
+        "Use observed target author and authoritative actor for recipient/self-reply suppression. Visibility/root/depth/child-limit checks remain in the production command, not this helper."
+      ],
+      "productionPrivacyFacts": {
+        "source": "src/backend/Services/CommentService.cs",
+        "initialWriterSetsNull": [
+          "CredentialLevel",
+          "ReputationBucket",
+          "AccountAgeBucket"
+        ],
+        "allowedActorPredicates": [
+          "RateClass",
+          "RequiresModeration"
+        ],
+        "nullifierApplicabilityOwner": "CommentAttributionPrivacyService.RequiresAnonymousNullifierEnforcement(CommentActor), existing public instance pure predicate: ZkAnonymous plus nonblank scope and nullifier; enforcement still requires its registered reservation/consume port",
+        "managementCapabilityOwner": "CommentManagementCapabilityService; real cryptographic IssueCapability/VerifyCapability and formal writer path remain required, no fabricated proof/commitment provided"
+      },
+      "temporalSource": {
+        "module": "tools/test/temporal-role-resolver.mjs",
+        "publicExports": [
+          "resolveTemporalRoles",
+          "resolveTemporalRolesForProducer",
+          "verifyResolvedTemporalArtifact",
+          "requireResolvedTemporalRole",
+          "projectTemporalRolesForDotNet",
+          "projectTemporalRolesForPostgres"
+        ],
+        "schema": "fsusblog.resolved-temporal-roles.v1",
+        "schemaPath": "config/testing/resolved-temporal-roles.schema.json",
+        "uniqueCatalog": "config/testing/temporal-shape-catalog.json",
+        "roles": [
+          "comment.created",
+          "comment.edited",
+          "comment.moderated",
+          "fixture.command-time",
+          "fixture.occurred"
+        ],
+        "limitations": "Use the sealed #1601/#1730/#2526 producer/run/fixture context and role artifact. No private offsets, fixed absolute production dates or host-clock substitute; this source probe does not qualify all temporal producer runtime migration."
+      },
+      "articleRoleSource": {
+        "models": "src/backend/Services/Fixtures/DataScale/CanonicalArticleGraphModels.cs",
+        "plan": "src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs",
+        "publicApi": [
+          "ArticleScalePlanBuilder.Create(string scaleTier,string namespace,ArticleScaleArtifactBindings)",
+          "CanonicalArticleGraphFactory.GenerateGraphStream(ArticleScalePlan)"
+        ],
+        "roleType": "ArticleScaleArticleGraph.SemanticArticleId with explicit semantic row/relation/pointer IDs",
+        "limits": "Reference the supplied #1731 candidate actual mapping and binding; do not discover article targets by title, content, insertion order or MAX(id). c560126/1440291 abbreviations were not consumed and are not available as local Git objects; full exact SHA/branch evidence is needed before integration."
+      },
+      "checks": {
+        "compiled": {
+          "sha": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+          "runId": "pure-comment-5bf81f03-dc84-49c4-bb72-99ffc3e8ad50",
+          "command": [
+            "dotnet",
+            "test",
+            "tests/backend/FsusBlog.Server.Tests.csproj",
+            "--no-restore",
+            "-m:1",
+            "-nodeReuse:false",
+            "-p:UseSharedCompilation=false",
+            "--filter",
+            "FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~AnonymousCommentPolicyTests|FullyQualifiedName~AnonymousCommentScopePolicyTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentModerationDispositionPolicyTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentPurePolicyContractTests",
+            "--logger",
+            "trx;LogFileName=compiled-pure-comment.trx",
+            "--results-directory",
+            "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008"
+          ],
+          "startedAt": "2026-10-08T05:51:42.790257+00:00",
+          "seconds": 154.60653143299896,
+          "exitCode": 0,
+          "logSha256": "1b0d085b10a91c35e43314ad501efcf17756d3954c9357fcf70f647790558765",
+          "authority": "current compiled pure/source capability, not DB transaction or terminal qualification"
+        },
+        "trxCounters": {
+          "total": "75",
+          "executed": "75",
+          "passed": "75",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "trx": {
+          "path": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/compiled-pure-comment.trx",
+          "sha256": "3ed50a1ab695973e8186d638a12afc971189835ff6d764d4733030d8cb0cd921"
+        },
+        "range": {
+          "sha": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+          "runId": "pure-comment-5bf81f03-dc84-49c4-bb72-99ffc3e8ad50",
+          "command": [
+            "node",
+            "tools/governance/check-change-contract.mjs",
+            "--range",
+            "f4817f13b5b86d51494ebfc0648a3f51f6b235bf..ea870fe5a14fe2b8a62067ec17b9c790c7042bd5"
+          ],
+          "startedAt": "2026-10-08T05:54:17.398175+00:00",
+          "seconds": 1.1904909260010754,
+          "exitCode": 0,
+          "logSha256": "7f2ad46c1409b26aaf470d0df4fa89d33bf1a34abe91dcc8aa5a9a75c52ddf77",
+          "authority": "current compiled pure/source capability, not DB transaction or terminal qualification"
+        },
+        "style": {
+          "exitCode": 0,
+          "files": 6,
+          "violations": 0,
+          "log": {
+            "path": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/scoped-style-current.log",
+            "sha256": "c0f9ff505fbc32b8d5feeef837e1851647189d603ead096534554f91783007b9"
+          }
+        },
+        "temporalSourceControls": {
+          "command": [
+            "node",
+            "--test",
+            "tests/tools/temporal-role-resolver.test.mjs",
+            "tests/tools/temporal-shape-catalog.test.mjs"
+          ],
+          "sha": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+          "exitCode": 0,
+          "tests": 20,
+          "passed": 20,
+          "skipped": 0,
+          "log": {
+            "path": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/temporal-source-controls-current.log",
+            "sha256": "a8c95a035635e4df20b53dd5a32c0113c185155414b595cff908e109c8104ec0"
+          }
+        },
+        "prContract": {
+          "head": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+          "base": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+          "exitCode": 0,
+          "log": {
+            "path": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/pr-contract-current.log",
+            "sha256": "e8fa310a884898eb14df1e711a506d698d8fcb44ff3eecab96468ccd7ba0a5fd"
+          }
+        }
+      },
+      "notSupplied": [
+        "#2177 complete canonical transaction/independent repository verifier and sealed fixture admission",
+        "#2178 full immutable mutation timeline",
+        "#2179 derived edges/reply transport",
+        "#2180 exact rerun and legacy cutover",
+        "public deterministic comment row/outbox/timeline graph factory",
+        "authenticated proof/nullifier/security receipt",
+        "actual DB transaction runtime or terminal qualification"
+      ],
+      "runtimeQualified": false,
+      "trackingParentAccepted": false,
+      "wholeAssignmentComplete": false,
+      "nextAction": "Coordinator can route this exact compiled pure-policy source now to #2542/#2545 planning. Supply exact existing temporal/article-role supplier identities and retain their stage-specific admission and original negative controls. Do not claim the full #1725 runtime parent accepted."
+    },
+    "commentPureSource": {
+      "purpose": "high-fanout production-shared pure comment source handoff to coordinator for #2542/#2545; not a terminal/transaction receipt",
+      "observedAt": "2026-10-08T05:57:08.508771+00:00",
+      "ownerExecutionIssue": 2177,
+      "trackingParent": 1725,
+      "sourceApiCommit": "617c4e162b5faaa3af1e7deb965f1dbe94c9ec43",
+      "reviewHead": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+      "remoteVerifiedHead": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+      "branch": "codex/issue-2177-pure-comment-source-20261008",
+      "parent": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "prUrl": "https://github.com/Ozwasyd/FsusBlog/pull/3982",
+      "draft": true,
+      "consume": "Exact 617c4e162 API source plus ea870fe5a test/format guard increment; do not merge a moving sibling branch or duplicate the tracking parent implementation.",
+      "sdk": "official .NET SDK 10.0.302 / runtime 10.0.10",
+      "sourceBlobs": {
+        "src/backend/Services/ArticleCommentPolicyService.cs": "17dc99fed8d7375eec13da375e35650b8aaa5e40",
+        "src/backend/Services/Security/AnonymousCommentPolicyService.cs": "0e06d3df71fa2ab10f578af6ece328cc8277c875",
+        "src/backend/Services/CommentModerationService.cs": "1a9854726f4baa1a7c2ffb4dc12d02ab9c7b96f1",
+        "src/backend/Services/CommentService.cs": "e780e21342614401233f66d23447a168fdd26b01",
+        "src/backend/Services/Moderation/CommentModerationTransitions.cs": "077a3f74adfeef1463ba0bc4ef6deaa1387447e4",
+        "src/backend/Services/Security/AnonymousCommentScopePolicy.cs": "c11328abf5dfe6f0867154ce554c0f5efa9e5564",
+        "src/backend/Models/CommentIdentity/AnonymousCommentIdentityModels.cs": "3771bdebefae03add03d866f5388cf7b66e335f8",
+        "tools/test/temporal-role-resolver.mjs": "6a265ae4c9ed5d4df452709d3a680273ad995580",
+        "config/testing/temporal-shape-catalog.json": "0cd267e748b80faa919380cff3d7914a615a4044",
+        "config/testing/resolved-temporal-roles.schema.json": "9ea407a69826669749562fee8607da27dce85037",
+        "src/backend/Services/Fixtures/DataScale/CanonicalArticleGraphModels.cs": "8e4d8c552f42a31a94d608a2009bdd27b0def6d0",
+        "src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs": "510f79077ce55607d751bedf7c883f371cc2f0f2"
+      },
+      "publicStaticApis": [
+        "FsusBlog.Server.Services.Security.AnonymousCommentPolicyService.EvaluateAuthorMode(AnonymousCommentPolicySnapshot policy, string? requestedAuthorMode, bool publicSendExplicitlySelected) -> CommentAuthorModeDecision",
+        "FsusBlog.Server.Services.ArticleCommentPolicyService.Compose(int articleId, AnonymousCommentPolicySnapshot site, ArticleCommentPolicy? article, CommentThreadPolicy? thread) -> EffectiveArticleCommentPolicy",
+        "FsusBlog.Server.Services.ArticleCommentPolicyService.EvaluateWrite(EffectiveArticleCommentPolicy policy, string authorMode, DateTime utcNow) -> CommentPolicyWriteDecision",
+        "FsusBlog.Server.Services.CommentModerationService.ResolveInitialState(CommentActor actor, RegionModerationDecision regionDecision, bool modelEnabled, bool modelProviderAvailable) -> CommentInitialModerationDecision",
+        "FsusBlog.Server.Services.CommentCommandService.ResolveReplyRecipientId(int? targetAuthorAccountId, int? replyingActorAccountId) -> int?",
+        "FsusBlog.Server.Services.Moderation.CommentModerationTransitions.IsAllowed(CommentModerationStatus from, CommentModerationStatus to) -> bool",
+        "FsusBlog.Server.Services.Security.AnonymousCommentScopePolicy.CreateTopLevelScope(int), CreateThreadScope(int,long), TryParse(string?,out AnonymousCommentScopeDescriptor), TryCreateTicketScope(int,long?,long?,long?,out string)"
+      ],
+      "typedSchemas": {
+        "namespace": "FsusBlog.Server.Models.CommentIdentity / Services / Models.Moderation / Entities",
+        "inputs": [
+          "AnonymousCommentPolicySnapshot",
+          "CommentActor",
+          "EffectiveArticleCommentPolicy",
+          "RegionModerationDecision",
+          "ArticleCommentPolicy",
+          "CommentThreadPolicy"
+        ],
+        "outputs": [
+          "CommentAuthorModeDecision",
+          "CommentPolicyWriteDecision",
+          "CommentInitialModerationDecision",
+          "AnonymousCommentScopeDescriptor"
+        ],
+        "jsonCommentScalePlanSchema": null,
+        "currentStates": {
+          "Pending": 0,
+          "Approved": 1,
+          "Rejected": 2,
+          "Hidden": 3
+        },
+        "spamIsAState": false,
+        "currentAuthorModes": [
+          "public",
+          "zk_anonymous"
+        ],
+        "retiredModesRejected": [
+          "anonymous",
+          "legacy_server_visible_pseudonymous"
+        ],
+        "scopeVersion": 1,
+        "topLevelUsesPerCredential": 1,
+        "threadReplyUsesPerCredential": 3
+      },
+      "requiredCallOrder": [
+        "Admit author mode against the actual site policy before article write policy. EvaluateWrite alone is not an actor validator.",
+        "Reject a non-publishable region before resolving initial moderation. Bind model settings to actual policy/configuration; never force modelEnabled=false merely to manufacture Approved.",
+        "Use observed target author and authoritative actor for recipient/self-reply suppression. Visibility/root/depth/child-limit checks remain in the production command, not this helper."
+      ],
+      "productionPrivacyFacts": {
+        "source": "src/backend/Services/CommentService.cs",
+        "initialWriterSetsNull": [
+          "CredentialLevel",
+          "ReputationBucket",
+          "AccountAgeBucket"
+        ],
+        "allowedActorPredicates": [
+          "RateClass",
+          "RequiresModeration"
+        ],
+        "nullifierApplicabilityOwner": "CommentAttributionPrivacyService.RequiresAnonymousNullifierEnforcement(CommentActor), existing public instance pure predicate: ZkAnonymous plus nonblank scope and nullifier; enforcement still requires its registered reservation/consume port",
+        "managementCapabilityOwner": "CommentManagementCapabilityService; real cryptographic IssueCapability/VerifyCapability and formal writer path remain required, no fabricated proof/commitment provided"
+      },
+      "temporalSource": {
+        "module": "tools/test/temporal-role-resolver.mjs",
+        "publicExports": [
+          "resolveTemporalRoles",
+          "resolveTemporalRolesForProducer",
+          "verifyResolvedTemporalArtifact",
+          "requireResolvedTemporalRole",
+          "projectTemporalRolesForDotNet",
+          "projectTemporalRolesForPostgres"
+        ],
+        "schema": "fsusblog.resolved-temporal-roles.v1",
+        "schemaPath": "config/testing/resolved-temporal-roles.schema.json",
+        "uniqueCatalog": "config/testing/temporal-shape-catalog.json",
+        "roles": [
+          "comment.created",
+          "comment.edited",
+          "comment.moderated",
+          "fixture.command-time",
+          "fixture.occurred"
+        ],
+        "limitations": "Use the sealed #1601/#1730/#2526 producer/run/fixture context and role artifact. No private offsets, fixed absolute production dates or host-clock substitute; this source probe does not qualify all temporal producer runtime migration."
+      },
+      "articleRoleSource": {
+        "models": "src/backend/Services/Fixtures/DataScale/CanonicalArticleGraphModels.cs",
+        "plan": "src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs",
+        "publicApi": [
+          "ArticleScalePlanBuilder.Create(string scaleTier,string namespace,ArticleScaleArtifactBindings)",
+          "CanonicalArticleGraphFactory.GenerateGraphStream(ArticleScalePlan)"
+        ],
+        "roleType": "ArticleScaleArticleGraph.SemanticArticleId with explicit semantic row/relation/pointer IDs",
+        "limits": "Reference the supplied #1731 candidate actual mapping and binding; do not discover article targets by title, content, insertion order or MAX(id). c560126/1440291 abbreviations were not consumed and are not available as local Git objects; full exact SHA/branch evidence is needed before integration."
+      },
+      "checks": {
+        "compiled": {
+          "sha": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+          "runId": "pure-comment-5bf81f03-dc84-49c4-bb72-99ffc3e8ad50",
+          "command": [
+            "dotnet",
+            "test",
+            "tests/backend/FsusBlog.Server.Tests.csproj",
+            "--no-restore",
+            "-m:1",
+            "-nodeReuse:false",
+            "-p:UseSharedCompilation=false",
+            "--filter",
+            "FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~AnonymousCommentPolicyTests|FullyQualifiedName~AnonymousCommentScopePolicyTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentModerationDispositionPolicyTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentPurePolicyContractTests",
+            "--logger",
+            "trx;LogFileName=compiled-pure-comment.trx",
+            "--results-directory",
+            "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008"
+          ],
+          "startedAt": "2026-10-08T05:51:42.790257+00:00",
+          "seconds": 154.60653143299896,
+          "exitCode": 0,
+          "logSha256": "1b0d085b10a91c35e43314ad501efcf17756d3954c9357fcf70f647790558765",
+          "authority": "current compiled pure/source capability, not DB transaction or terminal qualification"
+        },
+        "trxCounters": {
+          "total": "75",
+          "executed": "75",
+          "passed": "75",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "trx": {
+          "path": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/compiled-pure-comment.trx",
+          "sha256": "3ed50a1ab695973e8186d638a12afc971189835ff6d764d4733030d8cb0cd921"
+        },
+        "range": {
+          "sha": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+          "runId": "pure-comment-5bf81f03-dc84-49c4-bb72-99ffc3e8ad50",
+          "command": [
+            "node",
+            "tools/governance/check-change-contract.mjs",
+            "--range",
+            "f4817f13b5b86d51494ebfc0648a3f51f6b235bf..ea870fe5a14fe2b8a62067ec17b9c790c7042bd5"
+          ],
+          "startedAt": "2026-10-08T05:54:17.398175+00:00",
+          "seconds": 1.1904909260010754,
+          "exitCode": 0,
+          "logSha256": "7f2ad46c1409b26aaf470d0df4fa89d33bf1a34abe91dcc8aa5a9a75c52ddf77",
+          "authority": "current compiled pure/source capability, not DB transaction or terminal qualification"
+        },
+        "style": {
+          "exitCode": 0,
+          "files": 6,
+          "violations": 0,
+          "log": {
+            "path": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/scoped-style-current.log",
+            "sha256": "c0f9ff505fbc32b8d5feeef837e1851647189d603ead096534554f91783007b9"
+          }
+        },
+        "temporalSourceControls": {
+          "command": [
+            "node",
+            "--test",
+            "tests/tools/temporal-role-resolver.test.mjs",
+            "tests/tools/temporal-shape-catalog.test.mjs"
+          ],
+          "sha": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+          "exitCode": 0,
+          "tests": 20,
+          "passed": 20,
+          "skipped": 0,
+          "log": {
+            "path": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/temporal-source-controls-current.log",
+            "sha256": "a8c95a035635e4df20b53dd5a32c0113c185155414b595cff908e109c8104ec0"
+          }
+        },
+        "prContract": {
+          "head": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+          "base": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+          "exitCode": 0,
+          "log": {
+            "path": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/pr-contract-current.log",
+            "sha256": "e8fa310a884898eb14df1e711a506d698d8fcb44ff3eecab96468ccd7ba0a5fd"
+          }
+        }
+      },
+      "notSupplied": [
+        "#2177 complete canonical transaction/independent repository verifier and sealed fixture admission",
+        "#2178 full immutable mutation timeline",
+        "#2179 derived edges/reply transport",
+        "#2180 exact rerun and legacy cutover",
+        "public deterministic comment row/outbox/timeline graph factory",
+        "authenticated proof/nullifier/security receipt",
+        "actual DB transaction runtime or terminal qualification"
+      ],
+      "runtimeQualified": false,
+      "trackingParentAccepted": false,
+      "wholeAssignmentComplete": false,
+      "nextAction": "Coordinator can route this exact compiled pure-policy source now to #2542/#2545 planning. Supply exact existing temporal/article-role supplier identities and retain their stage-specific admission and original negative controls. Do not claim the full #1725 runtime parent accepted."
+    },
+    "commentMutationAndDeliverySource": {
+      "purpose": "compiled ordinary source capability handoff, not verified producer/runtime acceptance",
+      "updatedAtUtc": "2026-10-08T07:46:13.116239+00:00",
+      "latestObservedMaster": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+      "masterConsumed": false,
+      "rootCandidateFrozen": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "mutationSourceCommit": "6656a73e5588f09e11f1320c43ca3f8fd153c7e3",
+      "mutationBranch": "codex/issue-2178-comment-mutations-20261008",
+      "deliverySourceCommit": "b570346e5e374ae2f53807e9666cc41c42fa2afd",
+      "deliveryBranch": "codex/issue-2179-comment-delivery-observation-20261008",
+      "remoteHeadsVerified": true,
+      "githubContentWriteHold": true,
+      "draftPrCreated": false,
+      "sourceBlobs": {
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.cs": "6b6ce7b5c00f60bb224824f86a07dca139daa6b7",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs": "203e5c0b8a4eae8aebcd584ca6132b2694af06de",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs": "0802f622c2322ca5939bb57d4b07b1be2546a98a",
+        "tests/backend/Unit/CommentFixtureMutationRoutingTests.cs": "e7adf3cabcb1dcdab94baacb63c903f6fe0ca652",
+        "docs/testing.md": "2b54e53b26d4ff1fda763545867a21898df5327b"
+      },
+      "apis": {
+        "mutation": {
+          "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+          "signature": "Task<CommentFixtureMutationResult> ICommentThreadFixturePort.ExecuteMutationAsync(CommentFixtureMutationPlan plan, CancellationToken cancellationToken = default)",
+          "commands": [
+            "formal account/anonymous edit",
+            "formal account/anonymous soft-delete",
+            "formal claim/version-bound moderation without linked ban",
+            "formal account report",
+            "formal account/anonymous appeal",
+            "formal appeal review"
+          ],
+          "binding": "initial role/identity, current revision/status/event, UTC injected business time, actor/security/policy references, serialized command digest",
+          "output": "independently reread revisions/moderation events/content/outbox references; real report/appeal IDs; no challenge, capability secret or claim token",
+          "admissionLimit": "reference digests are structural inputs; upstream sealed actor/security/permission admission is still required",
+          "anonymousFollowup": "latest source reuses initial immutable revision against the protected operation ledger; restored command custody and read-only observation use the same owner, readonly does not store custody"
+        },
+        "delivery": {
+          "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+          "signature": "Task<CommentFixtureDeliveryObservation> ICommentThreadFixturePort.ObserveDeliveryAsync(CommentFixtureMutationResult authority, CancellationToken cancellationToken = default)",
+          "reads": [
+            "public permalink API",
+            "first admin queue page, own items/leases only",
+            "actual article/root cursor generations via production cache policy",
+            "exact mutation outbox references and per-consumer attempt/owner/generation/status/result digest",
+            "reply source-event derivation from actual dispatcher; recipient conversation API, message references/content digests"
+          ],
+          "consumerAuthority": "CommentMutationOutboxConsumers.RequiredFor",
+          "queueAuthority": "BoundedQueueDeliveryCatalog.Embedded",
+          "mutations": "none; no worker drain, message/cache/projection write or repair",
+          "limits": [
+            "single-pass first queue page is not full queue acceptance",
+            "public DTO has no exact comment revision",
+            "outbox envelope has no comment revision field",
+            "pending/missing/failure/duplicate observations do not become qualified",
+            "no native Redis/stream or current-run queue/drain acceptance inferred"
+          ]
+        }
+      },
+      "checks": {
+        "mutationCompiled": {
+          "sha": "6656a73e5588f09e11f1320c43ca3f8fd153c7e3",
+          "runId": "comment-mutations-4354780f-d4b4-441e-b83e-aa1ddaa14fe1",
+          "command": [
+            "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+            "test",
+            "tests/backend/FsusBlog.Server.Tests.csproj",
+            "--no-restore",
+            "-m:1",
+            "-nodeReuse:false",
+            "-p:UseSharedCompilation=false",
+            "--filter",
+            "FullyQualifiedName~CommentFixtureMutationRoutingTests|FullyQualifiedName~CommentThreadFixtureContractTests|FullyQualifiedName~CompositionRegistrationContractTests|FullyQualifiedName~CommentPurePolicyContractTests|FullyQualifiedName~CommentMutationOutboxRuntimeStateTests",
+            "--logger",
+            "trx;LogFileName=comment-mutations-bound.trx",
+            "--results-directory",
+            "/workspace/FsusBlog-2178-comment-mutations/.tmp/issue-2178-comment-mutations-20261008"
+          ],
+          "startedAt": "2026-10-08T07:14:46.237703+00:00",
+          "seconds": 162.81554391199825,
+          "exitCode": 0,
+          "authority": "compiled ordinary source controls; not native, transaction, audit, nullifier or delivery qualification",
+          "logSha256": "1fb83a5dbb6c8ee930b25f7cba3cbda48fc12aaa176fd36006aabf3bc58a9dc8",
+          "testRunId": "89071f26-ee66-4db1-9baf-4d20a65f898b",
+          "counters": {
+            "total": "63",
+            "executed": "63",
+            "passed": "63",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+          },
+          "trxSha256": "4429e7a2aaa63e894f0a6ebc54f1ad83177bdc8935f113e5188d0554c3b67c90"
+        },
+        "deliveryCompiled": {
+          "sha": "b570346e5e374ae2f53807e9666cc41c42fa2afd",
+          "runId": "comment-delivery-b39db6f4-e44a-40d2-b9bc-b142a8c2d6ea",
+          "command": [
+            "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+            "test",
+            "tests/backend/FsusBlog.Server.Tests.csproj",
+            "--no-restore",
+            "-m:1",
+            "-nodeReuse:false",
+            "-p:UseSharedCompilation=false",
+            "--filter",
+            "FullyQualifiedName~CommentFixtureMutationRoutingTests|FullyQualifiedName~CommentThreadFixtureContractTests|FullyQualifiedName~CompositionRegistrationContractTests|FullyQualifiedName~CommentPurePolicyContractTests|FullyQualifiedName~CommentMutationOutboxRuntimeStateTests",
+            "--logger",
+            "trx;LogFileName=comment-delivery-bound.trx",
+            "--results-directory",
+            "/workspace/FsusBlog-2178-comment-mutations/.tmp/issue-2179-comment-delivery-20261008"
+          ],
+          "startedAt": "2026-10-08T07:31:29.883816+00:00",
+          "seconds": 156.24779919300272,
+          "exitCode": 0,
+          "authority": "compiled ordinary source controls; not native, transaction, audit, nullifier or delivery qualification",
+          "logSha256": "9424e60454ab8e2085b1468cccc84d65bb74266d48449021244811d97d29ad02",
+          "testRunId": "bbd15be5-98b3-4576-8748-d9b6ca237f4a",
+          "counters": {
+            "total": "66",
+            "executed": "66",
+            "passed": "66",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+          },
+          "trxSha256": "a3b30d42251abd3512b1d6c55cfcb2611eac5618b4a5046290120c07cfd04e43"
+        },
+        "style": {
+          "exitCode": 0,
+          "files": 4,
+          "violations": 0,
+          "artifact": {
+            "path": "/workspace/FsusBlog-2178-comment-mutations/.tmp/issue-2179-comment-delivery-20261008/style.log",
+            "sha256": "338c3460669d174026aff5806362826322bba8ad7b474d80ac85fdd8acbc56ec"
+          }
+        },
+        "temporalSource": {
+          "exitCode": 0,
+          "passed": 20,
+          "failed": 0,
+          "skipped": 0,
+          "artifact": {
+            "path": "/workspace/FsusBlog-2178-comment-mutations/.tmp/issue-2179-comment-delivery-20261008/temporal-controls-current.log",
+            "sha256": "ad8c8144bdd2fd2bfef45f1cdab525aaa547c61bcc379bac721ef095f3a40556"
+          }
+        },
+        "rangeContract": {
+          "exitCode": 0,
+          "artifact": {
+            "path": "/workspace/FsusBlog-2178-comment-mutations/.tmp/issue-2179-comment-delivery-20261008/range-contract.log",
+            "sha256": "4b10f62deffeb33e7c34e1e76dddd5b913917feb1986da945748717c309fd3d2"
+          }
+        },
+        "whitespace": {
+          "exitCode": 0,
+          "command": "git diff --check"
+        },
+        "setupRepair": {
+          "initialTemporalAttempt": "failed: missing locked Ajv; Node 24.19.0 ambient",
+          "repair": "locked npm ci --ignore-scripts, then original controls run with task Node 24.16.0",
+          "initialLog": {
+            "path": "/workspace/FsusBlog-2178-comment-mutations/.tmp/issue-2179-comment-delivery-20261008/temporal-controls.log",
+            "sha256": "c7959df88b0bc1ad16969cf88e0cc137b886ade9024ed4b0da906e4826813ac2"
+          },
+          "installLog": {
+            "path": "/workspace/FsusBlog-2178-comment-mutations/.tmp/issue-2179-comment-delivery-20261008/schema-validator-install.log",
+            "sha256": "7d9b7510a024315d98ad70afe505eb628ad335441e952c0d28f7c31e4a2d1011"
+          }
+        }
+      },
+      "runtimeQualified": false,
+      "wholeAssignmentComplete": false,
+      "unverified": [
+        "sealed producer/actor/security/permission admission",
+        "real transaction/rollback/audit/outbox atomicity",
+        "native proof and initial nullifier conservation",
+        "scoped-anonymous report credential custody",
+        "complete public/admin/cache/message/stream integration",
+        "independent current-run queue/drain and terminal verification"
+      ],
+      "currentSourceConcerns": [
+        {
+          "file": "src/backend/Services/CommentGovernanceService.cs",
+          "method": "ReviewAppealAsync",
+          "finding": "granted appeal inserts AppealDecision previous=resulting,next=resulting after status change; continuity is a source concern, not a runtime-proven failure in this ordinary control run",
+          "action": "coordinate formal governance owner; do not repair the timeline in fixtures"
+        },
+        {
+          "file": "src/backend/Services/CommentGovernanceService.cs",
+          "finding": "AuditAsync follows the database transaction and no atomic audit-reference/outbox receipt is exposed",
+          "action": "need formal atomic command evidence/API; fixture must not manufacture audit IDs from moderation event IDs"
+        }
+      ],
+      "externalRequest": "root #3657 must supply exact per-queue current-run delivery/drain commit and evidence before #1653/runtime acceptance; current production catalog is available for source consumption",
+      "stoppedSemanticCohortQaRun": false,
+      "noClosureMergeDeployOrPackagePublication": true,
+      "localDraft": {
+        "path": "/workspace/FsusBlog-2178-comment-mutations/.tmp/issue-2179-comment-delivery-20261008/local-pr-body.txt",
+        "sha256": "4bc7adac24bc86e6e08e332d28e88c0ac89b62c781272fffcbd116891ce58e7c",
+        "submitted": false,
+        "centralQueueGrant": false
+      }
+    }
+  },
+  "masterDriftFollowup": {
+    "sha": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+    "changes": "external data-scale deadline and inventory adapter commits; no merge/rebase into frozen primary candidate",
+    "snapshotOnly": true
+  },
+  "updatedAtUtc": "2026-10-08T13:21:18.099706+00:00",
+  "latestObservedMaster": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "wholeAssignmentComplete": false,
+  "accountConsumerCapabilityHandoff": "/workspace/FsusBlog/.tmp/issue-1725-pure-source-20261008/account-consumer-capability-handoff.json",
+  "sourceReviewClearance": {
+    "artifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/review-eligibility-handoff.json",
+    "head": "b325e08d63d7802ee62d8707a5b901d43ceda8c9",
+    "branch": "codex/issue-2177-review-source-20261008",
+    "sourceReviewEligible": true,
+    "prCreated": false,
+    "wholeAcceptance": false
+  },
+  "commentQueryApiHandoff": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/comment-query-api-handoff.json",
+  "accountComposerSuppliedExactCommit": "138c1254918d365d35b6019e1bd6d4a418bcafa3",
+  "missingIndependentCodeIssues": [
+    2046,
+    2047,
+    2049,
+    2050,
+    2051,
+    2048,
+    2151,
+    2170,
+    2177,
+    2660,
+    2661,
+    2054,
+    2055,
+    2056,
+    2057,
+    2663,
+    2664,
+    1723,
+    2181,
+    2183,
+    2680,
+    2178,
+    2179,
+    2692,
+    2182,
+    2694,
+    2099
+  ],
+  "accountCleanupBoundaryOwnership": {
+    "issue": 2169,
+    "state": "closed boundary re-read; no acceptance inferred from closure",
+    "missingSource": "Current canonical preference CleanupAsync verifies before restore, returns Task without independent post-restoration completion observation. Belongs to existing preference fact/cleanup owner, not #2170 projection or downstream composer verification. Aggregate verified cleanup/receipt remains producer owner scope."
+  },
+  "nextOwnedSourceGap": "#2170 real Cookie/device-private storage projection and first-request AOT contracts. #2051 is unmet; canonical independent preference cleanup completion readback belongs to closed boundary #2169 existing source owner, not #2170. Do not duplicate supplied composer VerifyAsync logic or create aggregate receipt.",
+  "purePolicyReviewCorrection": {
+    "head": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+    "reviewer": "01a11ab1-5d08-77e2-9b39-444059573034",
+    "isolatedControls": "80/80, all original5 cases preserved/passed, zero skipped",
+    "formal": "NU1004 blocked"
+  },
+  "initialOutboxSource": {
+    "head": "ef65043daec41df104dc65ce26cd93ff9996574f",
+    "branch": "codex/issue-2177-outbox-source-only-20261008",
+    "scope": "4 files, no broad baseline fixes",
+    "isolatedControls": "19/19, zero skipped",
+    "formal": "NU1004 blocked"
+  },
+  "verifiedReaderCanonicalBoundary": {
+    "missingApis": [
+      "openVerifiedFixtureReceipt",
+      "requireCapabilities",
+      "projectEntity",
+      "openSecretProjection"
+    ],
+    "existingAuthLocalIdentityProjectionSource": "de24450e711206afc5590d6ca77041c520cebd81",
+    "existingAdminPrivateProjectionSource": "71932bb4333248ae82559fa1bf0983822086a766",
+    "genericRoleAuthority": false
+  },
+  "accountComposerLatestSuppliedSource": {
+    "head": "af7b36ccb389df9aec048f5a647e4d9f3ca75d07",
+    "sourceMappingOnly": "10 capabilities and11 identity roles;239 controls supplied",
+    "consumed": false,
+    "qualifiedReceiptSemanticRoles": false
+  },
+  "nextRequestedCommentSource": {
+    "consumerHead": "8822207ec995f4346eed20f27393b172dd51343a",
+    "ownedBuilderIssue": 2177,
+    "nextApi": "BuildRevision(long commentId,int version,string operation,string normalizedContent,DateTime createdAtUtc,string actorMode,int? actorAccountId,long? actorAdminPrincipalId)",
+    "ownedGraphObservationIssue": 2179,
+    "nativeAllocationOwner": 2542,
+    "state": "Exact requested public eight-parameter BuildRevision implemented and remotely published as e816562e42be2afbce0136e1c3fd0515659da215; original formal92 passed. Full native graph/revision observation still missing."
+  },
+  "verifiedReaderPartialSource": {
+    "issue": 2046,
+    "classification": "partial-source-entry-api-only",
+    "sourceSha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+    "branch": "codex/issue-2046-reader-entry-source-20261008",
+    "baseSha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "executionEnvironment": "configured FsusBlog cloud workspace",
+    "sourceFiles": [
+      {
+        "path": "docs/testing.md",
+        "gitBlob": "03160293a3d7833db95fc4137560c19199d96aa1",
+        "sha256": "6b94ce3aba2d3b743a93a877b76f41dd3eca90250d55678638ac04330401b187"
+      },
+      {
+        "path": "tests/tools/fixture-reader-entry-api.test.mjs",
+        "gitBlob": "535744b13ebc7e3eeab1de1217fe6078b7283e69",
+        "sha256": "f33073f8b8b179d64df7c19502328b81ff7df709925cdc7622dedb270bb654a3"
+      },
+      {
+        "path": "tools/test-fixtures/receipt/index.mjs",
+        "gitBlob": "15cb0d7c57b49f0d4f3b53bfd3819e8386c892c1",
+        "sha256": "50f45a182399a2732a3e5b287cbbd89a58bfa15274e9e7123eab96f10aaadd5e"
+      },
+      {
+        "path": "tools/test-fixtures/receipt/verified-reader.mjs",
+        "gitBlob": "ccab2d5db3146f80d9b5214b719b396ae39e02d2",
+        "sha256": "7a9223c95b5800b71a87353d75c1dbb5d6d02133332447252a149da1de6a9a78"
+      }
+    ],
+    "entryPoints": [
+      "openVerifiedFixtureReceipt(expectedExecutionIdentity)",
+      "requireCapabilities(receipt, capabilityIds)",
+      "projectEntity(receipt, semanticRole)",
+      "openSecretProjection(receipt, projectionId)"
+    ],
+    "checks": [
+      {
+        "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+        "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "command": [
+          "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "tests/tools/fixture-reader-entry-api.test.mjs"
+        ],
+        "startedAt": "2026-10-08T09:46:19.572292+00:00",
+        "exitCode": 0,
+        "logSha256": "5f45d2281e716f9bbf9d70802692f4e80c2f11e4acc4b21ea55cfe390ee40cf4",
+        "qualificationEligible": false
+      },
+      {
+        "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+        "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "command": [
+          "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+          "tools/governance/check-change-contract.mjs",
+          "--range",
+          "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d..bf59cf9c9a19650af940fc4c18da45a310143168"
+        ],
+        "startedAt": "2026-10-08T09:45:34.475492+00:00",
+        "exitCode": 0,
+        "logSha256": "816a41e013ff15234432e8d0b00be08f872e0b807e06e576ea35f62880d95649",
+        "qualificationEligible": false
+      },
+      {
+        "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+        "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "command": [
+          "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "source-diff",
+          "--base",
+          "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+          "--file",
+          "tools/test-fixtures/receipt/index.mjs",
+          "--file",
+          "tools/test-fixtures/receipt/verified-reader.mjs",
+          "--file",
+          "tests/tools/fixture-reader-entry-api.test.mjs"
+        ],
+        "startedAt": "2026-10-08T09:45:35.850583+00:00",
+        "exitCode": 0,
+        "logSha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7",
+        "qualificationEligible": false
+      },
+      {
+        "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+        "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "command": [
+          "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+          "tools/style/check-native-tooling-style.mjs",
+          "--mode",
+          "full",
+          "--domain",
+          "docs",
+          "--operation",
+          "lint",
+          "--require-tools",
+          "--file",
+          "docs/testing.md"
+        ],
+        "startedAt": "2026-10-08T09:45:43.224304+00:00",
+        "exitCode": 0,
+        "logSha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e",
+        "qualificationEligible": false
+      },
+      {
+        "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+        "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "command": [
+          "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+          "tools/run-test-matrix.mjs",
+          "ci-pr-smart",
+          "--stage",
+          "source-integration",
+          "--base-ref",
+          "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+        ],
+        "startedAt": "2026-10-08T09:46:19.701419+00:00",
+        "exitCode": 0,
+        "logSha256": "d9a3795b672ecfe14a52ef99f1f6844801c6a6de228b3de6bc9ef511f0b31de0",
+        "qualificationEligible": false
+      }
+    ],
+    "entryApiTestOutcomes": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
+    },
+    "readerBehavior": "Only fixed refusals; verified:false, bindingReceipt:null. Existing #1710 validator checks supplied receipt documents; it does not authenticate admission. No authoritative locator is available, so no receipt or private projection file is opened.",
+    "missingOwnerContracts": [
+      "Authoritative mapping from expectedExecutionIdentity to final receipt path; current #1710 normalized identity supplies no locator.",
+      "Caller sealed metadata capability eligibility and profile/execution-class/producer-plan admission.",
+      "Exact consumer semantic-role entity projection; kind/id/handle fields and auth-local supplied-role references are not a generic contract.",
+      "Private projection consumer entitlement and authoritative projection locator/staleness binding."
+    ],
+    "schemaOwnerReadOnlyEvidence": {
+      "issue1710": "https://github.com/Ozwasyd/FsusBlog/issues/1710",
+      "currentBodyRead": true,
+      "currentCommentsRead": true,
+      "landedComment": "https://github.com/Ozwasyd/FsusBlog/issues/1710#issuecomment-5097304216",
+      "historicalOwnerCommit": "60ded6a03d1c53ecd28f61908f7cc8886feac43d",
+      "ownerRequest": "Requested coordinating parent to obtain exact formal contracts from canonical #1710/schema owner; no response or contract commit supplied."
+    },
+    "limits": [
+      "No verified success, binding receipt, new schema registry or authority minted.",
+      "No DB/Redis/producer execution added; dependency test covers direct entry imports only.",
+      "No consumer migration or old reader deletion.",
+      "No generic capability/role/secret projection implementation or runtime acceptance.",
+      "No held fixture adversarial substitution/tampering/cohort/alias/TOCTOU/security-audit scenarios run.",
+      "SOURCE includes existing mandatory governance controls, not product or fixture qualification.",
+      "Initial SOURCE tooling and commit-metadata failures retained; corrected candidate checks have their own SHA binding."
+    ],
+    "issue2046Accepted": false,
+    "wholeAssignmentComplete": false,
+    "qualificationEligible": false,
+    "publication": {
+      "published": false,
+      "pushAttempt": {
+        "command": [
+          "git",
+          "-c",
+          "credential.helper=!gh auth git-credential",
+          "push",
+          "-u",
+          "origin",
+          "codex/issue-2046-reader-entry-source-20261008"
+        ],
+        "startedAt": "2026-10-08T09:48:16.418323+00:00",
+        "exitCode": 128,
+        "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+        "logSha256": "22b95ba2988d9b57b92949fe5624ef8f30f4c941025e3b94413b66b2ebae334c"
+      },
+      "error": "Invalid username or token; Git push exit 128",
+      "prCreated": false,
+      "centralQueue": "No PR/comment/content API writes without grant. Ordinary isolated git source/evidence pushes authorized but current Git credential invalid."
+    },
+    "nextAction": "Refresh configured environment Git credential and push exact source branch; obtain formal contracts through canonical owners before any consumer admission/migration."
+  },
+  "independentPureComponentReviewReported": {
+    "reportedByCoordinator": true,
+    "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+    "ninePaths": true,
+    "independentDiagnosticControlsPassed": 55,
+    "formalRestore": "NU1004",
+    "formalBackendTests": "not run",
+    "wholeIssueAccepted": false
+  },
+  "canonicalLockOwnerRequest": "/workspace/FsusBlog-2177-review-evidence/artifacts/handoffs/issue-2177-lock-owner-request-20261008/canonical-lock-owner-request.json",
+  "latestGitPublicationAuthentication": {
+    "repository": "Ozwasyd/FsusBlog",
+    "host": "github.com",
+    "publicationTransport": "git over HTTPS",
+    "blockedNewSourceSha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+    "failedCommand": [
+      "git",
+      "-c",
+      "credential.helper=!gh auth git-credential",
+      "push",
+      "-u",
+      "origin",
+      "codex/issue-2046-reader-entry-source-20261008"
+    ],
+    "failedCommandStartedAt": "2026-10-08T09:48:16.418323+00:00",
+    "exitCode": 128,
+    "error": "Invalid username or token; Authentication failed",
+    "credentialMaterialIncluded": false,
+    "recoveryOwner": "coordinating parent; no further Git publication retries or alternate credential/account/transport/content API",
+    "earlierRemoteSourceCommitReadbacks": [
+      {
+        "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+        "repo": "Ozwasyd/FsusBlog",
+        "url": "https://github.com/Ozwasyd/FsusBlog/commit/10a5d40511e9a943319288937fa2d6a7aaa2e403"
+      },
+      {
+        "sha": "ef65043daec41df104dc65ce26cd93ff9996574f",
+        "repo": "Ozwasyd/FsusBlog",
+        "url": "https://github.com/Ozwasyd/FsusBlog/commit/ef65043daec41df104dc65ce26cd93ff9996574f"
+      }
+    ],
+    "earlierBranchNameReadbacks": [
+      {
+        "branches": [
+          {
+            "branch": "codex/issue-2177-review-source-20261008"
+          }
+        ],
+        "cursor": "MQ"
+      },
+      {
+        "branches": [
+          {
+            "branch": "codex/issue-2177-outbox-source-only-20261008"
+          }
+        ],
+        "cursor": "MQ"
+      }
+    ],
+    "earlierCommitsRemainRemote": true,
+    "currentGitRemoteHeadReadback": "blocked by invalid Git credential; read-only connector confirms named branches and exact commits exist, but branch search does not expose head SHAs",
+    "newSourcePublished": false,
+    "newEvidencePublished": false
+  },
+  "canonical2177LockComposition": {
+    "issue": 2177,
+    "sourceSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+    "branch": "codex/issue-2177-canonical-lock-integration-20261008",
+    "frozenComponentSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+    "canonicalLockCommit": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+    "ancestry": {
+      "bothFrozenAndCanonicalAreAncestors": true,
+      "mergeConflict": false,
+      "baseSha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "fetchedMasterSha": "cb6f4e4a174ac65735707c7e44286352803e742b",
+      "newMasterConsumed": false
+    },
+    "compositionDeltaFromFrozen": [
+      "artifacts/change-contract/backend-existing-reader-lock-external-naming.json",
+      "tests/backend/packages.lock.json"
+    ],
+    "nineFrozenComponentBlobsIdentical": true,
+    "packageClosure": {
+      "inventoryFiles": 49,
+      "allBaseFrozenIdentical": true,
+      "allCanonicalComposedIdentical": true,
+      "onlyChangedPackageInput": "tests/backend/packages.lock.json",
+      "manifest": "package-input-closure.json"
+    },
+    "evaluatedProjectSourceClosure": {
+      "projects": 6,
+      "repoInputs": 2013,
+      "manifest": "evaluated-project-source-closure.json",
+      "kind": "real SDK evaluation; actual complete formal test assembly compilation failed",
+      "notSuccessfulCompiledClosure": true
+    },
+    "checks": {
+      "sdk-version": {
+        "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+        "frozenComponentSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+        "canonicalLockSha": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+        "command": [
+          "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+          "--version"
+        ],
+        "startedAt": "2026-10-08T10:18:22.601726+00:00",
+        "exitCode": 0,
+        "logSha256": "2ce58527da281756131055b7331465f5ce5b423056ed2668637ee2a683c82c86",
+        "originalProject": true,
+        "usesNoRestore": false,
+        "lockedModeWaived": false,
+        "wholeIssueAccepted": false,
+        "qualificationEligible": false
+      },
+      "formal-locked-restore": {
+        "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+        "frozenComponentSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+        "canonicalLockSha": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+        "command": [
+          "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+          "restore",
+          "tests/backend/FsusBlog.Server.Tests.csproj",
+          "--locked-mode",
+          "-p:NuGetAudit=true",
+          "-m:1",
+          "-nodeReuse:false"
+        ],
+        "startedAt": "2026-10-08T10:18:22.710352+00:00",
+        "exitCode": 0,
+        "logSha256": "f39f2dce3d8f8103ac07350c5b054379fc26fac0da0cee00de5df84497a4d1b8",
+        "originalProject": true,
+        "usesNoRestore": false,
+        "lockedModeWaived": false,
+        "wholeIssueAccepted": false,
+        "qualificationEligible": false
+      },
+      "formal-policy-tests": {
+        "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+        "frozenComponentSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+        "canonicalLockSha": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+        "command": [
+          "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+          "test",
+          "tests/backend/FsusBlog.Server.Tests.csproj",
+          "-p:RestoreLockedMode=true",
+          "-p:NuGetAudit=true",
+          "-m:1",
+          "-nodeReuse:false",
+          "-p:UseSharedCompilation=false",
+          "--filter",
+          "FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~AnonymousCommentPolicyTests|FullyQualifiedName~AnonymousCommentScopePolicyTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentModerationDispositionPolicyTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentPurePolicyContractTests|FullyQualifiedName~CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply",
+          "--logger",
+          "trx;LogFileName=formal-policy-tests.trx",
+          "--results-directory",
+          "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008"
+        ],
+        "startedAt": "2026-10-08T10:18:24.724569+00:00",
+        "exitCode": 1,
+        "logSha256": "1b4be012d0421937b0c0f416fdee5fc5a19172c959662ea3439dc01fb2aa14e5",
+        "originalProject": true,
+        "usesNoRestore": false,
+        "lockedModeWaived": false,
+        "wholeIssueAccepted": false,
+        "qualificationEligible": false
+      },
+      "range-contract": {
+        "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+        "baseSha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "command": [
+          "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+          "tools/governance/check-change-contract.mjs",
+          "--range",
+          "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d..97f372a803d9435175b3864d3c577bb0bdc48a89"
+        ],
+        "startedAt": "2026-10-08T10:24:20.681113+00:00",
+        "exitCode": 0,
+        "logSha256": "505451cefb41a9f4449fea79a195595672450e9334a9869ca21154045177e9aa",
+        "qualificationEligible": false
+      },
+      "source-stage": {
+        "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+        "baseSha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "command": [
+          "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+          "tools/run-test-matrix.mjs",
+          "ci-pr-smart",
+          "--stage",
+          "source-integration",
+          "--base-ref",
+          "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+        ],
+        "startedAt": "2026-10-08T10:24:22.017106+00:00",
+        "exitCode": 0,
+        "logSha256": "039186819cada355c60104e388061399adbeaddbc259b569213f10b3c2aae68e",
+        "qualificationEligible": false
+      }
+    },
+    "publication": {
+      "sourceSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+      "branch": "codex/issue-2177-canonical-lock-integration-20261008",
+      "command": [
+        "git",
+        "-c",
+        "credential.helper=!gh auth git-credential",
+        "push",
+        "-u",
+        "origin",
+        "codex/issue-2177-canonical-lock-integration-20261008"
+      ],
+      "startedAt": "2026-10-08T10:25:58.235392+00:00",
+      "exitCode": 0,
+      "remoteHost": "github.com",
+      "logSha256": "1ae5af4751400f0eb5407353786309f0ba3320b28e01634d9c39fa7bcc737b83",
+      "remoteReadback": {
+        "command": [
+          "git",
+          "-c",
+          "credential.helper=!gh auth git-credential",
+          "ls-remote",
+          "origin",
+          "refs/heads/codex/issue-2177-canonical-lock-integration-20261008"
+        ],
+        "exitCode": 0,
+        "text": "97f372a803d9435175b3864d3c577bb0bdc48a89\trefs/heads/codex/issue-2177-canonical-lock-integration-20261008",
+        "logSha256": "664b07fe829e550a6ba557ddb4e4c7716e20e66b74c20ac44a034b76722091fd"
+      },
+      "published": true,
+      "formalTestsPassed": false,
+      "issue2177Accepted": false
+    },
+    "formalTestCasesStarted": false,
+    "formalTrxProduced": false,
+    "formalTestsPassed": false,
+    "formalCompilationBlocker": {
+      "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+      "formalRestoreExitCode": 0,
+      "formalTestCommandExitCode": 1,
+      "failureStage": "test assembly compilation; runtime test cases not started",
+      "trxProduced": false,
+      "errors": [
+        "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(23,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]",
+        "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(24,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]",
+        "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(25,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]",
+        "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(26,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]"
+      ],
+      "ownerIssue": 3654,
+      "baseFrozenCompositionFileBindings": [
+        {
+          "sha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+          "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+          "gitBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+          "fileSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029"
+        },
+        {
+          "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+          "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+          "gitBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+          "fileSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029"
+        },
+        {
+          "sha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+          "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+          "gitBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+          "fileSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029"
+        },
+        {
+          "sha": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+          "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+          "gitBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+          "fileSha256": "667c54dd931ee283086e54bf64829182a3d5dc73e80ac181fd1ad1f4a4f96160"
+        }
+      ],
+      "baselineErrorFileUnchanged": true,
+      "priorSuppliedOwnerHead": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "actualOwnerFileCommit": "5d71bb2eec8c7c3645a799560e2ba28675d5357b",
+      "priorOwnerFileDeltaIncludes": [
+        "four InlineData constant literals",
+        "two startup detail expectation changes",
+        "BusinessHostProbe property formatting"
+      ],
+      "ownerDeltaConsumed": false,
+      "request": "Canonical #3654 owner/coordinator must supply a minimum legitimate current compilation prerequisite, exact consumable commit and source dependencies, and update coordinated review scope. This chain will not independently repair their tests, omit compile items or use a linked harness as formal acceptance.",
+      "issue2177Accepted": false
+    },
+    "prior55IndependentAnd80HarnessEvidence": "Remain bound only to frozen10a; neither result relabeled onto this composition.",
+    "nugetAuditWarning": "NU1903 for SQLitePCLRaw.lib.e_sqlite3 2.1.11 remains disclosed and unchanged; no audit disablement or native package update.",
+    "allRepositoryCodeIntent": "Coordinator reported same allocation-comment failure on baseline at frozen10a; not rerun/waived/claimed green on new97 composition.",
+    "heldFixtureAuditTestsExecuted": false,
+    "harnessFallbackUsed": false,
+    "lockedModeWaived": false,
+    "noRestoreUsed": false,
+    "newPrCreated": false,
+    "centralQueueHold": "No PR/comment/content API writes without grant. Source and evidence use ordinary isolated Git branches.",
+    "sameReviewerNextInput": "This exact published composition with SOURCE/range pass, restore pass, and formal compilation failure; coordinate canonical3654 prerequisite scope update before rerunning formal tests.",
+    "issue2177Accepted": false,
+    "mergeEligible": false,
+    "wholeAssignmentComplete": false
+  },
+  "publicationRecoveryObserved": {
+    "action": "coordinator-authorized canonical2177 source fetch/push using unchanged existing Git credential helper",
+    "sourceSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+    "sourceBranch": "codex/issue-2177-canonical-lock-integration-20261008",
+    "remoteReadbackMatched": true,
+    "otherCredentialAccountTransportUsed": false,
+    "issue2046PushRetried": false,
+    "issue2046SourcePublished": false
+  },
+  "currentFormalPolicyReviewHandoff": {
+    "testedAndRemoteVerifiedSha": "c3155d51f27286d64fc8e18eeb759f3bd765315e",
+    "sourceBranch": "codex/issue-2177-formal-current-review-20261008",
+    "masterSha": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+    "pathCount": 18,
+    "checkExitCodes": {
+      "formal-locked-restore": 0,
+      "formal-policy-tests": 0,
+      "source-stage": 0,
+      "range-contract": 0
+    },
+    "originalFormalPolicyResult": {
+      "passed": 80,
+      "failed": 0,
+      "skipped": 0,
+      "trxRunId": "5e22efad-7c76-4d51-be3d-6f7285795d18",
+      "trxTimes": {
+        "creation": "2026-10-08T11:17:17.6200471+00:00",
+        "queuing": "2026-10-08T11:17:17.6200472+00:00",
+        "start": "2026-10-08T11:17:15.0727539+00:00",
+        "finish": "2026-10-08T11:17:20.2616224+00:00"
+      },
+      "trxSha256": "bf658808e0193edf25c3e73577615081aab6a6f3918623e0317d0fd85139ea95",
+      "originalFiveRecipientTheoryCases": [
+        {
+          "executionId": "4add3e8b-f39b-40d1-95c0-9d8097d0363c",
+          "testId": "e2ca4817-86f2-8c32-e773-eec4a54158fe",
+          "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 7, expected: null)",
+          "computerName": "a53363f2f13c",
+          "duration": "00:00:00.0004687",
+          "startTime": "2026-10-08T11:17:19.8892104+00:00",
+          "endTime": "2026-10-08T11:17:19.8892516+00:00",
+          "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+          "outcome": "Passed",
+          "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+          "relativeResultsDirectory": "4add3e8b-f39b-40d1-95c0-9d8097d0363c"
+        },
+        {
+          "executionId": "33035f69-fcab-4ce3-90bb-6fec765c245e",
+          "testId": "1fbc43d5-7f52-30c1-57e3-c5663fa9a4b1",
+          "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: 8, expected: null)",
+          "computerName": "a53363f2f13c",
+          "duration": "00:00:00.0003596",
+          "startTime": "2026-10-08T11:17:19.8884030+00:00",
+          "endTime": "2026-10-08T11:17:19.8884773+00:00",
+          "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+          "outcome": "Passed",
+          "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+          "relativeResultsDirectory": "33035f69-fcab-4ce3-90bb-6fec765c245e"
+        },
+        {
+          "executionId": "fe5607e4-24e9-460d-ac9f-bcbb391af9a6",
+          "testId": "04905c8f-59b1-06a8-fc63-7c0917865e3a",
+          "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 8, expected: 7)",
+          "computerName": "a53363f2f13c",
+          "duration": "00:00:00.0000031",
+          "startTime": "2026-10-08T11:17:19.8894556+00:00",
+          "endTime": "2026-10-08T11:17:19.8895005+00:00",
+          "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+          "outcome": "Passed",
+          "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+          "relativeResultsDirectory": "fe5607e4-24e9-460d-ac9f-bcbb391af9a6"
+        },
+        {
+          "executionId": "fe582b62-c908-4e18-8c93-b01ed81435ff",
+          "testId": "90153ba3-f959-c364-3e84-9d3b2d9401a7",
+          "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: null, expected: 7)",
+          "computerName": "a53363f2f13c",
+          "duration": "00:00:00.0000147",
+          "startTime": "2026-10-08T11:17:19.8893329+00:00",
+          "endTime": "2026-10-08T11:17:19.8893712+00:00",
+          "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+          "outcome": "Passed",
+          "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+          "relativeResultsDirectory": "fe582b62-c908-4e18-8c93-b01ed81435ff"
+        },
+        {
+          "executionId": "9cc1dcac-3968-4c3d-9761-23050e6ea60b",
+          "testId": "d399a459-d991-6e6b-86fd-2255682eb742",
+          "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: null, expected: null)",
+          "computerName": "a53363f2f13c",
+          "duration": "00:00:00.0000015",
+          "startTime": "2026-10-08T11:17:19.8895767+00:00",
+          "endTime": "2026-10-08T11:17:19.8896171+00:00",
+          "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+          "outcome": "Passed",
+          "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+          "relativeResultsDirectory": "9cc1dcac-3968-4c3d-9761-23050e6ea60b"
+        }
+      ]
+    },
+    "remainingLimits": [
+      "Full backend suite not run",
+      "Bootstrap runtime test cases not run",
+      "Held fixture audit/adversarial scenarios not run",
+      "Independent full18-path current-candidate review pending",
+      "Known separate all-repository code-intent baseline failure not rerun or waived",
+      "Original #2177 production command atomicity/privacy/nullifier/native qualification criteria remain open",
+      "No whole-chain acceptance or issue closure"
+    ],
+    "wholeAssignmentComplete": false
+  },
+  "namingMetadataP2Preparation": {
+    "candidateSha": "c3155d51f27286d64fc8e18eeb759f3bd765315e",
+    "reviewPassedReportedByCoordinator": true,
+    "actualCurrentGovernedPaths": 6,
+    "conditionalRemainingGovernedPaths": 5,
+    "mergedLockIntegrationConfirmed": false,
+    "wholeIssueAccepted": false,
+    "nextAction": "Wait for exact coordinator-notified actual merged lock master; integrate only that actual identity and recalculate exact naming surfaces."
+  },
+  "postMergedLockCurrentCandidate": {
+    "candidateSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+    "baseSha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+    "sourceBranch": "codex/issue-2177-policy-post-lock-review-20261008",
+    "remainingPathCount": 16,
+    "registeredNamingSurfaces": [
+      "docs/architecture/comment-command-boundary.md",
+      "src/backend/Services/ArticleCommentPolicyService.cs",
+      "src/backend/Services/CommentModerationService.cs",
+      "src/backend/Services/CommentService.cs",
+      "src/backend/Services/Security/AnonymousCommentPolicyService.cs"
+    ],
+    "newActualFormalPolicyRun": {
+      "sdk": "10.0.302",
+      "passed": 80,
+      "failed": 0,
+      "skipped": 0,
+      "trxRunId": "f2a7796b-f778-4973-85ee-5a0ac0520b5f",
+      "trxTimes": {
+        "creation": "2026-10-08T12:08:26.6991857+00:00",
+        "queuing": "2026-10-08T12:08:26.6991858+00:00",
+        "start": "2026-10-08T12:08:24.3630562+00:00",
+        "finish": "2026-10-08T12:08:29.3028293+00:00"
+      },
+      "trxSha256": "6ce785f4bd18ec31a0576dbc8fc73973024abc6823f8f8d927095b2b452cf081",
+      "producedAssemblyAndRestoreArtifactHashes": 57
+    },
+    "checkExitCodes": {
+      "formal-locked-restore": 0,
+      "formal-policy-tests": 0,
+      "source-stage": 0,
+      "range-contract": 0,
+      "complete-proposed-metadata": 0
+    },
+    "remainingGates": [
+      "Same reviewer current-base16-path/metadata refreeze review",
+      "Central queue grant required before PR/content/comment mutations",
+      "Full backend suite, bootstrap runtime and held fixture audits not run",
+      "Original #2177 transaction/atomicity/privacy/nullifier/native acceptance and prerequisite admission OPEN",
+      "Original #3576 and other full assignment acceptance gates remain OPEN"
+    ],
+    "wholeAssignmentComplete": false
+  },
+  "currentOrdinaryCommentSourceComponents": [
+    {
+      "kind": "outbox",
+      "currentPublishedSourceSha": "3b1b42e2639d63805b4efd4371232fc0f74df144",
+      "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+      "scopePaths": [
+        {
+          "path": "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json",
+          "gitBlob": "4f40b8b0bad23c4e6f32a03c0db246b611c6cb11",
+          "sha256": "229fb8a77d164519cc0db4e598415644ecd7982b728ff5b3e3c5b263029289bc"
+        },
+        {
+          "path": "docs/architecture/comment-command-boundary.md",
+          "gitBlob": "76c259900b1ecc8e2e6f9da9f26c0e5ddc9b2dfe",
+          "sha256": "df6261bc42b114428fcbeccf1b6b6420b83ea93d5e115db8842c87c62f8d2481"
+        },
+        {
+          "path": "src/backend/Services/CommentService.cs",
+          "gitBlob": "71fc3506e077b306f0cf444d8d82c63e05ce69a4",
+          "sha256": "cdf8df690451dcf17f14cd02e226f81ae550197f69dedc5e8ca09d1088d74c30"
+        },
+        {
+          "path": "tests/backend/Unit/CommentInitialOutboxContractTests.cs",
+          "gitBlob": "b07c09ce90586fe2fd21dbe4e69b4f7d7586e0b7",
+          "sha256": "8f730c1fbdd4d05000a553267131ae42e3eb6e44ae1384195237cebd47e88172"
+        }
+      ],
+      "sourceBranch": "codex/issue-2177-outbox-formal-review-20261008",
+      "allChecks": {
+        "restore": 0,
+        "source-stage": 0,
+        "range-contract": 0,
+        "complete-proposed-metadata": 0
+      },
+      "actualTestReceipt": "3b1b42e2639d63805b4efd4371232fc0f74df144",
+      "formalPassed": 19,
+      "formalReceiptRelabeled": false,
+      "wholeIssueAccepted": false,
+      "wholeAssignmentComplete": false,
+      "checkSourceBindings": {
+        "restore": "3b1b42e2639d63805b4efd4371232fc0f74df144",
+        "source-stage": "3b1b42e2639d63805b4efd4371232fc0f74df144",
+        "range-contract": "3b1b42e2639d63805b4efd4371232fc0f74df144",
+        "complete-proposed-metadata": "3b1b42e2639d63805b4efd4371232fc0f74df144"
+      },
+      "remoteReadback": {
+        "exitCode": 0,
+        "text": "3b1b42e2639d63805b4efd4371232fc0f74df144\trefs/heads/codex/issue-2177-outbox-formal-review-20261008"
+      }
+    },
+    {
+      "kind": "revision",
+      "currentPublishedSourceSha": "e816562e42be2afbce0136e1c3fd0515659da215",
+      "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+      "scopePaths": [
+        {
+          "path": "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json",
+          "gitBlob": "e1278992f4d17c91679a4a3e6ffe0ef64e78819d",
+          "sha256": "41e9880b0aa80741559f4d1c412c6e01ddeb07694632bdc04ed1976ff8f8a417"
+        },
+        {
+          "path": "docs/architecture/comment-command-boundary.md",
+          "gitBlob": "6c0218ddfbdbd9c4553a8b87f0c4f975b353011a",
+          "sha256": "64b19ffeb322c45a7d0facff2a756f2e27da11b14d80d898de8760c4c46b1ba5"
+        },
+        {
+          "path": "src/backend/Services/CommentAuthorManagementService.cs",
+          "gitBlob": "a224fc66b813bdaa1166241e129fae8c86bcab4a",
+          "sha256": "c53c8b647a2d3abf6ee5e391489c53aec79e1b1ad4b051179fef6bbc83f97f47"
+        },
+        {
+          "path": "src/backend/Services/CommentService.cs",
+          "gitBlob": "40008380c22803f2804b138463961f765cc62b04",
+          "sha256": "d2271aa3faae14b7fdf556fe5d228416a75f2a1e06b6ac9c10d198466894f2f5"
+        },
+        {
+          "path": "tests/backend/Unit/CommentAuthorManagementServiceTests.cs",
+          "gitBlob": "2e3e07ed4e2e2c93db802ccb14362c2b462e284d",
+          "sha256": "014bbdaabd8b74d538cacbafb5a7ee9103bead7bb376f2b357d9516e5760a2c7"
+        },
+        {
+          "path": "tests/backend/Unit/CommentInitialOutboxContractTests.cs",
+          "gitBlob": "b07c09ce90586fe2fd21dbe4e69b4f7d7586e0b7",
+          "sha256": "8f730c1fbdd4d05000a553267131ae42e3eb6e44ae1384195237cebd47e88172"
+        },
+        {
+          "path": "tests/backend/Unit/CommentRevisionContractTests.cs",
+          "gitBlob": "7c1d5229b917ee4e62f8fe1bc79fbc68606828af",
+          "sha256": "097e96d20bed39f0f6a5a2922a552c7fcd0d938147bead4e14dc8b9632c6fb37"
+        }
+      ],
+      "sourceBranch": "codex/issue-2177-shared-revision-source-20261008",
+      "allChecks": {
+        "restore": 0,
+        "source-stage": 0,
+        "range-contract": 0,
+        "complete-proposed-metadata": 0
+      },
+      "actualTestReceipt": "e816562e42be2afbce0136e1c3fd0515659da215",
+      "formalPassed": 92,
+      "formalReceiptRelabeled": false,
+      "wholeIssueAccepted": false,
+      "wholeAssignmentComplete": false,
+      "checkSourceBindings": {
+        "restore": "e816562e42be2afbce0136e1c3fd0515659da215",
+        "source-stage": "e816562e42be2afbce0136e1c3fd0515659da215",
+        "range-contract": "e816562e42be2afbce0136e1c3fd0515659da215",
+        "complete-proposed-metadata": "e816562e42be2afbce0136e1c3fd0515659da215"
+      },
+      "remoteReadback": {
+        "exitCode": 0,
+        "text": "e816562e42be2afbce0136e1c3fd0515659da215\trefs/heads/codex/issue-2177-shared-revision-source-20261008"
+      }
+    },
+    {
+      "kind": "routing",
+      "currentPublishedSourceSha": "9d50f803f0eced061e7a0b2d369f7dbdd711000e",
+      "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+      "scopePaths": [
+        {
+          "path": "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json",
+          "gitBlob": "2a2a652c90ab082ec1880fd064281ff272b0e793",
+          "sha256": "eb08518cfe0caf32ff7bb62c5974d75a63fc513c2d4188e05cd9a42d9f9c200e"
+        },
+        {
+          "path": "docs/architecture/comment-command-boundary.md",
+          "gitBlob": "6c0218ddfbdbd9c4553a8b87f0c4f975b353011a",
+          "sha256": "64b19ffeb322c45a7d0facff2a756f2e27da11b14d80d898de8760c4c46b1ba5"
+        },
+        {
+          "path": "docs/testing.md",
+          "gitBlob": "dc48b452943a8c282c594fa8fa52d03c12a6fcf4",
+          "sha256": "3986fbf53c944971869c02bb9db754ab8a6f110200e2c4005bacfb5502424ddb"
+        },
+        {
+          "path": "src/backend/Services/CommentAuthorManagementService.cs",
+          "gitBlob": "a224fc66b813bdaa1166241e129fae8c86bcab4a",
+          "sha256": "c53c8b647a2d3abf6ee5e391489c53aec79e1b1ad4b051179fef6bbc83f97f47"
+        },
+        {
+          "path": "src/backend/Services/CommentService.cs",
+          "gitBlob": "40008380c22803f2804b138463961f765cc62b04",
+          "sha256": "d2271aa3faae14b7fdf556fe5d228416a75f2a1e06b6ac9c10d198466894f2f5"
+        },
+        {
+          "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+          "gitBlob": "0802f622c2322ca5939bb57d4b07b1be2546a98a",
+          "sha256": "97e0f02fbf96e73324ef106ad82dbd0efb53e2b18a0e2fc33bf2262d05b12c58"
+        },
+        {
+          "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+          "gitBlob": "203e5c0b8a4eae8aebcd584ca6132b2694af06de",
+          "sha256": "59199c11e7b25a6e498159f6e4c5b792331bcb49f71a59627f52581e91d23cf8"
+        },
+        {
+          "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+          "gitBlob": "6b6ce7b5c00f60bb224824f86a07dca139daa6b7",
+          "sha256": "bdd2e8af79d2d7b4837a9adbe89fe511a3beab5239d9a6f798dab11355a42fd2"
+        },
+        {
+          "path": "tests/backend/Unit/CommentAuthorManagementServiceTests.cs",
+          "gitBlob": "2e3e07ed4e2e2c93db802ccb14362c2b462e284d",
+          "sha256": "014bbdaabd8b74d538cacbafb5a7ee9103bead7bb376f2b357d9516e5760a2c7"
+        },
+        {
+          "path": "tests/backend/Unit/CommentFixtureMutationRoutingTests.cs",
+          "gitBlob": "e7adf3cabcb1dcdab94baacb63c903f6fe0ca652",
+          "sha256": "49c3c4831b28caef4ad3e0afb87143a97f349b51c4968a0f9c92d376ddf704b9"
+        },
+        {
+          "path": "tests/backend/Unit/CommentInitialOutboxContractTests.cs",
+          "gitBlob": "b07c09ce90586fe2fd21dbe4e69b4f7d7586e0b7",
+          "sha256": "8f730c1fbdd4d05000a553267131ae42e3eb6e44ae1384195237cebd47e88172"
+        },
+        {
+          "path": "tests/backend/Unit/CommentRevisionContractTests.cs",
+          "gitBlob": "7c1d5229b917ee4e62f8fe1bc79fbc68606828af",
+          "sha256": "097e96d20bed39f0f6a5a2922a552c7fcd0d938147bead4e14dc8b9632c6fb37"
+        }
+      ],
+      "sourceBranch": "codex/issue-2178-current-formal-controls-20261008",
+      "allChecks": {
+        "restore": 0,
+        "source-stage": 0,
+        "range-contract": 0,
+        "complete-proposed-metadata": 0
+      },
+      "actualTestReceipt": "f88bafd70bafae90ae573d8c430b97732dde488a",
+      "formalPassed": 107,
+      "formalReceiptRelabeled": false,
+      "wholeIssueAccepted": false,
+      "wholeAssignmentComplete": false,
+      "checkSourceBindings": {
+        "restore": "f88bafd70bafae90ae573d8c430b97732dde488a",
+        "source-stage": "9d50f803f0eced061e7a0b2d369f7dbdd711000e",
+        "range-contract": "9d50f803f0eced061e7a0b2d369f7dbdd711000e",
+        "complete-proposed-metadata": "9d50f803f0eced061e7a0b2d369f7dbdd711000e"
+      },
+      "remoteReadback": {
+        "exitCode": 0,
+        "text": "9d50f803f0eced061e7a0b2d369f7dbdd711000e\trefs/heads/codex/issue-2178-current-formal-controls-20261008"
+      }
+    }
+  ],
+  "currentAssignmentGraphReadback": {
+    "artifact": "current-issue-readback/current-dag-readback.json",
+    "owned": 41,
+    "directExternalBoundaries": 34,
+    "additionalBoundaryIssues": [
+      3558,
+      2685,
+      2665,
+      2695
+    ],
+    "dependencyChanges": [],
+    "githubOpenStateIsNotMissingInputProof": true,
+    "closedStateIsNotAcceptanceProof": true
+  },
+  "stoppingPointReason": "All newly ready ordinary source components were implemented/integrated, tested in the actual original project and published. Remaining full DAG stages require the exact missing contracts/qualified refs/owner terminal inputs or held/private/semantic audit clearance documented per issue. No stop is based solely on an upstream OPEN state."
+}

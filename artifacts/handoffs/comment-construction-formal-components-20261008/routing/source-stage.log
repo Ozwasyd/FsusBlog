@@ -1,0 +1,138 @@
+[csharp-style] ok files=9 violations=0 new=0
+[native-tooling-style] ok operation=lint domain=docs mode=full selected=2 checked=2 baseline=0 violations=0
+[document-lifecycle] ok documents=372
+fatal: Needed a single revision
+✔ ordinary documentation and normal naming metadata perform source checks without unrelated SDK/runtime (3.442004ms)
+✔ affected source retains fixed-job members and complete original admission/build prerequisites (0.587257ms)
+✔ unknown paths and shared selection authority retain complete checks (0.416429ms)
+✔ full mode preserves every original declaration including unrelated runtime (0.330319ms)
+✔ evidence producers remain prerequisites rather than being mistaken for skipped success (1.043027ms)
+✔ workflow-only prerequisite is retained and undeclared prerequisite fails closed (1.059497ms)
+✔ unknown dependency, dependency cycle and phase inversion fail before any execution (0.741411ms)
+✔ actual Git diff includes deleted paths and both sides of a rename, and missing base never becomes empty impact (44.674209ms)
+✔ the original indexed dependency selects every actual consumer beyond broad path declarations (4.062523ms)
+✔ consumers reject self-authored selection, stale source fingerprint and changed path evidence (1.416101ms)
+✔ ordinary PR dependency owners do not automatically promote manual/nightly/local lanes (0.746529ms)
+✔ CI cannot consume a re-sealed file in place of the original planner output authority (0.283619ms)
+✔ local complete workflow cannot start compiled matrix setup before successful BehaviorDoc admission (2.819823ms)
+✔ explicit local full intent survives the real child caller environment (0.19843ms)
+✔ compiled matrix prerequisite rejects absent admission before any command starts (611.144906ms)
+✔ actual source checker dependency changes select the mandatory source governance owner (0.655922ms)
+✔ explicit source integration executes source gates and real declared regressions without issuing product qualification (0.690795ms)
+✔ full, push and release callers cannot be downgraded by source stage or mixed caller authority (0.354075ms)
+✔ re-sealing stage, regression or deferred qualification claims cannot change the independent source plan (0.934462ms)
+✔ the real stage option parser refuses malformed explicit intent before any execution (2.893224ms)
+✔ source integration explicitly refuses every unregistered source surface rather than silently skipping unknown languages (0.463ms)
+✔ flat solution checker and its refusal controls are explicit source execution ports (0.367735ms)
+✔ existing plan reuse receives independent explicit caller options instead of defaulting stage from the plan (3.019085ms)
+✔ the fixed shell source port checks syntax without executing the script and refuses command-shaped inputs (17.00889ms)
+✔ shell syntax cannot treat refused or missing source identities as stable input proof (0.454868ms)
+✔ SOURCE frontend routing retains strict original checks for every non-module frontend kind (0.35684ms)
+✔ Python SOURCE syntax uses the existing isolated checker and only verified inputs escape unsupported (0.339834ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 786.001884
+✔ applicable exact target and dependency remain bound without certifying unrelated targets (2.1234ms)
+✔ the original Markdown adapter has an exact source-only declaration and five actual repository inputs (390.06943ms)
+✔ changed applicable source, index, owner and argv each refuse (0.933571ms)
+✔ missing applicable target/dependency, parser or independent index binding refuses (0.439815ms)
+✔ duplicate authority records cannot mint an applicable binding by last-entry overwrite (0.334626ms)
+✔ omitting a required applicable dependency cannot become an empty successful closure (0.217088ms)
+✔ actual target or selected owner omissions cannot self-authorize an empty subset (0.319814ms)
+✔ source governance owns all four actual child entries and recursive indexed source, with independent cache vectors (159.820384ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 660.069264
+✔ materializes recursive static imports and package inputs from exact base blobs instead of candidate bytes (59.98382ms)
+✔ preserves a genuinely missing base dependency instead of filling it from the current candidate (28.662115ms)
+✔ resolves a tracked package main and a literal CommonJS import without executing either (35.298979ms)
+✔ import context proves the same actual repository and builtin inputs and rejects candidate working-byte drift (67.456518ms)
+✔ independent candidate resolver witnesses a changed package main rather than reusing the base target (62.588067ms)
+✔ rejects escape base inputs without replacing them with candidate data (22.952221ms)
+✔ rejects symlink base inputs without replacing them with candidate data (20.796843ms)
+✔ rejects invalid-utf8 base inputs without replacing them with candidate data (26.488518ms)
+✔ inherits an exact unique complete function after an unrelated line shift (5.532795ms)
+✔ rejects an unchanged diagnostic inside a changed complete function (1.017809ms)
+✔ rejects copied or ambiguous complete functions in either source (1.960905ms)
+✔ requires identical rule message severity and relative start and end (3.592782ms)
+✔ consumes each base diagnostic at most once and refuses ambiguous base findings (1.003347ms)
+✔ rejects parser fatal global and unsupported findings even in an exact file (4.33912ms)
+✔ a new file strictly retains all 122 findings as unexpected (0.969636ms)
+✔ never inherits a real top-level const regex finding from a supported rule (0.4761ms)
+✔ local layout requires complete diagnostic lines and the enclosing statement (2.243541ms)
+✔ control regex inheritance requires a static literal and unchanged module bindings (1.661351ms)
+✔ finite layout proofs inherit local original statements across an unrelated allocation change (6.037088ms)
+✔ layout rejects changed lexical owners bindings lines and duplicate statement identities (4.096063ms)
+✔ missing semicolons bind line terminators and preserve ASI neighbours (0.831618ms)
+✔ unused bindings require original definition zero reads and unchanged lexical scope (9.61685ms)
+✔ import ordering requires the exact full roster and actual dependency context (3.052865ms)
+✔ base diagnostics are located once per invocation and no candidate cache is reused (3.845334ms)
+✔ module layout proves only unique complete declarations and unchanged physical neighbours (13.40684ms)
+✔ module declarations preserve ASI syntax and reject unsupported global owners and rules (2.568213ms)
+✔ parent import findings require the original full roster and actual resolver identities (2.865623ms)
+✔ mechanical try boundaries retain layout while binding headers lexical owners and ASI syntax (10.575088ms)
+✔ adjacent function layout context keeps its complete header and lexical boundary (4.000829ms)
+✔ empty loop body tokens cannot become optional ancestor statement terminators (1.391284ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 549.9304
+✔ native fragment mock span transport refuses column-only without parser qualification (100.663525ms)
+✔ native fragment mock span transport refuses wrong-length without parser qualification (93.308188ms)
+✔ native fragment mock span transport refuses wrong-line without parser qualification (92.161395ms)
+✔ native fragment mock span transport refuses missing-finding without parser qualification (120.630496ms)
+✔ native fragment mock span transport refuses duplicate-finding without parser qualification (96.793616ms)
+✔ native fragment mock span transport refuses foreign-file without parser qualification (109.767293ms)
+✔ native fragment mock span transport refuses duplicate-report without parser qualification (111.138562ms)
+✔ native fragment mock span transport refuses raw-mismatch without parser qualification (103.446792ms)
+✔ native fragment mock span transport refuses abnormal-terminal without parser qualification (91.381395ms)
+✔ original Markdown adapter package boundary accepts equivalent bins and refuses foreign package authority (414.636017ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1426.218372
+✔ flat solution inspection binds actual project source without evaluating it (136.138183ms)
+✔ malformed XML and declarations or external entities are refused (282.019899ms)
+✔ numeric predefined entity aliases and processing instructions cannot become literal project paths (416.69908ms)
+✔ source admission compares the closed complete receipt against independent current HEAD and bindings (840.083849ms)
+✔ unknown elements attributes nested structures and text remain unsupported (355.020273ms)
+✔ escaping substituted and duplicate project paths cannot receive source coverage (552.546784ms)
+✔ missing linked and uncommitted project sources are refused (282.089354ms)
+✔ linked ancestors and hardlinked project aliases are refused (179.018272ms)
+✔ the solution itself and exact caller arguments cannot be replaced by declarations (122.053088ms)
+✔ a source change during the final Git binding recheck is refused through the held descriptor (107.415581ms)
+✔ Python AST syntax does not execute imports bodies bytecode or lifecycle (221.144863ms)
+✔ Python AST refuses malformed UTF-8 syntax and bounded input overflow (220.637521ms)
+✔ Python AST reuses regular single-link source HEAD index and path refusals (215.355395ms)
+✔ Python AST receipt cannot substitute HEAD source parser version limits or extra output (870.008422ms)
+✔ Python AST held descriptor refuses input replacement during the final index recheck (204.522191ms)
+✔ Python AST fixed worker refuses added fields and ignores caller Python import paths (145.494839ms)
+✔ Python AST bounded FD reader refuses growth after the small initial stat without reading beyond cap plus one (60.420426ms)
+✔ Python AST batch budget refuses the next committed source before reading or parsing beyond eight MiB (569.929203ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5852.272498
+[source-governance] success; no runtime or release qualification

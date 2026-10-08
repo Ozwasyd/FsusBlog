@@ -1,0 +1,28 @@
+{
+  "candidateSha": "3b1b42e2639d63805b4efd4371232fc0f74df144",
+  "masterSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "-p:RestoreLockedMode=true",
+    "-p:NuGetAudit=true",
+    "-m:1",
+    "-nodeReuse:false",
+    "-p:UseSharedCompilation=false",
+    "--filter",
+    "FullyQualifiedName~CommentInitialOutboxContractTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentMutationOutboxRuntimeStateTests",
+    "--logger",
+    "trx;LogFileName=outbox-formal-original-controls.trx",
+    "--results-directory",
+    "/workspace/FsusBlog-2177-outbox-formal-review/.tmp/issue-2177-component-checks-20261008"
+  ],
+  "startedAt": "2026-10-08T12:43:34.837331+00:00",
+  "endedAt": "2026-10-08T12:43:59.251700+00:00",
+  "exitCode": 0,
+  "logSha256": "ba0ad179a9bb55b0777c2e1612ce4cccf06b7c3810861af31cbbe4c6491fc6cc",
+  "originalBackendProject": true,
+  "usesNoRestore": false,
+  "nugetAuditEnabled": true,
+  "wholeIssueAccepted": false
+}

@@ -1,0 +1,20 @@
+{
+  "candidateSha": "9d50f803f0eced061e7a0b2d369f7dbdd711000e",
+  "authorityBaseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "/tmp/fsusblog-2177-component-authority-1cd4e060/tools/governance/check-change-contract.mjs",
+    "--root",
+    "/workspace/FsusBlog-2178-current-formal-controls",
+    "--github-event",
+    "/workspace/FsusBlog-2178-current-formal-controls/.tmp/issue-2177-component-checks-20261008/proposed-github-event.json"
+  ],
+  "startedAt": "2026-10-08T13:09:27.494090+00:00",
+  "endedAt": "2026-10-08T13:09:28.944644+00:00",
+  "exitCode": 0,
+  "logSha256": "f2b4437e4360be43a0cf2b672b05cd2d8ac1ff1c2e95bcc937277618cdec3e79",
+  "eventSha256": "a3d258cb46d96ff1022825d8a98c51061ec71dd9b3b713506518d5f2eb0db1dc",
+  "proposedLabelsOnly": true,
+  "prOrLabelWrite": false,
+  "wholeIssueAccepted": false
+}

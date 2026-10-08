@@ -1,0 +1,21 @@
+{
+  "candidateSha": "e816562e42be2afbce0136e1c3fd0515659da215",
+  "masterSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/run-test-matrix.mjs",
+    "ci-pr-smart",
+    "--stage",
+    "source-integration",
+    "--base-ref",
+    "1cd4e060acedfd7838a477842685e0052d8e4107"
+  ],
+  "startedAt": "2026-10-08T12:43:00.210750+00:00",
+  "endedAt": "2026-10-08T12:43:12.931485+00:00",
+  "exitCode": 0,
+  "logSha256": "198db0cf5d511509be14f4d7fec90537c69019f72a53a00925022b61ea31b4f3",
+  "originalBackendProject": true,
+  "usesNoRestore": false,
+  "nugetAuditEnabled": true,
+  "wholeIssueAccepted": false
+}

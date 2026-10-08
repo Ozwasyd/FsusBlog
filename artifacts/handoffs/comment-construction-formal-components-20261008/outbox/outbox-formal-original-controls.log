@@ -1,0 +1,17 @@
+  Determining projects to restore...
+/workspace/FsusBlog-2177-outbox-formal-review/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog-2177-outbox-formal-review/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog-2177-outbox-formal-review/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  All projects are up-to-date for restore.
+/workspace/FsusBlog-2177-outbox-formal-review/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  FsusBlog.Shared -> /workspace/FsusBlog-2177-outbox-formal-review/src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll
+  FsusBlog.Core -> /workspace/FsusBlog-2177-outbox-formal-review/src/core/bin/Debug/net10.0/FsusBlog.Core.dll
+  FsusBlog.DiLifetimeAnalyzer -> /workspace/FsusBlog-2177-outbox-formal-review/tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.dll
+  FsusBlog.Server -> /workspace/FsusBlog-2177-outbox-formal-review/src/backend/bin/Debug/net10.0/FsusBlog.Server.dll
+/workspace/FsusBlog-2177-outbox-formal-review/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  FsusBlog.Migration -> /workspace/FsusBlog-2177-outbox-formal-review/src/migration/bin/Debug/net10.0/FsusBlog.Migration.dll
+  FsusBlog.Server.Tests -> /workspace/FsusBlog-2177-outbox-formal-review/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll
+Test run for /workspace/FsusBlog-2177-outbox-formal-review/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/FsusBlog-2177-outbox-formal-review/.tmp/issue-2177-component-checks-20261008/outbox-formal-original-controls.trx
+
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 198 ms - FsusBlog.Server.Tests.dll (net10.0)

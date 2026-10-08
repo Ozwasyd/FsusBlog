@@ -1,0 +1,26 @@
+{
+  "Items": {
+    "Compile": [
+      {
+        "Identity": "DiLifetimeAnalyzer.cs",
+        "FullPath": "/workspace/FsusBlog-2178-current-formal-controls/tools/architecture/FsusBlog.DiLifetimeAnalyzer/DiLifetimeAnalyzer.cs",
+        "RootDir": "/",
+        "Filename": "DiLifetimeAnalyzer",
+        "Extension": ".cs",
+        "RelativeDir": "",
+        "Directory": "workspace/FsusBlog-2178-current-formal-controls/tools/architecture/FsusBlog.DiLifetimeAnalyzer/",
+        "RecursiveDir": "",
+        "ModifiedTime": "",
+        "CreatedTime": "",
+        "AccessedTime": "",
+        "DefiningProjectFullPath": "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/sdk/10.0.302/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.Sdk.DefaultItems.props",
+        "DefiningProjectDirectory": "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/sdk/10.0.302/Sdks/Microsoft.NET.Sdk/targets/",
+        "DefiningProjectName": "Microsoft.NET.Sdk.DefaultItems",
+        "DefiningProjectExtension": ".props"
+      }
+    ],
+    "ProjectReference": [],
+    "EmbeddedResource": [],
+    "AdditionalFiles": []
+  }
+}

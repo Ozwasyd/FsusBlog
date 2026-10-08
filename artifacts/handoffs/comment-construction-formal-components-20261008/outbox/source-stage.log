@@ -1,0 +1,4 @@
+[csharp-style] ok files=2 violations=0 new=0
+[native-tooling-style] ok operation=lint domain=docs mode=full selected=1 checked=1 baseline=0 violations=0
+[document-lifecycle] ok documents=372
+[source-governance] success; no runtime or release qualification

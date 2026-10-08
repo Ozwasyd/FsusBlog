@@ -1,0 +1,958 @@
+{
+  "readAtUtc": "2026-10-08T12:59:48.598717+00:00",
+  "ownedIssueCount": 41,
+  "ownedCurrentState": [
+    {
+      "id": 2162,
+      "state": "OPEN",
+      "currentDependencies": [
+        2158,
+        2159,
+        2160,
+        2161
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2162.json",
+      "commentsCount": 3,
+      "exitCode": 0
+    },
+    {
+      "id": 1715,
+      "state": "OPEN",
+      "currentDependencies": [
+        1707,
+        1709,
+        1710,
+        1712,
+        1713
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1715.json",
+      "commentsCount": 3,
+      "exitCode": 0
+    },
+    {
+      "id": 2046,
+      "state": "OPEN",
+      "currentDependencies": [
+        1710,
+        1712,
+        1713,
+        1714,
+        1715,
+        1716,
+        1717
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2046.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2047,
+      "state": "OPEN",
+      "currentDependencies": [
+        2046
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2047.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2049,
+      "state": "OPEN",
+      "currentDependencies": [
+        2046
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2049.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2050,
+      "state": "OPEN",
+      "currentDependencies": [
+        2046
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2050.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2051,
+      "state": "OPEN",
+      "currentDependencies": [
+        2046
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2051.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2048,
+      "state": "OPEN",
+      "currentDependencies": [
+        2046
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2048.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2151,
+      "state": "OPEN",
+      "currentDependencies": [
+        2150,
+        2147,
+        2148,
+        2051
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2151.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2170,
+      "state": "OPEN",
+      "currentDependencies": [
+        2169,
+        1704,
+        1705,
+        1706,
+        2051
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2170.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2177,
+      "state": "OPEN",
+      "currentDependencies": [
+        1715,
+        1722,
+        1713,
+        1714
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2177.json",
+      "commentsCount": 2,
+      "exitCode": 0
+    },
+    {
+      "id": 2660,
+      "state": "OPEN",
+      "currentDependencies": [
+        2046,
+        2047,
+        2048,
+        2049,
+        2050,
+        2051
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2660.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2661,
+      "state": "OPEN",
+      "currentDependencies": [
+        2660,
+        2046,
+        2047,
+        2048,
+        2049,
+        2050,
+        2051
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2661.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2662,
+      "state": "OPEN",
+      "currentDependencies": [
+        2660,
+        2661
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2662.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2052,
+      "state": "OPEN",
+      "currentDependencies": [
+        2046,
+        2047,
+        2048,
+        2049,
+        2050,
+        2051
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2052.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 1719,
+      "state": "OPEN",
+      "currentDependencies": [
+        1710,
+        1712,
+        1713,
+        1714,
+        1715,
+        1716,
+        1717
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1719.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2054,
+      "state": "OPEN",
+      "currentDependencies": [
+        1707,
+        2053,
+        1719
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2054.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2055,
+      "state": "OPEN",
+      "currentDependencies": [
+        1708,
+        1709,
+        1710,
+        2053,
+        2054
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2055.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2056,
+      "state": "OPEN",
+      "currentDependencies": [
+        2053,
+        2054,
+        2055,
+        1600,
+        1602,
+        1604
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2056.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2057,
+      "state": "OPEN",
+      "currentDependencies": [
+        1707,
+        2053,
+        2054,
+        2055,
+        2056
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2057.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2663,
+      "state": "OPEN",
+      "currentDependencies": [
+        1719,
+        2053,
+        2054,
+        2055,
+        2056,
+        2057
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2663.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2664,
+      "state": "OPEN",
+      "currentDependencies": [
+        1719,
+        2053,
+        2054,
+        2055,
+        2056,
+        2057,
+        2663
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2664.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2058,
+      "state": "OPEN",
+      "currentDependencies": [
+        2053,
+        2054,
+        2055,
+        2056,
+        2057,
+        1719
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2058.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 1720,
+      "state": "OPEN",
+      "currentDependencies": [
+        1707,
+        1708,
+        1709,
+        1710,
+        1719
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1720.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1721,
+      "state": "OPEN",
+      "currentDependencies": [
+        1707,
+        1708,
+        1709,
+        1710,
+        1711,
+        1712,
+        1713,
+        1714,
+        1715,
+        1716,
+        1717,
+        1718,
+        1719,
+        1720
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1721.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 1723,
+      "state": "OPEN",
+      "currentDependencies": [
+        1722,
+        1719,
+        1720
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1723.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2181,
+      "state": "OPEN",
+      "currentDependencies": [
+        1713,
+        1722,
+        1723
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2181.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2183,
+      "state": "OPEN",
+      "currentDependencies": [
+        2181,
+        1713,
+        2151
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2183.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2680,
+      "state": "OPEN",
+      "currentDependencies": [
+        1714,
+        2146,
+        2147,
+        2148,
+        2149,
+        2150,
+        2151
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2680.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2178,
+      "state": "OPEN",
+      "currentDependencies": [
+        2177,
+        1715,
+        1713,
+        1714,
+        1601
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2178.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2179,
+      "state": "OPEN",
+      "currentDependencies": [
+        2177,
+        2178,
+        1653,
+        1716
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2179.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2692,
+      "state": "OPEN",
+      "currentDependencies": [
+        1715,
+        2177,
+        2178,
+        2179
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2692.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2693,
+      "state": "OPEN",
+      "currentDependencies": [
+        2692
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2693.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2180,
+      "state": "OPEN",
+      "currentDependencies": [
+        2177,
+        2178,
+        2179,
+        1715
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2180.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 1725,
+      "state": "OPEN",
+      "currentDependencies": [
+        1715,
+        1722,
+        1713,
+        1714
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1725.json",
+      "commentsCount": 2,
+      "exitCode": 0
+    },
+    {
+      "id": 2182,
+      "state": "OPEN",
+      "currentDependencies": [
+        2181,
+        1713,
+        2146,
+        2147,
+        2148,
+        2149,
+        2150,
+        2151,
+        1601
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2182.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2694,
+      "state": "OPEN",
+      "currentDependencies": [
+        1713,
+        2151,
+        2181,
+        2182,
+        2183
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2694.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2184,
+      "state": "OPEN",
+      "currentDependencies": [
+        2181,
+        2182,
+        2183,
+        2151
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2184.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 1726,
+      "state": "OPEN",
+      "currentDependencies": [
+        1713,
+        1722,
+        1723
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1726.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 3576,
+      "state": "OPEN",
+      "currentDependencies": [],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/3576.json",
+      "commentsCount": 11,
+      "exitCode": 0
+    },
+    {
+      "id": 2099,
+      "state": "OPEN",
+      "currentDependencies": [
+        2097,
+        2098,
+        1313,
+        1719,
+        1720
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2099.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    }
+  ],
+  "externalBoundaryState": [
+    {
+      "id": 1313,
+      "state": "CLOSED",
+      "currentDependencies": [],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1313.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1600,
+      "state": "CLOSED",
+      "currentDependencies": [],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1600.json",
+      "commentsCount": 3,
+      "exitCode": 0
+    },
+    {
+      "id": 1601,
+      "state": "OPEN",
+      "currentDependencies": [],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1601.json",
+      "commentsCount": 8,
+      "exitCode": 0
+    },
+    {
+      "id": 1602,
+      "state": "CLOSED",
+      "currentDependencies": [],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1602.json",
+      "commentsCount": 2,
+      "exitCode": 0
+    },
+    {
+      "id": 1604,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1596
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1604.json",
+      "commentsCount": 2,
+      "exitCode": 0
+    },
+    {
+      "id": 1653,
+      "state": "OPEN",
+      "currentDependencies": [
+        1629,
+        1630,
+        1631
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1653.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1704,
+      "state": "CLOSED",
+      "currentDependencies": [],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1704.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1705,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1704
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1705.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1706,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1704,
+        1705
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1706.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1707,
+      "state": "CLOSED",
+      "currentDependencies": [],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1707.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1708,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1708.json",
+      "commentsCount": 2,
+      "exitCode": 0
+    },
+    {
+      "id": 1709,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1708
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1709.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1710,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1709
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1710.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1711,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1710
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1711.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1712,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1709,
+        1710
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1712.json",
+      "commentsCount": 4,
+      "exitCode": 0
+    },
+    {
+      "id": 1713,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1709,
+        1710
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1713.json",
+      "commentsCount": 3,
+      "exitCode": 0
+    },
+    {
+      "id": 1714,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1709,
+        1710,
+        1713
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1714.json",
+      "commentsCount": 2,
+      "exitCode": 0
+    },
+    {
+      "id": 1716,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1709,
+        1710,
+        1713
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1716.json",
+      "commentsCount": 2,
+      "exitCode": 0
+    },
+    {
+      "id": 1717,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1706,
+        1707,
+        1709,
+        1710,
+        1713
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1717.json",
+      "commentsCount": 2,
+      "exitCode": 0
+    },
+    {
+      "id": 1718,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1708,
+        1709,
+        1710
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1718.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 1722,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1710
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/1722.json",
+      "commentsCount": 3,
+      "exitCode": 0
+    },
+    {
+      "id": 2053,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1708,
+        1709,
+        1710
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2053.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2097,
+      "state": "OPEN",
+      "currentDependencies": [
+        1895,
+        1899,
+        1802,
+        1814,
+        1313
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2097.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2098,
+      "state": "OPEN",
+      "currentDependencies": [
+        2097,
+        1895,
+        1313
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2098.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2146,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1709,
+        1710,
+        1601
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2146.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2147,
+      "state": "CLOSED",
+      "currentDependencies": [
+        2146,
+        1601
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2147.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2148,
+      "state": "CLOSED",
+      "currentDependencies": [
+        2146,
+        1601
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2148.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2149,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1709,
+        1710,
+        1601
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2149.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2150,
+      "state": "CLOSED",
+      "currentDependencies": [
+        2146,
+        2147,
+        2148,
+        2149,
+        1707,
+        1709,
+        1710
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2150.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2158,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1707,
+        1709,
+        1710,
+        1712,
+        1713,
+        1769
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2158.json",
+      "commentsCount": 0,
+      "exitCode": 0
+    },
+    {
+      "id": 2159,
+      "state": "CLOSED",
+      "currentDependencies": [
+        2158,
+        1712,
+        1713,
+        1601
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2159.json",
+      "commentsCount": 2,
+      "exitCode": 0
+    },
+    {
+      "id": 2160,
+      "state": "CLOSED",
+      "currentDependencies": [
+        2158,
+        2159,
+        1713,
+        1601
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2160.json",
+      "commentsCount": 3,
+      "exitCode": 0
+    },
+    {
+      "id": 2161,
+      "state": "CLOSED",
+      "currentDependencies": [
+        2158,
+        2159,
+        2160,
+        1712,
+        1713,
+        1707,
+        1709,
+        1710
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2161.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    },
+    {
+      "id": 2169,
+      "state": "CLOSED",
+      "currentDependencies": [
+        1704,
+        1705,
+        1706,
+        1713,
+        1601
+      ],
+      "rawBodyPath": "/workspace/FsusBlog/.tmp/issue-3576-assignment-current-dag-20261008/2169.json",
+      "commentsCount": 1,
+      "exitCode": 0
+    }
+  ],
+  "dependencyGraphChanges": [],
+  "wholeAssignmentComplete": false,
+  "closedBoundaryStateIsNotAcceptance": true
+}

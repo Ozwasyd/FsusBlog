@@ -1,0 +1,56 @@
+{
+  "currentSha": "f88bafd70bafae90ae573d8c430b97732dde488a",
+  "currentOwnPrerequisiteSha": "e816562e42be2afbce0136e1c3fd0515659da215",
+  "publishedOwnMutationSource": "6656a73e5588f09e11f1320c43ca3f8fd153c7e3",
+  "publishedOwnDeliverySource": "b570346e5e374ae2f53807e9666cc41c42fa2afd",
+  "sourceFileBindings": [
+    {
+      "path": "docs/testing.md",
+      "currentBlob": "dc48b452943a8c282c594fa8fa52d03c12a6fcf4",
+      "canonicalOwnBlob": "2b54e53b26d4ff1fda763545867a21898df5327b",
+      "byteIdenticalToPublishedOwnSource": false,
+      "currentSha256": "3986fbf53c944971869c02bb9db754ab8a6f110200e2c4005bacfb5502424ddb"
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+      "currentBlob": "0802f622c2322ca5939bb57d4b07b1be2546a98a",
+      "canonicalOwnBlob": "0802f622c2322ca5939bb57d4b07b1be2546a98a",
+      "byteIdenticalToPublishedOwnSource": true,
+      "currentSha256": "97e0f02fbf96e73324ef106ad82dbd0efb53e2b18a0e2fc33bf2262d05b12c58"
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+      "currentBlob": "203e5c0b8a4eae8aebcd584ca6132b2694af06de",
+      "canonicalOwnBlob": "203e5c0b8a4eae8aebcd584ca6132b2694af06de",
+      "byteIdenticalToPublishedOwnSource": true,
+      "currentSha256": "59199c11e7b25a6e498159f6e4c5b792331bcb49f71a59627f52581e91d23cf8"
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+      "currentBlob": "6b6ce7b5c00f60bb224824f86a07dca139daa6b7",
+      "canonicalOwnBlob": "6b6ce7b5c00f60bb224824f86a07dca139daa6b7",
+      "byteIdenticalToPublishedOwnSource": true,
+      "currentSha256": "bdd2e8af79d2d7b4837a9adbe89fe511a3beab5239d9a6f798dab11355a42fd2"
+    },
+    {
+      "path": "tests/backend/Unit/CommentFixtureMutationRoutingTests.cs",
+      "currentBlob": "e7adf3cabcb1dcdab94baacb63c903f6fe0ca652",
+      "canonicalOwnBlob": "e7adf3cabcb1dcdab94baacb63c903f6fe0ca652",
+      "byteIdenticalToPublishedOwnSource": true,
+      "currentSha256": "49c3c4831b28caef4ad3e0afb87143a97f349b51c4968a0f9c92d376ddf704b9"
+    }
+  ],
+  "sixPathDeltaFromCurrentOwnRevisionPrerequisite": [
+    "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json",
+    "docs/testing.md",
+    "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+    "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+    "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+    "tests/backend/Unit/CommentFixtureMutationRoutingTests.cs"
+  ],
+  "allFourFixtureAdapterAndTestSourceFilesByteIdenticalToPublishedOwnSource": true,
+  "newFixtureReaderSurfaceImplementation": false,
+  "heldAuditsRun": false,
+  "oldOrdinaryHarnessResultsRebound": false,
+  "whole2178Or2179Accepted": false
+}

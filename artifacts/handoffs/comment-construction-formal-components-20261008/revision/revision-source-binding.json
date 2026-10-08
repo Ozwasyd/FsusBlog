@@ -1,0 +1,54 @@
+{
+  "candidateSha": "e816562e42be2afbce0136e1c3fd0515659da215",
+  "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "scopePaths": [
+    {
+      "path": "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json",
+      "blob": "e1278992f4d17c91679a4a3e6ffe0ef64e78819d",
+      "sha256": "41e9880b0aa80741559f4d1c412c6e01ddeb07694632bdc04ed1976ff8f8a417"
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "blob": "6c0218ddfbdbd9c4553a8b87f0c4f975b353011a",
+      "sha256": "64b19ffeb322c45a7d0facff2a756f2e27da11b14d80d898de8760c4c46b1ba5"
+    },
+    {
+      "path": "src/backend/Services/CommentAuthorManagementService.cs",
+      "blob": "a224fc66b813bdaa1166241e129fae8c86bcab4a",
+      "sha256": "c53c8b647a2d3abf6ee5e391489c53aec79e1b1ad4b051179fef6bbc83f97f47"
+    },
+    {
+      "path": "src/backend/Services/CommentService.cs",
+      "blob": "40008380c22803f2804b138463961f765cc62b04",
+      "sha256": "d2271aa3faae14b7fdf556fe5d228416a75f2a1e06b6ac9c10d198466894f2f5"
+    },
+    {
+      "path": "tests/backend/Unit/CommentAuthorManagementServiceTests.cs",
+      "blob": "2e3e07ed4e2e2c93db802ccb14362c2b462e284d",
+      "sha256": "014bbdaabd8b74d538cacbafb5a7ee9103bead7bb376f2b357d9516e5760a2c7"
+    },
+    {
+      "path": "tests/backend/Unit/CommentInitialOutboxContractTests.cs",
+      "blob": "b07c09ce90586fe2fd21dbe4e69b4f7d7586e0b7",
+      "sha256": "8f730c1fbdd4d05000a553267131ae42e3eb6e44ae1384195237cebd47e88172"
+    },
+    {
+      "path": "tests/backend/Unit/CommentRevisionContractTests.cs",
+      "blob": "7c1d5229b917ee4e62f8fe1bc79fbc68606828af",
+      "sha256": "097e96d20bed39f0f6a5a2922a552c7fcd0d938147bead4e14dc8b9632c6fb37"
+    }
+  ],
+  "pathCount": 7,
+  "api": "public static CommentRevision CommentCommandService.BuildRevision(long commentId, int version, string operation, string normalizedContent, DateTime createdAtUtc, string actorMode, int? actorAccountId, long? actorAdminPrincipalId)",
+  "apiSource": "src/backend/Services/CommentService.cs",
+  "nativeRevisionIdAllocatedInPureBuilder": false,
+  "nativeIdentityAttributeUnchanged": true,
+  "premoderatedPendingReasonBranchByteIdentical": true,
+  "premoderatedBranchSha256": "a79ba7c416c3789510625a625ced4e421482e32f735fc8b255d3ade33a0e5701",
+  "originalAuthorEditNormalizerByteIdentical": true,
+  "all49PackageInputsMatchReviewedPolicyCanonical": true,
+  "frozenPolicyBranch": "codex/issue-2177-policy-post-lock-review-20261008",
+  "frozenPolicyHead": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+  "heldAuditsOrReaderExpansionPerformed": false,
+  "wholeIssueAccepted": false
+}

@@ -1,0 +1,79 @@
+{
+  "kind": "routing",
+  "currentPublishedSourceSha": "9d50f803f0eced061e7a0b2d369f7dbdd711000e",
+  "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "scopePaths": [
+    {
+      "path": "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json",
+      "gitBlob": "2a2a652c90ab082ec1880fd064281ff272b0e793",
+      "sha256": "eb08518cfe0caf32ff7bb62c5974d75a63fc513c2d4188e05cd9a42d9f9c200e"
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "gitBlob": "6c0218ddfbdbd9c4553a8b87f0c4f975b353011a",
+      "sha256": "64b19ffeb322c45a7d0facff2a756f2e27da11b14d80d898de8760c4c46b1ba5"
+    },
+    {
+      "path": "docs/testing.md",
+      "gitBlob": "dc48b452943a8c282c594fa8fa52d03c12a6fcf4",
+      "sha256": "3986fbf53c944971869c02bb9db754ab8a6f110200e2c4005bacfb5502424ddb"
+    },
+    {
+      "path": "src/backend/Services/CommentAuthorManagementService.cs",
+      "gitBlob": "a224fc66b813bdaa1166241e129fae8c86bcab4a",
+      "sha256": "c53c8b647a2d3abf6ee5e391489c53aec79e1b1ad4b051179fef6bbc83f97f47"
+    },
+    {
+      "path": "src/backend/Services/CommentService.cs",
+      "gitBlob": "40008380c22803f2804b138463961f765cc62b04",
+      "sha256": "d2271aa3faae14b7fdf556fe5d228416a75f2a1e06b6ac9c10d198466894f2f5"
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+      "gitBlob": "0802f622c2322ca5939bb57d4b07b1be2546a98a",
+      "sha256": "97e0f02fbf96e73324ef106ad82dbd0efb53e2b18a0e2fc33bf2262d05b12c58"
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+      "gitBlob": "203e5c0b8a4eae8aebcd584ca6132b2694af06de",
+      "sha256": "59199c11e7b25a6e498159f6e4c5b792331bcb49f71a59627f52581e91d23cf8"
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+      "gitBlob": "6b6ce7b5c00f60bb224824f86a07dca139daa6b7",
+      "sha256": "bdd2e8af79d2d7b4837a9adbe89fe511a3beab5239d9a6f798dab11355a42fd2"
+    },
+    {
+      "path": "tests/backend/Unit/CommentAuthorManagementServiceTests.cs",
+      "gitBlob": "2e3e07ed4e2e2c93db802ccb14362c2b462e284d",
+      "sha256": "014bbdaabd8b74d538cacbafb5a7ee9103bead7bb376f2b357d9516e5760a2c7"
+    },
+    {
+      "path": "tests/backend/Unit/CommentFixtureMutationRoutingTests.cs",
+      "gitBlob": "e7adf3cabcb1dcdab94baacb63c903f6fe0ca652",
+      "sha256": "49c3c4831b28caef4ad3e0afb87143a97f349b51c4968a0f9c92d376ddf704b9"
+    },
+    {
+      "path": "tests/backend/Unit/CommentInitialOutboxContractTests.cs",
+      "gitBlob": "b07c09ce90586fe2fd21dbe4e69b4f7d7586e0b7",
+      "sha256": "8f730c1fbdd4d05000a553267131ae42e3eb6e44ae1384195237cebd47e88172"
+    },
+    {
+      "path": "tests/backend/Unit/CommentRevisionContractTests.cs",
+      "gitBlob": "7c1d5229b917ee4e62f8fe1bc79fbc68606828af",
+      "sha256": "097e96d20bed39f0f6a5a2922a552c7fcd0d938147bead4e14dc8b9632c6fb37"
+    }
+  ],
+  "sourceBranch": "codex/issue-2178-current-formal-controls-20261008",
+  "allChecks": {
+    "restore": 0,
+    "source-stage": 0,
+    "range-contract": 0,
+    "complete-proposed-metadata": 0
+  },
+  "actualTestReceipt": "f88bafd70bafae90ae573d8c430b97732dde488a",
+  "formalPassed": 107,
+  "formalReceiptRelabeled": false,
+  "wholeIssueAccepted": false,
+  "wholeAssignmentComplete": false
+}

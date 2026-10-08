@@ -1,0 +1,6 @@
+{
+  "correction": "Earlier publication script used a stale in-progress status string; actual formal run had completed before the Git publication time. Initial raw text retained; tested SHA/result unchanged.",
+  "actualFormalEndedAt": "2026-10-08T12:46:10.493990+00:00",
+  "observedPublicationAt": "2026-10-08T12:46:36.868608+00:00",
+  "originalStatusPreserved": "source-publication-initial-status.json"
+}

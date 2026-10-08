@@ -1,0 +1,39 @@
+{
+  "kind": "outbox",
+  "currentPublishedSourceSha": "3b1b42e2639d63805b4efd4371232fc0f74df144",
+  "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "scopePaths": [
+    {
+      "path": "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json",
+      "gitBlob": "4f40b8b0bad23c4e6f32a03c0db246b611c6cb11",
+      "sha256": "229fb8a77d164519cc0db4e598415644ecd7982b728ff5b3e3c5b263029289bc"
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "gitBlob": "76c259900b1ecc8e2e6f9da9f26c0e5ddc9b2dfe",
+      "sha256": "df6261bc42b114428fcbeccf1b6b6420b83ea93d5e115db8842c87c62f8d2481"
+    },
+    {
+      "path": "src/backend/Services/CommentService.cs",
+      "gitBlob": "71fc3506e077b306f0cf444d8d82c63e05ce69a4",
+      "sha256": "cdf8df690451dcf17f14cd02e226f81ae550197f69dedc5e8ca09d1088d74c30"
+    },
+    {
+      "path": "tests/backend/Unit/CommentInitialOutboxContractTests.cs",
+      "gitBlob": "b07c09ce90586fe2fd21dbe4e69b4f7d7586e0b7",
+      "sha256": "8f730c1fbdd4d05000a553267131ae42e3eb6e44ae1384195237cebd47e88172"
+    }
+  ],
+  "sourceBranch": "codex/issue-2177-outbox-formal-review-20261008",
+  "allChecks": {
+    "restore": 0,
+    "source-stage": 0,
+    "range-contract": 0,
+    "complete-proposed-metadata": 0
+  },
+  "actualTestReceipt": "3b1b42e2639d63805b4efd4371232fc0f74df144",
+  "formalPassed": 19,
+  "formalReceiptRelabeled": false,
+  "wholeIssueAccepted": false,
+  "wholeAssignmentComplete": false
+}

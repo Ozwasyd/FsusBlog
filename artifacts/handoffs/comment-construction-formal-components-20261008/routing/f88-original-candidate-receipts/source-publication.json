@@ -1,0 +1,22 @@
+{
+  "sourceSha": "f88bafd70bafae90ae573d8c430b97732dde488a",
+  "branch": "codex/issue-2178-current-formal-controls-20261008",
+  "command": [
+    "git",
+    "-c",
+    "credential.helper=!gh auth git-credential",
+    "push",
+    "-u",
+    "origin",
+    "codex/issue-2178-current-formal-controls-20261008"
+  ],
+  "exitCode": 0,
+  "observedAtUtc": "2026-10-08T13:04:18.834342+00:00",
+  "verifiedFormalControls": 107,
+  "heldAuditOrNativeAdmission": false,
+  "remoteReadback": {
+    "exitCode": 0,
+    "text": "f88bafd70bafae90ae573d8c430b97732dde488a\trefs/heads/codex/issue-2178-current-formal-controls-20261008"
+  },
+  "published": true
+}

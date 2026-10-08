@@ -1,0 +1,72 @@
+{
+  "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "path": "tools/test-fixtures/receipt/producer-receipt.mjs",
+  "gitBlob": "14ae82e36e31f8d4fc7f463c0023ca03a1920864",
+  "sha256": "924cee5801e53a921149875977aaa0dd7f9d1e8c8babfcfc839899d4b74eed0d",
+  "relevantSourceLines": [
+    {
+      "line": 83,
+      "text": "        throw new Error('entityIdentities must be an array');"
+    },
+    {
+      "line": 89,
+      "text": "            throw new Error(`entityIdentities[${index}] must be an object`);"
+    },
+    {
+      "line": 97,
+      "text": "                throw new Error(`entityIdentities[${index}] forbids field ${key}; only kind/id/handle/digest/variantId/owner allowed`);"
+    },
+    {
+      "line": 100,
+      "text": "        const kind = requireText(String(item.kind ?? 'other'), `entityIdentities[${index}].kind`);"
+    },
+    {
+      "line": 105,
+      "text": "        const id = requireText(String(item.id ?? item.handle ?? ''), `entityIdentities[${index}].id`);"
+    },
+    {
+      "line": 106,
+      "text": "        const variantId = requireText(String(item.variantId ?? ''), `entityIdentities[${index}].variantId`);"
+    },
+    {
+      "line": 109,
+      "text": "            throw new Error(`entityIdentities[${index}] references unproduced variant ${variantId}`);"
+    },
+    {
+      "line": 115,
+      "text": "            digest: item.digest == null ? null : assertDigest(String(item.digest), `entityIdentities[${index}].digest`),"
+    },
+    {
+      "line": 119,
+      "text": "                : requireText(String(item.owner), `entityIdentities[${index}].owner`)"
+    },
+    {
+      "line": 221,
+      "text": "    entityIdentities = [],"
+    },
+    {
+      "line": 337,
+      "text": "        entityIdentities: normalizeEntityIdentities(entityIdentities, new Set(producedVariants)),"
+    },
+    {
+      "line": 446,
+      "text": "    for (const identity of document.entityIdentities ?? [])"
+    },
+    {
+      "line": 468,
+      "text": "        document.entityIdentities ?? [],"
+    },
+    {
+      "line": 471,
+      "text": "    if (JSON.stringify(canonicalEntities) !== JSON.stringify(document.entityIdentities ?? []))"
+    },
+    {
+      "line": 473,
+      "text": "        throw new Error('ProducerReceipt entityIdentities are not canonical');"
+    }
+  ],
+  "scope": "read-only prerequisite inspection; no receipt/schema/semantic role reader expansion",
+  "formalRoleEntitlementContractSuppliedByCoordinator": false,
+  "qualifiedCurrentRunReceiptSupplied": false,
+  "ordinaryRoutingTestsAreNotNativeAdmission": true
+}

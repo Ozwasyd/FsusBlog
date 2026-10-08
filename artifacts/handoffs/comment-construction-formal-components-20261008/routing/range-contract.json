@@ -1,0 +1,18 @@
+{
+  "candidateSha": "9d50f803f0eced061e7a0b2d369f7dbdd711000e",
+  "masterSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "1cd4e060acedfd7838a477842685e0052d8e4107..9d50f803f0eced061e7a0b2d369f7dbdd711000e"
+  ],
+  "startedAt": "2026-10-08T13:09:12.943804+00:00",
+  "endedAt": "2026-10-08T13:09:14.427559+00:00",
+  "exitCode": 0,
+  "logSha256": "9d3943304db14edc01959e1ddf946c57f8d19985aa3f32588e4050e32b73db03",
+  "originalBackendProject": true,
+  "usesNoRestore": false,
+  "nugetAuditEnabled": true,
+  "wholeIssueAccepted": false
+}

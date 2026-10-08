@@ -1,0 +1,21 @@
+{
+  "sourceSha": "e816562e42be2afbce0136e1c3fd0515659da215",
+  "branch": "codex/issue-2177-shared-revision-source-20261008",
+  "command": [
+    "git",
+    "-c",
+    "credential.helper=!gh auth git-credential",
+    "push",
+    "-u",
+    "origin",
+    "codex/issue-2177-shared-revision-source-20261008"
+  ],
+  "exitCode": 0,
+  "observedAtUtc": "2026-10-08T12:46:36.868608+00:00",
+  "verificationAtPublication": "SOURCE/range/strict locked restore passed. Formal command had actually completed at12:46:10, but its tool completion was not yet polled; genuine result now separately bound in revision-formal-bound-results.json.",
+  "remoteReadback": {
+    "exitCode": 0,
+    "text": "e816562e42be2afbce0136e1c3fd0515659da215\trefs/heads/codex/issue-2177-shared-revision-source-20261008"
+  },
+  "published": true
+}

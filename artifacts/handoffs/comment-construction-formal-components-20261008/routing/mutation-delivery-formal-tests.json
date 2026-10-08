@@ -1,0 +1,28 @@
+{
+  "candidateSha": "f88bafd70bafae90ae573d8c430b97732dde488a",
+  "masterSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "-p:RestoreLockedMode=true",
+    "-p:NuGetAudit=true",
+    "-m:1",
+    "-nodeReuse:false",
+    "-p:UseSharedCompilation=false",
+    "--filter",
+    "FullyQualifiedName~CommentInitialOutboxContractTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentRevisionContractTests|FullyQualifiedName~CommentAuthorManagementServiceTests|FullyQualifiedName~CommentServiceValidationTests|FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentMutationOutboxRuntimeStateTests|FullyQualifiedName~CommentFixtureMutationRoutingTests",
+    "--logger",
+    "trx;LogFileName=mutation-delivery-formal-tests.trx",
+    "--results-directory",
+    "/workspace/FsusBlog-2178-current-formal-controls/.tmp/issue-2177-component-checks-20261008"
+  ],
+  "startedAt": "2026-10-08T12:59:28.539908+00:00",
+  "endedAt": "2026-10-08T13:02:27.882991+00:00",
+  "exitCode": 0,
+  "logSha256": "0f15d4d37c8cd50c4b760db73d8fd7bb24ec3a61d39f419b17aaaa4e56bcd204",
+  "originalBackendProject": true,
+  "usesNoRestore": false,
+  "nugetAuditEnabled": true,
+  "wholeIssueAccepted": false
+}
