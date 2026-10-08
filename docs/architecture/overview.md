@@ -173,6 +173,11 @@ render eligibility. This event hookup does not yet present a retained result on
 the native editor surface, invoke automatic rendering, acknowledge viewport offset,
 or complete surface/tool continuity acceptance.
 
+The canonical producer retains one frozen render/projection pair per admitted
+entry. Each guarded resolve returns the same pair by reference while that entry
+is retained. The pair shares the original public FsusUI objects and follows the
+existing result verification, replacement and release lifecycle.
+
 Selection events retain the native producer's identity without adding current
 wrapper props. A missing identity cannot establish a document binding and retires
 an unobserved authoring intent; a known foreign document cannot update the current
