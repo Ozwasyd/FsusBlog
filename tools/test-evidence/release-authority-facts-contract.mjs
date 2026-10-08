@@ -11,8 +11,7 @@ export function deriveReleaseReadinessAuthorityFacts({ plan, authorities, build 
     imageDigest: rollout.target.imageDigest,
     packageDigest: build.packageDigest,
     configDigest: runtime.deployment.ref.fileDigest,
-    schemaDigest: authorities.manifest.value.schemaCompatibility?.contentDigest
-      ?? semanticDigest(authorities.manifest.value.schemaCompatibility),
+    schemaDigest: authorities.manifest.value.currentSchema.receiptContentDigest,
     manifestDigest: authorities.manifest.ref.fileDigest,
     signingDigest: rollout.auxiliary?.releaseManifest?.sha256,
     trustDigest: semanticDigest({ image: rollout.target.imageDigest, manifest: authorities.manifest.ref.fileDigest }),
