@@ -8,47 +8,46 @@ import { performance } from 'node:perf_hooks';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { validateMeasurementNoiseReceipt } from '../measurement-noise-envelope.mjs';
-import { bindReleaseReliabilityEvidence, readReleaseReliabilityEvidenceBinding } from '../release-reliability-evidence-binding.mjs';
-
 import { fetchRouteSample, producerRouteIds, routeCatalogDigest, routeContract } from './runtime-http-route-contract.mjs';
-import {
+
+const { validateMeasurementNoiseReceipt } = await import(new URL('../measurement-noise-envelope.mjs', import.meta.url).href);
+const { bindReleaseReliabilityEvidence, readReleaseReliabilityEvidenceBinding } = await import(
+    new URL('../release-reliability-evidence-binding.mjs', import.meta.url).href
+);
+const {
     decodeAedsFrame,
     decodeArticlePage,
     decodeArticleDetail,
     decodeTaxonomyList,
     decodeSearchManifest,
     decodeSearchShard,
-    decodeCommentArticleCursor,
-    decodePublicAotPayload
-} from '../../data-scale/aeds-decoders.mjs';
-import {
-    DATA_SCALE_SEMANTIC_PROOF_SCHEMA,
-    REQUIRED_KINDS,
+    decodeCommentArticleCursor
+} = await import(new URL('../../data-scale/aeds-decoders.mjs', import.meta.url).href);
+const {
     verifyDatabaseProof,
     verifyHttpPayloadProof,
     verifySearchProof,
     verifyAotProof,
     verifyHotReadProof,
     buildSemanticProofReceipt
-} from '../../data-scale/semantic-proof.mjs';
-import {
+} = await import(new URL('../../data-scale/semantic-proof.mjs', import.meta.url).href);
+const {
     computeExpectedTaxonomyModel,
     verifyTaxonomyProjections,
     verifyTaxonomyResponses,
     buildTaxonomyFrameVersionReceipt,
     buildTaxonomyProofReceipt
-} from '../../data-scale/taxonomy-projection.mjs';
-import {
+} = await import(new URL('../../data-scale/taxonomy-projection.mjs', import.meta.url).href);
+const {
     computeExpectedSearchModel,
     executeProductSearchHttpApi,
     materializeSearchEvidenceFromLiveIndex
-} from '../../data-scale/search-evidence.mjs';
-import {
+} = await import(new URL('../../data-scale/search-evidence.mjs', import.meta.url).href);
+const {
     rebuildDataScalePublicAot,
     resolveDataScaleAotRoot,
     DATA_SCALE_AOT_REBUILD_COMMAND
-} from '../../data-scale/aot-evidence.mjs';
+} = await import(new URL('../../data-scale/aot-evidence.mjs', import.meta.url).href);
 
 const { buildOpenLoopLoadSchedule, dispatchOpenLoopLoadSchedule, validateLoadArrivalPolicy } = await import(
     new URL('../open-loop-load-schedule.mjs', import.meta.url).href
@@ -916,52 +915,6 @@ function runDocker(args)
     return { ok: true, stdout: result.stdout.trim() };
 }
 
-function spawnCommand(command, args, options = {})
-{
-    const child = spawn(command, args, {
-        cwd: options.cwd ?? root,
-        env: options.env ?? process.env,
-        stdio: ['ignore', 'pipe', 'pipe']
-    });
-    const chunks = { stdout: '', stderr: '' };
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) =>
-    {
-        chunks.stdout += chunk;
-    });
-    child.stderr.on('data', (chunk) =>
-    {
-        chunks.stderr += chunk;
-    });
-    return { child, chunks };
-}
-
-async function waitForProcessExit(pid, timeoutMs)
-{
-    const started = performance.now();
-    do
-    {
-        if (!isProcessRunning(pid))
-        {
-            return {
-                status: 'stopped',
-                pid,
-                exitObserved: true,
-                durationMs: elapsedMs(started)
-            };
-        }
-        await sleep(100);
-    } while (performance.now() - started < timeoutMs);
-
-    return {
-        status: 'timeout',
-        pid,
-        exitObserved: false,
-        durationMs: elapsedMs(started)
-    };
-}
-
 function queryPostgresScalar(sql)
 {
     const containers = [
@@ -1337,7 +1290,7 @@ export function discoverBackendProcessTarget({
             : { status: 'missing', reason: `configured backend pid ${explicitPid} is not running` };
     }
 
-    let port = '';
+    let port;
     try
     {
         port = new URL(baseUrl).port;
@@ -2022,6 +1975,7 @@ function closeSocketQuietly(socket, reason = 'runtime-drill-complete')
                     }
                     catch
                     {
+                        // Socket termination is best effort after close; it cannot qualify the drill.
                     }
                 }, 100).unref?.();
             }
@@ -2029,6 +1983,7 @@ function closeSocketQuietly(socket, reason = 'runtime-drill-complete')
     }
     catch
     {
+        // Already closed or failed sockets retain their original drill result.
     }
 }
 
@@ -2826,8 +2781,8 @@ function runRedisCli(container, args)
 function scanBackendLogsForUnhandledExceptions()
 {
     const container = process.env.FSUSBLOG_BACKEND_CONTAINER_NAME || process.env.FSUSBLOG_BACKEND_CONTAINER || '';
-    let source = null;
-    let target = null;
+    let source;
+    let target;
     let content = '';
     if (container)
     {
@@ -3020,7 +2975,7 @@ async function waitForRedisRecovery()
     const maxWaitMs = positiveInt(process.env.FSUSBLOG_REDIS_RECOVERY_WAIT_MS, 20000);
     const intervalMs = positiveInt(process.env.FSUSBLOG_REDIS_RECOVERY_POLL_MS, 500);
 
-    do
+    for (;;)
     {
         try
         {
@@ -3043,11 +2998,11 @@ async function waitForRedisRecovery()
             });
             if (performance.now() - started >= maxWaitMs)
             {
-                throw new Error(`Redis recovery did not complete within ${maxWaitMs}ms: ${attempts.at(-1)?.error}`);
+                throw new Error(`Redis recovery did not complete within ${maxWaitMs}ms: ${attempts.at(-1)?.error}`, { cause: error });
             }
             await sleep(intervalMs);
         }
-    } while (true);
+    }
 }
 
 async function executeRedisControlledAction(caseName, container)
@@ -3407,7 +3362,7 @@ async function waitForPostgresRecovery(container)
     const maxWaitMs = positiveInt(process.env.FSUSBLOG_POSTGRES_RECOVERY_WAIT_MS, 25000);
     const intervalMs = positiveInt(process.env.FSUSBLOG_POSTGRES_RECOVERY_POLL_MS, 500);
 
-    do
+    for (;;)
     {
         try
         {
@@ -3430,11 +3385,11 @@ async function waitForPostgresRecovery(container)
             });
             if (performance.now() - started >= maxWaitMs)
             {
-                throw new Error(`PostgreSQL recovery did not complete within ${maxWaitMs}ms: ${attempts.at(-1)?.error}`);
+                throw new Error(`PostgreSQL recovery did not complete within ${maxWaitMs}ms: ${attempts.at(-1)?.error}`, { cause: error });
             }
             await sleep(intervalMs);
         }
-    } while (true);
+    }
 }
 
 async function executePostgresControlledAction(caseName, container)
@@ -4028,7 +3983,7 @@ async function runDiskArtifactStorageFaultCase()
     const recoveryPath = path.relative(root, recoveryFile);
     let writeFailureResult = null;
     let recoveryResult = null;
-    let cleanupResult = null;
+    let cleanupResult;
     let finalHealth = null;
     let failure = null;
     let actionStatus = 'blocked';
@@ -4937,7 +4892,10 @@ async function dataScale(tier, outFile)
             articleListDecoded = decodeArticlePage(frame.payload);
         }
     }
-    catch { /* verifier handles missing */ }
+    catch
+    {
+        /* verifier handles missing */
+    }
 
     try
     {
@@ -4947,7 +4905,10 @@ async function dataScale(tier, outFile)
             categoryListDecoded = decodeTaxonomyList(frame.payload);
         }
     }
-    catch { /* verifier handles missing */ }
+    catch
+    {
+        /* verifier handles missing */
+    }
 
     try
     {
@@ -4957,7 +4918,10 @@ async function dataScale(tier, outFile)
             tagListDecoded = decodeTaxonomyList(frame.payload);
         }
     }
-    catch { /* verifier handles missing */ }
+    catch
+    {
+        /* verifier handles missing */
+    }
 
     try
     {
@@ -4967,7 +4931,10 @@ async function dataScale(tier, outFile)
             articleDetailDecoded = decodeArticleDetail(frame.payload);
         }
     }
-    catch { /* verifier handles missing */ }
+    catch
+    {
+        /* verifier handles missing */
+    }
 
     try
     {
@@ -4977,7 +4944,10 @@ async function dataScale(tier, outFile)
             commentCursorDecoded = decodeCommentArticleCursor(frame.payload);
         }
     }
-    catch { /* verifier handles missing */ }
+    catch
+    {
+        /* verifier handles missing */
+    }
 
     const decodedResponses = {
         articleList: articleListDecoded,
@@ -5217,7 +5187,7 @@ async function dataScale(tier, outFile)
         canaries
     });
 
-    let frameVersionReceipt = null;
+    let frameVersionReceipt;
     const redisContainer = redisContainerName();
     if (redisContainer)
     {
@@ -5343,7 +5313,10 @@ async function dataScale(tier, outFile)
                     }
                     break;
                 }
-                catch { /* ignore */ }
+                catch
+                {
+                    /* ignore */
+                }
             }
         }
         const searchReceiptFile = path.join(tierDir, 'search-receipt.json');
@@ -5460,7 +5433,10 @@ async function dataScale(tier, outFile)
                     }
                     break;
                 }
-                catch { /* ignore */ }
+                catch
+                {
+                    /* ignore */
+                }
             }
         }
         aotProof = verifyAotProof({
@@ -5489,7 +5465,10 @@ async function dataScale(tier, outFile)
         {
             warmResponse = await fetchPathSample(`/api/binary/article/${canaryArticleId}.aeds`, { includeBody: true });
         }
-        catch { /* ignored */ }
+        catch
+        {
+            /* ignored */
+        }
         hotReadProof = verifyHotReadProof({
             coldResponse: articleDetailSample,
             warmResponse: warmResponse ?? articleDetailSample,
@@ -5797,7 +5776,7 @@ async function soak(mode, outFile)
             }
             catch (error)
             {
-                throw new Error(`long soak imported evidence has no valid measurement noise authority: ${error.message}`);
+                throw new Error(`long soak imported evidence has no valid measurement noise authority: ${error.message}`, { cause: error });
             }
             writeReleaseReliabilityAuthority(outFile, {
                 ...imported,
