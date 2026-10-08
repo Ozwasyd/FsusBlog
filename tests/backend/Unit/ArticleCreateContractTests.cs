@@ -1,6 +1,8 @@
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Authoring;
 
+using NSubstitute;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Unit")]
@@ -110,6 +112,87 @@ public sealed class ArticleCreateContractTests
                 name => property.Name.Contains(name, StringComparison.OrdinalIgnoreCase)
                     && !property.Name.EndsWith("Digest", StringComparison.Ordinal)));
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Store_RejectsMissingWritePermissionBeforeReplayOrBlankWrites(bool replayAvailable)
+    {
+        IArticleCreatePersistence persistence = Substitute.For<IArticleCreatePersistence>();
+        IArticleTemplateExpansionVerifier verifier = Substitute.For<IArticleTemplateExpansionVerifier>();
+        var store = new ArticleCreateStore(persistence, verifier);
+        var command = new ArticleCreateCommand(new ArticleTemplateActor(42, []),
+            Guid.CreateVersion7(), ArticleCreateMode.Blank);
+        if (replayAvailable)
+        {
+            persistence.ResolveRequestAsync(command.Actor.AdminPrincipalId, command.RequestId,
+                ArticleCreateStore.ComputeRequestDigest(command)).Returns(VerificationReceipt(Guid.CreateVersion7(), 42));
+        }
+
+        await Assert.ThrowsAsync<ArticleTemplateAccessDeniedException>(
+            () => store.CreateAsync(command));
+
+        await persistence.DidNotReceiveWithAnyArgs().ResolveRequestAsync(default, default, default!);
+        await persistence.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default!, default!);
+    }
+
+    [Fact]
+    public async Task Store_CurrentWriterCanReplayWithoutReexecutingOrRecheckingTemplate()
+    {
+        IArticleCreatePersistence persistence = Substitute.For<IArticleCreatePersistence>();
+        IArticleTemplateExpansionVerifier verifier = Substitute.For<IArticleTemplateExpansionVerifier>();
+        var store = new ArticleCreateStore(persistence, verifier);
+        var command = new ArticleCreateCommand(s_actor, Guid.CreateVersion7(), ArticleCreateMode.Blank);
+        ArticleCreateReceipt receipt = VerificationReceipt(Guid.CreateVersion7(), 42);
+        persistence.ResolveRequestAsync(s_actor.AdminPrincipalId, command.RequestId,
+            ArticleCreateStore.ComputeRequestDigest(command)).Returns(receipt);
+
+        Assert.Same(receipt, await store.CreateAsync(command));
+
+        await persistence.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default!, default!);
+        await verifier.DidNotReceiveWithAnyArgs().VerifyAsync(default!);
+    }
+
+    [Fact]
+    public async Task ReceiptVerification_RejectsMissingWritePermissionBeforeReading()
+    {
+        IArticleCreatePersistence persistence = Substitute.For<IArticleCreatePersistence>();
+        var store = new ArticleCreateStore(persistence, Substitute.For<IArticleTemplateExpansionVerifier>());
+
+        await Assert.ThrowsAsync<ArticleTemplateAccessDeniedException>(() => store.VerifyReceiptAsync(
+            new ArticleTemplateActor(42, []), Guid.CreateVersion7()));
+
+        await persistence.DidNotReceiveWithAnyArgs().ReadVerificationSnapshotAsync(default);
+    }
+
+    [Fact]
+    public async Task ReceiptVerification_ForeignOwnerHasTheSameResultAsMissingReceipt()
+    {
+        IArticleCreatePersistence persistence = Substitute.For<IArticleCreatePersistence>();
+        var store = new ArticleCreateStore(persistence, Substitute.For<IArticleTemplateExpansionVerifier>());
+        Guid receiptId = Guid.CreateVersion7();
+        ArticleCreateReceipt receipt = VerificationReceipt(receiptId, owner: 77);
+        var snapshot = new ArticleCreateVerificationSnapshot(receipt,
+            null, null, null, null, null, null, null, null, null, 0, false, null);
+        persistence.ReadVerificationSnapshotAsync(receiptId).Returns(snapshot);
+
+        ArticleCreateVerificationResult foreign = await store.VerifyReceiptAsync(s_actor, receiptId);
+        ArticleCreateVerificationResult missing = await store.VerifyReceiptAsync(s_actor, Guid.CreateVersion7());
+
+        Assert.False(foreign.Valid);
+        Assert.Equal(missing.Violations, foreign.Violations);
+        Assert.Equal("receipt_missing", Assert.Single(foreign.Violations).Code);
+
+        ArticleCreateVerificationResult owned = await store.VerifyReceiptAsync(
+            new ArticleTemplateActor(77, [AdminPermissions.ArticleWrite]), receiptId);
+        Assert.Equal(ArticleCreateVerifier.Verify(snapshot).Violations, owned.Violations);
+        Assert.DoesNotContain(owned.Violations, violation => violation.Code == "receipt_missing");
+    }
+
+    private static ArticleCreateReceipt VerificationReceipt(Guid receiptId, long owner)
+        => new(receiptId, Guid.CreateVersion7(), owner, "blank", null, null, null, null,
+            1, 1, 1, 1, 1, "create-event", Guid.CreateVersion7(), new string('a', 64),
+            new string('b', 64), null, null, new string('c', 64), s_now);
 
     internal static class ExpansionFixture
     {
