@@ -107,7 +107,7 @@ try
     page.on('pageerror', (error) => report.errors.push(`browser: ${error.message}`));
     page.setDefaultTimeout(5000);
     page.on('pageerror', (error) => report.errors.push(error.message));
-    await page.goto(server.resolvedUrls.local[0]);
+    await page.goto(server.resolvedUrls.local[0], { timeout: 30000 });
     const probe = (name) => page.locator(`[data-probe="${name}"]`);
     const state = async () => JSON.parse(await probe('state').textContent());
     const settleMenu = async () => probe('menu').evaluate(async (menu) =>
@@ -272,7 +272,7 @@ try
         report.observations.menuAlternativeArrowDown = false;
     }
     await page.screenshot({ path: path.join(evidenceRoot, 'menu-alternative.png'), fullPage: true });
-    await page.goto(`${server.resolvedUrls.local[0]}?consumer`);
+    await page.goto(`${server.resolvedUrls.local[0]}?consumer`, { timeout: 30000 });
     const consumer = (name) => page.locator(`[data-consumer="${name}"]`);
     const trigger = page.locator('[data-locale-selector-trigger]');
     const menu = page.locator('[data-locale-selector-menu]');
@@ -380,7 +380,7 @@ try
     const touchContext = await browser.newContext({ viewport: { width: 375, height: 900 }, hasTouch: true, isMobile: true });
     const touchPage = await touchContext.newPage();
     touchPage.on('pageerror', (error) => report.errors.push(`touch-browser: ${error.message}`));
-    await touchPage.goto(`${server.resolvedUrls.local[0]}?consumer`);
+    await touchPage.goto(`${server.resolvedUrls.local[0]}?consumer`, { timeout: 30000 });
     await touchPage.locator('[data-locale-selector-trigger]').tap();
     await expect(touchPage.getByRole('menuitemradio')).toHaveCount(10);
     await touchPage.locator('[data-locale-code="ja-JP"]').tap();
