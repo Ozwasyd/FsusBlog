@@ -71,6 +71,12 @@ public sealed class GpuTransferOperation : IDisposable
     public Task<MemoryOperationResult<GpuTransferOperation>> WaitAsync(CancellationToken cancellationToken = default)
         => _completion.Task.WaitAsync(cancellationToken);
 
+    /// <summary>The first source-owner cleanup error; retained custody is not a successful physical drain.</summary>
+    public Exception? CleanupFailure
+    {
+        get; internal set;
+    }
+
     // CALLER: Destination is supplied by the existing admitted materialization/response owner.
     public void CopyReadbackTo(Span<byte> destination) => _owner.CopyReadback(this, destination);
 
