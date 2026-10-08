@@ -36,6 +36,10 @@ loadProfiles:
     maxErrorRate: 0
     maxTimeoutRate: 0
     minRps: 1
+soakCacheChurn:
+  minimumCycles: 2
+  cycleTimeoutMs: 15000
+  cleanupTimeoutMs: 15000
 notificationPressure:
   connections: 50
   durationMs: 30000

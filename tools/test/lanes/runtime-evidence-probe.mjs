@@ -5629,42 +5629,50 @@ async function soak(mode, outFile)
         }
         return;
     }
+    const { readCacheChurnPolicy, runCacheChurnWindow } = await import('./soak-cache-churn.mjs');
     const durationSeconds = positiveInt(process.env.FSUSBLOG_SOAK_SHORT_SECONDS, 300);
-    const intervalMs = positiveInt(process.env.FSUSBLOG_SOAK_INTERVAL_MS, 5000);
-    const deadline = Date.now() + durationSeconds * 1000;
     const probes = [];
     const target = discoverBackendProcessTarget();
     const startResources = target.status === 'ok' ? readSoakResourceReadings(target) : null;
-    do
-    {
-        probes.push(await runRouteContractProbe(safeBinaryRouteIds, { iterations: 4, concurrency: 2 }));
-        if (Date.now() < deadline)
+    const policy = readCacheChurnPolicy(readPerfPolicy().text);
+    const runId = `soak-${randomBytes(12).toString('hex')}`;
+    const cacheChurn = await runCacheChurnWindow({
+        // No current repository observer binds the DB mutation, durable delivery,
+        // Redis frame, HotRead and AOT receipt to one generation. Do not invent an
+        // endpoint or normalize independent version counters into that proof.
+        driver: null,
+        policy,
+        runId,
+        namespace,
+        durationMs: durationSeconds * 1000,
+        observeReads: async () =>
         {
-            await new Promise((resolve) => setTimeout(resolve, Math.min(intervalMs, Math.max(0, deadline - Date.now()))));
+            const probe = await runRouteContractProbe(safeBinaryRouteIds, { iterations: 4, concurrency: 2 });
+            probes.push(probe);
+            if (probe.status !== 'ok')
+            {
+                throw new Error(`short soak route contract failed: ${probe.failures[0]?.failureKind}`);
+            }
         }
-    } while (Date.now() < deadline);
+    });
     const endResources = target.status === 'ok' ? readSoakResourceReadings(target) : null;
     const resourceMetricSummary = target.status === 'ok'
         ? buildSoakResourceSummary(target, startResources, endResources)
         : buildSoakUnavailableResourceSummary(target.reason ?? 'backend process unavailable');
-    const failedProbes = probes.filter((probe) => probe.status !== 'ok');
     const latencies = probes.filter((probe) => probe.status === 'ok')
         .flatMap((probe) => [probe.latencyMs.p50, probe.latencyMs.p95, probe.latencyMs.p99].filter((value) => value !== null));
     writeReleaseReliabilityAuthority(outFile, {
-        status: failedProbes.length === 0 ? 'ok' : 'failed',
+        status: cacheChurn.status,
         mode,
         executionMode: 'runtime',
-        countsAsReleaseFinal: true,
+        countsAsReleaseFinal: cacheChurn.status === 'ok',
         namespace,
-        scenarios: ['mixed-public-read', 'cache-churn', 'public-binary-contract'],
+        runId,
+        scenarios: cacheChurn.status === 'ok'
+            ? ['mixed-public-read', 'cache-churn', 'public-binary-contract'] : [],
         durationSeconds,
-        sampling: {
-            intervalMs,
-            requestsPerProbe: 4,
-            concurrency: 2,
-            probeCount: probes.length
-        },
         sampleCount: probes.reduce((total, probe) => total + probe.sampleCount, 0),
+        cacheChurn,
         resourceMetricSummary,
         resourceCurve: soakResourceCurve(resourceMetricSummary),
         latencyMs: {
@@ -5672,13 +5680,14 @@ async function soak(mode, outFile)
             p95: percentile(latencies, 95),
             p99: percentile(latencies, 99)
         },
-        errorRate: probes.reduce((total, probe) => total + probe.failures.length, 0) / Math.max(1, probes.reduce((total, probe) => total + probe.sampleCount, 0)),
+        errorRate: probes.reduce((total, probe) => total + probe.failures.length, 0)
+            / Math.max(1, probes.reduce((total, probe) => total + probe.sampleCount, 0)),
         generatedAt: new Date().toISOString(),
         probes
     });
-    if (failedProbes.length > 0)
+    if (cacheChurn.status !== 'ok')
     {
-        throw new Error(`short soak route contract failed: ${failedProbes[0].failures[0]?.failureKind}`);
+        throw new Error(`short soak cache churn ${cacheChurn.status}: ${cacheChurn.failureKind}`);
     }
 }
 
