@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/physical-producer-terminal-bridge.mjs"
+            ],
+            "reason": "Record the existing tools module naming boundary while consuming the canonical terminal reader. No environment key is introduced; new declaration and projection locals use camelCase."
+        }
+    ]
+}
