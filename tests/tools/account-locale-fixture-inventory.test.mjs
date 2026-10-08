@@ -117,14 +117,24 @@ test('runtime guard refuses source drift, inventory tampering and symlink before
         writeFileSync(inventoryPath, JSON.stringify(inventory));
         assert.deepEqual(assertAccountLocaleOwnershipCurrent(directory), inventory);
         writeFileSync(inventoryPath, JSON.stringify({ ...inventory, qualification: true }));
-        assert.throws(() => assertAccountLocaleOwnershipCurrent(directory), /stale or noncanonical/u);
+        assert.throws(() => assertAccountLocaleOwnershipCurrent(directory), /inventory verification failed/u);
+        writeFileSync(inventoryPath, JSON.stringify(inventory));
+        writeFileSync(inventoryPath, '{privateKey: "private-parser-first-failure"}');
+        assert.throws(() => assertAccountLocaleOwnershipCurrent(directory), (error) =>
+        {
+            assert.equal(error.message, 'account locale ownership inventory verification failed');
+            assert.equal(JSON.stringify(error).includes('private-parser-first-failure'), false);
+            assert.ok(error.cause instanceof Error);
+            assert.match(error.verificationFailureDigest, /^sha256:[a-f0-9]{64}$/u);
+            return true;
+        });
         writeFileSync(inventoryPath, JSON.stringify(inventory));
         const sourcePath = path.join(directory, sources[0].path);
         writeFileSync(sourcePath, sources[0].source + '\n');
-        assert.throws(() => assertAccountLocaleOwnershipCurrent(directory), /stale or noncanonical/u);
+        assert.throws(() => assertAccountLocaleOwnershipCurrent(directory), /inventory verification failed/u);
         rmSync(sourcePath);
         symlinkSync('/etc/hostname', sourcePath);
-        assert.throws(() => assertAccountLocaleOwnershipCurrent(directory), /not regular/u);
+        assert.throws(() => assertAccountLocaleOwnershipCurrent(directory), /inventory verification failed/u);
     }
     finally
     {

@@ -187,13 +187,22 @@ export function readAccountLocaleOwnershipSources(repositoryRoot = root)
 
 export function assertAccountLocaleOwnershipCurrent(repositoryRoot = root)
 {
-    const expected = deriveAccountLocaleOwnership(readAccountLocaleOwnershipSources(repositoryRoot));
-    const actual = JSON.parse(readSource(repositoryRoot, accountLocaleOwnershipPath));
-    if (digestCanonical(actual) !== digestCanonical(expected))
+    try
     {
-        throw new Error('account locale ownership inventory is stale or noncanonical');
+        const expected = deriveAccountLocaleOwnership(readAccountLocaleOwnershipSources(repositoryRoot));
+        const actual = JSON.parse(readSource(repositoryRoot, accountLocaleOwnershipPath));
+        if (digestCanonical(actual) !== digestCanonical(expected))
+        {
+            throw new Error('account locale ownership inventory is stale or noncanonical');
+        }
+        return expected;
     }
-    return expected;
+    catch (error)
+    {
+        const failure = new Error('account locale ownership inventory verification failed', { cause: error });
+        failure.verificationFailureDigest = digestCanonical({ stage: 'source-ownership', message: String(error?.message ?? error) });
+        throw failure;
+    }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

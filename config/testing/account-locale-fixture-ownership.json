@@ -240,7 +240,7 @@
             "path": "tools/test-fixtures/receipt/postconditions.mjs"
         },
         {
-            "digest": "sha256:2a64653452db8093434cd4c46f256b162c18e3c64a9af1865dff1403f4d2a811",
+            "digest": "sha256:256147ac2193a357293e7733868517e8258d8de7b6291c40755b90ed6b96581d",
             "path": "tools/test/account-locale-fixture-inventory.mjs"
         }
     ],
