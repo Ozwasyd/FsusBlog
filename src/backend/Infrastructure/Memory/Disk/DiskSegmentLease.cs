@@ -49,60 +49,66 @@ public sealed class DiskSegmentLease : IDisposable
         ArgumentNullException.ThrowIfNull(privateStaging);
         MemoryOperationResult<DiskSegmentCopy> result;
         bool release = false;
-        lock (_gate)
+        try
         {
-            if (_disposed || _disposeRequested)
+            lock (_gate)
             {
-                return MemoryOperationResult<DiskSegmentCopy>.Reject(MemoryFailure.StaleLocation);
-            }
-            if (_copying || !privateStaging.CanWrite)
-            {
-                return MemoryOperationResult<DiskSegmentCopy>.Reject(MemoryFailure.OwnershipViolation);
-            }
-            _copying = true;
-            try
-            {
-                Verify(_file, _segmentId, _records, _bytes, Entry, _scratch, cancellationToken);
-                _file.Position = Entry.PayloadOffset;
-                using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-                long remaining = Entry.PayloadBytes;
-                while (remaining > 0)
+                if (_disposed || _disposeRequested)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    int read = _file.Read(_scratch, 0, (int)Math.Min(remaining, _scratch.Length));
-                    if (read == 0)
+                    return MemoryOperationResult<DiskSegmentCopy>.Reject(MemoryFailure.StaleLocation);
+                }
+                if (_copying || !privateStaging.CanWrite)
+                {
+                    return MemoryOperationResult<DiskSegmentCopy>.Reject(MemoryFailure.OwnershipViolation);
+                }
+                _copying = true;
+                try
+                {
+                    Verify(_file, _segmentId, _records, _bytes, Entry, _scratch, cancellationToken);
+                    _file.Position = Entry.PayloadOffset;
+                    using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                    long remaining = Entry.PayloadBytes;
+                    while (remaining > 0)
                     {
-                        throw new EndOfStreamException();
+                        cancellationToken.ThrowIfCancellationRequested();
+                        int read = _file.Read(_scratch, 0, (int)Math.Min(remaining, _scratch.Length));
+                        if (read == 0)
+                        {
+                            throw new EndOfStreamException();
+                        }
+                        hash.AppendData(_scratch, 0, read);
+                        privateStaging.Write(_scratch, 0, read);
+                        remaining -= read;
                     }
-                    hash.AppendData(_scratch, 0, read);
-                    privateStaging.Write(_scratch, 0, read);
-                    remaining -= read;
+                    if (!CryptographicOperations.FixedTimeEquals(hash.GetHashAndReset(), Convert.FromHexString(Entry.Sha256)))
+                    {
+                        throw new InvalidDataException("Record changed during copy.");
+                    }
+                    result = MemoryOperationResult<DiskSegmentCopy>.Success(new(Entry.PayloadBytes));
                 }
-                if (!CryptographicOperations.FixedTimeEquals(hash.GetHashAndReset(), Convert.FromHexString(Entry.Sha256)))
+                catch (Exception exception) when (DiskSegmentStore.KnownFailure(exception))
                 {
-                    throw new InvalidDataException("Record changed during copy.");
+                    result = MemoryOperationResult<DiskSegmentCopy>.Reject(DiskSegmentStore.Failure(exception));
                 }
-                result = MemoryOperationResult<DiskSegmentCopy>.Success(new(Entry.PayloadBytes));
-            }
-            catch (Exception exception) when (DiskSegmentStore.KnownFailure(exception))
-            {
-                result = MemoryOperationResult<DiskSegmentCopy>.Reject(DiskSegmentStore.Failure(exception));
-            }
-            finally
-            {
-                _copying = false;
-                if (_disposeRequested)
+                finally
                 {
-                    Close();
-                    release = true;
+                    _copying = false;
+                    if (_disposeRequested)
+                    {
+                        Close();
+                        release = true;
+                    }
                 }
             }
+            return result;
         }
-        if (release)
+        finally
         {
-            _release();
+            if (release)
+            {
+                _release();
+            }
         }
-        return result;
     }
 
     public void Dispose()
