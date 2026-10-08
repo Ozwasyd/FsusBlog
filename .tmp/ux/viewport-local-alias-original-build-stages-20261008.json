@@ -1,0 +1,983 @@
+{
+  "schema": "fsusblog.frontend-build-stage-receipt.v1",
+  "status": "success",
+  "executionMode": "direct-fallback",
+  "schedulerRunId": null,
+  "sourceState": {
+    "commit": null,
+    "worktreeFingerprint": null
+  },
+  "grantSource": "direct-invocation-fallback",
+  "grantHistory": [
+    {
+      "schema": "fsusblog.live-grant-capacity.v1",
+      "maxParallel": 3,
+      "cpuUnits": 3,
+      "memoryGiB": 15.920597076416016,
+      "parentCpuUnits": 3,
+      "parentMemoryGiB": 15.920597076416016,
+      "source": "direct-invocation-fallback",
+      "observedAtMs": 1791437255088
+    }
+  ],
+  "blocked": [
+    {
+      "id": "vite-build",
+      "dependencies": [
+        "generate-public-page-manifest",
+        "generate-public-shell-emergency",
+        "ensure-wasm"
+      ],
+      "observedAtMs": 1791437255090
+    },
+    {
+      "id": "vue-tsc",
+      "dependencies": [
+        "generate-public-page-manifest"
+      ],
+      "observedAtMs": 1791437255090
+    },
+    {
+      "id": "vite-public-ssr-build",
+      "dependencies": [
+        "generate-public-page-manifest",
+        "generate-public-shell-emergency",
+        "generate-public-shell-emergency"
+      ],
+      "observedAtMs": 1791437255090
+    },
+    {
+      "id": "sync-backend-wwwroot",
+      "dependencies": [
+        "vite-build",
+        "vite-public-ssr-build",
+        "sync-run-bound-public-assets",
+        "sync-fsusui-markdown-runtime-assets"
+      ],
+      "observedAtMs": 1791437255090
+    },
+    {
+      "id": "sync-run-bound-public-assets",
+      "dependencies": [
+        "ensure-wasm",
+        "vite-build",
+        "vite-build"
+      ],
+      "observedAtMs": 1791437255090
+    },
+    {
+      "id": "sync-fsusui-markdown-runtime-assets",
+      "dependencies": [
+        "vite-build"
+      ],
+      "observedAtMs": 1791437255090
+    },
+    {
+      "id": "vite-build",
+      "dependencies": [
+        "generate-public-shell-emergency",
+        "ensure-wasm"
+      ],
+      "observedAtMs": 1791437255129
+    },
+    {
+      "id": "vite-public-ssr-build",
+      "dependencies": [
+        "generate-public-shell-emergency",
+        "generate-public-shell-emergency"
+      ],
+      "observedAtMs": 1791437255129
+    },
+    {
+      "id": "vite-build",
+      "dependencies": [
+        "ensure-wasm"
+      ],
+      "observedAtMs": 1791437255133
+    },
+    {
+      "id": "sync-run-bound-public-assets",
+      "dependencies": [
+        "vite-build",
+        "vite-build"
+      ],
+      "observedAtMs": 1791437255189
+    },
+    {
+      "id": "sync-backend-wwwroot",
+      "dependencies": [
+        "vite-build",
+        "sync-run-bound-public-assets",
+        "sync-fsusui-markdown-runtime-assets"
+      ],
+      "observedAtMs": 1791437268597
+    },
+    {
+      "id": "sync-backend-wwwroot",
+      "dependencies": [
+        "sync-run-bound-public-assets",
+        "sync-fsusui-markdown-runtime-assets"
+      ],
+      "observedAtMs": 1791437269370
+    },
+    {
+      "id": "sync-backend-wwwroot",
+      "dependencies": [
+        "sync-fsusui-markdown-runtime-assets"
+      ],
+      "observedAtMs": 1791437269371
+    }
+  ],
+  "stages": [
+    {
+      "id": "generate-public-page-manifest",
+      "status": "success",
+      "command": [
+        "/workspace/.setup/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-2228-current/tools/frontend/generate-public-page-manifest.mjs"
+      ],
+      "dependsOn": [],
+      "consumedInputs": [
+        "src/shared/Contracts/Outputs/PublicPageContracts.cs"
+      ],
+      "producedArtifacts": [
+        "src/public-renderers/generated/publicPageManifest.ts"
+      ],
+      "ownedOutputs": [
+        "src/public-renderers/generated/publicPageManifest.ts"
+      ],
+      "exclusiveResources": [
+        "generated-public-page-manifest"
+      ],
+      "admittedAtMs": 1791437255093,
+      "grant": {
+        "cpuUnits": 1,
+        "memoryGiB": 0.05,
+        "nestedWorkers": 1,
+        "uvThreadpoolSize": 1
+      },
+      "toolchain": {
+        "node": "v24.16.0",
+        "packageManager": "npm/11.13.0 node/v24.16.0 linux x64 workspaces/false",
+        "vite": "8.0.16",
+        "vueTsc": "3.2.7",
+        "executable": "/workspace/.setup/node-v24.16.0-linux-x64/bin/node"
+      },
+      "detail": null,
+      "outputs": {
+        "src/public-renderers/generated/publicPageManifest.ts": {
+          "status": "file",
+          "size": 3738,
+          "sha256": "sha256:f0f6ad559a6b0a574bb49aa0ce84afe932f550ba7029ae5a7516b679fe066a69"
+        }
+      },
+      "artifacts": {
+        "src/public-renderers/generated/publicPageManifest.ts": {
+          "status": "file",
+          "size": 3738,
+          "sha256": "sha256:f0f6ad559a6b0a574bb49aa0ce84afe932f550ba7029ae5a7516b679fe066a69"
+        }
+      },
+      "finishedAtMs": 1791437255129,
+      "durationMs": 36
+    },
+    {
+      "id": "generate-public-shell-emergency",
+      "status": "success",
+      "command": [
+        "/workspace/.setup/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-2228-current/tools/frontend/generate-public-shell-emergency.mjs",
+        "--public-only"
+      ],
+      "dependsOn": [],
+      "consumedInputs": [
+        "src/assets/public-shell-foundation.css"
+      ],
+      "producedArtifacts": [
+        "public/public-shell-emergency.css"
+      ],
+      "ownedOutputs": [
+        "public/public-shell-emergency.css"
+      ],
+      "exclusiveResources": [
+        "generated-public-shell-emergency"
+      ],
+      "admittedAtMs": 1791437255094,
+      "grant": {
+        "cpuUnits": 1,
+        "memoryGiB": 0.05,
+        "nestedWorkers": 1,
+        "uvThreadpoolSize": 1
+      },
+      "toolchain": {
+        "node": "v24.16.0",
+        "packageManager": "npm/11.13.0 node/v24.16.0 linux x64 workspaces/false",
+        "vite": "8.0.16",
+        "vueTsc": "3.2.7",
+        "executable": "/workspace/.setup/node-v24.16.0-linux-x64/bin/node"
+      },
+      "detail": null,
+      "outputs": {
+        "public/public-shell-emergency.css": {
+          "status": "file",
+          "size": 7782,
+          "sha256": "sha256:a4c3e480f3cc7a2e998a8dbc8575388f9fd6b84f9c7e44bf8df5eaec6a5ce28c"
+        }
+      },
+      "artifacts": {
+        "public/public-shell-emergency.css": {
+          "status": "file",
+          "size": 7782,
+          "sha256": "sha256:a4c3e480f3cc7a2e998a8dbc8575388f9fd6b84f9c7e44bf8df5eaec6a5ce28c"
+        }
+      },
+      "finishedAtMs": 1791437255132,
+      "durationMs": 38
+    },
+    {
+      "id": "ensure-wasm",
+      "status": "success",
+      "command": [
+        "/workspace/.setup/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-2228-current/tools/frontend/ensure-wasm.mjs",
+        "ensure"
+      ],
+      "dependsOn": [],
+      "consumedInputs": [
+        "wasm"
+      ],
+      "producedArtifacts": [
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/wasm-manifest.aeds",
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/aeds-runtime-manifest.json",
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/wasm-build-receipt.json"
+      ],
+      "ownedOutputs": [
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/wasm-manifest.aeds",
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/aeds-runtime-manifest.json",
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/wasm-build-receipt.json"
+      ],
+      "exclusiveResources": [
+        "frontend-wasm-output"
+      ],
+      "admittedAtMs": 1791437255090,
+      "grant": {
+        "cpuUnits": 1,
+        "memoryGiB": 0.05,
+        "nestedWorkers": 1,
+        "uvThreadpoolSize": 1
+      },
+      "toolchain": {
+        "node": "v24.16.0",
+        "packageManager": "npm/11.13.0 node/v24.16.0 linux x64 workspaces/false",
+        "vite": "8.0.16",
+        "vueTsc": "3.2.7",
+        "executable": "/workspace/.setup/node-v24.16.0-linux-x64/bin/node"
+      },
+      "detail": null,
+      "outputs": {
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/wasm-manifest.aeds": {
+          "status": "file",
+          "size": 6845,
+          "sha256": "sha256:887a2ba632dd5284217540f95d172d7855c4f4ab5340f1dabd14b5d069fe9fad"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/aeds-runtime-manifest.json": {
+          "status": "file",
+          "size": 1543,
+          "sha256": "sha256:f4c796a3283386dac058bbbcf233667a2a37b6ec5eb56c26d8b7e7b62b02c8be"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/wasm-build-receipt.json": {
+          "status": "file",
+          "size": 27126,
+          "sha256": "sha256:038091959cb86e37c8a1d51f8d85cb594353900e6fd2d2f1edc0c4edbaf46784"
+        }
+      },
+      "artifacts": {
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/wasm-manifest.aeds": {
+          "status": "file",
+          "size": 6845,
+          "sha256": "sha256:887a2ba632dd5284217540f95d172d7855c4f4ab5340f1dabd14b5d069fe9fad"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/aeds-runtime-manifest.json": {
+          "status": "file",
+          "size": 1543,
+          "sha256": "sha256:f4c796a3283386dac058bbbcf233667a2a37b6ec5eb56c26d8b7e7b62b02c8be"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm/wasm-build-receipt.json": {
+          "status": "file",
+          "size": 27126,
+          "sha256": "sha256:038091959cb86e37c8a1d51f8d85cb594353900e6fd2d2f1edc0c4edbaf46784"
+        }
+      },
+      "finishedAtMs": 1791437255189,
+      "durationMs": 99
+    },
+    {
+      "id": "vue-tsc",
+      "status": "success",
+      "command": [
+        "/workspace/FsusBlog-2228-current/src/frontend/node_modules/.bin/vue-tsc"
+      ],
+      "dependsOn": [
+        "generate-public-page-manifest"
+      ],
+      "consumedInputs": [
+        "src"
+      ],
+      "producedArtifacts": [],
+      "ownedOutputs": [],
+      "exclusiveResources": [],
+      "admittedAtMs": 1791437255130,
+      "grant": {
+        "cpuUnits": 1,
+        "memoryGiB": 0.05,
+        "nestedWorkers": 1,
+        "uvThreadpoolSize": 1
+      },
+      "toolchain": {
+        "node": "v24.16.0",
+        "packageManager": "npm/11.13.0 node/v24.16.0 linux x64 workspaces/false",
+        "vite": "8.0.16",
+        "vueTsc": "3.2.7",
+        "executable": "/workspace/FsusBlog-2228-current/src/frontend/node_modules/.bin/vue-tsc"
+      },
+      "detail": null,
+      "outputs": {},
+      "artifacts": {},
+      "finishedAtMs": 1791437255463,
+      "durationMs": 333
+    },
+    {
+      "id": "vite-build",
+      "status": "success",
+      "command": [
+        "/workspace/FsusBlog-2228-current/src/frontend/node_modules/.bin/vite",
+        "build",
+        "--outDir",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist",
+        "--logLevel",
+        "warn"
+      ],
+      "dependsOn": [
+        "generate-public-page-manifest",
+        "generate-public-shell-emergency",
+        "ensure-wasm"
+      ],
+      "consumedInputs": [
+        "src",
+        "public"
+      ],
+      "producedArtifacts": [
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/index.html",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/assets/fsus-spa-entry.js",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/assets/fsus-public-boot-kernel.js"
+      ],
+      "ownedOutputs": [
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/index.html",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/assets"
+      ],
+      "exclusiveResources": [
+        "frontend-dist-client"
+      ],
+      "admittedAtMs": 1791437255192,
+      "grant": {
+        "cpuUnits": 1,
+        "memoryGiB": 0.05,
+        "nestedWorkers": 1,
+        "uvThreadpoolSize": 1
+      },
+      "toolchain": {
+        "node": "v24.16.0",
+        "packageManager": "npm/11.13.0 node/v24.16.0 linux x64 workspaces/false",
+        "vite": "8.0.16",
+        "vueTsc": "3.2.7",
+        "executable": "/workspace/FsusBlog-2228-current/src/frontend/node_modules/.bin/vite"
+      },
+      "detail": null,
+      "outputs": {
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/index.html": {
+          "status": "file",
+          "size": 7696,
+          "sha256": "sha256:bc3b7e00c63a99b6aacf3f3321683a875c78cfda91bc1fdf4b03d4f967182322"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/assets": {
+          "status": "directory",
+          "entries": 3354,
+          "size": 80943577,
+          "sha256": "sha256:5f17b9f25df3a8274982d0ef4023d2e92e4b6b8f7564e960b73a3d5f8dd7f960",
+          "root": "dist/assets"
+        }
+      },
+      "artifacts": {
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/index.html": {
+          "status": "file",
+          "size": 7696,
+          "sha256": "sha256:bc3b7e00c63a99b6aacf3f3321683a875c78cfda91bc1fdf4b03d4f967182322"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/assets/fsus-spa-entry.js": {
+          "status": "file",
+          "size": 30,
+          "sha256": "sha256:a66588e353e306e1b0d5e67480df3ba0865e5eabd7040fbdbd7cecdacccbc649"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/assets/fsus-public-boot-kernel.js": {
+          "status": "file",
+          "size": 41,
+          "sha256": "sha256:ee3d6f0198d8ae3203c64cc4a577ef45cb2519580e96ba5533856f48eadccc0a"
+        }
+      },
+      "finishedAtMs": 1791437269370,
+      "durationMs": 14178
+    },
+    {
+      "id": "vite-public-ssr-build",
+      "status": "success",
+      "command": [
+        "/workspace/.setup/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-2228-current/tools/frontend/build-public-ssr-bundle.mjs"
+      ],
+      "dependsOn": [
+        "generate-public-page-manifest",
+        "generate-public-shell-emergency"
+      ],
+      "consumedInputs": [
+        "src/public-renderers",
+        "public/public-shell-emergency.css",
+        "/workspace/FsusUI-828-geometry/vue/packages/wasm/dist"
+      ],
+      "producedArtifacts": [
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/public-ssr.mjs",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/renderPublicPage.js",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/package.json",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/server-public-ssr.bundle.mjs",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/server-public-ssr.worker-core.mjs",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/public-shell-emergency.css",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/dist/markdown_simd.js",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/dist/markdown_simd.wasm",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/dist/markdown_basic.js",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/dist/markdown_basic.wasm"
+      ],
+      "ownedOutputs": [
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server"
+      ],
+      "exclusiveResources": [
+        "frontend-dist-server"
+      ],
+      "admittedAtMs": 1791437255133,
+      "grant": {
+        "cpuUnits": 1,
+        "memoryGiB": 0.05,
+        "nestedWorkers": 1,
+        "uvThreadpoolSize": 1
+      },
+      "toolchain": {
+        "node": "v24.16.0",
+        "packageManager": "npm/11.13.0 node/v24.16.0 linux x64 workspaces/false",
+        "vite": "8.0.16",
+        "vueTsc": "3.2.7",
+        "executable": "/workspace/.setup/node-v24.16.0-linux-x64/bin/node"
+      },
+      "detail": null,
+      "outputs": {
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server": {
+          "status": "directory",
+          "entries": 518,
+          "size": 13538406,
+          "sha256": "sha256:940aa2ea4e108f097810abd6836a8d5be210b97453a07b3df399cd179aabdf1d",
+          "root": "dist/server"
+        }
+      },
+      "artifacts": {
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/public-ssr.mjs": {
+          "status": "file",
+          "size": 116561,
+          "sha256": "sha256:0579bc59986b071f64ae6719b30058bc6c9642a125ca4c59a150e610fbce9863"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/renderPublicPage.js": {
+          "status": "file",
+          "size": 116561,
+          "sha256": "sha256:0579bc59986b071f64ae6719b30058bc6c9642a125ca4c59a150e610fbce9863"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/package.json": {
+          "status": "file",
+          "size": 42,
+          "sha256": "sha256:609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/server-public-ssr.bundle.mjs": {
+          "status": "file",
+          "size": 1208,
+          "sha256": "sha256:e502fe63d859004dbbd2746168d8b35d977315e36fc541b960fe0803eef20840"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/server-public-ssr.worker-core.mjs": {
+          "status": "file",
+          "size": 4486,
+          "sha256": "sha256:bb960cacd4d81a03ded1e2be7123f0b965cd83c4958176755923d66eb363af18"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/public-shell-emergency.css": {
+          "status": "file",
+          "size": 7782,
+          "sha256": "sha256:a4c3e480f3cc7a2e998a8dbc8575388f9fd6b84f9c7e44bf8df5eaec6a5ce28c"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/dist/markdown_simd.js": {
+          "status": "file",
+          "size": 12604,
+          "sha256": "sha256:b9b84d6402b9fb69461bb4281d746b49ac5e02fad398304a1f89deed44ce56c8"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/dist/markdown_simd.wasm": {
+          "status": "file",
+          "size": 145355,
+          "sha256": "sha256:c25f2596c189efcec91ec71cdc355d5275725eae8bab64c8bf132d8c1230eca3"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/dist/markdown_basic.js": {
+          "status": "file",
+          "size": 12606,
+          "sha256": "sha256:3bdc57de918232d07af54451f31268d6233f934408de6d58a7102ae26069bdfd"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/server/dist/markdown_basic.wasm": {
+          "status": "file",
+          "size": 144850,
+          "sha256": "sha256:9b96f43c4248572cf375d826973aa9aeda06d8074d10cb404e1aaff508d2311d"
+        }
+      },
+      "finishedAtMs": 1791437268597,
+      "durationMs": 13464
+    },
+    {
+      "id": "sync-run-bound-public-assets",
+      "status": "skipped",
+      "command": [
+        "internal",
+        "sync-run-bound-public-assets"
+      ],
+      "dependsOn": [
+        "ensure-wasm",
+        "vite-build"
+      ],
+      "consumedInputs": [
+        "/workspace/FsusBlog-2228-current/src/frontend/public/wasm",
+        "/workspace/FsusBlog-2228-current/src/frontend/public",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/index.html"
+      ],
+      "producedArtifacts": [],
+      "ownedOutputs": [],
+      "exclusiveResources": [
+        "frontend-dist-wasm"
+      ],
+      "admittedAtMs": 1791437269371,
+      "grant": {
+        "cpuUnits": 2,
+        "memoryGiB": 0.05,
+        "nestedWorkers": 2,
+        "uvThreadpoolSize": 2
+      },
+      "toolchain": {
+        "node": "v24.16.0",
+        "packageManager": "npm/11.13.0 node/v24.16.0 linux x64 workspaces/false",
+        "vite": "8.0.16",
+        "vueTsc": "3.2.7",
+        "executable": "node:fs/promises"
+      },
+      "detail": "not a run-bound frontend build",
+      "outputs": {},
+      "artifacts": {},
+      "finishedAtMs": 1791437269371,
+      "durationMs": 0
+    },
+    {
+      "id": "sync-fsusui-markdown-runtime-assets",
+      "status": "success",
+      "command": [
+        "internal",
+        "sync-fsusui-markdown-runtime-assets"
+      ],
+      "dependsOn": [
+        "vite-build"
+      ],
+      "consumedInputs": [
+        "/workspace/FsusUI-828-geometry/vue/packages/wasm/dist"
+      ],
+      "producedArtifacts": [
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/dist/markdown_simd.js",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/dist/markdown_simd.wasm",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/dist/markdown_basic.js",
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/dist/markdown_basic.wasm"
+      ],
+      "ownedOutputs": [
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/dist"
+      ],
+      "exclusiveResources": [
+        "frontend-dist-markdown"
+      ],
+      "admittedAtMs": 1791437269371,
+      "grant": {
+        "cpuUnits": 1,
+        "memoryGiB": 0.05,
+        "nestedWorkers": 1,
+        "uvThreadpoolSize": 1
+      },
+      "toolchain": {
+        "node": "v24.16.0",
+        "packageManager": "npm/11.13.0 node/v24.16.0 linux x64 workspaces/false",
+        "vite": "8.0.16",
+        "vueTsc": "3.2.7",
+        "executable": "node:fs/promises"
+      },
+      "detail": null,
+      "outputs": {
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/dist": {
+          "status": "directory",
+          "entries": 4,
+          "size": 315415,
+          "sha256": "sha256:a19814f9acc686062b15cf1208d6b50545cd96c65d8a8cb7de88162b30eefca0",
+          "root": "dist/dist"
+        }
+      },
+      "artifacts": {
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/dist/markdown_simd.js": {
+          "status": "file",
+          "size": 12604,
+          "sha256": "sha256:b9b84d6402b9fb69461bb4281d746b49ac5e02fad398304a1f89deed44ce56c8"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/dist/markdown_simd.wasm": {
+          "status": "file",
+          "size": 145355,
+          "sha256": "sha256:c25f2596c189efcec91ec71cdc355d5275725eae8bab64c8bf132d8c1230eca3"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/dist/markdown_basic.js": {
+          "status": "file",
+          "size": 12606,
+          "sha256": "sha256:3bdc57de918232d07af54451f31268d6233f934408de6d58a7102ae26069bdfd"
+        },
+        "/workspace/FsusBlog-2228-current/src/frontend/dist/dist/markdown_basic.wasm": {
+          "status": "file",
+          "size": 144850,
+          "sha256": "sha256:9b96f43c4248572cf375d826973aa9aeda06d8074d10cb404e1aaff508d2311d"
+        }
+      },
+      "finishedAtMs": 1791437269376,
+      "durationMs": 5
+    },
+    {
+      "id": "sync-backend-wwwroot",
+      "status": "success",
+      "command": [
+        "internal",
+        "sync-backend-wwwroot"
+      ],
+      "dependsOn": [
+        "vite-build",
+        "vite-public-ssr-build",
+        "sync-run-bound-public-assets",
+        "sync-fsusui-markdown-runtime-assets"
+      ],
+      "consumedInputs": [
+        "/workspace/FsusBlog-2228-current/src/frontend/dist"
+      ],
+      "producedArtifacts": [
+        "/workspace/FsusBlog-2228-current/src/backend/wwwroot"
+      ],
+      "ownedOutputs": [
+        "/workspace/FsusBlog-2228-current/src/backend/wwwroot"
+      ],
+      "exclusiveResources": [
+        "backend-wwwroot"
+      ],
+      "admittedAtMs": 1791437269376,
+      "grant": {
+        "cpuUnits": 3,
+        "memoryGiB": 0.05,
+        "nestedWorkers": 3,
+        "uvThreadpoolSize": 3
+      },
+      "toolchain": {
+        "node": "v24.16.0",
+        "packageManager": "npm/11.13.0 node/v24.16.0 linux x64 workspaces/false",
+        "vite": "8.0.16",
+        "vueTsc": "3.2.7",
+        "executable": "node:fs/promises"
+      },
+      "detail": null,
+      "outputs": {
+        "/workspace/FsusBlog-2228-current/src/backend/wwwroot": {
+          "status": "directory",
+          "entries": 3913,
+          "size": 97441336,
+          "sha256": "sha256:5ac17a45e609e329cc8fa9281cc5fdc505aa62373508cfdbbcc0d04e29eaf0ac",
+          "root": "../backend/wwwroot"
+        }
+      },
+      "artifacts": {
+        "/workspace/FsusBlog-2228-current/src/backend/wwwroot": {
+          "status": "directory",
+          "entries": 3913,
+          "size": 97441336,
+          "sha256": "sha256:5ac17a45e609e329cc8fa9281cc5fdc505aa62373508cfdbbcc0d04e29eaf0ac",
+          "root": "../backend/wwwroot"
+        }
+      },
+      "finishedAtMs": 1791437272174,
+      "durationMs": 2798
+    }
+  ],
+  "outputPreparation": {
+    "mode": "vite-default",
+    "status": "skipped",
+    "path": "/workspace/FsusBlog-2228-current/src/frontend/dist",
+    "removedExisting": false
+  },
+  "diagnostics": {
+    "criticalPath": {
+      "stageIds": [
+        "ensure-wasm",
+        "vite-build",
+        "sync-fsusui-markdown-runtime-assets",
+        "sync-backend-wwwroot"
+      ],
+      "durationMs": 17080
+    },
+    "stageOverlaps": [
+      {
+        "stages": [
+          "generate-public-page-manifest",
+          "generate-public-shell-emergency"
+        ],
+        "overlapMs": 35
+      },
+      {
+        "stages": [
+          "generate-public-page-manifest",
+          "ensure-wasm"
+        ],
+        "overlapMs": 36
+      },
+      {
+        "stages": [
+          "generate-public-shell-emergency",
+          "ensure-wasm"
+        ],
+        "overlapMs": 38
+      },
+      {
+        "stages": [
+          "generate-public-shell-emergency",
+          "vue-tsc"
+        ],
+        "overlapMs": 2
+      },
+      {
+        "stages": [
+          "ensure-wasm",
+          "vue-tsc"
+        ],
+        "overlapMs": 59
+      },
+      {
+        "stages": [
+          "vue-tsc",
+          "vite-build"
+        ],
+        "overlapMs": 271
+      },
+      {
+        "stages": [
+          "ensure-wasm",
+          "vite-public-ssr-build"
+        ],
+        "overlapMs": 56
+      },
+      {
+        "stages": [
+          "vue-tsc",
+          "vite-public-ssr-build"
+        ],
+        "overlapMs": 330
+      },
+      {
+        "stages": [
+          "vite-build",
+          "vite-public-ssr-build"
+        ],
+        "overlapMs": 13405
+      }
+    ],
+    "resourceWork": {
+      "cpuMilliseconds": 36547,
+      "memoryGiBMilliseconds": 1547.5500000000002,
+      "producedArtifactBytes": 98373607
+    },
+    "waitReasons": [
+      {
+        "stageId": "generate-public-page-manifest",
+        "dependencies": [],
+        "scheduler": "admitted",
+        "observations": []
+      },
+      {
+        "stageId": "generate-public-shell-emergency",
+        "dependencies": [],
+        "scheduler": "admitted",
+        "observations": []
+      },
+      {
+        "stageId": "ensure-wasm",
+        "dependencies": [],
+        "scheduler": "admitted",
+        "observations": []
+      },
+      {
+        "stageId": "vue-tsc",
+        "dependencies": [
+          "generate-public-page-manifest"
+        ],
+        "scheduler": "admitted",
+        "observations": [
+          {
+            "observedAtMs": 1791437255090,
+            "dependencies": [
+              "generate-public-page-manifest"
+            ]
+          }
+        ]
+      },
+      {
+        "stageId": "vite-build",
+        "dependencies": [
+          "generate-public-page-manifest",
+          "generate-public-shell-emergency",
+          "ensure-wasm"
+        ],
+        "scheduler": "admitted",
+        "observations": [
+          {
+            "observedAtMs": 1791437255090,
+            "dependencies": [
+              "generate-public-page-manifest",
+              "generate-public-shell-emergency",
+              "ensure-wasm"
+            ]
+          },
+          {
+            "observedAtMs": 1791437255129,
+            "dependencies": [
+              "generate-public-shell-emergency",
+              "ensure-wasm"
+            ]
+          },
+          {
+            "observedAtMs": 1791437255133,
+            "dependencies": [
+              "ensure-wasm"
+            ]
+          }
+        ]
+      },
+      {
+        "stageId": "vite-public-ssr-build",
+        "dependencies": [
+          "generate-public-page-manifest",
+          "generate-public-shell-emergency"
+        ],
+        "scheduler": "admitted",
+        "observations": [
+          {
+            "observedAtMs": 1791437255090,
+            "dependencies": [
+              "generate-public-page-manifest",
+              "generate-public-shell-emergency"
+            ]
+          },
+          {
+            "observedAtMs": 1791437255129,
+            "dependencies": [
+              "generate-public-shell-emergency"
+            ]
+          }
+        ]
+      },
+      {
+        "stageId": "sync-run-bound-public-assets",
+        "dependencies": [
+          "ensure-wasm",
+          "vite-build"
+        ],
+        "scheduler": "admitted",
+        "observations": [
+          {
+            "observedAtMs": 1791437255090,
+            "dependencies": [
+              "ensure-wasm",
+              "vite-build"
+            ]
+          },
+          {
+            "observedAtMs": 1791437255189,
+            "dependencies": [
+              "vite-build"
+            ]
+          }
+        ]
+      },
+      {
+        "stageId": "sync-fsusui-markdown-runtime-assets",
+        "dependencies": [
+          "vite-build"
+        ],
+        "scheduler": "admitted",
+        "observations": [
+          {
+            "observedAtMs": 1791437255090,
+            "dependencies": [
+              "vite-build"
+            ]
+          }
+        ]
+      },
+      {
+        "stageId": "sync-backend-wwwroot",
+        "dependencies": [
+          "vite-build",
+          "vite-public-ssr-build",
+          "sync-run-bound-public-assets",
+          "sync-fsusui-markdown-runtime-assets"
+        ],
+        "scheduler": "admitted",
+        "observations": [
+          {
+            "observedAtMs": 1791437255090,
+            "dependencies": [
+              "vite-build",
+              "vite-public-ssr-build",
+              "sync-run-bound-public-assets",
+              "sync-fsusui-markdown-runtime-assets"
+            ]
+          },
+          {
+            "observedAtMs": 1791437268597,
+            "dependencies": [
+              "vite-build",
+              "sync-run-bound-public-assets",
+              "sync-fsusui-markdown-runtime-assets"
+            ]
+          },
+          {
+            "observedAtMs": 1791437269370,
+            "dependencies": [
+              "sync-run-bound-public-assets",
+              "sync-fsusui-markdown-runtime-assets"
+            ]
+          },
+          {
+            "observedAtMs": 1791437269371,
+            "dependencies": [
+              "sync-fsusui-markdown-runtime-assets"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cleanup": null,
+  "error": null,
+  "startedAtMs": 1791437255087,
+  "finishedAtMs": 1791437272175,
+  "durationMs": 17088,
+  "generatedAt": "2026-10-08T05:27:52.175Z"
+}
