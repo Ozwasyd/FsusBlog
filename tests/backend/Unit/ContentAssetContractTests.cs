@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using FsusBlog.Server.Contracts.Assets;
@@ -19,6 +20,13 @@ public sealed class ContentAssetContractTests
 
     [Fact]
     public void ProductionSource_RejectsRetiredAssetAuthorityAndDuplicateLedger()
+    {
+        Dictionary<string, string> sources = ReadProductionSources();
+        Assert.Empty(AssetAuthorityViolations(sources));
+        Assert.Empty(StaticAssetMappingViolations(sources));
+    }
+
+    private static Dictionary<string, string> ReadProductionSources()
     {
         DirectoryInfo? root = new(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "AGENTS.md")))
@@ -42,7 +50,21 @@ public sealed class ContentAssetContractTests
             }
         }
 
-        Assert.Empty(AssetAuthorityViolations(sources));
+        return sources;
+    }
+
+    [Theory]
+    [InlineData("class Unregistered { void Serve(IApplicationBuilder app) { app.UseStaticFiles(); } }", "asset.static.exact-one:")]
+    [InlineData("class Unregistered { object Provider() => new PhysicalFileProvider(\"/tmp\"); }", "asset.static.exact-one:")]
+    [InlineData("using Provider = Microsoft.Extensions.FileProviders.PhysicalFileProvider; class Unregistered { object FileProvider() => new Provider(\"/tmp\"); }", "asset.static.exact-one:")]
+    [InlineData("class BadRoot { string Root(IWebHostEnvironment environment) => environment.WebRootPath; }", "asset.roots.canonical:")]
+    [InlineData("class BadRoot { string Root(IWebHostEnvironment environment) => environment.ContentRootPath; }", "asset.roots.canonical:")]
+    [InlineData("class BadRoot { string Root() => Environment.GetEnvironmentVariable(\"FSUSBLOG_ASSET_ROOT\"); }", "asset.roots.canonical:")]
+    public void StaticContractGuard_KillsUnregisteredMappingAndNoncanonicalRoot(string mutation, string rule)
+    {
+        Dictionary<string, string> sources = ReadProductionSources();
+        sources.Add("src/backend/Services/PrivateAssets/Unregistered.cs", mutation);
+        Assert.Contains(StaticAssetMappingViolations(sources), violation => violation.StartsWith(rule, StringComparison.Ordinal));
     }
 
     [Theory]
@@ -88,12 +110,22 @@ public sealed class ContentAssetContractTests
 
     private static List<string> AssetAuthorityViolations(IReadOnlyDictionary<string, string> sources)
     {
-        string[] tables = ["content_asset", "content_asset_reference", "content_asset_cleanup_queue"];
+        DirectoryInfo? root = new(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "AGENTS.md")))
+        {
+            root = root.Parent;
+        }
+        Assert.NotNull(root);
+        using JsonDocument contract = JsonDocument.Parse(File.ReadAllText(Path.Combine(root.FullName, "config", "security", "asset-security-contract.json")));
+        JsonElement identity = contract.RootElement.GetProperty("identity");
+        string[] tables = [.. identity.GetProperty("canonicalTables").EnumerateArray().Select(static value => value.GetString()!)];
+        string[] retiredNames = [.. identity.GetProperty("retiredTables").EnumerateArray().Concat(identity.GetProperty("retiredSymbols").EnumerateArray()).Select(static value => value.GetString()!)];
+        string referenceTable = identity.GetProperty("referenceTable").GetString()!;
         var mappingCounts = tables.ToDictionary(static table => table, static _ => 0, StringComparer.Ordinal);
         var violations = new List<string>();
-        var retired = new Regex(@"\b(?:article_asset_reference|article_asset_cleanup_queue|asset_library_article_ref|asset_library_item|TryNormalizeImageDeletePath|ArticleAssetUrlNormalizer|DeleteImageAsync)\b",
+        var retired = new Regex(@"\b(?:" + string.Join('|', retiredNames.Select(Regex.Escape)) + @")\b",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        var ddl = new Regex(@"\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[""`\[]?(?:content_asset|content_asset_reference|content_asset_cleanup_queue)\b",
+        var ddl = new Regex(@"\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[""`\[]?(?:" + string.Join('|', tables.Select(Regex.Escape)) + @")\b",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         foreach ((string file, string source) in sources)
@@ -137,7 +169,7 @@ public sealed class ContentAssetContractTests
                     if (properties.Contains("AssetId", StringComparer.Ordinal)
                         && properties.Contains("SourceKind", StringComparer.Ordinal)
                         && properties.Contains("SourceKey", StringComparer.Ordinal)
-                        && table != "content_asset_reference")
+                        && table != referenceTable)
                     {
                         violations.Add(file + ": second persistent asset reference ledger");
                     }
@@ -149,6 +181,80 @@ public sealed class ContentAssetContractTests
             if (count != 1)
             {
                 violations.Add(table + ": expected exactly one entity mapping, got " + count);
+            }
+        }
+        return violations;
+    }
+
+    private static List<string> StaticAssetMappingViolations(IReadOnlyDictionary<string, string> sources)
+    {
+        DirectoryInfo? root = new(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "AGENTS.md")))
+        {
+            root = root.Parent;
+        }
+        Assert.NotNull(root);
+        using JsonDocument contract = JsonDocument.Parse(File.ReadAllText(Path.Combine(root.FullName, "config", "security", "asset-security-contract.json")));
+        JsonElement[] mappings = [.. contract.RootElement.GetProperty("staticMappings").EnumerateArray()];
+        string[] assetSources = [.. contract.RootElement.GetProperty("assetServiceSources").EnumerateArray().Select(static source => source.GetString()!)];
+        var counts = mappings.ToDictionary(static mapping => mapping.GetProperty("id").GetString()!, static _ => 0, StringComparer.Ordinal);
+        var violations = new List<string>();
+        foreach ((string sourcePath, string source) in sources)
+        {
+            string file = sourcePath.Replace('\\', '/');
+            var syntax = CSharpSyntaxTree.ParseText(source).GetRoot();
+            var providerAliases = syntax.DescendantNodes().OfType<UsingDirectiveSyntax>()
+                .Where(static directive => directive.Alias is not null && directive.Name?.ToString().Split('.').Last() == "PhysicalFileProvider")
+                .Select(static directive => directive.Alias!.Name.Identifier.ValueText).ToHashSet(StringComparer.Ordinal);
+            foreach (var node in syntax.DescendantNodes())
+            {
+                string? api = node switch
+                {
+                    InvocationExpressionSyntax call when call.Expression is MemberAccessExpressionSyntax member
+                        && member.Name.Identifier.ValueText == "UseStaticFiles" => "UseStaticFiles",
+                    InvocationExpressionSyntax call when call.Expression is IdentifierNameSyntax name
+                        && name.Identifier.ValueText == "UseStaticFiles" => "UseStaticFiles",
+                    ObjectCreationExpressionSyntax creation when creation.Type.ToString().Split('.').Last() == "PhysicalFileProvider"
+                        || providerAliases.Contains(creation.Type.ToString()) => "PhysicalFileProvider",
+                    _ => null
+                };
+                if (api is null)
+                {
+                    continue;
+                }
+                string? memberName = node.Ancestors().Select(static parent => parent switch
+                {
+                    MethodDeclarationSyntax method => method.Identifier.ValueText,
+                    ConstructorDeclarationSyntax constructor => constructor.Identifier.ValueText,
+                    _ => null
+                }).FirstOrDefault(static name => name is not null);
+                JsonElement[] matches = [.. mappings.Where(mapping => mapping.GetProperty("source").GetString() == file
+                    && mapping.GetProperty("member").GetString() == memberName
+                    && mapping.GetProperty("api").GetString() == api)];
+                if (matches.Length != 1)
+                {
+                    violations.Add("asset.static.exact-one:" + file + ":" + node.SpanStart);
+                    continue;
+                }
+                counts[matches[0].GetProperty("id").GetString()!]++;
+            }
+            if (assetSources.Any(assetSource => file == assetSource || file.StartsWith(assetSource + "/", StringComparison.Ordinal)))
+            {
+                foreach (var token in syntax.DescendantTokens())
+                {
+                    if (token.ValueText is "WebRootPath" or "ContentRootPath" or "GetEnvironmentVariable")
+                    {
+                        violations.Add("asset.roots.canonical:" + file + ":" + token.SpanStart);
+                    }
+                }
+            }
+        }
+        foreach (JsonElement mapping in mappings)
+        {
+            string id = mapping.GetProperty("id").GetString()!;
+            if (counts[id] != mapping.GetProperty("count").GetInt32())
+            {
+                violations.Add("asset.static.exact-one:" + id + ":" + counts[id]);
             }
         }
         return violations;
