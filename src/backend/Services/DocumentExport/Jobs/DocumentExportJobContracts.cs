@@ -40,7 +40,10 @@ public interface IDocumentExportJobAuthorization
 /// </summary>
 public interface IDocumentExportJobProvider
 {
-    string ProviderId { get; }
+    string ProviderId
+    {
+        get;
+    }
 
     Task<DocumentExportProviderResult> ExportAsync(
         DocumentExportTask task,
@@ -119,6 +122,23 @@ public sealed record DocumentExportDownload(
     ImmutableDictionary<string, string> Headers);
 
 public sealed record DocumentExportJobUsage(int Jobs, int Outputs, long OutputBytes, int CleanupRequired);
+
+/// <summary>
+/// Bounded private audit facts contain opaque identities and fixed reasons, never
+/// source text, storage paths, session IDs or plaintext capability tokens.
+/// </summary>
+public sealed record DocumentExportJobAuditEvent(string Kind, DateTimeOffset At,
+    DocumentExportTaskStatus Status, string? OutputId, string? OutputDigest, long OutputBytes, string Reason);
+
+/// <summary>
+/// Recovery consults the original execution/process authority. Only an explicit
+/// quiescence proof permits release of an interrupted worker; elapsed time or a
+/// missing PID alone cannot admit retry or cleanup of its frozen input.
+/// </summary>
+public interface IDocumentExportJobRecovery
+{
+    Task<bool> IsQuiescentAsync(DocumentExportTask executionTask, CancellationToken cancellationToken);
+}
 
 /// <summary>
 /// The sole durable job API for all catalog formats and authenticated consumers.
