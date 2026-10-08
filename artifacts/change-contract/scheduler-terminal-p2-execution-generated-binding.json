@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "ca643ebf3c6e4a4b34bc37f48496c2aacf44f6f6c311727d7c8b17f0990ae567"
+        }
+    ]
+}

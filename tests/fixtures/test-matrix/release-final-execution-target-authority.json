@@ -4605,8 +4605,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
-            "contentDigest": "sha256:568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e",
-            "indexDigest": "sha256:568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e"
+            "contentDigest": "sha256:4ef6d5eec6c94b4a214c2787cc82129e346073ad0c8de9a5b41ebf3c8c44e312",
+            "indexDigest": "sha256:4ef6d5eec6c94b4a214c2787cc82129e346073ad0c8de9a5b41ebf3c8c44e312"
         },
         {
             "path": "tools/test-matrix/scheduler-run-owner.mjs",
