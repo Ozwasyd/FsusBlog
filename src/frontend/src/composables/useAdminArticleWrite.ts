@@ -75,6 +75,7 @@ import {
 } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
+import { ArticleEditorSearchRuntime } from '@/services/authoring/articleEditorSearchRuntime';
 import { validateArticleEditorSurfacePreference, type ArticleEditorSurfacePreference } from '@/services/authoring/articleEditorSurface';
 import { ArticleEditorSurfaceRuntime } from '@/services/authoring/articleEditorSurfaceRuntime';
 import { ArticleLiveCapabilitySession } from '@/services/authoring/articleLiveCapability';
@@ -937,6 +938,17 @@ export function useAdminArticleWrite()
                 releaseAttachmentEditor();
                 throw error;
             }
+            let searchRuntime: ArticleEditorSearchRuntime;
+            try
+            {
+                searchRuntime = new ArticleEditorSearchRuntime(articleDocumentContextAdapter, binding);
+            }
+            catch (error)
+            {
+                binding.dispose();
+                releaseAttachmentEditor();
+                throw error;
+            }
             editorRuntimeBinding = binding;
             let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
             const release = (): void =>
@@ -947,6 +959,7 @@ export function useAdminArticleWrite()
                 }
                 editorRuntimeBinding = null;
                 releaseEditorRuntime = null;
+                searchRuntime.dispose();
                 surfaceRuntime?.dispose();
                 surfaceRuntime = null;
                 binding.dispose();
@@ -976,7 +989,7 @@ export function useAdminArticleWrite()
                     new ArticleLiveCapabilitySession(articleDocumentContextAdapter), readCurrentPreference);
                 return surfaceRuntime;
             };
-            return Object.freeze({ binding, release, bindSurfacePreference });
+            return Object.freeze({ binding, release, bindSurfacePreference, search: searchRuntime });
         }
     });
     const initTask = useAbortableTask({

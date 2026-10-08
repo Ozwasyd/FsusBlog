@@ -203,6 +203,19 @@ execution remain in the unchanged inspector registry and handlers. The visible
 label uses the current locale owner. Delegation is not a business-completion or
 palette-visibility receipt, and this entry provides no search query authority.
 
+The same Writer binding owns `ArticleEditorSearchRuntime`. It creates search
+leases through the existing document task registry, never through preview or
+compare tasks. Canonical search-origin anchor commands are projected against the
+current editor binding and that exact running lease; raw index/range inputs
+remain rejected. Commands, cancellation and context transitions notify the host,
+and each projection read rechecks the current binding. Closing search, replacing
+its task, changing the document or releasing the editor clears the projection
+and cancels the lease before editor disposal. Availability remains distinct from
+native navigation acknowledgement and recent-history persistence. Admitted
+server packages, raw UTF-8 digest and string-epoch bridging, the workspace search
+entrypoint and the canonical recent-history transport remain separate inputs;
+this lifecycle neither coerces epochs nor invents permission or visit receipts.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:

@@ -422,6 +422,12 @@ export class ArticleEditorContinuityAdapter
         }
     }
 
+    /** Update the borrowed search lease without replacing outline, attachment or diagnostic owners. */
+    public setSearchTaskOwner(lease: ArticleDocumentTaskLease | null): void
+    {
+        this.setTaskOwners({ ...this.taskOwners, search: lease });
+    }
+
     public capture(binding: ArticlePositionMapBinding, options: ArticleAnchorCaptureOptions): ArticleEditorContinuityContext
     {
         if (this.disposed || this.observation?.document.contextDigest !== this.owner.context.contextDigest ||
