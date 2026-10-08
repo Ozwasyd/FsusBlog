@@ -4,6 +4,7 @@
         {
             "id": "environment-variable",
             "paths": [
+                "tools/test/backend-atomic-bridge.mjs",
                 "tools/test/backend-atomic-outcomes.mjs",
                 "tools/test/backend-atomic-producers.mjs"
             ],

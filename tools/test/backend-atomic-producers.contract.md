@@ -63,34 +63,74 @@ observation, not a replacement compiler terminal receipt. Native attempt timesta
 follow the actual Release build and both sibling terminals. This detects domain overlap;
 full host CPU isolation still belongs to the existing resource/measurement authorities.
 
-## Required canonical integration
+## Canonical compiler and attempt bridge
 
-The following work remains with the assigned shared owners; it is not implemented here:
+`backend-atomic-bridge.mjs` supplies `compileBackendAtomicBridge(input)`,
+`executeBackendAtomicBridge(binding, input, options)` and
+`verifyBackendAtomicExecution(result, expectedDigest, binding, input, options)`.
+Input supplies the same domain plans and selected digests, source root, canonical matrix
+and canonical authorities. The bridge calls the existing `compileAtomicProducerDag`;
+it neither synthesizes matrix declarations nor discovers commands. Compilation binds
+physical ownership, original source/input/resource references, replay file bytes,
+fixture identity, zero-retry policy and exact hard/settled edges to the owned plans.
+Canonical command-source, input-closure and resource materials carry the original
+`sourceRef`; fixture material carries `profileId`. Native state material carries its
+original `sourceRef`. These sealed fields preserve domain provenance within the existing
+canonical authority material. An unrelated executable producer refuses before execution.
 
-- #2247/#2248 must supply canonical matrix-derived declarations, current command/input
-  closure and physical ownership, exact-one attempt compilation, zero-retry terminal
-  receipts, scheduler resource admission and independently verified replay references.
-- #1686 must register the two domain slices and owning tests through that canonical
-  matrix/registry projection. The module's DATA_ONLY schema is not an upstream schema.
-- The existing `_suite-support.sh` owner (PR #3733 at reservation) must replace
-  `RunBackendGovernanceChecks`, `RunBackendTestGovernanceOnly` and
-  `RunBackendPerfGovernanceOnly` execution with verified receipt-only consumption.
-  The canonical compiler must keep the three original checker commands/input closures.
-  Existing sequential paths remain visible on the source base; this increment does not
-  assert that they were removed or admitted.
-- The performance entry must use the same compiled plan as local/CI/production consumers,
-  dispatch explicit `build` versus `verify-fresh` from policy, preserve existing Release
-  commands, separately supply/verify the test assembly, and remove duplicate readiness
-  execution. Missing/unknown mode must fail closed before physical execution.
-- The native producer must preserve the existing filter, 32 samples, 50ms budget, MCL
-  evidence, Release identity and measurement admission. Domain tests do not qualify an
-  actual native P99 run, benchmark build, local/CI execution or full matrix acceptance.
+Execution requires independently selected `expectedBindingDigest`, exact source/run/
+worktree context and profile, original per-producer envelope/replay/temporal references,
+external authority verifiers and the canonical scheduler capacity/state policy. Perf
+producer environments must bind Release and the selected readiness mode. The bridge
+calls `executeCompiledAtomicProducerDag` exactly once. It retains the executor's complete
+terminal vector, including failures, cancellation and genuine build blocking; it then
+projects original attempt receipts through the existing domain outcome APIs. Missing
+attempts remain explicit projection failures. `BackendAtomicExecutionError.result`
+retains the complete available vector. Executor preflight failure without a vector
+propagates without manufacturing evidence. Original exit-zero commands missing structured
+result sidecars retain `invalid-success-result-sidecar` refusal.
 
-The implementation reuses `attempt-provenance.mjs` digest/receipt validation and existing
-`executeWeightedStepDag`/`runProducerAttempts` in isolated fixture tests. It neither changes
-those owners nor duplicates the frozen build/projection/finalizer semantic adapters from
-`d90349112269ad4bdd0925705126912265758dc1` (PR #3889). Fixture external verification is an
-explicit test double. Actual upstream admission and independent review remain required.
+The result includes the actual immutable terminal-vector path and file-byte digest,
+compiled DAG identity and complete domain projections. Readback revalidates vector,
+receipt, artifact and log bytes without rerunning commands or repairing evidence.
+The binding and result retain `qualificationEligible: false`: successful fixture command
+execution is not native host admission or qualification.
+
+## Exact capability composition and remaining integration
+
+Bridge verification composes only the owned modules/tests with canonical capability
+`2eda290cc6098971b685b3fb1465d7193bd3dde2`. Its atomic framework contains the published
+cancellation correction `653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0` and import correction
+`ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c`. Canonical source files are unchanged in the
+composed test checkout. This branch requires that capability to be integrated before its
+bridge test can run directly. Fixture commands, external verifier and state-conflict
+policy are explicit test doubles; the compiler, executor, scheduler, first-attempt runner
+and immutable receipt producers are the original implementations.
+
+The remaining shared work belongs to its assigned owners:
+
+- #2247/#2248 and #1686 must supply/register the real canonical matrix declarations,
+  physical ownership, source closures, replay/temporal/envelope references and domain
+  tests. The bridge consumes those capabilities; it does not alter their authority.
+- The existing `_suite-support.sh` owner must replace `RunBackendGovernanceChecks`,
+  `RunBackendTestGovernanceOnly` and `RunBackendPerfGovernanceOnly` execution with verified
+  receipt-only consumption. Real original commands must produce admitted structured
+  result sidecars; this increment does not wrap plain exit-zero as success evidence.
+- The scheduler owner must consume the selected compiler binding and resulting terminal
+  vector under its existing run/resource ownership. `readCanonicalSchedulerCheckpoint`,
+  `readCanonicalSchedulerResourceGrant` and `commitSchedulerCheckpointCAS` remain its
+  APIs; this module does not add checkpoint fields or write shared registry/checkpoints.
+- The performance entry must invoke the same canonical compiler plan, dispatch explicit
+  `build` versus `verify-fresh`, preserve Release commands, separately verify the native
+  test assembly and remove duplicate readiness execution. Native filter, 32 samples,
+  50ms budget, MCL evidence, CPU isolation and measurement admission remain unverified
+  by synthetic commands. Local/CI/production parity and full matrix acceptance remain
+  open until those real consumers and independent runtime evidence are available.
+
+This increment does not change canonical topology, scheduler, shared inventory/history,
+retention authority or frozen build/projection/finalizer adapters from
+`d90349112269ad4bdd0925705126912265758dc1` (PR #3889). Independent review and integration
+remain required.
 
 Rollback: revert only the owned module/test increment if the canonical handoff disagrees;
 retain original checker, build, budget, matrix, policy and failure evidence.
