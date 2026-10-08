@@ -2983,3 +2983,48 @@ acceptance.
 `writing-aid-preference-wire.json` binds frames 272–274 to the exact existing Shared preference contracts and Snapshot/Update POD codecs. Snapshot retains the 96-byte fixed record plus a bounded UTF-8 scope blob; Update remains exactly 80 bytes. Receipt payload v1 carries a nonempty canonical UUID, exact `device:` scope, closed update/initialize action, committed status, two original snapshot payloads and the existing receipt digest, bounded to 1,434 bytes. Initialize preserves the canonical previous-revision-zero and committed-defaults rule. C#, TypeScript and native validators recompute the same closed Shared digest arrays; malformed UTF-8, padding, lengths, scope, revisions, actions, defaults or digests fail closed. JSON is used only in the existing internal domain digest algorithm, never as a wire payload or text fallback.
 
 `tools/contracts/generate-writing-aid-preference-wire.mjs` verifies exact source-owner hashes and generates the family codecs; its golden producer preserves the original Snapshot digest witness and adds independent positive and malformed cases. The single native `DecodeFrame` dispatcher rejects family payload errors with error 15. The frontend decoder registry registers the two response roots and the common encoder exports the typed Update request. The existing generic Guid command remains the initialize input; no independent initialize DTO or frame is added. This integration provides no HTTP endpoint, authenticated site/device producer, persisted preference acceptance, migration acceptance or rendered UI receipt. Those require the original domain/service owners and their current evidence.
+
+## Vault current upload observation binding
+
+The existing `IPrivateAssetStore.OpenReadAsync(AssetId, ct)` validates native private
+bytes and returns storage/media/extension/size/SHA metadata and an owned stream.
+`IPrivateAssetAccessService.IssueTicketAsync` and its original redemption service
+apply the configured unique purpose policy and subject binding. These APIs exist;
+an ordinary read or ticket is not a Vault plan/resource-operation grant.
+
+The existing `IFileService.ObserveCommittedUploadAsync(UploadSessionAccess, sha256,
+ct)` validates the original completed session, owner/token, native bytes/media,
+canonical `AssetRecord` and `AssetReference` rows. `UploadAssetObservation` exposes
+Schema, UploadId, Asset, PublicUrl, References, AssetVersionSha256 and
+ReferenceLedgerSha256. It supports the original20MiB limit. The bounded frame275
+preview and its public route are separate from this internal observation API.
+
+`ArticleVaultUploadAssetBindingReader.ObserveCurrentRevisionUploadAsync` is an
+unactivated server consumer of those existing upload facts. It loads the original
+sealed plan/operation, uses the sole complete-group current-observation guard,
+and calls the existing current article source reader with its ArticleRead
+permission checks. Its explicit trusted Vault site composition names the existing
+primary article-read domain; Vault, primary article and revision-package scopes
+retain distinct identities. It brackets reads with current observations and
+re-observes the original upload byte/session/ledger facts. Owner, AssetId, actual
+source bytes/revision and canonical revision reference must match; drift,
+expiry, cancellation, missing references and failed upload observations refuse.
+It performs no upload, reference write, private read, ticket issue or deletion.
+
+The metadata-only `ArticleVaultCurrentUploadAssetObservation` binds original
+plan/group/operation reference and digest, site/vault/device/portable and literal
+server article identities, source revision/SHA, authenticated admin and asset
+owner, ArticleRead permission scope/fingerprint, original Vault permission,
+rights/publication boundary digests, complete native asset metadata, upload id,
+asset version/reference-ledger digests and canonical revision reference source
+key. Its content digest uses the original execution digest helper. It contains
+no upload token, bytes or display URL. This is a read-only supplier observation:
+`CanExecute`, `CanMaterialize`, `CanUpload` and `CanCommitBase` are always false.
+The root must revalidate it against current authorities before admitting any use.
+
+The closed original Vault article plan/manifest still has no AssetId membership
+or resource-operation grant. Existing current-revision upload references cannot
+supply that missing selected-resource authority, authorize private asset export,
+or admit an unreferenced new upload. Canonical resource plan/rights/reuse admission
+and actual private-purpose policy binding remain with the original resource
+owners; this consumer does not create a permission receipt or activate cutover.

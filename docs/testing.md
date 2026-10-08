@@ -1784,3 +1784,22 @@ former253-as-Canvas and one-byte-over-budget refusals. Pin source commit/run ide
 and inspect actual object/media/SHA/ledger and owned teardown results. These checks
 establish bounded consumer behavior; they do not grant browser/provider rights,
 article-operation/revision authority or terminal migration/security qualification.
+
+## Vault upload observation binding controls
+
+Run only the bounded supplier controls with the standard backend project filter
+`FullyQualifiedName~ArticleVaultUploadAssetBindingTests|FullyQualifiedName~VaultUploadBinding_ReusesRealNativeObservationAndCanonicalRevisionReference`.
+The unit controls invoke the real current-source reader and original complete-group
+guard with controlled authority inputs. They cover exact plan/group/operation,
+AssetId, owner, selected revision reference, actual raw source, unavailable upload,
+permission/rights/ledger drift, interrupted reads and expiry. Check concrete
+refusal codes so an earlier unrelated refusal cannot satisfy a negative control.
+
+The PostgreSQL cases call the actual original FileService upload and native
+byte/metadata/ledger observer on task-scoped small and20MiB PNGs, repeat the read
+without another asset/reference write and reject a removed canonical revision
+reference. Plan/article permission fixtures remain controlled, not genuine Vault
+resource authorization. Preserve original asset/session/byte negative controls
+and inspect owned filesystem/database teardown; bind current commits, source
+hashes and run artifacts. No original Vault lease/kernel/integrity audit replay
+or root execution/base qualification is part of this bounded supplier check.

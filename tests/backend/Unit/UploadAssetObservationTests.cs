@@ -47,6 +47,79 @@ namespace FsusBlog.Server.Tests;
 public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture fixture)
 {
     [Theory]
+    [InlineData(67)]
+    [InlineData(20_971_520)]
+    public async Task VaultUploadBinding_ReusesRealNativeObservationAndCanonicalRevisionReference(int size)
+    {
+        FsusBlog.Server.Services.ArticleVault.ArticleVaultCurrentUploadAssetObservation bound;
+        string root;
+        string nativeSha256;
+        await using (var upload = await CreateAsync(size == 67 ? null : CreateOriginalPng(size)))
+        {
+            root = upload.Root;
+            Guid assetId = Guid.ParseExact(upload.Access.UploadId, "N");
+            await upload.Db.Insertable(new ContentAssetReference
+            {
+                AssetId = assetId,
+                SourceKind = ContentAssetSourceKinds.Revision,
+                SourceKey = "4",
+                ArticleId = 42,
+                ReferenceCount = 1,
+                UpdatedAtUtc = DateTime.UtcNow
+            }).ExecuteCommandAsync();
+            // Bytes/session/ledger are real; plan/article authority fixtures grant no Vault operation.
+            var setup = ArticleVaultUploadAssetBindingTests.Create(upload.Service, upload.Access, upload.Sha256);
+            bound = await setup.ReadAsync();
+            Assert.Equal(assetId, bound.Asset.Id.Value);
+            Assert.Equal(upload.Bytes.Length, bound.Asset.SizeBytes);
+            Assert.Equal(upload.Sha256, bound.Asset.Sha256);
+            Assert.False(bound.CanExecute);
+            Assert.False(bound.CanMaterialize);
+            Assert.False(bound.CanUpload);
+            Assert.False(bound.CanCommitBase);
+            Assert.Equal("4", bound.RevisionReferenceSourceKey);
+            string path = Path.Combine(ReleaseStorageTestPaths.Create(root).PublicAssetRoot,
+                bound.Asset.StorageKey.Value.Replace('/', Path.DirectorySeparatorChar));
+            nativeSha256 = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(path)));
+            Assert.Equal(bound.Asset.Sha256, nativeSha256);
+            var repeated = await setup.ReadAsync();
+            Assert.Equal(bound.ContentSha256, repeated.ContentSha256);
+            Assert.Equal(1, await upload.Db.Queryable<ContentAsset>().CountAsync());
+            Assert.Equal(1, await upload.Db.Queryable<ContentAssetReference>().CountAsync());
+            await upload.Db.Deleteable<ContentAssetReference>().Where(row => row.AssetId == assetId).ExecuteCommandAsync();
+            var refusal = await Assert.ThrowsAsync<FsusBlog.Server.Services.ArticleVault.ArticleVaultExecutionRejectedException>(setup.ReadAsync);
+            Assert.Equal("article_vault_upload_asset_upload_or_revision_reference_unavailable", refusal.ReasonCode);
+            Assert.Equal(1, await upload.Db.Queryable<ContentAsset>().CountAsync());
+        }
+        Assert.False(Directory.Exists(root));
+        string? directory = Environment.GetEnvironmentVariable("FSUSBLOG_VAULT_UPLOAD_BINDING_ARTIFACTS");
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+            string json = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                SourceCommit = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_SOURCE_SHA"),
+                RunId = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_RUN_ID"),
+                TestedAtUtc = DateTimeOffset.UtcNow,
+                BoundObservation = bound,
+                NativeSha256 = nativeSha256,
+                RepeatAssetRows = 1,
+                RepeatReferenceRows = 1,
+                MissingRevisionReferenceRefused = true,
+                OwnedRoot = root,
+                OwnedRootRemoved = !Directory.Exists(root),
+                AuthorityInputKind = "controlled-plan-article-permission-oracle",
+                RealAssetObservation = "original-file-service-native-bytes-postgresql-ledger",
+                VaultResourceQualification = false
+            }, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+            await File.WriteAllTextAsync(Path.Combine(directory, $"native-upload-{size}.json"), json);
+        }
+    }
+
+    [Theory]
     [InlineData(8_387_832, true)]
     [InlineData(8_387_833, false)]
     [InlineData(20_971_520, false)]
