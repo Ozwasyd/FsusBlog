@@ -1050,7 +1050,7 @@ public sealed class AuthorSavedViewDependencyCatalog(
             descriptor,
             []);
 
-    private static AuthorSavedViewDependencyResolution Projection(
+    internal static AuthorSavedViewDependencyResolution Projection(
         AuthorSavedViewFieldReference field,
         string operation,
         AuthorSavedViewDependencyStatus status,

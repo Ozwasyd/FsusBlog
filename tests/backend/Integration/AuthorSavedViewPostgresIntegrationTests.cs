@@ -1,10 +1,15 @@
 using System.Collections.Concurrent;
+using System.Security.Claims;
 
 using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 
 using Npgsql;
 
@@ -343,6 +348,93 @@ public sealed class AuthorSavedViewPostgresIntegrationTests(
         Assert.Equal(created.ReceiptId, replay.ReceiptId);
         Assert.Equal(created.ContentDigest, replay.ContentDigest);
         Assert.True((await store.VerifyAsync(s_singleOwner)).Valid);
+    }
+
+    [Fact]
+    public async Task Preparation_UsesPersistedAuthorityAndTaxonomyWithoutSavedViewWrites()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await db.Ado.ExecuteCommandAsync(
+            "CREATE TABLE category(id integer PRIMARY KEY, name text NOT NULL); INSERT INTO category VALUES (7, 'Original');");
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog(
+            [new PostgresAuthorSavedViewDependencyProvider(db)]));
+        var store = new AuthorSavedViewStore(new PostgresAuthorSavedViewPersistence(db), validator, TimeProvider.System);
+        AuthorSavedViewQuery query = LifecycleQuery() with
+        {
+            Conditions =
+            [
+                .. LifecycleQuery().Conditions,
+                new(new(AuthorSavedViewFieldKind.Category, "category:7"), "identity.equals", ["category:7"])
+            ]
+        };
+        Guid viewId = Guid.CreateVersion7();
+        await store.CreateAsync(new(viewId, s_singleOwner, 0, Guid.CreateVersion7(), "Preparation", query));
+        AuthorSavedView source = Assert.IsType<AuthorSavedView>(await store.GetAsync(s_singleOwner, viewId));
+        var accessor = new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim("identity_kind", "admin_principal"),
+                    new Claim("admin_id", "1"),
+                    new Claim("admin_sid", "preparation-domain-test"),
+                    new Claim(AdminPermissions.PermissionClaimType, AdminPermissions.ArticleWrite)
+                ], "test"))
+            }
+        };
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["SITE_BASEURL"] = s_singleOwner.SiteScope
+            }).Build();
+        var preparation = new AuthorSavedViewExecutionPreparationService(
+            new AuthorSavedViewApplicationFacade(store, accessor, configuration), validator);
+        var request = new AuthorSavedViewExecutionPreparationRequest(
+            viewId, source.Revision, source.QueryDigest, 1, 25, Guid.CreateVersion7(), 1);
+        var savedViewWrites = new ConcurrentQueue<string>();
+        db.Aop.OnLogExecuting = (sql, _) =>
+        {
+            string statement = sql.TrimStart();
+            if (statement.StartsWith("INSERT", StringComparison.OrdinalIgnoreCase)
+                || statement.StartsWith("UPDATE", StringComparison.OrdinalIgnoreCase)
+                || statement.StartsWith("DELETE", StringComparison.OrdinalIgnoreCase))
+            {
+                if (statement.Contains("author_saved_view", StringComparison.OrdinalIgnoreCase))
+                {
+                    savedViewWrites.Enqueue(statement);
+                }
+            }
+        };
+
+        AuthorSavedViewExecutionPreparation initial = await preparation.PrepareAsync(request);
+        Assert.Equal(AuthorSavedViewPreparationStatus.Resolved, initial.Status);
+        AuthorSavedViewResolvedPlan plan = Assert.IsType<AuthorSavedViewResolvedPlan>(initial.Plan);
+        Assert.True(AuthorSavedViewExecutionPreparationVerifier.VerifyResolvedPlan(
+            plan, source, await validator.ValidateAsync(s_singleOwner, source.Query), 25).Valid);
+        await db.Ado.ExecuteCommandAsync("UPDATE category SET name = 'Renamed' WHERE id = 7;");
+        AuthorSavedViewExecutionPreparation renamed = await preparation.PrepareAsync(request with
+        {
+            RequestId = Guid.CreateVersion7(),
+            RequestSequence = 2
+        });
+        Assert.Equal(plan.ContentDigest, renamed.Plan!.ContentDigest);
+        await db.Ado.ExecuteCommandAsync("DELETE FROM category WHERE id = 7;");
+        AuthorSavedViewExecutionPreparation deleted = await preparation.PrepareAsync(request with
+        {
+            RequestId = Guid.CreateVersion7(),
+            RequestSequence = 3
+        });
+        Assert.Equal(AuthorSavedViewPreparationStatus.Invalid, deleted.Status);
+        Assert.Null(deleted.Plan);
+        Assert.Equal(AuthorSavedViewDependencyStatus.Deleted,
+            Assert.Single(deleted.Dependencies, dependency => dependency.Dependency.Kind == AuthorSavedViewFieldKind.Category).Status);
+        Assert.Empty(savedViewWrites);
+        AuthorSavedView retained = Assert.IsType<AuthorSavedView>(await store.GetAsync(s_singleOwner, viewId));
+        Assert.Equal(source.ContentDigest, retained.ContentDigest);
+        Assert.Equal(2, retained.Query.Conditions.Count);
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM author_saved_view_receipt;"));
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM author_saved_view_idempotency;"));
     }
 
     private sealed class FixedUtcTimeProvider(DateTime now) : TimeProvider

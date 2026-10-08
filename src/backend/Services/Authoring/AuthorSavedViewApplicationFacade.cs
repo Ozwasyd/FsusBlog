@@ -111,7 +111,14 @@ public sealed class AuthorSavedViewApplicationFacade(
 
         T result = await operation(identity.Owner, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        if (ResolveIdentity() != identity)
+        bool foreignResponse = result switch
+        {
+            AuthorSavedView view => view.Owner != identity.Owner,
+            AuthorSavedViewWriteReceipt receipt => receipt.Owner != identity.Owner,
+            AuthorSavedViewPage page => page.Items.Any(view => view.Owner != identity.Owner),
+            _ => false
+        };
+        if (ResolveIdentity() != identity || foreignResponse)
         {
             // A committed write is recovered with its original idempotency key. A changed
             // request identity must never receive the prior user's private response.

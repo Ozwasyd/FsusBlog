@@ -200,13 +200,13 @@ public sealed class AuthorSavedViewApplicationFacadeTests
         return new(new ClaimsIdentity(claims, authenticated ? "test" : null));
     }
 
-    private sealed class Fixture
+    internal sealed class Fixture
     {
         public CapturingStore Store
         {
             get;
         } = new();
-        public HttpContextAccessor Accessor
+        public RequestContextAccessor Accessor
         {
             get;
         } = new()
@@ -227,10 +227,22 @@ public sealed class AuthorSavedViewApplicationFacadeTests
         public AuthorSavedViewApplicationFacade Facade => new(Store, Accessor, Configuration);
     }
 
-    private sealed record Call(AuthorSavedViewOwner Owner, object? Input, CancellationToken Token);
-
-    private sealed class CapturingStore : IAuthorSavedViewStore
+    internal sealed class RequestContextAccessor : IHttpContextAccessor
     {
+        public HttpContext? HttpContext
+        {
+            get; set;
+        }
+    }
+
+    internal sealed record Call(AuthorSavedViewOwner Owner, object? Input, CancellationToken Token);
+
+    internal sealed class CapturingStore : IAuthorSavedViewStore
+    {
+        public AuthorSavedView? View
+        {
+            get; set;
+        }
         public List<Call> Calls
         {
             get;
@@ -248,8 +260,11 @@ public sealed class AuthorSavedViewApplicationFacadeTests
             return default(T)!;
         }
 
-        public Task<AuthorSavedView?> GetAsync(AuthorSavedViewOwner owner, Guid viewId, CancellationToken cancellationToken = default)
-            => Capture<AuthorSavedView?>(owner, viewId, cancellationToken);
+        public async Task<AuthorSavedView?> GetAsync(AuthorSavedViewOwner owner, Guid viewId, CancellationToken cancellationToken = default)
+        {
+            await Capture<AuthorSavedView?>(owner, viewId, cancellationToken);
+            return View;
+        }
         public Task<AuthorSavedViewPage> ListAsync(AuthorSavedViewOwner owner, AuthorSavedViewPageCursor? cursor, int limit, CancellationToken cancellationToken = default)
             => Capture<AuthorSavedViewPage>(owner, (cursor, limit), cancellationToken);
         public Task<AuthorSavedViewVerificationResult> VerifyAsync(AuthorSavedViewOwner owner, CancellationToken cancellationToken = default)
