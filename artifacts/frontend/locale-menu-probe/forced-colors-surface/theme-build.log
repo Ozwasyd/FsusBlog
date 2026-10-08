@@ -1,0 +1,145 @@
+
+> @element-plus/theme-chalk@0.1.0 build /workspace/FsusUI/vue/packages/theme-chalk
+> node ../../../scripts/with-node-heap.mjs node --require @esbuild-kit/cjs-loader ../../../node_modules/gulp/bin/gulp.js
+
+[09:02:45] Using gulpfile /workspace/FsusUI/vue/packages/theme-chalk/gulpfile.ts
+[09:02:45] Starting 'default'...
+[09:02:45] Starting 'copyThemeChalkSource'...
+[09:02:45] Starting 'buildThemeChalk'...
+Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+✔ affix.css: 0.07 KB -> 0.03 KB
+✔ alert.css: 3.94 KB -> 3.38 KB
+✔ aside.css: 0.14 KB -> 0.10 KB
+✔ autocomplete.css: 4.69 KB -> 4.09 KB
+✔ avatar.css: 1.06 KB -> 0.88 KB
+✔ backtop.css: 1.21 KB -> 1.06 KB
+✔ badge.css: 1.47 KB -> 1.25 KB
+✔ base.css: 22.86 KB -> 21.10 KB
+✔ breadcrumb-item.css: 0.00 KB -> 0.00 KB
+✔ breadcrumb.css: 4.02 KB -> 3.40 KB
+✔ button-group.css: 3.68 KB -> 3.31 KB
+✔ button.css: 19.84 KB -> 18.20 KB
+✔ calendar.css: 7.80 KB -> 6.75 KB
+✔ card.css: 1.58 KB -> 1.41 KB
+✔ carousel-item.css: 1.69 KB -> 1.47 KB
+✔ carousel.css: 5.76 KB -> 5.12 KB
+✔ cascader-panel.css: 5.44 KB -> 4.80 KB
+✔ cascader.css: 7.26 KB -> 6.49 KB
+✔ check-tag.css: 1.05 KB -> 0.90 KB
+✔ checkbox-button.css: 3.72 KB -> 3.33 KB
+✔ checkbox-group.css: 0.09 KB -> 0.05 KB
+✔ checkbox.css: 7.52 KB -> 6.75 KB
+✔ col.css: 44.33 KB -> 32.86 KB
+✔ collapse-item.css: 0.00 KB -> 0.00 KB
+✔ collapse-transition.css: 0.00 KB -> 0.00 KB
+✔ collapse.css: 12.94 KB -> 11.94 KB
+✔ collection-primitives.css: 9.04 KB -> 7.79 KB
+✔ color-picker.css: 10.50 KB -> 9.23 KB
+✔ config-provider.css: 0.00 KB -> 0.00 KB
+✔ container.css: 0.22 KB -> 0.15 KB
+✔ date-picker.css: 37.69 KB -> 33.63 KB
+✔ descriptions-item.css: 1.14 KB -> 1.02 KB
+✔ descriptions.css: 5.58 KB -> 4.96 KB
+✔ dialog.css: 8.56 KB -> 7.45 KB
+✔ display.css: 1.22 KB -> 0.98 KB
+✔ divider.css: 0.89 KB -> 0.73 KB
+✔ drawer.css: 8.56 KB -> 7.12 KB
+✔ dropdown-item.css: 0.00 KB -> 0.00 KB
+✔ dropdown-menu.css: 0.13 KB -> 0.09 KB
+✔ dropdown.css: 7.66 KB -> 6.75 KB
+✔ empty-state.css: 4.18 KB -> 3.69 KB
+✔ empty.css: 2.05 KB -> 1.79 KB
+✔ footer.css: 0.22 KB -> 0.17 KB
+✔ form-item.css: 0.00 KB -> 0.00 KB
+✔ form.css: 5.55 KB -> 4.85 KB
+✔ fsus-theme.css: 110.12 KB -> 98.15 KB
+✔ fsus.css: 752.92 KB -> 656.03 KB
+✔ header.css: 0.22 KB -> 0.17 KB
+✔ icon.css: 0.78 KB -> 0.60 KB
+✔ image-viewer.css: 4.64 KB -> 4.02 KB
+✔ image.css: 0.75 KB -> 0.60 KB
+✔ inbox-primitives.css: 11.56 KB -> 9.73 KB
+✔ index.css: 642.82 KB -> 559.27 KB
+✔ infinite-scroll.css: 0.00 KB -> 0.00 KB
+✔ input-number.css: 4.65 KB -> 4.13 KB
+✔ input.css: 17.33 KB -> 15.68 KB
+✔ link.css: 3.90 KB -> 3.50 KB
+✔ loading.css: 3.22 KB -> 2.73 KB
+✔ main.css: 0.20 KB -> 0.14 KB
+✔ markdown-editor.css: 43.27 KB -> 37.75 KB
+✔ markdown-renderer.css: 6.58 KB -> 5.84 KB
+✔ menu-item-group.css: 0.00 KB -> 0.00 KB
+✔ menu-item.css: 0.00 KB -> 0.00 KB
+✔ menu.css: 20.36 KB -> 18.41 KB
+✔ message-box.css: 6.81 KB -> 5.89 KB
+✔ message.css: 4.55 KB -> 4.02 KB
+✔ metric-primitives.css: 14.26 KB -> 12.38 KB
+✔ motion.css: 5.36 KB -> 4.67 KB
+✔ notification.css: 4.81 KB -> 4.34 KB
+✔ option-group.css: 0.79 KB -> 0.63 KB
+✔ option-item.css: 3.83 KB -> 3.44 KB
+✔ option.css: 1.96 KB -> 1.76 KB
+✔ overlay.css: 0.34 KB -> 0.27 KB
+✔ page-header.css: 0.94 KB -> 0.77 KB
+✔ pagination.css: 10.85 KB -> 9.54 KB
+✔ perception-challenge.css: 10.58 KB -> 9.01 KB
+✔ popconfirm.css: 0.28 KB -> 0.20 KB
+✔ popover.css: 2.13 KB -> 1.92 KB
+✔ popper.css: 2.26 KB -> 1.95 KB
+✔ progress.css: 3.90 KB -> 3.34 KB
+✔ prose.css: 2.52 KB -> 2.17 KB
+✔ public-shell-critical.css: 19.13 KB -> 16.75 KB
+✔ public-shell.css: 20.86 KB -> 18.27 KB
+✔ radio-button.css: 3.86 KB -> 3.44 KB
+✔ radio-group.css: 0.13 KB -> 0.08 KB
+✔ radio.css: 5.01 KB -> 4.37 KB
+✔ rate.css: 2.08 KB -> 1.79 KB
+✔ reset.css: 0.24 KB -> 0.18 KB
+✔ responsive-collection.css: 0.60 KB -> 0.49 KB
+✔ result.css: 1.68 KB -> 1.45 KB
+✔ row.css: 0.61 KB -> 0.49 KB
+✔ scrollbar.css: 7.09 KB -> 6.36 KB
+✔ select-dropdown-v2.css: 1.95 KB -> 1.69 KB
+✔ select-dropdown.css: 5.21 KB -> 4.83 KB
+✔ select-v2.css: 15.58 KB -> 13.74 KB
+✔ select.css: 11.56 KB -> 10.40 KB
+✔ settings-primitives.css: 10.80 KB -> 9.18 KB
+✔ site-header.css: 2.97 KB -> 2.46 KB
+✔ skeleton-item.css: 1.25 KB -> 1.03 KB
+✔ skeleton.css: 0.85 KB -> 0.62 KB
+✔ slider.css: 5.52 KB -> 4.85 KB
+✔ space.css: 0.23 KB -> 0.16 KB
+✔ spinner.css: 0.41 KB -> 0.33 KB
+✔ statistic.css: 0.98 KB -> 0.85 KB
+✔ step.css: 7.20 KB -> 6.13 KB
+✔ steps.css: 0.39 KB -> 0.30 KB
+✔ sub-menu.css: 0.00 KB -> 0.00 KB
+✔ switch.css: 6.04 KB -> 5.29 KB
+✔ tab-pane.css: 0.46 KB -> 0.36 KB
+✔ table-column.css: 1.80 KB -> 1.51 KB
+✔ table-v2.css: 5.07 KB -> 4.23 KB
+✔ table.css: 23.73 KB -> 21.43 KB
+✔ tabs.css: 18.28 KB -> 16.34 KB
+✔ tag.css: 7.93 KB -> 6.39 KB
+✔ task-page-header.css: 1.47 KB -> 1.20 KB
+✔ text.css: 1.25 KB -> 1.07 KB
+✔ theme-mode-toggle.css: 8.31 KB -> 7.13 KB
+✔ time-picker.css: 24.72 KB -> 22.19 KB
+✔ time-select.css: 23.86 KB -> 21.54 KB
+✔ timeline-item.css: 2.18 KB -> 1.87 KB
+✔ timeline.css: 0.86 KB -> 0.74 KB
+✔ tooltip-v2.css: 4.11 KB -> 3.71 KB
+✔ tooltip.css: 0.00 KB -> 0.00 KB
+✔ transfer.css: 6.63 KB -> 5.71 KB
+✔ tree-select.css: 4.74 KB -> 4.26 KB
+✔ tree.css: 14.14 KB -> 12.96 KB
+✔ upload.css: 24.92 KB -> 21.86 KB
+✔ var.css: 10.19 KB -> 9.52 KB
+✔ virtual-list.css: 3.56 KB -> 3.14 KB
+[09:02:54] Finished 'buildThemeChalk' after 9.1 s
+[09:02:54] Starting 'copyThemeChalkBundle'...
+[09:02:54] Finished 'copyThemeChalkSource' after 9.14 s
+[09:02:54] Finished 'copyThemeChalkBundle' after 73 ms
+[09:02:54] Finished 'default' after 9.18 s

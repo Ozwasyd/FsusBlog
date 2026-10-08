@@ -1,0 +1,1599 @@
+{
+  "testedFullSource": "a996d9e742ce31927f3845024eaa72b8a77d13f3",
+  "currentDropdownSource": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+  "qualification": false,
+  "allOriginalFailuresRemainFailed": true,
+  "reviewMethod": "Read all50 actual error contexts and50 real trace snapshot streams; inspect actual/expected/diff representative mobile chrome render; inspect source callbacks, current contracts and exact source/blame provenance. No borrowed paired-baseline acceptance.",
+  "summary": {
+    "fixture resource transport failure": 16,
+    "Markdown async feature lifecycle / diagnostics integration failure": 4,
+    "concrete fixture / acceptance semantic mismatch": 4,
+    "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence": 22,
+    "concrete Markdown render completion/content readiness failure": 4
+  },
+  "ownedFullFailures": 0,
+  "separateOwnedDefect": "Forced-colors Dropdown transparency reproduced by new consumer pixel gate exit2, repaired by eb8ed608; was not covered by old Full50 assertions",
+  "sourceProvenance": {
+    "vue/packages/demo-app/src/demo-state.ts": {
+      "baselineSha256": "cd5908a6c31b0d48742f15c725c04ddfdf15417232285acc795ef8150dd10d0b",
+      "testedFullSha256": "cd5908a6c31b0d48742f15c725c04ddfdf15417232285acc795ef8150dd10d0b",
+      "currentSha256": "cd5908a6c31b0d48742f15c725c04ddfdf15417232285acc795ef8150dd10d0b",
+      "baselineEqualsFull": true,
+      "currentEqualsFull": true,
+      "lastOwnerCommit": "e3a8c84a663debef4610dd04d7ad250caebfd4a7 fix(overlays): unify Dialog/Drawer/MessageBox close hit targets to 54px (#299)"
+    },
+    "vue/tests/support/page-diagnostics.ts": {
+      "baselineSha256": "5c3903d4baaa010fc16dad48675e785867862a6585e7330151b5de00402baa27",
+      "testedFullSha256": "5c3903d4baaa010fc16dad48675e785867862a6585e7330151b5de00402baa27",
+      "currentSha256": "5c3903d4baaa010fc16dad48675e785867862a6585e7330151b5de00402baa27",
+      "baselineEqualsFull": true,
+      "currentEqualsFull": true,
+      "lastOwnerCommit": "3ec87c387642541fcbaba9b279ebd103ebd9a294 fix(visual): stabilize cold dev diagnostics (#231)"
+    },
+    "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue": {
+      "baselineSha256": "2b1fe93b7901e871d355b2d233d10d102cf5c347ad3cd32f32f5cb4443f69328",
+      "testedFullSha256": "2b1fe93b7901e871d355b2d233d10d102cf5c347ad3cd32f32f5cb4443f69328",
+      "currentSha256": "2b1fe93b7901e871d355b2d233d10d102cf5c347ad3cd32f32f5cb4443f69328",
+      "baselineEqualsFull": true,
+      "currentEqualsFull": true,
+      "lastOwnerCommit": "4495b589e412263a52824226c9d60da8fc1f85f6 Merge remote-tracking branch 'origin/main' into chain/markdown-command-surfaces"
+    },
+    "vue/packages/theme-chalk/src/markdown-editor.scss": {
+      "baselineSha256": "018e51a5d846f518dc1e48d92941262c2bbb055eb2ba70fd32311ec4386614bd",
+      "testedFullSha256": "018e51a5d846f518dc1e48d92941262c2bbb055eb2ba70fd32311ec4386614bd",
+      "currentSha256": "018e51a5d846f518dc1e48d92941262c2bbb055eb2ba70fd32311ec4386614bd",
+      "baselineEqualsFull": true,
+      "currentEqualsFull": true,
+      "lastOwnerCommit": "74c069ad60a7f82916c5dfe29e1ffdf6b074f900 fix(markdown-editor): stabilize writing aids across browsers"
+    },
+    "vue/packages/components/markdown-editor/src/markdown-editor.vue": {
+      "baselineSha256": "492aa1a4fa1fb187cec0461d65d8a1587164b44d092bd5dd86b882331c1451eb",
+      "testedFullSha256": "492aa1a4fa1fb187cec0461d65d8a1587164b44d092bd5dd86b882331c1451eb",
+      "currentSha256": "492aa1a4fa1fb187cec0461d65d8a1587164b44d092bd5dd86b882331c1451eb",
+      "baselineEqualsFull": true,
+      "currentEqualsFull": true,
+      "lastOwnerCommit": "74c069ad60a7f82916c5dfe29e1ffdf6b074f900 fix(markdown-editor): stabilize writing aids across browsers"
+    },
+    "vue/packages/components/markdown-renderer/src/markdown-renderer.vue": {
+      "baselineSha256": "d38ff8c94a6e7f0bc8d17050dbe3bf0c88c6b5946311b4ae304a4627b522fbe0",
+      "testedFullSha256": "9cf77cf0886529b07e94ab17cb1eea8ba0088f6c0517e53a480a98e200cdf72d",
+      "currentSha256": "9cf77cf0886529b07e94ab17cb1eea8ba0088f6c0517e53a480a98e200cdf72d",
+      "baselineEqualsFull": false,
+      "currentEqualsFull": true,
+      "lastOwnerCommit": "ae66636b37c47eb1fa577864c7613ef44cc21e3f fix(markdown-renderer): invalidate pending work on theme changes"
+    },
+    "vue/packages/demo-app/src/sections/MarkdownStressSection.vue": {
+      "baselineSha256": "835a5a2a952949215137a314f71f30512f0a4b0cc79aadb4809586bea13c18c8",
+      "testedFullSha256": "835a5a2a952949215137a314f71f30512f0a4b0cc79aadb4809586bea13c18c8",
+      "currentSha256": "835a5a2a952949215137a314f71f30512f0a4b0cc79aadb4809586bea13c18c8",
+      "baselineEqualsFull": true,
+      "currentEqualsFull": true,
+      "lastOwnerCommit": "729e4bf348aeefd7abf5def215fcecc1d16cd407 feat(markdown): enforce runtime-owned safe HTML boundary (#263, #264)"
+    },
+    "vue/tests/visual/markdown-editor-chrome.spec.ts": {
+      "baselineSha256": "0e0bd8e325b0b98e0b7b9502c61303b1d57c80450c511bad3caf8f931add5fac",
+      "testedFullSha256": "0e0bd8e325b0b98e0b7b9502c61303b1d57c80450c511bad3caf8f931add5fac",
+      "currentSha256": "0e0bd8e325b0b98e0b7b9502c61303b1d57c80450c511bad3caf8f931add5fac",
+      "baselineEqualsFull": true,
+      "currentEqualsFull": true,
+      "lastOwnerCommit": "cd253f4a0243671620efcd3473a79073f12ab20d fix(governance): align visual variants and public baselines"
+    },
+    "vue/tests/demo-app-dev/demo-app-dev.spec.ts": {
+      "baselineSha256": "fd35a683f1ede700f19f51ad570fbb9e4a308a8864f8c95a4dad9500ef5de797",
+      "testedFullSha256": "fd35a683f1ede700f19f51ad570fbb9e4a308a8864f8c95a4dad9500ef5de797",
+      "currentSha256": "fd35a683f1ede700f19f51ad570fbb9e4a308a8864f8c95a4dad9500ef5de797",
+      "baselineEqualsFull": true,
+      "currentEqualsFull": true,
+      "lastOwnerCommit": "ede20862dbb2f9e1d951f7f8a3d8ca707424b1fd test(visual): refresh verified acceptance baselines (#232)"
+    }
+  },
+  "editorDropdownImportScan": {
+    "path": "vue/packages/components/markdown-editor",
+    "check": "rg -n Dropdown|ElDropdown|el-dropdown",
+    "matches": ""
+  },
+  "currentSharedThemeHunk": "none: fsus-theme.scss, Popper, Input, Dialog and shared mixins untouched; scoped Dropdown owns specificity against shared .el-popper.is-* rule",
+  "ownerIdentityLimits": "Contract/source owners identified precisely below; active coordinating root/commit for several historical closed contracts requires parent confirmation. Closed issue state is not current acceptance.",
+  "failures": [
+    {
+      "phase": "Preview",
+      "number": 1,
+      "title": "[desktop-light] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-light/shard-local/capture-all-capture-data-desktop-light/error-context.md",
+      "contextSha256": "37c601ec51f4a989b2836a1fc59b6bfac6b5a6b284a16ac920761011e29bba65",
+      "tracePath": "full-results/suite-preview/project-desktop-light/shard-local/capture-all-capture-data-desktop-light/trace.zip",
+      "traceSha256": "c49e0af426a6a4d9fea17b79b9151436e849174c2be36015a7e0be795d68d983",
+      "recordedFrameSnapshots": 10,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 2,
+      "title": "[desktop-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "classification": "Markdown async feature lifecycle / diagnostics integration failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "MarkdownEditor mode switch / MarkdownRenderer heavy-feature request cancellation; vue/tests/support/page-diagnostics.ts",
+        "contractIssues": [
+          "#428",
+          "#429",
+          "#191",
+          "#231"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#1805/FsusUI#842 (canonical renderer source handoff, bounded existing owner)"
+        ],
+        "activeSourceOwner": "exact extension to cancellation/diagnostics owner requested from parent"
+      },
+      "independentReason": "Raw error is ERR_ABORTED for a local production JavaScript feature asset on rapid mode switch. Canonical diagnostics reconciles successful Vite module recovery, not every production /assets/ abort. Do not suppress all aborts or rewrite assertions. Editor fixture/source paths are unchanged against baseline; renderer difference is the parent-supplied theme-listener race fix ae66636..., not Dropdown.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 3\n\n- Array []\n+ Array [\n+   \"requestfailed: GET http://127.0.0.1:4173/assets/typescript-BqvgUolh.js net::ERR_ABORTED\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-light/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-desktop-light/error-context.md",
+      "contextSha256": "1bf79060bc9f05a31a9c544f4dafe631cb1b5006f39864519162a02713c89ed9",
+      "tracePath": "full-results/suite-preview/project-desktop-light/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-desktop-light/trace.zip",
+      "traceSha256": "142fc7113e5fe7378dbd95befc6292e2330b0d712bbe4ed2fca5192677fbe8c0",
+      "recordedFrameSnapshots": 136,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 3,
+      "title": "[desktop-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "classification": "concrete fixture / acceptance semantic mismatch",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue:27-35",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts:400-433",
+        "contractIssues": [
+          "#427",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 for viewport evidence sharing only"
+        ],
+        "activeSourceOwner": "parent must return canonical #429 fixture/acceptance owner; no task #830 ownership"
+      },
+      "independentReason": "The actual slot template emits counts, serializes slotState twice, and has no expected 已同步到草稿箱 text. Existing test explicitly requires that text. Source lines blame4495b589...; neither source nor assertion changed in this Dropdown branch. Requires fixture contract adjudication/correction by its owner, not timeout or assertion weakening.",
+      "rawAssertion": "```\nError: expect(locator).toContainText(expected) failed\n\nLocator: locator('.el-markdown-editor').getByTestId('chrome-visual-status-slot')\nTimeout: 20000ms\n- Expected substring  -  1\n+ Received string     + 11\n\n- 已同步到草稿箱\n+ 227 字 · 45 词 · {\n+   \"mode\": \"source\",\n+   \"readonly\": false,\n+   \"disabled\": false,\n+   \"loading\": false\n+ } · supported{\n+   \"mode\": \"source\",\n+   \"readonly\": false,\n+   \"disabled\": false,\n+   \"loading\": false\n+ }\n\nCall log:\n  - Expect \"toContainText\" with timeout 20000ms\n  - waiting for locator('.el-markdown-editor').getByTestId('chrome-visual-status-slot')\n    23 × locator resolved to <span data-v-525503f0=\"\" data-testid=\"chrome-visual-status-slot\">227 字 · 45 词 · {↵  \"mode\": \"source\",↵  \"readonly\"…</span>\n       - unexpected value \"227 字 · 45 词 · {\n  \"mode\": \"source\",\n  \"readonly\": false,\n  \"disabled\": false,\n  \"loading\": false\n} · supported{\n  \"mode\": \"source\",\n  \"readonly\": false,\n  \"disabled\": false,\n  \"loading\": false\n}\"\n\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-light/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-desktop-light/error-context.md",
+      "contextSha256": "65da04d5186be7781d247adacae7c3d94d686fff916856be2a95f8509dc2272d",
+      "tracePath": "full-results/suite-preview/project-desktop-light/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-desktop-light/trace.zip",
+      "traceSha256": "8119357549af552ddbfcffa6d9eb4b5501c2dedd766f7cdb47e12fd3ad8d95a0",
+      "recordedFrameSnapshots": 42,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 4,
+      "title": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:25:5 › zoom-in transitions use opacity+translate, no axis scale",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-ff12f-ity-translate-no-axis-scale-desktop-light/error-context.md",
+      "contextSha256": "09be1eacbf3af5353df751c7f8659962c258073b059557d6371a6fa46b7276e8",
+      "tracePath": "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-ff12f-ity-translate-no-axis-scale-desktop-light/trace.zip",
+      "traceSha256": "4199a40e0164d81fe54cb161626c903f03963e7a08710a5717f2f66b98ecf926",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 5,
+      "title": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:50:5 › list transitions use <=8px displacement",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-b0716-itions-use-8px-displacement-desktop-light/error-context.md",
+      "contextSha256": "86cc19ed4353c1c3e7dcc9c96cfb06c0c839b3dd3d309160e26f55523dda94cf",
+      "tracePath": "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-b0716-itions-use-8px-displacement-desktop-light/trace.zip",
+      "traceSha256": "e54a9e3b2cbe3d2c6d350a9bf3f156aac296046a309eb7bb499f2b3c382f1856",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 6,
+      "title": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:72:5 › zoom-in overlay transitions have scale >= 0.98",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-c7dc2-transitions-have-scale-0-98-desktop-light/error-context.md",
+      "contextSha256": "9c2b4216f4d680831ba4ad6528b477068222db92a09e9b98880636c32e350a86",
+      "tracePath": "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-c7dc2-transitions-have-scale-0-98-desktop-light/trace.zip",
+      "traceSha256": "6bca867dbfe8d24683d6476b8deb691196b0fe7ba614828308fa3b07c2592291",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 7,
+      "title": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:94:5 › no transition uses 500ms",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptance-no-transition-uses-500ms-desktop-light/error-context.md",
+      "contextSha256": "38e9050734a847241c9c6011e47d2880d4bfb1447f3abf44f73db612bc40d44f",
+      "tracePath": "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptance-no-transition-uses-500ms-desktop-light/trace.zip",
+      "traceSha256": "ca4f820a34527b5ab6b769d5c31921e0e79ff23d72f620db286e52c9d99b90ab",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 8,
+      "title": "[mobile-light] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/capture-all-capture-data-mobile-light/error-context.md",
+      "contextSha256": "576f275a830f23ff1a0bceb93a79a3d4bf730df1cd751ed85f97246fbfcde0b1",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/capture-all-capture-data-mobile-light/trace.zip",
+      "traceSha256": "810ddd762a302599165cf00aa4ee0c04daf68da6a8b8e979900b1e968b1541a3",
+      "recordedFrameSnapshots": 10,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 9,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in source mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  18384 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/framed-source.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/framed-source.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 18384 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 18384 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-light/error-context.md",
+      "contextSha256": "9a698d2e1c60c3f5b3e328caff5dc7bc6d3e7ef42bd25607a16bb312de8d1a48",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-light/trace.zip",
+      "traceSha256": "59ed1c87bf0dba41b5c630941a83d77a96b61c2521fb2cd5b52f1ee13a43ed05",
+      "recordedFrameSnapshots": 38,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 10,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in live mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  18385 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/framed-live.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/framed-live.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 18385 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 18385 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-light/error-context.md",
+      "contextSha256": "a469864e46f1b41d80b0173063475666647f1d7721b1237e2f932049663cd0bb",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-light/trace.zip",
+      "traceSha256": "2b614487c118424d1718619bb73a7bc1d9e943b41177924a94419af03518880f",
+      "recordedFrameSnapshots": 40,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 11,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in split mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  27136 pixels (ratio 0.06 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/framed-split.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/framed-split.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 27136 pixels (ratio 0.06 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 27136 pixels (ratio 0.06 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-light/error-context.md",
+      "contextSha256": "8529e35f6711fdc0d99d20c6f1f4954f8b47d862a70017261eee40ab3f228c00",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-light/trace.zip",
+      "traceSha256": "8149032fd834f43e44ea0a01fd07f3ab16435490381bc31e779c70a410ecca12",
+      "recordedFrameSnapshots": 42,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 12,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in source mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  18152 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/embedded-source.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/embedded-source.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 18152 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 18152 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-light/error-context.md",
+      "contextSha256": "a523323b1a79cafbdfbb7855dd6de4632169eee5b84846dd027e7bd6ab21b6d2",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-light/trace.zip",
+      "traceSha256": "2b7cf2b5c19384347c65897aa842fa3bca59470e356e20c2b32a42bf5cc54926",
+      "recordedFrameSnapshots": 38,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 13,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in live mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  18153 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/embedded-live.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/embedded-live.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 18153 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 18153 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-light/error-context.md",
+      "contextSha256": "8b7d2b7c027cc184d904601555be8fdf21e56338bb8530103454eaffe8addce5",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-light/trace.zip",
+      "traceSha256": "998a894d840b6f41189ac9487f67106d1c7ff230ea2c2ad99c5aa6550436d29c",
+      "recordedFrameSnapshots": 40,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 14,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in split mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  28902 pixels (ratio 0.06 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/embedded-split.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/embedded-split.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 28902 pixels (ratio 0.06 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 28902 pixels (ratio 0.06 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-light/error-context.md",
+      "contextSha256": "b8fc482e59b11a4072e14d09c252697c393d04f001e32f8119db1bb95917d6ac",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-light/trace.zip",
+      "traceSha256": "036ed900a5b0cecc531246ba7e87e6fb485a368ee14b715057b70b7acef67b77",
+      "recordedFrameSnapshots": 42,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 15,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in source mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  17761 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/minimal-source.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/minimal-source.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 17761 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 17761 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-light/error-context.md",
+      "contextSha256": "a86603bc287a2c13662f4481d5a3fce58984ee69460ab5d42686d95858660429",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-light/trace.zip",
+      "traceSha256": "de8dd08d27067ae8823f255e7ae261235a99b70c4946aaf98ad721e11fad4701",
+      "recordedFrameSnapshots": 38,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 16,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in live mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  17761 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/minimal-live.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/minimal-live.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 17761 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 17761 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-light/error-context.md",
+      "contextSha256": "7ee5f97b239fee0f9150dba44e6ec68f070ab375c4c5c7094eccd0aa3fdbb75b",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-light/trace.zip",
+      "traceSha256": "377819c8617bcaf66162fe642a076a3383979fc647e633419538fe6b7e2c9210",
+      "recordedFrameSnapshots": 40,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 17,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in split mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  32906 pixels (ratio 0.07 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/minimal-split.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/minimal-split.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 32906 pixels (ratio 0.07 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 32906 pixels (ratio 0.07 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-light/error-context.md",
+      "contextSha256": "3988109db1f1e8245fb5b895dd01a67de74b536e188e2d1534e52d25787dbe3f",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-light/trace.zip",
+      "traceSha256": "84b612c0c287c56630e7d0f2e7b0bf462d53507f4ec77a8e056b3a8c9ce6f0ba",
+      "recordedFrameSnapshots": 42,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 18,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "classification": "Markdown async feature lifecycle / diagnostics integration failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "MarkdownEditor mode switch / MarkdownRenderer heavy-feature request cancellation; vue/tests/support/page-diagnostics.ts",
+        "contractIssues": [
+          "#428",
+          "#429",
+          "#191",
+          "#231"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#1805/FsusUI#842 (canonical renderer source handoff, bounded existing owner)"
+        ],
+        "activeSourceOwner": "exact extension to cancellation/diagnostics owner requested from parent"
+      },
+      "independentReason": "Raw error is ERR_ABORTED for a local production JavaScript feature asset on rapid mode switch. Canonical diagnostics reconciles successful Vite module recovery, not every production /assets/ abort. Do not suppress all aborts or rewrite assertions. Editor fixture/source paths are unchanged against baseline; renderer difference is the parent-supplied theme-listener race fix ae66636..., not Dropdown.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET http://127.0.0.1:4173/assets/typescript-BqvgUolh.js net::ERR_ABORTED\",\n+   \"requestfailed: GET http://127.0.0.1:4173/assets/github-light-Rcb2q3L5.js net::ERR_ABORTED\",\n+   \"requestfailed: GET http://127.0.0.1:4173/assets/engine-javascript-ZX5pI3G3.js net::ERR_ABORTED\",\n+   \"requestfailed: GET http://127.0.0.1:4173/assets/core-Cmkhzapn.js net::ERR_ABORTED\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-mobile-light/error-context.md",
+      "contextSha256": "73829f9beb090c59ba8fc2a29906508eec5dd663fdc58ba36f80ab41269e0c83",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-mobile-light/trace.zip",
+      "traceSha256": "907d4f64837e5c4af6c607d26c916e5c8f700dd492e6a9302d01873fe8e1d9ef",
+      "recordedFrameSnapshots": 103,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 19,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:354:13 › markdown editor chrome variants matrix (#429) › stays usable at 150% and 200% zoom",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  26020 pixels (ratio 0.06 of all image pixels) are different.\n\n  Snapshot: chrome-evidence/zoom-150.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-evidence/zoom-150.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 26020 pixels (ratio 0.06 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 26020 pixels (ratio 0.06 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-light/error-context.md",
+      "contextSha256": "d606ffc2fa31d3441106108160dd9fc2dddf96cf04e4a39327babfac1d14f225",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-light/trace.zip",
+      "traceSha256": "89792bf98fd1e5533957e05aadc93c8701c063d1cf30a3cdc468c564f7769bf0",
+      "recordedFrameSnapshots": 20,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 20,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "classification": "concrete fixture / acceptance semantic mismatch",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue:27-35",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts:400-433",
+        "contractIssues": [
+          "#427",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 for viewport evidence sharing only"
+        ],
+        "activeSourceOwner": "parent must return canonical #429 fixture/acceptance owner; no task #830 ownership"
+      },
+      "independentReason": "The actual slot template emits counts, serializes slotState twice, and has no expected 已同步到草稿箱 text. Existing test explicitly requires that text. Source lines blame4495b589...; neither source nor assertion changed in this Dropdown branch. Requires fixture contract adjudication/correction by its owner, not timeout or assertion weakening.",
+      "rawAssertion": "```\nError: expect(locator).toContainText(expected) failed\n\nLocator: locator('.el-markdown-editor').getByTestId('chrome-visual-status-slot')\nTimeout: 20000ms\n- Expected substring  -  1\n+ Received string     + 11\n\n- 已同步到草稿箱\n+ 227 字 · 45 词 · {\n+   \"mode\": \"source\",\n+   \"readonly\": false,\n+   \"disabled\": false,\n+   \"loading\": false\n+ } · supported{\n+   \"mode\": \"source\",\n+   \"readonly\": false,\n+   \"disabled\": false,\n+   \"loading\": false\n+ }\n\nCall log:\n  - Expect \"toContainText\" with timeout 20000ms\n  - waiting for locator('.el-markdown-editor').getByTestId('chrome-visual-status-slot')\n    24 × locator resolved to <span data-v-525503f0=\"\" data-testid=\"chrome-visual-status-slot\">227 字 · 45 词 · {↵  \"mode\": \"source\",↵  \"readonly\"…</span>\n       - unexpected value \"227 字 · 45 词 · {\n  \"mode\": \"source\",\n  \"readonly\": false,\n  \"disabled\": false,\n  \"loading\": false\n} · supported{\n  \"mode\": \"source\",\n  \"readonly\": false,\n  \"disabled\": false,\n  \"loading\": false\n}\"\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-mobile-light/error-context.md",
+      "contextSha256": "4d3ca3d5c2fd58a4ea97f9d12cf2679abf040d17b1fe134e68bf27f7d368542b",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-mobile-light/trace.zip",
+      "traceSha256": "2d67a9a448d64dbc4eb1c40869ae1fb622b9ca119943352a7b420587add3197b",
+      "recordedFrameSnapshots": 42,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 21,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:520:13 › markdown editor chrome variants matrix (#429) › keeps framed geometry under forced colors",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  21486 pixels (ratio 0.05 of all image pixels) are different.\n\n  Snapshot: chrome-evidence/forced-colors.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-evidence/forced-colors.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 21486 pixels (ratio 0.05 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 21486 pixels (ratio 0.05 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-light/error-context.md",
+      "contextSha256": "e05d47b46273d68f0cc60e268c350cdda7ca61d167bd38d86c30729fd835fb8a",
+      "tracePath": "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-light/trace.zip",
+      "traceSha256": "a587facd58fa9e6875bd2ff4c0205110529cee6e86f8fcf2d2057da8dc9b19e1",
+      "recordedFrameSnapshots": 18,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 22,
+      "title": "[desktop-dark] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-dark/shard-local/capture-all-capture-data-desktop-dark/error-context.md",
+      "contextSha256": "3e847a7fc60687c8782c4148beeff112e678271a1be3e5d1042308acd7cc4d8a",
+      "tracePath": "full-results/suite-preview/project-desktop-dark/shard-local/capture-all-capture-data-desktop-dark/trace.zip",
+      "traceSha256": "56829fb9473eb2f84009df9a217a615343e47e3444aab64d53dd6fefc409e124",
+      "recordedFrameSnapshots": 10,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 23,
+      "title": "[desktop-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "classification": "Markdown async feature lifecycle / diagnostics integration failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "MarkdownEditor mode switch / MarkdownRenderer heavy-feature request cancellation; vue/tests/support/page-diagnostics.ts",
+        "contractIssues": [
+          "#428",
+          "#429",
+          "#191",
+          "#231"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#1805/FsusUI#842 (canonical renderer source handoff, bounded existing owner)"
+        ],
+        "activeSourceOwner": "exact extension to cancellation/diagnostics owner requested from parent"
+      },
+      "independentReason": "Raw error is ERR_ABORTED for a local production JavaScript feature asset on rapid mode switch. Canonical diagnostics reconciles successful Vite module recovery, not every production /assets/ abort. Do not suppress all aborts or rewrite assertions. Editor fixture/source paths are unchanged against baseline; renderer difference is the parent-supplied theme-listener race fix ae66636..., not Dropdown.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 3\n\n- Array []\n+ Array [\n+   \"requestfailed: GET http://127.0.0.1:4173/assets/markdown-heavy-feature-frame-Btsr-apw.js net::ERR_ABORTED\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-dark/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-desktop-dark/error-context.md",
+      "contextSha256": "5bc8b86c13bfe853e18b8d368154c983eb9b565a9c27fc44a1d671cd3f3ebf5b",
+      "tracePath": "full-results/suite-preview/project-desktop-dark/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-desktop-dark/trace.zip",
+      "traceSha256": "34740f45fca1f1608c66f0970197daa89697c11fcc32d0c4ce50e0127bb232d6",
+      "recordedFrameSnapshots": 143,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 24,
+      "title": "[desktop-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "classification": "concrete fixture / acceptance semantic mismatch",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue:27-35",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts:400-433",
+        "contractIssues": [
+          "#427",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 for viewport evidence sharing only"
+        ],
+        "activeSourceOwner": "parent must return canonical #429 fixture/acceptance owner; no task #830 ownership"
+      },
+      "independentReason": "The actual slot template emits counts, serializes slotState twice, and has no expected 已同步到草稿箱 text. Existing test explicitly requires that text. Source lines blame4495b589...; neither source nor assertion changed in this Dropdown branch. Requires fixture contract adjudication/correction by its owner, not timeout or assertion weakening.",
+      "rawAssertion": "```\nError: expect(locator).toContainText(expected) failed\n\nLocator: locator('.el-markdown-editor').getByTestId('chrome-visual-status-slot')\nTimeout: 20000ms\n- Expected substring  -  1\n+ Received string     + 11\n\n- 已同步到草稿箱\n+ 227 字 · 45 词 · {\n+   \"mode\": \"source\",\n+   \"readonly\": false,\n+   \"disabled\": false,\n+   \"loading\": false\n+ } · supported{\n+   \"mode\": \"source\",\n+   \"readonly\": false,\n+   \"disabled\": false,\n+   \"loading\": false\n+ }\n\nCall log:\n  - Expect \"toContainText\" with timeout 20000ms\n  - waiting for locator('.el-markdown-editor').getByTestId('chrome-visual-status-slot')\n    23 × locator resolved to <span data-v-525503f0=\"\" data-testid=\"chrome-visual-status-slot\">227 字 · 45 词 · {↵  \"mode\": \"source\",↵  \"readonly\"…</span>\n       - unexpected value \"227 字 · 45 词 · {\n  \"mode\": \"source\",\n  \"readonly\": false,\n  \"disabled\": false,\n  \"loading\": false\n} · supported{\n  \"mode\": \"source\",\n  \"readonly\": false,\n  \"disabled\": false,\n  \"loading\": false\n}\"\n\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-dark/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-desktop-dark/error-context.md",
+      "contextSha256": "65da04d5186be7781d247adacae7c3d94d686fff916856be2a95f8509dc2272d",
+      "tracePath": "full-results/suite-preview/project-desktop-dark/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-desktop-dark/trace.zip",
+      "traceSha256": "0143b79de376b87147fa5b0ad8d487f378bc05a378cd5c926bd4aa695b9b0f50",
+      "recordedFrameSnapshots": 42,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 25,
+      "title": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:25:5 › zoom-in transitions use opacity+translate, no axis scale",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-ff12f-ity-translate-no-axis-scale-desktop-dark/error-context.md",
+      "contextSha256": "09be1eacbf3af5353df751c7f8659962c258073b059557d6371a6fa46b7276e8",
+      "tracePath": "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-ff12f-ity-translate-no-axis-scale-desktop-dark/trace.zip",
+      "traceSha256": "d8e628ccbcf9ee62378c9e8e9ba6b94cf132fe7aba2a76071d18721b3edb6171",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 26,
+      "title": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:50:5 › list transitions use <=8px displacement",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-b0716-itions-use-8px-displacement-desktop-dark/error-context.md",
+      "contextSha256": "86cc19ed4353c1c3e7dcc9c96cfb06c0c839b3dd3d309160e26f55523dda94cf",
+      "tracePath": "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-b0716-itions-use-8px-displacement-desktop-dark/trace.zip",
+      "traceSha256": "2ad7d217bd382ca3013c5570137eaff440b1f0fb3fa3ebe422f0ef5fea49b147",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 27,
+      "title": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:72:5 › zoom-in overlay transitions have scale >= 0.98",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-c7dc2-transitions-have-scale-0-98-desktop-dark/error-context.md",
+      "contextSha256": "9c2b4216f4d680831ba4ad6528b477068222db92a09e9b98880636c32e350a86",
+      "tracePath": "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-c7dc2-transitions-have-scale-0-98-desktop-dark/trace.zip",
+      "traceSha256": "e3528a5f07c941fbaedc8a765433b81455c003f52482baeefb6af8a160cfee97",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 28,
+      "title": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:94:5 › no transition uses 500ms",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptance-no-transition-uses-500ms-desktop-dark/error-context.md",
+      "contextSha256": "38e9050734a847241c9c6011e47d2880d4bfb1447f3abf44f73db612bc40d44f",
+      "tracePath": "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptance-no-transition-uses-500ms-desktop-dark/trace.zip",
+      "traceSha256": "5722144a8d394808c5243610692fee274f001d5d7b164f9d91391072424af528",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 29,
+      "title": "[mobile-dark] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/capture-all-capture-data-mobile-dark/error-context.md",
+      "contextSha256": "576f275a830f23ff1a0bceb93a79a3d4bf730df1cd751ed85f97246fbfcde0b1",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/capture-all-capture-data-mobile-dark/trace.zip",
+      "traceSha256": "4eaf0554badb045b2867005ffa8cf9562745de0b4e23d7a69eba456456646f0e",
+      "recordedFrameSnapshots": 10,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 30,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in source mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  18830 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/framed-source.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/framed-source.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 18830 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 18830 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-dark/error-context.md",
+      "contextSha256": "217d10def2864dc5546bfac0b073fbccbb521f7d51cd92004bc167710dc5c214",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-dark/trace.zip",
+      "traceSha256": "4c18c29265a9d916edf8f6e429e66c881c7b4ec99394a4d31fcdf1ac8b0a1e5b",
+      "recordedFrameSnapshots": 38,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 31,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in live mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  18830 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/framed-live.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/framed-live.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 18830 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 18830 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-dark/error-context.md",
+      "contextSha256": "3e344fdb4ab53015dfc59ee3d0f21ebf6c5f02862a7819fba47d5116d37f0393",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-dark/trace.zip",
+      "traceSha256": "330f82cdaf06ac1fd83c69373119dc30c6cbb0c22283040ba9ecb3667b852bf6",
+      "recordedFrameSnapshots": 40,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 32,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in split mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  27594 pixels (ratio 0.06 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/framed-split.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/framed-split.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 27594 pixels (ratio 0.06 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 27594 pixels (ratio 0.06 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-dark/error-context.md",
+      "contextSha256": "9f4f7e097dfd9cbe8dab21ff761079aeb5b224fce01bf2165b1969a6907b02be",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-dark/trace.zip",
+      "traceSha256": "1d6d718029e7ac4fbcefa13d7d35a86142a319996b059170107d19f3e155d36d",
+      "recordedFrameSnapshots": 42,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 33,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in source mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  18594 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/embedded-source.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/embedded-source.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 18594 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 18594 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-dark/error-context.md",
+      "contextSha256": "62c1dcde103dc66d41215c3baed53bcd6a51d955a45e7c7a378cfd5ec601d748",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-dark/trace.zip",
+      "traceSha256": "c0bb9596e974f322b06404e9baea99a3fd05fb68f60041e5343e756e9c59e10b",
+      "recordedFrameSnapshots": 38,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 34,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in live mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  18594 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/embedded-live.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/embedded-live.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 18594 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 18594 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-dark/error-context.md",
+      "contextSha256": "1850cc7243c5355f4768467f1773d44b31a7e9f6119220da540dfddc654320af",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-dark/trace.zip",
+      "traceSha256": "b719c73e74a1e33237b5a1281fc1098de7e6da2e1e790f074a9711854441e105",
+      "recordedFrameSnapshots": 40,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 35,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in split mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  29465 pixels (ratio 0.06 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/embedded-split.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/embedded-split.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 29465 pixels (ratio 0.06 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 29465 pixels (ratio 0.06 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-dark/error-context.md",
+      "contextSha256": "578e4f6c872b92ee8ba5540831b3142ad6b79f9fc72bad423cb14858e2600786",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-dark/trace.zip",
+      "traceSha256": "986167a05a943abe5c497b3be48ed19a9a1f16f702f7f8aa8fe557b6cb795269",
+      "recordedFrameSnapshots": 42,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 36,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in source mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  18213 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/minimal-source.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/minimal-source.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 18213 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 18213 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-dark/error-context.md",
+      "contextSha256": "90d8a554dd8b1dcf2d6f5137b82afbea719be11ec855811d103bd5f5b04ac70d",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-dark/trace.zip",
+      "traceSha256": "6479da1072c8ef656ed6ea216b2d5f48f9fddd3a50c12722ef5a40b9570771ce",
+      "recordedFrameSnapshots": 38,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 37,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in live mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  18213 pixels (ratio 0.04 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/minimal-live.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/minimal-live.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 18213 pixels (ratio 0.04 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 18213 pixels (ratio 0.04 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-dark/error-context.md",
+      "contextSha256": "f6cd78299d3781715417d65e2f9ae09b1625429de382ae3baf5121f2196a67ea",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-dark/trace.zip",
+      "traceSha256": "ca049beb03030270c43316e1ebb764985c4e09d3a13adebd63872ec64ddb2823",
+      "recordedFrameSnapshots": 40,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 38,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in split mode with correct geometry and semantics",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  33904 pixels (ratio 0.07 of all image pixels) are different.\n\n  Snapshot: chrome-matrix/minimal-split.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-matrix/minimal-split.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 33904 pixels (ratio 0.07 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 33904 pixels (ratio 0.07 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-dark/error-context.md",
+      "contextSha256": "63168f60c9795d29d9c40de5d013f42153243dffd1bf836ce3482a01597f8238",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-dark/trace.zip",
+      "traceSha256": "b2949fa58c1931b2ccf44b39e3cc769dfe973287725591fd6111c44f271f86c2",
+      "recordedFrameSnapshots": 42,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 39,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "classification": "Markdown async feature lifecycle / diagnostics integration failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "MarkdownEditor mode switch / MarkdownRenderer heavy-feature request cancellation; vue/tests/support/page-diagnostics.ts",
+        "contractIssues": [
+          "#428",
+          "#429",
+          "#191",
+          "#231"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#1805/FsusUI#842 (canonical renderer source handoff, bounded existing owner)"
+        ],
+        "activeSourceOwner": "exact extension to cancellation/diagnostics owner requested from parent"
+      },
+      "independentReason": "Raw error is ERR_ABORTED for a local production JavaScript feature asset on rapid mode switch. Canonical diagnostics reconciles successful Vite module recovery, not every production /assets/ abort. Do not suppress all aborts or rewrite assertions. Editor fixture/source paths are unchanged against baseline; renderer difference is the parent-supplied theme-listener race fix ae66636..., not Dropdown.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET http://127.0.0.1:4173/assets/github-dark-BQV5ugrc.js net::ERR_ABORTED\",\n+   \"requestfailed: GET http://127.0.0.1:4173/assets/typescript-BqvgUolh.js net::ERR_ABORTED\",\n+   \"requestfailed: GET http://127.0.0.1:4173/assets/engine-javascript-ZX5pI3G3.js net::ERR_ABORTED\",\n+   \"requestfailed: GET http://127.0.0.1:4173/assets/core-Cmkhzapn.js net::ERR_ABORTED\",\n+ ]\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-mobile-dark/error-context.md",
+      "contextSha256": "75f59ac3a3c5d1aab61f21dacd6f34157f223fc1a9ed91ac9e6c997c6bbff9df",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-mobile-dark/trace.zip",
+      "traceSha256": "478f4cf0fb2c4e7b1fea50d16ba1f32fb92d20fcbba1ce3db45331ae47859ab2",
+      "recordedFrameSnapshots": 99,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 40,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:354:13 › markdown editor chrome variants matrix (#429) › stays usable at 150% and 200% zoom",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  26274 pixels (ratio 0.06 of all image pixels) are different.\n\n  Snapshot: chrome-evidence/zoom-150.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-evidence/zoom-150.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 26274 pixels (ratio 0.06 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 26274 pixels (ratio 0.06 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-dark/error-context.md",
+      "contextSha256": "0e757def8e04a6f1b3144449b15731b4f27f69d9bfc2a7893a70e883d358f157",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-dark/trace.zip",
+      "traceSha256": "2742540fe54d8f7f8caa1bf3ef22ec2b66c5f3e28c8608ff5615a5a6a6ad92f2",
+      "recordedFrameSnapshots": 20,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 41,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "classification": "concrete fixture / acceptance semantic mismatch",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue:27-35",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts:400-433",
+        "contractIssues": [
+          "#427",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 for viewport evidence sharing only"
+        ],
+        "activeSourceOwner": "parent must return canonical #429 fixture/acceptance owner; no task #830 ownership"
+      },
+      "independentReason": "The actual slot template emits counts, serializes slotState twice, and has no expected 已同步到草稿箱 text. Existing test explicitly requires that text. Source lines blame4495b589...; neither source nor assertion changed in this Dropdown branch. Requires fixture contract adjudication/correction by its owner, not timeout or assertion weakening.",
+      "rawAssertion": "```\nError: expect(locator).toContainText(expected) failed\n\nLocator: locator('.el-markdown-editor').getByTestId('chrome-visual-status-slot')\nTimeout: 20000ms\n- Expected substring  -  1\n+ Received string     + 11\n\n- 已同步到草稿箱\n+ 227 字 · 45 词 · {\n+   \"mode\": \"source\",\n+   \"readonly\": false,\n+   \"disabled\": false,\n+   \"loading\": false\n+ } · supported{\n+   \"mode\": \"source\",\n+   \"readonly\": false,\n+   \"disabled\": false,\n+   \"loading\": false\n+ }\n\nCall log:\n  - Expect \"toContainText\" with timeout 20000ms\n  - waiting for locator('.el-markdown-editor').getByTestId('chrome-visual-status-slot')\n    23 × locator resolved to <span data-v-525503f0=\"\" data-testid=\"chrome-visual-status-slot\">227 字 · 45 词 · {↵  \"mode\": \"source\",↵  \"readonly\"…</span>\n       - unexpected value \"227 字 · 45 词 · {\n  \"mode\": \"source\",\n  \"readonly\": false,\n  \"disabled\": false,\n  \"loading\": false\n} · supported{\n  \"mode\": \"source\",\n  \"readonly\": false,\n  \"disabled\": false,\n  \"loading\": false\n}\"\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-mobile-dark/error-context.md",
+      "contextSha256": "40c55ffc58b055c0fed1d8cafdccefe06b2f1b14a349d0d9815a242b713a6d24",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-mobile-dark/trace.zip",
+      "traceSha256": "a009e943a9d2e715bf7f131307febeee73d1d8bb4590d6aa93eefea521f4239a",
+      "recordedFrameSnapshots": 42,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Preview",
+      "number": 42,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:520:13 › markdown editor chrome variants matrix (#429) › keeps framed geometry under forced colors",
+      "classification": "Markdown chrome visual discrepancy, mixed stale baseline and source geometry evidence",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/components/markdown-editor/src/markdown-editor.vue; vue/packages/theme-chalk/src/markdown-editor.scss; MarkdownEditorChromeVisualSection.vue",
+        "acceptance": "vue/tests/visual/markdown-editor-chrome.spec.ts and its chrome-matrix/chrome-evidence snapshots",
+        "contractIssues": [
+          "#428",
+          "#429"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (canonical viewport evidence sharing, not implementation transfer)"
+        ],
+        "activeSourceOwner": "parent must return canonical chrome source/acceptance owner"
+      },
+      "independentReason": "Inspected mobile framed-source actual/expected/diff: expected has B/I/H/Q and 227 chars, actual localized toolbar and 227字符45词; actual first source line is partially clipped compared with expected. Both stale-content and geometry differences exist: do not label every screenshot diff harmless or update baselines. All22 remain failed for #428 source/#429 acceptance adjudication. MarkdownEditor/source/theme files are byte-identical to baseline; no Dropdown imports or Dropdown nodes in recorded target frame snapshots.",
+      "rawAssertion": "```\nError: expect(page).toHaveScreenshot(expected) failed\n\n  22258 pixels (ratio 0.05 of all image pixels) are different.\n\n  Snapshot: chrome-evidence/forced-colors.png\n\nCall log:\n  - Expect \"toHaveScreenshot(chrome-evidence/forced-colors.png)\" with timeout 20000ms\n    - verifying given screenshot expectation\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - 22258 pixels (ratio 0.05 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - taking page screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - captured a stable screenshot\n  - 22258 pixels (ratio 0.05 of all image pixels) are different.\n\n```",
+      "contextPath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-dark/error-context.md",
+      "contextSha256": "c31e760882f5f1060adabcb69dd24bd9820423cd08ac70d50ae2c74264aeb927",
+      "tracePath": "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-dark/trace.zip",
+      "traceSha256": "200012f88d984cf1683d4e208cfbaced5583d9f25fc89f083152588beb98ee29",
+      "recordedFrameSnapshots": 18,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Dev",
+      "number": 1,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:159:7 › dev server home route has no browser diagnostics",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-dev-server-ho-b234b--has-no-browser-diagnostics/error-context.md",
+      "contextSha256": "d65614b7864151bb587e7268e89db7e9026591d1a0cdc6dd7876212a3648cca3",
+      "tracePath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-dev-server-ho-b234b--has-no-browser-diagnostics/trace.zip",
+      "traceSha256": "c6a37e8d0c4140698dc041fa4b9538ce2618ed736d4c7b222077c26e7cc65984",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Dev",
+      "number": 2,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:159:7 › dev server data route has no browser diagnostics",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-dev-server-da-951a7--has-no-browser-diagnostics/error-context.md",
+      "contextSha256": "1d722d7154b2fe5a7712a4dded983ed79499bd7bc498b990eb22f013ec68dfb8",
+      "tracePath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-dev-server-da-951a7--has-no-browser-diagnostics/trace.zip",
+      "traceSha256": "48d3fd0aab95cd6302852559c4a2c684e366299940a0c06f3e0e262e4e82e71d",
+      "recordedFrameSnapshots": 10,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Dev",
+      "number": 3,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:251:5 › default home mounts only the virtual window and navigates to sections",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-default-home--f3454-w-and-navigates-to-sections/error-context.md",
+      "contextSha256": "972ea1a50075a752960cdd0860a26e17280024e5bab03df495edb72ea5187bcb",
+      "tracePath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-default-home--f3454-w-and-navigates-to-sections/trace.zip",
+      "traceSha256": "892fcb103d3bd442f7f6ec5c3d436f2ee0053569afd1de8b3b0cd2e46e062038",
+      "recordedFrameSnapshots": 15,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Dev",
+      "number": 4,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:269:5 › default home TreeSelect dropdown does not bleed into the next section",
+      "classification": "fixture resource transport failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/demo-state.ts:130-133",
+        "acceptance": "vue/tests/support/page-diagnostics.ts; existing diagnostics fail closed",
+        "contractIssues": [
+          "#231",
+          "#232"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#2228 (supplied runtime evidence owner)"
+        ],
+        "activeSourceOwner": "parent confirmation requested; historical source owner is not an assigned new chain"
+      },
+      "independentReason": "Error details contain actual CDN ERR_CERT_AUTHORITY_INVALID, not a Dropdown rendering/geometry assertion. Real secure requests and canonical inline PNG control were preserved in prior archive. No certificate bypass or fixture substitution.",
+      "rawAssertion": "```\nError: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 6\n\n- Array []\n+ Array [\n+   \"requestfailed: GET https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"requestfailed: GET https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png net::ERR_CERT_AUTHORITY_INVALID\",\n+   \"console.error: Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID\",\n+ ]\n```",
+      "contextPath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-default-home--77e8c-bleed-into-the-next-section/error-context.md",
+      "contextSha256": "617f4293814e797dce19c835d7f0d89404f7336ef0ab14110ec8bd827fad8248",
+      "tracePath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-default-home--77e8c-bleed-into-the-next-section/trace.zip",
+      "traceSha256": "e87d7fa530f7fcc0ad8ebe959427eb2c36342927fa07ba2441d401705656ceb8",
+      "recordedFrameSnapshots": 13,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Dev",
+      "number": 5,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:429:5 › markdown stress route renders long raw HTML without browser diagnostics",
+      "classification": "concrete Markdown render completion/content readiness failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/sections/MarkdownStressSection.vue:handleRenderComplete; vue/packages/components/markdown-renderer/src/markdown-renderer.vue; canonical WASM/activation lifecycle",
+        "acceptance": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:429,661,814,839",
+        "contractIssues": [
+          "#191"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#1805/FsusUI#842 (canonical renderer source handoff; parent must bind exact stress owner)"
+        ],
+        "activeSourceOwner": "stress/performance owner confirmation requested; no invented root or acceptance"
+      },
+      "independentReason": "Actual status stays rendering or content remains Rendering markdown... within existing20/30-second assertions. Timing rows show successful WASM html/summary/profile stages, but status.complete is set only by component render-complete callback, not runStressProfile. This is an unresolved runtime/lifecycle/performance defect, not missing native SDK or product acceptance only. Renderer changed only through authorized canonical ae66636...; Dropdown absent in target snapshots and source imports. Do not add sleeps or force complete.",
+      "rawAssertion": "```\nError: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('[data-testid=\"markdown-stress-status\"]')\nExpected: \"complete\"\nReceived: \"rendering\"\nTimeout:  30000ms\n\nCall log:\n  - Expect \"toHaveText\" with timeout 30000ms\n  - waiting for locator('[data-testid=\"markdown-stress-status\"]')\n    3 × locator resolved to <strong data-testid=\"markdown-stress-status\">rendering</strong>\n      - unexpected value \"rendering\"\n\n```\n\n# Test source\n\n```ts\n  347 |       Math.abs(\n  348 |         titleRect.top +\n  349 |           titleRect.height / 2 -\n  350 |           (buttonRect.top + buttonRect.height / 2),\n  351 |       ) <\n  352 |       Math.max(titleRect.height, buttonRect.height) / 2\n  353 | \n  354 |     return {\n  355 |       buttonRightOverflow: buttonRect.right - cardRect.right,\n  356 |       horizontalGap: buttonRect.left - titleRect.right,\n  357 |       sameRow,\n  358 |       titleLeftOverflow: cardRect.left - titleRect.left,\n  359 |       verticalGap: buttonRect.top - titleRect.bottom,\n  360 |     }\n  361 |   })\n  362 | \n  363 |   expect(metrics.titleLeftOverflow).toBeLessThanOrEqual(1)\n  364 |   expect(metrics.buttonRightOverflow).toBeLessThanOrEqual(1)\n  365 |   if (metrics.sameRow) {\n  366 |     expect(metrics.horizontalGap).toBeGreaterThanOrEqual(8)\n  367 |   } else {\n  368 |     expect(metrics.verticalGap).toBeGreaterThanOrEqual(8)\n  369 |   }\n  370 | })\n  371 | \n  372 | test('Calendar header controls use soft segmented styling', async ({\n  373 |   page,\n  374 | }) => {\n  375 |   await page.goto('/?visual=data&theme=light', {\n  376 |     waitUntil: 'domcontentloaded',\n  377 |   })\n  378 | \n  379 |   const buttonGroup = page.locator('.el-calendar__button-group').first()\n  380 |   await expect(buttonGroup).toBeVisible()\n  381 | \n  382 |   const metrics = await buttonGroup.evaluate((group) => {\n  383 |     const shell = group.querySelector<HTMLElement>('.el-button-group')\n  384 |     const buttons = Array.from(\n  385 |       group.querySelectorAll<HTMLElement>('.el-button'),\n  386 |     )\n  387 | \n  388 |     if (!shell || buttons.length !== 3) {\n  389 |       throw new Error('Calendar header button group is missing')\n  390 |     }\n  391 | \n  392 |     const shellStyle = getComputedStyle(shell)\n  393 | \n  394 |     return {\n  395 |       buttonBorders: buttons.map(\n  396 |         (button) => getComputedStyle(button).borderLeftWidth,\n  397 |       ),\n  398 |       buttonMargins: buttons.map(\n  399 |         (button) => getComputedStyle(button).marginLeft,\n  400 |       ),\n  401 |       buttonRadii: buttons.map(\n  402 |         (button) => getComputedStyle(button).borderRadius,\n  403 |       ),\n  404 |       shellDisplay: shellStyle.display,\n  405 |       shellGap: shellStyle.gap,\n  406 |       shellRadius: shellStyle.borderRadius,\n  407 |     }\n  408 |   })\n  409 | \n  410 |   expect(metrics.shellDisplay).toBe('inline-flex')\n  411 |   expect(metrics.shellGap).toBe('8px')\n  412 |   expect(metrics.shellRadius).toBe('6px')\n  413 |   expect(metrics.buttonBorders).toEqual(['0px', '0px', '0px'])\n  414 |   expect(metrics.buttonMargins).toEqual(['0px', '0px', '0px'])\n  415 |   expect(metrics.buttonRadii).toEqual(['4px', '4px', '4px'])\n  416 | })\n  417 | \n  418 | test('Calendar title follows the browser locale in demo app', async ({\n  419 |   page,\n  420 | }) => {\n  421 |   await page.goto('/?visual=data&theme=light', {\n  422 |     waitUntil: 'domcontentloaded',\n  423 |   })\n  424 | \n  425 |   const title = await page.locator('.el-calendar__title').first().textContent()\n  426 |   expect(title?.trim()).toMatch(/^\\d{4}年\\d{1,2}月$/)\n  427 | })\n  428 | \n  429 | test('markdown stress route renders long raw HTML without browser diagnostics', async ({\n  430 |   page,\n  431 | }) => {\n  432 |   test.setTimeout(60_000)\n  433 | \n  434 |   await page.emulateMedia({ reducedMotion: 'no-preference' })\n  435 |   await page.goto('/?visual=markdown-stress&theme=light', {\n  436 |     waitUntil: 'domcontentloaded',\n  437 |   })\n  438 | \n  439 |   await expect(\n  440 |     page.locator('[data-testid=\"section-markdown-stress\"]'),\n  441 |   ).toBeVisible()\n  442 |   await expect(\n  443 |     page.locator('[data-testid=\"markdown-stress-renderer\"]'),\n  444 |   ).toBeVisible()\n  445 |   await expect(\n  446 |     page.locator('[data-testid=\"markdown-stress-status\"]'),\n> 447 |   ).toHaveText('complete', { timeout: 30_000 })\n      |     ^ Error: expect(locator).toHaveText(expected) failed\n  448 | \n  449 |   const metrics = await page\n  450 |     .locator('[data-testid=\"markdown-stress-metrics\"]')\n  451 |     .textContent()\n  452 |   expect(metrics).toContain('source: 500')\n  453 |   expect(metrics).toContain('placeholders:')\n  454 | \n  455 |   const timings = await page\n  456 |     .locator('[data-testid=\"markdown-stress-timings\"]')\n  457 |     .textContent()\n  458 |   expect(timings).toContain('html-only')\n  459 |   expect(timings).toContain('summary')\n  460 |   expect(timings).toContain('full-result')\n  461 | \n  462 |   const renderer = page.locator('.markdown-stress-renderer')\n  463 |   const stressScrollbar = page.locator('.markdown-stress-scrollbar')\n  464 |   const stressScrollWrap = stressScrollbar\n  465 |     .locator('.el-scrollbar__wrap')\n  466 |     .first()\n  467 |   const findRenderedMarkdownNode = async (selector: string) => {\n  468 |     const maxScrollTop = await stressScrollWrap.evaluate((element) =>\n  469 |       Math.max(0, element.scrollHeight - element.clientHeight),\n  470 |     )\n  471 |     const scrollPositions = [\n  472 |       0,\n  473 |       640,\n  474 |       1_600,\n  475 |       3_200,\n  476 |       6_400,\n  477 |       12_000,\n  478 |       maxScrollTop * 0.25,\n  479 |       maxScrollTop * 0.5,\n  480 |       maxScrollTop * 0.75,\n  481 |       maxScrollTop,\n  482 |     ]\n  483 | \n  484 |     for (const position of scrollPositions) {\n  485 |       await stressScrollWrap.evaluate((element, top) => {\n  486 |         element.scrollTop = Math.max(0, Math.min(element.scrollHeight, top))\n  487 |         element.dispatchEvent(new Event('scroll'))\n  488 |       }, position)\n  489 |       await page.waitForTimeout(25)\n  490 |       const locator = renderer.locator(selector)\n  491 |       if ((await locator.count()) > 0) {\n  492 |         return locator.first()\n  493 |       }\n  494 |     }\n  495 | \n  496 |     throw new Error(`markdown_stress_selector_not_rendered:${selector}`)\n  497 |   }\n  498 | \n  499 |   await expect(renderer).toContainText('Escaped html probe 1:')\n  500 |   await expect(renderer.locator('iframe')).toHaveCount(0)\n  501 |   await expect(\n  502 |     await findRenderedMarkdownNode('.markdown-renderer__text--inline-code'),\n  503 |   ).toBeVisible()\n  504 |   const liveRenderUnits = await renderer\n  505 |     .locator('[data-fsus-render-unit]')\n  506 |     .count()\n  507 |   expect(liveRenderUnits).toBeGreaterThan(0)\n  508 |   expect(liveRenderUnits).toBeLessThan(96)\n  509 |   const hasWorkerRuntime = await page.evaluate(\n  510 |     () => typeof Worker !== 'undefined',\n  511 |   )\n  512 |   const renderStrategy = await page\n  513 |     .locator(\n  514 |       '[data-testid=\"markdown-stress-renderer\"] [data-markdown-renderer]',\n  515 |     )\n  516 |     .getAttribute('data-fsus-render-strategy')\n  517 |   expect(renderStrategy).toBe(\n  518 |     hasWorkerRuntime ? 'chunked-worker' : 'chunked-main',\n  519 |   )\n  520 | \n  521 |   await expect(stressScrollbar).toBeVisible()\n  522 |   await stressScrollWrap.evaluate((element) => {\n  523 |     element.scrollTop = 640\n  524 |     element.dispatchEvent(new Event('scroll'))\n  525 |   })\n  526 |   await expect(stressScrollbar).toHaveClass(/is-scrolling/)\n  527 |   await page.waitForTimeout(25)\n  528 | \n  529 |   const stressScrollMotion = await stressScrollbar.evaluate((element) => {\n  530 |     const content = element.querySelector<HTMLElement>(\n  531 |       '.el-scrollbar__view > *',\n  532 |     )\n  533 |     const thumb = element.querySelector<HTMLElement>('.el-scrollbar__thumb')\n  534 | \n  535 |     if (!content || !thumb) {\n  536 |       return null\n  537 |     }\n  538 | \n  539 |     const contentStyle = window.getComputedStyle(content)\n  540 |     const thumbStyle = window.getComputedStyle(thumb)\n  541 | \n  542 |     return {\n  543 |       contentFilter: contentStyle.filter,\n  544 |       contentTransform: contentStyle.transform,\n  545 |       thumbFilter: thumbStyle.filter,\n  546 |       thumbShadow: thumbStyle.boxShadow,\n  547 |     }\n```",
+      "contextPath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-6465b-without-browser-diagnostics/error-context.md",
+      "contextSha256": "b9bee5772de84a84e3c338f7de79d96dac74e2d16b9a2a608c2c0bac3194a75b",
+      "tracePath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-6465b-without-browser-diagnostics/trace.zip",
+      "traceSha256": "1a354e4476652da57f81c798547934a55ab9b343426d950806885aa556a10d26",
+      "recordedFrameSnapshots": 12,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Dev",
+      "number": 6,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:661:5 › markdown stress scrollbar thumb drag stays smooth without text blur",
+      "classification": "concrete Markdown render completion/content readiness failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/sections/MarkdownStressSection.vue:handleRenderComplete; vue/packages/components/markdown-renderer/src/markdown-renderer.vue; canonical WASM/activation lifecycle",
+        "acceptance": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:429,661,814,839",
+        "contractIssues": [
+          "#191"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#1805/FsusUI#842 (canonical renderer source handoff; parent must bind exact stress owner)"
+        ],
+        "activeSourceOwner": "stress/performance owner confirmation requested; no invented root or acceptance"
+      },
+      "independentReason": "Actual status stays rendering or content remains Rendering markdown... within existing20/30-second assertions. Timing rows show successful WASM html/summary/profile stages, but status.complete is set only by component render-complete callback, not runStressProfile. This is an unresolved runtime/lifecycle/performance defect, not missing native SDK or product acceptance only. Renderer changed only through authorized canonical ae66636...; Dropdown absent in target snapshots and source imports. Do not add sleeps or force complete.",
+      "rawAssertion": "```\nError: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('[data-testid=\"markdown-stress-status\"]')\nExpected: \"complete\"\nReceived: \"rendering\"\nTimeout:  20000ms\n\nCall log:\n  - Expect \"toHaveText\" with timeout 20000ms\n  - waiting for locator('[data-testid=\"markdown-stress-status\"]')\n    3 × locator resolved to <strong data-testid=\"markdown-stress-status\">rendering</strong>\n      - unexpected value \"rendering\"\n\n```\n\n# Test source\n\n```ts\n  572 |       const style = window.getComputedStyle(element)\n  573 | \n  574 |       return {\n  575 |         clientWidth: element.clientWidth,\n  576 |         hasIframeText: element.textContent?.includes('<iframe') ?? false,\n  577 |         overflowX: element.scrollWidth - element.clientWidth,\n  578 |         wordBreak: style.wordBreak,\n  579 |         overflowWrap: style.overflowWrap,\n  580 |       }\n  581 |     })\n  582 | \n  583 |   expect(escapedProbeLayout.hasIframeText).toBe(true)\n  584 |   expect(escapedProbeLayout.overflowX).toBeLessThanOrEqual(2)\n  585 |   expect(escapedProbeLayout.clientWidth).toBeGreaterThan(0)\n  586 |   expect(['anywhere', 'break-word']).toContain(escapedProbeLayout.overflowWrap)\n  587 |   expect(['break-word', 'normal']).toContain(escapedProbeLayout.wordBreak)\n  588 | \n  589 |   const mermaidFigure = await findRenderedMarkdownNode(\n  590 |     '.markdown-renderer__mermaid[data-mermaid-rendered=\"true\"]',\n  591 |   )\n  592 |   const diagramLayout = await mermaidFigure.evaluate((figure) => {\n  593 |     const svg = figure.querySelector('svg')\n  594 |     const root = figure.closest('.markdown-renderer')\n  595 | \n  596 |     if (!svg || !root) {\n  597 |       return null\n  598 |     }\n  599 | \n  600 |     const figureRect = figure.getBoundingClientRect()\n  601 |     const svgRect = svg.getBoundingClientRect()\n  602 |     const rootRect = root.getBoundingClientRect()\n  603 | \n  604 |     return {\n  605 |       figureWidth: figureRect.width,\n  606 |       rootWidth: rootRect.width,\n  607 |       svgHeight: svgRect.height,\n  608 |       svgWidth: svgRect.width,\n  609 |       heightAttr: svg.getAttribute('height'),\n  610 |       widthAttr: svg.getAttribute('width'),\n  611 |     }\n  612 |   })\n  613 | \n  614 |   expect(diagramLayout?.widthAttr).toMatch(/^\\d+$/)\n  615 |   expect(diagramLayout?.heightAttr).toMatch(/^\\d+$/)\n  616 |   expect(\n  617 |     diagramLayout?.svgWidth ?? Number.POSITIVE_INFINITY,\n  618 |   ).toBeLessThanOrEqual(520)\n  619 |   expect(\n  620 |     diagramLayout?.svgHeight ?? Number.POSITIVE_INFINITY,\n  621 |   ).toBeLessThanOrEqual(180)\n  622 |   expect(diagramLayout?.figureWidth ?? Number.POSITIVE_INFINITY).toBeLessThan(\n  623 |     (diagramLayout?.rootWidth ?? 0) * 0.6,\n  624 |   )\n  625 | \n  626 |   await page.addStyleTag({\n  627 |     content: [\n  628 |       '.markdown-renderer p,',\n  629 |       '.markdown-renderer li {',\n  630 |       '  text-align: justify;',\n  631 |       '  text-align-last: justify;',\n  632 |       '  word-spacing: 12px;',\n  633 |       '}',\n  634 |     ].join('\\n'),\n  635 |   })\n  636 | \n  637 |   const protectedTechnicalText = await (\n  638 |     await findRenderedMarkdownNode('.markdown-renderer__text--inline-code')\n  639 |   ).evaluate((element) => {\n  640 |     const style = window.getComputedStyle(element)\n  641 |     return {\n  642 |       textAlign: style.textAlign,\n  643 |       textAlignLast: style.textAlignLast,\n  644 |       wordSpacing: style.wordSpacing,\n  645 |     }\n  646 |   })\n  647 |   expect(protectedTechnicalText.textAlign).not.toBe('justify')\n  648 |   expect(protectedTechnicalText.textAlignLast).not.toBe('justify')\n  649 |   expect(protectedTechnicalText.wordSpacing).not.toBe('12px')\n  650 | \n  651 |   const layout = await renderer.evaluate((element) => ({\n  652 |     viewportOverflow:\n  653 |       document.documentElement.scrollWidth -\n  654 |       document.documentElement.clientWidth,\n  655 |     rendererOverflow: element.scrollWidth - element.clientWidth,\n  656 |   }))\n  657 |   expect(layout.viewportOverflow).toBeLessThanOrEqual(2)\n  658 |   expect(layout.rendererOverflow).toBeLessThanOrEqual(2)\n  659 | })\n  660 | \n  661 | test('markdown stress scrollbar thumb drag stays smooth without text blur', async ({\n  662 |   page,\n  663 | }) => {\n  664 |   test.setTimeout(60_000)\n  665 |   await page.emulateMedia({ reducedMotion: 'no-preference' })\n  666 |   await page.goto('/?visual=markdown-stress&theme=light', {\n  667 |     waitUntil: 'domcontentloaded',\n  668 |   })\n  669 | \n  670 |   await expect(\n  671 |     page.locator('[data-testid=\"markdown-stress-status\"]'),\n> 672 |   ).toHaveText('complete', { timeout: 20_000 })\n      |     ^ Error: expect(locator).toHaveText(expected) failed\n  673 | \n  674 |   const scrollbar = page.locator('.markdown-stress-scrollbar')\n  675 |   const wrap = scrollbar.locator('.el-scrollbar__wrap').first()\n  676 |   const thumb = scrollbar\n  677 |     .locator('.el-scrollbar__bar.is-vertical .el-scrollbar__thumb')\n  678 |     .first()\n  679 | \n  680 |   await expect(scrollbar).toBeVisible()\n  681 |   await expect(thumb).toBeVisible()\n  682 |   await wrap.evaluate((element) => {\n  683 |     element.scrollTop = 0\n  684 |     element.dispatchEvent(new Event('scroll'))\n  685 |   })\n  686 |   await expect(scrollbar).not.toHaveClass(/is-scrolling/, { timeout: 2500 })\n  687 | \n  688 |   const thumbBox = await thumb.boundingBox()\n  689 |   expect(thumbBox).not.toBeNull()\n  690 |   if (!thumbBox) return\n  691 | \n  692 |   const readDragPosition = () =>\n  693 |     scrollbar.evaluate((element) => {\n  694 |       const wrap = element.querySelector<HTMLElement>('.el-scrollbar__wrap')\n  695 |       const renderer = element.querySelector<HTMLElement>(\n  696 |         '.markdown-stress-renderer',\n  697 |       )\n  698 |       if (!wrap || !renderer) {\n  699 |         throw new Error('Markdown stress scrollbar drag internals are missing')\n  700 |       }\n  701 | \n  702 |       const wrapRect = wrap.getBoundingClientRect()\n  703 |       let section = 0\n  704 |       let bestTop = Number.NEGATIVE_INFINITY\n  705 |       for (const heading of renderer.querySelectorAll<HTMLElement>('h2')) {\n  706 |         const rect = heading.getBoundingClientRect()\n  707 |         if (rect.top <= wrapRect.top + 40 && rect.top > bestTop) {\n  708 |           bestTop = rect.top\n  709 |           section =\n  710 |             Number.parseInt(\n  711 |               /Stress Section\\s+(\\d+)/.exec(heading.textContent || '')?.[1] ||\n  712 |                 '0',\n  713 |               10,\n  714 |             ) || 0\n  715 |         }\n  716 |       }\n  717 | \n  718 |       return {\n  719 |         clientHeight: wrap.clientHeight,\n  720 |         scrollTop: wrap.scrollTop,\n  721 |         section,\n  722 |       }\n  723 |     })\n  724 | \n  725 |   await page.mouse.move(\n  726 |     thumbBox.x + thumbBox.width / 2,\n  727 |     thumbBox.y + Math.min(8, thumbBox.height / 2),\n  728 |   )\n  729 |   await page.mouse.down()\n  730 |   await page.mouse.move(thumbBox.x + thumbBox.width / 2, thumbBox.y + 160, {\n  731 |     steps: 16,\n  732 |   })\n  733 |   await expect(scrollbar).toHaveClass(/is-scrolling/)\n  734 |   await expect(scrollbar).toHaveClass(/is-thumb-dragging/)\n  735 |   await page.waitForTimeout(50)\n  736 | \n  737 |   const forwardDragPosition = await readDragPosition()\n  738 |   await page.mouse.move(thumbBox.x + thumbBox.width / 2, thumbBox.y + 120, {\n  739 |     steps: 8,\n  740 |   })\n  741 |   await page.waitForTimeout(80)\n  742 |   const reverseDragPosition = await readDragPosition()\n  743 | \n  744 |   expect(reverseDragPosition.scrollTop).toBeGreaterThanOrEqual(\n  745 |     forwardDragPosition.scrollTop - 18_000,\n  746 |   )\n  747 |   if (forwardDragPosition.section > 0 && reverseDragPosition.section > 0) {\n  748 |     expect(reverseDragPosition.section).toBeGreaterThanOrEqual(\n  749 |       forwardDragPosition.section - 64,\n  750 |     )\n  751 |   }\n  752 | \n  753 |   const dragMetrics = await scrollbar.evaluate((element) => {\n  754 |     const wrap = element.querySelector<HTMLElement>('.el-scrollbar__wrap')\n  755 |     const content = element.querySelector<HTMLElement>(\n  756 |       '.el-scrollbar__view > *',\n  757 |     )\n  758 |     const thumb = element.querySelector<HTMLElement>(\n  759 |       '.el-scrollbar__bar.is-vertical .el-scrollbar__thumb',\n  760 |     )\n  761 | \n  762 |     if (!wrap || !content || !thumb) {\n  763 |       throw new Error('Markdown stress scrollbar drag internals are missing')\n  764 |     }\n  765 | \n  766 |     const readBlur = (filter: string) => {\n  767 |       const match = /blur\\(([\\d.]+)px\\)/.exec(filter)\n  768 |       return match ? Number.parseFloat(match[1]) : 0\n  769 |     }\n  770 |     const contentStyle = getComputedStyle(content)\n  771 |     const thumbStyle = getComputedStyle(thumb)\n  772 |     const thumbAfterStyle = getComputedStyle(thumb, '::after')\n```",
+      "contextPath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-918da-ys-smooth-without-text-blur/error-context.md",
+      "contextSha256": "a031ca7787c5f4798891cac290cb009b5b376ce1599ae50bdd0c6c2cf379725b",
+      "tracePath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-918da-ys-smooth-without-text-blur/trace.zip",
+      "traceSha256": "349c2c51277628dc63cdfdac55d9aae3b72a9e32aef1eea50fc719f693daa383",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Dev",
+      "number": 7,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:814:5 › markdown stress preview scroll remains monotonic while renderer settles",
+      "classification": "concrete Markdown render completion/content readiness failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/sections/MarkdownStressSection.vue:handleRenderComplete; vue/packages/components/markdown-renderer/src/markdown-renderer.vue; canonical WASM/activation lifecycle",
+        "acceptance": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:429,661,814,839",
+        "contractIssues": [
+          "#191"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#1805/FsusUI#842 (canonical renderer source handoff; parent must bind exact stress owner)"
+        ],
+        "activeSourceOwner": "stress/performance owner confirmation requested; no invented root or acceptance"
+      },
+      "independentReason": "Actual status stays rendering or content remains Rendering markdown... within existing20/30-second assertions. Timing rows show successful WASM html/summary/profile stages, but status.complete is set only by component render-complete callback, not runStressProfile. This is an unresolved runtime/lifecycle/performance defect, not missing native SDK or product acceptance only. Renderer changed only through authorized canonical ae66636...; Dropdown absent in target snapshots and source imports. Do not add sleeps or force complete.",
+      "rawAssertion": "```\nError: expect(locator).toContainText(expected) failed\n\nLocator: locator('.markdown-stress-renderer')\nExpected substring: \"Stress Section 1\"\nReceived string:    \"Rendering markdown...\"\nTimeout: 20000ms\n\nCall log:\n  - Expect \"toContainText\" with timeout 20000ms\n  - waiting for locator('.markdown-stress-renderer')\n    - locator resolved to <div class=\"el-scrollbar__view markdown-stress-renderer\">…</div>\n    - unexpected value \"\"\n    - locator resolved to <div class=\"el-scrollbar__view markdown-stress-renderer\">…</div>\n    - unexpected value \"Rendering markdown...\"\n\n```",
+      "contextPath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-9cf08-onic-while-renderer-settles/error-context.md",
+      "contextSha256": "0962de5786c47025ae51d3ca1e998dcaa588de41be62fdfc17c0d2c92d9d1742",
+      "tracePath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-9cf08-onic-while-renderer-settles/trace.zip",
+      "traceSha256": "c45ebabb6150271b7595e4ef425af4ea332d731453234caa8524493cdb6e90ee",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    },
+    {
+      "phase": "Dev",
+      "number": 8,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:839:5 › markdown stress preview keeps position in narrow devtools-like viewport",
+      "classification": "concrete Markdown render completion/content readiness failure",
+      "ownedByDropdown830": false,
+      "sourceOwner": {
+        "repository": "Ozwasyd/FsusUI",
+        "source": "vue/packages/demo-app/src/sections/MarkdownStressSection.vue:handleRenderComplete; vue/packages/components/markdown-renderer/src/markdown-renderer.vue; canonical WASM/activation lifecycle",
+        "acceptance": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:429,661,814,839",
+        "contractIssues": [
+          "#191"
+        ],
+        "coordinatingRoots": [
+          "FsusBlog#1805/FsusUI#842 (canonical renderer source handoff; parent must bind exact stress owner)"
+        ],
+        "activeSourceOwner": "stress/performance owner confirmation requested; no invented root or acceptance"
+      },
+      "independentReason": "Actual status stays rendering or content remains Rendering markdown... within existing20/30-second assertions. Timing rows show successful WASM html/summary/profile stages, but status.complete is set only by component render-complete callback, not runStressProfile. This is an unresolved runtime/lifecycle/performance defect, not missing native SDK or product acceptance only. Renderer changed only through authorized canonical ae66636...; Dropdown absent in target snapshots and source imports. Do not add sleeps or force complete.",
+      "rawAssertion": "```\nError: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('[data-testid=\"markdown-stress-status\"]')\nExpected: \"complete\"\nReceived: \"rendering\"\nTimeout:  20000ms\n\nCall log:\n  - Expect \"toHaveText\" with timeout 20000ms\n  - waiting for locator('[data-testid=\"markdown-stress-status\"]')\n    3 × locator resolved to <strong data-testid=\"markdown-stress-status\">rendering</strong>\n      - unexpected value \"rendering\"\n\n```",
+      "contextPath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-fdf27-rrow-devtools-like-viewport/error-context.md",
+      "contextSha256": "c40896e8c09f9e79911083ea2605790053d70707eb03e2c14207ede9b8e9d645",
+      "tracePath": "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-fdf27-rrow-devtools-like-viewport/trace.zip",
+      "traceSha256": "ba2abff32377c2ed380d6dbf33d54ef4f2be689379650854f37e81b63a90c2fc",
+      "recordedFrameSnapshots": 8,
+      "recordedDropdownClassOccurrences": 0,
+      "originalStatus": "failed",
+      "qualification": false
+    }
+  ]
+}

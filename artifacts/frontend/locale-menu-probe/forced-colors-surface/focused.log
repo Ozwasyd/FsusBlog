@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /workspace/FsusUI
+
+
+ Test Files  9 passed (9)
+      Tests  63 passed (63)
+   Start at  09:05:56
+   Duration  18.64s (transform 25.58s, setup 820ms, import 37.19s, tests 5.45s, environment 8.11s)
+

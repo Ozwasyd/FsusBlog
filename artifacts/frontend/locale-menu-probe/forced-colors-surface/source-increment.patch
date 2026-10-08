@@ -1,0 +1,57 @@
+commit eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360
+Author:     djsms <lyuaoss@gmail.com>
+AuthorDate: Thu Oct 8 09:04:17 2026 +0000
+Commit:     djsms <lyuaoss@gmail.com>
+CommitDate: Thu Oct 8 09:04:17 2026 +0000
+
+    fix(dropdown): keep forced-colors popup surface opaque
+    
+    Related to #830. Use the system Canvas on the owning popup and arrow so forced-color alpha cannot expose background text. Preserve ordinary overlay tokens, shared theme, focus and geometry.
+
+diff --git a/.changeset/dropdown-forced-colors-surface.md b/.changeset/dropdown-forced-colors-surface.md
+new file mode 100644
+index 00000000..adac2e03
+--- /dev/null
++++ b/.changeset/dropdown-forced-colors-surface.md
+@@ -0,0 +1,5 @@
++---
++'element-plus': patch
++---
++
++Keep the Dropdown popup and arrow opaque in forced-colors mode, using the user's system Canvas palette without changing ordinary overlay tokens or consumer styles.
+diff --git a/docs/components/dropdown.md b/docs/components/dropdown.md
+index a6e1fc45..3307710a 100644
+--- a/docs/components/dropdown.md
++++ b/docs/components/dropdown.md
+@@ -86,7 +86,10 @@ focus away from a user who is navigating pending or retry content.
+ Forced-colors mode preserves the trigger and item inset keyboard focus rings when the browser
+ suppresses box shadows. The ring uses the existing focus tokens and lets the
+ browser map its border color to the user's contrast palette; it does not change
+-row geometry or require a consumer style override.
++row geometry or require a consumer style override. The popup and arrow use an
++opaque system Canvas surface in forced-colors mode so background content cannot
++show through the overlay token's alpha. Ordinary light/dark overlay tokens and
++automatic browser color adjustment remain unchanged.
+ 
+ ## URL and Command Activation Adapter
+ 
+diff --git a/vue/packages/theme-chalk/src/dropdown.scss b/vue/packages/theme-chalk/src/dropdown.scss
+index afae3792..d1a4e5ab 100644
+--- a/vue/packages/theme-chalk/src/dropdown.scss
++++ b/vue/packages/theme-chalk/src/dropdown.scss
+@@ -246,6 +246,15 @@ $dropdown-menu-padding-vertical: map.merge(
+ }
+ 
+ @media (forced-colors: active) {
++  // System color mapping preserves token alpha; the popup must hide its underlay.
++  .#{$namespace}-dropdown__popper.#{$namespace}-popper.is-pure {
++    background-color: Canvas;
++
++    .#{$namespace}-popper__arrow::before {
++      background-color: Canvas;
++    }
++  }
++
+   .#{$namespace}-dropdown [aria-haspopup='menu']:focus-visible,
+   .#{$namespace}-dropdown-menu__item:not(.is-disabled):focus-visible {
+     position: relative;

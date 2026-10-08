@@ -1,0 +1,17 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog/src/frontend
+
+ ✓ ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts (9 tests) 1866ms
+ ✓ ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts (7 tests) 492ms
+     ✓ projects the full catalog as selector items without hardcoding a bilingual list  312ms
+ ✓ ../../tests/frontend/unit/components/LocaleSelector.test.ts (17 tests) 3227ms
+     ✓ is driven only by props and projects ten catalog items without hardcoding  399ms
+     ✓ opens with Enter/Space, moves with arrows/Home/End, and restores focus on Escape  365ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  09:05:35
+   Duration  23.10s (transform 30.21s, setup 1.18s, import 38.33s, tests 5.59s, environment 829ms)
+
+JSON report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.xml
