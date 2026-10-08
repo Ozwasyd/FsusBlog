@@ -276,9 +276,9 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             resultVerified = true;
             try
             {
-                resources.RequireCompleted();
+                RequireAttemptCompleted(resources);
             }
-            catch (InvalidDataException)
+            catch (DocumentExportJobResourceStateException)
             {
                 // A verifier return does not prove a failed or active resource
                 // stage quiescent. Preserve the claim for the original recovery.
@@ -303,6 +303,10 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
+            if (exception is DocumentExportJobResourceStateException)
+            {
+                resultVerified = false;
+            }
             // The adapter must return/throw only after its sandbox finalization.
             // No exception text, provider path or token enters the stored reason.
             DocumentExportSandboxReceipt? failure = exception switch
@@ -319,6 +323,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
                 DocumentExportBudgetExceededException => "sandbox_budget_failed",
                 DocumentExportSandboxExecutionException => "sandbox_execution_failed",
                 DocumentExportSandboxCancelledException => "sandbox_cancelled",
+                DocumentExportJobResourceStateException => "attempt_resources_unqualified",
                 DocumentExportJobDeniedException => "permission_revoked",
                 _ => "provider_failed"
             };
@@ -329,6 +334,18 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         {
             watch.Cancel();
             await monitor.ConfigureAwait(false);
+        }
+    }
+
+    private static void RequireAttemptCompleted(DocumentExportAttemptResources resources)
+    {
+        try
+        {
+            resources.RequireCompleted();
+        }
+        catch (InvalidDataException exception)
+        {
+            throw new DocumentExportJobResourceStateException(exception);
         }
     }
 
@@ -370,7 +387,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             DocumentExportStoredJob job = await RequireJobAsync(state, actor, taskId,
                 DocumentExportJobOperation.Create, cancellationToken).ConfigureAwait(false);
             deadline.ThrowIfExpired();
-            resources.RequireCompleted();
+            RequireAttemptCompleted(resources);
             if (job.WorkerDigest != workerDigest || job.Snapshot.Task.Status != DocumentExportTaskStatus.Running
                 || job.Snapshot.ExpiresAt <= Now || job.ExecutionTask is null || job.Input is null)
             {
@@ -402,7 +419,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             output = SealOutput(output);
             cancellationToken.ThrowIfCancellationRequested();
             deadline.ThrowIfExpired();
-            resources.RequireCompleted();
+            RequireAttemptCompleted(resources);
             job = Change(job, DocumentExportTaskStatus.CleanupRequired, "commit_pending") with
             {
                 PendingOutput = output,
@@ -414,11 +431,11 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             await _repository.CommitObjectAsync(output, result.Bytes).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             deadline.ThrowIfExpired();
-            resources.RequireCompleted();
+            RequireAttemptCompleted(resources);
             await RequirePermissionAsync(actor, job.Snapshot.Task, DocumentExportJobOperation.Create, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             deadline.ThrowIfExpired();
-            resources.RequireCompleted();
+            RequireAttemptCompleted(resources);
             job = Change(job, DocumentExportTaskStatus.Succeeded, "succeeded");
             job = FinishAttempt(job, DocumentExportTaskStatus.Succeeded, "succeeded") with
             {
@@ -437,7 +454,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         {
             deadline.ThrowIfExpired();
             cancellationToken.ThrowIfCancellationRequested();
-            resources.RequireCompleted();
+            RequireAttemptCompleted(resources);
         });
 
     private Task<DocumentExportJobSnapshot> FinishFailedAsync(string taskId, string workerDigest, bool cancelled,

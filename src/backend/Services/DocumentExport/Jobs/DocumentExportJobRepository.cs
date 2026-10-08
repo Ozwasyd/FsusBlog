@@ -80,6 +80,7 @@ internal sealed class DocumentExportJobRepository
         using FileStream owner = await LockAsync(initialize, cancellationToken).ConfigureAwait(false);
         DocumentExportJobState state = Load();
         Dictionary<string, long> originalVersions = state.Jobs.ToDictionary(job => job.Snapshot.Task.TaskId, job => job.Snapshot.Version);
+        Dictionary<string, DocumentExportStoredJob> originalJobs = state.Jobs.ToDictionary(job => job.Snapshot.Task.TaskId);
         T result = await action(state).ConfigureAwait(false);
         try
         {
@@ -97,8 +98,10 @@ internal sealed class DocumentExportJobRepository
         {
             bool attemptExpired = exception is DocumentExportBudgetExceededException { FailureCode: "task-wall-time-budget" };
             bool publicationCancelled = validatePublication is not null && exception is OperationCanceledException;
+            bool resourceUnqualified = exception is DocumentExportJobResourceStateException;
             string reason = attemptExpired ? "task_wall_time_budget_failed"
-                : publicationCancelled ? "sandbox_cancelled" : "persistence_unqualified";
+                : publicationCancelled ? "sandbox_cancelled"
+                : resourceUnqualified ? "attempt_resources_unqualified" : "persistence_unqualified";
             bool fenced = false;
             for (int index = 0; index < state.Jobs.Count; index++)
             {
@@ -108,8 +111,13 @@ internal sealed class DocumentExportJobRepository
                 {
                     state.Jobs[index] = job with
                     {
+                        WorkerDigest = resourceUnqualified ? originalJobs[job.Snapshot.Task.TaskId].WorkerDigest : job.WorkerDigest,
+                        ExecutionTask = resourceUnqualified ? originalJobs[job.Snapshot.Task.TaskId].ExecutionTask : job.ExecutionTask,
+                        Input = resourceUnqualified ? originalJobs[job.Snapshot.Task.TaskId].Input : job.Input,
+                        PendingOutput = resourceUnqualified ? job.PendingOutput ?? job.Snapshot.Output : job.PendingOutput,
                         Snapshot = job.Snapshot with
                         {
+                            Output = resourceUnqualified ? null : job.Snapshot.Output,
                             Task = DocumentExportContractValidator.Seal(job.Snapshot.Task with
                             {
                                 Status = DocumentExportTaskStatus.CleanupRequired

@@ -67,6 +67,12 @@ old per-stage methods. The Jobs service creates the resource once after the dura
 claim, passes it to both explicit overloads, and checks completion before object
 publication and before/after final state persistence. An incomplete or active
 resource stage retains its worker claim for the original quiescence recovery.
+If completion becomes invalid during final state publication, the still-held
+exclusion lock restores the original worker, execution task and frozen source,
+keeps the object as a pending cleanup obligation and removes the output from the
+projection. Neither ordinary cleanup nor a verifier return can release that
+recovery fence. The attempt records the actual failed publication rather than
+the transient in-lock success state.
 
 The canonical renderer and the final sandbox stage use the resource-aware
 overloads with that same instance. Stages cannot overlap, repeat the same role,
@@ -83,6 +89,9 @@ between observations or total kernel read/write traffic, nor host managed CPU.
 Those physical qualification limits remain open. Plans/receipts keep their current
 versions and identities; providers and the independent verifier still need all
 original current-candidate native evidence. PDF/DOCX/EPUB remain inactive.
+The shared completion API currently takes no task/input arguments. Its exact
+binding extension remains with the canonical owner; Jobs passes the same instance
+and frozen arguments but does not invent a second binding or qualification proof.
 
 Construct `DocumentExportJobService` with the existing `ReleaseStorageLayout`,
 shared `IDataProtectionProvider`, the exact permission adapter and `TimeProvider`.
