@@ -1,8 +1,6 @@
 <template>
     <main>
         <h1>已安装插件</h1>
-        <output data-testid="selection">{{ selectedId }}</output>
-        <output data-testid="activation-count">{{ activations.length }}</output>
         <section
             v-if="mounted"
             data-testid="collection"
@@ -20,6 +18,7 @@
                 aria-label="已安装插件"
                 density="compact"
                 variant="navigation"
+                :responsive="responsive"
                 :show-header="false"
                 @change="(_row, key) => activate(String(key))"
             >
@@ -146,6 +145,7 @@ const mounted = ref(true);
 const disabled = ref(false);
 const disabledKeys = ref<string[]>([]);
 const collectionLoading = ref(false);
+const responsive = ref(true);
 const columns = [
     { key: 'identity', label: '插件', grid: 'minmax(0, 1fr)' },
     { key: 'status', label: '状态', grid: 'minmax(90px, 0.5fr)', align: 'end' as const }
@@ -192,6 +192,7 @@ const probe = {
         disabled?: boolean;
         disabledKeys?: string[];
         collectionLoading?: boolean;
+        responsive?: boolean;
     })
     {
         mounted.value = false;
@@ -201,6 +202,7 @@ const probe = {
         disabled.value = value.disabled ?? false;
         disabledKeys.value = value.disabledKeys ?? [];
         collectionLoading.value = value.collectionLoading ?? false;
+        responsive.value = value.responsive ?? true;
         acceptSelection.value = value.acceptSelection ?? true;
         activations.value = [];
         plugins.value = Array.from({ length: value.count }, (_, index) => ({
