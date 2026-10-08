@@ -1,323 +1,104 @@
 #!/usr/bin/env node
-/**
- * ArticleImageLightbox Overlay migration contract (#1788).
- *
- * - Blog adapter re-exports public ElOverlay as FsusUiOverlay only
- * - Lightbox owns article media workflow, not fixed scrim/viewport geometry
- * - No ImageViewer / deep overlay imports / product Overlay root overrides
- */
+/** Article lightbox public viewer ownership contract (#1892). */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
-
-const ADAPTER_PATH = 'src/frontend/src/fsusui/overlay.ts';
 const LIGHTBOX_PATH = 'src/frontend/src/components/article/ArticleImageLightbox.vue';
 const COMPOSABLE_PATH = 'src/frontend/src/composables/article/useArticleImageLightbox.ts';
-const BARREL_PATH = 'src/frontend/src/fsusui/index.ts';
-
-const FORBIDDEN_LIGHTBOX_PATTERNS = [
-    { id: 'position-fixed', pattern: /position\s*:\s*fixed/iu },
-    { id: 'inset-0', pattern: /inset\s*:\s*0/iu },
-    { id: 'local-scrim-token', pattern: /--fsusblog-overlay-scrim/u },
-    { id: 'backdrop-filter', pattern: /backdrop-filter/iu },
-    { id: 'bare-vh', pattern: /\b(?:100|80|88)vh\b/u },
-    { id: 'env-safe-area', pattern: /env\(\s*safe-area-inset-/iu },
-    { id: 'image-viewer', pattern: /ImageViewer|ElImageViewer/u },
-    { id: 'deep-overlay-import', pattern: /@ozwasyd\/element-plus\/es\/components\/overlay|@element-plus\/components\/overlay\/src|useLockscreen/u },
-    { id: 'el-overlay-override', pattern: /:deep\(\s*\.el-overlay|\.el-overlay\s*\{/u },
-    { id: 'lodash', pattern: /lodash|from\s+['"]lodash/u }
+const forbidden = [
+    ['local-dialog', /role\s*=\s*["']dialog["']/u],
+    ['second-overlay', /<FsusUiOverlay|<Teleport|<FsuTransition/u],
+    ['local-body-lock', /article-image-lightbox-open|document\.body|useLockscreen/u],
+    ['local-viewer-geometry', /position\s*:\s*(?:fixed|absolute)|--fsus-safe-area|--fsus-viewport-block-size|\b(?:100|80|88)vh\b/u],
+    ['private-api', /@ozwasyd\/element-plus\/(?:es|lib|packages|internal)|@element-plus\//u],
+    ['private-selector', /\.el-image-viewer|:deep\(|querySelector/u],
+    ['local-scrim', /backdrop-filter|--fsusblog-overlay-scrim/u],
+    ['local-controls', /<button|keydown\.esc/u]
 ];
 
-/**
- * @param {string} root
- * @param {string} relativePath
- */
-function read(root, relativePath)
+export function findLightboxSourceViolations(relativePath, source)
 {
-    return fs.readFileSync(path.join(root, relativePath), 'utf8');
+    if (!relativePath.endsWith('ArticleImageLightbox.vue'))
+    {
+        return /components\/overlay\/src|@element-plus\/hooks|useLockscreen/u.test(source)
+            ? [`${relativePath}: private overlay API`] : [];
+    }
+    const violations = forbidden.filter(([, pattern]) => pattern.test(source))
+        .map(([id]) => `${relativePath}: forbidden ${id}`);
+    const required = [
+        ['public-viewer', /<ElImageViewer\b/u],
+        ['public-import', /import\s*\{\s*ElImageViewer\s*\}\s*from\s*['"]@ozwasyd\/element-plus['"]/u],
+        ['alt-list', /:alt-list=/u],
+        ['caption', /#caption=/u],
+        ['controlled-index', /:active-index="activeIndex"/u],
+        ['localized-title', /messages\.article\.actions\.viewImage/u],
+        ['localized-close', /messages\.article\.actions\.closeImage/u],
+        ['localized-navigation', /previousImage[\s\S]*nextImage/u],
+        ['navigation-only', /:show-toolbar="false"/u],
+        ['previous-intent', /@previous="emit\('previous'\)"/u],
+        ['next-intent', /@next="emit\('next'\)"/u],
+        ['close', /@close="emit\('close'\)"/u]
+    ];
+    for (const [id, pattern] of required)
+    {
+        if (!pattern.test(source))
+        {
+            violations.push(`${relativePath}: missing ${id}`);
+        }
+    }
+    return violations;
 }
 
-/**
- * @param {{ root?: string }} [options]
- * @returns {string[]}
- */
 export function findArticleImageLightboxOverlayViolations(options = {})
 {
     const root = options.root ? path.resolve(options.root) : repoRoot;
-    const violations = [];
-
-    for (const required of [ADAPTER_PATH, LIGHTBOX_PATH, COMPOSABLE_PATH, BARREL_PATH])
+    const lightbox = fs.readFileSync(path.join(root, LIGHTBOX_PATH), 'utf8');
+    const composable = fs.readFileSync(path.join(root, COMPOSABLE_PATH), 'utf8');
+    const failures = findLightboxSourceViolations(LIGHTBOX_PATH, lightbox);
+    if (/target\.focus\(|article-image-lightbox-open|document\.body/u.test(composable))
     {
-        if (!fs.existsSync(path.join(root, required)))
-        {
-            violations.push(`${required}: required file is missing`);
-        }
+        failures.push(`${COMPOSABLE_PATH}: duplicate modal focus/lock owner`);
     }
-
-    if (violations.length > 0)
-    {
-        return violations;
-    }
-
-    const adapter = read(root, ADAPTER_PATH).trim();
-    const lightbox = read(root, LIGHTBOX_PATH);
-    const composable = read(root, COMPOSABLE_PATH);
-    const barrel = read(root, BARREL_PATH);
-
-    if (adapter !== "export { ElOverlay as FsusUiOverlay } from '@ozwasyd/element-plus'")
-    {
-        violations.push(
-            `${ADAPTER_PATH}: must be a single type-preserving named re-export of ElOverlay as FsusUiOverlay from the public package entry`
-        );
-    }
-
-    if (/as\s+Component|defineComponent|createApp|h\(|render\s*\(/.test(adapter))
-    {
-        violations.push(`${ADAPTER_PATH}: adapter must not wrap, cast, or re-render Overlay`);
-    }
-
-    if (!/export\s*\*\s*from\s*['"]@\/fsusui\/overlay['"]/.test(barrel)
-        && !/export\s*\{[^}]*FsusUiOverlay[^}]*\}\s*from\s*['"]@\/fsusui\/overlay['"]/.test(barrel))
-    {
-        violations.push(`${BARREL_PATH}: must re-export the stable overlay adapter`);
-    }
-
-    if (!/<FsusUiOverlay\b/u.test(lightbox) || !lightbox.includes("from '@/fsusui/overlay'"))
-    {
-        violations.push(`${LIGHTBOX_PATH}: must render scrim/viewport through FsusUiOverlay adapter`);
-    }
-
-    if (!lightbox.includes('data-article-lightbox="true"'))
-    {
-        violations.push(`${LIGHTBOX_PATH}: must keep article lightbox identity marker`);
-    }
-
-    if (!lightbox.includes('article-image-lightbox-open'))
-    {
-        violations.push(`${LIGHTBOX_PATH}: must keep Blog-owned body scroll-lock lifecycle`);
-    }
-
-    if (!composable.includes('triggerImage') || !composable.includes('target.focus()'))
-    {
-        violations.push(`${COMPOSABLE_PATH}: must restore focus to the trigger image on close`);
-    }
-
-    for (const rule of FORBIDDEN_LIGHTBOX_PATTERNS)
-    {
-        if (rule.pattern.test(lightbox))
-        {
-            violations.push(`${LIGHTBOX_PATH}: forbidden residue ${rule.id}`);
-        }
-    }
-
-    if (!lightbox.includes('var(--fsus-safe-area-inset-top)')
-        || !lightbox.includes('var(--fsus-safe-area-inset-right)')
-        || !lightbox.includes('var(--fsus-safe-area-inset-bottom)')
-        || !lightbox.includes('var(--fsus-safe-area-inset-left)')
-        || !lightbox.includes('var(--fsus-viewport-block-size)'))
-    {
-        violations.push(`${LIGHTBOX_PATH}: content layer must consume canonical safe-area and viewport tokens`);
-    }
-
-    return violations;
-}
-
-/**
- * Mutation helpers for unit / self-proofs.
- * @param {string} relativePath
- * @param {string} source
- * @returns {string[]}
- */
-export function findLightboxSourceViolations(relativePath, source)
-{
-    const violations = [];
-
-    if (relativePath.endsWith('overlay.ts'))
-    {
-        const trimmed = source.trim();
-        if (trimmed !== "export { ElOverlay as FsusUiOverlay } from '@ozwasyd/element-plus'")
-        {
-            violations.push(`${relativePath}: adapter must stay a type-preserving named re-export`);
-        }
-        if (/components\/overlay\/src|@element-plus\/hooks|useLockscreen/.test(source))
-        {
-            violations.push(`${relativePath}: deep import of overlay internals is forbidden`);
-        }
-        return violations;
-    }
-
-    if (relativePath.endsWith('ArticleImageLightbox.vue'))
-    {
-        for (const rule of FORBIDDEN_LIGHTBOX_PATTERNS)
-        {
-            if (rule.pattern.test(source))
-            {
-                violations.push(`${relativePath}: forbidden residue ${rule.id}`);
-            }
-        }
-        if (!/<FsusUiOverlay\b/u.test(source))
-        {
-            violations.push(`${relativePath}: missing FsusUiOverlay root`);
-        }
-        if (!/min-height:\s*var\(--fsus-viewport-block-size\)/u.test(source))
-        {
-            violations.push(`${relativePath}: lightbox root must consume the viewport block-size token`);
-        }
-        if (!/padding:\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-top\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-right\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-bottom\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-left\)\)/u.test(source))
-        {
-            violations.push(`${relativePath}: lightbox root padding must consume all safe-area tokens`);
-        }
-        if (!/\.article-image-lightbox__close\s*\{[^}]*top:\s*max\(1rem,\s*var\(--fsus-safe-area-inset-top\)\)/su.test(source))
-        {
-            violations.push(`${relativePath}: close control must keep its safe-area top offset`);
-        }
-    }
-
-    return violations;
+    return failures;
 }
 
 function runLiveCheck()
 {
-    const failures = [...findArticleImageLightboxOverlayViolations()];
-    const lightbox = read(repoRoot, LIGHTBOX_PATH);
-    let mutationProofs = 0;
-
-    const assertMutationRejected = (label, messages) =>
+    const source = fs.readFileSync(path.join(repoRoot, LIGHTBOX_PATH), 'utf8');
+    const failures = findArticleImageLightboxOverlayViolations();
+    const mutations = [
+        ['local-fixed-scrim', `${source}<style>.viewer { position: fixed; inset: 0; }</style>`],
+        ['deep-import', source.replace("'@ozwasyd/element-plus'", "'@ozwasyd/element-plus/es/components/image-viewer'")],
+        ['private-override', `${source}<style>:deep(.el-image-viewer) { padding: 0; }</style>`],
+        ['bare-vh-geometry', `${source}<style>.viewer { height: 100vh; }</style>`],
+        ['second-overlay', source.replace('<ElImageViewer', '<FsusUiOverlay><ElImageViewer')],
+        ['local-safe-padding', `${source}<style>.viewer { padding: var(--fsus-safe-area-inset-top); }</style>`],
+        ['local-control-offset', `${source}<style>.close { position: absolute; top: 0; }</style>`],
+        ['local-viewport', `${source}<style>.viewer { min-height: var(--fsus-viewport-block-size); }</style>`],
+        ['viewer-root-removed', source.replace('<ElImageViewer', '<div')],
+        ['caption-removed', source.replace('#caption=', '#default=')],
+        ['alt-removed', source.replace(':alt-list=', ':title-list=')],
+        ['body-lock-retained', `${source}<script>document.body.classList.add('article-image-lightbox-open')</script>`],
+        ['tools-added', source.replace(':show-toolbar="false"', ':show-toolbar="true"')]
+    ];
+    for (const [name, candidate] of mutations)
     {
-        if (!Array.isArray(messages) || messages.length === 0)
+        if (findLightboxSourceViolations(LIGHTBOX_PATH, candidate).length === 0)
         {
-            failures.push(`mutation ${label}: expected non-zero validation failures`);
-            return;
+            failures.push(`mutation ${name}: expected rejection`);
         }
-        mutationProofs += 1;
-    };
-
-    assertMutationRejected(
-        'local-fixed-scrim',
-        findLightboxSourceViolations(
-            LIGHTBOX_PATH,
-            `
-            <template><div class="article-image-lightbox"></div></template>
-            <style>
-            .article-image-lightbox {
-              position: fixed;
-              inset: 0;
-              background: var(--fsusblog-overlay-scrim);
-            }
-            </style>
-            `
-        )
-    );
-
-    assertMutationRejected(
-        'deep-overlay-import',
-        findLightboxSourceViolations(
-            ADAPTER_PATH,
-            "import ElOverlay from '@ozwasyd/element-plus/es/components/overlay/src/overlay'\nexport const FsusUiOverlay = ElOverlay\n"
-        )
-    );
-
-    assertMutationRejected(
-        'el-overlay-override',
-        findLightboxSourceViolations(
-            LIGHTBOX_PATH,
-            `
-            <template><FsusUiOverlay /></template>
-            <style scoped>
-            :deep(.el-overlay) { padding: var(--fsus-safe-area-inset-top); }
-            </style>
-            `
-        )
-    );
-
-    assertMutationRejected(
-        'bare-vh-geometry',
-        findLightboxSourceViolations(
-            LIGHTBOX_PATH,
-            `
-            <template><FsusUiOverlay><img style="max-height: 80vh" /></FsusUiOverlay></template>
-            `
-        )
-    );
-
-    assertMutationRejected(
-        'second-background-layer',
-        findLightboxSourceViolations(
-            LIGHTBOX_PATH,
-            `
-            <template><FsusUiOverlay><div class="article-image-lightbox" style="background: var(--fsusblog-overlay-scrim)"></div></FsusUiOverlay></template>
-            `
-        )
-    );
-
-    assertMutationRejected(
-        'production-container-padding',
-        findLightboxSourceViolations(
-            LIGHTBOX_PATH,
-            lightbox.replace(
-                /padding:\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-top\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-right\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-bottom\)\)\s*max\(1\.5rem,\s*var\(--fsus-safe-area-inset-left\)\);/u,
-                'padding: 0;'
-            )
-        )
-    );
-
-    assertMutationRejected(
-        'production-control-offset',
-        findLightboxSourceViolations(
-            LIGHTBOX_PATH,
-            lightbox.replace(
-                'top: max(1rem, var(--fsus-safe-area-inset-top));',
-                'top: 0;'
-            )
-        )
-    );
-
-    assertMutationRejected(
-        'production-viewport-token',
-        findLightboxSourceViolations(
-            LIGHTBOX_PATH,
-            lightbox.replace(
-                'min-height: var(--fsus-viewport-block-size);',
-                'min-height: 100%;'
-            )
-        )
-    );
-
-    assertMutationRejected(
-        'production-overlay-root',
-        findLightboxSourceViolations(
-            LIGHTBOX_PATH,
-            lightbox
-                .replace('<FsusUiOverlay', '<div')
-                .replace('</FsusUiOverlay>', '</div>')
-        )
-    );
-
-    if (mutationProofs < 9)
-    {
-        failures.push(`expected 9 mutation proofs, got ${mutationProofs}`);
     }
-
-    if (failures.length > 0)
+    if (failures.length)
     {
-        for (const message of failures)
-        {
-            console.error(`[check-article-image-lightbox-overlay] ${message}`);
-        }
-        process.exit(1);
+        failures.forEach((failure) => console.error(`[check-article-image-lightbox-overlay] ${failure}`));
+        process.exitCode = 1;
+        return;
     }
-
-    console.log(
-        `[check-article-image-lightbox-overlay] ok mutations=${mutationProofs}`
-    );
+    console.log(`[check-article-image-lightbox-overlay] ok mutations=${mutations.length}`);
 }
-
-const isDirectRun = process.argv[1]
-    && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
-
-if (isDirectRun)
+if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url)
 {
     runLiveCheck();
 }
