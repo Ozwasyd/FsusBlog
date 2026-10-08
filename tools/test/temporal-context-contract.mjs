@@ -177,6 +177,13 @@ export function validateBusinessEpochUtc(value)
     {
         fail('temporal.context-invalid', 'businessEpochUtc must be an RFC3339 UTC instant');
     }
+    // Date.parse normalizes impossible calendar dates and 24:00 into another day.
+    // A replay input must name the same instant that the backend will admit.
+    if (epoch.startsWith('0000-')
+        || new Date(Date.parse(epoch)).toISOString().slice(0, 19) !== epoch.slice(0, 19))
+    {
+        fail('temporal.context-invalid', 'businessEpochUtc must preserve its UTC calendar date and time');
+    }
     const fraction = epoch.match(/\.(\d+)Z$/u)?.[1] ?? '';
     if (fraction.length > 3 && /[1-9]/u.test(fraction.slice(3)))
     {
