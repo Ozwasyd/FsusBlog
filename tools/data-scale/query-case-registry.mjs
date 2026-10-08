@@ -51,6 +51,87 @@ export const queryCaseIds = Object.freeze([
 
 export const queryMatrixTiers = Object.freeze(['scale-xs', 'scale-s', 'scale-m']);
 
+/** Existing cases only. These describe tested coordinates, not broader query acceptance. */
+export function buildQueryCaseInventory(binding)
+{
+    requireQueryBinding(binding);
+    const articleOwner = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs';
+    const commentOwner = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs';
+    const owner = (domain) =>
+    {
+        const sourcePath = domain === 'article' ? articleOwner : commentOwner;
+        const contentDigest = computeSha256(fs.readFileSync(new URL(`../../${sourcePath}`, import.meta.url)));
+        return { path: sourcePath, contentDigest,
+            entrypoint: `FsusBlog.Server.Modules.Endpoints.Binary.BinaryEndpoints.MapBinary${domain === 'article' ? 'Article' : 'Comment'}Endpoints`,
+            version: `source-${contentDigest.slice('sha256:'.length)}` };
+    };
+    const owners = { article: owner('article'), comment: owner('comment') };
+    const cases = queryCaseIds.map((id) =>
+    {
+        let domain = 'article';
+        let kind;
+        let routePattern;
+        let inputFields;
+        let parameters;
+        let order = [{ field: 'createTime', direction: 'desc' }, { field: 'id', direction: 'desc' }];
+        let pagination = 'cursor';
+        if (id.startsWith('article-list'))
+        {
+            kind = 'latest-list';
+            routePattern = '/api/binary/article/list/home/{page:int}/{size:int}.aeds';
+            inputFields = ['publicArticles', 'pageSize'];
+            parameters = ['page', 'size', 'cursor'];
+        }
+        else if (id.startsWith('comment'))
+        {
+            domain = 'comment';
+            const child = id === 'comment-nested-root-expansion';
+            kind = id === 'comment-root-first' ? 'public-list' : 'pagination-order';
+            routePattern = child ? '/api/binary/comment/{articleId:int}/children/{parentId:long}' : '/api/binary/comment/{articleId:int}';
+            inputFields = ['visibleComments', 'canaries.commentArticleId', 'commentPageSize', ...(child ? ['canaries.nestedRootId'] : [])];
+            parameters = ['articleId', ...(child ? ['parentId'] : []), 'limit', 'cursor'];
+            order = [{ field: 'id', direction: child ? 'asc' : 'desc' }];
+        }
+        else if (id.startsWith('category') || id.startsWith('tag'))
+        {
+            const type = id.startsWith('category') ? 'category' : 'tag';
+            kind = `${type}-filter`;
+            routePattern = `/api/binary/article/list/${type}/{${type}Id:int}/{page:int}/{size:int}.aeds`;
+            inputFields = ['publicArticles', type === 'category' ? 'categories' : 'tags', 'pageSize'];
+            parameters = [`${type}Id`, 'page', 'size', 'cursor'];
+        }
+        else if (id.startsWith('article-detail'))
+        {
+            kind = 'detail';
+            routePattern = '/api/binary/article/{id}.aeds';
+            inputFields = ['publicArticles'];
+            parameters = ['id'];
+            order = [];
+            pagination = 'none';
+        }
+        else
+        {
+            kind = 'search-hit';
+            routePattern = '/api/binary/article/search/query.aeds';
+            inputFields = ['publicArticles', id === 'search-title-canary' ? 'canaries.titleSearch' : 'canaries.bodySearch'];
+            parameters = ['q'];
+            // The existing oracle supplies exact search IDs; it does not expose a ranking role contract.
+            order = null;
+            pagination = 'none';
+        }
+        return { id, domain, kind, queryOwner: owners[domain], routePattern,
+            actorClass: 'anonymous', inputFields, parameters, order, tieBreakerField: order?.length ? 'id' : null,
+            pagination, applicableTiers: [...queryMatrixTiers],
+            canonicalRoleBindings: null, scenarioApplicability: null,
+            blockers: ['canonical_input_role_bindings_missing', 'query_owner_scenario_receipt_intake_missing',
+                ...(id === 'comment-nested-root-expansion' ? ['child_expansion_is_not_full_public_thread'] : []),
+                ...(order === null ? ['search_ranking_role_contract_missing'] : [])] };
+    });
+    const inventory = { schema: 'fsusblog.data-scale-query-inventory.v1', binding,
+        qualification: 'not-performed', releaseEvidenceEligible: false, cases };
+    return { ...inventory, contentDigest: computeSha256(inventory) };
+}
+
 export function requireQueryBinding(binding)
 {
     for (const field of ['sourceCommit', 'dataScaleRunId', 'fixtureGeneration', 'seedReceiptDigest', 'expectedModelDigest', 'businessEpochUtc'])
@@ -296,7 +377,7 @@ export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleC
             {
                 throw new Error('fixture public detail coordinate missing');
             }
-            return { path: `/api/binary/article/${article.id}`, expectedItems: [{ ...listItem(article), content: article.body }] };
+            return { path: `/api/binary/article/${article.id}.aeds`, expectedItems: [{ ...listItem(article), content: article.body }] };
         });
     }
     for (const [id, canary] of [['search-title-canary', canaries?.titleSearch], ['search-body-canary', canaries?.bodySearch]])
@@ -320,6 +401,6 @@ export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleC
             return { path: `/api/binary/article/search/query.aeds?q=${encodeURIComponent(canary.token)}`, token: canary.token, expectedItems };
         });
     }
-    const result = { schema: 'fsusblog.data-scale-query-registry.v1', tier, binding, cases };
+    const result = { schema: 'fsusblog.data-scale-query-registry.v1', tier, binding, cases, inventory: buildQueryCaseInventory(binding) };
     return { ...result, contentDigest: computeSha256(result) };
 }

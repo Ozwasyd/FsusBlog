@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,13 +8,22 @@ using System.Text.Json;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Shared.Contracts.Outputs;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Hosting.Internal;
 
@@ -27,6 +37,101 @@ internal static class CollectorControls
     private static readonly Assembly s_server = typeof(SqlSugarInitializer).Assembly;
     private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     private const BindingFlags StaticFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+
+    // The real endpoint registrar and Kestrel router are exercised. No handler,
+    // database, cache, payload or product authorization acceptance is asserted.
+    internal static async Task RunRouteControlsAsync(string registryPath, string directory, string sourceCommit)
+    {
+        CurrentSchemaTestMaterializer.ValidateAssemblySourceCommit(sourceCommit);
+        using JsonDocument registry = JsonDocument.Parse(await File.ReadAllTextAsync(registryPath));
+        Require(registry.RootElement.GetProperty("binding").GetProperty("sourceCommit").GetString() == sourceCommit,
+            "route controls require the assembly-bound registry");
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Test" });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:Redis"] = "127.0.0.1:1,abortConnect=false",
+            ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Port=1;Database=query_route_controls;Username=test;Password=test",
+            ["Jwt:SecretKey"] = "query-route-controls-secret-at-least-32-bytes",
+            ["Jwt:KeyVersion"] = "query-route-controls",
+            ["Jwt:Issuer"] = "query-route-controls",
+            ["Jwt:Audience"] = "query-route-controls",
+            ["CORS_ALLOWED_HOSTS"] = "https://query-route.example.test",
+            ["Security:IpHashKey"] = "query-route-controls-ip-hash-key"
+        });
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        builder.Services.AddFsusApiFoundation(builder.Configuration)
+            .AddFsusRuntimeServices(builder.Configuration)
+            .AddFsusRateLimiting();
+        builder.Services.RemoveAll<IHostedService>();
+        await using WebApplication app = builder.Build();
+        app.UseRouting();
+        app.Run(async context =>
+        {
+            RouteEndpoint? endpoint = context.GetEndpoint() as RouteEndpoint;
+            context.Response.StatusCode = endpoint is null ? StatusCodes.Status404NotFound : StatusCodes.Status200OK;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                routePattern = endpoint?.RoutePattern.RawText,
+                methods = endpoint?.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods,
+                anonymous = endpoint?.Metadata.GetMetadata<IAllowAnonymous>() is not null
+            });
+        });
+        app.MapBinaryEndpoints();
+        await app.StartAsync();
+        try
+        {
+            string address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
+            using var client = new HttpClient(new HttpClientHandler { UseProxy = false }) { BaseAddress = new Uri(address) };
+            JsonElement[] inventory = registry.RootElement.GetProperty("inventory").GetProperty("cases").EnumerateArray().ToArray();
+            var results = new List<object>();
+            foreach (JsonElement entry in registry.RootElement.GetProperty("cases").EnumerateArray())
+            {
+                Require(entry.GetProperty("status").GetString() == "ready", "route control requires all original coordinates");
+                string id = entry.GetProperty("id").GetString()!;
+                string path = entry.GetProperty("coordinate").GetProperty("path").GetString()!;
+                using HttpResponseMessage response = await client.GetAsync(path);
+                using JsonDocument selected = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                string? route = selected.RootElement.GetProperty("routePattern").GetString();
+                string expected = inventory.Single(row => row.GetProperty("id").GetString() == id).GetProperty("routePattern").GetString()!;
+                Require(response.StatusCode == HttpStatusCode.OK && "/" + route?.TrimStart('/') == expected,
+                    "registry coordinate does not select its original production route");
+                Require(selected.RootElement.GetProperty("anonymous").GetBoolean()
+                    && selected.RootElement.GetProperty("methods").EnumerateArray().Any(method => method.GetString() == "GET"),
+                    "query actor or method differs from original endpoint metadata");
+                results.Add(new
+                {
+                    id,
+                    path,
+                    routePattern = route,
+                    status = "matched"
+                });
+                if (id.StartsWith("article-detail-", StringComparison.Ordinal))
+                {
+                    using HttpResponseMessage negative = await client.GetAsync(path[..^".aeds".Length]);
+                    Require(negative.StatusCode == HttpStatusCode.NotFound, "extensionless detail negative control unexpectedly matched");
+                    results.Add(new
+                    {
+                        id,
+                        path = path[..^".aeds".Length],
+                        status = "unmatched"
+                    });
+                }
+            }
+            Directory.CreateDirectory(directory);
+            QueryPlanCollector.WritePrivate(Path.Combine(directory, "route-controls.json"), new
+            {
+                sourceCommit,
+                registryDigest = registry.RootElement.GetProperty("contentDigest").GetString(),
+                qualification = "not-performed",
+                scope = "original-endpoint-registration-and-routing-only",
+                results
+            });
+        }
+        finally
+        {
+            await app.StopAsync();
+        }
+    }
 
     internal static async Task<int> RunAsync(string[] args)
     {
