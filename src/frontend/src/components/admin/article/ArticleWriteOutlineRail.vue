@@ -182,7 +182,7 @@ const OutlinePanelContent = defineComponent({
             {
                 return;
             }
-            nextTick(() => nodeButtons.get(nodeId)?.focus({ preventScroll: true }));
+            void nextTick(() => nodeButtons.get(nodeId)?.focus({ preventScroll: true }));
         };
 
         const nodeIndex = (nodeId: string | undefined): number =>
@@ -313,8 +313,8 @@ const OutlinePanelContent = defineComponent({
                             'aria-setsize': String(siblingPositions.value.get(node.nodeId)?.size),
                             'aria-selected': props.activeHeadingId === node.nodeId ? 'true' : 'false',
                             'aria-expanded': node.children.length > 0 ? String(expanded.value.has(node.nodeId)) : undefined,
-                            'aria-label': node.text || '无标题',
-                            title: node.text || '无标题',
+                            'aria-label': node.text ? node.text : '无标题',
+                            title: node.text ? node.text : '无标题',
                             'data-outline-node-id': node.nodeId,
                             style: { '--article-outline-depth': String(Math.max(0, node.depth - 1)) },
                             onFocus: () =>
@@ -334,7 +334,7 @@ const OutlinePanelContent = defineComponent({
                                     }
                                 }, expanded.value.has(node.nodeId) ? '▾' : '▸')
                                 : h('span', { class: 'article-write-outline-disclosure-placeholder', 'aria-hidden': 'true' }),
-                            h('span', { class: 'article-write-outline-item-text', title: node.text || '无标题' }, node.text || '无标题')
+                            h('span', { class: 'article-write-outline-item-text', title: node.text ? node.text : '无标题' }, node.text ? node.text : '无标题')
                         ]),
                         node.diagnostics.length > 0
                             ? h('div', {
@@ -578,7 +578,7 @@ const handleClosed = (): void =>
             }
             const pending = pendingReveal;
             pendingReveal = null;
-            if (!pending || pending.binding !== revealBinding() ||
+            if (pending?.binding !== revealBinding() ||
                 !props.snapshot?.items.some((item) => item.nodeId === pending.item.nodeId))
             {
                 focusLauncher();
