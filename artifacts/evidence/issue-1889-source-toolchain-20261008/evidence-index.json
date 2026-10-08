@@ -174,7 +174,7 @@
     },
     {
       "path": "final-handoff.json",
-      "sha256": "41dd0e94a03b4b0481ef095fc96508b88fab028d0d18f0dd91823d6db96d6f89",
+      "sha256": "a63daba780b274453d8ef9482c870111fa5cd84eea8281b5d38a160c14488889",
       "bytes": 6432
     },
     {
@@ -416,6 +416,11 @@
       "path": "source-log-selection-blocker.json",
       "sha256": "813d535669d09709aae00005667e12ca5eae7fa3dc6b8f70fd9510f48fd7e3ba",
       "bytes": 4132
+    },
+    {
+      "path": "source-regression-count-final.json",
+      "sha256": "fade5517e7bee1befd3fd22edd247d1eda11c753ee081278fafd916dc1be602c",
+      "bytes": 720
     },
     {
       "path": "source-remote-verification.log",

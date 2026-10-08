@@ -40,14 +40,14 @@
       "exitCode": 0,
       "testedSHA": "d8e708fcb147410e9087a491e538fdd98c709020",
       "base": "286c6fefb570d1acf78067209f3b12c3022e30cc",
-      "sourceRegressionCases": 85,
+      "sourceRegressionCases": 93,
       "qualificationEligible": false
     },
     "cumulativeSOURCE": {
       "exitCode": 1,
       "testedSHA": "d8e708fcb147410e9087a491e538fdd98c709020",
       "base": "9c44531326993f23607295c43b1e644eae5898aa",
-      "sourceRegressionCases": 85,
+      "sourceRegressionCases": 93,
       "failureClasses": [
         "nine unsupported inherited evidence log files",
         "two consistent-type-imports findings in sole3735 DTO owner file",

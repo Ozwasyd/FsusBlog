@@ -1,0 +1,32 @@
+{
+  "testedSourceCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+  "derivedFromActualNodeTestSummaries": [
+    {
+      "gate": "incremental",
+      "perModuleTests": [
+        27,
+        8,
+        30,
+        10,
+        18
+      ],
+      "passed": 93,
+      "failed": 0,
+      "rawLog": "source-governance-incremental-final.log"
+    },
+    {
+      "gate": "cumulative",
+      "perModuleTests": [
+        27,
+        8,
+        30,
+        10,
+        18
+      ],
+      "passed": 93,
+      "failed": 0,
+      "rawLog": "source-governance-cumulative-final.log"
+    }
+  ],
+  "correction": "Previous narrative count85 omitted the8 applicable-authority cases. Original logs, tests and all gate statuses unchanged."
+}
