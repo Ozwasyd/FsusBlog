@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/contracts/lib/openapi-contracts.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment spellings in the canonical OpenAPI producer while changing only its generated constant-path substitution branch."
+        }
+    ]
+}

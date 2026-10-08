@@ -1,0 +1,37 @@
+{
+    "schema": "fsusblog.performance-claim-evidence.v1",
+    "changeRevision": "92bdc374b00a2d65fcb0e91b873b5413f04f3464",
+    "claimLevel": "S",
+    "status": "structural-only",
+    "evidence": [
+        {
+            "path": "artifacts/performance/route-constant-path-initial-negative.json",
+            "sha256": "7163418a66f322ca13af19002e496accc2576789a25718d991874c2b400fc39b"
+        },
+        {
+            "path": "artifacts/performance/route-constant-path-prior-diagnostic.json",
+            "sha256": "7163418a66f322ca13af19002e496accc2576789a25718d991874c2b400fc39b"
+        },
+        {
+            "path": "artifacts/performance/route-constant-path-current-diagnostic.json",
+            "sha256": "bced6ed260dea54d9a55980daa8835c89483d81b0852c5890d5aaa416d88d81e"
+        },
+        {
+            "path": "artifacts/performance/route-constant-path-diagnostic.mjs",
+            "sha256": "921c3e3e7f657a3eefe53f8cd0182ba263f33db102c9aee063ba4b8ae85e9dac"
+        },
+        {
+            "path": "artifacts/performance/route-constant-path-refusal-controls.mjs",
+            "sha256": "96886387b1f29670db330552ca3193ca6d3ea62d69f7cba80231263655b8b841"
+        },
+        {
+            "path": "artifacts/performance/route-constant-path-refusal-controls.json",
+            "sha256": "53288f6f9b7fa324f25434b1a87d14470d7018528dd10ad997390a5a74543cae"
+        }
+    ],
+    "limitations": [
+        "Node-only diagnostics are retained as observations; they do not qualify browser runtime, per-request allocation, production bundle, machine or complete request-flow performance.",
+        "Initial 1.02909 regression remains retained. The current diagnostic is bound to the independent source commit, not retagged from the prior combined candidate.",
+        "Upstream baseline unknown-operation calls refuse with TypeError; this change preserves that baseline refusal and does not import the later transport implementation."
+    ]
+}
