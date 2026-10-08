@@ -41,6 +41,11 @@ async function localFixture(t, respond = () => ({ delayMs: 1 }))
         const timer = setTimeout(() =>
         {
             timers.delete(timer);
+            if (specification.reset)
+            {
+                response.destroy();
+                return;
+            }
             response.writeHead(specification.status ?? 200, { 'content-type': 'application/octet-stream' });
             response.end(new Uint8Array(encodeAedsFrame(specification.frameType ?? contract.expectedAedsFrameType,
                 new Uint8Array(specification.payloadBytes ?? 16))));
@@ -183,9 +188,9 @@ test('real failed, timed-out and dropped HTTP members never enter latency or bod
     assert.equal(inputs.fixture.requestCount(), 5);
     assert.equal(route.plannedSamples, 7);
     assert.equal(route.dispatchedSamples, 5);
-    assert.equal(route.completedSamples, 4);
+    assert.equal(route.completedSamples, 5);
     assert.equal(route.contractPassedSamples, 3);
-    assert.equal(route.failedSamples, 4);
+    assert.equal(route.failedSamples, 1);
     assert.equal(route.timedOutSamples, 1);
     assert.equal(route.droppedSamples, 2);
     assert.equal(route.latencyP50Ms, latency[1]);
@@ -194,8 +199,8 @@ test('real failed, timed-out and dropped HTTP members never enter latency or bod
     assert.equal(route.latencyMaxMs, latency.at(-1));
     assert.equal(route.bodyBytesP50, bodyBytes[1]);
     assert.equal(route.bodyBytesP99, bodyBytes.at(-1));
-    assert.equal(route.errorRate, 4 / 7);
-    assert.equal(route.timeoutRate, 1 / 7);
+    assert.equal(route.errorRate, 1 / 5);
+    assert.equal(route.timeoutRate, 1 / 5);
     assert.equal(route.dropRate, 2 / 7);
     assert.deepEqual(route.failures, ['errorRate', 'timeoutRate', 'dropRate']);
     assert.equal(summary.passed, false);
@@ -230,9 +235,89 @@ test('real cancellation fails a route even when its rate thresholds allow invali
         routePolicy: routePolicy(expectedRouteIds, { ...thresholds, errorRate: 1, timeoutRate: 1, dropRate: 1 }) };
     const summary = buildOpenLoopLoadRouteStatistics(inputs);
     assert.equal(summary.routes[0].contractPassedSamples, 1);
-    assert.equal(summary.routes[0].failedSamples, 3);
+    assert.equal(summary.routes[0].completedSamples, 1);
+    assert.equal(summary.routes[0].failedSamples, 0);
+    assert.equal(summary.routes[0].timedOutSamples, 0);
+    assert.equal(summary.routes[0].errorRate, 0);
+    assert.equal(summary.routes[0].timeoutRate, 0);
     assert.deepEqual(summary.routes[0].failures, ['cancelled-samples']);
     assert.equal(summary.passed, false);
+});
+
+test('real success, HTTP error, network reset, timeout, drop and cancellation retain independent counts and denominators', async (t) =>
+{
+    const fixture = await localFixture(t, ({ ordinal }) => ({ delayMs: [4, 6].includes(ordinal) ? 600 : 1,
+        status: ordinal === 2 ? 500 : 200, reset: ordinal === 3 }));
+    const expectedRouteIds = ['system-seo'];
+    const schedule = buildOpenLoopLoadSchedule(arrivalPolicy({ durationMs: 1200, qualificationWindowMs: 1200,
+        plannedRequestsPerSecond: 10, routeMix: [{ routeId: 'system-seo', count: 12 }],
+        maximumInFlight: 1, requestTimeoutMs: 260 }), expectedRouteIds);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 850);
+    let timeline;
+    try
+    {
+        ({ timeline } = await dispatchOpenLoopLoadSchedule(schedule, { request: fixture.request, signal: controller.signal }));
+    }
+    finally
+    {
+        clearTimeout(timer);
+    }
+    const inputs = { schedule, timeline, expectedRouteIds, sourceSha, routePolicy: routePolicy(expectedRouteIds) };
+    const summary = buildOpenLoopLoadRouteStatistics(inputs);
+    const route = summary.routes[0];
+    assert.equal(fixture.requestCount(), 6);
+    assert.equal(route.plannedSamples, 12);
+    assert.equal(route.dispatchedSamples, 6);
+    assert.equal(route.completedSamples, 5);
+    assert.equal(route.contractPassedSamples, 2);
+    assert.equal(route.failedSamples, 2);
+    assert.equal(route.timedOutSamples, 1);
+    assert.equal(route.droppedSamples, 3);
+    assert.equal(timeline.records.filter((record) => record.outcome === 'cancelled').length, 4);
+    assert.equal(timeline.records.find((record) => record.sample?.status === 0
+        && record.outcome === 'completed').sample.failureKind, 'request-failed');
+    assert.equal(route.errorRate, 2 / 5);
+    assert.equal(route.timeoutRate, 1 / 5);
+    assert.equal(route.dropRate, 3 / 12);
+    assert.equal(summary.aggregate.errorRate, 2 / 5);
+    assert.equal(summary.aggregate.timeoutRate, 1 / 5);
+    assert.equal(summary.aggregate.dropRate, 3 / 12);
+    const valid = timeline.records.filter((record) => record.outcome === 'completed' && record.sample.ok);
+    assert.equal(route.latencyP99Ms, Math.max(...valid.map((record) => record.sample.latencyMs)));
+    assert.equal(route.bodyBytesP99, Math.max(...valid.map((record) => record.sample.bodyBytes)));
+    assert.deepEqual(route.failures, ['errorRate', 'timeoutRate', 'dropRate', 'cancelled-samples']);
+    assert.equal(summary.passed, false);
+    assert.deepEqual(verifyOpenLoopLoadRouteStatistics(summary, inputs), summary);
+    t.diagnostic(JSON.stringify({ completed: route.completedSamples, failed: route.failedSamples,
+        timedOut: route.timedOutSamples, dropped: route.droppedSamples, cancelled: 4,
+        errorRate: route.errorRate, timeoutRate: route.timeoutRate, dropRate: route.dropRate }));
+});
+
+test('zero completed requests retain null error and timeout rates and cannot pass', async (t) =>
+{
+    const fixture = await localFixture(t);
+    const expectedRouteIds = ['system-seo'];
+    const schedule = buildOpenLoopLoadSchedule(arrivalPolicy({ routeMix: [{ routeId: 'system-seo', count: 4 }] }), expectedRouteIds);
+    const controller = new AbortController();
+    controller.abort();
+    const { timeline } = await dispatchOpenLoopLoadSchedule(schedule, { request: fixture.request, signal: controller.signal });
+    const inputs = { schedule, timeline, expectedRouteIds, sourceSha,
+        routePolicy: routePolicy(expectedRouteIds, { ...thresholds, errorRate: 1, timeoutRate: 1, dropRate: 1 }) };
+    const summary = buildOpenLoopLoadRouteStatistics(inputs);
+    assert.equal(fixture.requestCount(), 0);
+    assert.equal(summary.routes[0].completedSamples, 0);
+    assert.equal(summary.routes[0].failedSamples, 0);
+    assert.equal(summary.routes[0].timedOutSamples, 0);
+    assert.equal(summary.routes[0].errorRate, null);
+    assert.equal(summary.routes[0].timeoutRate, null);
+    assert.equal(summary.aggregate.errorRate, null);
+    assert.equal(summary.aggregate.timeoutRate, null);
+    assert.ok(summary.routes[0].failures.includes('no-completed-samples'));
+    assert.ok(summary.routes[0].failures.includes('errorRate'));
+    assert.ok(summary.routes[0].failures.includes('timeoutRate'));
+    assert.equal(summary.passed, false);
+    assert.deepEqual(verifyOpenLoopLoadRouteStatistics(summary, inputs), summary);
 });
 
 test('zero valid HTTP samples fail minimum and retain null successful percentiles', async (t) =>
