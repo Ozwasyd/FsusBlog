@@ -7,12 +7,14 @@
         "tests/tools/release-manifest.test.mjs",
         "tests/tools/runtime-cache-http-aeds-oracles.test.mjs",
         "tools/test-matrix/post-runtime-producer-registry.mjs",
-        "tools/test/correctness-attempt-migration.mjs"
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tests/tools/behavior-document-consistency-final.test.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "6f289dd76b0c79eef47b870e14dc2bf617de2bb24877e05567db2049535f94e4"
+            "sha256": "233f1b83730666393ae2bc312c332ae5c7283c4f574a6b3706ebcd3bd8237878"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
