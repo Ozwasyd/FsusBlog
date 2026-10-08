@@ -506,7 +506,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 
 import {
     getPlugin,
@@ -550,6 +550,9 @@ const selectedId = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
 const overview = shallowRef<PluginAdminOverview | null>(null);
 const detail = shallowRef<PluginAdminDetail | null>(null);
+let overviewRequestId = 0;
+let detailRequestId = 0;
+let disposed = false;
 const pluginRows = computed(() => overview.value?.plugins.map((plugin) => ({ ...plugin })) ?? []);
 const configDraft = ref<Record<string, any>>({});
 const pluginColumns = [
@@ -577,51 +580,86 @@ const configFields = computed<ConfigField[]>(() =>
 
 async function loadOverview(): Promise<void>
 {
+    if (disposed)
+    {
+        return;
+    }
+    const requestId = ++overviewRequestId;
+    let nextId = '';
     loading.value = true;
     listError.value = false;
     try
     {
-        overview.value = await listPlugins();
-        const nextId = overview.value.plugins.some((item) => item.pluginId === selectedId.value)
+        const result = await listPlugins();
+        if (disposed || requestId !== overviewRequestId)
+        {
+            return;
+        }
+        overview.value = result;
+        nextId = overview.value.plugins.some((item) => item.pluginId === selectedId.value)
             ? selectedId.value
             : overview.value.plugins[0]?.pluginId ?? '';
-        if (nextId)
+        if (!nextId)
         {
-            await selectPlugin(nextId);
-        }
-        else
-        {
+            ++detailRequestId;
+            detailLoading.value = false;
             selectedId.value = '';
             detail.value = null;
         }
     }
     catch (error)
     {
-        listError.value = true;
-        showErrorToast(error, '插件列表加载失败');
+        if (!disposed && requestId === overviewRequestId)
+        {
+            listError.value = true;
+            showErrorToast(error, '插件列表加载失败');
+        }
     }
     finally
     {
-        loading.value = false;
+        if (!disposed && requestId === overviewRequestId)
+        {
+            loading.value = false;
+        }
+    }
+    if (nextId && !disposed && requestId === overviewRequestId)
+    {
+        await selectPlugin(nextId);
     }
 }
 
 async function selectPlugin(pluginId: string): Promise<void>
 {
+    if (disposed)
+    {
+        return;
+    }
+    const requestId = ++detailRequestId;
     selectedId.value = pluginId;
     detailLoading.value = true;
     try
     {
-        detail.value = await getPlugin(pluginId);
+        const result = await getPlugin(pluginId);
+        if (disposed || requestId !== detailRequestId)
+        {
+            return;
+        }
+        detail.value = result;
         configDraft.value = structuredClone(detail.value.config.value);
     }
     catch (error)
     {
-        showErrorToast(error, '插件详情加载失败');
+        if (!disposed && requestId === detailRequestId)
+        {
+            showErrorToast(error, '插件详情加载失败');
+        }
     }
     finally
     {
-        detailLoading.value = false;
+        if (!disposed && requestId === detailRequestId)
+        {
+            detailLoading.value = false;
+        }
     }
 }
 
@@ -861,6 +899,12 @@ function healthLabel(state: string): string
     }[state] ?? state;
 }
 
+onBeforeUnmount(() =>
+{
+    disposed = true;
+    ++overviewRequestId;
+    ++detailRequestId;
+});
 onMounted(loadOverview);
 </script>
 

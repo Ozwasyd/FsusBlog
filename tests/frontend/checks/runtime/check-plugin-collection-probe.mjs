@@ -507,7 +507,7 @@ try
                 modeReport.baselineAfter = identity(modeReport.baseline.root);
                 modeReport.baselineUnchanged = ['commit', 'tree', 'status', 'diffDigest'].every((key) =>
                     modeReport.baseline[key] === modeReport.baselineAfter[key])
-                    && modeReport.baseline.themeAssets.every((asset) =>
+                    && (modeReport.baseline.themeAssets ?? []).every((asset) =>
                         asset.sha256 === digest(fs.readFileSync(path.join(modeReport.baseline.root, asset.path))));
                 if (!modeReport.baselineUnchanged)
                 {
