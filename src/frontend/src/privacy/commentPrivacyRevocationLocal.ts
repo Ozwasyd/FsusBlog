@@ -315,7 +315,15 @@ function enforceCpuBudget(startedAt: number, maxCpuMs: number): void
 
 async function sha256(bytes: Uint8Array): Promise<Uint8Array>
 {
-    return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    const ownedBytes = new Uint8Array(bytes);
+    try
+    {
+        return new Uint8Array(await crypto.subtle.digest('SHA-256', ownedBytes));
+    }
+    finally
+    {
+        ownedBytes.fill(0);
+    }
 }
 
 function utf8(value: string): Uint8Array

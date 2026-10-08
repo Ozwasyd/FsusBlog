@@ -20,6 +20,8 @@ Login/account-switch publication waits for the sending tab's unified private-sta
 
 Credential secret, commitment, issuer signature, revocation witness, and revocation-handle hash are cloned only at explicit ownership boundaries. Overwrite, expiry, rotation, lifecycle purge, or failure fills reachable `Uint8Array` buffers with zero before releasing them. JavaScript best-effort zeroization cannot prove removal of engine, OS, swap, crash-dump, or forensic copies.
 
+WebCrypto receives owned `ArrayBuffer` views rather than caller-owned or shared backing buffers. Public-key hash validation and import use the same bounded SPKI snapshot, limited to the shared RFC 9474 profile's 512 bytes; opening parsing validates its byte ranges before copying the prepared message. Temporary import and digest snapshots remain live until the awaited operation settles and are cleared in `finally`, preserving caller views and their offsets.
+
 Proof inputs are copied into transferable buffers. Transfer detaches the page-side copy; the privacy worker clears its request views in `finally`, and lifecycle purge terminates the worker. Proof response buffers are cleared after the ticket request completes. Secrets are never copied to DOM state, console output, telemetry, or error payloads.
 
 Panic wipe combines four boundaries and returns completion evidence to its caller:
@@ -34,6 +36,8 @@ Normal logout/shared-device cleanup preserves explicitly public immutable static
 ## Rotation and failure behavior
 
 Before a vault lookup, the provider binds cached material to credential epoch, circuit id/numeric id/layout, issuer public-key hash, credential root, and revocation root. A change records the new binding, aborts all in-flight preload/proof work, purges and returns unavailable for that attempt. A later attempt obtains a new blind-signed credential. Old work cannot refill the vault after rotation.
+
+The blind issuer response's `expiresAtUnixMs` limits the issued credential lifetime separately from metadata's `rootExpiresAtUnixMs`. Non-integer or expired issuer timestamps fail closed before material acceptance; the vault expiry is the earlier of these two deadlines, matching the server's root/credential TTL bound.
 
 Private/incognito storage denial, Safari/iOS eviction, missing crypto, blocked legacy deletion, worker failure, and malformed metadata all fail closed to public-only commenting. No text/legacy credential path is used as a fallback.
 
