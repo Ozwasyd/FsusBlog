@@ -157,3 +157,20 @@ original unresolved-definition policy; the value owner supplies actual persisted
 revision/property coordinates and current definition/permission binding. Source
 acquisition for base/local, typed dependencies, real assets, native writes/readback
 and base completion retain their separate canonical owners and qualification gates.
+
+`AddFsusArticleVaultAgentCanonicalOperations` composes the existing scoped execution
+store, checkpoint store and sync executor with the canonical agent operation adapter.
+It requires an explicit native binding, root-manifest digest and trusted administrator,
+and rejects duplicate registration or unavailable canonical owners. It does not create
+a dispatcher, lease, endpoint or grant. The native session owns its dispatcher.
+The adapter reads sealed operation/checkpoint references, replays only an existing
+immutable execution result, and persists cancellation through the sole checkpoint
+store before returning the new pointer. A first execution still refuses with
+`agent_current_operation_execution_admission_missing`.
+
+The shared dispatcher and lifecycle inventory retain successful canonical pointers
+and drain/revoke session work before cancellation. These ordinary contract controls
+do not qualify native lock ownership, IPC host registration or session cleanup on an
+admitted filesystem. The Linux control-session implementation additionally requires
+the canonical lease codec and transition-verification APIs; integration must wait
+for their owner rather than replace the already integrated lease implementation.

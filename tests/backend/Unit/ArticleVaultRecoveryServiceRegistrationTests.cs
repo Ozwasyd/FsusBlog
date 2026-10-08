@@ -17,6 +17,64 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ArticleVaultRecoveryServiceRegistrationTests
 {
     [Fact]
+    public void ExplicitAgentOperationComposition_SharesCanonicalAdapterWithoutCreatingAnotherDispatcherOrStore()
+    {
+        var services = new ServiceCollection();
+        var executions = Substitute.For<IArticleVaultExecutionStore>();
+        var checkpoints = Substitute.For<IArticleVaultOperationCheckpointStore>();
+        var executor = Substitute.For<IArticleVaultSyncPlanExecutor>();
+        services.AddSingleton(executions);
+        services.AddSingleton(checkpoints);
+        services.AddSingleton(executor);
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        var binding = new ArticleVaultAgentBinding("site-primary", "vault-primary", "device-primary",
+            "agent-primary", "session-primary", ArticleVaultOperationFixture.DigestA,
+            ArticleVaultOperationFixture.DigestB, "1.0.0", ArticleVaultAgentProtocol.Version);
+        services.AddFsusArticleVaultAgentCanonicalOperations(binding, ArticleVaultOperationFixture.DigestC, 1001);
+        Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultAgentCanonicalOperations(
+            binding, ArticleVaultOperationFixture.DigestC, 1001));
+        using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true,
+            ValidateOnBuild = true
+        });
+        using IServiceScope scope = provider.CreateScope();
+        Assert.Same(scope.ServiceProvider.GetRequiredService<ArticleVaultAgentCanonicalOperationAdapter>(),
+            scope.ServiceProvider.GetRequiredService<IArticleVaultAgentCanonicalOperations>());
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(IArticleVaultExecutionStore));
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(IArticleVaultOperationCheckpointStore));
+        Assert.DoesNotContain(services, static descriptor => descriptor.ServiceType == typeof(ArticleVaultAgentDispatchScope));
+        Assert.Empty(executions.ReceivedCalls());
+        Assert.Empty(checkpoints.ReceivedCalls());
+        Assert.Empty(executor.ReceivedCalls());
+    }
+
+    [Fact]
+    public void InvalidAgentContextAndMissingCanonicalOwners_CannotInstallFallbackExecutionAuthority()
+    {
+        var services = new ServiceCollection();
+        var binding = new ArticleVaultAgentBinding("site-primary", "vault-primary", "device-primary",
+            "agent-primary", "session-primary", ArticleVaultOperationFixture.DigestA,
+            ArticleVaultOperationFixture.DigestB, "1.0.0", ArticleVaultAgentProtocol.Version);
+        Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultAgentCanonicalOperations(
+            binding with
+            {
+                ProtocolVersion = 0
+            }, ArticleVaultOperationFixture.DigestC, 1001));
+        Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultAgentCanonicalOperations(
+            binding, "invalid-root", 1001));
+        Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultAgentCanonicalOperations(
+            binding, ArticleVaultOperationFixture.DigestC, 0));
+        Assert.Empty(services);
+        services.AddFsusArticleVaultAgentCanonicalOperations(binding, ArticleVaultOperationFixture.DigestC, 1001);
+        using ServiceProvider provider = services.BuildServiceProvider();
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IArticleVaultAgentCanonicalOperations>());
+        Assert.DoesNotContain(services, static descriptor => descriptor.ServiceType == typeof(IArticleVaultExecutionStore)
+            || descriptor.ServiceType == typeof(IArticleVaultOperationCheckpointStore)
+            || descriptor.ServiceType == typeof(IArticleVaultSyncPlanExecutor));
+    }
+
+    [Fact]
     public void ExplicitServerComposition_ResolvesCanonicalReadersInOneScopedBinding()
     {
         var services = new ServiceCollection();

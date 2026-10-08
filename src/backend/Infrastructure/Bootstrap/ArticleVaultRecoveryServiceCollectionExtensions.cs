@@ -9,6 +9,38 @@ namespace FsusBlog.Server.Infrastructure.Bootstrap;
 /// <summary>Composes the existing read authorities with an explicit server-owned Vault site binding.</summary>
 public static class ArticleVaultRecoveryServiceCollectionExtensions
 {
+    /// <summary>
+    /// Binds the canonical operation adapter to a host-owned agent session, root manifest and actor.
+    /// The native session owns the only dispatcher. This installs no endpoint, lease, grant, watcher
+    /// or first-execution admission; missing original stores/executor remain composition failures.
+    /// </summary>
+    public static IServiceCollection AddFsusArticleVaultAgentCanonicalOperations(
+        this IServiceCollection services,
+        ArticleVaultAgentBinding binding,
+        string rootManifestSha256,
+        long trustedAdminPrincipalId)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        if (!ArticleVaultAgentProtocol.IsBinding(binding) || !ArticleVaultAgentProtocol.IsDigest(rootManifestSha256)
+            || trustedAdminPrincipalId <= 0)
+        {
+            throw new InvalidOperationException("article_vault_agent_trusted_context_invalid");
+        }
+        if (services.Any(static descriptor => descriptor.ServiceType == typeof(ArticleVaultAgentCanonicalOperationAdapter)
+            || descriptor.ServiceType == typeof(IArticleVaultAgentCanonicalOperations)))
+        {
+            throw new InvalidOperationException("article_vault_agent_operation_adapter_already_registered");
+        }
+        services.AddScoped(provider => new ArticleVaultAgentCanonicalOperationAdapter(
+            provider.GetRequiredService<IArticleVaultExecutionStore>(),
+            provider.GetRequiredService<IArticleVaultOperationCheckpointStore>(),
+            provider.GetRequiredService<IArticleVaultSyncPlanExecutor>(), binding, rootManifestSha256,
+            trustedAdminPrincipalId, provider.GetRequiredService<TimeProvider>()));
+        services.AddScoped<IArticleVaultAgentCanonicalOperations>(
+            provider => provider.GetRequiredService<ArticleVaultAgentCanonicalOperationAdapter>());
+        return services;
+    }
+
     /// <summary>Composes sole canonical stores with a host-supplied Npgsql data source; creates no pool or migration.</summary>
     public static IServiceCollection AddFsusArticleVaultPostgresRecoveryStores(this IServiceCollection services)
     {
