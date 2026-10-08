@@ -6,6 +6,7 @@ import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const { sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url).href);
+const { observeLoadIssuer } = await import(new URL('../../tools/test/load-request-observations.mjs', import.meta.url).href);
 const { createOpenLoopLoadGeneratorCollector, loadGeneratorMetricNames, validateLoadGeneratorObservationPolicy,
     verifyOpenLoopLoadGeneratorObservations } = await import(new URL('../../tools/test/open-loop-load-generator-observations.mjs', import.meta.url).href);
 const { createOpenLoopLoadClientTransport } = await import(new URL('../../tools/test/open-loop-load-client-transport.mjs', import.meta.url).href);
@@ -15,6 +16,12 @@ const { producerRouteIds, routeContract } = await import(new URL('../../tools/te
 const { encodeAedsFrame } = await import(new URL('../frontend/support/aeds-envelope.mjs', import.meta.url).href);
 
 const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: import.meta.dirname, encoding: 'utf8' }).trim();
+
+function fixtureWorkerRegistration()
+{
+    const issuer = observeLoadIssuer();
+    return { workerId: String(issuer.threadId), issuer };
+}
 
 function collectorPolicy(limits = {})
 {
@@ -46,7 +53,7 @@ function transportPolicy(changes = {})
         dnsResult: [{ address: '127.0.0.1', family: 4 }], proxyMode: 'direct-no-ambient', tlsPolicy: 'disabled-http', ...changes };
 }
 
-async function backendFixture(t, { delayMs = 0, bodyBytes = 0 } = {})
+async function backendFixture(t, { delayMs = 0, bodyBytes = 0, omitContentType = false } = {})
 {
     const routes = Object.fromEntries(producerRouteIds('runtime-load-soak').map((id) =>
     {
@@ -63,10 +70,10 @@ async function backendFixture(t, { delayMs = 0, bodyBytes = 0 } = {})
             const timer = setTimeout(() => {
                 timers.delete(timer);
                 if (request.url === '/') {
-                    response.writeHead(200, { 'content-type': 'text/html' });
+                    response.writeHead(200, config.omitContentType ? {} : { 'content-type': 'text/html' });
                     response.end('<!doctype html><html><body>' + 'a'.repeat(config.bodyBytes || 64) + '</body></html>');
                 } else {
-                    response.writeHead(200, { 'content-type': 'application/octet-stream' });
+                    response.writeHead(200, config.omitContentType ? {} : { 'content-type': 'application/octet-stream' });
                     response.end(Buffer.from(config.routes[request.url], 'base64'));
                 }
             }, config.delayMs);
@@ -80,7 +87,7 @@ async function backendFixture(t, { delayMs = 0, bodyBytes = 0 } = {})
             server.close(() => process.exit(0));
         });
     `;
-    const child = spawn(process.execPath, ['--input-type=module', '-e', script, JSON.stringify({ routes, delayMs, bodyBytes })], {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', script, JSON.stringify({ routes, delayMs, bodyBytes, omitContentType })], {
         stdio: ['ignore', 'ignore', 'pipe', 'ipc']
     });
     let stderr = '';
@@ -123,7 +130,7 @@ function burnCpu(ms)
 }
 
 async function canonicalRun(t, { limits = {}, backend = {}, blockMs = 0, slowBudget = false, signal,
-    scheduleChanges = {}, transportChanges = {} } = {})
+    scheduleChanges = {}, transportChanges = {}, observeEvent } = {})
 {
     const fixture = await backendFixture(t, backend);
     const routeIds = producerRouteIds('runtime-load-soak');
@@ -138,6 +145,7 @@ async function canonicalRun(t, { limits = {}, backend = {}, blockMs = 0, slowBud
     let timer;
     t.after(() => clearTimeout(timer));
     const probe = await runOpenLoopRouteContractProbe(schedule, { sourceSha, routePolicy, requestBaseUrl: fixture.endpoint,
+        workerRegistration: fixtureWorkerRegistration(),
         transportPolicy: transportPolicy(transportChanges), runBinding: binding(fixture.endpoint), signal,
         onMeasurementStart: (window) =>
         {
@@ -146,7 +154,11 @@ async function canonicalRun(t, { limits = {}, backend = {}, blockMs = 0, slowBud
             {
                 timer = setTimeout(() => burnCpu(blockMs), 25);
             }
-        }, onMeasurementEnd: collector.onMeasurementEnd, onTransportObservation: collector.onTransportObservation });
+        }, onMeasurementEnd: collector.onMeasurementEnd, onTransportObservation: (event) =>
+        {
+            observeEvent?.(event, collector);
+            collector.onTransportObservation(event);
+        } });
     const inputs = { sourceSha, schedule, timeline: probe.openLoop.timeline, measurementWindow: probe.measurementWindow,
         transportEvidence: probe.transportEvidence, policy, generatorIdentity: collector.identity };
     return { collector, probe, inputs, fixture };
@@ -207,6 +219,15 @@ test('canonical callbacks collect real generator resources, sockets and reuse be
     assert.ok(receipt.metrics.activeSockets > 0 && receipt.metrics.idleSockets > 0);
     assert.ok(receipt.metrics.newConnections > 0 && receipt.metrics.reusedConnections > 0);
     assert.ok(Object.isFrozen(receipt) && Object.isFrozen(receipt.samples[0]));
+    assert.deepEqual(receipt.events, run.probe.transportEvidence.observations);
+    for (const event of receipt.events.filter((row) => row.type === 'response-headers' || row.type === 'request-completed'))
+    {
+        assert.ok(Object.isFrozen(event.responseFacts) && Object.isFrozen(event.responseFacts.bytesReceived));
+        assert.equal(event.responseFacts.bodyState, event.type === 'response-headers' ? 'partial' : 'complete');
+        const arrival = run.inputs.timeline.records.find((row) => row.sampleId === event.sampleId);
+        assert.equal(event.responseFacts.bytesReceived.value, event.type === 'response-headers' ? 0 : arrival.sample.bodyBytes);
+        assert.equal(event.responseFacts.httpStatus.value, arrival.sample.status);
+    }
     for (const interval of receipt.intervals)
     {
         const cpuMs = interval.generatorUserCpuMs + interval.generatorSystemCpuMs;
@@ -214,6 +235,69 @@ test('canonical callbacks collect real generator resources, sockets and reuse be
     }
     const lags = run.inputs.timeline.records.map((row) => row.scheduleLagMs).sort((left, right) => left - right);
     assert.equal(receipt.metrics.scheduleLagP99Ms, lags[Math.ceil(lags.length * 0.99) - 1]);
+});
+
+test('live response facts reject missing extra unavailable and contradictory observations without losing actual events', async (t) =>
+{
+    const checked = new Set();
+    const run = await canonicalRun(t, { observeEvent: (event, collector) =>
+    {
+        if (!['response-headers', 'request-completed'].includes(event.type) || checked.has(event.type))
+        {
+            return;
+        }
+        checked.add(event.type);
+        const changes = [
+            (facts) => delete facts.bytesReceived,
+            (facts) => facts.extra = true,
+            (facts) => facts.httpStatus.source = 'inferred',
+            (facts) => facts.httpStatus.value = 0,
+            (facts) => facts.httpStatus.extra = true,
+            (facts) => facts.contentType.value = null,
+            (facts) => facts.contentType.status = 'unavailable',
+            (facts) => facts.bytesReceived.value = -1,
+            (facts) => facts.bytesReceived.value = 0.5,
+            (facts) => facts.bytesReceived.source = 'request-count',
+            (facts) => facts.bytesReceived.unit = 'requests',
+            (facts) => facts.bytesReceived.status = 'unavailable',
+            (facts) => facts.bodyState = 'unknown'
+        ];
+        if (event.type === 'response-headers')
+        {
+            changes.push((facts) => facts.bodyState = 'complete', (facts) => facts.bytesReceived.value = 1);
+        }
+        else
+        {
+            changes.push((facts) => facts.httpStatus.value = 201,
+                (facts) => facts.contentType.value = 'application/json', (facts) => facts.bodyState = 'not-started');
+        }
+        for (const change of changes)
+        {
+            const rejected = structuredClone(event);
+            change(rejected.responseFacts);
+            assert.throws(() => collector.onTransportObservation(rejected), /facts|explicit fields|counter|byte count|boundary/u);
+        }
+    } });
+    assert.deepEqual([...checked].sort(), ['request-completed', 'response-headers']);
+    const receipt = run.collector.finish(run.inputs);
+    assert.equal(verifyOpenLoopLoadGeneratorObservations(receipt, run.inputs).passed, true);
+    assert.deepEqual(receipt.events, run.probe.transportEvidence.observations);
+});
+
+test('real absent content-type is retained explicitly while server decoding failure remains separate', async (t) =>
+{
+    const run = await canonicalRun(t, { backend: { omitContentType: true } });
+    const receipt = run.collector.finish(run.inputs);
+    assert.equal(verifyOpenLoopLoadGeneratorObservations(receipt, run.inputs).passed, true);
+    assert.equal(run.probe.routeStatistics.passed, false);
+    const responseEvents = receipt.events.filter((event) => event.responseFacts);
+    assert.ok(responseEvents.length > 0);
+    for (const event of responseEvents)
+    {
+        assert.deepEqual(event.responseFacts.contentType, { status: 'unavailable', value: null,
+            reason: 'content-type-header-absent', source: 'node:http.IncomingMessage.headers.content-type' });
+    }
+    assert.deepEqual(receipt.events, run.probe.transportEvidence.observations);
 });
 
 test('bounded real generator CPU saturation defeats fast server latency', async (t) =>
