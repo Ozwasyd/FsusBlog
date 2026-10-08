@@ -1,7 +1,12 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "tests/matrix.yml"
+        "tests/matrix.yml",
+        "tools/frontend/check-frontend-style.mjs",
+        "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
+        "tools/frontend/style-toolchain/eslint.config.mjs",
+        "config/development/frontend-style-policy.json",
+        "tools/governance/change-contract-registry.mjs"
     ],
     "outputs": [
         {
@@ -11,6 +16,10 @@
         {
             "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
             "sha256": "323af9f648dee1b7de0a88a0c9fbf33e0b71a94a0a9870069b4dfadafbf90406"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "5cde0e930a771f2b2d38afa46da30a65f1dfc8947a368d5c1262df1284360e49"
         }
     ]
 }
