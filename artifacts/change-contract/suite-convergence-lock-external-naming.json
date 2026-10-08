@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Preserve NuGet-owned package IDs and serialized lock keys when consuming the coordinator-supplied AngleSharp project dependency edge; internal naming cannot replace this package-manager contract."
+        }
+    ]
+}
