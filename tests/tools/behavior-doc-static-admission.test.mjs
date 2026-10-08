@@ -1095,8 +1095,12 @@ test('matrix validation binds scheduler identity while plan-only paths never est
     );
     const identityEvidenceRelative = path.relative(root, identityEvidence).replaceAll('\\', '/');
     const inventoryEvidenceRelative = path.relative(root, inventoryEvidence).replaceAll('\\', '/');
-    const identityProbe = path.join(directory, 'identity-probe.mjs');
-    const inventoryProbe = path.join(directory, 'inventory-probe.mjs');
+    const probeDirectory = fs.mkdtempSync(path.join(root, 'tests/.tmp-behavior-doc-admission-'));
+    t.after(() => fs.rmSync(probeDirectory, { recursive: true, force: true }));
+    const identityProbe = path.join(probeDirectory, 'identity-probe.mjs');
+    const inventoryProbe = path.join(probeDirectory, 'inventory-probe.mjs');
+    const identityProbeRelative = path.relative(root, identityProbe).replaceAll('\\', '/');
+    const inventoryProbeRelative = path.relative(root, inventoryProbe).replaceAll('\\', '/');
     t.after(() => fs.rmSync(inventoryEvidenceDirectory, { recursive: true, force: true }));
     fs.writeFileSync(identityProbe, [
         "import assert from 'node:assert/strict';",
@@ -1142,7 +1146,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
     fs.chmodSync(dotnet, 0o755);
     const guardedPath = `${fakeBin}${path.delimiter}${process.env.PATH}`;
     const producerCommand = [
-        JSON.stringify(process.execPath),
+        'node',
         'tools/test/run-deterministic-command.mjs',
         '--key matrix-governance',
         '--execution-class correctness',
@@ -1155,8 +1159,8 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         `--output ${JSON.stringify(identityEvidenceRelative)}`,
         '--test-id matrix-validate',
         '--',
-        JSON.stringify(process.execPath),
-        JSON.stringify(identityProbe)
+        'node',
+        JSON.stringify(identityProbeRelative)
     ].join(' ');
     const matrixSource = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
         .replace(
@@ -1165,7 +1169,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         )
         .replace(
             'command: tools/test/lanes/test-inventory.sh',
-            `command: ${JSON.stringify(`${process.execPath} ${inventoryProbe}`)}`
+            `command: ${JSON.stringify(`node ${inventoryProbeRelative}`)}`
         )
         .replaceAll('.tmp/release-evidence/test-inventory.json', inventoryEvidenceRelative);
     fs.writeFileSync(matrixFile, matrixSource);
