@@ -21,6 +21,7 @@
                 :id="presenceLabelId"
             >{{ labels.presenceLabel }}</label>
             <FsusUiSelect
+                ref="presenceControl"
                 v-if="supported"
                 :model-value="draftPresence"
                 :options="presenceOptions"
@@ -338,6 +339,7 @@ const options = computed(() =>
 });
 
 const control = shallowRef<{ focus: () => void; } | null>(null);
+const presenceControl = shallowRef<{ focus: () => void; } | null>(null);
 const generation = ref(0);
 const controlGeneration = ref(0);
 const text = ref('');
@@ -447,12 +449,13 @@ async function cancelFromControl(event: MouseEvent): Promise<void>
         && visible.value && !blocked.value
         && (document.activeElement === previousFocus || document.activeElement === document.body))
     {
-        // SelectV2 documents focus(), but this active baseline does not
-        // expose it. Keep the stable Cancel button focused for selection or
-        // absent values; do not access private internals to emulate that API.
-        if (draftPresence.value === 2 && [0, 1, 2, 3, 7].includes(definition.value?.valueType ?? -1))
+        if (draftPresence.value === 2)
         {
             control.value?.focus();
+        }
+        else
+        {
+            presenceControl.value?.focus();
         }
     }
 }

@@ -479,9 +479,7 @@ describe('ArticleMetadataField canonical presence staging and lossless typed buf
         expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('');
         if (presence !== 2)
         {
-            // The public SelectV2 focus expose is absent in this baseline.
-            // Cancel stays mounted/enabled so keyboard focus remains useful.
-            expect(document.activeElement).toBe(cancel.element);
+            expect(document.activeElement).toBe(presenceSelect(wrapper).get('[role="combobox"]').element);
             expect(cancel.props('disabled')).toBe(false);
         }
     });
@@ -946,5 +944,93 @@ describe('ArticleMetadataField exact numeric and UTC staging', () =>
         expect(wrapper.text()).not.toContain(labels.exactEditErrors.syntax);
         await wrapper.setProps({ context: { ...context(), editorSessionId: 'withdrawn' } });
         expect(wrapper.text()).toBe(labels.unavailable);
+    });
+});
+
+describe('ArticleMetadataField consumes released SelectV2 public focus contract', () =>
+{
+    it.each([4, 5])('returns cancellation focus through the real type %i public expose', async (type) =>
+    {
+        const { wrapper, model } = render(type);
+        const original = structuredClone(model);
+        valueSelect(wrapper).vm.$emit('update:modelValue', type === 4 ? 'pending-option' : ['pending-option']);
+        await nextTick();
+        const publicControl = valueSelect(wrapper);
+        const focus = vi.spyOn(publicControl.vm, 'focus');
+        const cancel = button(wrapper, 'Cancel');
+        (cancel.element as HTMLButtonElement).focus();
+        await cancel.trigger('click');
+        expect(focus).toHaveBeenCalledOnce();
+        expect(document.activeElement).toBe(publicControl.get('[role="combobox"]').element);
+        expect(model).toEqual(original);
+        expect(button(wrapper, 'Save').props('disabled')).toBe(true);
+    });
+
+    it('executes actual public presence focus/blur and consumes real option/listbox roles', async () =>
+    {
+        const { wrapper } = render();
+        const selector = presenceSelect(wrapper);
+        selector.vm.focus();
+        await nextTick();
+        expect(document.activeElement).toBe(selector.get('[role="combobox"]').element);
+        await selector.get('[role="combobox"]').trigger('keydown', { code: 'ArrowDown' });
+        await nextTick();
+        const listboxId = selector.get('[role="combobox"]').attributes('aria-controls');
+        expect(listboxId).toBeTruthy();
+        const listbox = document.getElementById(listboxId!);
+        expect(listbox?.getAttribute('role')).toBe('listbox');
+        const options = listbox?.querySelectorAll('[role="option"]');
+        expect(options?.length).toBe(3);
+        expect(Array.from(options ?? []).map((item) => item.textContent?.trim())).toEqual(labels.presence);
+        selector.vm.blur();
+        await nextTick();
+        expect(selector.get('[role="combobox"]').attributes('aria-expanded')).toBe('false');
+        expect(document.activeElement).not.toBe(selector.get('[role="combobox"]').element);
+    });
+
+    it.each([0, 1, 2, 3, 4, 5, 7])('returns Missing and Null type %i focus through public presence focus without erasing facts', async (type) =>
+    {
+        const { wrapper, model, definition } = render(type);
+        for (const presence of [0, 1] as const)
+        {
+            const changed = structuredClone(model);
+            Object.assign(value(changed, definition.definitionId), { presence, value: null, defaultApplied: false });
+            await wrapper.setProps({ model: changed });
+            const before = structuredClone(changed);
+            presenceSelect(wrapper).vm.$emit('update:modelValue', 2);
+            await nextTick();
+            const selector = presenceSelect(wrapper);
+            const focus = vi.spyOn(selector.vm, 'focus');
+            const cancel = button(wrapper, 'Cancel');
+            (cancel.element as HTMLButtonElement).focus();
+            await cancel.trigger('click');
+            expect(focus).toHaveBeenCalledOnce();
+            focus.mockRestore();
+            expect(document.activeElement).toBe(selector.get('[role="combobox"]').element);
+            expect(selector.props('modelValue')).toBe(presence);
+            expect(changed).toEqual(before);
+        }
+    });
+
+    it.each([4, 5])('refuses type %i public focus return after permission/revision/external focus changes', async (type) =>
+    {
+        for (const change of ['external', 'permission', 'revision', 'unmount'])
+        {
+            const { wrapper, model } = render(type);
+            const selector = valueSelect(wrapper);
+            const focus = vi.spyOn(selector.vm, 'focus');
+            const cancel = button(wrapper, 'Cancel');
+            (cancel.element as HTMLButtonElement).focus();
+            cancel.element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            const external = document.createElement('button');
+            document.body.append(external);
+            external.focus();
+            if (change === 'permission') await wrapper.setProps({ enabled: false });
+            if (change === 'revision') await wrapper.setProps({ model: structuredClone(model) });
+            if (change === 'unmount') wrapper.unmount();
+            await nextTick();
+            expect(focus).not.toHaveBeenCalled();
+            expect(document.activeElement).toBe(external);
+        }
     });
 });
