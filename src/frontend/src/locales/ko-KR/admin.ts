@@ -4,6 +4,28 @@ import type { LocaleSchema } from '../keys';
 import type { admin as zhCNAdmin } from '../zh-CN/admin';
 
 export const admin = {
+    articleInspector: {
+        commandGroup: '글 검사기',
+        commands: {
+            publish: '게시 설정',
+            rights: '권리 설정',
+            check: '내용 검사',
+            preview: '미리 보기',
+            versions: '버전',
+            resources: '리소스'
+        },
+        unavailable: {
+            noDocument: '열린 문서가 없습니다',
+            staleDocument: '문서가 변경되었습니다. 다시 선택하세요',
+            permission: '이 세션에서는 글을 편집할 수 없습니다',
+            readonly: '문서가 읽기 전용입니다',
+            loading: '문서를 불러오는 중',
+            saving: '저장 중입니다. 잠시 기다려 주세요',
+            modalActive: '먼저 현재 대화상자를 닫으세요',
+            pending: '검사기를 여는 중',
+            aborted: '작업이 취소되었습니다'
+        }
+    },
     shell: {
         skipToMain: '본문으로 건너뛰기',
         mainSite: '메인 사이트',
