@@ -215,6 +215,15 @@ RunResidueCheck \
     src/backend src/shared src/frontend/src
 
 RunResidueCheck \
+    "retired comment-create account override" \
+    "retired comment-create account override residue detected" \
+    '\b(?:ReplyToUserId|replyToUserId|HasReplyToUserId)\b' \
+    "" \
+    src/frontend/src src/backend/Models/Dtos/CommentDto.cs \
+    src/shared/Contracts/Models/CommentCreateRequestPod.Generated.cs \
+    src/core/Mapping/Models/CommentCreateRequest.Generated.cs
+
+RunResidueCheck \
     "old author-mode aliases" \
     "old author-mode alias residue detected" \
     '\b(?:authorMode|defaultAuthorMode|DefaultAuthorMode|AuthorMode)\b\s*[:=]\s*["'\''](?:guest|incognito|legacy|legacy_anonymous|anonymous_legacy|anon|authenticated|account|real_name|real-name)["'\'']' \
