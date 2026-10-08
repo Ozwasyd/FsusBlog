@@ -17,7 +17,7 @@ public class DataScaleProviderGeneratedIdentityRowsTests(Xunit.Abstractions.ITes
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "fsus-generated-rows-" + Guid.NewGuid().ToString("N"));
     private protected virtual DataScaleBulkProvider Provider => DataScaleBulkProvider.Sqlite;
-    protected virtual DbConnection Connection() => new SqliteConnection("Data Source=" + Path.Combine(_root, "rows.db") + ";Pooling=false;Default Timeout=15");
+    protected virtual DbConnection Connection() => new SqliteConnection("Data Source=" + Path.Combine(_root, "rows.db") + ";Foreign Keys=True;Pooling=false;Default Timeout=15");
 
     public async Task InitializeAsync()
     {
@@ -25,7 +25,8 @@ public class DataScaleProviderGeneratedIdentityRowsTests(Xunit.Abstractions.ITes
         await using DbConnection db = Connection();
         await db.OpenAsync();
         await using DbCommand setup = db.CreateCommand();
-        setup.CommandText = "DROP TABLE IF EXISTS article;CREATE TABLE article(id "
+        setup.CommandText = (Provider == DataScaleBulkProvider.Sqlite ? "PRAGMA foreign_keys=ON;" : "")
+            + "DROP TABLE IF EXISTS article;CREATE TABLE article(id "
             + (Provider == DataScaleBulkProvider.MySql ? "INT NOT NULL AUTO_INCREMENT PRIMARY KEY" : "INTEGER PRIMARY KEY AUTOINCREMENT")
             + ",title TEXT NOT NULL,summary TEXT NULL)" + (Provider == DataScaleBulkProvider.MySql ? " ENGINE=InnoDB" : "");
         await setup.ExecuteNonQueryAsync();
@@ -258,6 +259,20 @@ public class DataScaleProviderGeneratedIdentityRowsTests(Xunit.Abstractions.ITes
     }
 
     [Fact]
+    public async Task DisabledConstraints_RefuseBeforeGeneratedRows()
+    {
+        await using DbConnection db = Connection();
+        await db.OpenAsync();
+        await SqlAsync(db, Provider == DataScaleBulkProvider.Sqlite ? "PRAGMA foreign_keys=OFF" : "SET SESSION FOREIGN_KEY_CHECKS=0");
+        await using DbTransaction transaction = await db.BeginTransactionAsync(IsolationLevel.Serializable);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => DataScaleProviderBulkTransport.InsertGeneratedRowsAsync(
+            db, transaction, Provider, Rows(2), CancellationToken.None));
+        Assert.Equal("generated_identity_constraints_disabled", error.Message);
+        await transaction.CommitAsync();
+        Assert.Equal(0L, await CountAsync(db));
+    }
+
+    [Fact]
     public async Task ConcurrentPackets_PreserveRoleMappingsWithoutSharedCountersInClient()
     {
         async Task<DataScaleGeneratedIdentityExecution> Worker()
@@ -300,16 +315,19 @@ public class DataScaleProviderGeneratedIdentityRowsTests(Xunit.Abstractions.ITes
 
 public class DataScaleProviderGeneratedIdentityRowsSqliteTests
 {
-    [Fact]
-    public async Task AfterInsertTriggerTamper_RollsBackOnlyTheGeneratedOperation()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TargetTriggerRefusal_PreservesExistingNonownedRows(bool temporary)
     {
         await using var db = new SqliteConnection("Data Source=:memory:");
         await db.OpenAsync();
         await using (var setup = db.CreateCommand())
         {
-            setup.CommandText = "CREATE TABLE article(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL);"
+            setup.CommandText = "PRAGMA foreign_keys=ON;CREATE TABLE article(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL);"
                 + "INSERT INTO article(title) VALUES('caller');"
-                + "CREATE TRIGGER change_title AFTER INSERT ON article BEGIN UPDATE article SET title='tampered' WHERE id=NEW.id; END;";
+                + "CREATE " + (temporary ? "TEMP " : "")
+                + "TRIGGER change_title AFTER INSERT ON article BEGIN UPDATE article SET title='tampered' WHERE id=1; END;";
             await setup.ExecuteNonQueryAsync();
         }
         await using DbTransaction transaction = await db.BeginTransactionAsync(IsolationLevel.Serializable);
@@ -317,7 +335,7 @@ public class DataScaleProviderGeneratedIdentityRowsSqliteTests
             [new object?[] { "canonical" }]), new("id", DbType.Int32), [new("role", ["role"])]);
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => DataScaleProviderBulkTransport.InsertGeneratedRowsAsync(
             db, transaction, DataScaleBulkProvider.Sqlite, input, CancellationToken.None));
-        Assert.Equal("generated_identity_inserted_values_not_exact", error.Message);
+        Assert.Equal("generated_identity_shadow_or_trigger_refused", error.Message);
         await transaction.CommitAsync();
         await using var observed = db.CreateCommand();
         observed.CommandText = "SELECT title FROM article";

@@ -244,6 +244,11 @@ internal static class DataScaleProviderBulkTransport
         await using DbCommand command = db.CreateCommand();
         command.Transaction = transaction;
         command.CommandTimeout = 30;
+        command.CommandText = provider == DataScaleBulkProvider.Sqlite ? "PRAGMA foreign_keys" : "SELECT @@SESSION.FOREIGN_KEY_CHECKS";
+        if (Convert.ToInt64(await command.ExecuteScalarAsync(token).ConfigureAwait(false)) != 1)
+        {
+            throw new InvalidOperationException("generated_identity_constraints_disabled");
+        }
         if (provider == DataScaleBulkProvider.MySql)
         {
             command.CommandText = $"SHOW CREATE TABLE `{rows.Table}`";
@@ -255,7 +260,8 @@ internal static class DataScaleProviderBulkTransport
         }
         if (provider == DataScaleBulkProvider.Sqlite)
         {
-            command.CommandText = "SELECT COUNT(*) FROM temp.sqlite_schema WHERE name=@table";
+            command.CommandText = "SELECT (SELECT COUNT(*) FROM temp.sqlite_schema WHERE name=@table OR tbl_name=@table)"
+                + "+(SELECT COUNT(*) FROM main.sqlite_schema WHERE type='trigger' AND tbl_name=@table)";
         }
         else
         {
