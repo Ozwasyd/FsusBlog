@@ -39,7 +39,8 @@
             "paths": [
                 "tests/backend/packages.lock.json",
                 "config/schemas/article-relation-contract.schema.json",
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "artifacts/change-contract/issue-2463-embed-execution-generated-binding.json"
             ],
             "reason": "Preserve the canonical3654 NuGet lock wire fields, canonical2442 relation schema anchor grammar, and canonical producer execution-closure wire fields; no independent dependency selection, second schema or wire-key renaming is introduced."
         },
