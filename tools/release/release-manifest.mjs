@@ -2,13 +2,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { assertReleaseIdentity, isValidReleaseId } from './release-id.mjs';
+import { assertReleaseIdentity } from './release-id.mjs';
 import { assertSchemaCompatibilityWindow } from './schema-compatibility-coordinate.mjs';
 
 export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v2';
-export const LEGACY_RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v1';
-export const LEGACY_RELEASE_MANIFEST_RETIREMENT =
-    'Remove the v1 reader after every N-1 rollback artifact has expired from the supported rollback window.';
 const SHA256 = /^sha256:[0-9a-f]{64}$/u;
 const ZERO_SHA256 = `sha256:${'0'.repeat(64)}`;
 const COMMIT_SHA = /^[0-9a-f]{40}$/u;
@@ -103,13 +100,10 @@ export function createReleaseManifest(input)
 
 export function validateReleaseManifest(manifest, options = {})
 {
-    return validateManifest(manifest, options, {
-        schema: RELEASE_MANIFEST_SCHEMA,
-        requireCanonicalIdentity: true
-    });
+    return validateManifest(manifest, options);
 }
 
-function validateManifest(manifest, options, contract)
+function validateManifest(manifest, options)
 {
     const errors = [];
     if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest))
@@ -117,28 +111,21 @@ function validateManifest(manifest, options, contract)
         return ['release manifest must be an object'];
     };
     rejectUnknownFields(manifest, TOP_LEVEL_FIELDS, 'manifest', errors);
-    if (manifest.schema !== contract.schema)
+    if (manifest.schema !== RELEASE_MANIFEST_SCHEMA)
     {
-        errors.push(`schema must be ${contract.schema}`);
+        errors.push(`schema must be ${RELEASE_MANIFEST_SCHEMA}`);
     };
-    if (contract.requireCanonicalIdentity)
+    try
     {
-        try
-        {
-            assertReleaseIdentity({
-                releaseId: manifest.releaseId,
-                createdAtUtc: manifest.createdAtUtc,
-                commitSha: manifest.commitSha
-            });
-        }
-        catch (error)
-        {
-            errors.push(...String(error instanceof Error ? error.message : error).split('\n'));
-        }
+        assertReleaseIdentity({
+            releaseId: manifest.releaseId,
+            createdAtUtc: manifest.createdAtUtc,
+            commitSha: manifest.commitSha
+        });
     }
-    else if (!isValidReleaseId(manifest.releaseId))
+    catch (error)
     {
-        errors.push('releaseId must be a canonical immutable identifier');
+        errors.push(...String(error instanceof Error ? error.message : error).split('\n'));
     }
     if (!COMMIT_SHA.test(String(manifest.commitSha ?? '')))
     {
@@ -333,25 +320,6 @@ export function readReleaseManifest(file, options = {})
     return manifest;
 }
 
-export function readLegacyReleaseManifestV1(file, options = {})
-{
-    const manifest = parseReleaseManifestFile(file);
-    const errors = validateManifest(manifest, options, {
-        schema: LEGACY_RELEASE_MANIFEST_SCHEMA,
-        requireCanonicalIdentity: false
-    });
-    if (errors.length > 0)
-    {
-        throw new Error(errors.join('\n'));
-    };
-    return Object.freeze({
-        legacy: true,
-        rollbackOnly: true,
-        retirementCondition: LEGACY_RELEASE_MANIFEST_RETIREMENT,
-        manifest
-    });
-}
-
 export function writeReleaseManifestAtomic(file, manifest)
 {
     const errors = validateReleaseManifest(manifest, {
@@ -383,7 +351,7 @@ function parseReleaseManifestFile(file)
     }
     catch (error)
     {
-        throw new Error(`unable to read release manifest: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`unable to read release manifest: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
 }
 
