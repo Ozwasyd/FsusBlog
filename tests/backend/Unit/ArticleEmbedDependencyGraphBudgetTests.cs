@@ -158,10 +158,23 @@ public sealed class ArticleEmbedDependencyGraphBudgetTests
         };
         var time = new BoundaryTimeProvider(7, elapsedMilliseconds: 101);
 
-        ArticleEmbedAuthoringResolution graph = Expand(requests, snapshot, budgets, time);
+        // Projection setup and graph expansion own separate elapsed observations.
+        // Keep setup deterministic so wall-clock scheduling cannot preempt the graph's negative.
+        ArticleEmbedAuthoringResolution projection = ArticleEmbedAuthoringResolver.Resolve(
+            requests, snapshot, budgets, new BoundaryTimeProvider(4, elapsedMilliseconds: 1));
+        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, budgets, projection).Valid);
+        Assert.All(projection.Results, result => Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, result.Result.Status));
+        Assert.Equal(1, projection.Receipt.Observed.ElapsedMilliseconds);
+
+        ArticleEmbedAuthoringResolution graph = ArticleEmbedDependencyGraphPlanner.Expand(requests, snapshot, budgets, projection, time);
 
         ArticleEmbedResolvedNode reused = Assert.Single(Assert.Single(graph.Results[1].Children).Children);
+        Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, Assert.Single(graph.Results[0].Children).Status);
+        Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, Assert.Single(graph.Results[1].Children).Status);
         Assert.Equal(ArticleEmbedErrorCode.TimeExceeded, reused.Error?.Code);
+        Assert.Equal("elapsed_exceeded", reused.Error!.SafeReasonCode);
+        Assert.Empty(reused.Children);
+        Assert.Equal(101, graph.Receipt.Observed.ElapsedMilliseconds);
         Assert.Equal(5, graph.Receipt.Observed.Nodes);
         AssertValid(requests, snapshot, budgets, graph);
     }
