@@ -7,8 +7,8 @@ namespace FsusBlog.Server.Services.DocumentExport.Jobs;
 /// </summary>
 public static class DocumentExportJobPolicy
 {
-    public const string SnapshotSchema = "fsusblog.document-export-job.v1";
-    public const string OutputSchema = "fsusblog.document-export-output.v1";
+    public const string SnapshotSchema = "fsusblog.document-export-job.v2";
+    public const string OutputSchema = "fsusblog.document-export-output.v2";
     public const int MaximumJobs = 128;
     public const int MaximumOwnerJobs = 16;
     public const int MaximumSiteJobs = 64;

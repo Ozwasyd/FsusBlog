@@ -19,7 +19,7 @@ public sealed record DocumentExportSandboxPlan(
     string InputDigest,
     string SourceDigest,
     long UserId,
-    long SiteId,
+    string SiteScope,
     string ProviderId,
     string ProviderVersion,
     string HostBuildDigest,
@@ -55,7 +55,7 @@ public sealed record DocumentExportSandboxReceipt(
     string InputDigest,
     string SourceDigest,
     long UserId,
-    long SiteId,
+    string SiteScope,
     string HostBuildDigest,
     string ProviderId,
     string ProviderVersion,
@@ -337,7 +337,7 @@ public sealed class DocumentExportSandboxRuntime
             input.ContentDigest,
             input.SourceDigest,
             input.UserId,
-            input.SiteId,
+            input.SiteScope,
             provider.ProviderId,
             provider.ProviderVersion,
             _hostBuildDigest,
@@ -688,7 +688,7 @@ public sealed class DocumentExportSandboxRuntime
             input.ContentDigest,
             input.SourceDigest,
             input.UserId,
-            input.SiteId,
+            input.SiteScope,
             _hostBuildDigest,
             provider.ProviderId,
             provider.ProviderVersion,
@@ -872,7 +872,7 @@ public sealed class DocumentExportSandboxRuntime
             || receipt.InputDigest != input.ContentDigest
             || receipt.SourceDigest != input.SourceDigest
             || receipt.UserId != input.UserId
-            || receipt.SiteId != input.SiteId
+            || receipt.SiteScope != input.SiteScope
             || receipt.HostBuildDigest != plan.HostBuildDigest
             || receipt.ProviderId != DocumentExportContractCatalog.RequireProvider(task.FormatId).ProviderId
             || receipt.ProviderVersion != DocumentExportContractCatalog.RequireProvider(task.FormatId).ProviderVersion
@@ -1004,7 +1004,7 @@ public sealed class DocumentExportSandboxRuntime
             || receipt.InputDigest != input.ContentDigest
             || receipt.SourceDigest != input.SourceDigest
             || receipt.UserId != input.UserId
-            || receipt.SiteId != input.SiteId
+            || receipt.SiteScope != input.SiteScope
             || receipt.HostBuildDigest != expectedHostBuildDigest
             || receipt.ProviderId != DocumentExportContractCatalog.RequireProvider(task.FormatId).ProviderId
             || receipt.ProviderVersion != DocumentExportContractCatalog.RequireProvider(task.FormatId).ProviderVersion
@@ -1189,7 +1189,7 @@ public sealed class DocumentExportSandboxRuntime
             || plan.InputDigest != input.ContentDigest
             || plan.SourceDigest != input.SourceDigest
             || plan.UserId != input.UserId
-            || plan.SiteId != input.SiteId
+            || plan.SiteScope != input.SiteScope
             || plan.ProviderId != provider.ProviderId
             || plan.ProviderVersion != provider.ProviderVersion
             || plan.HostBuildDigest != expectedHostBuildDigest
