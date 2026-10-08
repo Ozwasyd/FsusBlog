@@ -153,9 +153,26 @@ public sealed class OfflineMigrationSourceObserverValue4850Tests
     public async Task MissingNativeFullContentCapabilityFailsBeforeConnection(CurrentSchemaProviderKind provider)
     {
         using var cancellation = new CancellationTokenSource();
-        InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        if (Enum.IsDefined(provider))
+        {
+            // Public native provider paths now exist. The historical unsupported-provider
+            // string assertion is replaced by the existing original wrong-driver/held-session
+            // control, which still requires refusal before connection or catalog I/O.
+            await using var unrelated = new Npgsql.NpgsqlConnection();
+            Assert.Equal(System.Data.ConnectionState.Closed, unrelated.State);
+            InvalidOperationException refusal = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                new OfflineMigrationSourceObserver().ObserveAsync(provider, unrelated, null!, cancellation.Token));
+            Assert.Equal(provider == CurrentSchemaProviderKind.Sqlite
+                ? "offline_sqlite_identity_held_native_transaction_required"
+                : "offline_source_native_streaming_driver_required", refusal.Message);
+            Assert.Null(refusal.InnerException);
+            Assert.Equal(System.Data.ConnectionState.Closed, unrelated.State);
+            return;
+        }
+        InvalidOperationException unknown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             new OfflineMigrationSourceObserver().ObserveAsync(provider, "not-a-database-connection", cancellation.Token));
-        Assert.Equal(Enum.IsDefined(provider) ? "offline_source_provider_full_content_capability_unavailable" : "offline_source_provider_unknown", refusal.Message);
+        Assert.Equal("offline_source_provider_unknown", unknown.Message);
+        Assert.Null(unknown.InnerException);
     }
 
     [Theory]
