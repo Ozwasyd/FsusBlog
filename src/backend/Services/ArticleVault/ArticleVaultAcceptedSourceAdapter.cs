@@ -32,6 +32,7 @@ public sealed class ArticleVaultAcceptedSourceAdapter
     private readonly IAuthorRecentArticleHistoryPermissionProjectionProvider _permissions;
     private readonly IConfiguration _configuration;
     private readonly string _trustedVaultSiteIdentity;
+    private readonly string _permissionSiteScope;
 
     public ArticleVaultAcceptedSourceAdapter(
         IArticleVaultExecutionStore store,
@@ -54,6 +55,7 @@ public sealed class ArticleVaultAcceptedSourceAdapter
         _permissions = permissions;
         _configuration = configuration;
         _trustedVaultSiteIdentity = trustedVaultSiteIdentity;
+        _permissionSiteScope = SqlAuthorRecentArticleHistoryPermissionAuthority.ResolveSiteScope(configuration);
     }
 
     /// <summary>
@@ -72,6 +74,7 @@ public sealed class ArticleVaultAcceptedSourceAdapter
         ArgumentNullException.ThrowIfNull(operation);
         cancellationToken.ThrowIfCancellationRequested();
         if (operation.SiteIdentity != _trustedVaultSiteIdentity
+            || _permissionSiteScope != SqlAuthorRecentArticleHistoryPermissionAuthority.ResolveSiteScope(_configuration)
             || string.IsNullOrWhiteSpace(resultReference) || resultReference.Length > 1024
             || resultSha256 is null || resultSha256.Length != 64
             || string.IsNullOrWhiteSpace(itemOperationIdentity))
@@ -109,8 +112,7 @@ public sealed class ArticleVaultAcceptedSourceAdapter
             throw Rejected("article_vault_accepted_source_present_revision_missing");
         }
 
-        string permissionScope = SqlAuthorRecentArticleHistoryPermissionAuthority.ResolveSiteScope(_configuration);
-        var owner = new AuthorRecentArticleHistoryOwner(bundle.AdminPrincipalId, permissionScope);
+        var owner = new AuthorRecentArticleHistoryOwner(bundle.AdminPrincipalId, _permissionSiteScope);
         Guid requestId = Guid.CreateVersion7();
         var permissionRequest = new AuthorRecentArticleHistoryPermissionRequest(owner, requestId, [receipt.ArticleId.Value]);
         AuthorRecentArticleHistoryPermissionSnapshot before = await _permissions.ResolveAsync(
@@ -147,7 +149,7 @@ public sealed class ArticleVaultAcceptedSourceAdapter
         RequirePermission(after, owner, receipt.ArticleId.Value);
         cancellationToken.ThrowIfCancellationRequested();
         if (before.ContentDigest != after.ContentDigest
-            || permissionScope != SqlAuthorRecentArticleHistoryPermissionAuthority.ResolveSiteScope(_configuration))
+            || _permissionSiteScope != SqlAuthorRecentArticleHistoryPermissionAuthority.ResolveSiteScope(_configuration))
         {
             throw Rejected("article_vault_accepted_source_permission_changed");
         }

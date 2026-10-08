@@ -123,6 +123,30 @@ public sealed class ArticleVaultAcceptedSourceAdapterTests
     }
 
     [Fact]
+    public async Task SiteConfigurationDriftBeforeRead_CannotRebindAnExistingAdapter()
+    {
+        Fixture fixture = new("body\r\n"u8.ToArray());
+        fixture.Configuration["SITE_BASEURL"] = "https://other-site.example";
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => fixture.ReadAsync());
+        Assert.Equal(0, fixture.SourceReads);
+        Assert.Equal(0, fixture.PermissionReads);
+        await fixture.Store.DidNotReceiveWithAnyArgs().LoadSealedAsync(default!, default!, default);
+    }
+
+    [Fact]
+    public async Task SiteConfigurationDriftDuringRead_CannotReleaseAcceptedBytes()
+    {
+        Fixture fixture = new("body\r\n"u8.ToArray());
+        fixture.PackageMutation = package =>
+        {
+            fixture.Configuration["SITE_BASEURL"] = "https://other-site.example";
+            return RevisionComparePackageReadResult.Available(package);
+        };
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => fixture.ReadAsync());
+        Assert.Equal(2, fixture.PermissionReads);
+    }
+
+    [Fact]
     public async Task CancellationAfterRead_ReturnsNoAcceptedSourceOrPermissionCompletion()
     {
         using CancellationTokenSource cancellation = new();
@@ -150,6 +174,7 @@ public sealed class ArticleVaultAcceptedSourceAdapterTests
         internal readonly ArticleVaultOperationIdentity Identity;
         internal readonly IArticleVaultExecutionStore Store = Substitute.For<IArticleVaultExecutionStore>();
         internal readonly ArticleVaultAcceptedSourceAdapter Adapter;
+        internal readonly IConfiguration Configuration;
         internal string ItemOperation => Bundle.Plan.Groups[0].Items[0].OperationIdentity;
         internal int PermissionReads;
         internal int SourceReads;
@@ -199,9 +224,9 @@ public sealed class ArticleVaultAcceptedSourceAdapterTests
                         [new(101, true, true, ArticleVaultOperationFixture.DigestA)], string.Empty));
                     return Task.FromResult(PermissionMutation?.Invoke(snapshot, PermissionReads) ?? snapshot);
                 });
-            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(
+            Configuration = new ConfigurationBuilder().AddInMemoryCollection(
                 new Dictionary<string, string?> { ["SITE_BASEURL"] = "https://site.example/" }).Build();
-            Adapter = new(Store, reader, permissions, configuration, trustedSite);
+            Adapter = new(Store, reader, permissions, Configuration, trustedSite);
         }
 
         internal Task<ArticleVaultAcceptedSource> ReadAsync(CancellationToken cancellationToken = default)
