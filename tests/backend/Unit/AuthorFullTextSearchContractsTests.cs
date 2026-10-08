@@ -69,7 +69,8 @@ public sealed class AuthorFullTextSearchContractsTests
         foreach (AuthorSearchDocument mutation in new[]
         {
             document with { IndexOwner = "public-search-index" },
-            document with { SchemaVersion = 2 },
+            document with { SchemaVersion = AuthorFullTextSearchContract.SchemaVersion + 1 },
+            document with { SchemaVersion = 1 },
             document with { TokenizerVersion = "unknown" },
             document with { Field = document.Field with { Kind = (AuthorSearchFieldKind)999 } },
             document with { Identity = document.Identity with { Scope = AuthorSearchScope.HistoricalRevisionUnavailable } },
@@ -202,7 +203,9 @@ public sealed class AuthorFullTextSearchContractsTests
         => AuthorFullTextSearchContract.SealDocument(new(AuthorFullTextSearchContract.SchemaVersion,
             AuthorFullTextSearchContract.DocumentSchema, AuthorFullTextSearchContract.TokenizerVersion,
             AuthorFullTextSearchContract.IndexOwner,
-            new(7, 42, "site-a", 1, 1, 1, 1, "zh-Hans", ArticleStatus.Draft, AuthorSearchScope.CurrentArticle),
+            new(7, 42, "site-a", 1, 1, 1, 1, "zh-Hans", ArticleStatus.Draft, AuthorSearchScope.CurrentArticle,
+                AuthorSearchPermissionState.Allowed, AuthorSearchVisibilityScope.AuthorOnly,
+                AuthorFullTextSearchContract.Digest("permission-policy")),
             new(AuthorSearchFieldKind.MarkdownBody, AuthorFullTextSearchContract.Digest(raw), null, null, null),
             Range(raw, start, end), string.Empty));
 
@@ -211,5 +214,5 @@ public sealed class AuthorFullTextSearchContractsTests
             AuthorFullTextSearchContract.QuerySchema, AuthorFullTextSearchContract.TokenizerVersion,
             AuthorFullTextSearchContract.RankingVersion, AuthorFullTextSearchContract.IndexOwner,
             Guid.NewGuid(), 42, "site-a", 1, 1, AuthorSearchScope.CurrentArticle,
-            clauses.ToImmutableArray(), 25, null, string.Empty));
+            clauses.ToImmutableArray(), 25, null, string.Empty, AuthorFullTextSearchContract.Digest("permission-policy")));
 }

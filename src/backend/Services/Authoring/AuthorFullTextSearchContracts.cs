@@ -14,13 +14,13 @@ namespace FsusBlog.Server.Services.Authoring;
 /// Author full-text contracts only. This owner neither tokenizes source nor builds,
 /// queries, or publishes an index. Property semantics remain definition-owned.
 /// </summary>
-public static class AuthorFullTextSearchContract
+public static partial class AuthorFullTextSearchContract
 {
-    public const int SchemaVersion = 1;
-    public const string DocumentSchema = "fsusblog.author-full-text-document.v1";
-    public const string QuerySchema = "fsusblog.author-full-text-query.v1";
+    public const int SchemaVersion = 2;
+    public const string DocumentSchema = "fsusblog.author-full-text-document.v2";
+    public const string QuerySchema = "fsusblog.author-full-text-query.v2";
     public const string TokenizerVersion = "fsusblog.author-full-text-tokenizer.v2";
-    public const string RankingVersion = "fsusblog.author-full-text-ranking.v1";
+    public const string RankingVersion = "fsusblog.author-full-text-ranking.v2";
     public const string IndexOwner = "author-full-text-index";
     public const string SourceCoordinateAuthority = "fsusui.markdown-source-coordinate-map";
     public const int MaxQueryCharacters = 4_096;
@@ -53,6 +53,22 @@ public static class AuthorFullTextSearchContract
         "extended-grapheme-sequence", "logical-source-order", "punctuation-separator",
         "source-range-map-required", "ordered-adjacent-tokens",
         AuthorFullTextSearchTokenizer.UnicodeCaseFoldingVersion, "dotnet10-string-info-text-elements");
+
+    /// <summary>Declared deterministic field weights; execution remains query-owner work.</summary>
+    public static IReadOnlyDictionary<AuthorSearchFieldKind, int> FieldWeights
+    {
+        get;
+    } =
+        new Dictionary<AuthorSearchFieldKind, int>
+        {
+            [AuthorSearchFieldKind.Title] = 10,
+            [AuthorSearchFieldKind.Summary] = 4,
+            [AuthorSearchFieldKind.MarkdownBody] = 1,
+            [AuthorSearchFieldKind.Heading] = 6,
+            [AuthorSearchFieldKind.Category] = 3,
+            [AuthorSearchFieldKind.Tag] = 3,
+            [AuthorSearchFieldKind.Property] = 2
+        }.ToFrozenDictionary();
 
     public static ImmutableArray<AuthorSearchRankingFactor> RankingFactors
     {
@@ -138,13 +154,17 @@ public static class AuthorFullTextSearchContract
             && query.TokenizerVersion == TokenizerVersion && query.RankingVersion == RankingVersion
             && query.IndexOwner == IndexOwner, "author_search_contract_version_invalid");
         Require(query.QueryId != Guid.Empty && query.UserId > 0 && ValidText(query.SiteScope, 128)
-            && query.PermissionRevision > 0 && query.IndexGeneration > 0,
+            && query.PermissionRevision > 0 && query.IndexGeneration > 0
+            && IsDigest(query.PermissionPolicyDigest),
             "author_search_query_identity_invalid");
         Require(query.Scope == AuthorSearchScope.CurrentArticle,
             "author_search_historical_scope_unavailable");
         Require(!query.Clauses.IsDefault && query.Clauses.Length is >= 1 and <= MaxQueryClauses
-            && query.PageSize is >= 1 and <= MaxPageSize
-            && (query.Cursor is null || ValidText(query.Cursor, 512)), "author_search_query_budget_invalid");
+            && query.PageSize is >= 1 and <= MaxPageSize, "author_search_query_budget_invalid");
+        if (query.Cursor is not null)
+        {
+            ValidateCursor(query.Cursor, query);
+        }
         int totalCharacters = 0;
         var seenFilters = new HashSet<string>(StringComparer.Ordinal);
         foreach (AuthorSearchClause clause in query.Clauses)
@@ -167,6 +187,7 @@ public static class AuthorFullTextSearchContract
                         "author_search_text_clause_invalid");
                     break;
                 case AuthorSearchClauseKind.FieldText:
+                case AuthorSearchClauseKind.FieldPhrase:
                     Require(clause.Field.HasValue && Fields.ContainsKey(clause.Field.Value)
                         && clause.Field != AuthorSearchFieldKind.Property
                         && clause.Values.Length == 1 && clause.PropertyDefinitionId is null
@@ -248,7 +269,10 @@ public static class AuthorFullTextSearchContract
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(query);
         Require(result.SchemaVersion == SchemaVersion && result.IndexOwner == IndexOwner
-            && result.TokenizerVersion == TokenizerVersion && result.RankingVersion == RankingVersion,
+            && result.TokenizerVersion == TokenizerVersion && result.RankingVersion == RankingVersion
+            && query.SchemaVersion == SchemaVersion && query.Schema == QuerySchema
+            && query.TokenizerVersion == TokenizerVersion && query.RankingVersion == RankingVersion
+            && query.IndexOwner == IndexOwner,
             "author_search_result_version_invalid");
         Require(result.QueryId == query.QueryId && result.QueryDigest == query.ContentDigest
             && result.PermissionRevision == query.PermissionRevision
@@ -273,6 +297,7 @@ public static class AuthorFullTextSearchContract
                 && document.Identity.Scope == query.Scope
                 && document.Identity.PermissionRevision == currentPermissionRevision
                 && document.Identity.IndexGeneration == currentIndexGeneration
+                && document.Identity.PermissionPolicyDigest == query.PermissionPolicyDigest
                 && match.Snippet.DocumentDigest == document.ContentDigest,
                 "author_search_result_scope_invalid");
             Require(seen.Add(document.ContentDigest), "author_search_result_duplicate_document");
@@ -365,6 +390,8 @@ public static class AuthorFullTextSearchContract
         Require(identity.ArticleId > 0 && identity.UserId > 0 && ValidText(identity.SiteScope, 128)
             && identity.CurrentRevision > 0 && identity.LifecycleRevision > 0
             && identity.PermissionRevision > 0 && identity.IndexGeneration > 0
+            && identity.Permission == AuthorSearchPermissionState.Allowed
+            && Enum.IsDefined(identity.VisibilityScope) && IsDigest(identity.PermissionPolicyDigest)
             && ValidText(identity.Locale, 32)
             && identity.Scope == AuthorSearchScope.CurrentArticle
             && identity.Status is ArticleStatus.Draft or ArticleStatus.Scheduled or ArticleStatus.Published
@@ -373,6 +400,7 @@ public static class AuthorFullTextSearchContract
 
     private static void ValidateDefinition(ArticlePropertyDefinition definition, string site, int userId)
     {
+        ArticlePropertyDefinitionContract.ValidateDefinition(definition);
         Require(definition.SearchEligible && definition.Status == ArticlePropertyDefinitionStatus.Active
             && definition.SchemaVersion == ArticlePropertyDefinitionContract.SchemaVersion
             && definition.Owner.SiteScope == site
@@ -424,6 +452,21 @@ public enum AuthorSearchScope
     HistoricalRevisionUnavailable = 1
 }
 
+/// <summary>Unknown and denied permission facts cannot become indexed readable documents.</summary>
+public enum AuthorSearchPermissionState
+{
+    Allowed = 1,
+    Denied = 2,
+    Unknown = 3
+}
+
+/// <summary>Author-only scope never shares the public search visibility policy.</summary>
+public enum AuthorSearchVisibilityScope
+{
+    AuthorOnly = 1,
+    SiteAuthors = 2
+}
+
 public enum AuthorSearchClauseKind
 {
     PlainText = 0,
@@ -433,7 +476,8 @@ public enum AuthorSearchClauseKind
     Category = 4,
     Tag = 5,
     Date = 6,
-    Property = 7
+    Property = 7,
+    FieldPhrase = 8
 }
 
 public enum AuthorSearchRankingFactor
@@ -456,7 +500,8 @@ public sealed record AuthorSearchOwnerBoundary(string Consumer, string Owner, st
 
 public sealed record AuthorSearchDocumentIdentity(
     int ArticleId, int UserId, string SiteScope, long CurrentRevision, long LifecycleRevision,
-    long PermissionRevision, long IndexGeneration, string Locale, ArticleStatus Status, AuthorSearchScope Scope);
+    long PermissionRevision, long IndexGeneration, string Locale, ArticleStatus Status, AuthorSearchScope Scope,
+    AuthorSearchPermissionState Permission, AuthorSearchVisibilityScope VisibilityScope, string PermissionPolicyDigest);
 
 public sealed record AuthorSearchFieldReference(
     AuthorSearchFieldKind Kind, string ContentDigest, string? HeadingIdentity,
@@ -485,7 +530,12 @@ public sealed record AuthorSearchQuery(
     int SchemaVersion, string Schema, string TokenizerVersion, string RankingVersion, string IndexOwner,
     Guid QueryId, int UserId, string SiteScope, long PermissionRevision, long IndexGeneration,
     AuthorSearchScope Scope, ImmutableArray<AuthorSearchClause> Clauses, int PageSize,
-    string? Cursor, string ContentDigest);
+    AuthorSearchCursor? Cursor, string ContentDigest, string PermissionPolicyDigest);
+
+/// <summary>A closed pagination coordinate, bound to the unpaginated query and current visibility facts.</summary>
+public sealed record AuthorSearchCursor(
+    int SchemaVersion, string QueryContextDigest, long PermissionRevision, long IndexGeneration,
+    int ArticleId, AuthorSearchFieldKind Field, int RawStart, string ContentDigest);
 
 public sealed record AuthorSearchSnippet(
     string DocumentDigest, string SourceDigest, AuthorSearchFieldKind Field, string? HeadingIdentity,
