@@ -57,7 +57,7 @@ public sealed class ArticleVaultRecoveryCheckpointReaderTests
     public async Task Reader_RejectsLatestAndCrossArticleBindingsBeforeCheckpointRead()
     {
         Fixture fixture = Create();
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Reader.ReadAsync(fixture.Resolution, fixture.Operation, 0, "latest"));
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => fixture.Reader.ReadAsync(fixture.Resolution, fixture.Operation, 0, "latest"));
         ArticleVaultResolutionPlan altered = fixture.Resolution with
         {
             Binding = fixture.Resolution.Binding with
@@ -69,7 +69,7 @@ public sealed class ArticleVaultRecoveryCheckpointReaderTests
         {
             ContentSha256 = ArticleVaultResolutionPlanner.ComputeContentSha256(altered)
         };
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Reader.ReadAsync(altered, fixture.Operation, 0, fixture.Checkpoint.ContentSha256));
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => fixture.Reader.ReadAsync(altered, fixture.Operation, 0, fixture.Checkpoint.ContentSha256));
         Assert.Empty(fixture.CheckpointStore.ReceivedCalls());
     }
 
@@ -79,7 +79,7 @@ public sealed class ArticleVaultRecoveryCheckpointReaderTests
         Fixture fixture = Create();
         fixture.ExecutionStore.LoadSealedAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ArticleVaultSealedExecutionBundle?>(null));
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Reader.ReadAsync(fixture.Resolution, fixture.Operation, 0, fixture.Checkpoint.ContentSha256));
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => fixture.Reader.ReadAsync(fixture.Resolution, fixture.Operation, 0, fixture.Checkpoint.ContentSha256));
         fixture = Create();
         ArticleVaultOperationCheckpoint altered = fixture.Checkpoint with
         {
@@ -87,20 +87,20 @@ public sealed class ArticleVaultRecoveryCheckpointReaderTests
         };
         fixture.CheckpointStore.ReadThroughAsync(Arg.Any<ArticleVaultOperationIdentity>(), Arg.Any<ArticleVaultSyncPlan>(),
             Arg.Any<long>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<ArticleVaultOperationCheckpoint>>([altered]));
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Reader.ReadAsync(fixture.Resolution, fixture.Operation, 0, fixture.Checkpoint.ContentSha256));
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => fixture.Reader.ReadAsync(fixture.Resolution, fixture.Operation, 0, fixture.Checkpoint.ContentSha256));
     }
 
     // This fixture tests exact read binding, not a persisted journal or executable resolution proof.
-    private static Fixture Create()
+    internal static Fixture Create(byte[]? sourceBytes = null)
     {
-        VaultSourceByteIdentity source = ArticleVaultManifestCodec.CaptureSourceBytes("source\n"u8);
+        VaultSourceByteIdentity source = ArticleVaultManifestCodec.CaptureSourceBytes(sourceBytes ?? "source\n"u8.ToArray());
         VaultArticleCoordinate coordinate = new(ArticleVaultSchemas.Coordinate, 1, true, false, 4, source, Digest, Digest, "draft", Digest, string.Empty);
         coordinate = coordinate with
         {
             ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(coordinate)
         };
         const string Path = "articles/article-one.md";
-        ArticleVaultArticleManifest article = new(ArticleVaultSchemas.ArticleManifest, 1, "site-one", "vault-one", "device-one", "article-one", "server-one",
+        ArticleVaultArticleManifest article = new(ArticleVaultSchemas.ArticleManifest, 1, "site-one", "vault-one", "device-one", "article-one", "101",
             new(Path, ArticleVaultManifestCodec.ComputeProjectionSha256(Path)), new(coordinate, coordinate, coordinate),
             new(0, null, null, null, null, null, null), VaultArticleState.Clean, string.Empty);
         article = article with
@@ -115,7 +115,7 @@ public sealed class ArticleVaultRecoveryCheckpointReaderTests
             ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(root)
         };
         ArticleVaultServerObservation observation = new(ArticleVaultPlanSchemas.ServerObservation, 1, "site-one", "vault-one", "device-one",
-            "article-one", "server-one", coordinate, string.Empty);
+            "article-one", "101", coordinate, string.Empty);
         observation = observation with
         {
             ContentSha256 = ArticleVaultSyncPlanCodec.ComputeContentSha256(observation)
@@ -163,7 +163,7 @@ public sealed class ArticleVaultRecoveryCheckpointReaderTests
         return new(bundle, resolution, operation, checkpoint, executionStore, checkpointStore, new(executionStore, checkpointStore));
     }
 
-    private sealed record Fixture(
+    internal sealed record Fixture(
         ArticleVaultSealedExecutionBundle Bundle,
         ArticleVaultResolutionPlan Resolution,
         ArticleVaultOperationIdentity Operation,
