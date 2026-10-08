@@ -534,7 +534,7 @@ function trackAuthoringViewport(event: Event): void
     const firstLine = Math.max(1, Math.floor(textarea.scrollTop / lineHeight) + 1);
     const visibleLines = Math.max(1, Math.ceil(textarea.clientHeight / lineHeight) + 1);
     const lastLine = firstLine + visibleLines;
-    let start = 0;
+    let start: number;
     try
     {
         start = coordinateMap.toRawOffsetFromLineColumn({ line: firstLine, column: 0 });
