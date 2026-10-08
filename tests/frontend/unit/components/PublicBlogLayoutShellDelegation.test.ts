@@ -10,6 +10,8 @@ import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue
 import { FsusUiPublicShell } from '@/fsusui/publicShell'
 import {
   activateLocaleRuntime,
+  createLocaleTextContext,
+  ENABLED_LOCALES,
   prepareLocaleDomains,
   provideLocaleTextContext,
   resetLocaleRuntimeForTests
@@ -88,36 +90,87 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
     expect(html).toContain('data-locale-selector-item')
   })
 
-  it.each([
-    ['en-US', 'Log in', 'Menu', 'Search', /登录|菜单|搜索/u],
-    ['zh-CN', '登录', '菜单', '搜索', /\bLog in\b|\bMenu\b|\bSearch\b/u],
-  ] as const)('projects %s from one locale bundle during server render', async (
-    initialLocale,
-    authLabel,
-    menuLabel,
-    searchLabel,
-    foreignChrome,
-  ) => {
+  it.each(ENABLED_LOCALES)('projects $code typed copy and catalog through real local PublicShell SSR', async ({ code }) => {
     const localeSnapshot = await prepareLocaleDomains(
-      initialLocale,
+      code,
       ['common', 'layout', 'public']
     )
-    const app = createSSRApp({
-      render: () => h(PublicBlogLayoutShell, {
-        authAction: 'login',
-        authHref: '/login'
-      }),
-    })
-    provideLocaleTextContext(app, localeSnapshot)
-    app.component('ElThemeModeToggle', ElThemeModeToggle)
+    const copy = createLocaleTextContext(localeSnapshot)
+    for (const { authAction, authHref } of [
+      { authAction: 'login', authHref: '/login' },
+      { authAction: 'account', authHref: '/user/profile' },
+      { authAction: 'dashboard', authHref: '/admin' },
+    ] as const) {
+      const app = createSSRApp({
+        render: () => h(PublicBlogLayoutShell, {
+          initialLocale: code,
+          authAction,
+          authHref,
+        }),
+      })
+      provideLocaleTextContext(app, localeSnapshot)
+      app.component('ElThemeModeToggle', ElThemeModeToggle)
 
-    const html = await renderToString(app)
+      const html = await renderToString(app)
+      const rendered = document.createElement('div')
+      rendered.innerHTML = html
+      expect(rendered.querySelector('#fsus-aot-shell')?.getAttribute('data-public-render-locale')).toBe(code)
+      expect(rendered.querySelector('#fsus-aot-shell')?.getAttribute('data-public-auth-message-key'))
+        .toBe(`public.shell.${authAction}`)
+      const authLinks = [...rendered.querySelectorAll('[data-public-nav="auth"]')]
+      expect(authLinks).toHaveLength(2)
+      for (const link of authLinks) {
+        expect(link.textContent?.trim()).toBe(copy.translate(`public.shell.${authAction}`))
+        expect(link.getAttribute('href')).toBe(authHref)
+      }
+      for (const key of ['home', 'archive', 'about'] as const) {
+        const links = [...rendered.querySelectorAll(`nav [data-public-nav="${key}"]`)]
+        expect(links).toHaveLength(2)
+        expect(links.map((link) => link.textContent?.trim()))
+          .toEqual([copy.translate(`public.shell.${key}`), copy.translate(`public.shell.${key}`)])
+      }
+      expect(rendered.querySelector('[data-mobile-nav-menu-trigger]')?.textContent?.trim())
+        .toBe(copy.translate('public.shell.mobileMenu'))
+      expect(rendered.querySelector('.el-public-shell__desktop-search-trigger')?.getAttribute('aria-label'))
+        .toBe(copy.translate('public.shell.search'))
+      expect(html).not.toMatch(/\sstyle=/u)
 
-    expect(html).toContain(`data-public-auth-message-key="public.shell.login"`)
-    expect(html).toContain(`>${menuLabel}</summary>`)
-    expect(html).toContain(`aria-label="${searchLabel}"`)
-    expect(html).toContain(`>${authLabel}</a>`)
-    expect(html).not.toMatch(foreignChrome)
+      const themeControls = [...rendered.querySelectorAll('[data-theme-mode-visibility]')]
+      expect(themeControls.map((control) => control.getAttribute('data-theme-mode-visibility')))
+        .toEqual(['desktop', 'mobile'])
+      for (const control of themeControls) {
+        for (const mode of ['light', 'dark', 'system'] as const) {
+          const option = control.querySelector(`[data-theme-mode="${mode}"]`)
+          expect(option?.textContent?.trim()).toBe(copy.translate(`public.shell.${mode}`))
+          if (option?.getAttribute('aria-checked') === 'true') {
+            const trigger = control.querySelector('[aria-haspopup="menu"]')
+            expect(trigger?.textContent?.trim()).toBe(copy.translate(`public.shell.${mode}Short`))
+            expect(trigger?.getAttribute('aria-label'))
+              .toBe(`${copy.translate('layout.themeMode.label')}: ${copy.translate(`public.shell.${mode}`)}`)
+          }
+        }
+      }
+
+      const menus = [...rendered.querySelectorAll('[data-locale-selector-menu]')]
+      expect(menus).toHaveLength(2)
+      for (const menu of menus) {
+        const items = [...menu.querySelectorAll('[data-locale-selector-item]')]
+        expect(items.map((item) => item.getAttribute('data-locale-code')))
+          .toEqual(ENABLED_LOCALES.map((locale) => locale.code))
+        expect(items.map((item) => item.querySelector('.locale-selector__item-native')?.textContent))
+          .toEqual(ENABLED_LOCALES.map((locale) => locale.nativeName))
+        expect(items.map((item) => item.querySelector('.locale-selector__item-english')?.textContent ?? null))
+          .toEqual(ENABLED_LOCALES.map((locale) => locale.englishName === locale.nativeName ? null : locale.englishName))
+        expect(items.map((item) => item.getAttribute('dir')))
+          .toEqual(ENABLED_LOCALES.map((locale) => locale.direction))
+        expect(items.map((item) => item.getAttribute('aria-disabled')))
+          .toEqual(ENABLED_LOCALES.map(() => null))
+        expect(items.map((item) => item.getAttribute('aria-checked')))
+          .toEqual(ENABLED_LOCALES.map((locale) => locale.code === code ? 'true' : 'false'))
+        expect([...menu.querySelectorAll('[aria-current="true"]')].map((item) => item.getAttribute('data-locale-code')))
+          .toEqual([code])
+      }
+    }
   })
 
   it('passes auth and desktop search state to the local FsusUI PublicShell contract', () => {
