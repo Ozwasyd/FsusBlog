@@ -5,18 +5,22 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
+const {
     DATA_SCALE_EXCLUSIVE_RESOURCES,
     DATA_SCALE_RUNTIME_SCHEMA,
     computeSha256,
     createDataScaleRuntimePlan,
     createDataScaleRuntimeReceipt,
-    isForbiddenContainerName,
-    validateDataScaleBackendConnection,
     validateDataScaleRuntimePlan
-} from '../../tools/data-scale/runtime-plan.mjs';
+} = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
 
-import { verifyDataScaleOwnerReceipt } from '../../tools/test/verify-release-reliability-lifecycle-action.mjs';
+const {
+    DATA_SCALE_RUNTIME_SCHEMA: OWNER_RUNTIME_SCHEMA,
+    createDataScaleRuntimePlan: createOwnerPlan,
+    createDataScaleRuntimeReceipt: createOwnerReceipt
+} = await import(new URL('../../tools/test/data-scale-runtime-owner.mjs', import.meta.url));
+const { digestValue, sealDocument } = await import(new URL('../../tools/test/release-reliability-receipt.mjs', import.meta.url));
+const { verifyDataScaleOwnerReceipt } = await import(new URL('../../tools/test/verify-release-reliability-lifecycle-action.mjs', import.meta.url));
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 
@@ -67,170 +71,112 @@ test('data-scale runtime plan requires all 4 dedicated roots to be distinct and 
     }
 });
 
-test('data-scale runtime receipt satisfies verifyDataScaleOwnerReceipt contract', (t) =>
+function ownerFixture(context)
 {
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-receipt-'));
-    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
-
-    const runId = 'run-receipt-03';
-    const seedReceiptRelative = `.tmp/scale/${runId}/data/seed-receipt.json`;
-    const seedReceiptAbsolute = path.join(temp, seedReceiptRelative);
-    fs.mkdirSync(path.dirname(seedReceiptAbsolute), { recursive: true });
-
-    const seedReceiptData = {
-        schema: 'fsusblog.data-scale-seed-receipt.v1',
-        dataScaleRunId: runId,
-        namespace: 'scale-ns-03',
-        tier: 'scale-m',
-        generatedAt: new Date().toISOString()
+    context.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const digest = (value) => `sha256:${value.repeat(64)}`;
+    const identity = {
+        sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: digest('b') },
+        build: { contentDigest: digest('c'), imageDigest: digest('d') },
+        fixture: { namespace: 'current-fixture' }
     };
-    fs.writeFileSync(seedReceiptAbsolute, `${JSON.stringify(seedReceiptData, null, 2)}\n`);
-    const seedReceiptBytesDigest = computeSha256(fs.readFileSync(seedReceiptAbsolute));
-
-    const sourceCommit = 'b4690b70ce2871fd8c4197b4a1f8e18d5d3bc11d';
-    const worktreeFingerprint = 'sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-    const buildReceiptDigest = 'sha256:1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-    const imageDigest = 'sha256:2123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-    const envManifestDigest = 'sha256:3123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-
-    const receipt = createDataScaleRuntimeReceipt({
-        dataScaleRunId: runId,
-        parentSchedulerRunId: 'sched-03',
-        sourceCommit,
-        worktreeFingerprint,
-        buildReceiptDigest,
-        imageDigest,
-        namespace: 'scale-ns-03',
+    const plan = createOwnerPlan({
+        repositoryRoot: temp,
+        runId: 'scheduler-current',
+        invocationId: 'invocation-current',
+        attemptId: 'attempt-current',
+        sourceCommit: identity.sourceState.commit,
+        worktreeFingerprint: identity.sourceState.worktreeFingerprint,
+        buildReceiptDigest: identity.build.contentDigest,
+        imageDigest: identity.build.imageDigest,
+        postgresImageDigest: digest('e'),
+        redisImageDigest: digest('f')
+    });
+    const seedReceiptPath = `${plan.roots.dataRoot}/seed.json`;
+    const seedFile = path.join(temp, seedReceiptPath);
+    fs.mkdirSync(path.dirname(seedFile), { recursive: true });
+    fs.writeFileSync(seedFile, '{"seed":"bound"}\n');
+    const clientName = `FsusBlogDataScale-${plan.dataScaleRunId}`;
+    const receipt = createOwnerReceipt({
+        repositoryRoot: temp,
+        plan,
         postgres: {
-            containerId: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            database: 'fsusblog_data_scale',
-            imageDigest: 'sha256:4123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            volumeId: `fsusblog-data-scale-pg-vol-${runId}`
+            containerId: '1'.repeat(64), database: 'fsusblog',
+            imageDigest: plan.postgresImageDigest, volumeId: plan.resources.postgresVolumeName
         },
         redis: {
-            containerId: '5123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            imageDigest: 'sha256:6123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            volumeId: `fsusblog-data-scale-redis-vol-${runId}`
+            containerId: '2'.repeat(64), imageDigest: plan.redisImageDigest,
+            volumeId: plan.resources.redisVolumeName
         },
         backend: {
-            baseUrl: 'http://127.0.0.1:18888',
-            executableOrImageDigest: imageDigest,
-            pidOrContainerId: '7123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            startTicks: '1234567890'
+            baseUrl: 'http://127.0.0.1:18888', executableOrImageDigest: plan.imageDigest,
+            pidOrContainerId: '3'.repeat(64), startTicks: '1234567890'
         },
-        aotRoot: `.tmp/scale/${runId}/aot`,
-        searchRoot: `.tmp/scale/${runId}/search`,
-        hotReadRoot: `.tmp/scale/${runId}/hotread`,
-        dataRoot: `.tmp/scale/${runId}/data`,
-        envManifestDigest,
-        seedReceiptPath: seedReceiptRelative,
-        seedReceiptDigest: seedReceiptBytesDigest,
-        createdAt: new Date().toISOString()
-    });
-
-    assert.equal(receipt.schema, DATA_SCALE_RUNTIME_SCHEMA);
-    assert.ok(receipt.contentDigest.startsWith('sha256:'));
-
-    const receiptRelative = `.tmp/scale/${runId}/data/runtime-receipt.json`;
-    const receiptAbsolute = path.join(temp, receiptRelative);
-    fs.writeFileSync(receiptAbsolute, `${JSON.stringify(receipt, null, 2)}\n`);
-
-    const identity = {
-        sourceState: {
-            commit: sourceCommit,
-            worktreeFingerprint
+        network: { id: '4'.repeat(64), name: plan.resources.networkName },
+        permissionHelper: { name: plan.resources.permissionHelperContainerName, postExists: false },
+        connections: {
+            postgres: {
+                applicationName: clientName, backendAddress: '172.24.0.4', database: 'fsusblog',
+                matchingClientCount: 2, foreignClientCount: 0
+            },
+            redis: {
+                clientName, backendAddress: '172.24.0.4', matchingClientCount: 2, foreignClientCount: 0
+            }
         },
-        build: {
-            contentDigest: buildReceiptDigest,
-            imageDigest
-        }
-    };
-
-    const verified = verifyDataScaleOwnerReceipt({
-        repositoryRoot: temp,
-        ownerReceipt: 'data-scale-runtime',
-        receiptPath: receiptRelative,
-        identity,
-        runId: 'sched-03'
+        seedReceiptPath,
+        seedReceiptDigest: computeSha256(fs.readFileSync(seedFile)),
+        seedSummary: {
+            status: 'ok', tier: 'scale-m', namespace: plan.namespace,
+            declared: { articles: 10000, comments: 100000 },
+            expected: { articles: 10000, comments: 100000 },
+            observed: { articles: 10000, comments: 100000 }
+        },
+        envManifestDigest: digest('5'),
+        fixtureIdentityDigest: digestValue(identity.fixture),
+        lifecycle: { start: 'complete', reset: 'complete', readiness: 'complete', postcondition: 'pending' },
+        createdAt: '2026-10-08T00:00:00.000Z'
     });
+    const receiptPath = `${plan.roots.dataRoot}/runtime.json`;
+    const write = (document) => fs.writeFileSync(path.join(temp, receiptPath), JSON.stringify(document));
+    const verify = () => verifyDataScaleOwnerReceipt({
+        repositoryRoot: temp, ownerReceipt: 'data-scale-runtime', receiptPath, identity,
+        runId: plan.parentSchedulerRunId, invocationId: plan.invocationId, attemptId: plan.attemptId
+    });
+    write(receipt);
+    return { plan, receipt, write, verify };
+}
 
-    assert.equal(verified.document.dataScaleRunId, runId);
-    assert.equal(verified.document.schema, DATA_SCALE_RUNTIME_SCHEMA);
+test('data-scale runtime receipt satisfies verifyDataScaleOwnerReceipt contract', (context) =>
+{
+    const fixture = ownerFixture(context);
+    const verified = fixture.verify();
+    assert.equal(verified.document.schema, OWNER_RUNTIME_SCHEMA);
+    assert.equal(verified.document.dataScaleRunId, fixture.plan.dataScaleRunId);
+    assert.equal(verified.document.invocationId, fixture.plan.invocationId);
+    assert.equal(verified.document.attemptId, fixture.plan.attemptId);
+    assert.equal(verified.contentDigest, fixture.receipt.contentDigest);
 });
 
-test('data-scale runtime receipt rejects tampered fields', (t) =>
+test('data-scale runtime receipt rejects tampered fields', (context) =>
 {
-    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-tamper-'));
-    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
-
-    const runId = 'run-tamper-04';
-    const seedReceiptRelative = `.tmp/scale/${runId}/data/seed-receipt.json`;
-    const seedReceiptAbsolute = path.join(temp, seedReceiptRelative);
-    fs.mkdirSync(path.dirname(seedReceiptAbsolute), { recursive: true });
-    fs.writeFileSync(seedReceiptAbsolute, '{"seed": "ok"}\n');
-    const seedReceiptBytesDigest = computeSha256(fs.readFileSync(seedReceiptAbsolute));
-
-    const receipt = createDataScaleRuntimeReceipt({
-        dataScaleRunId: runId,
-        parentSchedulerRunId: 'sched-04',
-        sourceCommit: 'b4690b70ce2871fd8c4197b4a1f8e18d5d3bc11d',
-        worktreeFingerprint: 'sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-        buildReceiptDigest: 'sha256:1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-        imageDigest: 'sha256:2123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-        namespace: 'scale-ns-04',
-        postgres: {
-            containerId: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            database: 'fsusblog_data_scale',
-            imageDigest: 'sha256:4123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            volumeId: `fsusblog-data-scale-pg-vol-${runId}`
-        },
-        redis: {
-            containerId: '5123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            imageDigest: 'sha256:6123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            volumeId: `fsusblog-data-scale-redis-vol-${runId}`
-        },
-        backend: {
-            baseUrl: 'http://127.0.0.1:18888',
-            executableOrImageDigest: 'sha256:2123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            pidOrContainerId: '7123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            startTicks: '1234567890'
-        },
-        aotRoot: `.tmp/scale/${runId}/aot`,
-        searchRoot: `.tmp/scale/${runId}/search`,
-        hotReadRoot: `.tmp/scale/${runId}/hotread`,
-        dataRoot: `.tmp/scale/${runId}/data`,
-        envManifestDigest: 'sha256:3123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-        seedReceiptPath: seedReceiptRelative,
-        seedReceiptDigest: seedReceiptBytesDigest,
-        createdAt: new Date().toISOString()
-    });
-
-    // Tamper with parent scheduler runId
-    receipt.parentSchedulerRunId = 'tampered-scheduler-id';
-
-    const receiptRelative = `.tmp/scale/${runId}/data/runtime-receipt.json`;
-    const receiptAbsolute = path.join(temp, receiptRelative);
-    fs.writeFileSync(receiptAbsolute, `${JSON.stringify(receipt, null, 2)}\n`);
-
-    const identity = {
-        sourceState: {
-            commit: 'b4690b70ce2871fd8c4197b4a1f8e18d5d3bc11d',
-            worktreeFingerprint: 'sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
-        },
-        build: {
-            contentDigest: 'sha256:1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            imageDigest: 'sha256:2123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
-        }
-    };
-
-    assert.throws(() =>
+    const fixture = ownerFixture(context);
+    for (const field of ['parentSchedulerRunId', 'invocationId', 'attemptId', 'sourceCommit'])
     {
-        verifyDataScaleOwnerReceipt({
-            repositoryRoot: temp,
-            ownerReceipt: 'data-scale-runtime',
-            receiptPath: receiptRelative,
-            identity,
-            runId: 'sched-04'
-        });
-    }, /identity mismatch/);
+        const tampered = { ...fixture.receipt, [field]: 'stale-identity' };
+        for (const document of [tampered, sealDocument(tampered)])
+        {
+            fixture.write(document);
+            assert.throws(fixture.verify, /identity mismatch/u, field);
+        }
+    }
+});
+
+test('legacy lane receipts cannot substitute for the current invocation owner', (context) =>
+{
+    const fixture = ownerFixture(context);
+    const legacy = createDataScaleRuntimeReceipt(fixture.receipt);
+    assert.equal(legacy.schema, DATA_SCALE_RUNTIME_SCHEMA);
+    fixture.write(legacy);
+    assert.throws(fixture.verify, /top-level fields mismatch/u);
 });
