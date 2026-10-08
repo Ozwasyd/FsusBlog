@@ -2,7 +2,7 @@
 
 This document describes FsusBlog's overall architectural design, data flow paths, cache layering, and module boundaries.
 
-> 2026-07-16 Strong anonymous qualification link: v5/layout 6 circuit Verifies the precise attributes of the signature in the browser private witness, the server verifier only reconstructs the minimum predicate transcript, and verifies the anonymous set `k>=20` according to attested root metadata. ticket v3 only saves rate class, moderation predicate and scope-bound nullifier; Comment/notification/moderation/provider/stats/admin projection does not save precise qualification attributes. Old frame 180/181, ticket codec v1/v2, layout <=5 and old key all fail closed. No-restart downgrade stops new tickets via reloadable `AnonymousIdentity:ZkAnonymousCommentsEnabled=false` or `AnonymousIdentity:ZkProd:Enabled=false`; existing public comment/read paths are not affected.
+> 2026-07-16 Strong anonymous qualification link: v5/layout 6 circuit Verifies the precise attributes of the signature in the browser private witness, the server verifier only reconstructs the minimum predicate transcript, and verifies the anonymous set `k>=20` according to attested root metadata. ticket v3 only saves rate class, moderation predicate and scope-bound nullifier; Comment/notification/moderation/provider/stats/admin projection does not save precise qualification attributes. Old frame 180/181, ticket codec v1/v2, layout <=5 and old key all fail closed. No-restart downgrade stops new tickets via reloadable `AnonymousIdentity:ZkAnonymousCommentsEnabled=false` or `AnonymousIdentity:ZkCommentPolicy:Enabled=false`; existing public comment/read paths are not affected.
 
 ## Overview
 

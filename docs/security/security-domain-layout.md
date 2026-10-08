@@ -18,7 +18,7 @@ Runtime `CircuitManifestPath` must target `security/zk/contracts/`; release/debu
 
 ## Risk and rollback
 
-This migration does not change circuit id, public-input layout, proof system, ceremony state, API, authentication, notification stream, or AEDS binary semantics. Startup validation and the repository checker block the main risks: deployment still points to an old flat path, or a moved file's hash was not rebound. The no-restart business degradation remains reloading `AnonymousIdentity:ZkProd:Enabled=false`, keeping anonymous ZK comments fail closed. A repository rollback must restore the catalog, paths, configuration, and hash bindings from the same commit; never restore only one manifest.
+This migration does not change circuit id, public-input layout, proof system, ceremony state, API, authentication, notification stream, or AEDS binary semantics. Startup validation and the repository checker block the main risks: deployment still points to an old flat path, or a moved file's hash was not rebound. The no-restart business degradation remains reloading `AnonymousIdentity:ZkCommentPolicy:Enabled=false`, keeping anonymous ZK comments fail closed. A repository rollback must restore the catalog, paths, configuration, and hash bindings from the same commit; never restore only one manifest.
 
 ## Verification
 

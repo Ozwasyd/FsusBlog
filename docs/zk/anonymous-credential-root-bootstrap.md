@@ -134,7 +134,7 @@ from the runtime root snapshot.
 
 ## Rollback
 
-1. Set `AnonymousIdentity:ZkProd:Enabled=false` in the active production
+1. Set `AnonymousIdentity:ZkCommentPolicy:Enabled=false` in the active production
    configuration.
 2. Re-run `node tools/security/check-privacy-zk-prod-release.mjs` and confirm
    the disabled safe baseline passes.
@@ -154,3 +154,7 @@ alone does not fully satisfy staging DB rotate. ZK-Prod release requires the
 .NET rotate evidence from
 `tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj`
 plus runtime smoke evidence before enabling ZK-Prod.
+
+The evidence boundary is strict: staging DB rotate is not satisfied by the offline evidence. Real lifecycle rotation, audit and current runtime acceptance remain separate requirements.
+
+回滚不删除已写入的匿名评论，保留 root、nullifier 和 credential vault 数据；只停用未来的 ZK ticket 签发与 root acceptance。
