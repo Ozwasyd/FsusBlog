@@ -184,12 +184,12 @@ export async function verifyBrowserContractOutcomeInputCustody(encodedCandidate,
     const { verifyOutcomeInputCustody } = await import('./outcome-input-custody.mjs');
     const profile = validateOutcomeAdapterCandidateData(encodedCandidate, encodedExpected, custodyOptions.maxBytes);
     requireCondition(profile.producerId === browserContractOutcomeProducerId, 'custody candidate is not Browser Contract');
+    const custody = verifyOutcomeInputCustody(encodedCandidate, encodedExpected, custodyOptions);
     for (const binding of custodyOptions.bindings)
     {
         requireCondition(binding.inputReference.path === binding.payloadPath,
             'browser physical input path differs from custody mapping');
     }
-    const custody = verifyOutcomeInputCustody(encodedCandidate, encodedExpected, custodyOptions);
     requireCondition(profile.candidateDigest === custody.candidateDigest, 'profile/custody candidate mismatch');
     return Object.freeze({ profile, custody, producerVerificationPending: true, qualificationEligible: false });
 }
