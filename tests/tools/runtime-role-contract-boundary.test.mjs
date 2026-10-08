@@ -20,8 +20,6 @@ test('runtime-role source closure follows every reachable SDK project and lock f
     'src/backend/Infrastructure/Operations/ReleaseIdContract.Generated.cs',
     'src/core/FsusBlog.Core.csproj',
     'src/core/packages.lock.json',
-    'src/migration/FsusBlog.Migration.csproj',
-    'src/migration/packages.lock.json',
     'src/shared/FsusBlog.Shared.csproj',
     'src/shared/packages.lock.json',
     'tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj',
@@ -29,6 +27,7 @@ test('runtime-role source closure follows every reachable SDK project and lock f
   ]
   for (const relative of expected) assert.ok(closure.includes(relative), `missing ${relative}`)
   assert.ok(closure.filter((relative) => relative.endsWith('.cs')).length > 700)
+  assert.ok(closure.every((relative) => !relative.startsWith('src/migration/')), 'compiled current-model contract cannot load historical migration owners')
   assert.ok(closure.every((relative) => !/(?:^|\/)bin(?:\/|$)|(?:^|\/)obj(?:\/|$)/u.test(relative)))
 })
 

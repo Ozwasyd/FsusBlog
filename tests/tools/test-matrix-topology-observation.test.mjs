@@ -171,7 +171,7 @@ function fixtureRepository(options = {})
     'tools/storage/release-gc.mjs',
     'config/deployment/destructive-operation-authority.json',
     'tools/deployment/destructive-operation-authority.mjs',
-    'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs',
+    'src/backend/Infrastructure/SchemaMigration/CurrentSchemaOwnedProjectionExporter.cs',
     'config/testing/required-evidence-authority-ledger.json',
     'config/testing/release-domain-assertion-dispositions.json',
     'tools/test-matrix/release-final-evidence-contract.mjs',
@@ -489,10 +489,10 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   assert.equal(blueGreen.destructiveAuthority.schemaCleanupStatus, 'unsupported')
   assert.equal(blueGreen.volumeScopes['slot-private'].length, 3)
   assert.equal(blueGreen.claimEligible, false)
-  assert.deepEqual(blueGreen.claimEligibilityReasons, ['production-current-active-resource-evidence-absent'])
+  assert.deepEqual(blueGreen.claimEligibilityReasons, ['production-current-active-resource-evidence-absent', 'current-schema-native-observation-absent'])
   assert.equal(blueGreen.authorityState, 'synthetic-library-proof')
   assert.deepEqual(Object.keys(blueGreen.authorityModules).sort(), [
-    'destructiveOperations', 'onlineSchema', 'releaseAssetsGc', 'rollout', 'slot', 'topologyAuthority'
+    'destructiveOperations', 'releaseAssetsGc', 'rollout', 'slot', 'topologyAuthority'
   ])
   for (const authority of Object.values(blueGreen.authorityModules))
   {
@@ -922,7 +922,7 @@ test('nested source and artifact symlinks fail closed before digest consumption'
       {
         const source = path.join(
           directory,
-          'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs'
+          'src/backend/Infrastructure/SchemaMigration/CurrentSchemaOwnedProjectionExporter.cs'
         )
         const outside = path.join(directory, 'linked-schema-source.cs')
         writeFileSync(outside, readFileSync(source))

@@ -91,9 +91,8 @@ const declaredFactSources = Object.freeze([
   'tools/governance/check-monolithic-distributed-architecture.mjs',
   'config/deployment/destructive-operation-authority.json',
   'tools/deployment/destructive-operation-authority.mjs',
-  'src/migration',
   'src/backend/Infrastructure/SchemaMigration',
-  'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs'
+  'tools/contracts/lib/runtime-role-current-schema-contract.mjs'
 ])
 
 const consumerInputs = Object.freeze([
@@ -1709,7 +1708,6 @@ export function extract(context)
     rollout: 'tools/deployment/release-rollout-lib.mjs',
     releaseAssetsGc: 'tools/storage/release-gc.mjs',
     destructiveOperations: 'tools/deployment/destructive-operation-authority.mjs',
-    onlineSchema: 'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs',
     topologyAuthority: 'tools/governance/check-monolithic-distributed-architecture.mjs'
   }
   let destructiveAuthority
