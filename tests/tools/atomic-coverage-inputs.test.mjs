@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { sealContentDigest } from '../../tools/test/attempt-provenance.mjs';
-import { prepareCoverageProducer, readCoverageMaterial } from '../../tools/coverage/atomic-coverage-inputs.mjs';
+const {sealContentDigest} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
+const {prepareCoverageProducer, readCoverageMaterial} = await import(new URL('../../tools/coverage/atomic-coverage-inputs.mjs', import.meta.url));
 import { coverageFixture } from './support/atomic-coverage-fixtures.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
@@ -64,14 +64,38 @@ for (const mutation of ['summary-tamper', 'snapshot-tamper', 'receipt-tamper', '
         const fixture = coverageFixture(t);
         const material = fixture.makeMaterial('coverage-backend');
         const summary = material.artifacts.find((item) => item.role === 'summary');
-        if (mutation === 'summary-tamper') fs.appendFileSync(path.join(fixture.root, summary.path), ' ');
-        if (mutation === 'snapshot-tamper') fs.appendFileSync(path.join(fixture.root, path.dirname(material.attemptRef.path), summary.attemptPath), ' ');
-        if (mutation === 'receipt-tamper') fs.appendFileSync(path.join(fixture.root, material.attemptRef.path), ' ');
-        if (mutation === 'raw-tamper') fs.appendFileSync(path.join(fixture.root, material.artifacts.find((item) => item.role === 'raw').path), ' ');
-        if (mutation === 'replay-tamper') fs.appendFileSync(path.join(fixture.root, path.dirname(material.attemptRef.path), 'replay-plan.json'), ' ');
-        if (mutation === 'duplicate') material.artifacts.push({ ...summary });
-        if (mutation === 'wrong-domain') summary.path = '.tmp/coverage/frontend/Summary.json';
-        if (mutation === 'old-path') summary.path = '.tmp/coverage/old/backend-merged/Summary.json';
+        if (mutation === 'summary-tamper')
+        {
+            fs.appendFileSync(path.join(fixture.root, summary.path), ' ');
+        }
+        if (mutation === 'snapshot-tamper')
+        {
+            fs.appendFileSync(path.join(fixture.root, path.dirname(material.attemptRef.path), summary.attemptPath), ' ');
+        }
+        if (mutation === 'receipt-tamper')
+        {
+            fs.appendFileSync(path.join(fixture.root, material.attemptRef.path), ' ');
+        }
+        if (mutation === 'raw-tamper')
+        {
+            fs.appendFileSync(path.join(fixture.root, material.artifacts.find((item) => item.role === 'raw').path), ' ');
+        }
+        if (mutation === 'replay-tamper')
+        {
+            fs.appendFileSync(path.join(fixture.root, path.dirname(material.attemptRef.path), 'replay-plan.json'), ' ');
+        }
+        if (mutation === 'duplicate')
+        {
+            material.artifacts.push({ ...summary });
+        }
+        if (mutation === 'wrong-domain')
+        {
+            summary.path = '.tmp/coverage/frontend/Summary.json';
+        }
+        if (mutation === 'old-path')
+        {
+            summary.path = '.tmp/coverage/old/backend-merged/Summary.json';
+        }
         if (mutation === 'symlink')
         {
             const target = path.join(fixture.root, summary.path);
@@ -90,9 +114,18 @@ for (const mutation of ['cross-run', 'missing-metric', 'partial-merge'])
         const producerId = mutation === 'partial-merge' ? 'coverage-merge' : 'coverage-backend';
         const material = fixture.makeMaterial(producerId, 'clean-success', (summary) =>
         {
-            if (mutation === 'cross-run') summary.producer = { ...summary.producer, runId: 'old-run' };
-            if (mutation === 'missing-metric') delete summary.summary.linecoverage;
-            if (mutation === 'partial-merge') summary.sources.frontend = false;
+            if (mutation === 'cross-run')
+            {
+                summary.producer = { ...summary.producer, runId: 'old-run' };
+            }
+            if (mutation === 'missing-metric')
+            {
+                delete summary.summary.linecoverage;
+            }
+            if (mutation === 'partial-merge')
+            {
+                summary.sources.frontend = false;
+            }
             return summary;
         });
         assert.throws(() => readCoverageMaterial({ ...fixture, producerId, material }), /cross-run|missing\/invalid|partial/u);
