@@ -4,9 +4,18 @@
         {
             "id": "environment-variable",
             "paths": [
-                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs"
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+                "tools/test/correctness-attempt-migration.mjs"
             ],
             "reason": "Preserve the existing registered C# environment/configuration surface while keeping resolver validation names and public identity unchanged; no environment access or name is added."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing canonical catalog and original execution-authority JSON keys while consuming exact published prerequisite source and replaying the original producers; no external name is renamed."
         }
     ]
 }
