@@ -715,7 +715,7 @@ test('compiled C# observation self-test executes real loader, merger, and reques
     assert.match(result.stdout, /self-test.*ok/iu);
 });
 
-test('pre-3177 normal producer isolates only the exact owned JSON routes and emits the AEDS observation', {
+test('normal producer includes all eight migrated Font/Theme routes in the compiled AEDS census', {
     timeout: 120_000
 }, () =>
 {
@@ -741,14 +741,33 @@ test('pre-3177 normal producer isolates only the exact owned JSON routes and emi
         });
         const diagnostic = `${result.stdout}\n${result.stderr}`;
         assert.equal(result.status, 0, diagnostic);
-        assert.match(diagnostic, /pre-#3177 known non-AEDS routes excluded count=8:/u);
+        assert.doesNotMatch(diagnostic, /known non-AEDS routes excluded/u);
         const observation = readJson(path.join(directory, 'observation.json'));
         assert.ok(observation.operations.some((operation) =>
             operation.operationId === 'binary_get_article_articleId_int_related_aeds'
             && operation.responseFrame === 'ArticleRelatedReading'));
-        assert.ok(observation.operations.every((operation) =>
-            !operation.path.startsWith('/api/binary/author/ops/fonts/')
-            && !operation.path.startsWith('/api/binary/author/ops/themes/')));
+        const migrated = observation.operations.filter((operation) =>
+            operation.path.startsWith('/api/binary/author/ops/fonts/')
+            || operation.path.startsWith('/api/binary/author/ops/themes/'));
+        assert.deepEqual(
+            migrated.map((operation) => [operation.method, operation.path, operation.responseFrame]),
+            [
+                ['GET', '/api/binary/author/ops/fonts/activations', 'FontActivationList'],
+                ['GET', '/api/binary/author/ops/fonts/registry', 'FontRegistryList'],
+                ['GET', '/api/binary/author/ops/fonts/registry/{fontId}', 'FontRegistryDetail'],
+                ['GET', '/api/binary/author/ops/themes/activations', 'ThemeActivationList'],
+                ['GET', '/api/binary/author/ops/themes/activations/{scope}', 'ThemeActivation'],
+                ['GET', '/api/binary/author/ops/themes/activations/{scope}/history', 'ThemeActivationHistory'],
+                ['GET', '/api/binary/author/ops/themes/registry', 'ThemeRegistryList'],
+                ['GET', '/api/binary/author/ops/themes/registry/{themeId}', 'ThemeRegistryDetail']
+            ]
+        );
+        for (const operation of migrated)
+        {
+            assert.equal(operation.requestFrame, null, operation.path);
+            assert.equal(operation.errorFrame, 'ApiError', operation.path);
+            assert.equal(operation.successStatus, 200, operation.path);
+        }
     }
     finally
     {
