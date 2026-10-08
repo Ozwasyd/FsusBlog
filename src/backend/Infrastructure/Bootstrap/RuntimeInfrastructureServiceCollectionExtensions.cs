@@ -361,6 +361,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<IAdminBackupStatusReader, AdminBackupStatusReader>();
         services.AddScoped<IAdminArtifactOperations, AdminArtifactOperations>();
         services.AddScoped<IAdminCacheDiagnosticsReader, AdminCacheDiagnosticsReader>();
+        services.AddScoped(sp => new OutboxQuiescenceSourceReader(
+            sp.GetService<CommentMutationOutboxRuntimeState>(),
+            sp.GetService<ScheduledPublishRuntimeState>()));
+
         services.AddScoped<IAdminOperationsHealthReader, AdminOperationsHealthReader>();
         services.AddSingleton<IAdminDangerousOperationPolicyReader, AdminDangerousOperationPolicyReader>();
         services.AddScoped<IAdminIntegrityOperations, AdminIntegrityOperations>();

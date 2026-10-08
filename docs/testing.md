@@ -36,6 +36,18 @@ connections do not. Catalog/registry, queue catalog, observer schema and invento
 digests bind the plan inputs. No source checker emits runtime-state-ready,
 acquires a lease, freezes admission, drains work or seals a runtime receipt.
 
+The production `OutboxQuiescenceSourceReader` reads the actual comment and
+scheduled-publication runtime snapshots through the existing operations DI owner.
+It preserves failure and poison categories separately and labels these snapshots
+as last-cycle diagnostics. Article outbox and active mutation claim/transaction
+owners currently lack a read-only enumeration API; their capture counts remain
+null. None of these sources proves current-run namespace, immutable committed
+watermarks or live worker incarnation/claim coverage, so every source capture
+remains runtime-unqualified. No caller run coordinates are accepted. Reads do not
+claim, acknowledge, retry, delete, publish or commit business work. The focused
+`OutboxQuiescenceSourceReaderTests` exercise the actual runtime state objects,
+semantic digest changes, unavailable sources, cancellation and unchanged state.
+
 Run `node tools/test-matrix/quiescence-contract.mjs` and
 `node --test tests/tools/quiescence-contract.test.mjs` for source contracts.
 The complete state-domain gate remains distinct: existing missing
