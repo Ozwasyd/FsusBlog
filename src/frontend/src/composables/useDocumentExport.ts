@@ -249,7 +249,24 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
             submission.value = { phase: 'rejected' };
             return;
         }
-        await submitCall.start(port.prepareRequest(Object.freeze({ ...selection })));
+        const callEpoch = epoch;
+        try
+        {
+            await submitCall.start(port.prepareRequest(Object.freeze({ ...selection })));
+        }
+        catch (error: unknown)
+        {
+            if (epoch !== callEpoch)
+            {
+                return;
+            }
+            const failure = port.classifyFailure(error);
+            if (failure === 'permission-revoked')
+            {
+                revoke();
+            }
+            submission.value = { phase: failure };
+        }
     }
 
     function select(taskId: string): void
