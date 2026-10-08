@@ -9,9 +9,9 @@ const { sealContentDigest } = await import(new URL('../../tools/test/attempt-pro
 const { observeLoadIssuer } = await import(new URL('../../tools/test/load-request-observations.mjs', import.meta.url).href);
 const { createOpenLoopLoadGeneratorCollector, loadGeneratorMetricNames, validateLoadGeneratorObservationPolicy,
     verifyOpenLoopLoadGeneratorObservations } = await import(new URL('../../tools/test/open-loop-load-generator-observations.mjs', import.meta.url).href);
-const { createOpenLoopLoadClientTransport } = await import(new URL('../../tools/test/open-loop-load-client-transport.mjs', import.meta.url).href);
+const { classifyLoadTransportFailure, createOpenLoopLoadClientTransport } = await import(new URL('../../tools/test/open-loop-load-client-transport.mjs', import.meta.url).href);
 const { buildOpenLoopLoadSchedule, dispatchOpenLoopLoadSchedule } = await import(new URL('../../tools/test/open-loop-load-schedule.mjs', import.meta.url).href);
-const { runOpenLoopRouteContractProbe } = await import(new URL('../../tools/test/lanes/runtime-evidence-probe.mjs', import.meta.url).href);
+const { runOpenLoopLoadGeneratorProbe, runOpenLoopRouteContractProbe } = await import(new URL('../../tools/test/lanes/runtime-evidence-probe.mjs', import.meta.url).href);
 const { producerRouteIds, routeContract } = await import(new URL('../../tools/test/lanes/runtime-http-route-contract.mjs', import.meta.url).href);
 const { encodeAedsFrame } = await import(new URL('../frontend/support/aeds-envelope.mjs', import.meta.url).href);
 
@@ -53,7 +53,7 @@ function transportPolicy(changes = {})
         dnsResult: [{ address: '127.0.0.1', family: 4 }], proxyMode: 'direct-no-ambient', tlsPolicy: 'disabled-http', ...changes };
 }
 
-async function backendFixture(t, { delayMs = 0, bodyBytes = 0, omitContentType = false } = {})
+async function backendFixture(t, { delayMs = 0, bodyBytes = 0, omitContentType = false, mode = 'complete' } = {})
 {
     const routes = Object.fromEntries(producerRouteIds('runtime-load-soak').map((id) =>
     {
@@ -67,6 +67,19 @@ async function backendFixture(t, { delayMs = 0, bodyBytes = 0, omitContentType =
         const config = JSON.parse(process.argv[1]);
         const timers = new Set();
         const server = http.createServer((request, response) => {
+            if (config.mode === 'reset') {
+                request.socket.destroy();
+                return;
+            }
+            if (config.mode === 'partial-reset') {
+                const body = Buffer.from(config.routes[request.url], 'base64');
+                response.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': body.length });
+                response.write(body.subarray(0, 8));
+                const timer = setTimeout(() => { timers.delete(timer); request.socket.destroy(); }, 10);
+                timers.add(timer);
+                response.once('close', () => { clearTimeout(timer); timers.delete(timer); });
+                return;
+            }
             const timer = setTimeout(() => {
                 timers.delete(timer);
                 if (request.url === '/') {
@@ -80,14 +93,18 @@ async function backendFixture(t, { delayMs = 0, bodyBytes = 0, omitContentType =
             timers.add(timer);
             response.once('close', () => { clearTimeout(timer); timers.delete(timer); });
         });
-        server.listen(0, '127.0.0.1', () => process.send({ port: server.address().port, pid: process.pid }));
+        server.listen(0, '127.0.0.1', () => {
+            const ready = { port: server.address().port, pid: process.pid };
+            if (config.mode === 'refused') server.close(() => process.send(ready));
+            else process.send(ready);
+        });
         process.on('message', () => {
             for (const timer of timers) clearTimeout(timer);
             server.closeAllConnections();
             server.close(() => process.exit(0));
         });
     `;
-    const child = spawn(process.execPath, ['--input-type=module', '-e', script, JSON.stringify({ routes, delayMs, bodyBytes, omitContentType })], {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', script, JSON.stringify({ routes, delayMs, bodyBytes, omitContentType, mode })], {
         stdio: ['ignore', 'ignore', 'pipe', 'ipc']
     });
     let stderr = '';
@@ -130,37 +147,42 @@ function burnCpu(ms)
 }
 
 async function canonicalRun(t, { limits = {}, backend = {}, blockMs = 0, slowBudget = false, signal,
-    scheduleChanges = {}, transportChanges = {}, observeEvent } = {})
+    scheduleChanges = {}, transportChanges = {}, observeEvent, integrated = false } = {})
 {
     const fixture = await backendFixture(t, backend);
     const routeIds = producerRouteIds('runtime-load-soak');
     const schedule = buildOpenLoopLoadSchedule(arrivalPolicy(routeIds, scheduleChanges), routeIds);
     const policy = collectorPolicy(limits);
-    const collector = createOpenLoopLoadGeneratorCollector({ policy, schedule, sourceSha, backendIdentity: fixture.identity });
-    t.after(collector.dispose);
+    const collector = integrated ? null : createOpenLoopLoadGeneratorCollector({ policy, schedule, sourceSha, backendIdentity: fixture.identity });
+    if (collector)
+    {
+        t.after(collector.dispose);
+    }
     const routePolicy = { schema: 'fsusblog.release-load-route-statistics-policy.v1', routes: routeIds.map((routeId) => ({
         routeId, minimumValidSamples: 1, thresholds: { latencyP95Ms: slowBudget ? 20 : 1200,
             latencyP99Ms: slowBudget ? 20 : 1200, latencyMaxMs: slowBudget ? 20 : 1200, errorRate: 0, timeoutRate: 0, dropRate: 0 }
     })) };
     let timer;
     t.after(() => clearTimeout(timer));
-    const probe = await runOpenLoopRouteContractProbe(schedule, { sourceSha, routePolicy, requestBaseUrl: fixture.endpoint,
+    const probePort = integrated ? runOpenLoopLoadGeneratorProbe : runOpenLoopRouteContractProbe;
+    const probe = await probePort(schedule, { sourceSha, routePolicy, requestBaseUrl: fixture.endpoint,
+        ...(integrated ? { generatorPolicy: policy, backendIdentity: fixture.identity } : {}),
         workerRegistration: fixtureWorkerRegistration(),
         transportPolicy: transportPolicy(transportChanges), runBinding: binding(fixture.endpoint), signal,
         onMeasurementStart: (window) =>
         {
-            collector.onMeasurementStart(window);
+            collector?.onMeasurementStart(window);
             if (blockMs)
             {
                 timer = setTimeout(() => burnCpu(blockMs), 25);
             }
-        }, onMeasurementEnd: collector.onMeasurementEnd, onTransportObservation: (event) =>
+        }, onMeasurementEnd: collector?.onMeasurementEnd, onTransportObservation: (event) =>
         {
             observeEvent?.(event, collector);
-            collector.onTransportObservation(event);
+            collector?.onTransportObservation(event);
         } });
     const inputs = { sourceSha, schedule, timeline: probe.openLoop.timeline, measurementWindow: probe.measurementWindow,
-        transportEvidence: probe.transportEvidence, policy, generatorIdentity: collector.identity };
+        transportEvidence: probe.transportEvidence, policy, generatorIdentity: collector?.identity ?? probe.generatorEvidence.identity };
     return { collector, probe, inputs, fixture };
 }
 
@@ -298,6 +320,161 @@ test('real absent content-type is retained explicitly while server decoding fail
             reason: 'content-type-header-absent', source: 'node:http.IncomingMessage.headers.content-type' });
     }
     assert.deepEqual(receipt.events, run.probe.transportEvidence.observations);
+});
+
+function assertCollectedErrors(run)
+{
+    const { probe } = run;
+    assert.equal(probe.generatorEvidence.status, 'observed', probe.generatorEvidence.reason);
+    assert.equal(probe.generatorEvidence.validation.generatorPassed, true, probe.generatorEvidence.validation.reason);
+    assert.equal(probe.generatorEvidence.validation.failureKind, null);
+    assert.equal(probe.serverProbeStatus, 'failed');
+    assert.equal(probe.status, 'failed');
+    assert.equal(probe.qualificationEligible, false);
+    assert.equal(probe.requestAvailability.complete, true);
+    assert.equal(probe.loadRequestObservations.sampleCount, run.inputs.schedule.plannedCount);
+    const observations = probe.generatorEvidence.observations;
+    assert.deepEqual(observations.events, probe.transportEvidence.observations);
+    assert.equal(verifyOpenLoopLoadGeneratorObservations(observations, run.inputs).passed, true);
+    assert.deepEqual(probe.transportEvidence.finalSnapshot, { activeRequests: 0, socketCount: 0,
+        freeSocketCount: 0, queuedRequests: 0, closed: true });
+    const errors = observations.events.filter((event) => event.type === 'request-error');
+    assert.equal(errors.length, run.inputs.schedule.plannedCount);
+    for (const event of errors)
+    {
+        const classified = classifyLoadTransportFailure(event.failureFacts);
+        const completion = observations.events.find((row) => row.type === 'request-completed' && row.sampleId === event.sampleId);
+        assert.ok(observations.events.indexOf(event) < observations.events.indexOf(completion));
+        assert.deepEqual(completion.responseFacts, event.responseFacts);
+        const sample = probe.loadRequestObservations.samples.find((row) => row.sampleId === event.sampleId);
+        assert.equal(sample.outcome, classified.outcome);
+        assert.equal(sample.errorKind, classified.errorKind);
+        assert.equal(sample.errorDigest, classified.errorDigest);
+        assert.equal(sample.errorCode, classified.errorCode);
+        assert.ok(Object.isFrozen(event.failureFacts) && Object.isFrozen(event.responseFacts));
+    }
+    return errors;
+}
+
+test('canonical collector retains real pre-header reset events and original server failure', async (t) =>
+{
+    const run = await canonicalRun(t, { integrated: true, backend: { mode: 'reset' } });
+    const errors = assertCollectedErrors(run);
+    assert.equal(run.probe.loadRequestObservations.errorRate, 1);
+    for (const event of errors)
+    {
+        assert.equal(event.failureFacts.error.code, 'ECONNRESET');
+        assert.equal(event.failureFacts.stage, 'headers');
+        assert.equal(event.responseFacts.bodyState, 'not-started');
+        assert.equal(event.responseFacts.httpStatus.status, 'unavailable');
+        assert.equal(event.responseFacts.bytesReceived.value, 0);
+        assert.ok(event.transport.connectionId);
+    }
+});
+
+test('canonical collector retains real partial-body reset facts before completion', async (t) =>
+{
+    const run = await canonicalRun(t, { integrated: true, backend: { mode: 'partial-reset' } });
+    const errors = assertCollectedErrors(run);
+    assert.equal(run.probe.loadRequestObservations.errorRate, 1);
+    for (const event of errors)
+    {
+        assert.equal(event.failureFacts.error.code, 'ECONNRESET');
+        assert.equal(event.failureFacts.stage, 'body');
+        assert.equal(event.responseFacts.bodyState, 'partial');
+        assert.equal(event.responseFacts.httpStatus.value, 200);
+        assert.equal(event.responseFacts.bytesReceived.value, 8);
+    }
+});
+
+test('canonical collector retains real connection refusal without invented socket identity', async (t) =>
+{
+    const run = await canonicalRun(t, { integrated: true, backend: { mode: 'refused' } });
+    const errors = assertCollectedErrors(run);
+    for (const event of errors)
+    {
+        assert.equal(event.failureFacts.error.code, 'ECONNREFUSED');
+        assert.equal(event.failureFacts.stage, 'connect');
+        assert.equal(event.transport, null);
+        assert.equal(event.responseFacts.bodyState, 'not-started');
+    }
+    assert.equal(run.probe.generatorEvidence.observations.metrics.newConnections, 0);
+    assert.equal(run.probe.generatorEvidence.observations.metrics.reusedConnections, 0);
+    assert.equal(run.probe.transportEvidence.observations.some((event) => event.type === 'socket-assigned'), false);
+});
+
+test('canonical collector retains real header deadline and pool timeout origins', async (t) =>
+{
+    const run = await canonicalRun(t, { integrated: true, backend: { delayMs: 150 },
+        transportChanges: { maxConnectionsPerOrigin: 1, connectTimeoutMs: 25, headersTimeoutMs: 90 } });
+    const errors = assertCollectedErrors(run);
+    assert.equal(run.probe.loadRequestObservations.timeoutRate, 1);
+    assert.equal(run.probe.loadRequestObservations.errorRate, 0);
+    const stages = new Set(errors.map((event) => event.failureFacts.stage));
+    assert.ok(stages.has('headers') && stages.has('pool'));
+    for (const event of errors)
+    {
+        assert.equal(event.failureFacts.event, 'deadline');
+        assert.equal(event.failureFacts.cancellation.origin, 'transport-stage-deadline');
+        // An owned timer can expire just after the Agent moves a queued request
+        // into connect. Retain that actual stage rather than relabel it pool.
+        assert.ok(['headers', 'pool', 'connect'].includes(event.failureFacts.stage));
+        assert.equal(event.transport === null, event.failureFacts.stage !== 'headers');
+    }
+});
+
+test('live request-error callback rejects malformed facts before accepting the actual event', async (t) =>
+{
+    let checked = false;
+    const run = await canonicalRun(t, { backend: { mode: 'reset' }, observeEvent: (event, collector) =>
+    {
+        if (event.type !== 'request-error' || checked)
+        {
+            return;
+        }
+        checked = true;
+        for (const change of [
+            (value) => delete value.failureFacts,
+            (value) => value.extra = true,
+            (value) => value.failureFacts.extra = true,
+            (value) => value.failureFacts.error.code = null,
+            (value) => value.failureFacts.cancellation.origin = 'guessed',
+            (value) => value.responseFacts.bytesReceived.value = 1,
+            (value) => value.sequence += 1,
+            (value) => value.routeId = 'unknown',
+            (value) => delete value.transport.connectionId
+        ])
+        {
+            const rejected = structuredClone(event);
+            change(rejected);
+            assert.throws(() => collector.onTransportObservation(rejected), /facts|fields|code|provenance|sentinel|membership|connection/u);
+        }
+    } });
+    assert.equal(checked, true);
+    const receipt = run.collector.finish(run.inputs);
+    assert.equal(verifyOpenLoopLoadGeneratorObservations(receipt, run.inputs).passed, true);
+    assert.deepEqual(receipt.events, run.probe.transportEvidence.observations);
+    assert.equal(run.probe.status, 'failed');
+});
+
+test('canonical interrupted collector retains actual cancellation events without nominal qualification', async (t) =>
+{
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 180);
+    t.after(() => clearTimeout(timer));
+    const run = await canonicalRun(t, { integrated: true, backend: { delayMs: 400 }, signal: controller.signal });
+    assert.equal(run.probe.status, 'failed');
+    assert.equal(run.probe.serverProbeStatus, 'failed');
+    assert.equal(run.probe.generatorEvidence.validation.passed, false);
+    assert.equal(run.probe.qualificationEligible, false);
+    assert.equal(run.probe.requestAvailability.complete, true);
+    assert.ok(run.probe.measurementWindow.observedActiveWindowMs < run.inputs.schedule.policy.durationMs);
+    const errors = run.probe.transportEvidence.observations.filter((event) => event.type === 'request-error');
+    assert.ok(errors.length > 0);
+    assert.ok(errors.every((event) => classifyLoadTransportFailure(event.failureFacts).outcome === 'cancelled'));
+    assert.doesNotMatch(run.probe.generatorEvidence.reason ?? '', /vocabulary/u);
+    assert.equal(run.probe.transportEvidence.finalSnapshot.closed, true);
+    assert.equal(run.probe.transportEvidence.finalSnapshot.activeRequests, 0);
 });
 
 test('bounded real generator CPU saturation defeats fast server latency', async (t) =>

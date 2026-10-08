@@ -4,7 +4,7 @@ import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
 
 import { canonicalJson, sealContentDigest } from './attempt-provenance.mjs';
 import { readLoadTransportResponseFacts } from './load-request-observations.mjs';
-import { validateLoadTransportPolicy, verifyLoadTransportObservation } from './open-loop-load-client-transport.mjs';
+import { classifyLoadTransportFailure, validateLoadTransportPolicy, verifyLoadTransportObservation } from './open-loop-load-client-transport.mjs';
 import { verifyOpenLoopLoadSchedule, verifyOpenLoopLoadTimeline } from './open-loop-load-schedule.mjs';
 
 export const loadGeneratorMetricNames = Object.freeze([
@@ -16,7 +16,7 @@ export const loadGeneratorMetricNames = Object.freeze([
 const policySchema = 'fsusblog.load-generator-observation-policy.v1';
 const observationSchema = 'fsusblog.open-loop-load-generator-observations.v1';
 const sourceDigest = `sha256:${createHash('sha256').update(fs.readFileSync(new URL(import.meta.url))).digest('hex')}`;
-const eventTypes = ['dns-verified', 'socket-assigned', 'response-headers', 'request-completed', 'transport-closed'];
+const eventTypes = ['dns-verified', 'socket-assigned', 'response-headers', 'request-error', 'request-completed', 'transport-closed'];
 const snapshotKeys = ['activeRequests', 'socketCount', 'freeSocketCount', 'queuedRequests', 'closed'];
 
 function exact(value, keys, label)
@@ -93,6 +93,47 @@ function responseFacts(event, headers)
         {
             throw new Error('terminal response facts differ from the actual header boundary');
         }
+    }
+}
+
+function requestError(event, identity, arrival, assigned)
+{
+    exact(event, ['type', 'atMs', 'identityDigest', ...snapshotKeys,
+        'sampleId', 'sequence', 'routeId', 'transport', 'failureFacts', 'responseFacts'], 'request-error event');
+    if (!arrival || event.sequence !== arrival.sequence || event.routeId !== arrival.routeId)
+    {
+        throw new Error('request-error event lacks actual arrival membership');
+    }
+    const classified = classifyLoadTransportFailure(event.failureFacts);
+    if (event.transport === null)
+    {
+        // The Agent can fail before connected() reports an actual connection.
+        // Retain its observed pool snapshot; never synthesize socket identity.
+        if (assigned || !['dns', 'pool', 'connect', 'request'].includes(event.failureFacts.stage)
+            || event.responseFacts.bodyState !== 'not-started')
+        {
+            throw new Error('request-error has missing actual connection fields');
+        }
+    }
+    else
+    {
+        if (!assigned || event.transport?.connectionId !== assigned.connectionId)
+        {
+            throw new Error('request-error connection differs from actual assignment');
+        }
+        verifyLoadTransportObservation(identity, event.transport.httpVersion === null
+            ? { ...event.transport, httpVersion: identity.policy.httpVersion } : event.transport);
+    }
+    return classified;
+}
+
+function completedFailure(event, error)
+{
+    if (error ? event.ok !== false || typeof event.failureStage !== 'string' || !event.failureStage
+        || canonicalJson(error.responseFacts) !== canonicalJson(event.responseFacts)
+        || canonicalJson(error.transport) !== canonicalJson(event.transport) : event.failureStage !== null)
+    {
+        throw new Error('completion differs from its actual request-error facts');
     }
 }
 
@@ -289,7 +330,8 @@ function poolMetrics(rows)
  * Portable synchronous callbacks for runOpenLoopRouteContractProbe. Pass the
  * three named callbacks directly, then finish with the probe's exact schedule,
  * timeline, measurementWindow and transportEvidence. Always dispose in finally.
- * Header/completion events require the transport's actual responseFacts; the
+ * Header/error/completion events retain the transport's actual responseFacts;
+ * request-error uses its existing canonical typed failure classifier. The
  * shared probe also requires explicit registration from observeLoadIssuer().
  * No HTTP runner, arrival-rate change, backend observation or global dispatcher.
  * Timers use performance.now() in the scheduler's actual monotonic coordinate.
@@ -314,6 +356,9 @@ export function createOpenLoopLoadGeneratorCollector({ policy: candidate, schedu
     const samples = [];
     const events = [];
     const responseHeaders = new Map();
+    const requestErrors = new Map();
+    const assignments = new Map();
+    const arrivals = new Map(schedule.arrivals.map((arrival) => [arrival.sampleId, arrival]));
     let start;
     let end;
     let timer;
@@ -448,11 +493,32 @@ export function createOpenLoopLoadGeneratorCollector({ policy: candidate, schedu
         }
         snapshot(Object.fromEntries(snapshotKeys.map((key) => [key, value[key]])));
         numeric(value.atMs, 'transport event atMs', start.startedMonotonicMs);
-        if (value.type === 'response-headers' || value.type === 'request-completed')
+        if (value.type === 'request-error')
+        {
+            if (requestErrors.has(value.sampleId))
+            {
+                throw new Error('duplicate actual request-error event');
+            }
+            requestError(value, start.transportIdentity, arrivals.get(value.sampleId), assignments.get(value.sampleId));
+        }
+        if (['response-headers', 'request-error', 'request-completed'].includes(value.type))
         {
             responseFacts(value, responseHeaders);
         }
-        events.push(freeze(structuredClone(value)));
+        if (value.type === 'request-completed')
+        {
+            completedFailure(value, requestErrors.get(value.sampleId));
+        }
+        const observed = freeze(structuredClone(value));
+        if (value.type === 'socket-assigned')
+        {
+            assignments.set(value.sampleId, observed.transport);
+        }
+        if (value.type === 'request-error')
+        {
+            requestErrors.set(value.sampleId, observed);
+        }
+        events.push(observed);
     }
 
     function finish(inputs)
@@ -558,11 +624,13 @@ function transportFacts(facts, inputs)
     const arrivals = new Map(inputs.timeline.records.map((row) => [row.sampleId, row]));
     const lifecycle = new Map();
     const responseHeaders = new Map();
+    const requestErrors = new Map();
     let lastAt = start.startedMonotonicMs;
     for (const event of events)
     {
         const additionalKeys = { 'dns-verified': ['sampleId', 'dnsResult'],
             'socket-assigned': ['sampleId', 'transport'], 'response-headers': ['sampleId', 'transport', 'responseFacts'],
+            'request-error': ['sampleId', 'sequence', 'routeId', 'transport', 'failureFacts', 'responseFacts'],
             'request-completed': ['sampleId', 'transport', 'failureStage', 'ok', 'responseFacts'], 'transport-closed': [] };
         if (!eventTypes.includes(event.type) || event.identityDigest !== start.transportIdentity.contentDigest)
         {
@@ -588,13 +656,15 @@ function transportFacts(facts, inputs)
         }
         const seen = lifecycle.get(event.sampleId) ?? [];
         if (seen.includes(event.type) || seen.includes('request-completed')
-            || (seen.length === 0 && event.type !== 'dns-verified'))
+            || seen.includes('request-error') && event.type !== 'request-completed'
+            || (seen.length === 0 && event.type !== 'dns-verified'
+                && !(event.type === 'request-error' && event.failureFacts?.stage === 'dns')))
         {
             throw new Error('actual transport lifecycle is incomplete or duplicated');
         }
         seen.push(event.type);
         lifecycle.set(event.sampleId, seen);
-        if (event.type === 'response-headers' || event.type === 'request-completed')
+        if (['response-headers', 'request-error', 'request-completed'].includes(event.type))
         {
             responseFacts(event, responseHeaders);
         }
@@ -624,18 +694,37 @@ function transportFacts(facts, inputs)
                 throw new Error('response connection identity differs from actual assignment');
             }
         }
+        if (event.type === 'request-error')
+        {
+            const classified = requestError(event, start.transportIdentity, arrival, assignments.get(event.sampleId)?.transport);
+            const outcome = { 'network-error': 'completed', timeout: 'timed-out', cancelled: 'cancelled' }[classified.outcome];
+            if (arrival.outcome !== outcome || arrival.sample?.ok !== false)
+            {
+                throw new Error('actual request-error differs from dispatcher terminal control');
+            }
+            requestErrors.set(event.sampleId, event);
+        }
         if (event.type === 'request-completed')
         {
             readLoadTransportResponseFacts(event.responseFacts, arrival.sample);
             const assigned = assignments.get(event.sampleId)?.transport;
-            if (!assigned || !event.transport || event.transport.connectionId !== assigned.connectionId
-                || typeof event.ok !== 'boolean' || event.ok !== arrival.sample?.ok
+            const error = requestErrors.get(event.sampleId);
+            completedFailure(event, error);
+            if (assigned ? !event.transport || event.transport.connectionId !== assigned.connectionId
+                : !error || error.transport !== null || event.transport !== null)
+            {
+                throw new Error('completed request has missing actual connection fields');
+            }
+            if (typeof event.ok !== 'boolean' || event.ok !== arrival.sample?.ok
                 || (event.failureStage !== null && typeof event.failureStage !== 'string'))
             {
                 throw new Error('completed request has missing actual connection fields');
             }
-            verifyLoadTransportObservation(start.transportIdentity, event.transport.httpVersion === null
-                ? { ...event.transport, httpVersion: start.transportIdentity.policy.httpVersion } : event.transport);
+            if (event.transport !== null)
+            {
+                verifyLoadTransportObservation(start.transportIdentity, event.transport.httpVersion === null
+                    ? { ...event.transport, httpVersion: start.transportIdentity.policy.httpVersion } : event.transport);
+            }
         }
         if (event.atMs <= end.endedMonotonicMs)
         {
@@ -645,7 +734,8 @@ function transportFacts(facts, inputs)
     if (events.at(-1)?.type !== 'transport-closed'
         || events.filter((event) => event.type === 'transport-closed').length !== 1
         || inputs.timeline.records.filter((row) => row.dispatchedAtMs !== null)
-            .some((row) => !assignments.has(row.sampleId) || !lifecycle.get(row.sampleId)?.includes('request-completed')))
+            .some((row) => !lifecycle.get(row.sampleId)?.includes('request-completed')
+                || !assignments.has(row.sampleId) && !requestErrors.has(row.sampleId)))
     {
         throw new Error('actual connection collector unavailable for dispatched requests or drain');
     }
