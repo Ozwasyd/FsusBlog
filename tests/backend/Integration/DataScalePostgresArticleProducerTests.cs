@@ -88,6 +88,7 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
     [InlineData("missing-resolved")]
     [InlineData("roster-mismatch")]
     [InlineData("bad-key")]
+    [InlineData("overlong-key")]
     public async Task DiagnosticResolvedHandoff_InvalidInputRefusesBeforeNativeReservation(string scenario)
     {
         var (plan, example, _) = DataScaleArticlePhysicalProjectionTests.Graph(ArticleScaleVariant.Published);
@@ -106,7 +107,8 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
                 db, plan, [graph], scenario == "missing-resolved" ? null! : resolved, schema,
                 DataScaleArticlePhysicalProjectionTests.Principals(plan), CurrentRun(), db.DataSource + "/" + db.Database,
                 CurrentSource(), DataScaleArticleBatchAuthority.ComputeGraphDigest([graph]),
-                scenario == "bad-key" ? ReadOnlyMemory<byte>.Empty : s_key, store,
+                scenario == "bad-key" ? ReadOnlyMemory<byte>.Empty
+                    : scenario == "overlong-key" ? new byte[4097] : s_key, store,
                 (_, _, _, _, _, _, _, _) => { called = true; return Task.FromResult(true); }, CancellationToken.None));
             if (scenario == "missing-resolved")
             {

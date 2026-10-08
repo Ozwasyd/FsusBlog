@@ -41,6 +41,10 @@ internal static class DataScalePostgresArticleProducer
         ArgumentNullException.ThrowIfNull(resolvedBatch);
         ArgumentNullException.ThrowIfNull(consume);
         ArgumentNullException.ThrowIfNull(store);
+        if (taskKey.Length is < 32 or > 4096)
+        {
+            throw new InvalidOperationException("checkpoint_task_key_invalid");
+        }
         byte[] key = taskKey.ToArray();
         string? allocationEvidence = null;
         async Task Persist(IReadOnlyList<DataScaleNativeIdentityObservation> observations,
