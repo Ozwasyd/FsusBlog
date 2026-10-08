@@ -1,0 +1,27 @@
+{
+  "schema": "fsusblog.ordinary-owner-format-inputs.v1",
+  "sourceCommit": "89f39b35f1c5ceaac8f1ac0c937f63be77897dc6",
+  "suppliedHeads": [
+    "074d09e8ef497928313ea0df36f62844893fe2bc",
+    "56f1a723729e829b12328e5a4cfd5db11424e457"
+  ],
+  "canonicalFormatPatches": [
+    "79a9d0735a54f30bbd266a753615e5ca0620cee0",
+    "9055818014779b0fe6a4bd554c78ca7ffc196c81"
+  ],
+  "paths": [
+    {
+      "path": "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+      "beforeBlob": "cfa729158419e5cf724df7795b70139374d7d08e",
+      "beforeSha256": "2f4d55856c22d52b681cea937a3752ff311426b767e5a4cca1130e0dc8a341c1"
+    },
+    {
+      "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+      "beforeBlob": "b6db0f8195e5871990c3f8fb7396744af58c74b6",
+      "beforeSha256": "f09cd6ce7029f9e50dbc5a453f6ea6f8a7abdd8df2b903411e65db40300b895a"
+    }
+  ],
+  "strictStyleBeforeExit": 1,
+  "diagnosticRawSha256": "ad3647abd0080d6f705d7b68f061c6c7279e23129a4866b4432b343ca0f07965",
+  "limit": "Separate pre-format evidence only; no policy or allowed-debt mutation, semantic or runtime qualification."
+}
