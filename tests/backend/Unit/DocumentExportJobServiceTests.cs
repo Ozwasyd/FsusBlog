@@ -159,6 +159,148 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().RetryAsync(_actor, task.TaskId, default));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AttemptDeadline_FencesLateExportAndCombinedStageTime(bool expireDuringExport)
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Service().CreateAsync(_actor, task, input, default);
+        TimeSpan wall = DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets.WallTime;
+        var provider = new ControlledProvider(task.ProviderId)
+        {
+            OnExport = () => _time.Advance(wall * (expireDuringExport ? 2 : 2.0 / 3)),
+            OnVerify = () => _time.Advance(wall * (2.0 / 3))
+        };
+        DocumentExportJobSnapshot result = await Service().ExecuteAsync(_actor, task.TaskId, provider, default);
+        Assert.Equal(expireDuringExport ? DocumentExportTaskStatus.CleanupRequired : DocumentExportTaskStatus.Failed,
+            result.Task.Status);
+        Assert.Equal(DocumentExportTaskStatus.Failed, result.Attempts[0].Status);
+        Assert.Equal("task_wall_time_budget_failed", result.Attempts[0].Reason);
+        Assert.Equal(expireDuringExport ? 0 : 1, provider.Verifications);
+        Assert.Null(result.Output);
+        Assert.Empty(Directory.GetFiles(JobRoot, "*.object", SearchOption.AllDirectories));
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().GrantAsync(_actor, task.TaskId, default));
+    }
+
+    [Fact]
+    public async Task AttemptDeadline_WithinCombinedBudgetPreservesSuccess()
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Service().CreateAsync(_actor, task, input, default);
+        TimeSpan stage = DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets.WallTime / 4;
+        var provider = new ControlledProvider(task.ProviderId)
+        {
+            OnExport = () => _time.Advance(stage),
+            OnVerify = () => _time.Advance(stage)
+        };
+        DocumentExportJobSnapshot result = await Service().ExecuteAsync(_actor, task.TaskId, provider, default);
+        Assert.Equal(DocumentExportTaskStatus.Succeeded, result.Task.Status);
+        Assert.Equal(1, provider.Verifications);
+        Assert.NotNull(result.Output);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AttemptDeadline_DoesNotReplaceObservedProviderFailure(bool budgetFailure)
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Service().CreateAsync(_actor, task, input, default);
+        TimeSpan wall = DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets.WallTime;
+        var provider = new ControlledProvider(task.ProviderId)
+        {
+            OnFailureCleanup = () => _time.Advance(wall * 2),
+            FailBudget = budgetFailure,
+            FailExport = !budgetFailure
+        };
+        DocumentExportJobSnapshot result = await Service().ExecuteAsync(_actor, task.TaskId, provider, default);
+        Assert.Equal(DocumentExportTaskStatus.CleanupRequired, result.Task.Status);
+        Assert.Equal(DocumentExportTaskStatus.Failed, result.Attempts[0].Status);
+        Assert.Equal(budgetFailure ? "sandbox_budget_failed" : "provider_failed", result.Attempts[0].Reason);
+        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v1");
+        DocumentExportJobState state = DocumentExportDigest.Deserialize<DocumentExportJobState>(protector.Unprotect(File.ReadAllBytes(StatePath)));
+        Assert.Equal(provider.FailureReceipt, state.Jobs[0].SandboxFailure);
+        Assert.NotNull(state.Jobs[0].WorkerDigest);
+        Assert.Null(result.Output);
+    }
+
+    [Fact]
+    public async Task AttemptDeadline_PreservesCallerCancellationAfterLateReturn()
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Service().CreateAsync(_actor, task, input, default);
+        using var caller = new CancellationTokenSource();
+        TimeSpan wall = DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets.WallTime;
+        var provider = new ControlledProvider(task.ProviderId)
+        {
+            OnExport = () =>
+            {
+                caller.Cancel();
+                _time.Advance(wall * 2);
+            }
+        };
+        DocumentExportJobSnapshot result = await Service().ExecuteAsync(_actor, task.TaskId, provider, caller.Token);
+        Assert.Equal(DocumentExportTaskStatus.Cancelled, result.Attempts[0].Status);
+        Assert.NotEqual("task_wall_time_budget_failed", result.Attempts[0].Reason);
+        Assert.Equal(0, provider.Verifications);
+        Assert.Null(result.Output);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AttemptDeadline_TimerCancelsWaitingProviderAndRetainsFirstOrigin(bool callerFirst)
+    {
+        DocumentExportTask task = Request().Task;
+        TimeSpan wall = DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets.WallTime;
+        using var caller = new CancellationTokenSource();
+        using var stop = new CancellationTokenSource();
+        using var deadline = new DocumentExportAttemptDeadline(task, _time, caller.Token, stop.Token);
+        Task waiting = Task.Delay(Timeout.InfiniteTimeSpan, deadline.Token);
+        if (callerFirst)
+        {
+            caller.Cancel();
+        }
+        _time.Advance(wall);
+        caller.Cancel();
+        stop.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
+        Assert.True(deadline.Token.IsCancellationRequested);
+        Assert.Equal(!callerFirst, deadline.DeadlineCancelled);
+        if (callerFirst)
+        {
+            Assert.ThrowsAny<OperationCanceledException>(deadline.ThrowIfExpired);
+        }
+        else
+        {
+            Assert.Equal("task-wall-time-budget",
+                Assert.Throws<DocumentExportBudgetExceededException>(deadline.ThrowIfExpired).FailureCode);
+        }
+    }
+
+    [Fact]
+    public async Task AttemptDeadline_FinalStateSyncCrossingBudgetIsFencedBeforeUnlock()
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        TimeSpan wall = DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets.WallTime;
+        var sync = new FinalStateDeadlineSync(() => _time.Advance(wall));
+        var repository = new DocumentExportJobRepository(_layout, _protection, sync);
+        var service = new DocumentExportJobService(repository, _authorization, _time);
+        await service.CreateAsync(_actor, task, input, default);
+        DocumentExportJobSnapshot result = await service.ExecuteAsync(_actor, task.TaskId,
+            new ControlledProvider(task.ProviderId), default);
+        Assert.True(sync.Injected);
+        Assert.Equal(DocumentExportTaskStatus.CleanupRequired, result.Task.Status);
+        Assert.Equal(DocumentExportTaskStatus.Failed, result.Attempts[0].Status);
+        Assert.Equal("task_wall_time_budget_failed", result.Reason);
+        Assert.Equal(DocumentExportDigest.Serialize(result),
+            DocumentExportDigest.Serialize(await Service().GetAsync(_actor, task.TaskId, default)));
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().GrantAsync(_actor, task.TaskId, default));
+        await service.CleanupAsync(default);
+        Assert.Empty(Directory.GetFiles(JobRoot, "*.object", SearchOption.AllDirectories));
+    }
+
     [Fact]
     public async Task Permission_RevokedDuringVerifierRejectsOutputCommit()
     {
@@ -643,6 +785,25 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         }
     }
 
+    private sealed class FinalStateDeadlineSync(Action expire) : IPrivateAssetDirectorySync
+    {
+        private readonly LinuxPrivateAssetDirectorySync _canonical = new();
+        private int _stateSyncs;
+        internal bool Injected
+        {
+            get; private set;
+        }
+        public void Sync(Microsoft.Win32.SafeHandles.SafeFileHandle directory, PrivateAssetDirectoryDurabilityPoint point)
+        {
+            _canonical.Sync(directory, point);
+            if (point == PrivateAssetDirectoryDurabilityPoint.ExistingPublication && ++_stateSyncs == 4)
+            {
+                Injected = true;
+                expire();
+            }
+        }
+    }
+
     private sealed class TestRecovery(bool quiescent) : IDocumentExportJobRecovery
     {
         public Task<bool> IsQuiescentAsync(DocumentExportTask executionTask, CancellationToken cancellationToken)
@@ -653,7 +814,55 @@ public sealed class DocumentExportJobServiceTests : IDisposable
     {
         private DateTimeOffset _now = new(2026, 10, 8, 6, 0, 0, TimeSpan.Zero);
         public override DateTimeOffset GetUtcNow() => _now;
-        internal void Advance(TimeSpan elapsed) => _now += elapsed;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => _now.UtcTicks;
+        private readonly List<DeadlineTimer> _timers = [];
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = new DeadlineTimer(this, callback, state);
+            timer.Change(dueTime, period);
+            _timers.Add(timer);
+            return timer;
+        }
+        internal void Advance(TimeSpan elapsed)
+        {
+            _now += elapsed;
+            foreach (DeadlineTimer timer in _timers.ToArray())
+            {
+                timer.Tick(_now);
+            }
+        }
+
+        private sealed class DeadlineTimer(TestTimeProvider time, TimerCallback callback, object? state) : ITimer
+        {
+            private DateTimeOffset? _due;
+            private TimeSpan _period;
+            private bool _disposed;
+            public bool Change(TimeSpan dueTime, TimeSpan period)
+            {
+                if (_disposed)
+                {
+                    return false;
+                }
+                _due = dueTime == Timeout.InfiniteTimeSpan ? null : time.GetUtcNow() + dueTime;
+                _period = period;
+                return true;
+            }
+            internal void Tick(DateTimeOffset now)
+            {
+                if (!_disposed && _due is { } due && due <= now)
+                {
+                    _due = _period > TimeSpan.Zero ? now + _period : null;
+                    callback(state);
+                }
+            }
+            public void Dispose() => _disposed = true;
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
+        }
     }
 
     private sealed class ControlledProvider(string providerId) : IDocumentExportJobProvider
@@ -674,6 +883,18 @@ public sealed class DocumentExportJobServiceTests : IDisposable
             get; init;
         }
         internal bool FailBudget
+        {
+            get; init;
+        }
+        internal Action? OnExport
+        {
+            get; init;
+        }
+        internal Action? OnVerify
+        {
+            get; init;
+        }
+        internal Action? OnFailureCleanup
         {
             get; init;
         }
@@ -709,15 +930,20 @@ public sealed class DocumentExportJobServiceTests : IDisposable
                 // Intentionally ignore cancellation to exercise the late-result fence.
                 await Release.Task.ConfigureAwait(false);
             }
+            OnExport?.Invoke();
             if (FailExport)
             {
-                throw new IOException("deliberate unqualified adapter failure");
+                var failure = new IOException("deliberate unqualified adapter failure");
+                OnFailureCleanup?.Invoke();
+                throw failure;
             }
             if (FailBudget)
             {
                 FailureReceipt = UnqualifiedSandboxFixture();
-                throw new DocumentExportBudgetExceededException("controlled canonical exception category", "cpu-budget", null!, FailureReceipt,
+                var failure = new DocumentExportBudgetExceededException("controlled canonical exception category", "cpu-budget", null!, FailureReceipt,
                     new IOException("controlled failure"));
+                OnFailureCleanup?.Invoke();
+                throw failure;
             }
             DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
             DocumentExportSandboxReceipt sandbox = UnqualifiedSandboxFixture();
@@ -741,6 +967,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
             {
                 await Release.Task.ConfigureAwait(false);
             }
+            OnVerify?.Invoke();
             Assert.Equal(Output, result.Bytes);
         }
 

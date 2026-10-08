@@ -71,7 +71,7 @@ internal sealed class DocumentExportJobRepository
     }
 
     internal async Task<T> UpdateAsync<T>(Func<DocumentExportJobState, Task<T>> action,
-        CancellationToken cancellationToken, bool initialize = false)
+        CancellationToken cancellationToken, bool initialize = false, Action? validatePublication = null)
     {
         if (!initialize && !Directory.Exists(_root))
         {
@@ -83,10 +83,22 @@ internal sealed class DocumentExportJobRepository
         T result = await action(state).ConfigureAwait(false);
         try
         {
+            validatePublication?.Invoke();
             Save(state);
+            if (owner.Length == 0)
+            {
+                owner.WriteByte(1);
+                owner.Flush(flushToDisk: true);
+            }
+            validatePublication?.Invoke();
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException
+            || (validatePublication is not null && exception is DocumentExportBudgetExceededException or OperationCanceledException))
         {
+            bool attemptExpired = exception is DocumentExportBudgetExceededException { FailureCode: "task-wall-time-budget" };
+            bool publicationCancelled = validatePublication is not null && exception is OperationCanceledException;
+            string reason = attemptExpired ? "task_wall_time_budget_failed"
+                : publicationCancelled ? "sandbox_cancelled" : "persistence_unqualified";
             bool fenced = false;
             for (int index = 0; index < state.Jobs.Count; index++)
             {
@@ -102,7 +114,14 @@ internal sealed class DocumentExportJobRepository
                             {
                                 Status = DocumentExportTaskStatus.CleanupRequired
                             }),
-                            Reason = "persistence_unqualified",
+                            Reason = reason,
+                            Attempts = (attemptExpired || publicationCancelled) && job.Snapshot.Attempts.Length != 0
+                                ? job.Snapshot.Attempts.SetItem(job.Snapshot.Attempts.Length - 1, job.Snapshot.Attempts[^1] with
+                                {
+                                    Status = attemptExpired ? DocumentExportTaskStatus.Failed : DocumentExportTaskStatus.Cancelled,
+                                    Reason = reason
+                                })
+                                : job.Snapshot.Attempts,
                             Version = job.Snapshot.Version + 1
                         }
                     };
@@ -117,11 +136,6 @@ internal sealed class DocumentExportJobRepository
                 Save(state);
             }
             throw;
-        }
-        if (owner.Length == 0)
-        {
-            owner.WriteByte(1);
-            owner.Flush(flushToDisk: true);
         }
         return result;
     }
