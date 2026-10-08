@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { heldBuildOutcomeInputs } from './support/build-outcome-held-input-fixture.mjs';
+
 const { adaptImmutableBuildSemanticOutcome } = await import(new URL('../../tools/test-matrix/outcomes/immutable-build-adapter.mjs', import.meta.url));
 const d = (digit) => `sha256:${digit.repeat(64)}`;
 const identity = { buildIdentity: d('1'), executionEnvelopeDigest: d('2'), producerId: 'immutable-build-semantic-outcome',
@@ -15,9 +17,11 @@ const artifact = (id, digit) => ({ id, contentDigest: d(digit), manifestDigest: 
     path: `/tmp/${id}`, mtimeMs: 1 });
 const evidence = { artifacts: [artifact('frontend-static', 'e'), artifact('server-image', 'f')],
     verificationAssertions: [{ id: 'manifest', status: 'passed' }] };
-const adapt = (overrides = {}) => adaptImmutableBuildSemanticOutcome({
-    identity, inputAuthorityRefs, attemptEligibility, plan, evidence, ...overrides
-});
+const adapt = (overrides = {}) =>
+{
+    const inputs = { identity, inputAuthorityRefs, attemptEligibility, plan, evidence, ...overrides };
+    return adaptImmutableBuildSemanticOutcome({ ...inputs, verifyInputs: heldBuildOutcomeInputs(inputs), ...overrides });
+};
 
 test('immutable build adapter verifies exact planned artifacts and semantic digests', () =>
 {

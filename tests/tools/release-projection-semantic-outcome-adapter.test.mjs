@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
+import { heldBuildOutcomeInputs } from './support/build-outcome-held-input-fixture.mjs';
+
 const { adaptReleaseProjectionSemanticOutcome } = await import(new URL('../../tools/test-matrix/outcomes/release-projection-adapter.mjs', import.meta.url));
 const d = (digit) => `sha256:${digit.repeat(64)}`;
 const identity = { buildIdentity: d('1'), executionEnvelopeDigest: d('2'), producerId: 'release-projection-semantic-outcome', replayPlanDigest: d('3'), schedulerRunId: 'projection-run', sourceCommit: '4'.repeat(40), temporalContextDigest: d('5'), toolchainDigest: d('6'), worktreeFingerprint: d('7') };
@@ -7,7 +10,11 @@ const inputAuthorityRefs = [{ kind: 'projection-plan', path: 'plan.json', digest
 const attemptEligibility = { aggregateDigest: d('9'), attemptDigest: d('a'), attemptNumber: 1, cleanFirstAttempt: true, firstFailure: false, qualificationEligible: true };
 const plan = { projectionIds: ['auth', 'authoring'] };
 const evidence = { producedIds: ['auth', 'authoring'], verifiedIds: ['auth', 'authoring'], failedIds: [], blockedIds: [], semanticDigests: { auth: d('b'), authoring: d('c') }, path: '/tmp/latest', mtimeMs: 1, jobStatus: 'success' };
-const adapt = (overrides = {}) => adaptReleaseProjectionSemanticOutcome({ identity, inputAuthorityRefs, attemptEligibility, plan, evidence, ...overrides });
+const adapt = (overrides = {}) =>
+{
+    const inputs = { identity, inputAuthorityRefs, attemptEligibility, plan, evidence, ...overrides };
+    return adaptReleaseProjectionSemanticOutcome({ ...inputs, verifyInputs: heldBuildOutcomeInputs(inputs), ...overrides });
+};
 
 test('projection adapter requires exact produced, verified and terminal membership', () =>
 {

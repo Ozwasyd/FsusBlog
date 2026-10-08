@@ -1,4 +1,4 @@
-import { candidate, exactIds, reason } from './adapter-support.mjs';
+import { candidate, exactIds, inputAuthorityReasons, reason, verifyAdapterCandidate } from './adapter-support.mjs';
 
 export const immutableBuildOutcomeProducerId = 'immutable-build-semantic-outcome';
 
@@ -7,14 +7,18 @@ export function adaptImmutableBuildSemanticOutcome({
     inputAuthorityRefs,
     attemptEligibility,
     plan,
-    evidence
+    evidence,
+    verifyInputs
 })
 {
     const plannedArtifactIds = exactIds(plan?.artifactIds, 'build plan artifactIds');
     const artifacts = Array.isArray(evidence?.artifacts) ? evidence.artifacts : [];
     const actualArtifactIds = artifacts.map((artifact) => artifact?.id);
     const uniqueActual = [...new Set(actualArtifactIds)].sort();
-    const reasons = [];
+    const reasons = inputAuthorityReasons({
+        producerId: immutableBuildOutcomeProducerId, identity, inputAuthorityRefs,
+        attemptEligibility, plan, evidence, verifyInputs
+    });
     for (const id of plannedArtifactIds.filter((id) => !uniqueActual.includes(id)))
     {
         reasons.push(reason('contract.missing-evidence', immutableBuildOutcomeProducerId, { evidenceId: id }));
@@ -77,7 +81,8 @@ export function adaptImmutableBuildSemanticOutcome({
     {
         reasons.push(reason('product.assertion', immutableBuildOutcomeProducerId, { assertionId: assertion.id }));
     }
-    if (attemptEligibility?.cleanFirstAttempt !== true || attemptEligibility?.qualificationEligible !== true)
+    if (attemptEligibility?.attemptNumber !== 1 || attemptEligibility?.firstFailure !== false
+        || attemptEligibility?.cleanFirstAttempt !== true || attemptEligibility?.qualificationEligible !== true)
     {
         reasons.push(reason('contract.missing-evidence', immutableBuildOutcomeProducerId, { evidenceId: 'clean-first-attempt' }));
     }
@@ -91,4 +96,14 @@ export function adaptImmutableBuildSemanticOutcome({
     return candidate({ producerId: immutableBuildOutcomeProducerId,
         producerAuthorityId: 'tools/test-matrix/outcomes/immutable-build-adapter.mjs',
         identity, inputAuthorityRefs, attemptEligibility, membership, reasons });
+}
+
+
+export function verifyImmutableBuildSemanticOutcomeCandidate(value, expectations)
+{
+    return verifyAdapterCandidate(value, expectations, {
+        producerId: immutableBuildOutcomeProducerId,
+        producerAuthorityId: 'tools/test-matrix/outcomes/immutable-build-adapter.mjs',
+        authorityIssue: 2654
+    });
 }

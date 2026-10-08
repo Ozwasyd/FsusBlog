@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
+import { heldBuildOutcomeInputs } from './support/build-outcome-held-input-fixture.mjs';
+
 const { adaptReleaseFinalizerSemanticOutcome } = await import(new URL('../../tools/test-matrix/outcomes/release-finalizer-adapter.mjs', import.meta.url));
 const d = (digit) => `sha256:${digit.repeat(64)}`;
 const identity = { buildIdentity: d('1'), executionEnvelopeDigest: d('2'), producerId: 'release-finalizer-semantic-outcome', replayPlanDigest: d('3'), schedulerRunId: 'finalizer-run', sourceCommit: '4'.repeat(40), temporalContextDigest: d('5'), toolchainDigest: d('6'), worktreeFingerprint: d('7') };
@@ -7,7 +10,11 @@ const inputAuthorityRefs = [{ kind: 'finalizer-contract', path: 'contract.json',
 const attemptEligibility = { aggregateDigest: d('9'), attemptDigest: d('a'), attemptNumber: 1, cleanFirstAttempt: true, firstFailure: false, qualificationEligible: true };
 const plan = { inputIds: ['browser', 'production'], outputIds: ['release-binding'] };
 const evidence = { consumedIds: ['browser', 'production'], verifiedIds: ['browser', 'production'], failedIds: [], blockedIds: [], producedOutputIds: ['release-binding'], outputDigests: { 'release-binding': d('b') }, finalExitCode: 0, summary: { status: 'success' } };
-const adapt = (overrides = {}) => adaptReleaseFinalizerSemanticOutcome({ identity, inputAuthorityRefs, attemptEligibility, plan, evidence, ...overrides });
+const adapt = (overrides = {}) =>
+{
+    const inputs = { identity, inputAuthorityRefs, attemptEligibility, plan, evidence, ...overrides };
+    return adaptReleaseFinalizerSemanticOutcome({ ...inputs, verifyInputs: heldBuildOutcomeInputs(inputs), ...overrides });
+};
 
 test('finalizer adapter requires exact verified input and output membership', () =>
 {

@@ -1,15 +1,18 @@
-import { candidate, exactIds, reason } from './adapter-support.mjs';
+import { candidate, exactIds, inputAuthorityReasons, reason, verifyAdapterCandidate } from './adapter-support.mjs';
 
 export const releaseProjectionOutcomeProducerId = 'release-projection-semantic-outcome';
 
-export function adaptReleaseProjectionSemanticOutcome({ identity, inputAuthorityRefs, attemptEligibility, plan, evidence })
+export function adaptReleaseProjectionSemanticOutcome({ identity, inputAuthorityRefs, attemptEligibility, plan, evidence, verifyInputs })
 {
     const requiredProjectionIds = exactIds(plan?.projectionIds, 'projection plan IDs');
     const producedProjectionIds = exactIds(evidence?.producedIds ?? [], 'produced projection IDs');
     const verifiedProjectionIds = exactIds(evidence?.verifiedIds ?? [], 'verified projection IDs');
     const failedProjectionIds = exactIds(evidence?.failedIds ?? [], 'failed projection IDs');
     const blockedProjectionIds = exactIds(evidence?.blockedIds ?? [], 'blocked projection IDs');
-    const reasons = [];
+    const reasons = inputAuthorityReasons({
+        producerId: releaseProjectionOutcomeProducerId, identity, inputAuthorityRefs,
+        attemptEligibility, plan, evidence, verifyInputs
+    });
     const terminalIds = [...verifiedProjectionIds, ...failedProjectionIds, ...blockedProjectionIds];
     const terminal = new Set(terminalIds);
     for (const id of requiredProjectionIds.filter((id) => !producedProjectionIds.includes(id)))
@@ -48,7 +51,8 @@ export function adaptReleaseProjectionSemanticOutcome({ identity, inputAuthority
             reasons.push(reason('product.state-mismatch', releaseProjectionOutcomeProducerId, { semanticId: id }));
         }
     }
-    if (attemptEligibility?.cleanFirstAttempt !== true || attemptEligibility?.qualificationEligible !== true)
+    if (attemptEligibility?.attemptNumber !== 1 || attemptEligibility?.firstFailure !== false
+        || attemptEligibility?.cleanFirstAttempt !== true || attemptEligibility?.qualificationEligible !== true)
     {
         reasons.push(reason('contract.missing-evidence', releaseProjectionOutcomeProducerId, { evidenceId: 'clean-first-attempt' }));
     }
@@ -57,4 +61,14 @@ export function adaptReleaseProjectionSemanticOutcome({ identity, inputAuthority
         identity, inputAuthorityRefs, attemptEligibility,
         membership: { blockedProjectionIds, failedProjectionIds, producedProjectionIds,
             requiredProjectionIds, semanticDigests, verifiedProjectionIds }, reasons });
+}
+
+
+export function verifyReleaseProjectionSemanticOutcomeCandidate(value, expectations)
+{
+    return verifyAdapterCandidate(value, expectations, {
+        producerId: releaseProjectionOutcomeProducerId,
+        producerAuthorityId: 'tools/test-matrix/outcomes/release-projection-adapter.mjs',
+        authorityIssue: 2655
+    });
 }
