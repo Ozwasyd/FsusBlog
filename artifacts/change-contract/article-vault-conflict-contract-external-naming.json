@@ -49,6 +49,7 @@
                 "src/backend/Services/ArticleVault/ArticleVaultAcceptedSourceAdapter.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultMaterializationPreflightVerifier.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultPropertyMetadataMerge.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultRecoveryCheckpointReader.cs",
                 "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetConflictDiagnostics.cs",
                 "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetValidator.cs",
                 "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
