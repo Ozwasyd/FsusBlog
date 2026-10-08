@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs"
+            ],
+            "reason": "Preserve the existing registered C# environment/configuration surface while keeping resolver validation names and public identity unchanged; no environment access or name is added."
+        }
+    ]
+}
