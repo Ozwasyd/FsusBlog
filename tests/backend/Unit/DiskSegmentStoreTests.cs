@@ -29,6 +29,13 @@ public sealed class DiskSegmentStoreTests
         var published = fixture.Store.Publish(records, DiskSpillClassification.PublicImmutableReconstructible, true);
         Assert.True(published.Succeeded);
         Assert.Equal(2, published.Value!.Entries.Count);
+        MemoryAllocationObservation allocation = Assert.Single(fixture.Coordinator.Allocations());
+        MemoryAllocationDescriptor descriptor = Assert.IsType<MemoryAllocationDescriptor>(allocation.Descriptor);
+        Assert.Equal(new AllocationId(published.Value.SegmentId), descriptor.Allocation);
+        Assert.Equal(fixture.Budget.DiskDomain, descriptor.Domain);
+        Assert.Equal(64 + 2 * 96 + 5, descriptor.Layout.LogicalBytes);
+        Assert.Equal(32768, descriptor.Layout.CapacityBytes);
+        Assert.Equal(1, descriptor.Layout.AlignmentBytes);
         Assert.Single(fixture.Root.EnumerateNames(16));
         using DiskSegmentLease lease = fixture.Store.Acquire(published.Value.SegmentId, first).Value!;
         using var copy = new MemoryStream();
