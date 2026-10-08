@@ -61,6 +61,43 @@ not qualified domain observations or admission receipts. Focused tests use real
 queue/scheduler/ingress owners; shared-cache refusal tests use a unit-test double
 and do not establish Redis/runtime qualification.
 
+The `runtime-quiescence-barrier.mjs` protocol requires independent owner methods
+for identity, acquire/validate/renew, all-domain freeze, immutable plan capture,
+complete observations, same-attempt abort/settlement, release and post-observation.
+It validates exact catalog/lease/namespace bindings on every read, refuses unknown
+or failed facts, and seals only after distinct owner observation sequences show
+complete zero work, verified commits and stable semantic state. The stability
+window and polling are additional transport constraints; elapsed time, script
+exit, an empty queue or a last-cycle diagnostic cannot establish correctness.
+Operation/deadline/round bounds and cancellation apply throughout preparation;
+a successful seal retains the lease for explicit lifecycle release. Validation or
+renewal drift invalidates the session and releases it; cancellation also releases
+a sealed session. Cleanup requires owner settlement to prevent a late timed-out
+acquire/freeze from creating resources after post-observation. A failed release
+or surviving fence keeps the attempt unqualified.
+
+`runtime-quiescence-receipt.mjs` independently validates receipts and creates a
+ready projection only by reading an explicit protected locator through the existing
+`production-fresh-output-locator.mjs` authority. It never discovers another run or
+writes an independent marker. Semantic state digests exclude observation evidence
+byte seals; full receipt seals still bind all audit fields. Domain ordering is
+canonical. The separate journal writes one explicitly supplied exclusive file,
+fsyncs each append and verifies identity, digest ancestry and lifecycle order.
+Interrupted, sealed or failed-release histories require actual owner recovery;
+existing journals are never overwritten or resumed by guessing an owner.
+
+These are source-stage protocol controls. The production boundary inspector reads
+the actual repository lease and existing canonical registrations, but reports
+unavailable: repository exclusivity and release tickets do not provide a
+current-namespace quiescence lease, all-domain admission hooks, immutable
+watermarks or worker incarnations. The actual C# source captures remain rejected.
+No scheduler/measurement consumer migration, worker business change, backend stop,
+queue cleanup or new lease/fence store is introduced. Source tests include pure
+owner models and real task-private filesystem journal/locator operations; they
+do not establish full runtime or crash-recovery acceptance.
+
+Run `node --test tests/tools/runtime-quiescence-barrier.test.mjs tests/tools/runtime-quiescence-receipt.test.mjs tests/tools/runtime-quiescence-journal.test.mjs` for focused protocol controls.
+
 Run `node tools/test-matrix/quiescence-contract.mjs` and
 `node --test tests/tools/quiescence-contract.test.mjs` for source contracts.
 The complete state-domain gate remains distinct: existing missing

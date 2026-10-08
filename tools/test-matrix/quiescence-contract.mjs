@@ -201,7 +201,7 @@ export function validateQuiescenceInventory(inventory, authorities)
     return inventory;
 }
 
-export function validateQuiescenceObservation(observation, {inventory, expectedIdentity, requiredHighWatermark,
+export function inspectQuiescenceObservation(observation, {inventory, expectedIdentity, requiredHighWatermark,
     expectedGeneration, measurementContract = 'foreground-quiescent', schema})
 {
     if (measurementContract !== 'foreground-quiescent')
@@ -246,6 +246,13 @@ export function validateQuiescenceObservation(observation, {inventory, expectedI
     {
         blockers.push('high-watermark/generation:unknown-or-drift');
     }
+    if (!expectedIdentity?.observerIdentity?.incarnation ||
+        observation.observerIdentity.incarnation !== expectedIdentity.observerIdentity.incarnation ||
+        observation.observerIdentity.sourceDigest !== expectedIdentity.observerIdentity.sourceDigest)
+    {
+        blockers.push('observer-incarnation/source:unknown-or-drift');
+    }
+    const identityBlockers = [...blockers];
     for (const field of ['pendingCount', 'inFlightCount', 'activeMutationTransactionCount',
         'unacknowledgedInvalidationCount', 'terminalFailureCount'])
     {
@@ -266,15 +273,15 @@ export function validateQuiescenceObservation(observation, {inventory, expectedI
     {
         blockers.push(`status:${observation.status}`);
     }
-    if (!expectedIdentity?.observerIdentity?.incarnation ||
-        observation.observerIdentity.incarnation !== expectedIdentity.observerIdentity.incarnation ||
-        observation.observerIdentity.sourceDigest !== expectedIdentity.observerIdentity.sourceDigest)
+    return {observation, identityBlockers, activityBlockers: blockers.slice(identityBlockers.length), blockers};
+}
+
+export function validateQuiescenceObservation(observation, options)
+{
+    const inspection = inspectQuiescenceObservation(observation, options);
+    if (inspection.blockers.length)
     {
-        blockers.push('observer-incarnation/source:unknown-or-drift');
-    }
-    if (blockers.length)
-    {
-        throw new Error(`quiescence observation refused: ${blockers.join('; ')}`);
+        throw new Error(`quiescence observation refused: ${inspection.blockers.join('; ')}`);
     }
     return observation;
 }

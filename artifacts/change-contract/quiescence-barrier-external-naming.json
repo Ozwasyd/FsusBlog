@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs",
+                "src/backend/Infrastructure/Operations/OutboxQuiescenceSourceReader.cs",
+                "src/backend/Infrastructure/Operations/PublicProjectionQuiescenceSourceReader.cs",
+                "src/backend/Infrastructure/Operations/QuiescenceSourceCapture.cs",
+                "tools/test-matrix/quiescence-contract.mjs",
+                "tools/test-matrix/runtime-quiescence-barrier.mjs",
+                "tools/test-matrix/runtime-quiescence-journal.mjs",
+                "tools/test-matrix/runtime-quiescence-production-boundary.mjs",
+                "tools/test-matrix/runtime-quiescence-receipt.mjs",
+                "tools/test-matrix/runtime-state-domain-catalog.mjs"
+            ],
+            "reason": "Preserve the existing external owner, schema, locator and runtime identity spellings while internal protocol variables follow repository conventions. This source-stage barrier does not fabricate namespace, lease/fence or observer authority."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/quiescence-domain-observation.schema.json",
+                "config/schemas/runtime-state-domain-registry.schema.json",
+                "config/testing/runtime-state-domain-registry.json"
+            ],
+            "reason": "Preserve machine-readable registry and schema field names consumed by independent catalog validators and observation consumers."
+        }
+    ]
+}
