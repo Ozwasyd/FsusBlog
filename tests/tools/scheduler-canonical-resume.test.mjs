@@ -7,6 +7,8 @@ import test from 'node:test';
 
 const { findDiagnosticRecentRun, findLatestRunId, readCanonicalSchedulerCheckpoint, runDag } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 const { RunEvidenceObjectStore } = await import(new URL('../../tools/test-matrix/content-addressed-evidence-store.mjs', import.meta.url));
+const { digestValue } = await import(new URL('../../tools/release/browser-contract-receipt-contract.mjs', import.meta.url));
+const { controlledSchedulerCandidate } = await import(new URL('./support/canonical-scheduler-fixture.mjs', import.meta.url));
 
 function fixture(t)
 {
@@ -94,9 +96,10 @@ test('journal-only crash and journal tail after compact recover without trusting
     const result = await runDag(current.options);
     const store = new RunEvidenceObjectStore({ root: path.join(result.runDirectory, 'evidence-store'),
         runId: result.runId, sourceState: result.checkpoint.sourceState });
+    const next = { ...result.checkpoint, status: 'failure', revision: result.checkpoint.revision + 1 };
+    next.contentDigest = digestValue(next);
     store.appendJournalEvent({ eventType: 'scheduler-state-updated', status: 'failure', payload: {
-        operations: [{ kind: 'set', path: ['status'], value: 'failure' },
-            { kind: 'set', path: ['revision'], value: result.checkpoint.revision + 1 }]
+        operations: [{ kind: 'set', path: [], value: next }]
     } });
     assert.equal(readCanonicalSchedulerCheckpoint(result.checkpointPath).checkpoint.status, 'failure');
     fs.rmSync(path.join(store.checkpointsDirectory, `${result.runId}.json`));
@@ -136,30 +139,27 @@ test('recent-run viewer stays diagnostic-only and cannot serve as a resume selec
     assert.equal(current.executions(), 2);
 });
 
-test('correctness reuse requires exact owner-verified full candidate; missing candidate reruns and true override rejects', async (t) =>
+test('correctness resume requires full owner validation; missing candidate and true reuse override fail before spawn', async (t) =>
 {
     const current = fixture(t);
     await assert.rejects(runDag({ ...current.options, reuseAcrossSourceChanges: true }), /cross-candidate-reuse-forbidden/u);
     const first = await runDag(current.options);
-    const resumed = await runDag(resumeOptions(current.options, first));
-    assert.equal(resumed.status, 'success');
-    assert.deepEqual(resumed.reusedTiers, []);
-    assert.equal(current.executions(), 2);
-    assert.deepEqual(resumed.checkpoint.resumeInvocation.selector, { kind: 'run-id', runId: 'canonical-run' });
-    assert.equal(resumed.checkpoint.resumePolicy.reuseAcrossSourceChanges, false);
+    await assert.rejects(runDag(resumeOptions(current.options, first)), /missing-resume-candidate-authority/u);
+    assert.equal(current.executions(), 1);
 });
 
 test('owner-verified candidate payload binds reuse and rejects alias drift before execution', async (t) =>
 {
     const current = fixture(t);
     // Controlled owner port only: this test does not stand in for the missing complete #1606 producer.
-    const candidateIdentity = { schema: 'controlled-candidate', sourceCommit: current.options.sourceState.commit,
-        worktreeFingerprint: current.options.sourceState.worktreeFingerprint, repositorySubmoduleOrAliasDigests: { ui: 'stable' } };
+    const candidateIdentity = controlledSchedulerCandidate(current.options.sourceState);
     const options = { ...current.options, candidateIdentity, verifyCandidateIdentity: async (document) => document };
     const first = await runDag(options);
     const resumed = await runDag(resumeOptions(options, first));
     assert.equal(resumed.status, 'success');
     assert.deepEqual(resumed.reusedTiers, ['ordinary']);
+    assert.deepEqual(resumed.checkpoint.resumeInvocation.selector, { kind: 'run-id', runId: 'canonical-run' });
+    assert.equal(resumed.checkpoint.resumePolicy.reuseAcrossSourceChanges, false);
     const changed = { ...candidateIdentity, repositorySubmoduleOrAliasDigests: { ui: 'changed' } };
     await assert.rejects(runDag({ ...resumeOptions(options, resumed), candidateIdentity: changed }),
         /resume-identity-mismatch: releaseCandidateIdentity.repositorySubmoduleOrAliasDigests/u);

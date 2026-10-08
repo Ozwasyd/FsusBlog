@@ -11,6 +11,7 @@ const {
     validateCorrectnessTerminalSnapshot
 } = await import(new URL('../../tools/release/correctness-scheduler-authority.mjs', import.meta.url));
 const { schedulerAuthority } = await import(new URL('../../tools/release/test-evidence-receipts-cli.mjs', import.meta.url));
+const { writeCanonicalSchedulerFixture } = await import(new URL('./support/canonical-scheduler-fixture.mjs', import.meta.url));
 
 function fixture()
 {
@@ -137,7 +138,7 @@ test('actual CLI authority cannot promote mutable success or missing aggregate p
     for (const status of [undefined, 'pending', 'admitted', 'running', 'finalizing'])
     {
         checkpoint.tiers['production-correctness'].status = status;
-        fs.writeFileSync(file, `${JSON.stringify(checkpoint)}\n`);
+        writeCanonicalSchedulerFixture(file, checkpoint);
         const authority = schedulerAuthority(checkpoint.runId, ['unit', 'production-correctness'], checkpoint.sourceState, { repositoryRoot: root });
         assert.equal(authority.status, 'provisional');
         assert.equal(authority.qualificationEligible, false);
@@ -146,13 +147,13 @@ test('actual CLI authority cannot promote mutable success or missing aggregate p
     }
     checkpoint.tiers['production-correctness'].status = 'success';
     checkpoint.revision = 999;
-    fs.writeFileSync(file, `${JSON.stringify(checkpoint)}\n`);
+    writeCanonicalSchedulerFixture(file, checkpoint);
     assert.throws(() => schedulerAuthority(checkpoint.runId, ['unit', 'production-correctness'], checkpoint.sourceState,
         { repositoryRoot: root }), /contract.missing-terminal-checkpoint-attestation/u);
     for (const status of ['failure', 'blocked', 'cancelled', 'timed-out', 'internal-error', 'unknown'])
     {
         checkpoint.tiers['production-correctness'].status = status;
-        fs.writeFileSync(file, `${JSON.stringify(checkpoint)}\n`);
+        writeCanonicalSchedulerFixture(file, checkpoint);
         assert.throws(() => schedulerAuthority(checkpoint.runId, ['unit', 'production-correctness'], checkpoint.sourceState,
             { repositoryRoot: root }), /cannot seal evidence/u);
     }
