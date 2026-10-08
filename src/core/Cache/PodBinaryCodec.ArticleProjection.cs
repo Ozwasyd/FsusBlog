@@ -89,8 +89,8 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        const int itemRecordSize = AedsArticleListWire.RecordBytes;
-        if (total < 0 || (long)reader.Remaining != (long)count * itemRecordSize
+        const int ItemRecordSize = AedsArticleListWire.RecordBytes;
+        if (total < 0 || (long)reader.Remaining != (long)count * ItemRecordSize
             + (long)tagRecordCount * AedsArticleListWire.TagRecordBytes)
         {
             page = default!;
@@ -100,7 +100,7 @@ public static partial class PodBinaryCodec
         var records = new ArticleListProjectionRecord[count];
         for (int index = 0; index < count; index++)
         {
-            if (!reader.TryReadSpan(itemRecordSize, out ReadOnlySpan<byte> record)
+            if (!reader.TryReadSpan(ItemRecordSize, out ReadOnlySpan<byte> record)
                 || !TryReadProjectionRecord(record, tagRecordCount, out records[index]))
             {
                 page = default!;
