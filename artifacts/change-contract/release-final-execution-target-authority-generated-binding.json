@@ -1,14 +1,33 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "config/testing/release-final-execution-authority-index.json",
-        "tools/test-matrix/generate-release-final-execution-authority.mjs",
-        "tools/test-matrix/release-final-static-boundary.mjs"
+        "tests/tools/required-evidence-dependencies.test.mjs",
+        "tests/tools/support/esm-fixture-materializer-contracts.mjs",
+        "tests/tools/support/locked-schema-validator-fixture.mjs",
+        "tests/tools/test-matrix-scheduler.test.mjs",
+        "tools/check-test-matrix.mjs",
+        "tools/ci/check-job-summaries.mjs",
+        "tools/ci/run-stage.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/test-matrix/release-final-evidence-contract.mjs",
+        "tools/test-matrix/required-evidence-dependencies.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test-matrix/workflow-fixture-needs.mjs",
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/test/lanes/static-governance.sh"
     ],
     "outputs": [
         {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+        },
+        {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "4a37030eed8ea34b125a4ff0fcacc6bb3588ce9404cda31af1b2fcf3c4d0e951"
+            "sha256": "ba099f680064a1382aa5cb38ae68fe2a9900e2edf137cd7ab9bb0c27e8eef0fb"
         }
     ]
 }
