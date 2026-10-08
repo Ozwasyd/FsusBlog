@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using Microsoft.AspNetCore.DataProtection;
 
 using Npgsql;
+
 using NpgsqlTypes;
 
 namespace FsusBlog.Server.Services.DocumentExport;
@@ -99,7 +100,8 @@ internal sealed class PostgresDocumentExportTaskJournal : IDocumentExportTaskJou
         using NpgsqlCommand command = Command(
             """
             SELECT task_id, user_id, site_id, idempotency_key, created_at_utc_ticks, expires_at_utc_ticks,
-                retained_bytes, revision, octet_length(frozen_input), octet_length(state), frozen_input, state
+                retained_bytes, revision, octet_length(frozen_input), octet_length(state), frozen_input, state,
+                identity_digest, input_digest
             FROM document_export_task ORDER BY created_at_utc_ticks, task_id;
             """);
         using NpgsqlDataReader rows = command.ExecuteReader(System.Data.CommandBehavior.SequentialAccess);
@@ -122,7 +124,8 @@ internal sealed class PostgresDocumentExportTaskJournal : IDocumentExportTaskJou
             Validate(state, input);
             if (revision <= 0 || state.Task.TaskId != taskId || state.Task.UserId != userId
                 || state.Task.SiteId != siteId || state.Task.IdempotencyKey != key
-                || state.CreatedAtUtc != created || state.ExpiresAtUtc != expires || state.RetainedBytes != retainedBytes)
+                || state.CreatedAtUtc != created || state.ExpiresAtUtc != expires || state.RetainedBytes != retainedBytes
+                || state.Identity != rows.GetString(12) || input.ContentDigest != rows.GetString(13))
             {
                 throw new InvalidDataException("Export task journal row binding is invalid.");
             }
@@ -148,21 +151,29 @@ internal sealed class PostgresDocumentExportTaskJournal : IDocumentExportTaskJou
         using NpgsqlCommand command = Command(expectedRevision == 0
             ? """
               INSERT INTO document_export_task(task_id, user_id, site_id, idempotency_key,
-                  created_at_utc_ticks, expires_at_utc_ticks, retained_bytes, revision, frozen_input, state)
-              VALUES(@task, @user, @site, @key, @created, @expires, @bytes, 1, @input, @state)
+                  created_at_utc_ticks, expires_at_utc_ticks, retained_bytes, revision, frozen_input, state,
+                  identity_digest, input_digest)
+              VALUES(@task, @user, @site, @key, @created, @expires, @bytes, 1, @input, @state, @identity, @inputDigest)
               ON CONFLICT DO NOTHING;
               """
-            : "UPDATE document_export_task SET state = @state, revision = revision + 1 WHERE task_id = @task AND revision = @revision;");
+            : """
+              UPDATE document_export_task SET state = @state, revision = revision + 1
+              WHERE task_id = @task AND revision = @revision AND user_id = @user AND site_id = @site
+                  AND idempotency_key = @key AND created_at_utc_ticks = @created AND expires_at_utc_ticks = @expires
+                  AND retained_bytes = @bytes AND identity_digest = @identity AND input_digest = @inputDigest;
+              """);
         command.Parameters.AddWithValue("task", state.Task.TaskId);
         command.Parameters.AddWithValue("state", NpgsqlDbType.Bytea, protectedState);
+        command.Parameters.AddWithValue("user", state.Task.UserId);
+        command.Parameters.AddWithValue("site", state.Task.SiteId);
+        command.Parameters.AddWithValue("key", state.Task.IdempotencyKey);
+        command.Parameters.AddWithValue("created", state.CreatedAtUtc.UtcTicks);
+        command.Parameters.AddWithValue("expires", state.ExpiresAtUtc.UtcTicks);
+        command.Parameters.AddWithValue("bytes", state.RetainedBytes);
+        command.Parameters.AddWithValue("identity", state.Identity);
+        command.Parameters.AddWithValue("inputDigest", input.ContentDigest);
         if (expectedRevision == 0)
         {
-            command.Parameters.AddWithValue("user", state.Task.UserId);
-            command.Parameters.AddWithValue("site", state.Task.SiteId);
-            command.Parameters.AddWithValue("key", state.Task.IdempotencyKey);
-            command.Parameters.AddWithValue("created", state.CreatedAtUtc.UtcTicks);
-            command.Parameters.AddWithValue("expires", state.ExpiresAtUtc.UtcTicks);
-            command.Parameters.AddWithValue("bytes", state.RetainedBytes);
             command.Parameters.AddWithValue("input", NpgsqlDbType.Bytea,
                 _protector.CreateProtector(state.Task.TaskId, "input").Protect(DocumentExportDigest.Serialize(input)));
         }
@@ -239,7 +250,10 @@ internal sealed class PostgresDocumentExportTaskJournal : IDocumentExportTaskJou
                 || snapshot.Status != attempt.Task.Status || snapshot.CreatedAtUtc < state.CreatedAtUtc
                 || snapshot.CreatedAtUtc >= state.ExpiresAtUtc
                 || snapshot.StartedAtUtc < snapshot.CreatedAtUtc || snapshot.StoppedAtUtc < snapshot.CreatedAtUtc
-                || snapshot.ContentDigest != DocumentExportDigest.Compute(snapshot with { ContentDigest = string.Empty })
+                || snapshot.ContentDigest != DocumentExportDigest.Compute(snapshot with
+                {
+                    ContentDigest = string.Empty
+                })
                 || snapshot.StopOutcome is not (null or DocumentExportProviderResultStatus.Failed
                     or DocumentExportProviderResultStatus.Blocked or DocumentExportProviderResultStatus.Cancelled)
                 || (attempt.ExecutionOutstanding && (index != state.Attempts.Length - 1 || snapshot.CleanupComplete

@@ -202,6 +202,80 @@ public sealed class DocumentExportTaskJournalIntegrationTests(PostgresSchemaMigr
         Assert.NotNull(await restored.TryClaimAsync());
     }
 
+    [Fact]
+    public async Task JournalWrite_CannotReplaceTheImmutableInputScopeOrProviderIdentity()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var protection = new EphemeralDataProtectionProvider();
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        using (var owner = Queue(db, protection))
+        {
+            await owner.EnqueueAsync(Task(input, 1), input);
+        }
+        using var journal = new PostgresDocumentExportTaskJournal(db.CurrentConnectionConfig.ConnectionString, protection, s_limits);
+        DocumentExportJournalEntry original = Assert.Single(journal.Read());
+        DocumentExportFrozenInput replacement = DocumentExportContractValidator.Seal(input with
+        {
+            InputId = "replacement-input"
+        });
+        DocumentExportTask task = Task(replacement, 1);
+        DocumentExportAttemptSnapshot unsigned = original.State.Attempts[0].Snapshot with
+        {
+            TaskDigest = task.ContentDigest,
+            ContentDigest = string.Empty
+        };
+        DocumentExportAttemptSnapshot snapshot = unsigned with
+        {
+            ContentDigest = DocumentExportDigest.Compute(unsigned)
+        };
+        DocumentExportPersistedEntry changed = original.State with
+        {
+            Task = task,
+            Identity = DocumentExportDigest.Compute(task with
+            {
+                TaskId = string.Empty,
+                RequestId = string.Empty,
+                ContentDigest = string.Empty
+            }),
+            RetainedBytes = DocumentExportDigest.Serialize(replacement).LongLength,
+            Attempts = [new DocumentExportPersistedAttempt(task, snapshot, false)]
+        };
+        Assert.Throws<InvalidOperationException>(() => journal.Write(changed, replacement, original.Revision));
+        DocumentExportJournalEntry retained = Assert.Single(journal.Read());
+        Assert.Equal(original.State.Task, retained.State.Task);
+        Assert.Equal(original.Input.ContentDigest, retained.Input.ContentDigest);
+        Assert.Equal(original.Revision, retained.Revision);
+    }
+
+    [Fact]
+    public async Task RecoveryBudget_RefusesAnOversizedRetainedQueue()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var protection = new EphemeralDataProtectionProvider();
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        using (var owner = Queue(db, protection))
+        {
+            await owner.EnqueueAsync(Task(input, 1), input);
+            await owner.EnqueueAsync(Task(input, 2), input);
+        }
+        var narrower = s_limits with
+        {
+            MaxTasks = 1
+        };
+        Assert.Throws<InvalidDataException>(() => new DocumentExportTaskQueue(new Clock(), narrower,
+            new PostgresDocumentExportTaskJournal(db.CurrentConnectionConfig.ConnectionString, protection, narrower)));
+    }
+
+    [Fact]
+    public async Task MissingSchema_RefusesActivationWithoutAutomaticDdl()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresException failure = Assert.Throws<PostgresException>(() => Queue(db, new EphemeralDataProtectionProvider()));
+        Assert.Equal(PostgresErrorCodes.UndefinedTable, failure.SqlState);
+        Assert.Equal(0L, Convert.ToInt64(await db.Ado.GetScalarAsync(
+            "SELECT count(*) FROM information_schema.tables WHERE table_name = 'document_export_task';")));
+    }
+
     private async Task<SqlSugarClient> DatabaseAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -220,6 +294,8 @@ public sealed class DocumentExportTaskJournalIntegrationTests(PostgresSchemaMigr
                 revision bigint NOT NULL CHECK(revision > 0),
                 frozen_input bytea NOT NULL,
                 state bytea NOT NULL,
+                identity_digest varchar(71) NOT NULL,
+                input_digest varchar(71) NOT NULL,
                 UNIQUE(user_id, site_id, idempotency_key));
             """);
         return db;
