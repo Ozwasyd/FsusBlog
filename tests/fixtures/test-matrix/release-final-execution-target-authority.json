@@ -5090,8 +5090,8 @@
         },
         {
             "path": "tools/test/lanes/production-build-artifacts.sh",
-            "contentDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
-            "indexDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a"
+            "contentDigest": "sha256:ca4a26e88e91c5afe56e765f74958d4a80325b81bafd54d2c45675d4a27b33ce",
+            "indexDigest": "sha256:ca4a26e88e91c5afe56e765f74958d4a80325b81bafd54d2c45675d4a27b33ce"
         },
         {
             "path": "tools/test/lanes/project-privacy-zk-prebuild.mjs",
@@ -33273,8 +33273,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
-            "indexDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
+            "contentDigest": "sha256:ca4a26e88e91c5afe56e765f74958d4a80325b81bafd54d2c45675d4a27b33ce",
+            "indexDigest": "sha256:ca4a26e88e91c5afe56e765f74958d4a80325b81bafd54d2c45675d4a27b33ce",
             "dependencyClosure": [
                 "src/backend/FsusBlog.Server.csproj",
                 "src/frontend/package.json",

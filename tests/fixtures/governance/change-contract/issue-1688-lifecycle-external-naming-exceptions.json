@@ -25,6 +25,13 @@
                 "tests/fixtures/governance/change-contract/issue-1688-lifecycle-external-naming-exceptions.json"
             ],
             "reason": "Preserve registered JSON schema, action registry, NuGet lock and generated authority keys. The new review manifests bind unchanged naming surfaces and actual canonical producer output without renaming caller-visible fields."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/production-build-artifacts.sh"
+            ],
+            "reason": "Pass the existing FSUSBLOG_TEST_SOURCE_COMMIT through the canonical Migration production build, retaining the required no-dependencies ordering and immutable assembly source binding."
         }
     ]
 }
