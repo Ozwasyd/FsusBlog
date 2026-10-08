@@ -4,9 +4,10 @@
         {
             "id": "environment-variable",
             "paths": [
-                "src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs"
+                "src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs",
+                "src/backend/Services/Authoring/AuthorSavedViewStore.cs"
             ],
-            "reason": "The facade consumes the existing SITE_BASEURL configuration through ResolveSiteScope instead of introducing or renaming process configuration. Its companion tests retain SITE_BASEURL to exercise that external boundary; internal facade and test symbols follow repository naming. Only the registered source path is covered, with no new environment names or policy scope."
+            "reason": "The facade consumes existing SITE_BASEURL through ResolveSiteScope; the exact consumed store repair preserves the existing domain/wire names and framework timestamp constants. Both registered source paths introduce no new process settings, keep internal symbols in repository naming and preserve the finite existing environment naming boundary."
         },
         {
             "id": "json-wire-key",
