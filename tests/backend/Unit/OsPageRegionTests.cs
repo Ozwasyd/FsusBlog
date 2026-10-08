@@ -229,7 +229,8 @@ public sealed class OsPageRegionTests
             }
         };
         Assert.Equal(MemoryFailure.TierUnavailable,
-            OsPageRegion.TryReserve(native, descriptor, reservation, false, subset).Failure);
+            OsPageRegion.TryReserve(native, descriptor, reservation, false, out int? nativeError, subset).Failure);
+        Assert.Equal(13, nativeError);
         Assert.Equal(1, native.Releases);
         Assert.Equal(1, reservation.Charge!.Releases);
     }
