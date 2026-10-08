@@ -18,11 +18,11 @@ public static partial class AuthoringEndpoints
 {
     private static void MapWorkspaceSnapshotRoutes(IEndpointRouteBuilder group)
     {
-        RouteGroupBuilder workspace = group.MapGroup("/workspace/default")
+        RouteGroupBuilder workspace = group.MapGroup("/workspace")
             .RequireAdminPermission(AdminPermissions.ArticleWrite)
             .RequireNoStoreResponse()
             .AddEndpointFilterWithMetadata<WorkspaceSnapshotBoundaryFilter>();
-        workspace.MapGet("", static async Task<BinaryFrameResult> (
+        workspace.MapGet("/default", static async Task<BinaryFrameResult> (
             HttpContext context, IAedsEncoder aeds, AuthoringWorkspaceSnapshotTransport transport,
             CancellationToken cancellationToken) =>
         {
@@ -33,7 +33,7 @@ public static partial class AuthoringEndpoints
         .WithName("binary_author_workspace_snapshot_read")
         .WithMetadata(new FsusOpenApiAedsContractMetadata(null, AedsFrameType.AuthoringWorkspaceSnapshotResponse));
 
-        workspace.MapPost("", static async Task<BinaryFrameResult> (
+        workspace.MapPost("/default", static async Task<BinaryFrameResult> (
             HttpContext context, IAedsEncoder aeds, IBinaryEndpointRequestContext binder,
             AuthoringWorkspaceSnapshotTransport transport, CancellationToken cancellationToken) =>
         {

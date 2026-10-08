@@ -2241,7 +2241,12 @@ internal static class CurrentSchemaRuntimeRollupTables
                 CONSTRAINT ck_article_canvas_link_history_target CHECK ((mode = 0) = (target_journal_id IS NULL))
             );
             """,
-            AdditionalSql: ["CREATE INDEX IF NOT EXISTS ix_article_canvas_link_source ON article_canvas_link_journal(owner_admin_principal_id, site_scope, source_article_id, created_at_utc, journal_id);"]),
+            AdditionalSql: [
+                """
+                CREATE INDEX IF NOT EXISTS ix_article_canvas_link_source
+                    ON article_canvas_link_journal(owner_admin_principal_id, site_scope, source_article_id, created_at_utc, journal_id);
+                """
+            ]),
         new(
             "article_canvas_link_history",
             """
