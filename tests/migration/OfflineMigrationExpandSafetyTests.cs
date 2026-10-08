@@ -76,8 +76,8 @@ public sealed class OfflineMigrationExpandSafetyTests
     {
         ISchemaMigrationDescriptor descriptor = Descriptor(
         [
-            new CreateTableStep("new_article", "CREATE TABLE new_article (id integer PRIMARY KEY);"),
-            new AddColumnStep("article", "note", "text NULL"),
+            new EnsureTableStep("new_article", "CREATE TABLE new_article (id integer PRIMARY KEY);"),
+            new EnsureColumnStep("article", "note", "text NULL"),
             new CreateIndexStep("article_note_idx", "CREATE INDEX article_note_idx ON article (note);"),
             new RawSqlStep("ALTER TABLE article ADD COLUMN summary text NULL;"),
             new BackfillSqlStep("UPDATE article SET summary = title WHERE summary IS NULL;"),
