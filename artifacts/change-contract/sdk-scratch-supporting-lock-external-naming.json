@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Preserve the NuGet-owned package identity and lock JSON fields while consuming the exact coordinator-approved Server dependency edge from b104b99d84b91af577336efd6430d492c25683c9."
+        }
+    ]
+}
