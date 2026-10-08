@@ -103,6 +103,11 @@ export function validateQuiescenceReceipt(receipt, {identity, inventory, schema,
     }
     assertQuiescenceIdentity(receipt, identity);
     assertQuiescenceLease(currentLease, identity);
+    if (currentLease.admissionFenceStatus !== 'frozen' || currentLease.fenceGeneration !== currentLease.generation ||
+        currentLease.acceptedClaimCount !== 0 || !Number.isSafeInteger(currentLease.rejectedClaimCount) || currentLease.rejectedClaimCount < 0)
+    {
+        throw new Error('quiescence receipt current admission fence is unavailable or invalidated');
+    }
     validateQuiescencePlan(plan, {identity, inventory, lease: currentLease});
     const {contentDigest, ...payload} = receipt;
     if (receipt.schema !== quiescenceReceiptSchema || receipt.status !== 'quiescent' ||

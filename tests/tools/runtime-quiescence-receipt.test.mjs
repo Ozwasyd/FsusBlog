@@ -139,6 +139,12 @@ test('resealed foreign, duplicate, missing, source-only and unsupported receipt 
     }
     assert.throws(() => validateQuiescenceReceipt(session.receipt,
         {...validation, currentLease: {...validation.currentLease, remainingLeaseMs: 0}}), /expired/u);
+    for (const mutation of [{admissionFenceStatus: 'unfrozen'}, {fenceGeneration: 99},
+        {acceptedClaimCount: 1}, {rejectedClaimCount: null}])
+    {
+        assert.throws(() => validateQuiescenceReceipt(session.receipt,
+            {...validation, currentLease: {...validation.currentLease, ...mutation}}), /admission fence/u);
+    }
 });
 
 test('canonical receipt and state digests ignore domain traversal order but bind semantic state and audit fields', async (t) =>

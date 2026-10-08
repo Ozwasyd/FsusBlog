@@ -277,7 +277,7 @@ test('stable window alone is insufficient; independent owner sequences and all s
         elapsed += 100;
         return elapsed;
     }, utc: () => '2026-10-08T00:00:00.000Z'};
-    const result = await runRuntimeQuiescenceBarrier(barrierOptions(model.owner, {clock, stabilityWindowMs: 50}));
+    const result = await runRuntimeQuiescenceBarrier(barrierOptions(model.owner, {clock, stabilityWindowMs: 50, timeoutMs: 20_000}));
     assert.equal(result.status, 'quiescent');
     assert.equal(result.trace.filter((state) => state === 'observed').length, 2);
     await result.release();
@@ -366,5 +366,24 @@ test('incomplete source-capture shape is refused without filling any observation
     assert.equal(result.qualified, false);
     assert.equal(result.trace.includes('sealed'), false);
     assert.equal(Object.hasOwn(raw, 'runId'), false);
+    assert.equal(model.model.active, false);
+});
+
+test('protected runtime identity is re-read during every lease guard instead of borrowing a stale lease snapshot', async () =>
+{
+    const model = modelOwner();
+    const read = model.owner.readIdentity;
+    model.owner.readIdentity = async () =>
+    {
+        const observed = await read();
+        if (model.model.frozen)
+        {
+            observed.runtimeIdentityDigest = `sha256:${'f'.repeat(64)}`;
+        }
+        return observed;
+    };
+    const result = await runRuntimeQuiescenceBarrier(barrierOptions(model.owner));
+    assert.notEqual(result.status, 'quiescent');
+    assert.equal(result.trace.includes('sealed'), false);
     assert.equal(model.model.active, false);
 });

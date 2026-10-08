@@ -145,6 +145,8 @@ export async function runRuntimeQuiescenceBarrier({authorities, owner, journal, 
     };
     const guard = async (renew = false) =>
     {
+        const liveIdentity = immutable(await call((activeSignal) => owner.readIdentity({signal: activeSignal})));
+        assertQuiescenceIdentity(liveIdentity, identity);
         const grant = immutable(await call((activeSignal) => owner[renew ? 'renew' : 'validate'](
             {attemptId, identity, lease}, {signal: activeSignal})));
         assertQuiescenceLease(grant, identity, lease);
