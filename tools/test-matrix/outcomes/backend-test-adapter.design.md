@@ -115,14 +115,14 @@ this adapter computes neither an outcome fingerprint nor an aggregate.
 
 ## Integration gaps and rollback
 
-The native xUnit slot reporter currently supplies framework case IDs and outcomes
-but lacks assertion IDs, canonical failure records and case/shrink observations.
-The existing randomized TRX parser admits passing results only. This adapter does
-not call those observations complete and does not manufacture missing native
-receipts. The execution owner must publish the structured held-input bridge above.
-#1601 actual all-producer temporal observations and #1602 envelope tracking retain
-their original unfinished acceptance. Candidate source controls use explicitly
-identified in-memory verifier doubles and establish no native/runtime qualification.
+The bounded native bridge below consumes actual xUnit v2 reporter material.
+The original randomized TRX parser admits passing results only: failed property,
+model and fuzz assertion/input/shrink/transition observations still require their
+execution owner's emitter. #1601 actual all-producer temporal observations and
+#1602 envelope tracking retain their original unfinished acceptance. Source
+adapter controls use explicitly identified in-memory verifier doubles. Native
+bridge controls execute the original reporter and real assertions, while preserving
+missing replay/envelope/temporal authorities and unqualified probe identities.
 
 #2020's canonical registry currently profiles build/projection/finalizer only.
 Its owner must register this backend authority and the membership fields above
@@ -134,3 +134,63 @@ Rollback this adapter increment if it rejects a legitimate held case or loses
 failure topology, keeping original source receipts and all refusal controls.
 Correct the owning contract through its owner before changing accepted semantics;
 never relax custody or qualify fixtures to unblock a runtime lane.
+
+
+## Bounded native xUnit bridge
+
+`backend-held-evidence-bridge.mjs` exports
+`buildBackendFrameworkObservationFromXunit({identity,plan,catalog,attempt,
+queueManifest,slotExecutions,assertionObservations,evidenceRefs,
+artifactSemanticDigests,stateSemanticDigests})`. It joins the existing canonical
+queue manifest to actual `fsusblog.xunit-replay-slot-receipt.v1` admissions,
+starts and outcomes. Slot PID, plan, collection, native test unique ID, native
+case unique ID and exact planned membership must agree. The bridge does not infer
+assertion IDs or failure classes from framework outcome messages.
+
+The separately retained `fsusblog.backend-native-assertion-observation.v1` has
+`schema`, exact `identity`, `testCaseUniqueId`, `cases`, `assertions`, `coverageIds`,
+`artifactIds` and `stateIds`. Native fact/theory cases use the original case unique
+ID, nullable input/shrink fields and empty transitions. Assertions contain `id`,
+`caseId`, `status` and explicit nullable `failure`; canonical product assertion
+failures bind producer/test/case/assertion and applicable diagnostic/semantic
+references. The xUnit bridge currently admits `product.assertion`; broader
+structured process/randomized failures remain with their actual emitters.
+
+`createBackendHeldEvidenceBridge({evidenceRoot,expectedIdentity,
+inputAuthorityRefs,queueManifestReference,slotExecutionReferences,
+assertionObservationReferences,artifactSemanticReferences,stateSemanticReferences,
+verificationReceiptPath,maximumBytes})` returns `verifyArtifact` and
+`verifyBackendEvidence` for the existing adapter. References bind contained paths
+and raw-byte digests; slot references additionally pin `slotId`, `processId`,
+`exitCode` and `signal`. Semantic references add `semanticDigest`. Independent
+expected identity/references are copied when the owner creates the bridge.
+Each verification reopens all inputs and raw observations, reconstructs the report,
+and compares it completely. Semantic artifact/state bytes are reopened and checked
+against their independent canonical digests. The explicit per-file bound must be
+positive and no greater than 16 MiB. The original private-file reader enforces
+private mode, single-link regular files, no symlink, size bound and stable open
+file identity; this bridge additionally rejects containment and parent-path aliases.
+The original private JSON writer retains the verification receipt.
+
+The receipt scope is `native-observation-binding`, with
+`qualificationGranted=false`. A verified raw observation is insufficient to admit
+a qualified candidate: original attempt replay/envelope/temporal authorities and
+`verifyAuthority` remain mandatory. The original runner emits a final slot receipt
+only after completion. Its missing process-crash capability is an incremental
+`RunSlotAsync` event journal in `tools/test/xunit-replay-runner/Program.cs`, carrying
+sealed plan/slot/PID, admission/start/outcome records and the actual terminal
+process result so retained partial topology can be verified. The bridge refuses
+signals, unknown exits and missing outcomes until that owner supplies this API.
+
+The test-only locked xUnit v2 fixture emits observations around actual
+`Assert.Equal` calls. Its native test-case context comes from the existing xUnit
+case execution API; no display-name identity inference or original runner edits
+are used. Build with `dotnet restore --locked-mode` and `dotnet build --no-restore
+--configuration Release` for the fixture project, then run
+`FSUSBLOG_BACKEND_DOTNET=<actual dotnet executable> node --test
+tests/tools/backend-held-evidence-bridge.test.mjs`. The suite runs the original
+`tools/test/xunit-replay-adapter.mjs` against two passing theory rows and one real
+failing fact. Original reporter exit 1 is expected evidence of that assertion;
+the control suite must independently exit 0. An absent SDK/build is an unmet
+prerequisite and is never silently skipped. The fixture's envelope/context hashes
+are explicitly unqualified diagnostic descriptions, not authority receipts.
