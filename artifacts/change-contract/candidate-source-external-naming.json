@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release-candidate/collect-source-worktree.mjs",
+                "tools/test/repository-source-snapshot.mjs"
+            ],
+            "reason": "preserve canonical Git process environment spellings and the existing tooling naming surface while removing ambient Git overrides from read-only source collection"
+        }
+    ]
+}
