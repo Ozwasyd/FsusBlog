@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "preserve official NuGet project-reference dependency keys and package content hashes while recording the already-declared Server AngleSharp 1.5.0 dependency in the existing backend test lock"
+        }
+    ]
+}
