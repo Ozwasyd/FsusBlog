@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Storage;
@@ -302,11 +303,18 @@ public sealed class DocumentExportEndpointsTests
         Assert.Equal(expected.Skip(1).Take(2).Select(snapshot => snapshot.Task.TaskId),
             fixture.LastPage.Select(snapshot => snapshot.Task.TaskId));
         Assert.Equal(2, fixture.LastPage.Length);
+        Assert.True(fixture.LastPageHasMore);
+        context.Request.QueryString = new QueryString("?offset=3&limit=2");
+        await BinaryEndpoints.HandleDocumentExportListAsync(context,
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        Assert.Equal(2, fixture.LastPage.Length);
+        Assert.False(fixture.LastPageHasMore);
 
         fixture.Authorization.Allowed = false;
         await BinaryEndpoints.HandleDocumentExportListAsync(context,
             fixture.Service(), fixture.Binding, new AedsEncoder(), default);
         Assert.Empty(fixture.LastPage);
+        Assert.False(fixture.LastPageHasMore);
     }
 
     [Fact]
@@ -392,6 +400,27 @@ public sealed class DocumentExportEndpointsTests
         await AssertDeniedAsync(downloadContext, download);
     }
 
+    [Fact]
+    [Trait("Platform", "Unix")]
+    public async Task DurableSnapshot_ProjectsCanonicalDigestsThroughClosedPayloadWithoutResealing()
+    {
+        using var fixture = new DurableFixture();
+        await fixture.Service().CreateAsync(Actor(), fixture.Task, fixture.Input, default);
+        DocumentExportJobSnapshot persisted = await fixture.Service().GetAsync(Actor(), fixture.Task.TaskId, default);
+        var projected = DocumentExportEndpointBinding.Project(persisted);
+        byte[] payload = PodBinaryCodec.EncodeDocumentExportJobResponse(projected);
+        Assert.True(PodBinaryCodec.TryDecodeDocumentExportJobResponse(payload, out var decoded));
+        Assert.Equal(fixture.Input.ContentDigest, decoded.InputDigest);
+        Assert.Equal(persisted.Task.ContentDigest, decoded.TaskDigest);
+        Assert.StartsWith("sha256:", decoded.TaskDigest);
+        Assert.Equal((int)DocumentExportTaskStatus.Queued, decoded.Status);
+        Assert.Null(decoded.Output);
+        Assert.DoesNotContain("private-endpoint-source", Encoding.UTF8.GetString(payload));
+        Assert.DoesNotContain(Actor().SiteScope, Encoding.UTF8.GetString(payload));
+        Assert.DoesNotContain(Actor().SessionId, Encoding.UTF8.GetString(payload));
+        Assert.Equal(payload, PodBinaryCodec.EncodeDocumentExportJobResponse(decoded));
+    }
+
     private sealed class DurableTime : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
@@ -431,6 +460,10 @@ public sealed class DocumentExportEndpointsTests
             get; private set;
         }
         public ImmutableArray<DocumentExportJobSnapshot> LastPage { get; private set; } = [];
+        public bool LastPageHasMore
+        {
+            get; private set;
+        }
         public string JobRoot => Path.Combine(_layout.Paths.PrivateAssetRoot, "document-export");
         public string StatePath => Path.Combine(JobRoot, "state.bin");
 
@@ -463,15 +496,16 @@ public sealed class DocumentExportEndpointsTests
             Binding.WriteSnapshot(Arg.Any<DocumentExportJobSnapshot>(), Arg.Any<IAedsEncoder>()).Returns(call =>
             {
                 LastSnapshot = call.Arg<DocumentExportJobSnapshot>();
-                // No job response codec exists yet. Record the real projection,
-                // but do not serialize or claim a successful HTTP/job receipt.
+                // Keep this handler fixture independent of Shared frame registration;
+                // record the real projection without claiming a wire receipt.
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "Controlled job writer unavailable"),
                     call.Arg<IAedsEncoder>());
             });
-            Binding.WritePage(Arg.Any<ImmutableArray<DocumentExportJobSnapshot>>(), Arg.Any<int>(), Arg.Any<int>(),
+            Binding.WritePage(Arg.Any<ImmutableArray<DocumentExportJobSnapshot>>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(),
                 Arg.Any<IAedsEncoder>()).Returns(call =>
             {
                 LastPage = call.Arg<ImmutableArray<DocumentExportJobSnapshot>>();
+                LastPageHasMore = call.Arg<bool>();
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "Controlled job writer unavailable"),
                     call.Arg<IAedsEncoder>());
             });

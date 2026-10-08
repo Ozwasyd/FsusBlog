@@ -27,7 +27,7 @@ public interface IDocumentExportEndpointBinding
     Task<string> ReadTaskIdAsync(HttpContext context, CancellationToken cancellationToken);
     BinaryFrameResult WriteSnapshot(DocumentExportJobSnapshot snapshot, IAedsEncoder encoder);
     BinaryFrameResult WritePage(ImmutableArray<DocumentExportJobSnapshot> snapshots,
-        int offset, int pageSize, IAedsEncoder encoder);
+        int offset, int pageSize, bool hasMore, IAedsEncoder encoder);
 }
 
 public static partial class BinaryEndpoints
@@ -92,7 +92,8 @@ public static partial class BinaryEndpoints
             ImmutableArray<DocumentExportJobSnapshot> snapshots = await jobs.ListAsync(actor, cancellationToken);
             // The current job contract owns the list and its authorization. The
             // binding receives only this page; the browser never receives all jobs.
-            return binding.WritePage(snapshots.Skip(offset).Take(limit).ToImmutableArray(), offset, limit, encoder);
+            return binding.WritePage(snapshots.Skip(offset).Take(limit).ToImmutableArray(), offset, limit,
+                (long)offset + limit < snapshots.Length, encoder);
         }, cancellationToken);
 
     internal static Task<IResult> HandleDocumentExportStatusAsync(HttpContext context,
