@@ -231,6 +231,7 @@
       "then": {
         "properties": {
           "blockers": {
+            "type": "array",
             "maxItems": 0
           }
         }
@@ -238,6 +239,7 @@
       "else": {
         "properties": {
           "blockers": {
+            "type": "array",
             "minItems": 1
           }
         }

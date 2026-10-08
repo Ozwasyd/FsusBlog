@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { createValidBlogUiBundle, runBlogUiSelfCheck, validateBlogUiBundle } from '../../.agents/skills/fsusblog-design-conformance/scripts/ui-orchestration.mjs';
+import { createValidBlogUiBundle, runBlogUiSelfCheck, sealBlogUiAdjudication, validateBlogUiBundle } from '../../.agents/skills/fsusblog-design-conformance/scripts/ui-orchestration.mjs';
 import { blogUiDomainPolicyDigest, blogUiStagePolicy as policy, blogUiStagePolicyDigest, validateBlogUiStagePolicy } from '../../.agents/skills/fsusblog-design-conformance/scripts/ui-stage-policy.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -353,4 +353,182 @@ test('self-check CLI reports domain policy digest', () =>
     const result = run();
     assert.equal(result.status, 0, output(result));
     assert.match(output(result), new RegExp(`policy=${blogUiDomainPolicyDigest}`, 'u'));
+});
+
+test('freshly sealed rendered evidence still requires complete schema-defined observations', () =>
+{
+    for (const field of ['viewport', 'state', 'theme', 'inputModes', 'evidenceDigest'])
+    {
+        rejects((bundle) =>
+        {
+            delete bundle.uxAcceptance.viewportStateMatrix[0][field];
+        }, 'blog-ui-ux-acceptance-binding');
+    }
+    for (const field of ['id', 'kind', 'path', 'digest', 'inspected', 'fixtureClass'])
+    {
+        rejects((bundle) =>
+        {
+            delete bundle.uxAcceptance.inspectedRenderedArtifacts[0][field];
+        }, 'blog-ui-ux-acceptance-binding');
+    }
+});
+
+test('nested evidence rejects waivers invalid enums duplicates and non-object observations', () =>
+{
+    const mutations = [
+        (bundle) =>
+        {
+            bundle.uxAcceptance.inspectedRenderedArtifacts[0].waiver = true;
+        },
+        (bundle) =>
+        {
+            bundle.uxAcceptance.viewportStateMatrix[0].waiver = true;
+        },
+        (bundle) =>
+        {
+            bundle.uxAcceptance.viewportStateMatrix[0].theme = 'unverified';
+        },
+        (bundle) =>
+        {
+            bundle.uxAcceptance.viewportStateMatrix[0].inputModes = ['keyboard', 'keyboard'];
+        },
+        (bundle) =>
+        {
+            bundle.uxAcceptance.viewportStateMatrix[0].inputModes = ['unverified'];
+        },
+        (bundle) =>
+        {
+            bundle.uxAcceptance.inspectedRenderedArtifacts[0].kind = 'static-check';
+        },
+        (bundle) =>
+        {
+            bundle.uxAcceptance.inspectedRenderedArtifacts[0].path = '';
+        },
+        (bundle) =>
+        {
+            bundle.uxAcceptance.viewportStateMatrix[0] = null;
+        },
+        (bundle) =>
+        {
+            bundle.uxAcceptance.inspectedRenderedArtifacts[0] = null;
+        }
+    ];
+    for (const mutate of mutations)
+    {
+        rejects(mutate, 'blog-ui-ux-acceptance-binding');
+    }
+});
+
+test('nested authority references cannot carry independently sealed extra claims', () =>
+{
+    rejects((bundle) =>
+    {
+        bundle.classification.requiredDesignAuthorities[0].waiver = true;
+    }, 'blog-ui-authority-binding');
+    rejects((bundle) =>
+    {
+        bundle.classification.requiredDesignAuthorities[0] = null;
+    }, 'blog-ui-authority-binding');
+    rejects((bundle) =>
+    {
+        bundle.classification.fsusUIBaseline.contractDigests.waiver = true;
+        seal(bundle.classification.fsusUIBaseline, 'baselineDigest');
+    }, 'blog-ui-baseline-identity');
+});
+
+test('an independently valid adjudication cannot be spliced across task candidate baseline or authority', () =>
+{
+    const mutations = [
+        (receipt) =>
+        {
+            receipt.issueId = '3268';
+        },
+        (receipt) =>
+        {
+            receipt.candidateSha = '7'.repeat(40);
+        },
+        (receipt) =>
+        {
+            receipt.candidateIdentityDigest = 'e'.repeat(64);
+        },
+        (receipt) =>
+        {
+            receipt.ownerRepository = 'Ozwasyd/FsusUI';
+        },
+        (receipt) =>
+        {
+            receipt.affectedSurfaces = ['different-surface'];
+        },
+        (receipt) =>
+        {
+            receipt.requiredDesignAuthorities[0].digest = 'e'.repeat(64);
+        },
+        (receipt) =>
+        {
+            receipt.fsusUIBaseline.packageVersion = 'other-active-baseline';
+            seal(receipt.fsusUIBaseline, 'baselineDigest');
+        }
+    ];
+    for (const mutate of mutations)
+    {
+        const bundle = createValidBlogUiBundle();
+        const unrelated = bundle.adjudicationClassification;
+        mutate(unrelated);
+        bundle.adjudication.ownerRepository = unrelated.ownerRepository;
+        bundle.adjudication.candidateSha = unrelated.candidateSha;
+        bundle.adjudication.candidateIdentityDigest = unrelated.candidateIdentityDigest;
+        bundle.adjudication.authoritativeSkillDigests = unrelated.requiredDesignAuthorities.map((entry) => entry.digest);
+        bundle.adjudication.authorityDigests = [...bundle.adjudication.authoritativeSkillDigests];
+        bundle.adjudication.activeBaselineIdentityDigest = unrelated.fsusUIBaseline.baselineDigest;
+        reseal(bundle);
+        // The standalone receipt is valid against its own classification.
+        assert.doesNotThrow(() => sealBlogUiAdjudication(bundle.adjudication, unrelated));
+        assert.throws(() => validateBlogUiBundle(bundle), { code: 'blog-ui-adjudication-binding' });
+    }
+});
+
+test('standalone adjudication validates the supplied classification reference itself', () =>
+{
+    const bundle = createValidBlogUiBundle();
+    bundle.adjudicationClassification.receiptDigest = 'e'.repeat(64);
+    bundle.adjudication.classificationReceiptDigest = 'e'.repeat(64);
+    seal(bundle.adjudication, 'adjudicationDigest');
+    assert.throws(() => sealBlogUiAdjudication(bundle.adjudication, bundle.adjudicationClassification), {
+        code: 'blog-ui-authority-binding'
+    });
+});
+
+test('bundle requires an explicit boolean overlap declaration and every domain input', () =>
+{
+    for (const field of Object.keys(createValidBlogUiBundle()))
+    {
+        const bundle = createValidBlogUiBundle();
+        delete bundle[field];
+        assert.throws(() => validateBlogUiBundle(bundle), { code: 'blog-ui-bundle-shape' });
+    }
+    for (const value of [null, 0, '', 'false', []])
+    {
+        rejects((bundle) =>
+        {
+            bundle.overlappingImplementationOwner = value;
+        }, 'blog-ui-bundle-shape');
+    }
+});
+
+test('alternate package-pin baseline remains usable when every consumed reference agrees', () =>
+{
+    const bundle = createValidBlogUiBundle();
+    const baseline = bundle.baseline;
+    baseline.sourceKind = 'package-pin';
+    baseline.absolutePath = null;
+    baseline.gitHead = null;
+    baseline.packageVersion = 'fixture-package-pin';
+    seal(baseline, 'baselineDigest');
+    bundle.classification.fsusUIBaseline = structuredClone(baseline);
+    bundle.adjudicationClassification.fsusUIBaseline = structuredClone(baseline);
+    bundle.adjudication.activeBaselineIdentityDigest = baseline.baselineDigest;
+    bundle.uxAcceptance.fsusUIBaselineDigest = baseline.baselineDigest;
+    const result = validateBlogUiBundle(reseal(bundle));
+    assert.equal(result.baseline.sourceKind, 'package-pin');
+    assert.equal(result.classification.fsusUIBaseline.baselineDigest, baseline.baselineDigest);
 });

@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { validateJsonSchema } from '../../../../tools/test-matrix/schema-validator/validate.mjs'
 import {
     blogUiDomainPolicyDigest,
     blogUiStagePolicy as policy,
@@ -214,6 +215,14 @@ function assertReceiptShape(value, schemaTitle, code, receiptPath) {
         }
         fail('blog-ui-receipt-shape', `${receiptPath}.${key}`)
     }
+    return schema
+}
+
+function assertReceiptSchema(value, schema, code) {
+    const errors = validateJsonSchema(value, schema)
+    if (errors.length !== 0) {
+        fail(code, errors.join('\n'))
+    }
 }
 
 function assertBundleShape(value) {
@@ -227,10 +236,18 @@ function assertBundleShape(value) {
         }
         fail('blog-ui-bundle-shape', `bundle.${key}`)
     }
+    for (const key of BUNDLE_KEYS) {
+        if (!Object.hasOwn(value, key)) {
+            fail('blog-ui-bundle-shape', `bundle.${key}`)
+        }
+    }
+    if (typeof value.overlappingImplementationOwner !== 'boolean') {
+        fail('blog-ui-bundle-shape', 'bundle.overlappingImplementationOwner')
+    }
 }
 
 function validateBaseline(input) {
-    assertReceiptShape(
+    const schema = assertReceiptShape(
         input,
         schemaTitles.baseline,
         'blog-ui-baseline-identity',
@@ -261,6 +278,7 @@ function validateBaseline(input) {
             input.dirty !== false)) {
         fail('blog-ui-baseline-identity')
     }
+    assertReceiptSchema(input, schema, 'blog-ui-baseline-identity')
     assertDigest(input, 'baselineDigest', 'blog-ui-baseline-identity')
     return structuredClone(input)
 }
@@ -268,12 +286,13 @@ function validateBaseline(input) {
 function validateClassification(input) {
     assertDomainPolicy(input)
     assertNoOrchestrationFields(input, 'classification')
-    assertReceiptShape(
+    const schema = assertReceiptShape(
         input,
         schemaTitles.classification,
         'blog-ui-authority-binding',
         'classification'
     )
+    assertReceiptSchema(input, schema, 'blog-ui-authority-binding')
     if (input?.schema !==
             'fsusblog-design-conformance.ui-classification-receipt.v2' ||
         input.repository !== 'Ozwasyd/FsusBlog' ||
@@ -307,9 +326,10 @@ function validateClassification(input) {
 }
 
 export function sealBlogUiAdjudication(input, classification) {
+    classification = validateClassification(classification)
     assertDomainPolicy(input)
     assertNoOrchestrationFields(input, 'adjudication')
-    assertReceiptShape(
+    const schema = assertReceiptShape(
         input,
         schemaTitles.adjudication,
         'blog-ui-adjudication-binding',
@@ -360,6 +380,7 @@ export function sealBlogUiAdjudication(input, classification) {
         input.modifiedPaths.length !== 0) {
         fail('blog-ui-adjudicator-read-only')
     }
+    assertReceiptSchema(input, schema, 'blog-ui-adjudication-binding')
     assertDigest(
         input,
         'adjudicationDigest',
@@ -372,12 +393,13 @@ function validateUxAcceptance(input, classification) {
     if (!input) fail('blog-ui-ux-acceptance-required')
     assertDomainPolicy(input)
     assertNoOrchestrationFields(input, 'uxAcceptance')
-    assertReceiptShape(
+    const schema = assertReceiptShape(
         input,
         schemaTitles.uxAcceptance,
         'blog-ui-ux-acceptance-binding',
         'uxAcceptance'
     )
+    assertReceiptSchema(input, schema, 'blog-ui-ux-acceptance-binding')
     if (input.schema !==
             'fsusblog-design-conformance.ux-acceptance-receipt.v2' ||
         input.repository !== 'Ozwasyd/FsusBlog' ||
@@ -708,6 +730,20 @@ export function validateBlogUiBundle(input) {
     const adjudicationClassification = validateClassification(
         input?.adjudicationClassification
     )
+    for (const field of [
+        'issueId',
+        'ownerRepository',
+        'affectedSurfaces',
+        'requiredDesignAuthorities',
+        'fsusUIBaseline',
+        'candidateSha',
+        'candidateIdentityDigest'
+    ]) {
+        if (digest(adjudicationClassification[field]) !==
+            digest(classification[field])) {
+            fail('blog-ui-adjudication-binding', field)
+        }
+    }
     const adjudication = sealBlogUiAdjudication(
         input.adjudication,
         adjudicationClassification
