@@ -138,15 +138,16 @@ try
     await expect(probe('menu')).toBeVisible();
     try
     {
-        await expect(probe('menu')).toBeFocused({ timeout: 1500 });
-        await page.keyboard.press('ArrowDown');
         await expect(probe('english')).toBeFocused({ timeout: 1500 });
         report.observations.keyboardEntry = true;
     }
     catch
     {
         report.observations.keyboardEntry = false;
-        await probe('trigger').click();
+        if (!(await state()).visible)
+        {
+            await probe('trigger').click();
+        }
         await expect(probe('menu')).toBeVisible();
         await probe('english').focus();
     }
