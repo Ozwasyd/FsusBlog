@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs",
+                "src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs"
+            ],
+            "reason": "Bind the canonical source naming surface to this exact property-mapping increment. No environment spelling, private type catalog or style-policy exception is introduced."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve documented caller-visible contract spellings within the existing documentation naming surface. No selector, token or broader path admission is introduced."
+        }
+    ]
+}
