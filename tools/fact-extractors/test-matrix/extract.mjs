@@ -144,6 +144,7 @@ function verifyRuntimeReproducibleBuild(repositoryRoot, runtimeBinding, minimalR
     '--no-incremental', '--disable-build-servers', '--artifacts-path', expectedOutputRoot,
     '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
     runtimeReproduciblePathMapArgument,
+    `/p:FsusBlogCommitSha=${minimalReceipt.sourceCommit}`,
     '/p:NuGetAudit=false', '/m:1'
   ]
   if (!exactKeys(attestation, expectedKeys)
