@@ -112,6 +112,7 @@ export function readBrowserContractOutcomeRunnerBinding({
         exactKeys(releaseReliability, ['environment', 'identityReference'], 'held release reliability context');
         readJson(repositoryRoot, releaseReliability.identityReference);
         reliabilityBinding = readReleaseReliabilityEvidenceBinding({ repositoryRoot, environment: releaseReliability.environment });
+        readJson(repositoryRoot, releaseReliability.identityReference);
         requireCondition(reliabilityBinding !== null, 'release reliability binding is missing');
         requireCondition(releaseReliability.environment.FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH
             === releaseReliability.identityReference.path, 'held reliability identity path mismatch');
@@ -131,7 +132,7 @@ export function readBrowserContractOutcomeRunnerBinding({
 /** Bind an independently held member report to reopened native runner evidence. */
 export function adaptBrowserContractRunnerSemanticOutcome({ repositoryRoot, authority, runnerBinding })
 {
-    const source = readBrowserContractOutcomeRunnerBinding({ repositoryRoot, ...runnerBinding });
+    const source = readBrowserContractOutcomeRunnerBinding({ ...runnerBinding, repositoryRoot });
     same(authority.identity, runnerBinding.expected.identity, 'outcome/runner held identity');
     const reportRef = authority.inputAuthorityRefs.find((reference) => reference.kind === 'browser-contract-report');
     requireCondition(reportRef, 'independently held member report is required');
