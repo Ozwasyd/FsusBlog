@@ -1,0 +1,30 @@
+{
+  "qualificationEligible": false,
+  "testedSha": "16933005a65162e6cce03f817c38757f5a92bb99",
+  "artifacts": [
+    {
+      "path": "final-head-controls.log.gz",
+      "exitCode": 1,
+      "rawSha256": "00f322e58fb7999688a0ddbcc074efb2f166c8c7657c401b4d2bc174eb7f73f1",
+      "compressedSha256": "2f5105af29c6e5746a5fb388ab5647b7e6da3115c227b84800fea287eb789743"
+    },
+    {
+      "path": "final-head-controls-retry.log.gz",
+      "exitCode": 0,
+      "rawSha256": "23f44ff7dadfdef3ad8aed8d7c6ec6cbef67cb12a2952049f554e711f23f1eda",
+      "compressedSha256": "c8658397a9cb99e5d81c93de5334fcc536613c14811515316e548b110afa4908"
+    },
+    {
+      "path": "final-head-owner-repeat.log.gz",
+      "exitCode": 0,
+      "rawSha256": "17fe88d3e4914129ed144be111c9d60cf4d22dd244b5b98a75fd6f06c72d125a",
+      "compressedSha256": "fbf16d5a05ad03eb45ff5879b9778e19b8a42b1f713bfbbb41ba3f7a128c3a80"
+    },
+    {
+      "path": "pr-contract-corrected.log.gz",
+      "exitCode": 1,
+      "rawSha256": "37dfd1607de6d191d909f922fa687be797a08cb89bcb60d17d5466062730e262",
+      "compressedSha256": "d69dad7b6badbd2722a15c5920a2a659a4fe1d1c1d0403780168fe81042fa2e7"
+    }
+  ]
+}
