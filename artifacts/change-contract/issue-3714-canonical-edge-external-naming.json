@@ -34,7 +34,8 @@
                 "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
                 "tools/frontend/style-toolchain/eslint.config.mjs",
                 "tools/governance/change-contract-registry.mjs",
-                "tools/governance/change-contract.mjs"
+                "tools/governance/change-contract.mjs",
+                "tools/frontend/check-frontend-style-source-base.test.mjs"
             ],
             "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         },
