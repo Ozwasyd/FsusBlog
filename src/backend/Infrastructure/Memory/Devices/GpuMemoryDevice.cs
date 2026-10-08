@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Memory.Accounting;
 using FsusBlog.Server.Infrastructure.Memory.Capabilities;
 using FsusBlog.Server.Infrastructure.Memory.Contracts;
+using FsusBlog.Server.Infrastructure.Memory.Platform;
 
 namespace FsusBlog.Server.Infrastructure.Memory.Devices;
 
@@ -8,7 +9,19 @@ public sealed record GpuMemoryDomains(ResourceDomainId Device, ResourceDomainId 
     ResourceDomainId TransferSlots);
 
 public sealed record GpuMemoryLimits(long MaximumAllocationBytes, long StagingAlignmentBytes,
-    int MaximumAllocations, int MaximumStagingBuffers, int MaximumOperations);
+    int MaximumAllocations, int MaximumStagingBuffers, int MaximumOperations)
+{
+    /// <summary>Caller-declared physical device bound reserved before allocation when capacity is observed.</summary>
+    public long? MaximumObservedDeviceCapacityBytes
+    {
+        get; init;
+    }
+    /// <summary>Caller-declared physical staging bound reserved with slots before allocation when capacity is observed.</summary>
+    public long? MaximumObservedStagingCapacityBytes
+    {
+        get; init;
+    }
+}
 
 public sealed record GpuMemorySnapshot(DeviceEpoch Epoch, bool Accepting, bool Faulted,
     int Allocations, int StagingBuffers, int Operations, int QuarantinedOperations, int UncertainReservations, bool RestartRequired);
@@ -61,6 +74,16 @@ public sealed class GpuMemoryDevice : IDisposable
             || limits.StagingAlignmentBytes <= 0 || (limits.StagingAlignmentBytes & (limits.StagingAlignmentBytes - 1)) != 0)
         {
             throw new ArgumentOutOfRangeException(nameof(limits));
+        }
+        if (driver is IGpuMetalAllocationObservation
+            && (limits.MaximumObservedDeviceCapacityBytes is null || limits.MaximumObservedStagingCapacityBytes is null))
+        {
+            throw new ArgumentException("Capacity-observing drivers require explicit physical admission bounds.", nameof(limits));
+        }
+        if (limits.MaximumObservedDeviceCapacityBytes < limits.MaximumAllocationBytes
+            || limits.MaximumObservedStagingCapacityBytes < limits.MaximumAllocationBytes)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limits), "Physical admission bounds must cover the logical allocation limit.");
         }
         // UMA must be represented by the common topology, never treated as extra host capacity.
         if (driver.Identity.SharesHostCapacity
@@ -119,7 +142,9 @@ public sealed class GpuMemoryDevice : IDisposable
             {
                 return MemoryOperationResult<GpuAllocation>.Reject(MemoryFailure.BudgetRejected);
             }
-            MemoryResourceCharge[] vector = [new(_domains.Device, MemoryResourceUnit.Bytes, length)];
+            long admittedCapacity = _driver is IGpuMetalAllocationObservation
+                ? _limits.MaximumObservedDeviceCapacityBytes!.Value : length;
+            MemoryResourceCharge[] vector = [new(_domains.Device, MemoryResourceUnit.Bytes, admittedCapacity)];
             var admission = _ledger.TryReserve(vector);
             if (!admission.Succeeded)
             {
@@ -145,20 +170,60 @@ public sealed class GpuMemoryDevice : IDisposable
                 return MemoryOperationResult<GpuAllocation>.Reject(MemoryFailure.DeviceLost);
             }
             var location = new MemoryLocationToken(new(Guid.NewGuid()), new(Guid.NewGuid()), revision, _epoch);
+            MemoryOperationResult<MemoryAllocationLayout> layout;
+            try
+            {
+                ulong? observed = _driver is IGpuMetalAllocationObservation observer
+                    ? observer.ObservedDeviceCapacity(address) : (ulong)length;
+                layout = ObservedLayout(length, observed, 1);
+            }
+            catch (Exception exception)
+            {
+                RejectUnpublishedDeviceLocked(content, location, address, length, reservation, exception);
+                return MemoryOperationResult<GpuAllocation>.Reject(MemoryFailure.DeviceLost);
+            }
+            if (!layout.Succeeded)
+            {
+                RejectUnpublishedDeviceLocked(content, location, address, length, reservation);
+                return MemoryOperationResult<GpuAllocation>.Reject(layout.Failure!.Value);
+            }
             var descriptor = new MemoryAllocationDescriptor(location.Allocation, _domains.Device,
-                MemoryAllocationLayout.TryCreate(length, length, 1).Value!);
-            var conversion = reservation.CommitPhysical(descriptor, vector);
-            // A conversion failure retains the reservation and native owner, not uncharged backing.
-            var allocation = new GpuAllocation(this, content, location, address, length,
-                conversion.Value, conversion.Succeeded ? null : reservation);
-            _allocations.Add(allocation);
+                layout.Value!);
+            var actual = new MemoryResourceCharge[] { new(_domains.Device, MemoryResourceUnit.Bytes, layout.Value!.CapacityBytes) };
+            var conversion = reservation.CommitPhysical(descriptor, actual);
             if (!conversion.Succeeded)
             {
-                FaultLocked();
-                allocation.Retiring = true;
+                RejectUnpublishedDeviceLocked(content, location, address, length, reservation);
                 return MemoryOperationResult<GpuAllocation>.Reject(conversion.Failure!.Value);
             }
+            var allocation = new GpuAllocation(this, content, location, address, length, conversion.Value, null);
+            _allocations.Add(allocation);
             return MemoryOperationResult<GpuAllocation>.Success(allocation);
+        }
+    }
+
+    private static MemoryOperationResult<MemoryAllocationLayout> ObservedLayout(long length, ulong? capacity, long alignment)
+        => capacity is null or 0 ? MemoryOperationResult<MemoryAllocationLayout>.Reject(MemoryFailure.UnsupportedCapability)
+            : capacity > long.MaxValue ? MemoryOperationResult<MemoryAllocationLayout>.Reject(MemoryFailure.BoundsViolation)
+            : MemoryAllocationLayout.TryCreate(length, (long)capacity.Value, alignment);
+
+    private void RejectUnpublishedDeviceLocked(MemoryContentIdentity content, MemoryLocationToken location,
+        GpuDeviceAddress address, long length, IMemoryReservation reservation, Exception? cause = null)
+    {
+        try
+        {
+            // This resource has never entered DMA. Only a successful native free proves reservation release safe.
+            _driver.FreeDevice(address);
+            reservation.Dispose();
+        }
+        catch (Exception exception)
+        {
+            _allocations.Add(new GpuAllocation(this, content, location, address, length, null, reservation) { Retiring = true });
+            FaultLocked(cause ?? exception);
+        }
+        if (cause is not null)
+        {
+            FaultLocked(cause);
         }
     }
 
@@ -317,15 +382,17 @@ public sealed class GpuMemoryDevice : IDisposable
             }
             long capacity = planned.Value!.CapacityBytes;
             GpuStagingBuffer? staging = _staging.FirstOrDefault(buffer => !buffer.Busy
-                && buffer.Capacity == capacity && buffer.Readback == readback);
+                && buffer.RequestedCapacity == capacity && buffer.Readback == readback);
             if (staging is null && _staging.Count >= _limits.MaximumStagingBuffers)
             {
                 return MemoryOperationResult<GpuTransferOperation>.Reject(MemoryFailure.BudgetRejected);
             }
             // New staging bytes and transfer slots are one all-or-nothing vector. Existing
             // staging is already charged; its pool retention never fabricates free headroom.
+            long admittedCapacity = _driver is IGpuMetalAllocationObservation
+                ? _limits.MaximumObservedStagingCapacityBytes!.Value : capacity;
             MemoryResourceCharge[] vector = staging is null
-                ? [new(_domains.RegisteredHost, MemoryResourceUnit.Bytes, capacity), new(_domains.TransferSlots, MemoryResourceUnit.OperationSlots, 1)]
+                ? [new(_domains.RegisteredHost, MemoryResourceUnit.Bytes, admittedCapacity), new(_domains.TransferSlots, MemoryResourceUnit.OperationSlots, 1)]
                 : [new(_domains.TransferSlots, MemoryResourceUnit.OperationSlots, 1)];
             var admission = _ledger.TryReserve(vector);
             if (!admission.Succeeded)
@@ -336,10 +403,10 @@ public sealed class GpuMemoryDevice : IDisposable
             bool newlyAllocated = staging is null;
             if (staging is null)
             {
+                GpuHostAddress address;
                 try
                 {
-                    staging = new GpuStagingBuffer(_driver.AllocateHost(capacity, readback), capacity, readback);
-                    _staging.Add(staging);
+                    address = _driver.AllocateHost(capacity, readback);
                 }
                 catch (GpuAllocationRejectedException)
                 {
@@ -352,6 +419,25 @@ public sealed class GpuMemoryDevice : IDisposable
                     FaultLocked();
                     return MemoryOperationResult<GpuTransferOperation>.Reject(MemoryFailure.DeviceLost);
                 }
+                MemoryOperationResult<MemoryAllocationLayout> layout;
+                try
+                {
+                    ulong? observed = _driver is IGpuMetalAllocationObservation observer
+                        ? observer.ObservedHostCapacity(address) : (ulong)capacity;
+                    layout = ObservedLayout(allocation.Length, observed, _limits.StagingAlignmentBytes);
+                }
+                catch (Exception exception)
+                {
+                    RejectUnpublishedHostLocked(new(address, capacity, null, readback), reservation, exception);
+                    return MemoryOperationResult<GpuTransferOperation>.Reject(MemoryFailure.DeviceLost);
+                }
+                staging = new(address, capacity, layout.Value, readback);
+                if (!layout.Succeeded || layout.Value!.CapacityBytes > admittedCapacity)
+                {
+                    RejectUnpublishedHostLocked(staging, reservation);
+                    return MemoryOperationResult<GpuTransferOperation>.Reject(layout.Failure ?? MemoryFailure.BudgetRejected);
+                }
+                _staging.Add(staging);
             }
             // This reservation remains an operation owner; on completion its staging
             // bytes are converted to a retained physical charge before returning to pool.
@@ -391,6 +477,26 @@ public sealed class GpuMemoryDevice : IDisposable
                 operation.Finish(MemoryFailure.DeviceLost);
             }
             return MemoryOperationResult<GpuTransferOperation>.Success(operation);
+        }
+    }
+
+    private void RejectUnpublishedHostLocked(GpuStagingBuffer staging, IMemoryReservation reservation, Exception? cause = null)
+    {
+        try
+        {
+            _driver.FreeHost(staging.Address);
+            reservation.Dispose();
+        }
+        catch (Exception exception)
+        {
+            staging.Busy = true;
+            _staging.Add(staging);
+            _uncertainReservations.Add(reservation);
+            FaultLocked(cause ?? exception);
+        }
+        if (cause is not null)
+        {
+            FaultLocked(cause);
         }
     }
 
@@ -649,7 +755,7 @@ public sealed class GpuMemoryDevice : IDisposable
         {
             var vector = new MemoryResourceCharge[] { new(_domains.RegisteredHost, MemoryResourceUnit.Bytes, operation.Staging.Capacity) };
             var descriptor = new MemoryAllocationDescriptor(new(Guid.NewGuid()), _domains.RegisteredHost,
-                MemoryAllocationLayout.TryCreate(operation.Allocation.Length, operation.Staging.Capacity, _limits.StagingAlignmentBytes).Value!);
+                operation.Staging.Layout!);
             var conversion = operation.Reservation.CommitPhysical(descriptor, vector);
             if (!conversion.Succeeded)
             {
@@ -764,10 +870,12 @@ public sealed class GpuMemoryDevice : IDisposable
     }
 }
 
-internal sealed class GpuStagingBuffer(GpuHostAddress address, long capacity, bool readback)
+internal sealed class GpuStagingBuffer(GpuHostAddress address, long requestedCapacity, MemoryAllocationLayout? layout, bool readback)
 {
     public GpuHostAddress Address { get; } = address;
-    public long Capacity { get; } = capacity;
+    public long RequestedCapacity { get; } = requestedCapacity;
+    public MemoryAllocationLayout? Layout { get; } = layout;
+    public long Capacity => Layout?.CapacityBytes ?? throw new InvalidOperationException("Staging capacity is unverified.");
     public bool Readback { get; } = readback;
     public bool Busy
     {
