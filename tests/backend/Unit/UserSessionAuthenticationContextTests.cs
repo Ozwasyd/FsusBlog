@@ -57,8 +57,17 @@ public sealed class UserSessionAuthenticationContextTests
     {
         Assert.False(default(UserSessionAuthenticationContext).IsValid());
         var valid = new UserSessionAuthenticationContext("passkey", "webauthn_uv", DateTime.UnixEpoch, 17);
-        Assert.False((valid with { AuthenticatedAtUtc = default }).IsValid());
-        Assert.False((valid with { DurationPolicy = "unknown" }).IsValid());
-        Assert.False((valid with { SessionMode = (UserSessionMode)99 }).IsValid());
+        Assert.False((valid with
+        {
+            AuthenticatedAtUtc = default
+        }).IsValid());
+        Assert.False((valid with
+        {
+            DurationPolicy = "unknown"
+        }).IsValid());
+        Assert.False((valid with
+        {
+            SessionMode = (UserSessionMode)99
+        }).IsValid());
     }
 }

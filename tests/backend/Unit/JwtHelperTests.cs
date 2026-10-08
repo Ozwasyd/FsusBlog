@@ -266,7 +266,10 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_CurrentMfaContext_SetsMfaClaim1()
     {
         var helper = CreateHelper();
-        string token = helper.GenerateAccessToken(TestUser(), null, CurrentContext() with { Strength = UserSessionAuthenticationStrengths.Mfa });
+        string token = helper.GenerateAccessToken(TestUser(), null, CurrentContext() with
+        {
+            Strength = UserSessionAuthenticationStrengths.Mfa
+        });
 
         var claims = ParseClaims(token);
         var mfa = claims.FirstOrDefault(c => c.Type == "mfa");

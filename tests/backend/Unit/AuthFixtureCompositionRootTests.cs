@@ -287,7 +287,10 @@ public sealed class AuthFixtureCompositionRootTests
         };
         PasskeyRegisterCompleteCoreModel registration = await authenticator.CreateRegistrationAsync(
             registrationOptions, "fxauth-allowlist", CancellationToken.None);
-        registrationOptions = registrationOptions with { ExcludeCredentials = [new(0, registration.RawId, [])] };
+        registrationOptions = registrationOptions with
+        {
+            ExcludeCredentials = [new(0, registration.RawId, [])]
+        };
 
         InvalidOperationException excluded = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             authenticator.CreateRegistrationAsync(registrationOptions, "fxauth-allowlist", CancellationToken.None));
@@ -302,7 +305,11 @@ public sealed class AuthFixtureCompositionRootTests
         };
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             authenticator.CreateAssertionAsync(assertionOptions, "fxauth-allowlist", CancellationToken.None));
-        assertionOptions = assertionOptions with { AllowCredentials = [], RpId = "another.example.test" };
+        assertionOptions = assertionOptions with
+        {
+            AllowCredentials = [],
+            RpId = "another.example.test"
+        };
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             authenticator.CreateAssertionAsync(assertionOptions, "fxauth-allowlist", CancellationToken.None));
     }

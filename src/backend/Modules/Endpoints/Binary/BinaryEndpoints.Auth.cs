@@ -1256,7 +1256,10 @@ public static partial class BinaryEndpoints
                     httpContext.GetClientIp(),
                     deviceFp,
                     httpContext.GetUserAgent(),
-                    authenticationContext: initialAuthentication with { Strength = UserSessionAuthenticationStrengths.Mfa },
+                    authenticationContext: initialAuthentication with
+                    {
+                        Strength = UserSessionAuthenticationStrengths.Mfa
+                    },
                     cancellationToken: cancellationToken);
                 if (!login.Success || login.Data == null || login.User == null)
                 {
