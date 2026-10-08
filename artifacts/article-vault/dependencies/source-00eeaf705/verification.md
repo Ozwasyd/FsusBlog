@@ -22,7 +22,7 @@ Commands used `source /workspace/.setup/activate.sh` for the configured SDK.
 | --- | --- |
 | `dotnet build src/shared/FsusBlog.Shared.csproj --no-restore -v:q` | Build succeeds; inherited analyzer warnings remain. |
 | `dotnet format whitespace src/shared/FsusBlog.Shared.csproj --no-restore --include` followed by the four owned dependency C# paths | Succeeds; only owned files selected. |
-| `dotnet format whitespace tests/backend/FsusBlog.Server.Tests.csproj --no-restore --include tests/backend/Unit/PortableDependencyManifestTests.cs tests/backend/Unit/ArticleVaultAssetValidationTests.cs` | Selected new tests format clean. |
+| `dotnet format whitespace tests/backend/FsusBlog.Server.Tests.csproj --no-restore --verify-no-changes --include tests/backend/Unit/PortableDependencyManifestTests.cs tests/backend/Unit/ArticleVaultAssetValidationTests.cs` | Selected new tests format clean. |
 | `dotnet test /tmp/issues-2124-2125/focused/DependencyFocused.csproj --no-restore --logger 'trx;LogFileName=dependency-focused.trx' --results-directory /tmp/issues-2124-2125/results -v:q` | **32 passed, 0 failed, 0 skipped**; original new portable test source compiled against actual Shared project. Diagnostic project only. |
 | `dotnet test /tmp/issues-2124-2125/assets-current/AssetCurrent.csproj --no-restore --logger 'trx;LogFileName=assets-current.trx' --results-directory /tmp/issues-2124-2125/results -v:q` | **42 passed, 0 failed, 0 skipped**; original new asset test source uses the actual full backend DLL compiled from the composed candidate. Diagnostic project only. |
 | `node tools/governance/check-article-vault-dependency-boundary.mjs` | Succeeds on the actual owned adapters. |
