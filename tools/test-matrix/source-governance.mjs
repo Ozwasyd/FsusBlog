@@ -9,6 +9,7 @@ import { inspectReleaseFinalCommandTarget, validateReleaseFinalStaticBoundary, v
 import { snapshotGitWorktree } from './scheduler.mjs';
 const { parseWorkflowJobNeeds } = await import(new URL('../yaml/workflow-structure.mjs', import.meta.url));
 const { validateSolutionSourceReceipt, validatePythonSourceReceipt } = await import(new URL('../configuration/check-solution-source.mjs', import.meta.url));
+const { validateBlameIgnoreSourceReceipt } = await import(new URL('./blame-ignore-source.mjs', import.meta.url));
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const plan = JSON.parse(fs.readFileSync(path.join(root, '.tmp/pr-plan.json'), 'utf8'));
@@ -59,6 +60,7 @@ const groups = [
 const results = [];
 const checkedSolutions = [];
 const checkedPython = [];
+let blameIgnoreReceipt = null;
 if (effectivePrExecutionStage(callerContext) === 'source-integration')
 {
     const solutions = files.filter(file => file.endsWith('.slnx'));
@@ -181,7 +183,35 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration')
             process.exitCode = 1;
         }
     }
-    const unsupported = unsupportedSourceStageFiles(files, checkedSolutions, checkedPython);
+    if (evidence.changedFiles.includes('.git-blame-ignore-revs'))
+    {
+        const checker = sourceGovernanceChildEntries.blameIgnore;
+        verifyChildBeforeSpawn(checker);
+        const result = spawnSync(process.execPath, [checker, '--root', root,
+            '--base', evidence.baseCommit, '--head', evidence.headCommit], { cwd: root, encoding: 'utf8' });
+        let receipt;
+        let bindingError = null;
+        try
+        {
+            receipt = JSON.parse(result.stdout ?? '');
+            if (result.error || result.status !== 0)
+            {
+                throw new Error('original blame history source validation failed');
+            }
+            validateBlameIgnoreSourceReceipt({ repositoryRoot: root, trustedBaseCommit: evidence.baseCommit,
+                expectedHead: evidence.headCommit, receipt });
+            blameIgnoreReceipt = receipt;
+        }
+        catch (error)
+        {
+            bindingError = error.message;
+            process.exitCode = 1;
+        }
+        results.push({ checker, mode: 'previous-trusted-format-history', files: ['.git-blame-ignore-revs'],
+            exitCode: result.status, status: blameIgnoreReceipt ? 'success' : 'failure', qualificationEligible: false,
+            receipt, stderr: result.stderr ?? '', spawnError: result.error?.message ?? null, bindingError });
+    }
+    const unsupported = unsupportedSourceStageFiles(files, checkedSolutions, checkedPython, blameIgnoreReceipt);
     if (unsupported.length)
     {
         results.push({ checker: 'unsupported-source-stage-language', files: unsupported,
