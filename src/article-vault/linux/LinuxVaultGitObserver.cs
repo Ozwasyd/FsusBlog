@@ -50,9 +50,11 @@ public sealed class LinuxVaultGitObserver
     {
         VerifyRoot();
         ImmutableArray<VaultGitSourceFacts> sources = CaptureSources(admittedSources);
+        using var observationDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        observationDeadline.CancelAfter(TimeSpan.FromSeconds(10));
         try
         {
-            CommandOutput root = await RunAsync(GitReadCommand.RepositoryRoot, cancellationToken).ConfigureAwait(false);
+            CommandOutput root = await RunAsync(GitReadCommand.RepositoryRoot, observationDeadline.Token).ConfigureAwait(false);
             if (root.ExitCode != 0)
             {
                 return Seal(VaultGitAvailability.NotPresent, sources);
@@ -64,11 +66,11 @@ public sealed class LinuxVaultGitObserver
                 return Seal(VaultGitAvailability.Blocked, sources);
             }
 
-            GitSnapshot before = await CaptureGitAsync(cancellationToken).ConfigureAwait(false);
-            GitSnapshot after = await CaptureGitAsync(cancellationToken).ConfigureAwait(false);
+            GitSnapshot before = await CaptureGitAsync(observationDeadline.Token).ConfigureAwait(false);
+            GitSnapshot after = await CaptureGitAsync(observationDeadline.Token).ConfigureAwait(false);
             VerifyRoot();
             if (before.HeadSha256 != after.HeadSha256 || before.WorktreeSha256 != after.WorktreeSha256
-                || before.VersionSha256 != after.VersionSha256 || before.Index != after.Index
+                || before.VersionSha256 != after.VersionSha256 || before.ConfigSha256 != after.ConfigSha256 || before.Index != after.Index
                 || before.Status.ContentSha256 != after.Status.ContentSha256
                 || !before.Operations.SequenceEqual(after.Operations))
             {
@@ -81,11 +83,27 @@ public sealed class LinuxVaultGitObserver
         {
             return Seal(VaultGitAvailability.NotPresent, sources);
         }
-        catch (GitObservationException)
+        catch (GitObservationException exception)
+        {
+            return Seal(VaultGitAvailability.Blocked, sources, reasonCode: exception.ReasonCode);
+        }
+        catch (InvalidDataException)
         {
             return Seal(VaultGitAvailability.Blocked, sources);
         }
-        catch (InvalidDataException)
+        catch (IOException)
+        {
+            return Seal(VaultGitAvailability.Blocked, sources);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Seal(VaultGitAvailability.Blocked, sources);
+        }
+        catch (DecoderFallbackException)
+        {
+            return Seal(VaultGitAvailability.Blocked, sources);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return Seal(VaultGitAvailability.Blocked, sources);
         }
@@ -119,6 +137,7 @@ public sealed class LinuxVaultGitObserver
         }
 
         var sources = ImmutableArray.CreateBuilder<VaultGitSourceFacts>();
+        long sourceBytes = 0;
         foreach (ArticleVaultAdmittedSource proof in proofs.OrderBy(static source => source.Binding.PortableArticleIdentity, StringComparer.Ordinal))
         {
             VaultConflictBinding binding = proof.Binding;
@@ -130,6 +149,12 @@ public sealed class LinuxVaultGitObserver
                 throw new InvalidDataException("article_vault_git_source_binding_drift");
             }
 
+            sourceBytes += binding.Coordinates.Local.Source!.ByteLength;
+            if (sourceBytes > ArticleVaultGitFactDecoder.MaxSourceBytes)
+            {
+                throw new InvalidDataException("article_vault_git_source_batch_limit");
+            }
+
             byte[] bytes = proof.CopyLocalBytes();
             sources.Add(new(binding.PortableArticleIdentity, Digest(bytes), ArticleVaultGitFactDecoder.FindMarkers(bytes)));
         }
@@ -139,12 +164,21 @@ public sealed class LinuxVaultGitObserver
 
     private async Task<GitSnapshot> CaptureGitAsync(CancellationToken cancellationToken)
     {
+        CommandOutput configNames = await RequiredAsync(GitReadCommand.ConfigNames, cancellationToken).ConfigureAwait(false);
+        CommandOutput configValues = await RunAsync(GitReadCommand.ConfigValues, cancellationToken).ConfigureAwait(false);
+        if (configValues.ExitCode is not (0 or 1))
+        {
+            throw new GitObservationException();
+        }
+
+        string configDigest = ArticleVaultGitFactDecoder.DecodeConfiguration(configNames.Bytes, configValues.Bytes);
         CommandOutput head = await RunAsync(GitReadCommand.Head, cancellationToken).ConfigureAwait(false);
         if (head.ExitCode is not (0 or 1) || head.ExitCode == 0 && !ArticleVaultGitFactDecoder.IsObjectId(Line(head.Bytes)))
         {
             throw new GitObservationException();
         }
 
+        RequireReadOnlyConfigurationAdmission();
         CommandOutput status = await RequiredAsync(GitReadCommand.Status, cancellationToken).ConfigureAwait(false);
         CommandOutput index = await RequiredAsync(GitReadCommand.Index, cancellationToken).ConfigureAwait(false);
         CommandOutput gitDirectory = await RequiredAsync(GitReadCommand.GitDirectory, cancellationToken).ConfigureAwait(false);
@@ -186,7 +220,7 @@ public sealed class LinuxVaultGitObserver
             }
         }
 
-        return new(Digest(head.Bytes), Digest(gitDirectory.Bytes), Digest(version.Bytes),
+        return new(Digest(head.Bytes), Digest(gitDirectory.Bytes), Digest(version.Bytes), configDigest,
             ArticleVaultGitFactDecoder.DecodeIndex(index.Bytes), ArticleVaultGitFactDecoder.DecodeStatus(status.Bytes),
             operations.Distinct().Order().ToImmutableArray());
     }
@@ -195,17 +229,18 @@ public sealed class LinuxVaultGitObserver
         VaultGitAvailability availability,
         ImmutableArray<VaultGitSourceFacts> sources,
         GitSnapshot? git = null,
-        string? repositoryRootSha256 = null)
+        string? repositoryRootSha256 = null,
+        string? reasonCode = null)
     {
         ImmutableArray<VaultGitOperation> operations = git?.Operations ?? [];
         ArticleVaultGitFacts facts = new(ArticleVaultGitFactDecoder.Schema, 1, _scope, availability,
             availability switch
             {
                 VaultGitAvailability.NotPresent => "git-not-present",
-                VaultGitAvailability.Blocked => "git-observation-blocked",
+                VaultGitAvailability.Blocked => reasonCode ?? "git-observation-blocked",
                 _ => null
             }, repositoryRootSha256, git?.WorktreeSha256, git?.HeadSha256, git?.VersionSha256,
-            git is null ? null : Digest(Encoding.UTF8.GetBytes(string.Join('\0', s_commandPolicy))),
+            git is null ? null : Digest(Encoding.UTF8.GetBytes(git.ConfigSha256 + "\0" + string.Join('\0', s_commandPolicy))),
             git?.Index, git?.Status, operations, sources,
             ArticleVaultGitFactDecoder.ComputeWorktreeSha256(sources),
             ArticleVaultGitFactDecoder.ComputeOperationSha256(operations), string.Empty);
@@ -243,6 +278,8 @@ public sealed class LinuxVaultGitObserver
             GitReadCommand.Status => ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=all"],
             GitReadCommand.Index => ["ls-files", "--stage", "-z"],
             GitReadCommand.Version => ["--version"],
+            GitReadCommand.ConfigNames => ["config", "--null", "--name-only", "--list"],
+            GitReadCommand.ConfigValues => ["config", "--null", "--get-regexp", "^(core\\.(repositoryformatversion|bare|ignorecase|filemode)|extensions\\.objectformat)$"],
             GitReadCommand.MergeHead => OperationPath("MERGE_HEAD"),
             GitReadCommand.RebaseMerge => OperationPath("rebase-merge"),
             GitReadCommand.RebaseApply => OperationPath("rebase-apply"),
@@ -320,6 +357,15 @@ public sealed class LinuxVaultGitObserver
 
     private static string[] OperationPath(string name) => ["rev-parse", "--path-format=absolute", "--git-path", name];
 
+    private static void RequireReadOnlyConfigurationAdmission()
+    {
+        // status may invoke clean/process filters when hashing changed worktree bytes. Config
+        // preflight alone cannot prevent a concurrent external editor from introducing a new filter.
+        // The native owner must provide a frozen config or descendant-exec isolation capability;
+        // until then even a clean transcript cannot authorize running status against a live config.
+        throw new GitObservationException("git-readonly-configuration-admission-missing");
+    }
+
     private static string Line(byte[] bytes)
     {
         if (bytes.Length is 0 or > 4096 || bytes[^1] != '\n' || bytes[..^1].Contains((byte)'\n') || bytes.Contains((byte)0))
@@ -334,7 +380,7 @@ public sealed class LinuxVaultGitObserver
 
     private enum GitReadCommand
     {
-        RepositoryRoot, GitDirectory, Head, Status, Index, Version,
+        RepositoryRoot, GitDirectory, Head, Status, Index, Version, ConfigNames, ConfigValues,
         MergeHead, RebaseMerge, RebaseApply, CherryPickHead, RevertHead, BisectStart, Sequencer
     }
 
@@ -344,9 +390,13 @@ public sealed class LinuxVaultGitObserver
         string HeadSha256,
         string WorktreeSha256,
         string VersionSha256,
+        string ConfigSha256,
         VaultGitIndexFacts Index,
         VaultGitStatusFacts Status,
         ImmutableArray<VaultGitOperation> Operations);
 
-    private sealed class GitObservationException : Exception;
+    private sealed class GitObservationException(string reasonCode = "git-observation-blocked") : Exception
+    {
+        public string ReasonCode { get; } = reasonCode;
+    }
 }

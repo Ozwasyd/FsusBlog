@@ -40,6 +40,26 @@ public sealed class ArticleVaultGitFactsTests
     }
 
     [Theory]
+    [InlineData("filter.private.clean")]
+    [InlineData("filter.private.process")]
+    [InlineData("diff.private.command")]
+    [InlineData("diff.private.textconv")]
+    [InlineData("merge.private.driver")]
+    public void Configuration_RejectsExternalFiltersAndDriversBeforeStatus(string key)
+        => Assert.Throws<InvalidDataException>(() => ArticleVaultGitFactDecoder.DecodeConfiguration(
+            Encoding.UTF8.GetBytes(key + "\0"), []));
+
+    [Fact]
+    public void Configuration_BindsFiniteRelevanceWithoutReadingRemoteOrCredentialValues()
+    {
+        string digest = ArticleVaultGitFactDecoder.DecodeConfiguration(
+            "core.filemode\0remote.origin.url\0credential.helper\0alias.sync\0"u8, "core.filemode\ntrue\0"u8);
+        Assert.NotEqual(digest, ArticleVaultGitFactDecoder.DecodeConfiguration("core.filemode\0"u8, "core.filemode\nfalse\0"u8));
+        Assert.Throws<InvalidDataException>(() => ArticleVaultGitFactDecoder.DecodeConfiguration(
+            "core.filemode\0"u8, "core.filemode\nsecret-value\0"u8));
+    }
+
+    [Theory]
     [InlineData("?? missing-terminator")]
     [InlineData("XX unknown\0")]
     [InlineData("?? ../escape\0")]
