@@ -4,10 +4,11 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 export const articleWritingAidPolicyPath = 'src/frontend/src/services/authoring/articleWritingAidPolicy.ts';
+export const articleWritingAidRuntimePath = 'src/frontend/src/services/authoring/articleWritingAidRuntime.ts';
 
 const forbidden = [
     ['private-dom', /\b(?:querySelector(?:All)?|getElementById|MutationObserver|ResizeObserver)\b/u],
-    ['scroll-kernel', /\b(?:scrollIntoView|scrollTo|scrollTop|requestAnimationFrame|setInterval)\b/u],
+    ['scroll-kernel', /\b(?:scrollIntoView|scrollTo|scrollTop|requestAnimationFrame|setInterval|setTimeout)\b/u],
     ['second-runtime', /\b(?:createWritingAidsController|calculateTypewriterScrollTarget|resolveFocusState|calculateMarkdownSourceAnchorY)\b/u],
     ['local-authority', /\b(?:localStorage|sessionStorage|indexedDB|createArticleDocumentContextAdapter|new ArticleDocumentContextAuthority)\b/u],
     ['surface-coupling', /\b(?:mode|surface|documentEpoch|sourceRevision|content|history)\s*:/u],
@@ -32,9 +33,29 @@ export function inspectArticleWritingAidPolicy(source)
     return failures;
 }
 
+export function inspectArticleWritingAidRuntime(source)
+{
+    const failures = forbidden.filter(([, pattern]) => pattern.test(source)).map(([name]) => name);
+    if (!/binding\.positionBinding\(\)/u.test(source)
+        || !/documentOwner\.isCurrentContext\(position\.document\)/u.test(source)
+        || !/documentOwner\.isCurrentContext\(document\)/u.test(source))
+    {
+        failures.push('runtime-document-owner');
+    }
+    if (!/binding\.anchors\.userIntent\.state/u.test(source)
+        || !/return binding\.anchors\.resume\(reason, now\)/u.test(source))
+    {
+        failures.push('runtime-intent-owner');
+    }
+    return failures;
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    const failures = inspectArticleWritingAidPolicy(readFileSync(path.join(root, articleWritingAidPolicyPath), 'utf8'));
+    const failures = [
+        ...inspectArticleWritingAidPolicy(readFileSync(path.join(root, articleWritingAidPolicyPath), 'utf8')),
+        ...inspectArticleWritingAidRuntime(readFileSync(path.join(root, articleWritingAidRuntimePath), 'utf8'))
+    ];
     console.log(`[article-writing-aids-governance] scoped-source failures=${failures.length}`);
     for (const failure of failures)
     {

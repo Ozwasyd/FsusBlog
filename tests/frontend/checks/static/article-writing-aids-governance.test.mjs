@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 import {
     articleWritingAidPolicyPath,
-    inspectArticleWritingAidPolicy
+    articleWritingAidRuntimePath,
+    inspectArticleWritingAidPolicy,
+    inspectArticleWritingAidRuntime
 } from './check-article-writing-aids-governance.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -44,4 +46,27 @@ test('refuses removal of public prop types', () =>
 {
     const mutation = source.replace("from '@ozwasyd/element-plus';", "from './private-runtime';");
     assert.ok(inspectArticleWritingAidPolicy(mutation).includes('public-props-type'));
+});
+
+const runtime = readFileSync(path.join(root, articleWritingAidRuntimePath), 'utf8');
+test('actual runtime consumer retains sole binding and intent owners', () =>
+{
+    assert.deepEqual(inspectArticleWritingAidRuntime(runtime), []);
+});
+
+for (const [name, before, after] of [
+    ['runtime-document-owner', 'documentOwner.isCurrentContext(position.document)', 'true'],
+    ['runtime-intent-owner', 'binding.anchors.userIntent.state', "'automatic'"],
+    ['runtime-intent-owner', 'return binding.anchors.resume(reason, now)', 'return true']
+])
+{
+    test(`refuses runtime authority replacement: ${before}`, () =>
+    {
+        assert.ok(inspectArticleWritingAidRuntime(runtime.replace(before, after)).includes(name));
+    });
+}
+
+test('refuses an independent resume timer in the runtime consumer', () =>
+{
+    assert.ok(inspectArticleWritingAidRuntime(`${runtime}\nsetTimeout(() => {}, 1200);\n`).includes('scroll-kernel'));
 });
