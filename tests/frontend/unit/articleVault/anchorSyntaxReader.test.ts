@@ -65,6 +65,10 @@ describe('Vault public anchor grammar consumption', () => {
             ...snapshot,
             anchors: [{ ...snapshot.anchors[0]!, start: 0 }]
         })).toBe(false);
+        expect(await verifyVaultAnchorSyntax(source, binding, {
+            ...snapshot,
+            anchors: Array(snapshot.anchors.length)
+        })).toBe(false);
     });
 
     it('rebuilds deletion from source rather than retaining the previous target', async () => {

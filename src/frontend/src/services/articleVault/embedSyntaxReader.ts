@@ -58,18 +58,18 @@ export async function verifyVaultEmbedSyntax(source: string, expectedSourceSha25
     const actual = await readVaultEmbedSyntax(source, expectedSourceSha256);
     return candidate.sourceSha256 === actual.sourceSha256 && candidate.valid === actual.valid
         && candidate.directives.length === actual.directives.length
-        && candidate.directives.every((directive, index) =>
+        && actual.directives.every((checked, index) =>
         {
-            const checked = actual.directives[index];
-            return checked !== undefined && directive.parserContract === checked.parserContract
-                && directive.targetToken === checked.targetToken && directive.mode === checked.mode
-                && directive.start === checked.start && directive.end === checked.end;
+            const directive = candidate.directives[index];
+            return directive?.parserContract === checked.parserContract
+                && directive?.targetToken === checked.targetToken && directive?.mode === checked.mode
+                && directive?.start === checked.start && directive?.end === checked.end;
         })
         && candidate.diagnostics.length === actual.diagnostics.length
-        && candidate.diagnostics.every((diagnostic, index) =>
+        && actual.diagnostics.every((checked, index) =>
         {
-            const checked = actual.diagnostics[index];
-            return checked !== undefined && diagnostic.code === checked.code
-                && diagnostic.start === checked.start && diagnostic.end === checked.end;
+            const diagnostic = candidate.diagnostics[index];
+            return diagnostic?.code === checked.code
+                && diagnostic?.start === checked.start && diagnostic?.end === checked.end;
         });
 }
