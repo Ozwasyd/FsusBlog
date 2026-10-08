@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 using Microsoft.Win32.SafeHandles;
@@ -14,7 +13,7 @@ internal static class WindowsDirectoryChangesNative
     private const uint NotifyFilter = 0x1 | 0x2 | 0x4 | 0x8 | 0x10 | 0x40 | 0x100;
 
     internal static unsafe void Observe(SafeFileHandle directory, int bufferBytes,
-        CancellationToken cancellationToken, Action<byte[]> receive, Action<int> failure)
+        CancellationToken cancellationToken, Action<byte[]> receive, Action<int> failure, Action operationQueued)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -29,9 +28,10 @@ internal static class WindowsDirectoryChangesNative
         }
 
         nint buffer = Marshal.AllocHGlobal(bufferBytes);
-        nint operation = Marshal.AllocHGlobal(sizeof(NativeOverlapped));
+        nint operation = 0;
         try
         {
+            operation = Marshal.AllocHGlobal(sizeof(NativeOverlapped));
             while (!cancellationToken.IsCancellationRequested)
             {
                 *(NativeOverlapped*)operation = new NativeOverlapped
@@ -57,6 +57,7 @@ internal static class WindowsDirectoryChangesNative
                 // Dispose registration before freeing OVERLAPPED/buffer; drain cancelled I/O before reuse.
                 using (cancellationToken.Register(() => CancelOperation(directory, operation)))
                 {
+                    operationQueued();
                     if (!GetOperationResult(directory, operation, out uint bytesTransferred, true))
                     {
                         error = Marshal.GetLastPInvokeError();

@@ -45,7 +45,8 @@ internal sealed class WindowsVaultFactBuffer
                 5 => WindowsVaultFactClass.RenameNewName,
                 _ => WindowsVaultFactClass.Unknown
             };
-            bool blocked = admission.Disposition == WindowsVaultPathDisposition.Blocked;
+            bool blocked = admission.Disposition is not (WindowsVaultPathDisposition.Source
+                or WindowsVaultPathDisposition.MissingEntry);
             string? reason = blocked ? admission.ReasonCode ?? "windows_vault_path_blocked"
                 : factClass == WindowsVaultFactClass.Unknown ? "windows_vault_native_action_unknown" : null;
             if (reason is not null)
@@ -56,7 +57,8 @@ internal sealed class WindowsVaultFactBuffer
             Enqueue(Create(record.Action, blocked ? WindowsVaultFactClass.SecurityBlocked : factClass,
                 record.Action is 2 or 4 ? record.RelativePath : null,
                 record.Action is 2 or 4 ? null : record.RelativePath,
-                admission.Disposition, null, reason, blocked || factClass == WindowsVaultFactClass.Unknown));
+                blocked ? WindowsVaultPathDisposition.Blocked : admission.Disposition,
+                null, reason, blocked || factClass == WindowsVaultFactClass.Unknown));
         }
     }
 
