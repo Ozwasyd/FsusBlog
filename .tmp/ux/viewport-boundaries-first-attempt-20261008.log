@@ -1,0 +1,9 @@
+
+> fsusblog-client@0.0.0 check:ux:viewport-boundaries
+> npm run verify:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_UX_VIEWPORT_MODE=boundaries FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,webkit} FSUSBLOG_UX_VIEWPORT_SCREENSHOTS=${FSUSBLOG_UX_VIEWPORT_SCREENSHOTS:-0} FSUSBLOG_UX_VIEWPORT_WORKERS=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs ux-viewport-boundaries`}} PLAYWRIGHT_OUTPUT_DIR=${PLAYWRIGHT_OUTPUT_DIR:-test-results/playwright/ux-viewport-boundaries} node ../../tests/frontend/checks/ux/run-ux-viewport-playwright.mjs boundaries
+
+
+> fsusblog-client@0.0.0 verify:wasm
+> node ../../tools/frontend/ensure-wasm.mjs status
+
+[ensure-wasm] stale: WASM build receipt source identity mismatch: commit

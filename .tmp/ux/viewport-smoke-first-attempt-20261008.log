@@ -1,0 +1,9 @@
+
+> fsusblog-client@0.0.0 check:ux:viewport-smoke
+> npm run verify:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_UX_VIEWPORT_MODE=smoke FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,webkit} FSUSBLOG_PLAYWRIGHT_SHARD_ARG=${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} FSUSBLOG_UX_VIEWPORT_WORKERS=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs ux-viewport-smoke`}} PLAYWRIGHT_OUTPUT_DIR=${PLAYWRIGHT_OUTPUT_DIR:-test-results/playwright/ux-viewport-smoke} node ../../tests/frontend/checks/ux/run-ux-viewport-playwright.mjs smoke
+
+
+> fsusblog-client@0.0.0 verify:wasm
+> node ../../tools/frontend/ensure-wasm.mjs status
+
+[ensure-wasm] stale: WASM build receipt source identity mismatch: commit

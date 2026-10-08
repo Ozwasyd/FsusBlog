@@ -1,0 +1,5 @@
+
+> fsusblog-client@0.0.0 check:document-viewport-source
+> node ../../tests/frontend/checks/static/check-document-viewport-source.mjs
+
+[check-document-viewport-source] ok source=1 dist=absent mutations=3

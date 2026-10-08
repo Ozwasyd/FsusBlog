@@ -1,0 +1,25 @@
+
+> fsusblog-client@0.0.0 check:ux:viewport-smoke
+> npm run verify:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_UX_VIEWPORT_MODE=smoke FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,webkit} FSUSBLOG_PLAYWRIGHT_SHARD_ARG=${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} FSUSBLOG_UX_VIEWPORT_WORKERS=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs ux-viewport-smoke`}} PLAYWRIGHT_OUTPUT_DIR=${PLAYWRIGHT_OUTPUT_DIR:-test-results/playwright/ux-viewport-smoke} node ../../tests/frontend/checks/ux/run-ux-viewport-playwright.mjs smoke
+
+
+> fsusblog-client@0.0.0 verify:wasm
+> node ../../tools/frontend/ensure-wasm.mjs status
+
+[ensure-wasm] fresh: receipt-bound sha256:1718b087e1edcd5b2363356236d692cf512a60f67c52a66d968cd51cf0f93474
+[playwright-workers] profile=ux-viewport-smoke hostCpus=4 grantedCpus=4.00 grantedMemoryGiB=16.34 memAvailableGiB=16.3 load1=0.86 cpuBusyCpus=0.81 workers=3
+Error: managed browser is missing: /home/agent/.cache/ms-playwright/chromium-1217/chrome-linux64/chrome
+    at executableIdentity (file:///workspace/FsusBlog/tools/test/playwright-browser-identity.mjs:186:15)
+    at createCorrectnessBrowserPlan (file:///workspace/FsusBlog/tools/test/playwright-browser-identity.mjs:270:24)
+    at map (file:///workspace/FsusBlog/src/frontend/playwright.config.ts:132:10)
+    at Array.map (<anonymous>)
+    at file:///workspace/FsusBlog/src/frontend/playwright.config.ts:128:37
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at node:internal/modules/esm/loader:643:26
+    at requireOrImport (/workspace/FsusBlog/src/frontend/node_modules/playwright/lib/transform/transform.js:216:12)
+    at loadUserConfig (/workspace/FsusBlog/src/frontend/node_modules/playwright/lib/common/configLoader.js:107:46)
+    at loadConfig (/workspace/FsusBlog/src/frontend/node_modules/playwright/lib/common/configLoader.js:119:22)
+    at loadConfigFromFile (/workspace/FsusBlog/src/frontend/node_modules/playwright/lib/common/configLoader.js:331:10)
+    at runTests (/workspace/FsusBlog/src/frontend/node_modules/playwright/lib/testActions.js:51:18)
+    at i.<anonymous> (/workspace/FsusBlog/src/frontend/node_modules/playwright/lib/program.js:56:7)
+[ux-viewport-runner] summary failed: ENOENT: no such file or directory, open '/workspace/FsusBlog/.tmp/ux/current-smoke-run.json'
