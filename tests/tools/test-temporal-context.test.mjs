@@ -423,6 +423,16 @@ test('business epoch ingress preserves valid leap century and boundary dates', (
     }
 });
 
+test('advancement cannot leave the backend calendar range or alter the admitted instant on rejection', () =>
+{
+    const businessEpochUtc = '9999-12-31T23:59:59.999Z';
+    const wall = createBusinessWallClock(qualificationTemporalContext({ ...identity, businessEpochUtc }));
+    assert.throws(() => wall.advanceMs(1),
+        (error) => error instanceof TemporalContractError && error.reasonCode === 'temporal.context-invalid');
+    assert.equal(wall.nowIso(), businessEpochUtc);
+    assert.equal(wall.advanceMs(0), businessEpochUtc);
+});
+
 test('business epoch ingress rejects nonzero submillisecond digits before clock construction', () =>
 {
     for (const businessEpochUtc of [

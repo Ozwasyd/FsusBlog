@@ -301,6 +301,10 @@ export function formatBusinessEpochUtc(ms, minimumFractionDigits = 3)
         fail('temporal.context-invalid', 'business wall clock instant is outside the ECMAScript range');
     }
     const instant = actualInstant.toISOString();
+    if (!/^\d{4}-/u.test(instant) || instant.startsWith('0000-'))
+    {
+        fail('temporal.context-invalid', 'business wall clock instant is outside the backend calendar range');
+    }
     const [whole, fraction] = instant.slice(0, -1).split('.');
     const significantFraction = fraction.replace(/0+$/u, '');
     const formattedFraction = significantFraction.padEnd(

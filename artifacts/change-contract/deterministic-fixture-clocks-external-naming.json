@@ -7,7 +7,8 @@
                 "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
                 "tools/data-scale/comment-id-plan.mjs",
                 "tools/test/data-scale-runtime-owner.mjs",
-                "tools/test/temporal-context-contract.mjs"
+                "tools/test/temporal-context-contract.mjs",
+                "tools/test/temporal-context.mjs"
             ],
             "reason": "Preserve existing registered test environment contract keys while enforcing exact UTC fixture ingress and owned runtime teardown; internal clock and resource bindings retain their existing source owner names."
         }
