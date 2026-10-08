@@ -78,8 +78,14 @@ public sealed class DocumentExportContractTests
         Assert.Equal(provider.FormatId, task.FormatId);
         Assert.Equal(provider.ProviderId, task.ProviderId);
         Assert.Equal(provider.ProviderVersion, task.ProviderVersion);
-        Assert.Equal(DocumentExportDigest.Compute(task with { ContentDigest = string.Empty }), task.ContentDigest);
-        Assert.Equal(DocumentExportDigest.Compute(receipt with { ContentDigest = string.Empty }), receipt.ContentDigest);
+        Assert.Equal(DocumentExportDigest.Compute(task with
+        {
+            ContentDigest = string.Empty
+        }), task.ContentDigest);
+        Assert.Equal(DocumentExportDigest.Compute(receipt with
+        {
+            ContentDigest = string.Empty
+        }), receipt.ContentDigest);
         Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(task, input));
         Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(receipt, task, input, provider));
     }
@@ -860,8 +866,14 @@ public sealed class DocumentExportContractTests
         DocumentExportProviderReceipt baseline = ValidReceipt(task, input, provider);
         DocumentExportContractValidator.Validate(baseline, task, input, provider);
         DocumentExportProviderReceipt receipt = DocumentExportContractValidator.Seal(field == "tool-id"
-            ? baseline with { ToolId = "different-tool" }
-            : baseline with { ToolVersion = "different-version" });
+            ? baseline with
+            {
+                ToolId = "different-tool"
+            }
+            : baseline with
+            {
+                ToolVersion = "different-version"
+            });
 
         Assert.NotEqual(baseline.ContentDigest, receipt.ContentDigest);
         Assert.Equal(task.ContentDigest, receipt.TaskDigest);
@@ -959,16 +971,25 @@ public sealed class DocumentExportContractTests
             "availability" => baseline with { ImplementationAvailable = false },
             "budgets" => baseline with
             {
-                Budgets = baseline.Budgets with { MaxOutputBytes = baseline.Budgets.MaxOutputBytes + 1 }
+                Budgets = baseline.Budgets with
+                {
+                    MaxOutputBytes = baseline.Budgets.MaxOutputBytes + 1
+                }
             },
             "delivery" => baseline with
             {
-                Delivery = baseline.Delivery with { RetentionTtl = baseline.Delivery.RetentionTtl + TimeSpan.FromSeconds(1) }
+                Delivery = baseline.Delivery with
+                {
+                    RetentionTtl = baseline.Delivery.RetentionTtl + TimeSpan.FromSeconds(1)
+                }
             },
             "features" => baseline with
             {
                 Features = baseline.Features.Select((feature, index) => index == 0
-                    ? feature with { Disposition = DocumentExportFeatureDisposition.HardFail }
+                    ? feature with
+                    {
+                        Disposition = DocumentExportFeatureDisposition.HardFail
+                    }
                     : feature).ToArray()
             },
             _ => throw new ArgumentException("Unknown provider contract mutation.", nameof(field))
@@ -996,8 +1017,12 @@ public sealed class DocumentExportContractTests
         DocumentExportProviderContract canonical = DocumentExportContractCatalog.RequireProvider(format);
         DocumentExportProviderContract provider = canonical with
         {
-            Budgets = canonical.Budgets with { },
-            Delivery = canonical.Delivery with { },
+            Budgets = canonical.Budgets with
+            {
+            },
+            Delivery = canonical.Delivery with
+            {
+            },
             Features = canonical.Features.Select(feature => feature with { }).ToArray()
         };
         DocumentExportTask task = DocumentExportContractValidator.Seal(ValidTask(input) with
