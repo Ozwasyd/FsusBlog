@@ -1,7 +1,9 @@
 using System.Linq.Expressions;
 using System.Runtime.InteropServices;
 
+using FsusBlog.Server.Infrastructure.Memory.Accounting;
 using FsusBlog.Server.Infrastructure.Memory.Capabilities;
+using FsusBlog.Server.Infrastructure.Memory.Contracts;
 using FsusBlog.Server.Infrastructure.Memory.Devices;
 using FsusBlog.Server.Infrastructure.Memory.Platform;
 
@@ -10,6 +12,155 @@ namespace FsusBlog.Server.Tests;
 // Isolated custody tests; these do not qualify macOS, Metal, or actual GPU execution.
 public sealed class GpuMetalTests
 {
+    [Fact]
+    public async Task DeviceOwnerCommitsObservedMetalDeviceAndStagingCapacityWithinPreReservedBounds()
+    {
+        using var api = new Api { ReportedCapacity = 32 };
+        var (device, ledger, content) = MemoryOwner(api, physicalBound: 64);
+        using (device)
+        {
+            using var allocation = device.TryAllocate(content, 4, new(1)).Value!;
+            Assert.Equal(32, Assert.Single(ledger.Allocations()).Descriptor!.Layout.CapacityBytes);
+            Assert.Equal(4, Assert.Single(ledger.Allocations()).Descriptor!.Layout.LogicalBytes);
+            Assert.Equal(32, ledger.Snapshot().Used["host"]);
+            using var operation = device.TryUpload(allocation, new HostSource(content, [1, 2, 3, 4]), allocation.Location).Value!;
+            Assert.Equal(96, ledger.Snapshot().Used["host"]);
+            Assert.Equal(1, ledger.Snapshot().Used["slots"]);
+            device.PollCompletions();
+            Assert.True((await operation.WaitAsync()).Succeeded);
+            Assert.Equal(64, ledger.Snapshot().Used["host"]);
+            Assert.Equal(32, ledger.Snapshot().Used["registered"]);
+            Assert.Equal(0, ledger.Snapshot().Used["slots"]);
+            Assert.Equal(2, ledger.Allocations().Count);
+            Assert.All(ledger.Allocations(), charge => Assert.Equal(32, charge.Descriptor!.Layout.CapacityBytes));
+            Assert.Contains(ledger.EventWindow().Events, entry => entry.Kind == "committed"
+                && entry.Delta.GetValueOrDefault("host") == -32);
+            using var second = device.TryAllocate(content, 4, new(2)).Value!;
+            device.TryUpload(second, new HostSource(content, [5, 6, 7, 8]), second.Location);
+            device.PollCompletions();
+            Assert.Single(api.HostReadbackAttributes);
+            Assert.Equal(32, ledger.Snapshot().Used["registered"]);
+            device.Dispose();
+            await device.Drained;
+            Assert.All(ledger.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        }
+    }
+
+    [Fact]
+    public void CapacityObservationRequiresCallerBoundsBeforeDeviceOwnerCanAllocate()
+    {
+        using var api = new Api();
+        using var session = Session(api);
+        Assert.Throws<ArgumentException>(() => MemoryOwner(api, suppliedSession: session, supplyBounds: false));
+        Assert.Equal(0, api.PrivateAllocations);
+        Assert.Equal(0, api.CommandsCreated);
+    }
+
+    [Fact]
+    public async Task PhysicalBoundAdmissionRejectsBeforeMetalBufferAllocation()
+    {
+        using var api = new Api();
+        var (device, ledger, content) = MemoryOwner(api, hostCap: 31);
+        using (device)
+        {
+            Assert.Equal(MemoryFailure.BudgetRejected, device.TryAllocate(content, 4, new(1)).Failure);
+            Assert.Equal(0, api.PrivateAllocations);
+            Assert.Equal(0, ledger.Snapshot().Reservations);
+            Assert.All(ledger.Snapshot().Used.Values, value => Assert.Equal(0, value));
+            device.Dispose();
+            await device.Drained;
+        }
+    }
+
+    [Theory]
+    [InlineData(0UL, MemoryFailure.UnsupportedCapability)]
+    [InlineData(2UL, MemoryFailure.BoundsViolation)]
+    [InlineData(64UL, MemoryFailure.BudgetRejected)]
+    [InlineData(ulong.MaxValue, MemoryFailure.BoundsViolation)]
+    public async Task UnusableDeviceObservationRejectsWithoutCommittingRequestedBytes(ulong capacity, MemoryFailure expected)
+    {
+        using var api = new Api { ReportedCapacity = capacity };
+        var (device, ledger, content) = MemoryOwner(api);
+        using (device)
+        {
+            Assert.Equal(expected, device.TryAllocate(content, 4, new(1)).Failure);
+            Assert.Empty(ledger.Allocations());
+            Assert.Equal(0, ledger.Snapshot().Reservations);
+            Assert.Equal(0, api.Buffers);
+            Assert.All(ledger.Snapshot().Used.Values, value => Assert.Equal(0, value));
+            device.Dispose();
+            await device.Drained;
+        }
+    }
+
+    [Theory]
+    [InlineData(0UL, MemoryFailure.UnsupportedCapability)]
+    [InlineData(2UL, MemoryFailure.BoundsViolation)]
+    [InlineData(64UL, MemoryFailure.BudgetRejected)]
+    [InlineData(ulong.MaxValue, MemoryFailure.BoundsViolation)]
+    public async Task UnusableHostObservationRejectsBeforeDmaOrSourceCustody(ulong capacity, MemoryFailure expected)
+    {
+        using var api = new Api { ReportedCapacity = 32, HostReportedCapacity = capacity };
+        var (device, ledger, content) = MemoryOwner(api);
+        using (device)
+        {
+            using var allocation = device.TryAllocate(content, 4, new(1)).Value!;
+            var source = new HostSource(content, [1, 2, 3, 4]);
+            Assert.Equal(expected, device.TryUpload(allocation, source, allocation.Location).Failure);
+            Assert.False(source.Released);
+            Assert.Equal(0, api.CommandsCreated);
+            Assert.Equal(1, api.Buffers);
+            Assert.Equal(32, ledger.Snapshot().Used["host"]);
+            Assert.Equal(0, ledger.Snapshot().Used["registered"]);
+            Assert.Equal(0, ledger.Snapshot().Used["slots"]);
+            Assert.Equal(0, ledger.Snapshot().Reservations);
+            device.Dispose();
+            await device.Drained;
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailedFreeOfUnadmittedObservationRetainsReservationAndFailsDrain(bool host)
+    {
+        using var api = new Api
+        {
+            ReportedCapacity = host ? 32UL : 64UL,
+            HostReportedCapacity = 64,
+            ThrowSharedRelease = host,
+            ThrowPrivateRelease = !host
+        };
+        var (device, ledger, content) = MemoryOwner(api);
+        using (device)
+        {
+            if (host)
+            {
+                using var allocation = device.TryAllocate(content, 4, new(1)).Value!;
+                Assert.Equal(MemoryFailure.BudgetRejected,
+                    device.TryUpload(allocation, new HostSource(content, [1, 2, 3, 4]), allocation.Location).Failure);
+                Assert.Equal(32, ledger.Snapshot().Used["registered"]);
+                Assert.Equal(1, ledger.Snapshot().Used["slots"]);
+                Assert.Equal(64, ledger.Snapshot().Used["host"]);
+            }
+            else
+            {
+                Assert.Equal(MemoryFailure.BudgetRejected, device.TryAllocate(content, 4, new(1)).Failure);
+                Assert.Empty(ledger.Allocations());
+                Assert.Equal(32, ledger.Snapshot().Used["host"]);
+            }
+            Assert.Equal(1, ledger.Snapshot().Reservations);
+            Assert.Equal(1, api.BufferReleaseAttempts);
+            device.Dispose();
+            await Assert.ThrowsAsync<InvalidOperationException>(() => device.Drained);
+            device.Dispose();
+            device.PollCompletions();
+            Assert.Equal(1, api.BufferReleaseAttempts);
+            Assert.Equal(1, ledger.Snapshot().Reservations);
+            Assert.True(device.Snapshot().RestartRequired);
+        }
+    }
+
     [Fact]
     public void DisabledDoesNotLoadFrameworksEvenWithAbsentPolicy()
     {
@@ -250,6 +401,46 @@ public sealed class GpuMetalTests
 
     private static GpuMetalSession Session(Api api) => new(api, 1, new Version(14, 0, 0), Architecture.Arm64);
 
+    private static (GpuMemoryDevice Device, MemoryReservationCoordinator Ledger, MemoryContentIdentity Content) MemoryOwner(
+        Api api, long hostCap = 128, GpuMetalSession? suppliedSession = null, bool supplyBounds = true, long physicalBound = 32)
+    {
+        ResourceDomainId host = new(Guid.NewGuid());
+        ResourceDomainId device = new(Guid.NewGuid());
+        ResourceDomainId registered = new(Guid.NewGuid());
+        ResourceDomainId slots = new(Guid.NewGuid());
+        var topology = new MemoryResourceTopology([
+            new(host, "host", MemoryResourceUnit.Bytes, null),
+            new(device, "host", MemoryResourceUnit.Bytes, host),
+            new(registered, "registered", MemoryResourceUnit.Bytes, host),
+            new(slots, "slots", MemoryResourceUnit.OperationSlots, null)
+        ]);
+        var ledger = new MemoryReservationCoordinator(topology,
+            [new(host, MemoryResourceUnit.Bytes, hostCap), new(device, MemoryResourceUnit.Bytes, hostCap),
+                new(registered, MemoryResourceUnit.Bytes, hostCap), new(slots, MemoryResourceUnit.OperationSlots, 4)], 1, 32, 128);
+        var status = new MemoryCapabilityStatus("unit-metal-owner", 1, MemoryCapabilityMode.Auto, MemoryDetection.Present,
+            MemoryQualification.Qualified, MemoryQualification.Qualified, MemoryOnlineState.Online,
+            "CPU fixture only", MemoryAdmission.Admitted, "ordinary accounting control");
+        var limits = new GpuMemoryLimits(16, 8, 4, 4, 4)
+        {
+            MaximumObservedDeviceCapacityBytes = supplyBounds ? physicalBound : null,
+            MaximumObservedStagingCapacityBytes = supplyBounds ? physicalBound : null
+        };
+        return (new(suppliedSession ?? Session(api), ledger, new(device, registered, slots), limits, new(1), status),
+            ledger, new(new(Guid.NewGuid()), new(1), new(Guid.NewGuid())));
+    }
+
+    private sealed class HostSource(MemoryContentIdentity content, byte[] bytes) : IMemoryHostReadLease
+    {
+        public MemoryContentIdentity Content => content;
+        public MemoryLocationToken Location { get; } = new(new(Guid.NewGuid()), new(Guid.NewGuid()), new(1), new(1));
+        public ReadOnlyMemory<byte> Memory => bytes;
+        public bool Released
+        {
+            get; private set;
+        }
+        public void Dispose() => Released = true;
+    }
+
     private sealed class Loader : IGpuNativeLibraryLoader
     {
         public int Loads
@@ -393,10 +584,28 @@ public sealed class GpuMetalTests
     private sealed class Api : IGpuMetalApi, IDisposable
     {
         private readonly Dictionary<nint, nint> _buffers = new();
+        private readonly HashSet<nint> _sharedBuffers = [];
         private readonly Dictionary<nint, (nint Source, nint Destination, int Bytes)> _commands = new();
         private long _next = 10;
         public ulong MaximumLength { get; init; } = 1024;
         public ulong ReportedCapacity { get; init; } = 32;
+        public ulong? HostReportedCapacity
+        {
+            get; init;
+        }
+        public bool ThrowSharedRelease
+        {
+            get; init;
+        }
+        public bool ThrowPrivateRelease
+        {
+            get; init;
+        }
+        public int BufferReleaseAttempts
+        {
+            get; private set;
+        }
+        public int Buffers => _buffers.Count;
         public ulong CommandStatus { get; set; } = 4;
         public bool ThrowAfterCommit
         {
@@ -439,6 +648,7 @@ public sealed class GpuMetalTests
             _buffers.Add(handle, Marshal.AllocHGlobal(checked((int)bytes)));
             if (shared)
             {
+                _sharedBuffers.Add(handle);
                 HostReadbackAttributes.Add(cpuReadback);
             }
             else
@@ -449,7 +659,7 @@ public sealed class GpuMetalTests
         }
 
         public nint Contents(nint buffer) => _buffers[buffer];
-        public ulong AllocatedSize(nint buffer) => ReportedCapacity;
+        public ulong AllocatedSize(nint buffer) => _sharedBuffers.Contains(buffer) ? HostReportedCapacity ?? ReportedCapacity : ReportedCapacity;
         public nint CreateCommand(nint queue)
         {
             CommandsCreated++;
@@ -474,8 +684,17 @@ public sealed class GpuMetalTests
         public ulong Status(nint command) => CommandStatus;
         public void ReleaseObject(nint value)
         {
+            if (_buffers.ContainsKey(value))
+            {
+                BufferReleaseAttempts++;
+                if (_sharedBuffers.Contains(value) ? ThrowSharedRelease : ThrowPrivateRelease)
+                {
+                    throw new GpuDriverException("controlled-buffer-release", -1);
+                }
+            }
             if (_buffers.Remove(value, out nint memory))
             {
+                _sharedBuffers.Remove(value);
                 Marshal.FreeHGlobal(memory);
             }
             else if (_commands.Remove(value))
