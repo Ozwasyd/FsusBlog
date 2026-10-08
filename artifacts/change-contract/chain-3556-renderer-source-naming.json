@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "tools/docs/generated-fact-sections/renderers.mjs"
+            ],
+            "reason": "Preserve the existing typed renderer authority IDs and external FactObservation spellings while correcting literal table-cell escaping in its sole owner."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the canonical execution-authority schema field names and producer-owned structure while refreshing exact current source/index digests."
+        }
+    ]
+}

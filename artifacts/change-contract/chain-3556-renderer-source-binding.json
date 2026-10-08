@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/testing/release-final-execution-authority-index.json",
+        "tests/matrix.yml",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tools/test-inventory/discovery.mjs",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "tools/test-matrix/release-final-static-boundary.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "1ac7d9df673d1b4fbdb10f6ac446fbce63e1cf3fd7f069ebf1b9385cdb0c37f2"
+        }
+    ]
+}
