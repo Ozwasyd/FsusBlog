@@ -9,6 +9,7 @@
 #include "writing_aid_preference_wire.generated.hpp"
 #include "upload_asset_preview_pod.hpp"
 #include "author_article_selection_wire.generated.hpp"
+#include "document_export_wire.generated.hpp"
 #include "font_theme_admin_pods.hpp"
 #include "pod_views.hpp"
 
@@ -73,6 +74,8 @@ const char* ToErrorString(ErrorCode errorCode)
             return "upload_asset_preview_payload_invalid";
         case ErrorCode::AuthorArticleSelectionPayloadInvalid:
             return "author_article_selection_payload_invalid";
+        case ErrorCode::DocumentExportPayloadInvalid:
+            return "document_export_payload_invalid";
         case ErrorCode::AuthoringCanvasPayloadInvalid:
             return "authoring_canvas_payload_invalid";
         case ErrorCode::ArticlePayloadInvalid:
@@ -130,6 +133,13 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
     if (!IsKnownFrameType(FrameType))
     {
         return MakeError(ErrorCode::FrameTypeUnsupported);
+    }
+
+    const std::size_t ExportBudget = DocumentExportWire::PayloadBudget(FrameType);
+    if (ExportBudget != 0 && (ReadU16Le(frame + 6) != 0
+        || PayloadLength > ExportBudget || frameLen > ExportBudget + kHeaderSize))
+    {
+        return MakeError(ErrorCode::DocumentExportPayloadInvalid);
     }
 
     const std::uint8_t* payload = frame + kHeaderSize;
@@ -192,6 +202,11 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         && !ValidateAuthorArticleSelectionPayload(FrameType, payload, PayloadLength))
     {
         return MakeError(ErrorCode::AuthorArticleSelectionPayloadInvalid);
+    }
+
+    if (ExportBudget != 0 && !DocumentExportWire::Validate(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::DocumentExportPayloadInvalid);
     }
 
     DecodeResult ok{};

@@ -21,6 +21,7 @@ import { decodeArticlePropertyValueReadResponse } from '@/codecs/binary/articleP
 import { decodeAuthoringWorkspaceSnapshotResponse } from '@/codecs/binary/authoringWorkspaceSnapshotWire.generated';
 import { decodeWritingAidPreferenceReceipt, decodeWritingAidPreferenceSnapshot } from '@/codecs/binary/writingAidPreferenceWire.generated';
 import { decodeAuthorArticleSelectionRevalidationResponse } from '@/codecs/binary/authorArticleSelectionWire.generated';
+import { decodeDocumentExportJobResponse, decodeDocumentExportPageResponse } from '@/codecs/binary/documentExportWire.generated';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
@@ -184,7 +185,9 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.AuthoringWorkspaceSnapshotResponse,
     FrameType.WritingAidPreferenceSnapshotResponse,
     FrameType.WritingAidPreferenceReceiptResponse,
-    FrameType.AuthorArticleSelectionRevalidateResponse
+    FrameType.AuthorArticleSelectionRevalidateResponse,
+    FrameType.DocumentExportJobResponse,
+    FrameType.DocumentExportPageResponse
 ] as const satisfies readonly FrameType[]);
 
 export function createBinaryFrameDecoderRegistry(
@@ -393,7 +396,9 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.AuthoringWorkspaceSnapshotResponse, decodeAuthoringWorkspaceSnapshotResponse],
     [FrameType.WritingAidPreferenceSnapshotResponse, decodeWritingAidPreferenceSnapshot],
     [FrameType.WritingAidPreferenceReceiptResponse, decodeWritingAidPreferenceReceipt],
-    [FrameType.AuthorArticleSelectionRevalidateResponse, decodeAuthorArticleSelectionRevalidationResponse]
+    [FrameType.AuthorArticleSelectionRevalidateResponse, decodeAuthorArticleSelectionRevalidationResponse],
+    [FrameType.DocumentExportJobResponse, decodeDocumentExportJobResponse],
+    [FrameType.DocumentExportPageResponse, decodeDocumentExportPageResponse]
 ] as const satisfies readonly BinaryFrameDecoderRegistration[]);
 
 export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(

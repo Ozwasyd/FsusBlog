@@ -25,6 +25,7 @@ enum class ErrorCode : std::uint8_t
     WritingAidPreferencePayloadInvalid = 15,
     UploadAssetPreviewPayloadInvalid = 16,
     AuthorArticleSelectionPayloadInvalid = 17,
+    DocumentExportPayloadInvalid = 18,
     FontThemePayloadInvalid = 10
 };
 

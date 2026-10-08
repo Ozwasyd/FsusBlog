@@ -58,7 +58,7 @@ test('the original producer owns five products with manifest-derived identities 
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
     assert.equal(golden.frames.filter(frame => frame.value <= 252).length, 244);
-    assert.equal(golden.frames.length, 269);
+    assert.equal(golden.frames.length, 273);
 });
 
 test('the Canvas and article-link additions retain independently named roots and wire identities', () =>
@@ -186,7 +186,7 @@ test('source values and explicit metadata, not old output values, determine the 
 test('selection roots leave reservation state only with exact active identities', () =>
 {
     assert.deepEqual(manifest.reservedFrameValues, []);
-    assert.deepEqual(manifest.frameTypes.filter(frame => frame.value >= 276), [
+    assert.deepEqual(manifest.frameTypes.filter(frame => frame.value >= 276 && frame.value <= 277), [
         { name: 'AuthorArticleSelectionRevalidateRequest', value: 276, goldenFamily: 'author-article-selection', goldenOrder: 267 },
         { name: 'AuthorArticleSelectionRevalidateResponse', value: 277, goldenFamily: 'author-article-selection', goldenOrder: 268 }
     ]);

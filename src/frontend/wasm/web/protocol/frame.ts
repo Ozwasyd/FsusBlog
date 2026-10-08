@@ -270,6 +270,10 @@ export const FrameType = {
   UploadAssetPreview: 275,
   AuthorArticleSelectionRevalidateRequest: 276,
   AuthorArticleSelectionRevalidateResponse: 277,
+  DocumentExportRequest: 278,
+  DocumentExportTaskRequest: 279,
+  DocumentExportJobResponse: 280,
+  DocumentExportPageResponse: 281,
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];

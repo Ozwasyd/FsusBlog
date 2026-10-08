@@ -288,6 +288,10 @@
     { "name": "WritingAidPreferenceReceiptResponse", "value": 274, "family": "writing-aid-preference" },
     { "name": "UploadAssetPreview", "value": 275, "family": "upload-response" },
     { "name": "AuthorArticleSelectionRevalidateRequest", "value": 276, "family": "author-article-selection" },
-    { "name": "AuthorArticleSelectionRevalidateResponse", "value": 277, "family": "author-article-selection" }
+    { "name": "AuthorArticleSelectionRevalidateResponse", "value": 277, "family": "author-article-selection" },
+    { "name": "DocumentExportRequest", "value": 278, "family": "document-export-request" },
+    { "name": "DocumentExportTaskRequest", "value": 279, "family": "document-export-task-request" },
+    { "name": "DocumentExportJobResponse", "value": 280, "family": "document-export-job-response" },
+    { "name": "DocumentExportPageResponse", "value": 281, "family": "document-export-page-response" }
   ]
 }

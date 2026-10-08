@@ -309,6 +309,10 @@ enum class FrameType : std::uint16_t
     UploadAssetPreview = 275,
     AuthorArticleSelectionRevalidateRequest = 276,
     AuthorArticleSelectionRevalidateResponse = 277,
+    DocumentExportRequest = 278,
+    DocumentExportTaskRequest = 279,
+    DocumentExportJobResponse = 280,
+    DocumentExportPageResponse = 281,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -603,6 +607,10 @@ enum class FrameType : std::uint16_t
         case FrameType::UploadAssetPreview:
         case FrameType::AuthorArticleSelectionRevalidateRequest:
         case FrameType::AuthorArticleSelectionRevalidateResponse:
+        case FrameType::DocumentExportRequest:
+        case FrameType::DocumentExportTaskRequest:
+        case FrameType::DocumentExportJobResponse:
+        case FrameType::DocumentExportPageResponse:
             return true;
         default:
             return false;
