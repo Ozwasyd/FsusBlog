@@ -1372,6 +1372,10 @@ Core Agreement:
 4. **Test isolation**: `fast` layer testing does not depend on any running services
 5. **Stop on failure**: The failure of any layer in CI will block the downstream layer; the downstream skipped will be classified as downstream fan-out by `production-summary` and will not be regarded as a success.
 
+Managed native listeners use `tools/test-runtime/inherited-vite-listener.mjs` for Vite dev/preview and `FsusManagedTestListener` through the existing Kestrel composition owner. The launcher must inherit the already reserved Linux socket and supply `FSUSBLOG_MANAGED_TEST_LISTENER=1`, `FSUSBLOG_RUNTIME_LISTEN_FD`, `FSUSBLOG_RUNTIME_LISTEN_SOCKET` (`socket:[inode]`), `FSUSBLOG_RUNTIME_LISTEN_PORT`, `FSUSBLOG_RUNTIME_PORT_LEASE_ID`, `FSUSBLOG_RUNTIME_LISTEN_ATTEMPT_ID`, `FSUS_TEST_RUN_ID`, and `TEST_NAMESPACE`. Admission verifies an exclusive, nonlistening IPv4 TCP socket bound to the declared `127.0.0.1` port. Kestrel additionally requires exactly that HTTP URL and no additional endpoints or HTTP/3 listener. Missing identity, changed inode/address, unsupported platform, and Vite repeated adoption fail closed. Ordinary backend startup keeps its existing configuration.
+
+Run the isolated native socket/runtime checks with `FSUSBLOG_NATIVE_LISTENER_DOTNET=/path/to/dotnet FSUSBLOG_NATIVE_LISTENER_FRONTEND=/path/to/installed/frontend node --test tests/tools/inherited-listener-adapters.test.mjs` (Node 24.19, .NET 10, locked Vite 8.0.16, Python 3). The test retains its temporary evidence directory and checks socket continuity, IPv4/IPv6 competitor rejection, real HTTP canaries, repeated launches, cancellation, partial failure, and complete cleanup. These adapter checks do not qualify the bootstrap run, Docker publisher, candidate/build identity, AEDS canary, or full production matrix; those receipts remain separate acceptance gates. The launcher retains the IPv6 reservation guard and its own socket duplicate until application adoption is verified, then releases only its duplicate. Vite restart requires a new managed attempt; the consumed descriptor cannot authorize a numeric rebind.
+
 ---
 
 ## Key test scenario matrix
