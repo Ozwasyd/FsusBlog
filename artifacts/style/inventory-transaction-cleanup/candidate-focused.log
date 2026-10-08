@@ -122,9 +122,9 @@ test at tests/tools/test-inventory.test.mjs:519:1
   /workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(26,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
       1069 Warning(s)
       4 Error(s)
-  
+
   Time Elapsed 00:02:02.62
-  
+
       at genericNodeError (node:internal/errors:985:15)
       at wrappedFn (node:internal/errors:539:14)
       at checkExecSyncError (node:child_process:942:11)
@@ -164,9 +164,9 @@ test at tests/tools/test-inventory.test.mjs:638:1
 test at tests/tools/ts-ast-adapter.test.mjs:613:1
 ✖ native table preserves actual governance receipt surrounding oracles and ten runtime cases (12.172581ms)
   AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
-  
+
     assert.ok(start > 0 && end > start)
-  
+
       at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/ts-ast-adapter.test.mjs:630:12)
       at Test.runInAsyncScope (node:async_hooks:227:14)
       at Test.run (node:internal/test_runner/test:1382:25)

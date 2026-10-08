@@ -31,13 +31,19 @@
             "command": "node --test tests/tools/ts-ast-adapter.test.mjs tests/tools/test-replacement-transaction.test.mjs",
             "exitCode": 1,
             "artifact": "baseline-focused-installed.log",
-            "sha256": "ff0f7d878250aafcdc08130e5f5511f63aa9309e605ee8b340439f3fc6246198"
+            "sha256": "14db4cf725e0b5ea36201c7319aad6e203305c89f2453ebbee850cbe4819be93",
+            "rawLogSha256": "ff0f7d878250aafcdc08130e5f5511f63aa9309e605ee8b340439f3fc6246198",
+            "rawLog": "/tmp/issue-3242-evidence/baseline-focused-installed.log",
+            "storedLogNormalization": "trailing whitespace removed; raw stdout/stderr retained at rawLog"
         },
         {
             "command": "node --test tests/tools/ts-ast-adapter.test.mjs tests/tools/test-replacement-transaction.test.mjs tests/tools/test-inventory.test.mjs",
             "exitCode": 1,
             "artifact": "candidate-focused.log",
-            "sha256": "31172a626c5d7c2014e0650a59d7d16d5c90fe89defe5115f8f38a235c74ccd1"
+            "sha256": "59a1ce94b5355ec11b567ff04ab011b97f4bc82122c078a3830533855b371727",
+            "rawLogSha256": "31172a626c5d7c2014e0650a59d7d16d5c90fe89defe5115f8f38a235c74ccd1",
+            "rawLog": "/tmp/issue-3242-evidence/candidate-focused.log",
+            "storedLogNormalization": "trailing whitespace removed; raw stdout/stderr retained at rawLog"
         },
         {
             "command": "node --test --test-name-pattern='JavaScript|canonical transaction|checker parser installation' tests/tools/change-contract.test.mjs",

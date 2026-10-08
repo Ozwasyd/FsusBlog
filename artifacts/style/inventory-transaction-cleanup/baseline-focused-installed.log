@@ -49,9 +49,9 @@
 test at tests/tools/ts-ast-adapter.test.mjs:613:1
 ✖ native table preserves actual governance receipt surrounding oracles and ten runtime cases (4.822552ms)
   AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
-  
+
     assert.ok(start > 0 && end > start)
-  
+
       at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/ts-ast-adapter.test.mjs:630:12)
       at Test.runInAsyncScope (node:async_hooks:227:14)
       at Test.run (node:internal/test_runner/test:1382:25)
