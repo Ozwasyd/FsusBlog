@@ -1,0 +1,8 @@
+{
+  "kind": "PrimaryAPIABIReferenceOnly-NotWindowsRuntimeQualification",
+  "processDeclaration": "https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters_ex",
+  "performanceDeclaration": "https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-performance_information",
+  "pinnedMicrosoftHeader": "https://github.com/microsoft/win32metadata/blob/6d6617a8eee57d7c4f6c55d8c23e35064ea69b9e/generation/WinSDK/RecompiledIdlHeaders/um/Psapi.h",
+  "process64BitSizeFormula": "2 DWORD *4 +9 SIZE_T *8 =80; PrivateUsage offset8 +8 SIZE_T *8 =72",
+  "nativeGuard": "PSAPI2 export ABI, Windows6.1+ with64-bit x64/arm64. This is not a product support declaration."
+}

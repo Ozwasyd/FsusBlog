@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-10-08T15:19:51.652778+00:00",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "nativeHeaderPresence": {
+    "/usr/include/mach/vm_statistics.h": false,
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/mach/vm_statistics.h": false,
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/mach/task_info.h": false
+  },
+  "xcrun": null,
+  "windowsNativeApiRuntime": false,
+  "macNativeApiRuntime": false,
+  "qualification": "NotVerified",
+  "action": "Need actual authorized Windows64 and macOS+AppleSDK supported-target environments. No missing implementation dependency was downloaded or native platform was emulated."
+}

@@ -1,0 +1,11 @@
+{
+  "candidate": "f235d301ac94bb647d02626b5c71822fcbc771ba",
+  "files": [
+    "src/backend/Infrastructure/Memory/Platform/WindowsNativeMemoryPressureReader.cs",
+    "tests/backend/Unit/WindowsNativeMemoryPressureReaderTests.cs"
+  ],
+  "command": "original checkCodeIntent({root,files}); full registry validation retained",
+  "errors": [],
+  "checkedFiles": 2,
+  "scopedFiles": 0
+}
