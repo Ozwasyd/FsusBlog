@@ -198,7 +198,10 @@ public sealed class ArticleVaultCompiledAuthorityScannerTests
     [SugarTable("article")]
     private sealed class ArticleVaultMisnamedEntity
     {
-        public int Id { get; set; }
+        public int Id
+        {
+            get; set;
+        }
     }
 
     private static class ReflectedFileWrite
