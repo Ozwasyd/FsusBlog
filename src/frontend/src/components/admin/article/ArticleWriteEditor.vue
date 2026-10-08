@@ -83,14 +83,6 @@
 </template>
 
 <script setup lang="ts">
-import type {
-    MarkdownEditorOutlineItem,
-    MarkdownEditorOutlineRange,
-    MarkdownEditorRevealOptions,
-    MarkdownEditorRevealResult,
-    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
-    MarkdownEditorTransactionEvent
-} from '@ozwasyd/element-plus';
 import { computed, ref, watch } from 'vue';
 
 import ArticleWriteOutlineRail from '@/components/admin/article/ArticleWriteOutlineRail.vue';
@@ -105,6 +97,15 @@ import type {
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
 import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor';
+
+import type {
+    MarkdownEditorOutlineItem,
+    MarkdownEditorOutlineRange,
+    MarkdownEditorRevealOptions,
+    MarkdownEditorRevealResult,
+    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    MarkdownEditorTransactionEvent
+} from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'ArticleWriteEditor' });
 
@@ -225,7 +226,10 @@ function toggleSourceCompare(): void
 function currentRevealOptions(): MarkdownEditorRevealOptions | undefined
 {
     const identity = props.documentIdentity;
-    if (!identity) return undefined;
+    if (!identity)
+    {
+        return undefined;
+    }
     return {
         expected: {
             documentIdentity: identity,
@@ -239,13 +243,15 @@ function handleSelectionChange(event: ArticleAuthoringSelectionEvent): void
 {
     const identity = props.documentIdentity;
     if (identity &&
-        (!event.documentIdentity ||
-            identity.id !== event.documentIdentity.id ||
-            identity.epoch !== event.documentIdentity.epoch))
+        (identity.id !== event.documentIdentity?.id ||
+            identity.epoch !== event.documentIdentity?.epoch))
     {
         return;
     }
-    if (event.revision < sourceRevision.value) return;
+    if (event.revision < sourceRevision.value)
+    {
+        return;
+    }
     activeCause.value = 'selection';
     sourceRevision.value = event.revision;
     selection.value = event.selection;
@@ -255,10 +261,14 @@ function handleTransaction(event: MarkdownEditorTransactionEvent): void
 {
     const identity = props.documentIdentity;
     if (!event.accepted ||
-        (identity && (identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch))) {
+        (identity && (identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch)))
+    {
         return;
     }
-    if (event.revision < sourceRevision.value) return;
+    if (event.revision < sourceRevision.value)
+    {
+        return;
+    }
     activeCause.value = event.transaction.origin === 'input' ? 'typing' : 'caret';
     sourceRevision.value = event.revision;
     selection.value = event.selection;
@@ -272,8 +282,9 @@ function handleViewportChange(event: {
 }): void
 {
     const identity = props.documentIdentity;
-    if (!identity || identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch ||
-        event.revision < sourceRevision.value) {
+    if (identity?.id !== event.documentIdentity.id || identity?.epoch !== event.documentIdentity.epoch ||
+        event.revision < sourceRevision.value)
+    {
         return;
     }
     sourceRevision.value = event.revision;
@@ -284,7 +295,8 @@ function handleViewportChange(event: {
 function handleOutlineReveal(item: MarkdownEditorOutlineItem): void
 {
     const result = adapterRef.value?.revealHeading?.(item.nodeId, currentRevealOptions());
-    if (result === 'success') {
+    if (result === 'success')
+    {
         outline.noteOutlineNavigation(item.nodeId);
     }
 }
@@ -292,18 +304,24 @@ function handleOutlineReveal(item: MarkdownEditorOutlineItem): void
 function handleOutlineDiagnosticReveal(item: MarkdownEditorOutlineItem): void
 {
     const result = adapterRef.value?.revealSourceRange?.(item.sourceRange, currentRevealOptions());
-    if (result === 'success') {
+    if (result === 'success')
+    {
         outline.noteOutlineNavigation(item.nodeId);
     }
 }
 
-watch(() => {
+watch(() =>
+{
     const identity = props.documentIdentity;
     return `${resolvedArticleIdentity.value}\u0000${identity
         ? `${identity.id}\u0000${String(identity.epoch)}`
         : ''}`;
-}, (next, previous) => {
-    if (next === previous) return;
+}, (next, previous) =>
+{
+    if (next === previous)
+    {
+        return;
+    }
     sourceRevision.value = 0;
     selection.value = {
         start: content.value.length,
