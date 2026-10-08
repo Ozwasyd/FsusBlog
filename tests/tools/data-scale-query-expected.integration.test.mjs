@@ -31,7 +31,7 @@ test('original canonical factory/verifier/visibility export mapped read expectat
             assert.equal(articles.publicArticles.length, 1);
         }
         const comments = { sourceCommit, businessEpochUtc: articles.businessEpochUtc, dataScaleRunId: 'expected-control',
-            fixtureGeneration: 'controlled-map', seedReceiptDigest: computeSha256('controlled-seed'), visibleComments: [] };
+            fixtureGeneration: 'controlled-map', seedReceiptDigest: articles.seedReceiptDigest, visibleComments: [] };
         const canaries = {};
         const model = { tier, articlePlanDigest: articles.planDigest, articleGraphDigest: articles.graphDigest,
             publicArticles: articles.publicArticles, visibleComments: [], categories: articles.categories, tags: articles.tags, canaries };
@@ -39,6 +39,9 @@ test('original canonical factory/verifier/visibility export mapped read expectat
             fixtureGeneration: comments.fixtureGeneration, seedReceiptDigest: comments.seedReceiptDigest, expectedModelDigest: computeSha256(model) };
         assert.deepEqual(mapCanonicalQueryExpectedModel({ articles, comments, canaries, binding }), model);
         assert.throws(() => mapCanonicalQueryExpectedModel({ articles: { ...articles, sourceCommit: 'a'.repeat(40) }, comments, canaries, binding }));
+        assert.throws(() => mapCanonicalQueryExpectedModel({ articles: { ...articles, dataScaleRunId: 'other-run' }, comments, canaries, binding }));
+        assert.throws(() => mapCanonicalQueryExpectedModel({ articles: { ...articles, fixtureGeneration: 'other-generation' }, comments, canaries, binding }));
+        assert.throws(() => mapCanonicalQueryExpectedModel({ articles: { ...articles, seedReceiptDigest: computeSha256('other-seed') }, comments, canaries, binding }));
         assert.throws(() => mapCanonicalQueryExpectedModel({ articles, comments: { ...comments, fixtureGeneration: 'different' }, canaries, binding }));
         assert.throws(() => mapCanonicalQueryExpectedModel({ articles, comments, canaries: { commentArticleId: 999 }, binding }));
     }

@@ -38,6 +38,9 @@ internal static class ExpectedArticleControls
             object Mapping(IEnumerable<object> sourceKeys, string source = "", string epoch = Epoch) => new
             {
                 sourceCommit = source.Length == 0 ? sourceCommit : source,
+                dataScaleRunId = "expected-control",
+                fixtureGeneration = "controlled-map",
+                seedReceiptDigest = Digest('7'),
                 businessEpochUtc = epoch,
                 planDigest = ArticleScalePlanDigest.Compute(plan),
                 graphReceipt = CanonicalArticleGraphFactory.GenerateReceipt(plan),

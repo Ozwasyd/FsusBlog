@@ -32,6 +32,14 @@ internal static class CanonicalQueryExpectedArticles
             throw new InvalidOperationException("canonical mapping binding mismatch");
         }
         DateTime now = DateTimeOffset.Parse(epoch, CultureInfo.InvariantCulture).UtcDateTime;
+        string runId = mapping.GetProperty("dataScaleRunId").GetString()!;
+        string generation = mapping.GetProperty("fixtureGeneration").GetString()!;
+        string seedDigest = mapping.GetProperty("seedReceiptDigest").GetString()!;
+        if (string.IsNullOrWhiteSpace(runId) || string.IsNullOrWhiteSpace(generation)
+            || !System.Text.RegularExpressions.Regex.IsMatch(seedDigest, "^sha256:[0-9a-f]{64}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            throw new InvalidOperationException("canonical mapping fixture identity missing");
+        }
         JsonElement[] keys = mapping.GetProperty("keys").EnumerateArray().ToArray();
         var keysBySemanticId = keys.ToDictionary(key => key.GetProperty("semanticId").GetString()!, StringComparer.Ordinal);
         var ids = keys.ToDictionary(key => key.GetProperty("semanticId").GetString()!, key => key.GetProperty("id").GetString()!, StringComparer.Ordinal);
@@ -99,6 +107,9 @@ internal static class CanonicalQueryExpectedArticles
             schema = "fsusblog.data-scale-query-expected-articles.v1",
             qualification = "not-performed",
             sourceCommit,
+            dataScaleRunId = runId,
+            fixtureGeneration = generation,
+            seedReceiptDigest = seedDigest,
             businessEpochUtc = epoch,
             tier = plan.ScaleTier,
             factoryId = ArticleScaleContractIds.RequiredGraphFactory,

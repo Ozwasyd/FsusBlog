@@ -8,6 +8,8 @@ export function mapCanonicalQueryExpectedModel({ articles, comments, canaries, b
     if (articles?.schema !== 'fsusblog.data-scale-query-expected-articles.v1'
         || articles.factoryId !== 'fsusblog.canonical-article-graph-factory.v1'
         || articles.sourceCommit !== binding.sourceCommit || articles.businessEpochUtc !== binding.businessEpochUtc
+        || articles.dataScaleRunId !== binding.dataScaleRunId || articles.fixtureGeneration !== binding.fixtureGeneration
+        || articles.seedReceiptDigest !== binding.seedReceiptDigest
         || !/^sha256:[0-9a-f]{64}$/u.test(articles.planDigest ?? '') || !/^sha256:[0-9a-f]{64}$/u.test(articles.graphDigest ?? '')
         || comments?.sourceCommit !== binding.sourceCommit || comments.businessEpochUtc !== binding.businessEpochUtc
         || comments.dataScaleRunId !== binding.dataScaleRunId || comments.fixtureGeneration !== binding.fixtureGeneration
