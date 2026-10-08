@@ -113,6 +113,15 @@ def test_normalization_ignores_metadata_but_detects_visible_tamper():
     assert tool.verify_pdf(changed, value)["semanticDigest"] != result["semanticDigest"]
 
 
+def test_normalized_digest_is_stable_across_real_render_attempts():
+    value = request()
+    first = render_in_process(value)
+    second = render_in_process(value)
+    assert first["semanticDigest"] == second["semanticDigest"]
+    assert first["pageCount"] == second["pageCount"]
+    assert first["fontCount"] == second["fontCount"]
+
+
 @pytest.mark.parametrize("data", [b"", b"%PDF-1.7\n%%EOF", b"<html>not PDF</html>"])
 def test_invalid_pdf_is_rejected(data):
     with pytest.raises(Exception):
