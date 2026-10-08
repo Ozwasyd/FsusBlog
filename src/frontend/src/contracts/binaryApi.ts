@@ -281,7 +281,6 @@ export type CommentAuthorViewMode = CommentAuthorMode | 'legacy_server_visible_p
 export type CommentDisplayLanguage = 'zh-CN' | 'en';
 
 export type {
-    CommentPolicyContractVersion,
     CommentPolicyReadiness,
     CommentPolicySnapshot,
     ZkProdUnavailableReason

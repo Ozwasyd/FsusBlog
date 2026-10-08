@@ -39,28 +39,6 @@ public readonly struct UserCommentPod
 }
 
 /// <summary>
-/// Defines the fixed-layout binary representation used by the <c>CommentPolicySnapshot</c> wire contract.
-/// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct CommentPolicySnapshotPod
-{
-    public readonly byte AnonymousCommentsEnabled;
-    public readonly byte PublicCommentsEnabled;
-    public readonly byte ZkAnonymousEnabled;
-    public readonly byte DefaultAuthorMode;
-    public readonly byte ZkProdEnabled;
-    public readonly byte ZkProdNativeVerifierConfigured;
-    public readonly byte ZkProdTrustedSetupVerified;
-    public readonly byte ZkProdCredentialRequired;
-    public readonly byte ZkProdCredentialRootReady;
-    public readonly int CommentMaxChars;
-    public readonly int CommentMaxUtf8Bytes;
-    public readonly Utf8SliceRef SupportedDisplayLanguages;
-    public readonly Utf8SliceRef SnapshotHash;
-    public readonly Utf8SliceRef ZkProdUnavailableReason;
-}
-
-/// <summary>
 /// Defines the fixed-layout binary representation used by the <c>CommentPolicyUpdateRequest</c> wire contract.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

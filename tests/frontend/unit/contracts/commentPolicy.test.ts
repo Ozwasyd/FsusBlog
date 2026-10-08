@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-    CommentPolicyContractVersion,
     CommentPolicyReadiness,
     type DecodedCommentPolicySnapshot
 } from '@/contracts/commentPolicy'
@@ -11,7 +10,6 @@ import {
 } from '@/policies/commentPolicy'
 
 const readySnapshot: DecodedCommentPolicySnapshot = {
-    contractVersion: CommentPolicyContractVersion.Current,
     anonymousCommentsEnabled: true,
     publicCommentsEnabled: true,
     zkAnonymousEnabled: true,
@@ -69,10 +67,10 @@ describe('comment policy readiness contract', () => {
         expect(isStrongAnonymousCommentAvailable(policy)).toBe(false)
     })
 
-    it('maps an old frame version to unavailable even when its legacy flags look ready', () => {
+    it('rejects missing current limits without synthesizing defaults', () => {
         const policy = finalizeCommentPolicySnapshot({
             ...readySnapshot,
-            contractVersion: CommentPolicyContractVersion.LegacyPadded
+            commentMaxChars: 0
         })
 
         expect(policy.zkProdReadiness).toBe(CommentPolicyReadiness.ContractInvalid)

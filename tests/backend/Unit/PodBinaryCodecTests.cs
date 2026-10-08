@@ -1314,6 +1314,31 @@ public class PodBinaryCodecTests
         Assert.Equal(2300, updateDecoded.CommentMaxChars);
         Assert.Equal(9200, updateDecoded.CommentMaxUtf8Bytes);
 
+        foreach (int rawMode in new[] { 0, 1, 2, 5 })
+        {
+            byte[] invalidMode = (byte[])snapshotEncoded.Clone();
+            invalidMode[CommentPolicySnapshotWire.DefaultAuthorModeOffset] = (byte)rawMode;
+            Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(invalidMode, out _));
+        }
+        foreach (int maxChars in new[] { 0, CommentPolicySnapshotWire.HardMaxChars + 1 })
+        {
+            byte[] invalidLimits = (byte[])snapshotEncoded.Clone();
+            BinaryPrimitives.WriteInt32LittleEndian(invalidLimits.AsSpan(CommentPolicySnapshotWire.CommentMaxCharsOffset), maxChars);
+            Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(invalidLimits, out _));
+            Assert.Throws<ArgumentOutOfRangeException>(() => PodBinaryCodec.EncodeCommentPolicySnapshot(snapshot with { CommentMaxChars = maxChars }));
+        }
+        byte[] missingHash = (byte[])snapshotEncoded.Clone();
+        BinaryPrimitives.WriteInt32LittleEndian(missingHash.AsSpan(CommentPolicySnapshotWire.SnapshotHashOffset + 4), 0);
+        Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(missingHash, out _));
+        byte[] missingReason = (byte[])snapshotEncoded.Clone();
+        BinaryPrimitives.WriteInt32LittleEndian(missingReason.AsSpan(CommentPolicySnapshotWire.ZkProdUnavailableReasonOffset), 0);
+        Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(missingReason, out _));
+        byte[] invalidUtf8 = (byte[])snapshotEncoded.Clone();
+        invalidUtf8[CommentPolicySnapshotWire.PodBytes + sizeof(int)] = 0xff;
+        Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(invalidUtf8, out _));
+        Assert.Equal(CommentPolicySnapshotWire.PodBytes, Marshal.SizeOf<CommentPolicySnapshotPod>());
+        Assert.Equal(CommentPolicySnapshotWire.CommentMaxCharsOffset, Marshal.OffsetOf<CommentPolicySnapshotPod>(nameof(CommentPolicySnapshotPod.CommentMaxChars)).ToInt32());
+
         byte[] retiredSnapshotMode = (byte[])snapshotEncoded.Clone();
         retiredSnapshotMode[3] = 2;
         Assert.False(PodBinaryCodec.TryDecodeCommentPolicySnapshot(retiredSnapshotMode, out _));

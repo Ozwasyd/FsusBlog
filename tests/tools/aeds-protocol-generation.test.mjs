@@ -52,7 +52,10 @@ test('the original producer owns five products with manifest-derived identities 
         'src/frontend/wasm/aeds/include/aeds_article_list_wire.generated.hpp',
         'src/shared/Contracts/Validation/AedsArticleSearchWire.Generated.cs',
         'src/frontend/src/generated/aedsArticleSearchWire.ts',
-        'src/frontend/wasm/aeds/include/aeds_article_search_wire.generated.hpp'
+        'src/frontend/wasm/aeds/include/aeds_article_search_wire.generated.hpp',
+        'src/shared/Contracts/Models/CommentPolicySnapshotPod.Generated.cs',
+        'src/frontend/src/generated/commentPolicyWire.ts',
+        'src/frontend/wasm/aeds/include/comment_policy_wire.generated.hpp'
     ]);
     const golden = goldenFrom(manifest);
     assert.equal(golden.version, manifest.goldenCatalog.version);
@@ -223,3 +226,16 @@ test('source values and explicit metadata, not old output values, determine the 
         family: 'test-source-response'
     });
 });
+
+for (const mutation of ['missing-field', 'overlap', 'old-size'])
+{
+    test(`current comment policy authority refuses ${mutation}`, () =>
+    {
+        const source = structuredClone(manifest);
+        const wire = source.payloadLayouts.CommentPolicySnapshot;
+        if (mutation === 'missing-field') wire.fields.pop();
+        if (mutation === 'overlap') wire.fields[10].offset = 12;
+        if (mutation === 'old-size') wire.podBytes = 48;
+        assert.throws(() => renderAedsProtocolOutputs(source), /comment_policy_current_wire/u);
+    });
+}
