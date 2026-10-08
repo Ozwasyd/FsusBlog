@@ -158,13 +158,13 @@
             "src/article-vault/macos/packages.lock.json",
             "tests/article-vault/macos/packages.lock.json"
         ],
-        "config/development/authoritative-development-docs.json::classifications[id=lock].patterns": [
-            "src/article-vault/macos/packages.lock.json",
-            "tests/article-vault/macos/packages.lock.json"
-        ],
         "config/development/native-tooling-style-policy.json::standardTools.cppLint.compileDatabaseCandidates": [
             "src/article-vault/macos/obj/Debug/macos-native",
             "src/article-vault/macos/obj/Release/macos-native"
+        ],
+        "config/development/authoritative-development-docs.json::pathClassifications[id=lock].patterns": [
+            "src/article-vault/macos/packages.lock.json",
+            "tests/article-vault/macos/packages.lock.json"
         ]
     },
     "commandsRequiringOwnerRegistration": {
