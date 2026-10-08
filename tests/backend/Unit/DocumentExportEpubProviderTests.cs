@@ -83,6 +83,11 @@ public sealed class DocumentExportEpubProviderTests
     [InlineData("<ol type=\"invalid\"><li>x</li></ol>")]
     [InlineData("<ol reversed=\"false\"><li>x</li></ol>")]
     [InlineData("<details open=\"false\"><summary>x</summary></details>")]
+    [InlineData("<a href=\"https://example.org\"><details><summary>Summary</summary><p>Detail</p></details></a>")]
+    [InlineData("<a href=\"https://example.org\"><section><div><details><summary>Summary</summary><p>Detail</p></details></div></section></a>")]
+    [InlineData("<figure>before<figcaption>Caption</figcaption>after</figure>")]
+    [InlineData("<figure>&#160;<figcaption>Caption</figcaption>after</figure>")]
+    [InlineData("<figure>before<figcaption>Caption</figcaption>&#160;</figure>")]
     public void RefusesInvalidXhtmlInBuilderAndActualPackageEvenWhenFrozenContentMatches(string fragment)
     {
         EpubPublicationMetadata metadata = Metadata();
@@ -92,11 +97,42 @@ public sealed class DocumentExportEpubProviderTests
 
         const string ValidFragment = "<div id=\"structure-probe\">marker</div>";
         EpubPackageBuildResult valid = EpubPackageBuilder.Build(input, Response(input, metadata, ValidFragment), metadata, Budgets);
+        // Match canonical attributes/escaping too: a missing external-link safety
+        // attribute must not substitute for rejecting the actual content model.
+        string canonicalFragment = Encoding.UTF8.GetString(DocumentExportHtmlSanitizer.Sanitize(fragment, [], Budgets.MaxOutputBytes));
         byte[] mutated = Rewrite(valid.Bytes, "EPUB/chapter-0001.xhtml", bytes => Encoding.UTF8.GetBytes(
-            Encoding.UTF8.GetString(bytes).Replace(ValidFragment, fragment, StringComparison.Ordinal)));
+            Encoding.UTF8.GetString(bytes).Replace(ValidFragment, canonicalFragment, StringComparison.Ordinal)));
         InvalidDataException failure = Assert.Throws<InvalidDataException>(() =>
             DocumentExportEpubPackageValidator.Validate(mutated, input, invalidResponse, metadata, Budgets));
         Assert.Contains("XHTML", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("<a href=\"https://example.org\"><div><h2>Heading</h2><p>Block link</p></div></a>")]
+    [InlineData("<a href=\"https://example.org\"><section><h2>Heading</h2><p>Block link</p></section></a>")]
+    [InlineData("<a href=\"https://example.org\"><table><tr><td>Cell</td></tr></table></a>")]
+    [InlineData("<a href=\"https://example.org\"><figure><figcaption>Caption</figcaption>body</figure></a>")]
+    [InlineData("<figure><figcaption>Caption</figcaption>after</figure>")]
+    [InlineData("<figure>before<figcaption>Caption</figcaption></figure>")]
+    [InlineData("<figure> \n\t<figcaption>Caption</figcaption>after \n\t</figure>")]
+    [InlineData("<figure> \n\tbefore<figcaption>Caption</figcaption> \n\t</figure>")]
+    [InlineData("<figure><figcaption>Caption</figcaption></figure>")]
+    [InlineData("<figure>before<strong>body</strong>after</figure>")]
+    public void PreservesLegalBlockLinksAndFigureCaptionPlacement(string fragment)
+    {
+        EpubPublicationMetadata metadata = Metadata();
+        DocumentExportFrozenInput input = Input(metadata);
+        DocumentExportRendererResponse response = Response(input, metadata, fragment);
+        EpubPackageBuildResult result = EpubPackageBuilder.Build(input, response, metadata, Budgets);
+        using var source = new MemoryStream(result.Bytes);
+        using var zip = new ZipArchive(source, ZipArchiveMode.Read);
+        XNamespace xhtml = "http://www.w3.org/1999/xhtml";
+        XElement article = XElement.Parse(Text(zip, "EPUB/chapter-0001.xhtml"), LoadOptions.PreserveWhitespace)
+            .Descendants(xhtml + "article").Single();
+        XElement expected = XElement.Parse("<article xmlns=\"" + xhtml + "\">" + fragment + "</article>", LoadOptions.PreserveWhitespace);
+        Assert.Equal(expected.Value, article.Elements().First().Value);
+        Assert.Equal(expected.Descendants().Select(element => element.Name), article.Elements().First().DescendantsAndSelf().Select(element => element.Name));
+        DocumentExportEpubPackageValidator.Validate(result.Bytes, input, response, metadata, Budgets);
     }
 
     [Theory]

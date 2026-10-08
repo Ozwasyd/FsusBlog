@@ -411,7 +411,11 @@ public static class DocumentExportEpubPackageValidator
             "a" or "del" or "ins" => HasFlowChildren(element),
             _ => s_phrasingElements.Contains(name) ? HasPhrasingChildren(element) : HasFlowChildren(element)
         };
-        if (name == "a" && element.Descendants().Any(child => child.Name == s_xhtml + "a" || child.Attribute("tabindex") is not null)
+        // Anchors are transparent, but the supported interactive elements cannot be
+        // descendants. Keep legal flow/block links while refusing nested details.
+        if (name == "a" && element.Descendants().Any(child =>
+            child.Name.Namespace == s_xhtml && child.Name.LocalName is "a" or "details"
+                || child.Attribute("tabindex") is not null)
             || name is "pre" or "code" && element.Descendants(s_xhtml + "pre").Any())
         {
             valid = false;
@@ -500,7 +504,11 @@ public static class DocumentExportEpubPackageValidator
     {
         XElement[] children = element.Elements().ToArray();
         XElement[] captions = children.Where(child => child.Name == s_xhtml + "figcaption").ToArray();
-        return captions.Length <= 1 && (captions.Length == 0 || captions[0] == children[0] || captions[0] == children[^1])
+        // Text participates in caption placement; only HTML interelement whitespace
+        // is ignored. Nonbreaking spaces are content, not formatting whitespace.
+        XNode[] content = element.Nodes().Where(node => node is not XText text
+            || text.Value.Any(character => character is not (' ' or '\t' or '\n'))).ToArray();
+        return captions.Length <= 1 && (captions.Length == 0 || captions[0] == content[0] || captions[0] == content[^1])
             && children.All(child => child.Name == s_xhtml + "figcaption" || IsFlow(child));
     }
 
