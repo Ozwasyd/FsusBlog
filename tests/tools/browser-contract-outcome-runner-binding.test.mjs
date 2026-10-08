@@ -134,13 +134,14 @@ test('production bridge reopens original runner and independently verified raw o
     assert.equal(source.reliabilityBinding, null);
 });
 
-test('bridge binds held individual report without turning source scenario status into assertions', (t) =>
+test('failed bridge binds held individual report without turning source scenario status into assertions', (t) =>
 {
     const f = fixture(t);
-    const inputs = memberInputs(f);
+    f.fail();
+    const inputs = memberInputs(f, true);
     const result = inputs.adapt();
-    assert.equal(result.outcome.status, 'success');
-    assert.equal(result.inputAuthorityRefs.length, 6);
+    assert.equal(result.outcome.status, 'failed');
+    assert.equal(result.inputAuthorityRefs.length, 4);
     assert.ok(result.outcome.membership.plannedAssertionIds.every((id) => id.startsWith('held-assertion:')));
     const withoutReport = { ...inputs.authority, inputAuthorityRefs: inputs.authority.inputAuthorityRefs.filter((ref) => ref.kind !== 'browser-contract-report') };
     assert.throws(() => adaptBrowserContractRunnerSemanticOutcome({ repositoryRoot: f.value.repositoryRoot,
@@ -221,7 +222,8 @@ test('pending native scenario cannot gain fabricated executed assertion members'
 test('native/member report source reference mismatch is refused after both documents are resealed', (t) =>
 {
     const f = fixture(t);
-    const inputs = memberInputs(f);
+    f.fail();
+    const inputs = memberInputs(f, true);
     inputs.report.diagnostics.runnerReceipt.digest = digest('f');
     // Replace the diagnostic object rather than the independently held reference.
     f.options.runnerReference = { path: f.value.relative(f.value.browserFile), digest: fileDigest(f.value.browserFile) };
@@ -231,6 +233,7 @@ test('native/member report source reference mismatch is refused after both docum
 test('original Release Reliability identity API binds the same Browser source build and run without qualifying exact-seven', (t) =>
 {
     const f = fixture(t);
+    f.fail();
     const invocationId = `browser-bridge-${path.basename(f.value.directory)}`;
     const identityPath = `.tmp/release-reliability/${invocationId}/identity.json`;
     const identityFile = path.join(f.value.repositoryRoot, identityPath);
@@ -251,7 +254,25 @@ test('original Release Reliability identity API binds the same Browser source bu
     const source = f.read();
     assert.equal(source.reliabilityBinding.identityContentDigest, identity.contentDigest);
     assert.equal(source.reliabilityBinding.scenarioId, 'release-load-peak');
-    assert.equal(source.inputAuthorityRefs.length, 4);
+    assert.equal(source.inputAuthorityRefs.length, 2);
     f.options.releaseReliability.environment.FSUSBLOG_RELEASE_RELIABILITY_RUN_ID = 'other-run';
     assert.throws(f.read, /run identity is incomplete or mismatched/u);
+});
+
+test('native failed scenario cannot be replaced by passing individual assertions', (t) =>
+{
+    const f = fixture(t);
+    f.fail();
+    const inputs = memberInputs(f, true);
+    Object.assign(inputs.report.members[0], { status: 'passed', failures: [] });
+    assert.throws(inputs.adapt, /failed native scenario was replaced by passing members/u);
+});
+
+test('native failed attempt cannot erase first-failure qualification provenance', (t) =>
+{
+    const f = fixture(t);
+    f.fail();
+    const inputs = memberInputs(f, true);
+    Object.assign(inputs.authority.attemptEligibility, { firstFailure: false, cleanFirstAttempt: true, qualificationEligible: true });
+    assert.throws(inputs.adapt, /failed native attempt provenance was erased/u);
 });
