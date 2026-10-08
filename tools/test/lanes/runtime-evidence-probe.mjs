@@ -62,6 +62,9 @@ const { assertLoadTransportCohort, createOpenLoopLoadClientTransport, validateLo
 );
 const { digestCanonical, sealContentDigest } = await import(new URL('../attempt-provenance.mjs', import.meta.url).href);
 const { readQualifiedRuntimeEnvironment } = await import(new URL('../release-reliability-runtime-environment.mjs', import.meta.url).href);
+const { buildLoadRequestObservations, buildLoadRequestSample, buildLoadResourceObservability, observeLoadRequestStart,
+    observeLoadTransportError, validateLoadWorkerRegistration, verifyLoadRequestObservations }
+    = await import(new URL('../load-request-observations.mjs', import.meta.url).href);
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
 if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
@@ -362,7 +365,8 @@ function resolveLoadProfilePolicy(profile)
 
 function thresholdCheck(metric, actual, operator, threshold)
 {
-    const passed = operator === '>=' ? actual >= threshold : actual <= threshold;
+    const passed = Number.isFinite(actual) && Number.isFinite(threshold)
+        && (operator === '>=' ? actual >= threshold : actual <= threshold);
     return {
         metric,
         actual,
@@ -372,7 +376,7 @@ function thresholdCheck(metric, actual, operator, threshold)
     };
 }
 
-function evaluateLoadProfileThresholds(metrics, thresholds)
+export function evaluateLoadProfileThresholds(metrics, thresholds)
 {
     const checks = [
         thresholdCheck('p95Ms', metrics.p95Ms, '<=', thresholds.maxP95Ms),
@@ -599,7 +603,7 @@ function summarizeRouteContractProbe(samples, started, concurrency, requestBaseU
 }
 
 export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sourceSha, transportPolicy, runBinding,
-    requestBaseUrl = baseUrl, signal, onTransportObservation = () =>
+    workerRegistration, requestBaseUrl = baseUrl, signal, onTransportObservation = () =>
     {}, onMeasurementStart = () =>
     {}, onMeasurementEnd = () =>
     {} })
@@ -615,8 +619,11 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
     {
         throw new Error('open-loop transport requires its supported request timeout and synchronous collector port before HTTP');
     }
+    const registeredIssuer = validateLoadWorkerRegistration(workerRegistration);
     const observations = [];
     const requestTransports = [];
+    const requestContexts = new Map();
+    let requestSequence = 0;
     const transport = await createOpenLoopLoadClientTransport({ policy: transportPolicy, endpoint: requestBaseUrl,
         runBinding, headers: defaultHeaders, onObservation: (observation) =>
         {
@@ -643,7 +650,20 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
                     transportSnapshot: transport.snapshot() }));
             }, request: async (arrival, options) =>
             {
-                const { transport: actualTransport, transportFailureStage, ...sample } = await transport.request(arrival, options);
+                const context = observeLoadRequestStart(arrival, registeredIssuer, requestSequence++);
+                const actualRequest = { ...context, signal: options.signal, finishedMonotonicMs: null, rawSample: null };
+                requestContexts.set(arrival.sampleId, actualRequest);
+                let result;
+                try
+                {
+                    result = await transport.request(arrival, options);
+                }
+                finally
+                {
+                    actualRequest.finishedMonotonicMs = performance.now();
+                }
+                const { transport: actualTransport, transportFailureStage, ...sample } = result;
+                actualRequest.rawSample = sample;
                 requestTransports.push({ sampleId: arrival.sampleId, routeId: arrival.routeId,
                     transport: actualTransport, failureStage: transportFailureStage });
                 // The payload oracle remains its exact nine-field contract. Socket facts stay in a bound sidecar.
@@ -664,6 +684,44 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
         finalSnapshot: transport.snapshot(), runtimeLeaseVerified: false, qualificationEligible: false });
     const measurementWindow = sealContentDigest({ schema: 'fsusblog.release-load-source-window.v1',
         ...measurementStart, ...measurementEnd, qualificationEligible: false });
+    const loadSamples = [];
+    const unavailableSamples = [];
+    const expectedRequests = [];
+    for (const record of result.timeline.records.filter((entry) => entry.dispatchedAtMs !== null))
+    {
+        const context = requestContexts.get(record.sampleId);
+        expectedRequests.push({ sampleId: record.sampleId, workerId: registeredIssuer.workerId,
+            sequence: context.sequence, path: routeContract(record.routeId).pathTemplate });
+        const headerObserved = observations.some((entry) => entry.type === 'response-headers' && entry.sampleId === record.sampleId);
+        const raw = context.rawSample;
+        const response = raw?.status >= 100 ? { httpStatus: raw.status, bytes: raw.bodyBytes,
+            contentType: raw.contentType, frameType: raw.frameType }
+            : { httpStatus: headerObserved ? null : 0, bytes: headerObserved ? null : 0, contentType: null, frameType: null };
+        const terminalControl = record.outcome === 'cancelled' ? 'cancelled' : record.outcome === 'timed-out' ? 'timeout' : 'completed';
+        const reason = context.signal.reason;
+        const error = terminalControl !== 'completed' && reason instanceof Error
+            ? observeLoadTransportError(reason, terminalControl === 'timeout' ? 'deadline' : 'scenario-cancel') : null;
+        try
+        {
+            loadSamples.push(buildLoadRequestSample({ ...context, routeSample: raw, response, terminalControl, error }));
+        }
+        catch (failure)
+        {
+            // Preserve every real request and raw failure; missing transport facts are never zero-filled.
+            unavailableSamples.push({ sampleId: record.sampleId, workerId: registeredIssuer.workerId, sequence: context.sequence,
+                startedMonotonicMs: context.startedMonotonicMs, finishedMonotonicMs: context.finishedMonotonicMs,
+                rawSample: raw, terminalControl, response, error, reason: failure.message });
+        }
+    }
+    const requestAvailability = sealContentDigest({ schema: 'fsusblog.load-request-availability.v1', registeredIssuer,
+        expectedRequests, unavailableSamples, complete: unavailableSamples.length === 0,
+        nativeWorkerAuthorityVerified: false, qualificationEligible: false });
+    const loadRequestObservations = requestAvailability.complete ? buildLoadRequestObservations({ samples: loadSamples,
+        expectedRequests }) : null;
+    if (loadRequestObservations)
+    {
+        verifyLoadRequestObservations(loadRequestObservations, { samples: loadSamples, expectedRequests });
+    }
     const samples = result.timeline.records.filter((record) => record.sample !== null).map((record) => record.sample);
     const inputs = { schedule, timeline: result.timeline, routePolicy, expectedRouteIds: safeBinaryRouteIds, sourceSha };
     const routeStatistics = buildOpenLoopLoadRouteStatistics(inputs);
@@ -675,12 +733,16 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
         routeCatalogDigest: routeStatistics.routeCatalogDigest, scheduleDigest: schedule.contentDigest,
         timelineDigest: result.timeline.contentDigest,
         measurementWindowDigest: measurementWindow.contentDigest,
+        requestAvailabilityDigest: requestAvailability.contentDigest,
+        loadRequestObservationsDigest: loadRequestObservations?.contentDigest ?? null,
         transportIdentityDigest: transport.identity.contentDigest, transportEvidenceDigest: transportEvidence.contentDigest,
         runtimeLeaseVerified: false, qualificationEligible: false });
     const probe = summarizeRouteContractProbe(samples, started, schedule.policy.maximumInFlight, requestBaseUrl);
-    return { ...probe, status: probe.status === 'ok' && routeStatistics.passed ? 'ok' : 'failed',
-        openLoop: result, routeStatistics, transportEvidence, measurementWindow, candidateBinding, candidateIdentity: candidateBinding.contentDigest,
-        qualificationEligible: false };
+    return { ...probe, status: probe.status === 'ok' && routeStatistics.passed
+            && requestAvailability.complete && loadRequestObservations.observationsComplete ? 'ok' : 'failed',
+    openLoop: result, routeStatistics, transportEvidence, measurementWindow, requestAvailability, loadRequestObservations,
+    candidateBinding, candidateIdentity: candidateBinding.contentDigest,
+    qualificationEligible: false };
 }
 
 async function runHttpProbe(paths, options = {})
@@ -4650,16 +4712,10 @@ async function loadProfile(profile, outFile)
         p95Ms: probe.latencyMs.p95,
         p99Ms: probe.latencyMs.p99,
         maxLatencyMs: probe.latencyMs.max,
-        errorRate: failedSamples / probe.sampleCount,
-        timeoutRate: probe.failures.filter((sample) => sample.failureKind === 'timeout').length / probe.sampleCount,
-        cpuPercent: null,
-        rssBytes: null,
-        managedHeapBytes: null,
-        gcCount: null,
-        threadCount: null,
-        socketCount: null,
-        postgresPoolUsage: null,
-        redisLatencyMs: null
+        errorRate: schedule ? probe.loadRequestObservations?.errorRate ?? null : failedSamples / probe.sampleCount,
+        timeoutRate: schedule ? probe.loadRequestObservations?.timeoutRate ?? null
+            : probe.failures.filter((sample) => sample.failureKind === 'timeout').length / probe.sampleCount,
+        ...buildLoadResourceObservability()
     };
     const thresholdEvaluation = evaluateLoadProfileThresholds(metrics, policy.thresholds);
     const status = probe.status === 'ok' && thresholdEvaluation.status === 'pass' ? 'ok' : 'failed';
@@ -4679,7 +4735,8 @@ async function loadProfile(profile, outFile)
         },
         ...(schedule ? { candidateIdentity: probe.candidateIdentity, qualificationEligible: false,
             routeStatistics: probe.routeStatistics, candidateBinding: probe.candidateBinding,
-            transportEvidence: probe.transportEvidence, measurementWindow: probe.measurementWindow } : {}),
+            transportEvidence: probe.transportEvidence, measurementWindow: probe.measurementWindow,
+            requestAvailability: probe.requestAvailability, loadRequestObservations: probe.loadRequestObservations } : {}),
         declared: policy.declared,
         effective: policy.effective,
         thresholds: policy.thresholds,

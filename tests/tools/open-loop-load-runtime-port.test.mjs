@@ -12,7 +12,14 @@ const { readLoadArrivalPolicy, readLoadRouteStatisticsPolicy, readLoadTransportP
 const { fetchRouteSample, producerRouteIds, routeContract } = await import(new URL('../../tools/test/lanes/runtime-http-route-contract.mjs', import.meta.url).href);
 const { buildOpenLoopLoadSchedule, dispatchOpenLoopLoadSchedule } = await import(new URL('../../tools/test/open-loop-load-schedule.mjs', import.meta.url).href);
 const { createOpenLoopLoadClientTransport } = await import(new URL('../../tools/test/open-loop-load-client-transport.mjs', import.meta.url).href);
+const { observeLoadIssuer } = await import(new URL('../../tools/test/load-request-observations.mjs', import.meta.url).href);
 const { digestCanonical } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url).href);
+
+function fixtureWorkerRegistration()
+{
+    const issuer = observeLoadIssuer();
+    return { workerId: String(issuer.threadId), issuer };
+}
 
 function transportPolicy(changes = {})
 {
@@ -146,7 +153,7 @@ test('canonical open-loop callback gates route failure and propagates combined s
     globalThis.fetch = () => assert.fail('canonical open-loop used ambient fetch');
     t.after(() => globalThis.fetch = originalFetch);
     const probe = await runOpenLoopRouteContractProbe(schedule, { routePolicy, sourceSha, requestBaseUrl: fixture.baseUrl,
-        transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(fixture.baseUrl),
+        transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(fixture.baseUrl), workerRegistration: fixtureWorkerRegistration(),
         onTransportObservation: (observation) => collected.push(observation),
         onMeasurementStart: (window) => measured.push(window), onMeasurementEnd: (window) => measured.push(window) });
     assert.equal(fixture.requestCount(), schedule.plannedCount);
@@ -155,6 +162,11 @@ test('canonical open-loop callback gates route failure and propagates combined s
     assert.equal(probe.status, 'failed', 'an independent route budget must defeat global success');
     assert.equal(probe.routeStatistics.routes.find((route) => route.routeId === 'system-seo').passed, false);
     assert.equal(probe.candidateIdentity, probe.candidateBinding.contentDigest);
+    assert.equal(probe.requestAvailability.complete, true);
+    assert.equal(probe.loadRequestObservations.sampleCount, schedule.plannedCount);
+    assert.equal(probe.loadRequestObservations.errorRate, 0);
+    assert.equal(probe.candidateBinding.loadRequestObservationsDigest, probe.loadRequestObservations.contentDigest);
+    assert.equal(probe.candidateBinding.requestAvailabilityDigest, probe.requestAvailability.contentDigest);
     assert.equal(probe.candidateBinding.routeStatisticsIdentity, probe.routeStatistics.candidateIdentity);
     assert.equal(probe.candidateBinding.transportIdentityDigest, probe.transportEvidence.identity.contentDigest);
     assert.equal(probe.candidateBinding.transportEvidenceDigest, probe.transportEvidence.contentDigest);
@@ -192,7 +204,8 @@ test('canonical transport policy and caller binding refuse missing authority and
     const { schedule, routePolicy, routeIds } = canonicalFixturePolicies();
     const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
     const options = { routePolicy, sourceSha, requestBaseUrl: fixture.baseUrl, transportPolicy: transportPolicy(),
-        runBinding: fixtureRunBinding(fixture.baseUrl) };
+        runBinding: fixtureRunBinding(fixture.baseUrl), workerRegistration: fixtureWorkerRegistration() };
+    await assert.rejects(runOpenLoopRouteContractProbe(schedule, { ...options, workerRegistration: undefined }), /held load worker registration/u);
     await assert.rejects(runOpenLoopRouteContractProbe(schedule, { ...options, transportPolicy: undefined }), /every explicit field/u);
     await assert.rejects(runOpenLoopRouteContractProbe(schedule, { ...options, runBinding: {} }), /run binding/u);
     await assert.rejects(runOpenLoopRouteContractProbe(schedule, { ...options, runBinding: fixtureRunBinding('http://127.0.0.1:1') }), /run binding/u);
@@ -266,8 +279,13 @@ test('canonical interrupted flow retains complete membership and actual post-cle
     t.after(() => clearTimeout(timer));
     const probe = await runOpenLoopRouteContractProbe(schedule, { routePolicy,
         sourceSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), requestBaseUrl: fixture.baseUrl,
-        transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(fixture.baseUrl), signal: controller.signal });
+        transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(fixture.baseUrl), workerRegistration: fixtureWorkerRegistration(), signal: controller.signal });
     assert.equal(probe.status, 'failed');
+    assert.equal(probe.requestAvailability.complete, true);
+    assert.equal(probe.loadRequestObservations.outcomeCounts.cancelled, probe.openLoop.validation.counts.dispatched);
+    assert.equal(probe.loadRequestObservations.completed, 0);
+    assert.equal(probe.loadRequestObservations.timeoutRate, null);
+    assert.equal(probe.loadRequestObservations.observationsComplete, false);
     assert.equal(probe.openLoop.timeline.records.length, schedule.plannedCount);
     assert.equal(probe.openLoop.validation.counts.cancelled, schedule.plannedCount);
     assert.equal(probe.transportEvidence.requestTransports.length, probe.openLoop.validation.counts.dispatched);
@@ -357,4 +375,47 @@ test('canonical expected peak and burst commands refuse the current incomplete p
     }
     await delay(10);
     assert.equal(fixture.requestCount(), 0);
+});
+
+
+test('canonical callback retains every reset or partial-response request with explicit missing transport facts', async (t) =>
+{
+    for (const partial of [false, true])
+    {
+        const server = http.createServer((request, response) =>
+        {
+            if (!partial)
+            {
+                request.socket.destroy();
+                return;
+            }
+            response.writeHead(200, { 'content-type': 'application/octet-stream' });
+            response.write(new Uint8Array(8));
+            setTimeout(() => response.destroy(), 10);
+        });
+        await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+        t.after(async () =>
+        {
+            server.closeAllConnections();
+            await new Promise((resolve) => server.close(resolve));
+        });
+        const endpoint = `http://127.0.0.1:${server.address().port}`;
+        const { schedule, routePolicy } = canonicalFixturePolicies();
+        const probe = await runOpenLoopRouteContractProbe(schedule, { routePolicy,
+            sourceSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), requestBaseUrl: endpoint,
+            transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(endpoint), workerRegistration: fixtureWorkerRegistration() });
+        assert.equal(probe.status, 'failed');
+        assert.equal(probe.requestAvailability.complete, false);
+        assert.equal(probe.requestAvailability.expectedRequests.length, schedule.plannedCount);
+        assert.equal(probe.requestAvailability.unavailableSamples.length, schedule.plannedCount);
+        assert.equal(probe.loadRequestObservations, null);
+        assert.equal(probe.candidateBinding.loadRequestObservationsDigest, null);
+        assert.ok(probe.requestAvailability.unavailableSamples.every((sample) => sample.rawSample.ok === false && sample.reason));
+        if (partial)
+        {
+            assert.ok(probe.requestAvailability.unavailableSamples.every((sample) => sample.response.bytes === null && sample.response.httpStatus === null));
+        }
+        assert.equal(probe.transportEvidence.finalSnapshot.closed, true);
+        assert.equal(probe.transportEvidence.finalSnapshot.activeRequests, 0);
+    }
 });
