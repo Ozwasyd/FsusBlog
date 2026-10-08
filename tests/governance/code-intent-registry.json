@@ -610,6 +610,85 @@
             "nonGoals": [
                 "cache-hit-qps"
             ]
+        },
+        {
+            "id": "memory-physical-owner-contracts",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs"
+            ],
+            "intentKinds": [
+                "ownership",
+                "lifetime",
+                "disposal"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "class MemoryAllocationDescriptor",
+                    "maxLineDistance": 32
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "interface IMemoryAllocationCharge",
+                    "maxLineDistance": 32
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "interface IMemoryHostReadLease",
+                    "maxLineDistance": 32
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "record struct BlobId",
+                    "maxLineDistance": 32
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "class ManagedMemoryBacking",
+                    "maxLineDistance": 32
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "One physical owner retains its charge through actual role/read/pin/operation completion. A host view never performs I/O or qualification. This is a structural ownership contract, not measured runtime capacity or performance evidence."
+        },
+        {
+            "id": "segmented-native-physical-owner",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaBuilder.cs"
+            ],
+            "intentKinds": [
+                "ownership",
+                "lifetime",
+                "disposal"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "class NativeMemoryAllocator",
+                    "maxLineDistance": 32
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "class NativeMemoryBlock",
+                    "maxLineDistance": 32
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "The BCL allocator pairs allocation with clearing/freeing; block holds retain one charge until actual completion. Builder rejection maps the existing failure enumeration without inventing an AllocationFailed value. This declares source lifetime structure only, not process-RSS reclamation or allocation-performance improvement."
         }
     ]
 }
