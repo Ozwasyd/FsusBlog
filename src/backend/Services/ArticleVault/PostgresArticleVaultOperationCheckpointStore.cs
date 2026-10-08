@@ -168,6 +168,11 @@ public sealed class PostgresArticleVaultOperationCheckpointStore(
         insert.Parameters.AddWithValue("digest", checkpoint.ContentSha256);
         insert.Parameters.AddWithValue("json", Encode(checkpoint));
         await insert.ExecuteNonQueryAsync(cancellationToken);
+        // Checkpoint SQL may wait after journal admission. Reuse the canonical exact replay
+        // verifier before commit so backup/proposal expiry and protection remain its authority.
+        await StageRecoveryAsync(transaction, recovery, checkpoint, previous, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateAppend(identity, plan, previous, checkpoint));
         RequireAppendWindow(identity, checkpoint);
         await transaction.CommitAsync(cancellationToken);
     }

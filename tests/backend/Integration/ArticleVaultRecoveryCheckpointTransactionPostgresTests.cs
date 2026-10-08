@@ -58,9 +58,11 @@ public sealed class ArticleVaultRecoveryCheckpointTransactionPostgresTests(Postg
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
     public async Task FailureCancellationOrExpiryAfterActualStage_LeavesNeitherTransactionFact(int scenario)
     {
-        await using Database database = await CreateAsync();
+        await using Database database = await CreateAsync(retentionMs: scenario == 3 ? 5000 : 60_000);
         using var cancellation = new CancellationTokenSource();
         var stage = new AfterStage(database.Storage, () =>
         {
@@ -72,9 +74,17 @@ public sealed class ArticleVaultRecoveryCheckpointTransactionPostgresTests(Postg
             {
                 cancellation.Cancel();
             }
-            else
+            else if (scenario == 2)
             {
                 database.Clock.Now = DateTimeOffset.FromUnixTimeMilliseconds(database.Plan.Operation.DeadlineUnixMs + 1);
+            }
+            else if (scenario == 3)
+            {
+                database.Clock.Now = DateTimeOffset.FromUnixTimeMilliseconds(database.Backup.Policy.DeleteAfterUnixMs);
+            }
+            else
+            {
+                database.Clock.Now = DateTimeOffset.FromUnixTimeMilliseconds(database.Proposal.ExpiresAtUnixMs);
             }
         });
         if (scenario == 1)
@@ -86,8 +96,14 @@ public sealed class ArticleVaultRecoveryCheckpointTransactionPostgresTests(Postg
         {
             ArticleVaultExecutionRejectedException rejection = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(
                 () => AppendAsync(database, stage: stage));
-            Assert.Equal(scenario == 0 ? "diagnostic_failure_after_real_stage" : "article_vault_operation_current_deadline_invalid",
-                rejection.Message);
+            string expected = scenario switch
+            {
+                0 => "diagnostic_failure_after_real_stage",
+                2 => "article_vault_operation_current_deadline_invalid",
+                3 => "article_vault_recovery_storage_backup_expired_or_future",
+                _ => "article_vault_recovery_storage_proposal_expired"
+            };
+            Assert.Equal(expected, rejection.Message);
         }
 
         Assert.Equal(0, await CountAsync(database, "article_vault_operation_checkpoint"));
