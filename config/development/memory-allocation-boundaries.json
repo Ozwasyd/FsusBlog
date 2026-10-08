@@ -3846,6 +3846,14 @@
                 {
                     "path": "tests/backend/Unit/LinuxCgroupContextReaderTests.cs",
                     "anchor": "public sealed class LinuxCgroupContextReaderTests"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupCounterParser.cs",
+                    "anchor": "public static class LinuxCgroupCounterParser"
+                },
+                {
+                    "path": "tests/backend/Unit/LinuxCgroupCounterParserTests.cs",
+                    "anchor": "public sealed class LinuxCgroupCounterParserTests"
                 }
             ]
         }

@@ -178,81 +178,115 @@ public sealed class LinuxCgroupDirectoryReader : IDisposable
 
     public LinuxCgroupScalarCapture Capture(LinuxCgroupScalar scalar, Span<byte> admittedScratch)
     {
-        if (!Enum.IsDefined(scalar) || admittedScratch.Length <= _maximumScalarBytes)
-        {
-            throw new ArgumentException("Capture requires the declared scratch bound plus one overflow byte.", nameof(admittedScratch));
-        }
+        ValidateScratch(Enum.IsDefined(scalar), admittedScratch);
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            var before = Inspect(_directory, Identity.Version);
-            if (!before.Succeeded)
-            {
-                return new(MemoryObservationState.Unknown, null, false, Identity);
-            }
-            if (before.Value != Identity)
-            {
-                return new(MemoryObservationState.Stale, null, false, Identity);
-            }
-            string? name = FileName(Identity.Version, scalar);
-            if (name is null)
-            {
-                return new(MemoryObservationState.Unknown, null, false, Identity);
-            }
             Span<byte> scratch = admittedScratch[..(_maximumScalarBytes + 1)];
             try
             {
-                int fd = OpenAt(_directory, name, NoFollowFlag | CloseOnExecFlag, 0);
-                if (fd < 0)
-                {
-                    int error = Marshal.GetLastPInvokeError();
-                    return new(error is 1 or 13 ? MemoryObservationState.Denied : MemoryObservationState.Unknown,
-                        null, false, Identity);
-                }
-                using var file = new SafeFileHandle(fd, true);
-                if (!SameFileDomain(file))
-                {
-                    return new(MemoryObservationState.Unknown, null, false, Identity);
-                }
-                using var stream = new FileStream(file, FileAccess.Read, 1, isAsync: false);
-                int length = 0;
-                while (length < scratch.Length)
-                {
-                    int read = stream.Read(scratch[length..]);
-                    if (read == 0)
-                    {
-                        break;
-                    }
-                    length += read;
-                }
-                if (length == scratch.Length)
-                {
-                    return new(MemoryObservationState.Malformed, null, false, Identity);
-                }
-                var after = Inspect(_directory, Identity.Version);
-                if (!after.Succeeded)
-                {
-                    return new(MemoryObservationState.Unknown, null, false, Identity);
-                }
-                if (after.Value != Identity)
-                {
-                    return new(MemoryObservationState.Stale, null, false, Identity);
-                }
-                return ParseScalar(scratch[..length], scalar is LinuxCgroupScalar.HighBytes or LinuxCgroupScalar.HardLimitBytes
-                    or LinuxCgroupScalar.SwapLimitBytes, Identity);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return new(MemoryObservationState.Denied, null, false, Identity);
-            }
-            catch (IOException)
-            {
-                return new(MemoryObservationState.Unknown, null, false, Identity);
+                string? name = FileName(Identity.Version, scalar);
+                var read = name is null ? (MemoryObservationState.Unknown, 0) : ReadRaw(name, scratch);
+                return read.Item1 == MemoryObservationState.Available
+                    ? ParseScalar(scratch[..read.Item2], scalar is LinuxCgroupScalar.HighBytes or LinuxCgroupScalar.HardLimitBytes
+                        or LinuxCgroupScalar.SwapLimitBytes, Identity)
+                    : new(read.Item1, null, false, Identity);
             }
             finally
             {
                 scratch.Clear();
             }
+        }
+    }
+
+    public LinuxCgroupCounterCapture CaptureCounter(LinuxCgroupCounter counter, Span<byte> admittedScratch)
+    {
+        ValidateScratch(Enum.IsDefined(counter), admittedScratch);
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            Span<byte> scratch = admittedScratch[..(_maximumScalarBytes + 1)];
+            try
+            {
+                // Unsupported controller formats remain unknown; no v1 meaning is invented.
+                string? name = Identity.Version == 2 ? LinuxCgroupCounterParser.FileName(counter) : null;
+                var read = name is null ? (MemoryObservationState.Unknown, 0) : ReadRaw(name, scratch);
+                return read.Item1 == MemoryObservationState.Available
+                    ? LinuxCgroupCounterParser.Parse(scratch[..read.Item2], counter, Identity)
+                    : new(counter, LinuxCgroupCounterParser.Unit(counter), read.Item1, null, Identity);
+            }
+            finally
+            {
+                scratch.Clear();
+            }
+        }
+    }
+
+    private void ValidateScratch(bool knownField, Span<byte> scratch)
+    {
+        if (!knownField || scratch.Length <= _maximumScalarBytes)
+        {
+            throw new ArgumentException("Capture requires a known field and the declared scratch bound plus one overflow byte.", nameof(scratch));
+        }
+    }
+
+    private (MemoryObservationState State, int Length) ReadRaw(string name, Span<byte> scratch)
+    {
+        var before = Inspect(_directory, Identity.Version);
+        if (!before.Succeeded)
+        {
+            return (MemoryObservationState.Unknown, 0);
+        }
+        if (before.Value != Identity)
+        {
+            return (MemoryObservationState.Stale, 0);
+        }
+        try
+        {
+            int fd = OpenAt(_directory, name, NoFollowFlag | CloseOnExecFlag, 0);
+            if (fd < 0)
+            {
+                int error = Marshal.GetLastPInvokeError();
+                return (error is 1 or 13 ? MemoryObservationState.Denied : MemoryObservationState.Unknown, 0);
+            }
+            using var file = new SafeFileHandle(fd, true);
+            if (!SameFileDomain(file, out NativeIdentity initialFile))
+            {
+                return (MemoryObservationState.Unknown, 0);
+            }
+            using var stream = new FileStream(file, FileAccess.Read, 1, isAsync: false);
+            int length = 0;
+            while (length < scratch.Length)
+            {
+                int read = stream.Read(scratch[length..]);
+                if (read == 0)
+                {
+                    break;
+                }
+                length += read;
+            }
+            if (length == scratch.Length)
+            {
+                return (MemoryObservationState.Malformed, 0);
+            }
+            if (!SameFileDomain(file, out NativeIdentity finalFile) || initialFile._inode != finalFile._inode)
+            {
+                return (MemoryObservationState.Stale, 0);
+            }
+            var after = Inspect(_directory, Identity.Version);
+            if (!after.Succeeded)
+            {
+                return (MemoryObservationState.Unknown, 0);
+            }
+            return after.Value != Identity ? (MemoryObservationState.Stale, 0) : (MemoryObservationState.Available, length);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return (MemoryObservationState.Denied, 0);
+        }
+        catch (IOException)
+        {
+            return (MemoryObservationState.Unknown, 0);
         }
     }
 
@@ -286,10 +320,10 @@ public sealed class LinuxCgroupDirectoryReader : IDisposable
         return new(MemoryObservationState.Available, value, false, identity);
     }
 
-    private bool SameFileDomain(SafeFileHandle file)
-        => Statx(file, "", EmptyPathFlag, IdentityMask, out NativeIdentity identity) == 0
+    private bool SameFileDomain(SafeFileHandle file, out NativeIdentity identity)
+        => Statx(file, "", EmptyPathFlag, IdentityMask, out identity) == 0
             && (identity._mask & IdentityMask) == IdentityMask && (identity._mode & 0xf000) == 0x8000
-            && identity._links != 0 && identity._mountId == Identity.MountId
+            && identity._inode != 0 && identity._links != 0 && identity._mountId == Identity.MountId
             && identity._deviceMajor == Identity.DeviceMajor && identity._deviceMinor == Identity.DeviceMinor;
 
     private static string? FileName(int version, LinuxCgroupScalar scalar) => (version, scalar) switch

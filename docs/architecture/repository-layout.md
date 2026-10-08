@@ -415,3 +415,18 @@ continuity, measured metadata bounds and canonical qualification are still requi
 The existing background/capability owner controls discovery, disabled behavior and
 admitted buffer/metadata lifetime. This raw capture surface installs no timer,
 request hook, capability registry or growth policy.
+
+The directory reader's v2 counter surface uses the same descriptor owner,
+fixed-filename read, directory/file inode checks, overflow byte and scratch clearing
+as scalar capture. `LinuxCgroupCounterParser` reads selected native `memory.stat`
+keys, explicitly local `memory.events.local` events and `memory.pressure` totals.
+Bytes, event counts and cumulative PSI microseconds have separate units. High
+events are distinct from max/OOM events; major faults are not attributed to swap.
+Key order is not assumed; duplicates, missing keys, overflow and unknown target
+formats cannot produce zero. PSI averages are checked for the supported native
+format, while returned totals retain microseconds. v1 counters remain unavailable
+instead of interpreting combined RSS/swap-cache or substituting a v2 format.
+These raw counters do not classify thrashing, grant headroom or qualify a process
+domain. Native meanings follow the [cgroup v2 interfaces](https://docs.kernel.org/admin-guide/cgroup-v2.html),
+[PSI interface](https://docs.kernel.org/accounting/psi.html) and
+[v1 memory statistics](https://docs.kernel.org/admin-guide/cgroup-v1/memory.html).
