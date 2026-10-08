@@ -1,7 +1,11 @@
 #!/usr/bin/env node
+import { createPrivateKey } from 'node:crypto';
 import path from 'node:path';
 import process from 'node:process';
 
+import { RELEASE_ID_CONTRACT } from './release-id.mjs';
+import { releaseIdentityRosterArtifacts } from './release-manifest-identity-contract.mjs';
+import { signReleaseManifest, verifyReleaseManifestArtifacts } from './release-manifest-signature-contract.mjs';
 import { createReleaseManifest, readExplicitReleaseArtifact, readCurrentSchemaReceiptReleaseBinding, writeReleaseManifestAtomic } from './release-manifest.mjs';
 
 function parseArgs(argv)
@@ -40,10 +44,13 @@ try
             throw new Error(`missing --${field}`);
         }
     }
-    const manifest = createReleaseManifest({
+    if (options.signature !== undefined)
+    {
+        throw new Error('handwritten signature inputs are unsupported; provide a process-owned signing key');
+    }
+    let manifest = createReleaseManifest({
         identity: JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(readExplicitReleaseArtifact(
             options['identity-roster'], options['identity-roster-sha256']))),
-        signature: options.signature,
         releaseId: options['release-id'],
         commitSha: options['commit-sha'],
         imageRepository: options['image-repository'],
@@ -76,9 +83,35 @@ try
     } : undefined,
         target: 'final'
     });
+    if (options['signing-key'] !== undefined)
+    {
+        for (const key of ['signing-key-sha256', 'trust-policy', 'trust-policy-sha256'])
+        {
+            if (!options[key])
+            {
+                throw new Error(`signing requires explicit --${key}`);
+            }
+        }
+        const keyBytes = readExplicitReleaseArtifact(options['signing-key'], options['signing-key-sha256'], 64 * 1024);
+        try
+        {
+            manifest = signReleaseManifest(manifest, createPrivateKey(keyBytes));
+        }
+        finally
+        {
+            keyBytes.fill(0);
+        }
+        const artifacts = releaseIdentityRosterArtifacts(manifest.identity);
+        verifyReleaseManifestArtifacts({ manifest, releaseIdContract: RELEASE_ID_CONTRACT,
+            trustPolicyReference: options['trust-policy'], trustPolicySha256: options['trust-policy-sha256'],
+            readBytes: reference => readExplicitReleaseArtifact(reference,
+                reference === manifest.currentSchema.receipt.reference ? manifest.currentSchema.receipt.sha256
+                    : artifacts.find(artifact => artifact.reference === reference)?.sha256.replace(/^sha256:/u, ''),
+                64 * 1024 * 1024) });
+    }
     const output = path.resolve(options.output);
     writeReleaseManifestAtomic(output, manifest);
-    console.log(JSON.stringify({ status: 'ok', candidateId: manifest.candidateId, contentDigest: manifest.contentDigest, releaseId: manifest.releaseId, imageRef: manifest.imageRef, manifest: output }));
+    console.log(JSON.stringify({ status: 'ok', qualificationEligible: false, signatureStatus: manifest.signature ? 'signed-artifacts-verified' : 'unsigned-prepared', candidateId: manifest.candidateId, contentDigest: manifest.contentDigest, releaseId: manifest.releaseId, imageRef: manifest.imageRef, manifest: output }));
 }
 catch (error)
 {

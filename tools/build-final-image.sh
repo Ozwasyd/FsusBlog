@@ -134,6 +134,9 @@ fi
 # Release byte binding is separate from canonical offline verification and live
 # startup admission; the build cannot manufacture a current-schema receipt.
 if [[ "$PUSH_IMAGE" == "1" ]]; then
+    [[ -n "${FSUSBLOG_RELEASE_SIGNING_KEY:-}" && -n "${FSUSBLOG_RELEASE_SIGNING_KEY_SHA256:-}" &&
+       -n "${FSUSBLOG_RELEASE_TRUST_POLICY:-}" && -n "${FSUSBLOG_RELEASE_TRUST_POLICY_SHA256:-}" ]] ||
+        Fail "PUSH=1 requires a process-owned signing key, pinned bytes and independent trust policy"
     [[ -n "${FSUSBLOG_RELEASE_IDENTITY_ROSTER:-}" && -n "${FSUSBLOG_RELEASE_IDENTITY_ROSTER_SHA256:-}" ]] ||
         Fail "PUSH=1 requires an explicit closed release identity roster and artifact SHA-256"
     node "$ROOT_DIR/tools/release/check-release-manifest.mjs" --identity-roster-byte-binding true \
@@ -471,6 +474,10 @@ manifest_file="$manifest_dir/release-manifest.json"
 
 node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --output "$manifest_file" \
+    --signing-key "$FSUSBLOG_RELEASE_SIGNING_KEY" \
+    --signing-key-sha256 "$FSUSBLOG_RELEASE_SIGNING_KEY_SHA256" \
+    --trust-policy "$FSUSBLOG_RELEASE_TRUST_POLICY" \
+    --trust-policy-sha256 "$FSUSBLOG_RELEASE_TRUST_POLICY_SHA256" \
     --release-id "$RELEASE_ID" \
     --created-at-utc "$RELEASE_CREATED_AT_UTC" \
     --commit-sha "$COMMIT_SHA" \

@@ -1039,3 +1039,52 @@ test('atomic candidate plan verifies exact signed bytes and preserves active ide
     const switchBody = rolloutSource.slice(rolloutSource.indexOf('StageGatewaySwitch()'), rolloutSource.indexOf('MarkGatewaySwitch()'));
     assert.ok(switchBody.indexOf('--activation-preflight true') < switchBody.indexOf('gateway-switch.sh'));
 });
+
+
+test('creator signs with owned pinned key bytes and refuses key drift and handwritten signature publication', context =>
+{
+    const fixture = signingFixture(context);
+    const keyFile = path.join(fixture.directory, 'owned-private-key.pem');
+    fs.writeFileSync(keyFile, fixture.privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600 });
+    const keySha = crypto.createHash('sha256').update(fs.readFileSync(keyFile)).digest('hex');
+    const rosterFile = path.join(fixture.directory, 'identity-roster.json');
+    fs.writeFileSync(rosterFile, JSON.stringify(fixture.manifest.identity));
+    const manifest = fixture.manifest;
+    const args = ['--release-id', manifest.releaseId, '--created-at-utc', manifest.createdAtUtc, '--commit-sha', manifest.commitSha,
+        '--image-repository', manifest.imageRepository, '--image-tag', manifest.imageTag, '--image-digest', manifest.imageDigest,
+        '--frontend-manifest-hash', manifest.frontendManifestHash, '--wasm-artifact-hash', manifest.wasmArtifactHash,
+        '--identity-roster', rosterFile, '--identity-roster-sha256', crypto.createHash('sha256').update(fs.readFileSync(rosterFile)).digest('hex'),
+        '--current-schema-receipt', manifest.currentSchema.receipt.reference, '--current-schema-receipt-sha256', manifest.currentSchema.receipt.sha256,
+        '--dotnet-version', manifest.toolchain.dotnetVersion, '--node-version', manifest.toolchain.nodeVersion,
+        '--docker-version', manifest.toolchain.dockerVersion, '--dockerfile-digest', manifest.toolchain.dockerfileDigest];
+    const names = { id: 'runtime-profile-id', manifestDigest: 'runtime-profile-manifest-digest', profileDigest: 'runtime-profile-digest',
+        baseImageFamily: 'runtime-base-family', targetRuntime: 'target-runtime', singleFile: 'publish-single-file', readyToRun: 'publish-ready-to-run',
+        tieredPgo: 'tiered-pgo', quickJitForLoops: 'quick-jit-for-loops', serverGc: 'server-gc', nativeAot: 'native-aot',
+        threadPoolMode: 'thread-pool-mode', topologyMode: 'topology-mode' };
+    for (const [key, flag] of Object.entries(names))
+    {
+        args.push(`--${flag}`, String(manifest.runtimeProfile[key]));
+    }
+    const signedFile = path.join(fixture.directory, 'signed-created-manifest.json');
+    const signingArgs = ['--signing-key', keyFile, '--signing-key-sha256', keySha,
+        '--trust-policy', fixture.options.trustPolicyReference, '--trust-policy-sha256', fixture.options.trustPolicySha256];
+    const created = spawnSync(process.execPath, [path.join(root, 'tools/release/create-release-manifest.mjs'),
+        ...args, '--output', signedFile, ...signingArgs], { encoding: 'utf8' });
+    assert.equal(created.status, 0, created.stderr);
+    assert.equal(JSON.parse(created.stdout).signatureStatus, 'signed-artifacts-verified');
+    assert.equal(JSON.parse(created.stdout).qualificationEligible, false);
+    assert.deepEqual(readReleaseManifest(signedFile), fixture.manifest);
+    const rejectedFile = path.join(fixture.directory, 'refused-manifest.json');
+    for (const invalid of [
+        ['--signature', fixture.manifest.signature],
+        ['--signing-key', keyFile, '--signing-key-sha256', '9'.repeat(64),
+            '--trust-policy', fixture.options.trustPolicyReference, '--trust-policy-sha256', fixture.options.trustPolicySha256],
+        ['--signing-key', keyFile]
+    ])
+    {
+        const rejected = spawnSync(process.execPath, [path.join(root, 'tools/release/create-release-manifest.mjs'),
+            ...args, '--output', rejectedFile, ...invalid], { encoding: 'utf8' });
+        assert.notEqual(rejected.status, 0);
+        assert.equal(fs.existsSync(rejectedFile), false);
+    }
+});
