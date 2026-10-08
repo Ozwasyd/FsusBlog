@@ -1,0 +1,54 @@
+{
+  "repository": "Ozwasyd/FsusBlog",
+  "host": "github.com",
+  "publicationTransport": "git over HTTPS",
+  "blockedNewSourceSha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+  "failedCommand": [
+    "git",
+    "-c",
+    "credential.helper=!gh auth git-credential",
+    "push",
+    "-u",
+    "origin",
+    "codex/issue-2046-reader-entry-source-20261008"
+  ],
+  "failedCommandStartedAt": "2026-10-08T09:48:16.418323+00:00",
+  "exitCode": 128,
+  "error": "Invalid username or token; Authentication failed",
+  "credentialMaterialIncluded": false,
+  "recoveryOwner": "coordinating parent; no further Git publication retries or alternate credential/account/transport/content API",
+  "earlierRemoteSourceCommitReadbacks": [
+    {
+      "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "repo": "Ozwasyd/FsusBlog",
+      "url": "https://github.com/Ozwasyd/FsusBlog/commit/10a5d40511e9a943319288937fa2d6a7aaa2e403"
+    },
+    {
+      "sha": "ef65043daec41df104dc65ce26cd93ff9996574f",
+      "repo": "Ozwasyd/FsusBlog",
+      "url": "https://github.com/Ozwasyd/FsusBlog/commit/ef65043daec41df104dc65ce26cd93ff9996574f"
+    }
+  ],
+  "earlierBranchNameReadbacks": [
+    {
+      "branches": [
+        {
+          "branch": "codex/issue-2177-review-source-20261008"
+        }
+      ],
+      "cursor": "MQ"
+    },
+    {
+      "branches": [
+        {
+          "branch": "codex/issue-2177-outbox-source-only-20261008"
+        }
+      ],
+      "cursor": "MQ"
+    }
+  ],
+  "earlierCommitsRemainRemote": true,
+  "currentGitRemoteHeadReadback": "blocked by invalid Git credential; read-only connector confirms named branches and exact commits exist, but branch search does not expose head SHAs",
+  "newSourcePublished": false,
+  "newEvidencePublished": false
+}

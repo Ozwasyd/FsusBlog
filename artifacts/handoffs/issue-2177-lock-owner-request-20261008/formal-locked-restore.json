@@ -1,0 +1,15 @@
+{
+  "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "restore",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--locked-mode",
+    "-m:1",
+    "-nodeReuse:false"
+  ],
+  "startedAt": "2026-10-08T09:08:07.983718+00:00",
+  "exitCode": 1,
+  "logSha256": "040ce415d069fd8e259c742c4de34885d02e1dd411f862686ec17542d7ccf379",
+  "formalMatrixAcceptance": false
+}

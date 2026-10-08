@@ -1,0 +1,72 @@
+{
+  "frozenSourceSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "qualificationEligible": false,
+  "issue2177Accepted": false,
+  "formalBackendTestsRun": false,
+  "composedCandidateCreated": false,
+  "files": [
+    {
+      "file": "canonical-lock-owner-request.json",
+      "sourcePath": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-lock-owner-handoff-20261008/canonical-lock-owner-request.json",
+      "sha256": "d4923095732ab22048515529a038e0beb99dcddf6149d653dbb34f1d065373ab",
+      "sizeBytes": 6905,
+      "byteExact": true
+    },
+    {
+      "file": "canonical-tests-lock-93e.json",
+      "sourcePath": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-lock-owner-handoff-20261008/canonical-tests-lock-93e.json",
+      "sha256": "11fdad8a3dd7049bc04002508b41d7c3b45c7f08e200a53705e9f4892fcf5b44",
+      "sizeBytes": 37022,
+      "byteExact": true
+    },
+    {
+      "file": "current-propagated-server-dependency-diff.json",
+      "sourcePath": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-lock-owner-handoff-20261008/current-propagated-server-dependency-diff.json",
+      "sha256": "f789b27a15c32d8ff12b0619fd28dcd8c12cbb723f3f5d30fadbd4dafb360697",
+      "sizeBytes": 85,
+      "byteExact": true
+    },
+    {
+      "file": "formal-locked-restore.json",
+      "sourcePath": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-lock-owner-handoff-20261008/formal-locked-restore.json",
+      "sha256": "940f8606f523c5ad58b48264aeb3930b10f39b1ddc3960524be509b960ced81b",
+      "sizeBytes": 465,
+      "byteExact": true
+    },
+    {
+      "file": "formal-locked-restore.log",
+      "sourcePath": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-lock-owner-handoff-20261008/formal-locked-restore.log",
+      "sha256": "040ce415d069fd8e259c742c4de34885d02e1dd411f862686ec17542d7ccf379",
+      "sizeBytes": 1411,
+      "byteExact": true
+    },
+    {
+      "file": "publication-authentication-blocker.json",
+      "sourcePath": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-lock-owner-handoff-20261008/publication-authentication-blocker.json",
+      "sha256": "b68f5bc3bdf27fa9a0ef511cbb71dd176bdbdeb9dc4fa7b72e07f35cab5b38e1",
+      "sizeBytes": 1749,
+      "byteExact": true
+    },
+    {
+      "file": "server-package-evaluation-command.json",
+      "sourcePath": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-lock-owner-handoff-20261008/server-package-evaluation-command.json",
+      "sha256": "fd7c4a7ee6d5f1ca070c032a2dc38a719132287f6b47d3d988c89305b84c7a80",
+      "sizeBytes": 541,
+      "byteExact": true
+    },
+    {
+      "file": "server-package-evaluation.json",
+      "sourcePath": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-lock-owner-handoff-20261008/server-package-evaluation.json",
+      "sha256": "cd24f9f96e31e21181808ff7bd6e316e720d5bbef6dea2ca0c69866d036820b3",
+      "sizeBytes": 21091,
+      "byteExact": true
+    },
+    {
+      "file": "server-package-evaluation.stderr.log",
+      "sourcePath": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-lock-owner-handoff-20261008/server-package-evaluation.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 0,
+      "byteExact": true
+    }
+  ]
+}

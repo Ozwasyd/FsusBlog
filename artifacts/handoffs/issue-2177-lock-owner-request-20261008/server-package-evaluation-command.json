@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "msbuild",
+    "src/backend/FsusBlog.Server.csproj",
+    "-getItem:PackageReference",
+    "-property:TargetFramework=net10.0",
+    "-nologo"
+  ],
+  "startedAt": "2026-10-08T09:53:30.493983+00:00",
+  "exitCode": 0,
+  "sourceSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "sha256": "cd24f9f96e31e21181808ff7bd6e316e720d5bbef6dea2ca0c69866d036820b3",
+  "kind": "real SDK project evaluation only; no restore/build/test or lock writes"
+}
