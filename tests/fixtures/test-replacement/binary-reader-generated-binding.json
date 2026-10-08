@@ -1,0 +1,35 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/frontend/unit/adapters/binary/reader.test.ts",
+        "tools/test-replacement/transaction.mjs",
+        "tests/matrix.yml",
+        "tools/docs/generate-testing-docs.mjs",
+        "tools/docs/lib/matrix.mjs",
+        "config/testing/test-execution-envelope-applicability.json",
+        "tools/test/correctness-attempt-producers.mjs",
+        "tools/test/generate-correctness-attempt-producers.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/test-retention-replacements.json",
+            "sha256": "8f73f924cf95b53d88cbebdfd6adab0f8a75891766c91b3637eaf5d0d0b198c5"
+        },
+        {
+            "path": "tests/test-replacement-transactions/issue-2612.json",
+            "sha256": "4bfa0a18d92a92601f9a11768e9fe2649dee12c235a08e03511e55c35adc09a9"
+        },
+        {
+            "path": "tests/test-replacement-receipts/issue-2612.json",
+            "sha256": "f32d5a206aa4f91a3c3ed64c692518f15d91c21361d330e97b02e89f40547176"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "0cfab691fea5b3837863fe778bf62af2fedfc6cb2a02e11e3e3f0c8fd1435c22"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+        }
+    ]
+}

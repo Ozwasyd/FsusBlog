@@ -13629,6 +13629,22 @@
                 "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#FsusBlog.Server.Tests.Unit.RelatedReadingServiceTests.ScoringPath_DeduplicatesTagsAndMatchesKeywordsWithoutCrossFieldConcatenation#case-0000"
             ],
             "reason": "Issue #3543 binds the same category, shared-tag, keyword and publication-time reason oracles to the current ranking and scoring functions, including duplicate-tag and cross-field negatives."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/adapters/binary/reader.test.ts#reads-little-endian-positive-value-984cdb059e",
+            "path": "tests/frontend/unit/adapters/binary/reader.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/adapters/binary/reader.test.ts#reads-little-endian-int32-one-60d7785a29"
+            ],
+            "reason": "Issue #2612 preserves reads little-endian positive value as the named one row with independent constant bytes and expected value at offset zero."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/adapters/binary/reader.test.ts#reads-little-endian-0x01020304-e52b30e56b",
+            "path": "tests/frontend/unit/adapters/binary/reader.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/adapters/binary/reader.test.ts#reads-little-endian-int32-ordered-bytes-8a64b2743d"
+            ],
+            "reason": "Issue #2612 preserves reads little-endian 0x01020304 as the named ordered-bytes row with independent constant bytes and expected value at offset zero."
         }
     ],
     "assertionReplacements": [
@@ -13893,6 +13909,26 @@
                 "node-assert:deepEqual:afterMutation.errors:equality:mutationCase.expectedErrors"
             ],
             "reason": "Issue #2615 preserves the parser-toolchain exact invalidation reason oracle in the closed mutation table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:readInt32(b, 0):equality:1",
+            "after": [
+                "vitest:toBe:readInt32(b, 0):equality:expected"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/adapters/binary/reader.test.ts#reads-little-endian-int32-one-60d7785a29"
+            ],
+            "reason": "Issue #2612 retains the independent expected constant in this exact named row; the shared callback compares the real readInt32 result with that row expected value."
+        },
+        {
+            "before": "vitest:toBe:readInt32(b, 0):equality:0x01020304",
+            "after": [
+                "vitest:toBe:readInt32(b, 0):equality:expected"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/adapters/binary/reader.test.ts#reads-little-endian-int32-ordered-bytes-8a64b2743d"
+            ],
+            "reason": "Issue #2612 retains the independent expected constant in this exact named row; the shared callback compares the real readInt32 result with that row expected value."
         }
     ]
 }

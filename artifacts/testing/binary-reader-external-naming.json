@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/test-execution-envelope-applicability.schema.json",
+                "config/testing/test-execution-envelope-applicability.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/test-replacement-transactions/issue-2612.json",
+                "tests/test-replacement-receipts/issue-2612.json",
+                "tests/fixtures/test-replacement/binary-reader-generated-binding.json"
+            ],
+            "reason": "Preserve existing canonical transaction, receipt, catalog and schema JSON keys with real current-master producer bindings."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "Preserve the exact supplied validate-matrix DOTNET_ROOT environment projection and original consumer refusal spellings."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve the canonical generated testing snapshot and literal tier/evidence paths during its existing producer projection."
+        }
+    ]
+}
