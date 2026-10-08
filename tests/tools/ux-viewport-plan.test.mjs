@@ -119,11 +119,43 @@ test('shared planner preserves the exact smoke, visual, and boundaries coverage 
     routes: 33,
     routeThemeGroups: 66,
     safeAreaGroups: 24,
-    navigations: 948,
-    cases: 6492,
+    navigations: 1080,
+    cases: 7416,
     safeAreaCases: 24
   })
 })
+
+test('canonical boundaries enumerate the 375 and 768 viewport records for every route and theme', () =>
+{
+    const plan = buildUxViewportPlan({ matrix, routes, mode: 'boundaries' });
+    for (const group of plan.groups.filter((entry) => entry.kind === 'route-theme'))
+    {
+        for (const [name, width, height] of [['mobile-375', 375, 812], ['tablet-768', 768, 1024]])
+        {
+            const matching = group.viewports.filter((entry) => entry.viewport.name === name);
+            assert.equal(matching.length, 1);
+            assert.equal(matching[0].viewport.width, width);
+            assert.equal(matching[0].viewport.height, height);
+            assert.deepEqual(matching[0].steps.map((entry) => entry.media), matrix.modes.boundaries.media);
+            assert.equal(matching[0].viewport.screenshotBaseline, false);
+        }
+    }
+    assert.equal(plan.groups.filter((entry) => entry.kind === 'route-theme').length, 66);
+});
+
+test('canonical boundaries reject missing and duplicate 375 or 768 viewport registrations', () =>
+{
+    for (const name of ['mobile-375', 'tablet-768'])
+    {
+        const missing = structuredClone(matrix);
+        missing.viewports = missing.viewports.filter((entry) => entry.name !== name);
+        assert.throws(() => buildUxViewportPlan({ matrix: missing, routes, mode: 'boundaries' }), /unknown UX viewport mode boundaries viewport/);
+
+        const duplicate = structuredClone(matrix);
+        duplicate.viewports.push(duplicate.viewports.find((entry) => entry.name === name));
+        assert.throws(() => buildUxViewportPlan({ matrix: duplicate, routes, mode: 'boundaries' }), /duplicate UX viewport/);
+    }
+});
 
 test('safe-area matrix only pairs overlay-risk surfaces and freezes profile table', () => {
   validateSafeAreaMatrix(matrix.safeArea)
@@ -234,8 +266,8 @@ test('local production risk plan covers every dimension within 48 navigations', 
     filters: { riskMatrix: true, skipSafeArea: true }
   })
 
-  assert.equal(plan.counts.navigations, 28)
-  assert.equal(plan.counts.cases, 196)
+  assert.equal(plan.counts.navigations, 32)
+  assert.equal(plan.counts.cases, 224)
   assert.ok(plan.counts.navigations <= 48)
   assert.deepEqual(plan.selection.themes, matrix.modes.boundaries.themes)
   assert.deepEqual(plan.selection.viewportIds, matrix.modes.boundaries.viewports)
@@ -252,7 +284,7 @@ test('risk matrix plus safe-area stays bounded and overlay-risk only', () => {
     mode: 'boundaries',
     filters: { riskMatrix: true }
   })
-  assert.equal(plan.counts.navigations, 28 + 24)
+  assert.equal(plan.counts.navigations, 32 + 24)
   assert.equal(plan.counts.safeAreaCases, 24)
   assert.ok(plan.counts.safeAreaGroups <= 40)
   assert.ok(plan.counts.navigations <= 48 + 40)
