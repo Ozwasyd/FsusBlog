@@ -1,0 +1,174 @@
+{
+  "recordKind": "informational incremental execution observations",
+  "qualificationEligible": false,
+  "issue": 3620,
+  "runId": "chain3620-20261008T064757Z-f416d662fd80",
+  "testedSourceSha": "f416d662fd80b363dc477ad7061065cdccb0149d",
+  "sourcePrerequisite": "2cf8f6d63841db81039f0eb7ec4720d6c0b800fa",
+  "latestFetchedMaster": "ee808392b54d690d5f99a1e95140bc975a76d5d4",
+  "freshOriginalNodePid": 140008,
+  "freshProcessCompleted": true,
+  "freshExitCodeCaptured": false,
+  "environment": {
+    "node": "24.16.0",
+    "dotnetSdk": "10.0.401",
+    "dotnetRuntime": "10.0.12",
+    "nugetPackages": "/workspace/chain3620-nuget",
+    "nugetCacheAuthority": "external diagnostic only; not original retained attempt authority"
+  },
+  "artifacts": [
+    {
+      "path": "controls.log.gz",
+      "testedSourceSha": "460221414411dc31d069e64183f59cdb2170d1e1",
+      "exitCode": 0,
+      "outcome": "19 passed; zero skipped",
+      "command": "/workspace/chain3620-node/bin/node --test tests/tools/xunit-configuration-context.test.mjs",
+      "rawBytes": 2304,
+      "rawSha256": "164156acc0ff6724dfb1606c608f31196912187f944b1b6cfe4fe36c5ad311a9",
+      "compressedSha256": "efaeffe7d32a958e1c4e0defccc9f4c8674be56754fd895bdfa6869e034dfa68"
+    },
+    {
+      "path": "combined.log.gz",
+      "testedSourceSha": "460221414411dc31d069e64183f59cdb2170d1e1",
+      "exitCode": 0,
+      "outcome": "88 passed; zero skipped",
+      "command": "/workspace/chain3620-node/bin/node --test tests/tools/run-once-process-identity.test.mjs tests/tools/production-build-owner-identity.test.mjs tests/tools/scheduler-finalizer-boundary.test.mjs tests/tools/correctness-attempt-migration.test.mjs tests/tools/correctness-attempt-test-producers.test.mjs tests/tools/correctness-attempt-build-release.test.mjs tests/tools/test-suite-convergence.test.mjs tests/tools/xunit-configuration-context.test.mjs",
+      "rawBytes": 10247,
+      "rawSha256": "6eca9c2264bf45b4df132cfdb2dfa35aab23d8883c62a76020e138fdb1359533",
+      "compressedSha256": "aa457d54d67081e9d62008a7099f43b683119cb6ec63055f9754af1af8a74fd3"
+    },
+    {
+      "path": "retention.log.gz",
+      "testedSourceSha": "460221414411dc31d069e64183f59cdb2170d1e1",
+      "exitCode": 1,
+      "outcome": "45 passed; one external SDK source boundary refusal; zero skipped",
+      "command": "/workspace/chain3620-node/bin/node --test tests/tools/test-lifecycle-governance.test.mjs tests/tools/test-retention-audit.test.mjs",
+      "rawBytes": 6542,
+      "rawSha256": "383b5cc445b43fd01971bcd03934e4471b0cdff044a3a701a1bc2672573034e7",
+      "compressedSha256": "b3c06ce730c013c58360f15975700af45e9166956769b761eb71b79d8a4ef7da"
+    },
+    {
+      "path": "compiled-admission.log.gz",
+      "testedSourceSha": "460221414411dc31d069e64183f59cdb2170d1e1",
+      "exitCode": 1,
+      "outcome": "Missing real Production run identity; refused before SDK execution",
+      "command": "/workspace/chain3620-node/bin/node --test tests/tools/xunit-configuration-compiled.test.mjs",
+      "rawBytes": 1071,
+      "rawSha256": "c976c865012db9722c3aeeb710240302cd2b56e735b911df4cb10e9f738811fe",
+      "compressedSha256": "84b422537faa0869171fde13c62eb7a1913b250f767ef11cb7702647ec410eb6"
+    },
+    {
+      "path": "compiled-admission-current.log.gz",
+      "testedSourceSha": "f416d662fd80b363dc477ad7061065cdccb0149d",
+      "exitCode": 1,
+      "outcome": "Same original admission refusal on committed authority candidate",
+      "command": "/workspace/chain3620-node/bin/node --test tests/tools/xunit-configuration-compiled.test.mjs",
+      "rawBytes": 1071,
+      "rawSha256": "8f633e150b3cf430f88caff873fd47261653fc44900cf3402021e2efdd768d90",
+      "compressedSha256": "db4bf712e860b5df2248cc2db0b4f514b4ce9516902a7a38d1fd881b62ccd7e5"
+    },
+    {
+      "path": "eslint.log.gz",
+      "testedSourceSha": "460221414411dc31d069e64183f59cdb2170d1e1",
+      "exitCode": 1,
+      "outcome": "Initial required module absent",
+      "command": "/workspace/chain3620-node/bin/node tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js --config tools/frontend/style-toolchain/eslint.config.mjs tools/test-inventory/discovery.mjs tests/tools/xunit-configuration-context.test.mjs",
+      "rawBytes": 800,
+      "rawSha256": "8d69bc3fef4a527058206cb30f378eb92eb8a40f0ad652ba5cd227a71de19892",
+      "compressedSha256": "a316868c6925b849f75745b69749ea951e1c36a3eeb70e3cbcd93d97615eb7d3"
+    },
+    {
+      "path": "style-install.log.gz",
+      "testedSourceSha": "460221414411dc31d069e64183f59cdb2170d1e1",
+      "exitCode": 0,
+      "outcome": "Actual locked style toolchain installed; tracked locks unchanged",
+      "command": "npm ci --ignore-scripts --prefix tools/frontend/style-toolchain",
+      "rawBytes": 27,
+      "rawSha256": "d85a3f2a79098b14fedd12a32099536f0ed28af100b921baf55f733d41cb6097",
+      "compressedSha256": "bd735edaa0a04fecb66697457f76db0d6b7739dd9d86a772973aeb058f07dedf"
+    },
+    {
+      "path": "eslint-final.log.gz",
+      "testedSourceSha": "f416d662fd80b363dc477ad7061065cdccb0149d",
+      "exitCode": 2,
+      "outcome": "Incorrect discovery path; not a lint pass",
+      "command": "/workspace/chain3620-node/bin/node tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js --config tools/frontend/style-toolchain/eslint.config.mjs tools/test-matrix/xunit-source-discovery.mjs tests/tools/xunit-configuration-context.test.mjs",
+      "rawBytes": 188,
+      "rawSha256": "92fa416efba0ef8478eaf74e6ffcdafd1c7eb6db854debde6597b34e25ca7f46",
+      "compressedSha256": "fb8eab81a9362bc2adb457316e906edcc6a5e7d6ec8b3e60d7a594913b1af074"
+    },
+    {
+      "path": "eslint-corrected.log.gz",
+      "testedSourceSha": "f416d662fd80b363dc477ad7061065cdccb0149d",
+      "exitCode": 0,
+      "outcome": "Actual two changed files linted with no diagnostics",
+      "command": "/workspace/chain3620-node/bin/node tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js --config tools/frontend/style-toolchain/eslint.config.mjs tools/test-inventory/discovery.mjs tests/tools/xunit-configuration-context.test.mjs",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compressedSha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    {
+      "path": "authority-generation.log.gz",
+      "testedSourceSha": "460221414411dc31d069e64183f59cdb2170d1e1",
+      "exitCode": 0,
+      "outcome": "Original complete producer; exactly two discovery digest fields changed",
+      "command": "/workspace/chain3620-node/bin/node tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "rawBytes": 258,
+      "rawSha256": "cbb25a05a0a3e526b2c63cf185d9c6cc671102d6ec6bcbe227bb3b3e6fe672e2",
+      "compressedSha256": "684858569a0ab524e7c79e3dcaef38fe318bb5cdcd939c756425c4614a59111e"
+    },
+    {
+      "path": "source-bytes.log.gz",
+      "testedSourceSha": "460221414411dc31d069e64183f59cdb2170d1e1",
+      "exitCode": 0,
+      "outcome": "Three whole files and SDK paragraph match exact supplied prerequisite",
+      "command": "Exact git blob comparison against 2cf8f6d63841db81039f0eb7ec4720d6c0b800fa",
+      "rawBytes": 306,
+      "rawSha256": "d44899d08516b5eb82f516d7d4a48f436e377c129e120f21ad7f5b6bcd5c5fab",
+      "compressedSha256": "dbb33aa09391e8ad82abc6da1f4241a34e4d2069d44ec4600a6a249817d9f6d5"
+    },
+    {
+      "path": "master-check.log.gz",
+      "testedSourceSha": "460221414411dc31d069e64183f59cdb2170d1e1",
+      "exitCode": 0,
+      "outcome": "Virtual tree only; no actual merge",
+      "command": "git merge-tree --write-tree origin/master HEAD",
+      "rawBytes": 41,
+      "rawSha256": "af75c19f72e1ec65a8a242bdf0deb9fc02f92d848e86db586fa94beb5155ef6f",
+      "compressedSha256": "e5435332867910aeb314f8cf9feb56fc57718035158229eed557977aab4a4ded"
+    },
+    {
+      "path": "source-contract.log.gz",
+      "testedSourceSha": "f416d662fd80b363dc477ad7061065cdccb0149d",
+      "exitCode": 0,
+      "outcome": "Both new source commit messages pass",
+      "command": "/workspace/chain3620-node/bin/node tools/governance/check-change-contract.mjs --range 12669b899c07617f26284f956852d50d79112084..HEAD",
+      "rawBytes": 81,
+      "rawSha256": "298d4b48d3c49acbb3966164348afb63e9e623783ca98a362147b19e4b36cadf",
+      "compressedSha256": "37b61c412806a073a4dd01b6f6ac50a763b771c8c872fa92652be1ffc5f377ca"
+    },
+    {
+      "path": "fresh.log.gz",
+      "testedSourceSha": "f416d662fd80b363dc477ad7061065cdccb0149d",
+      "exitCode": null,
+      "outcome": "Current actual Linux cgroup /.. rejection; launch output/session identity lost to truncation; exact exit not captured",
+      "command": "./tools/test.sh backend-unit --fresh",
+      "rawBytes": 231,
+      "rawSha256": "45130bea5ed1bd0e5044c2491461e38318d4d0464178962843679feb5f61cf3e",
+      "compressedSha256": "ed17732dac4c5079e2448643746710e76f31e39bed2b4b2aa5e7c429ae3e3c53"
+    },
+    {
+      "path": "doc-lint-final.log.gz",
+      "testedSourceSha": null,
+      "atExecutionGitHead": "f416d662fd80b363dc477ad7061065cdccb0149d",
+      "scope": "current docs/testing.md and pending informational README post-image; repository style rules with only globs/ignores selectors changed",
+      "exitCode": 0,
+      "outcome": "Actual CLI: two files, zero issues",
+      "command": "/workspace/chain3620-node/bin/node /workspace/chain3620-markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --config .markdownlint-cli2.jsonc",
+      "workingDirectory": "/tmp/chain3620-sdk-support-doc-lint",
+      "rawBytes": 125,
+      "rawSha256": "8aebe398af826d5e491c68f469b841d7f3430308e68ab0f624931803d42b7243",
+      "compressedSha256": "e1b01c9f79090be6490a2e83e06c178e57c084232a902f0ec7f7978aa79fad6b"
+    }
+  ]
+}

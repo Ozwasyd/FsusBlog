@@ -1,0 +1,113 @@
+{
+  "informationalOnly": true,
+  "testedSourceSha": "f416d662fd80b363dc477ad7061065cdccb0149d",
+  "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "actualSha256": "4bec181a0feaa37333c0ce31b8300f2cfd7bc7c838a252a801ff6e30068d86cc",
+  "bindings": [
+    {
+      "manifest": "artifacts/change-contract/current-evidence-location-reseal-generated-binding.json",
+      "declaredSha256": "cb59b710dcf9ecb2efa0f5cbb05ad6949b52ed8d651792c1445867b2666fad49",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/dependabot-source-wip-generated-binding.json",
+      "declaredSha256": "b37d3a5717589a3390a77817a1a25370c932f0514deb4ade0818c20b2a7f0434",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/execution-tooling-source-union-generated-binding.json",
+      "declaredSha256": "8ca71b92e72e4de9681718b521f17d80baa55818fb6a3ed6e3b666768c706016",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/finite-slnx-source-wip-generated-binding.json",
+      "declaredSha256": "882c1f980ac68b6da171c9ea4981caaf173c3deb95c20b4c01797d482aa550d4",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/issue-2174-canonical-article-lifecycle-generated-binding.json",
+      "declaredSha256": "bcefd00c80629b6b903a946b0f10d3255d8232b232dde492b8026776479ac72e",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/issue-2348-execution-authority-generated-binding.json",
+      "declaredSha256": "0d4af454313528f22448b11d728e606a32aebd06f14fdb8e0d213e09dbd83d7b",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/issue-3060-zero-legacy-scanner-generated-binding.json",
+      "declaredSha256": "0d5e66f6d5c0019bdd20ac1144a2ae8df4d56a1f4e80479653ba5bbabd5f61b0",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/issue-3118-content-field-contract-reseal-generated-binding.json",
+      "declaredSha256": "144afcd8b92531d8509c990f41c9a8a6238321ee9dc4e4e2d10f88f47983d68b",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/issue-3120-quality-gate-transport-generated-binding.json",
+      "declaredSha256": "0c8035167de84e83865efaef38faf590a5322a854649974126912020aedd252c",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/issue-3178-aeds-typed-observation-generated-binding.json",
+      "declaredSha256": "27447104e97eb4a81e80c4545e75c40294e7a4cb2fca67a1bc5488377ec40686",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/local-redis-execution-authority-generated-binding.json",
+      "declaredSha256": "e50468242e1bd9494c5118537acd5cf20b5c265289295af94256c6a940502c62",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/local-redis-membership-generated-binding.json",
+      "declaredSha256": "e50468242e1bd9494c5118537acd5cf20b5c265289295af94256c6a940502c62",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/next-native-receipt-original-guards-source-generated-binding.json",
+      "declaredSha256": "cb0e6bb7f2beb2fa300bdcb08e3617692212c50eb7c165e59ba69108d301c40b",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/original-export-backup-source-generated-binding.json",
+      "declaredSha256": "deb30be5cff5cff1aa313b1de97e7ba1e5df4cf24de4bb2c0d5dabc9c623a7da",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/original-migration-source-generated-binding.json",
+      "declaredSha256": "11ed15eb140b6b8b7e7ebf8f42c9043dcb9363d304e966c56cddcd8a11886ffb",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/original-pg-backup-import-source-generated-binding.json",
+      "declaredSha256": "3a27a37f5a33c70591831be7629d40cfacab22499301d9f406248c00bf384ecf",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/public-shell-finite-input-generated-binding.json",
+      "declaredSha256": "851a118160cfb1f7d13b3cb81523665511bdda5c93098a0bf34fe4bc8ebe9197",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/release-consumer-execution-authority-generated-binding.json",
+      "declaredSha256": "45d0c1d6556c0794607e18c7985b5bb417fcdc66a1fcae252b0646435640cf7f",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/release-final-execution-target-authority-generated-binding.json",
+      "declaredSha256": "4a37030eed8ea34b125a4ff0fcacc6bb3588ce9404cda31af1b2fcf3c4d0e951",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/viewport-doc-claim-generated-binding.json",
+      "declaredSha256": "f10cd4f89de42576f5b4901d85131f34c182a3cef25d11bdf1bc910cd34d28fe",
+      "matchesActual": false
+    },
+    {
+      "manifest": "artifacts/change-contract/current-correctness-inventory-generated-binding.json",
+      "declaredSha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21",
+      "matchesActual": false
+    }
+  ]
+}
