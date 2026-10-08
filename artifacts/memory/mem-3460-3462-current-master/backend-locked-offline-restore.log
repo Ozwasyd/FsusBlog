@@ -1,0 +1,5 @@
+  Determining projects to restore...
+  Restored /workspace/mem-gpu-current/src/shared/FsusBlog.Shared.csproj (in 133 ms).
+  Restored /workspace/mem-gpu-current/src/core/FsusBlog.Core.csproj (in 225 ms).
+  Restored /workspace/mem-gpu-current/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 233 ms).
+  Restored /workspace/mem-gpu-current/src/backend/FsusBlog.Server.csproj (in 244 ms).

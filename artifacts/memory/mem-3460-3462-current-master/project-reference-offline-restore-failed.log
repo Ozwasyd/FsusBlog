@@ -1,0 +1,15 @@
+  Determining projects to restore...
+  Restored /workspace/mem-gpu-current/src/shared/FsusBlog.Shared.csproj (in 195 ms).
+  Restored /workspace/mem-gpu-current/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 238 ms).
+  Restored /workspace/mem-gpu-current/src/core/FsusBlog.Core.csproj (in 223 ms).
+/tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj : error NU1101: Unable to find package Microsoft.Extensions.Http. No packages exist with this id in source(s): /workspace/.setup/nuget
+/tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj : error NU1101: Unable to find package System.Formats.Cbor. No packages exist with this id in source(s): /workspace/.setup/nuget
+/tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj : error NU1101: Unable to find package Microsoft.Extensions.Hosting.Abstractions. No packages exist with this id in source(s): /workspace/.setup/nuget
+/tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj : error NU1101: Unable to find package Microsoft.Extensions.Configuration. No packages exist with this id in source(s): /workspace/.setup/nuget
+/tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj : error NU1101: Unable to find package Microsoft.Extensions.Options. No packages exist with this id in source(s): /workspace/.setup/nuget
+/tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj : error NU1101: Unable to find package Microsoft.Extensions.Diagnostics.Abstractions. No packages exist with this id in source(s): /workspace/.setup/nuget
+/tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj : error NU1101: Unable to find package Microsoft.Extensions.Logging.Configuration. No packages exist with this id in source(s): /workspace/.setup/nuget
+/tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj : error NU1101: Unable to find package Microsoft.Extensions.Configuration.Binder. No packages exist with this id in source(s): /workspace/.setup/nuget
+/tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj : error NU1101: Unable to find package Microsoft.Extensions.Logging. No packages exist with this id in source(s): /workspace/.setup/nuget
+  Restored /workspace/mem-gpu-current/src/backend/FsusBlog.Server.csproj (in 258 ms).
+  Failed to restore /tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj (in 85 ms).

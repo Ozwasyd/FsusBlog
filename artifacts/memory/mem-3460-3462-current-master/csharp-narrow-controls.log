@@ -1,0 +1,12 @@
+✔ C# source lexer preserves the three character-class regex match contracts (3.742929ms)
+✔ C# source lexer retains real array and generic naming and declaration refusals (115.531249ms)
+✔ singular Miss enums and plural flags retain both naming refusal controls (399.747286ms)
+✔ singular Access retains the eight ordinary and flags controls (506.808022ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1106.176604

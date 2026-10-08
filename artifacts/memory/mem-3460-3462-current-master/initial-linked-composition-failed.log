@@ -1,0 +1,1 @@
+/workspace/mem-gpu-current/src/backend/Infrastructure/Memory/Host/FlatArtifactIndexLayout.cs(6,38): error CS0234: The type or namespace name 'PublicReadArtifacts' does not exist in the namespace 'FsusBlog.Server.Infrastructure' (are you missing an assembly reference?) [/tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj]

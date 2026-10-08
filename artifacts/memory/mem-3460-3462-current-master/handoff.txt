@@ -1,0 +1,47 @@
+GPU / peer current-master integration source handoff
+
+Candidate source: 4148ae735ca386a97ca5dff33d4b7663fea32b2f
+Branch: codex/mem-3460-3462-current-master-20261008
+Actual fetched master base: 6e287562b3f861d3eb81dcb23f93e6243205abd8
+Worktree used: /workspace/mem-gpu-current
+Independent review must cover the full base-to-candidate diff, including prerequisites.
+This is ordinary source/check evidence, not an acceptance/runtime receipt.
+
+Exact source scope (60 source/test/classifier files):
+- 22 GPU files (16 production, six tests), unchanged from reviewed b8b855fc7c95085899f91435f9daff650d6c48f2.
+- 30 exact common-owner prerequisite files (29 production, one frozen-input test), published at 3bf5fbf9f9a4502b9df262b993f0af836be35d2c.
+- Eight exact C# Access classifier/binding files published at e6a273473b275dee0c4c2993ebd54e17a882ba33, consumed via two cherry-picked source commits.
+The old reviewed GPU branch is preserved at b8b855fc7c95085899f91435f9daff650d6c48f2. No broad common WIP branch was merged or imported.
+source-origins.tsv records each published commit and exact Git blob. source.diff.patch is the complete source delta from the pinned actual master, with zero context and binary support; the remote branch preserves full parent history.
+
+Why the common closure includes host/disk providers:
+MemoryCapabilityGpuAllocationPolicy consumes actual MemoryCapabilityProbeContext / MemoryCapabilityRuntimeIdentity from MemoryCapabilityControlPolicy. Its MemoryCapabilityOwner.FromGpu binds the existing stable GpuMemoryDevice.Drained task. That same immutable owner file refers to managed/native/disk owners; their compile dependencies require the preserved provider files. MemoryGovernorPolicy is only the referenced frozen-input/digest policy, not a governor implementation. No controller, inventory producer/catalog, pressure loop, governor/Auto activation, oracle/baseline replacement, or startup registration is added.
+The actual production backend, rather than a test stub, supplies the existing PublicHotReadRouteKeys dependency of FlatArtifactIndexLayout.
+
+Actual checks:
+PASS: locked backend restore using only /workspace/.setup/nuget.
+PASS: actual src/backend/FsusBlog.Server.csproj build, PublishClientAssets=false, zero errors, 323 warnings. Observed warnings name unchanged master paths; no Memory warning appeared. This is not a separately executed master baseline.
+PASS: 142 test cases, zero failed/skipped: 132 preserved GPU controls plus ten real frozen-input policy controls. The final temporary composition references the actual successfully built FsusBlog.Server/Core/Shared assemblies and the production friend-assembly name FsusBlog.Server.Tests. All seven test files are unchanged published source. Fixtures retain their explicit unit-only bounds/qualification and are not production facts.
+PASS: four selected genuine C# lexical, Access, Miss/Flags controls.
+PASS: full source commit-range change-contract check and diff whitespace check.
+FAIL: complete changed C# source gate: 45 diagnostics (19 CUDA, 14 HIP, 12 Metal) misclassify delegate return types int/nint/void/ulong/byte as declaration names. The typeMatch expression is unchanged from pinned master. Actual delegate identifiers remain PascalCase. No policy exception, renaming, suppression, baseline growth, or checker replacement was made to hide this failure.
+FAILED attempts retained: the first linked-source scratch composition omitted the existing route-type namespace (CS0234); the attempted full ProjectReference composition could not restore nine uncached packages from the offline cache (NU1101). No packages were installed. Final compiled-production-assembly composition restored from the existing cache and passed all tests. These earlier failures are not test passes and do not represent the owning project's whole unit suite.
+NOT RUN: full owning unit/matrix/final lanes, live GPU/native acceptance, hardware/topology/BAR mapping or performance probes, policy promotion, independent re-review, production activation, and held audit/QA scopes. CI is disabled; none of these is inferred from local controls.
+
+Original-owner requests / remaining acceptance dependencies:
+1. C# classifier owner: preserve published Access semantics and fix the genuine native delegate declaration-name capture in the original checker, with meaningful controls. This GPU source owner has not modified that shared checker. All 45 exact candidate diagnostics are retained in csharp-changed-failed.log.
+2. Common/control owner: the frozen-input policy API is now available and compiled with the reviewed GPU source. Production observed physical-capacity ceilings, identity/accounting revisions, finite expiry, topology and enforced hard caps still have to be supplied as actual owner facts. The explicit 32-byte test fixture is never a production default.
+3. Native acceptance / peer mapping owner: absent authorized native hardware and caller/platform BAR mapping qualification remain NotVerified. Real CUDA/HIP peer source and Metal source are present, but controlled adapters do not qualify actual native behavior or prove CPU BAR mapping / external DMA consumer support. No native probing or driver/security changes were performed.
+4. Parent: send this complete candidate scope to the same independent reviewer and manage independent policy promotion, review, PR/merge and justified issue closure. No PR/comment/content API was called and no acceptance/closure is claimed here.
+
+Reproduction used (installed SDK /workspace/.setup/dotnet/dotnet; DOTNET_CLI_HOME=/workspace/.setup/dotnet-home; NUGET_PACKAGES=/workspace/.setup/nuget):
+1. dotnet restore src/backend/FsusBlog.Server.csproj --locked-mode --source /workspace/.setup/nuget --ignore-failed-sources
+2. dotnet build src/backend/FsusBlog.Server.csproj --no-restore -p:PublishClientAssets=false
+3. Copy compiled-reference-project.csproj.txt to a task-owned temporary GpuIntegrationTests.csproj, adjusting only its absolute checkout paths when reproducing elsewhere; this raw file records the exact composition actually executed here.
+4. dotnet restore /tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj --source /workspace/.setup/nuget --ignore-failed-sources
+5. dotnet test /tmp/mem-gpu-current-tests/GpuIntegrationTests.csproj --no-restore --logger 'trx;LogFileName=gpu-current-master.trx' --results-directory /tmp/mem-gpu-current-tests/results
+6. node --test --test-name-pattern='singular Access retains the eight|singular Miss enums|C# source lexer preserves|C# source lexer retains' tests/tools/csharp-style.test.mjs
+7. node tools/dotnet/check-csharp-style.mjs --mode changed --base 6e287562b3f861d3eb81dcb23f93e6243205abd8 (fails as recorded)
+8. node tools/governance/check-change-contract.mjs --range 6e287562b3f861d3eb81dcb23f93e6243205abd8..4148ae735ca386a97ca5dff33d4b7663fea32b2f
+
+Evidence-only follow-up commits do not change any of the 60 source/test/classifier blobs. The checks above bind the source checkpoint, not later evidence-only commit IDs. Logs/TRX are raw ordinary check outputs and are not registered runtime/native receipts or canonical CI/matrix evidence.

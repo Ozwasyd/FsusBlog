@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsTestProject>true</IsTestProject>
+        <AssemblyName>FsusBlog.Server.Tests</AssemblyName>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    </PropertyGroup>
+    <ItemGroup>
+        <Using Include="Xunit" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+        <PackageReference Include="xunit" Version="2.9.3" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+        <Reference Include="FsusBlog.Server">
+            <HintPath>/workspace/mem-gpu-current/src/backend/bin/Debug/net10.0/FsusBlog.Server.dll</HintPath>
+        </Reference>
+        <Reference Include="FsusBlog.Core">
+            <HintPath>/workspace/mem-gpu-current/src/backend/bin/Debug/net10.0/FsusBlog.Core.dll</HintPath>
+        </Reference>
+        <Reference Include="FsusBlog.Shared">
+            <HintPath>/workspace/mem-gpu-current/src/backend/bin/Debug/net10.0/FsusBlog.Shared.dll</HintPath>
+        </Reference>
+        <Compile Include="/workspace/mem-gpu-current/tests/backend/Unit/Gpu*Tests.cs" />
+        <Compile Include="/workspace/mem-gpu-current/tests/backend/Unit/MemoryCapabilityGpuAllocationPolicyTests.cs" />
+    </ItemGroup>
+</Project>
