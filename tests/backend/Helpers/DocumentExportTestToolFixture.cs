@@ -308,6 +308,45 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
                 fclose(file);
                 return result == 0 ? 0 : 89;
             }
+            if (strstr(request, "\"mode\":\"tmp-file-count-budget\"")) {
+                for (int index = 0; index < 70; index++) {
+                    char path[96];
+                    snprintf(path, sizeof(path), "/tmp/file-%d", index);
+                    FILE *file = fopen(path, "wb");
+                    if (!file) return 90;
+                    fclose(file);
+                }
+            }
+            if (strstr(request, "\"mode\":\"tmp-file-bytes-budget\"")) {
+                FILE *file = fopen("/tmp/large.tmp", "wb");
+                if (!file) return 91;
+                int result = ftruncate(fileno(file), 64L * 1024L * 1024L + 1L);
+                fclose(file);
+                if (result != 0) return 92;
+            }
+            if (strstr(request, "\"mode\":\"tmp-aggregate-bytes-budget\"")) {
+                for (int index = 0; index < 2; index++) {
+                    char path[96];
+                    snprintf(path, sizeof(path), "/tmp/aggregate-%d.tmp", index);
+                    FILE *file = fopen(path, "wb");
+                    if (!file) return 93;
+                    int result = ftruncate(fileno(file), 34L * 1024L * 1024L);
+                    fclose(file);
+                    if (result != 0) return 94;
+                }
+            }
+            if (strstr(request, "\"mode\":\"tmp-control\"")) {
+                FILE *file = fopen("/tmp/control.tmp", "wb");
+                if (!file) return 95;
+                fputs("owned temporary file", file);
+                fclose(file);
+                file = fopen("/sandbox/work/control.tmp", "rb");
+                if (!file) return 96;
+                char contents[64] = {0};
+                if (!fgets(contents, sizeof(contents), file)) { fclose(file); return 97; }
+                fclose(file);
+                if (strcmp(contents, "owned temporary file")) return 98;
+            }
             if (strstr(request, "\"mode\":\"sleep\"")) {
                 FILE *started = fopen("/sandbox/work/started", "wb");
                 if (!started) return 86;
@@ -353,7 +392,7 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
             char *layout_profile = json_string(request, "layoutProfile");
             char *theme_profile = json_string(request, "themeProfile");
             char *locale = json_string(request, "locale");
-            if (strcmp(schema, "fsusblog.document-export-renderer-request.v2") ||
+            if (strcmp(schema, "fsusblog.document-export-renderer-request.v3") ||
                 strcmp(layout_profile, "document-reading-v1") ||
                 (strcmp(theme_profile, "light-v1") && strcmp(theme_profile, "dark-v1")) ||
                 !locale[0] || !strstr(request, "\"markdownUtf8\":") ||
@@ -366,7 +405,7 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
             FILE *output = fopen("/sandbox/output/response.json", "wb");
             if (!output) return 67;
             fprintf(output,
-                "{\"schema\":\"fsusblog.document-export-renderer-response.v2\","
+                "{\"schema\":\"fsusblog.document-export-renderer-response.v3\","
                 "\"inputId\":\"%s\",\"inputDigest\":\"%s\",\"sourceDigest\":\"%s\","
                 "\"assetManifestDigest\":\"%s\",\"fontManifestDigest\":\"%s\","
                 "\"readingStyleAuthorityDigest\":\"%s\","
