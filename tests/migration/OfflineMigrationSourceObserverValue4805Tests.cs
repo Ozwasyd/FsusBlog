@@ -43,23 +43,35 @@ public sealed class OfflineMigrationSourceObserverValue4805Tests
         OfflineMigrationSourceObservation accepted = Observation(provider, true);
         int column = Array.FindIndex(accepted.Schema.ToArray(), fact => fact.Name == "column/article/title");
         Assert.True(column >= 0);
-        AssertUnknown(accepted with { Schema = accepted.Schema.SetItem(column, accepted.Schema[column] with { Value = "changed" }) });
-        AssertUnknown(accepted with { Schema = accepted.Schema.RemoveAt(column) });
-        AssertUnknown(accepted with { Schema = accepted.Schema.Add(new("column/article/unknown", "present")) });
+        AssertUnknown(accepted with { Schema = accepted.Schema.SetItem(column, accepted.Schema[column] with { Value = "changed" }) },
+            OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Changed,
+            accepted.Schema[column].Name, accepted.Schema[column].Value, "changed");
+        AssertUnknown(accepted with { Schema = accepted.Schema.RemoveAt(column) },
+            OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Missing,
+            accepted.Schema[column].Name, accepted.Schema[column].Value, null);
+        AssertUnknown(accepted with { Schema = accepted.Schema.Add(new("column/article/unknown", "present")) },
+            OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Extra,
+            "column/article/unknown", null, "present");
         foreach (OfflineMigrationFact fact in accepted.BusinessShape.Where(fact => fact.Name != "business.profile"))
         {
             AssertUnknown(accepted with
             {
                 BusinessShape = accepted.BusinessShape.Select(value => value.Name == fact.Name ? value with { Value = "1" } : value).ToImmutableArray()
-            });
+            }, OfflineMigrationFingerprintCategory.Business, OfflineMigrationFingerprintDifferenceKind.Changed,
+                fact.Name, fact.Value, "1");
         }
         Assert.Equal(OfflineMigrationSourceFingerprints.LegacyId, registry.Match(accepted).Id);
 
-        void AssertUnknown(OfflineMigrationSourceObservation changed)
+        void AssertUnknown(OfflineMigrationSourceObservation changed,
+            OfflineMigrationFingerprintCategory category, OfflineMigrationFingerprintDifferenceKind kind,
+            string factName, string? expectedValue, string? actualValue)
         {
             OfflineMigrationSourceFingerprintException refusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() => registry.Match(changed));
-            Assert.Equal("source_fingerprint_unknown", refusal.Code);
-            Assert.NotEmpty(refusal.Differences);
+            int expectedCount = category == OfflineMigrationFingerprintCategory.Schema ? accepted.Schema.Length : accepted.BusinessShape.Length;
+            int actualCount = category == OfflineMigrationFingerprintCategory.Schema ? changed.Schema.Length : changed.BusinessShape.Length;
+            OfflineMigrationSourceObserverValueAssertions.Unknown(refusal, OfflineMigrationSourceFingerprints.LegacyId,
+                OfflineMigrationSourceObserverValueAssertions.Difference(OfflineMigrationSourceFingerprints.LegacyId,
+                    category, kind, factName, expectedValue, actualValue, expectedCount, actualCount));
         }
     }
 
@@ -72,10 +84,24 @@ public sealed class OfflineMigrationSourceObserverValue4805Tests
         OfflineMigrationSourceRegistry registry = OfflineMigrationSourceFingerprints.CreateRegistry();
         OfflineMigrationSourceObservation empty = Observation(provider, false);
         OfflineMigrationSourceObservation old = Observation(provider, true);
-        Assert.Throws<OfflineMigrationSourceFingerprintException>(() => registry.Match(empty with { Schema = empty.Schema.Add(new("table/unknown", "base")) }));
-        Assert.Throws<OfflineMigrationSourceFingerprintException>(() => registry.Match(old with { History = [new("history.state", "partial")] }));
-        Assert.Throws<OfflineMigrationSourceFingerprintException>(() => OfflineMigrationSourceFingerprints.RequireKnownSchema(provider,
-            old.Schema.Add(new("table/schema_migration", "base"))));
+        OfflineMigrationSourceFingerprintException emptyRefusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
+            registry.Match(empty with { Schema = empty.Schema.Add(new("table/unknown", "base")) }));
+        OfflineMigrationSourceObserverValueAssertions.Unknown(emptyRefusal, OfflineMigrationSourceFingerprints.EmptyId,
+            OfflineMigrationSourceObserverValueAssertions.Difference(OfflineMigrationSourceFingerprints.EmptyId,
+                OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Extra,
+                "table/unknown", null, "base", empty.Schema.Length, empty.Schema.Length + 1));
+        OfflineMigrationSourceFingerprintException historyRefusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
+            registry.Match(old with { History = [new("history.state", "partial")] }));
+        OfflineMigrationSourceObserverValueAssertions.Unknown(historyRefusal, OfflineMigrationSourceFingerprints.LegacyId,
+            OfflineMigrationSourceObserverValueAssertions.Difference(OfflineMigrationSourceFingerprints.LegacyId,
+                OfflineMigrationFingerprintCategory.History, OfflineMigrationFingerprintDifferenceKind.Changed,
+                "history.state", "absent", "partial", old.History.Length, 1));
+        OfflineMigrationSourceFingerprintException schemaRefusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
+            OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, old.Schema.Add(new("table/schema_migration", "base"))));
+        OfflineMigrationSourceObserverValueAssertions.Unknown(schemaRefusal, OfflineMigrationSourceFingerprints.LegacyId,
+            OfflineMigrationSourceObserverValueAssertions.Difference(OfflineMigrationSourceFingerprints.LegacyId,
+                OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Extra,
+                "table/schema_migration", null, "base", old.Schema.Length, old.Schema.Length + 1));
         Assert.False(OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, empty.Schema));
         Assert.True(OfflineMigrationSourceFingerprints.RequireKnownSchema(provider, old.Schema));
     }
@@ -168,10 +194,17 @@ public sealed class OfflineMigrationSourceObserverValue4805Tests
         OfflineMigrationSourceObservation expected = Observation(CurrentSchemaProviderKind.MySql, true);
         int textFact = Array.FindIndex(expected.Schema.ToArray(), fact => fact.Name == "text-encoding/article/title");
         Assert.True(textFact >= 0);
-        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceFingerprints.CreateRegistry().Match(expected with
-        {
-            Schema = expected.Schema.SetItem(textFact, OfflineMigrationSourceFingerprints.MySqlTextFact("article", "title", "latin1", "latin1_swedish_ci"))
-        }));
+        OfflineMigrationSourceFingerprintException refusal = Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
+            OfflineMigrationSourceFingerprints.CreateRegistry().Match(expected with
+            {
+                Schema = expected.Schema.SetItem(textFact, OfflineMigrationSourceFingerprints.MySqlTextFact("article", "title", "latin1", "latin1_swedish_ci"))
+            }));
+        OfflineMigrationSourceObserverValueAssertions.Unknown(refusal, OfflineMigrationSourceFingerprints.LegacyId,
+            OfflineMigrationSourceObserverValueAssertions.Difference(OfflineMigrationSourceFingerprints.LegacyId,
+                OfflineMigrationFingerprintCategory.Schema, OfflineMigrationFingerprintDifferenceKind.Changed,
+                expected.Schema[textFact].Name, expected.Schema[textFact].Value,
+                OfflineMigrationSourceFingerprints.MySqlTextFact("article", "title", "latin1", "latin1_swedish_ci").Value,
+                expected.Schema.Length, expected.Schema.Length));
     }
 
     [Theory]
@@ -243,8 +276,8 @@ public sealed class OfflineMigrationSourceObserverValue4805Tests
                 "body-A\0" + new string('x', 4095) + "\U0001F30D", cancellation);
             OfflineMigrationSourceObserver.SqliteSourceRead before = await ReadSqliteAsync(path, cancellation);
             Assert.Equal(Path.GetFullPath(path), before.NativeVfsName);
-            Assert.Equal(OfflineMigrationSourceFingerprints.Schema(CurrentSchemaProviderKind.Sqlite, true), before.Schema);
-            Assert.Equal(OfflineMigrationSourceFingerprints.Business(true, 0, 0, 0, 0), before.Business);
+            Assert.Equal<OfflineMigrationFact>(OfflineMigrationSourceFingerprints.Schema(CurrentSchemaProviderKind.Sqlite, true), before.Schema);
+            Assert.Equal<OfflineMigrationFact>(OfflineMigrationSourceFingerprints.Business(true, 0, 0, 0, 0), before.Business);
             Assert.Equal(before.ContentDigest, (await ReadSqliteAsync(path, cancellation)).ContentDigest);
             await WriteSqliteAsync(path, "UPDATE article SET content=@body WHERE id=1",
                 "body-B\0" + new string('x', 4095) + "\U0001F30D", cancellation);
@@ -275,12 +308,13 @@ public sealed class OfflineMigrationSourceObserverValue4805Tests
             {
                 OfflineMigrationSourceFingerprintException unknown = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(
                     () => ReadSqliteAsync(path, cancellation));
-                Assert.Equal(refusal, unknown.Code);
-                Assert.Contains(unknown.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Schema);
-                return;
+                OfflineMigrationSourceObserverValueAssertions.UnknownSqliteTable(unknown, sql);
             }
-            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
-            Assert.StartsWith(refusal, error.Message, StringComparison.Ordinal);
+            else
+            {
+                InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
+                Assert.StartsWith(refusal, error.Message, StringComparison.Ordinal);
+            }
         });
     }
 
@@ -307,7 +341,7 @@ public sealed class OfflineMigrationSourceObserverValue4805Tests
             // the refusal; unavailable FILESTAT cannot satisfy this control.
             OfflineMigrationSourceObservation before = await observer.ObserveAsync(
                 CurrentSchemaProviderKind.Sqlite, connectionString, cancellation);
-            Assert.Equal(OfflineMigrationSourceFingerprints.Business(true, 0, 0, 0, 0), before.BusinessShape);
+            Assert.Equal<OfflineMigrationFact>(OfflineMigrationSourceFingerprints.Business(true, 0, 0, 0, 0), before.BusinessShape);
             await WriteSqliteAsync(path, "INSERT INTO sys_systemconfig(\"key\",value) VALUES('ordinary',@body)",
                 "a\0" + new string('x', 511), cancellation);
             OfflineMigrationSourceFingerprintException refusal = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(
@@ -324,8 +358,8 @@ public sealed class OfflineMigrationSourceObserverValue4805Tests
         await WithSqliteFixtureAsync(async (path, cancellation) =>
         {
             OfflineMigrationSourceObserver.SqliteSourceRead empty = await ReadSqliteAsync(path, cancellation);
-            Assert.Equal(OfflineMigrationSourceFingerprints.Schema(CurrentSchemaProviderKind.Sqlite, false), empty.Schema);
-            Assert.Equal(OfflineMigrationSourceFingerprints.Business(false, 0, 0, 0, 0), empty.Business);
+            Assert.Equal<OfflineMigrationFact>(OfflineMigrationSourceFingerprints.Schema(CurrentSchemaProviderKind.Sqlite, false), empty.Schema);
+            Assert.Equal<OfflineMigrationFact>(OfflineMigrationSourceFingerprints.Business(false, 0, 0, 0, 0), empty.Business);
             Assert.Equal(empty.ContentDigest, (await ReadSqliteAsync(path, cancellation)).ContentDigest);
         }, legacy: false);
     }
