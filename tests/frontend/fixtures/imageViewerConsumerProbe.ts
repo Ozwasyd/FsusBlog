@@ -31,28 +31,36 @@ export function createImageViewerConsumerProbe(initialOpen = false, teleportCont
                 h('div', { 'data-probe-article': true }, 'Scrollable article'),
                 teleportControl ? h(Teleport, { to: '#probe-teleports' },
                     h('p', { 'data-probe-teleport-control': true }, 'SSR control')) : null,
-                visible.value && !teleportControl ? h(ElImageViewer, {
+                !teleportControl ? h(ElImageViewer, {
+                    visible: visible.value,
                     ref: viewer,
                     urlList: images.value.map((image) => image.src),
                     initialIndex: index.value,
+                    activeIndex: index.value,
+                    altList: images.value.map((image) => image.alt),
+                    appendTo: '#probe-teleports',
+                    cspSafe: true,
+                    ariaLabel: '查看大图',
+                    labels: { close: '关闭大图', previous: '上一张', next: '下一张' },
                     infinite: false,
                     teleported: true,
                     hideOnClickModal: true,
-                    'aria-label': '查看大图',
                     onClose: () =>
                     {
                         events.push({ name: 'close' });
                         visible.value = false;
                     },
+                    onPrevious: (value: number) => events.push({ name: 'previous', index: value }),
+                    onNext: (value: number) => events.push({ name: 'next', index: value }),
                     onSwitch: (value: number) =>
                     {
                         events.push({ name: 'switch', index: value });
                         index.value = value;
                     }
                 }, {
-                    default: () => h('figcaption', {
+                    caption: ({ alt }: { alt: string }) => h('p', {
                         'data-probe-caption': true
-                    }, images.value[index.value]?.alt ?? '')
+                    }, alt)
                 }) : null
             ]);
         }

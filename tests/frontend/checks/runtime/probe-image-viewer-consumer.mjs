@@ -214,8 +214,13 @@ probe.app.mount('#app');`);
     check('image alternative text', initial[0]?.alt === 'First figure', initial);
     check('caption slot', await page.locator('[data-probe-caption]').textContent() === 'First figure', {
         text: await page.locator('[data-probe-caption]').textContent(),
-        association: 'default slot renders text; no semantic association with the image established'
+        association: await page.getByRole('dialog').getAttribute('aria-describedby')
     });
+    check('caption semantic association', await page.getByRole('dialog').evaluate((element) =>
+    {
+        const ids = (element.getAttribute('aria-describedby') ?? '').split(' ');
+        return ids.some((id) => globalThis.document.getElementById(id)?.textContent?.includes('First figure'));
+    }), {});
     const names = ['关闭大图', '上一张', '下一张'];
     const namedControls = await Promise.all(names.map((name) => page.getByRole('button', { name, exact: true }).count()));
     check('custom accessible control labels', namedControls.every((count) => count === 1), { names, counts: namedControls });
@@ -239,7 +244,7 @@ probe.app.mount('#app');`);
     await open();
     await page.evaluate(() => globalThis.window.__viewerConsumer.setIndex(1));
     const controlled = await activeImage();
-    check('controlled initial-index update', controlled[0]?.src?.includes('Second'), controlled);
+    check('controlled active-index update', controlled[0]?.src?.includes('Second'), controlled);
     await page.evaluate(() => globalThis.window.__viewerConsumer.setActiveItem(1));
     check('public setActiveItem synchronization', (await activeImage())[0]?.src?.includes('Second'), await activeImage());
     await page.keyboard.press('ArrowRight');
@@ -287,14 +292,11 @@ probe.app.mount('#app');`);
     }
     await page.setViewportSize({ width: 375, height: 844 });
     await page.screenshot({ path: path.join(outputRoot, 'local-open.png') });
-    const viewerControls = page.getByRole('button').filter({ hasNotText: /Open article image|Background action/u });
-    // The current public controls have no accessible names. Ordinal use here
-    // diagnoses touch dismissal only; it cannot certify accessible control API.
-    await viewerControls.nth(2).tap();
+    await page.getByRole('button', { name: '下一张', exact: true }).tap();
     check('touch next and switch event', (await snapshot()).index === 1, await snapshot());
-    await viewerControls.nth(1).tap();
+    await page.getByRole('button', { name: '上一张', exact: true }).tap();
     check('touch previous and switch event', (await snapshot()).index === 0, await snapshot());
-    await viewerControls.first().tap();
+    await page.getByRole('button', { name: '关闭大图', exact: true }).tap();
     await page.waitForTimeout(350);
     check('touch close', !(await snapshot()).visible, await snapshot());
     await open();
@@ -303,6 +305,12 @@ probe.app.mount('#app');`);
     check('single image and load failure remains closable', await page.locator('img').count() === 1, await activeImage());
     await page.keyboard.press('Escape');
     check('load failure Escape close', !(await snapshot()).visible, await snapshot());
+    await open();
+    await page.evaluate(() => globalThis.window.__viewerConsumer.setImages([]));
+    check('empty list remains dismissible', await page.locator('img').count() === 0 && await page.getByRole('button', { name: '关闭大图', exact: true }).count() === 1, await snapshot());
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(350);
+    check('empty list close cleanup', !(await snapshot()).visible && await page.getByRole('dialog').count() === 0, await snapshot());
     await open();
     const closeEventsBeforeUnmount = (await snapshot()).events.filter((event) => event.name === 'close').length;
     await page.evaluate(() => globalThis.window.__viewerConsumer.unmount());
@@ -324,6 +332,7 @@ probe.app.mount('#app');`);
     await page.waitForTimeout(350);
     const controlErrors = errors.slice(beforeControl);
     check('SSR dedicated Teleport harness control', await page.locator('[data-probe-teleport-control]').count() === 1 && !controlErrors.some((error) => /hydration|mismatch/iu.test(error)), { controlErrors });
+    check('CSP style attributes', !errors.some((error) => /style-src-attr/iu.test(error)), { errors: errors.filter((error) => /style-src-attr/iu.test(error)) });
     report.runtimeErrors = errors;
     report.status = report.checks.some((entry) => entry.status === 'failed') ? 'failed' : 'passed';
     process.exitCode = report.status === 'passed' ? 0 : 1;
