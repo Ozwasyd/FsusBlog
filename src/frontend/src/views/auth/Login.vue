@@ -196,6 +196,8 @@ import { usePasskeyLogin } from '@/composables/usePasskeyLogin';
 import { Key } from '@/fsusui/icons';
 import { themeTokens } from '@/ui-tokens/themeTokens';
 
+defineOptions({ name: 'AuthLoginView' });
+
 const focusRingClass = themeTokens.focusRing;
 const { messages } = useI18nText();
 const copy = computed(() => messages.value.auth.login);

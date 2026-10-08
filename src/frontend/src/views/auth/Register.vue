@@ -265,6 +265,8 @@ import { useAnonymousOnboarding } from '@/composables/useAnonymousOnboarding';
 import { useI18nText } from '@/composables/useI18nText';
 import { themeTokens } from '@/ui-tokens/themeTokens';
 
+defineOptions({ name: 'AuthRegisterView' });
+
 const focusRingClass = themeTokens.focusRing;
 const { messages } = useI18nText();
 const copy = computed(() => messages.value.auth.register);
