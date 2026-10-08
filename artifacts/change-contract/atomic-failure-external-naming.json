@@ -57,6 +57,13 @@
                 "tools/test/lanes/frontend-state-machines.sh"
             ],
             "reason": "preserve original frontend lane wrapper environment contracts from exact be307751 source without changing commands or resource policies"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "preserve exact original e6a42d63 generated authority wire keys when consuming the sole-owner candidate-compatible fixture; no new authority writer or qualification"
         }
     ]
 }
