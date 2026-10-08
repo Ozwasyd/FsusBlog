@@ -409,14 +409,36 @@ export async function dispatchOpenLoopLoadSchedule(schedule, {
                 record.failureKind = at >= schedule.policy.durationMs ? 'generator-schedule-expired' : 'generator-backpressure-drop';
                 continue;
             }
-            record.dispatchedAtMs = at;
-            record.scheduleLagMs = at - arrival.plannedAtMs;
             const timeout = new AbortController();
             const requestTimer = setTimeout(() => timeout.abort(), schedule.policy.requestTimeoutMs);
             requestTimers.add(requestTimer);
             const requestSignal = AbortSignal.any([scope.signal, ...(signal ? [signal] : []), timeout.signal]);
-            const task = Promise.resolve().then(() => request(arrival, { signal: requestSignal,
-                requestTimeoutMs: schedule.policy.requestTimeoutMs }))
+            const dispatchedAtMs = now() - start;
+            record.observedAtMs = dispatchedAtMs;
+            if (signal?.aborted || dispatchedAtMs >= schedule.policy.durationMs)
+            {
+                clearTimeout(requestTimer);
+                requestTimers.delete(requestTimer);
+                if (!signal?.aborted)
+                {
+                    record.outcome = 'dropped';
+                    record.failureKind = 'generator-schedule-expired';
+                }
+                continue;
+            }
+            record.dispatchedAtMs = dispatchedAtMs;
+            record.scheduleLagMs = dispatchedAtMs - arrival.plannedAtMs;
+            let response;
+            try
+            {
+                response = request(arrival, { signal: requestSignal,
+                    requestTimeoutMs: schedule.policy.requestTimeoutMs });
+            }
+            catch (error)
+            {
+                response = Promise.reject(error);
+            }
+            const task = Promise.resolve(response)
                 .then((sample) =>
                 {
                     record.sample = { ...sample };

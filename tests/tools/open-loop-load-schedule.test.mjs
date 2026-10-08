@@ -213,6 +213,45 @@ test('dispatcher records sleep drift without shifting planned timestamps', async
     assert.equal(result.validation.qualificationEligible, false);
 });
 
+test('dispatcher records request port entry rather than a deferred microtask reservation', async () =>
+{
+    let now = 0;
+    const entries = new Map();
+    const schedule = buildOpenLoopLoadSchedule(policy({ durationMs: 10, qualificationWindowMs: 10,
+        plannedRequestsPerSecond: 1000 }));
+    const result = await dispatchOpenLoopLoadSchedule(schedule, {
+        clock: () => now,
+        sleep: async (ms) =>
+        {
+            now += ms;
+        },
+        request: (arrival) =>
+        {
+            entries.set(arrival.sampleId, now);
+            return Promise.resolve({ routeId: arrival.routeId, ok: true, failureKind: null });
+        }
+    });
+    for (const record of result.timeline.records)
+    {
+        assert.equal(record.dispatchedAtMs, entries.get(record.sampleId), 'dispatch must observe actual adapter entry');
+    }
+});
+
+test('dispatcher refuses an adapter entry crossing the active deadline during request setup', async () =>
+{
+    let clockReads = 0;
+    const schedule = buildOpenLoopLoadSchedule(policy({ durationMs: 10, qualificationWindowMs: 10,
+        plannedRequestsPerSecond: 1000 }));
+    const result = await dispatchOpenLoopLoadSchedule(schedule, {
+        clock: () => ++clockReads < 4 ? 0 : 20,
+        request: () => assert.fail('expired request setup must never enter the adapter')
+    });
+    assert.equal(result.validation.counts.dispatched, 0);
+    assert.equal(result.validation.counts.dropped, schedule.plannedCount);
+    assert.ok(result.timeline.records.every((record) => record.failureKind === 'generator-schedule-expired'));
+    assert.equal(result.validation.passed, false);
+});
+
 test('dispatcher rejects a backwards monotonic clock before dispatch', async () =>
 {
     let calls = 0;
