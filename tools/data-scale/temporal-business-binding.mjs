@@ -1,4 +1,5 @@
-const { bindTemporalEntityBusinessFields, iterateTemporalEntityBusinessBatches } = await import(new URL('../test-fixtures/temporal-business-fields.mjs', import.meta.url));
+const { bindTemporalEntityBusinessFields, bindTemporalEntityBatchBusinessFields, iterateTemporalEntityBusinessBatches } = await import(new URL('../test-fixtures/temporal-business-fields.mjs', import.meta.url));
+const { resolveTemporalBusinessFieldStream } = await import(new URL('../test-fixtures/temporal-business-stream.mjs', import.meta.url));
 
 export const dataScaleTemporalFieldMappings = Object.freeze([
     ['row.created-at', 'scale.row-created'],
@@ -22,7 +23,19 @@ export function bindDataScaleTemporalBusinessFields(input)
     {
         throw new Error('data-scale temporal binding requires scale-data context');
     }
-    return bindTemporalEntityBusinessFields({ ...input, fieldMappings: dataScaleTemporalFieldMappings });
+    const bind = input?.artifact?.schema === 'fsusblog.resolved-temporal-entity-batch.v2'
+        ? bindTemporalEntityBatchBusinessFields : bindTemporalEntityBusinessFields;
+    return bind({ ...input, fieldMappings: dataScaleTemporalFieldMappings });
+}
+
+/** Replay sealed bounded input through the sole v2 authority and a business-field handler. */
+export function resolveDataScaleTemporalBusinessStream(input)
+{
+    if (input?.temporalContext?.producerId !== 'scale-data')
+    {
+        throw new Error('data-scale temporal stream requires scale-data context');
+    }
+    return resolveTemporalBusinessFieldStream({ ...input, fieldMappings: dataScaleTemporalFieldMappings });
 }
 
 /** Transport an already accepted whole plan; this cannot qualify oversized plans. */

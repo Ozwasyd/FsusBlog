@@ -145,7 +145,7 @@ test('cancellation before and between packets produces no later packet or comple
     assert.equal(returned.next().done, true);
 });
 
-test('L-nightly sized ordinary plans remain rejected until a canonical cross-batch API exists', () =>
+test('legacy whole-plan L-nightly inputs stay capped and real chronology remains refused', () =>
 {
     const plan = consumerEntityPlan('scale-data');
     // Sparse invalid input tests the existing guard; no 1.1M seed facts are manufactured.

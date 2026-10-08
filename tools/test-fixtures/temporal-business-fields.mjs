@@ -171,6 +171,47 @@ export function bindTemporalEntityBusinessFields({ temporalContext, artifact, ex
             fail(`entity artifact does not match held ${name}`);
         }
     }
+    const binding = projectVerifiedTemporalEntityBusinessFields(snapshot, fieldMappings);
+    verifiedEntityTransports.set(binding, { entities: snapshot.entities, rootNested: snapshot.entityPlan.distribution.rootNested });
+    return binding;
+}
+
+/** Consume the original v2 callback against its independently held sealed partition. */
+export function bindTemporalEntityBatchBusinessFields({ temporalContext, artifact, expected, fieldMappings })
+{
+    if (artifact?.schema !== 'fsusblog.resolved-temporal-entity-batch.v2'
+        || !/^sha256:[a-f0-9]{64}$/u.test(expected?.streamPlanDigest ?? '') || !expected?.partition)
+    {
+        fail('batch consumption requires its held stream plan and original partition');
+    }
+    // WeakMap authority belongs to the canonical resolver: verify BEFORE cloning.
+    // Serialized or caller-cloned packets must be reparsed from the whole source.
+    verifyResolvedTemporalArtifact(artifact, { temporalContext });
+    if (artifact.streamPlanDigest !== expected.streamPlanDigest
+        || artifact.shape.digest !== expected.shapeDigest || artifact.catalog.digest !== expected.catalogDigest)
+    {
+        fail('batch artifact does not match held stream/catalog/shape identity');
+    }
+    for (const name of ['producerId', 'runId', 'namespace', 'fixtureId', 'planDigest'])
+    {
+        if (typeof expected[name] !== 'string' || !expected[name] || artifact.fixtureIdentity[name] !== expected[name])
+        {
+            fail(`batch artifact does not match held ${name}`);
+        }
+    }
+    const partition = expected.partition;
+    for (const name of ['index', 'inputDigest', 'entityStartIndex', 'relationshipStartIndex', 'entityCount', 'relationshipCount'])
+    {
+        if (artifact.batch[name] !== partition[name])
+        {
+            fail(`batch artifact does not match held partition ${name}`);
+        }
+    }
+    return projectVerifiedTemporalEntityBusinessFields(structuredClone(artifact), fieldMappings);
+}
+
+function projectVerifiedTemporalEntityBusinessFields(snapshot, fieldMappings)
+{
     if (!Array.isArray(fieldMappings) || fieldMappings.length === 0 || fieldMappings.length > 1000)
     {
         fail('a bounded nonempty entity field mapping is required');
@@ -194,6 +235,10 @@ export function bindTemporalEntityBusinessFields({ temporalContext, artifact, ex
             revisions.set(JSON.stringify([entity.coordinate.semanticIdentity, entity.coordinate.revisionNumber]),
                 entity.roles.find((role) => role.roleId === 'article.revision'));
         }
+    }
+    for (const reference of snapshot.referencedRevisions ?? [])
+    {
+        revisions.set(JSON.stringify([reference.semanticIdentity, reference.revisionNumber]), reference.role);
     }
     const fields = new Map();
     for (const entity of snapshot.entities)
@@ -233,6 +278,7 @@ export function bindTemporalEntityBusinessFields({ temporalContext, artifact, ex
                 fail(`${mapping.field} has no supplied creation-only revision mapping for this history`);
             }
             const value = Object.freeze({ coordinate, field: mapping.field, roleId: mapping.roleId, state: entity.state,
+                ...(Number.isSafeInteger(entity.entityIndex) ? { entityIndex: entity.entityIndex } : {}),
                 applicability: rowGenerated ? role.applicability : 'not-generated',
                 instantUtc: rowGenerated ? role.instantUtc : null,
                 epochMilliseconds: rowGenerated ? role.epochMilliseconds : null });
@@ -242,7 +288,12 @@ export function bindTemporalEntityBusinessFields({ temporalContext, artifact, ex
     const values = Object.freeze([...fields.entries()].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
         .map(([, value]) => value));
     const unsupportedFields = Object.freeze(snapshot.unsupportedFields.map((item) => Object.freeze({ ...item })));
-    const binding = Object.freeze({ artifactDigest: snapshot.contentDigest, entityPlanDigest: snapshot.entityPlanDigest,
+    const batchIdentity = snapshot.batch ? { streamPlanDigest: snapshot.streamPlanDigest,
+        batch: Object.freeze({ ...snapshot.batch }), entities: Object.freeze(snapshot.entities.map((entity) => Object.freeze({
+            entityIndex: entity.entityIndex, coordinate: Object.freeze({ ...entity.coordinate }),
+            references: Object.freeze(entity.references.map((reference) => Object.freeze({ ...reference,
+                coordinate: Object.freeze({ ...reference.coordinate }) }))) }))) } : { entityPlanDigest: snapshot.entityPlanDigest };
+    const binding = Object.freeze({ artifactDigest: snapshot.contentDigest, ...batchIdentity,
         contextDigest: snapshot.contextIdentity.contextDigest, catalogDigest: snapshot.catalog.digest,
         shapeDigest: snapshot.shape.digest, fields: values, unsupportedFields, qualificationEligible: false,
         semanticDigest: digestCanonical({ temporal: snapshot.semanticDigest, fields: values, unsupportedFields }),
@@ -256,7 +307,6 @@ export function bindTemporalEntityBusinessFields({ temporalContext, artifact, ex
             return value;
         } });
     verifiedEntityBindings.add(binding);
-    verifiedEntityTransports.set(binding, { entities: snapshot.entities, rootNested: snapshot.entityPlan.distribution.rootNested });
     return binding;
 }
 

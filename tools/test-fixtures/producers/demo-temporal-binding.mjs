@@ -1,4 +1,5 @@
-const { bindTemporalEntityBusinessFields, iterateTemporalEntityBusinessBatches } = await import(new URL('../temporal-business-fields.mjs', import.meta.url));
+const { bindTemporalEntityBusinessFields, bindTemporalEntityBatchBusinessFields, iterateTemporalEntityBusinessBatches } = await import(new URL('../temporal-business-fields.mjs', import.meta.url));
+const { resolveTemporalBusinessFieldStream } = await import(new URL('../temporal-business-stream.mjs', import.meta.url));
 const { digestCanonical } = await import(new URL('../../test/temporal-context.mjs', import.meta.url));
 const { resolveTemporalRolesForProducer } = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 
@@ -29,7 +30,27 @@ export function bindDemoTemporalBusinessFields(input)
     {
         throw new Error('demo temporal binding requires development-demo context');
     }
-    return bindTemporalEntityBusinessFields({ ...input, fieldMappings: demoTemporalFieldMappings });
+    const bind = input?.artifact?.schema === 'fsusblog.resolved-temporal-entity-batch.v2'
+        ? bindTemporalEntityBatchBusinessFields : bindTemporalEntityBusinessFields;
+    return bind({ ...input, fieldMappings: demoTemporalFieldMappings });
+}
+
+/** Consume original globally validated v2 batches without buffering a whole entity plan. */
+export function resolveDemoTemporalBusinessStream(input)
+{
+    if (input?.temporalContext?.producerId !== 'development-demo')
+    {
+        throw new Error('demo temporal stream requires development-demo context');
+    }
+    return resolveTemporalBusinessFieldStream({ ...input, fieldMappings: demoTemporalFieldMappings });
+}
+
+/** Explicit source-factory ingress for the registered demo fixture coordinate. */
+export function prepareDemoTemporalStream(context, options)
+{
+    return resolveDemoTemporalBusinessStream({ ...options, temporalContext: context.temporalContext,
+        fixtureIdentity: { producerId: 'development-demo', runId: context.runIdentity, namespace: context.namespace,
+            fixtureId: 'development-demo', planDigest: context.plan?.variantPlanDigest } });
 }
 
 /** Keep entity/history order across transport packets from one verified artifact. */
