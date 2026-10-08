@@ -4,10 +4,19 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "config/testing/correctness-attempt-producers.json",
                 "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
                 "tests/governance/test-lifecycle-registry.json"
             ],
-            "reason": "Preserve NuGet lock serialization keys and lifecycle registry fields while composing the exact coordinator-supplied backend dependency and canonical suite-registration prerequisites. Internal renaming would break their existing external JSON consumers; this composition does not change those names."
+            "reason": "Preserve the registered NuGet, lifecycle, correctness producer and release-final JSON field spellings while composing only the exact coordinator-supplied prerequisites. Internal renaming would break their existing external JSON consumers; this composition does not change those names."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the existing execution environment and authority spellings in the exact supplied canonical producer-roster migration capability. No process environment contract is renamed or newly admitted."
         }
     ]
 }
