@@ -39,6 +39,7 @@ internal static class CanonicalQueryProducerIntake
             scope = "original-native-intake-missing-object-refusal-only",
             originalInterfacesLinked = true,
             originalProducerObjectsSupplied = false,
+            originalPostgresResolvedHandoff = DescribeOriginalResolvedHandoff(),
             backendSourceCommit = typeof(ArticleScalePlan).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
                 .SingleOrDefault(attribute => attribute.Key == "FsusBlog.SourceCommit")?.Value,
             roleBlockers = role.Blockers,
@@ -63,6 +64,37 @@ internal static class CanonicalQueryProducerIntake
     }
 
 #if QUERY_PRODUCER_INTAKE_LINKED
+    // This is compiled API metadata, not an invocation, producer result or receipt.
+    private static object DescribeOriginalResolvedHandoff()
+    {
+        MethodInfo handoff = typeof(DataScalePostgresArticleProducer).GetMethod(
+            nameof(DataScalePostgresArticleProducer.ProduceAndConsumeResolvedAsync),
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("original_postgres_resolved_handoff_missing");
+        string[] storeMethods =
+        [
+            nameof(DataScaleBatchCheckpointStore.PersistNativeAllocationEvidenceAsync),
+            nameof(DataScaleBatchCheckpointStore.VerifyNativeAllocationEvidenceAsync),
+            nameof(DataScaleBatchCheckpointStore.ReadAsync)
+        ];
+        foreach (string method in storeMethods)
+        {
+            _ = typeof(DataScaleBatchCheckpointStore).GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("original_postgres_handoff_store_contract_missing");
+        }
+        return new
+        {
+            scope = "compiled-original-resolved-handoff-contract-only",
+            entrypoint = $"{handoff.DeclaringType!.FullName}.{handoff.Name}",
+            parameterTypes = handoff.GetParameters().Select(parameter => parameter.ParameterType.ToString()),
+            allocationStoreMethods = storeMethods,
+            originalResolvedValuesSupplied = false,
+            sameLiveConnectionCallbackInvoked = false,
+            qualification = false,
+            releaseEvidenceEligible = false
+        };
+    }
+
     /// <summary>
     /// For an original in-process owner supplying real objects. Both existing
     /// APIs retain their own physical/epoch/whole-plan/publication refusal gates.

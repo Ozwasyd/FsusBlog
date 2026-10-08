@@ -55,6 +55,16 @@ test('real native intake precedes expected mapping and repeated file probes cann
                 assert.equal(refusal.originalInterfacesLinked, true);
                 assert.equal(refusal.roleBlockers.length, 4);
                 assert.equal(refusal.postgresBlockers.length, 11);
+                const handoff = refusal.originalPostgresResolvedHandoff;
+                assert.equal(handoff.scope, 'compiled-original-resolved-handoff-contract-only');
+                assert.equal(handoff.entrypoint, 'FsusBlog.Server.Services.Fixtures.DataScale.DataScalePostgresArticleProducer.ProduceAndConsumeResolvedAsync');
+                assert.equal(handoff.parameterTypes.length, 15);
+                assert.equal(handoff.parameterTypes[0], 'System.Data.Common.DbConnection');
+                assert.equal(handoff.originalResolvedValuesSupplied, false);
+                assert.equal(handoff.sameLiveConnectionCallbackInvoked, false);
+                assert.equal(handoff.qualification, false);
+                assert.deepEqual(handoff.allocationStoreMethods,
+                    ['PersistNativeAllocationEvidenceAsync', 'VerifyNativeAllocationEvidenceAsync', 'ReadAsync']);
             }
         }
         assert.equal(calls, 0);

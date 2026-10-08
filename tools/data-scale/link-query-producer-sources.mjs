@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { computeSha256 } from './runtime-plan.mjs';
 
-const commits = Object.freeze({ writer: 'c929ee0a68d52cae7cc537e6ba9810cd9954e07d',
+const commits = Object.freeze({ writer: 'eca3afcf011caead9647c6854b6382a187a9644c',
     comment: '83299c6891eb06c101bb31badd589c4adf780180', consumer: '35d9e100ff6d3b1d4ba9e5f1d0f9c0430355f89a' });
 const directory = 'src/backend/Services/Fixtures/DataScale/';
 const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
