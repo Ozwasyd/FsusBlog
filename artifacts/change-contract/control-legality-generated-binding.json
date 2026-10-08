@@ -1,8 +1,7 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "tests/matrix.yml",
-        "tools/docs/generate-testing-docs.mjs"
+        "tests/matrix.yml"
     ],
     "outputs": [
         {
