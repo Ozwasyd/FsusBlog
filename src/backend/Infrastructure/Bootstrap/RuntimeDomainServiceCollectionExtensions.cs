@@ -131,6 +131,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<UserLocalePreferenceService>();
         services.AddScoped<IUserLocalePreferenceReader>(sp => sp.GetRequiredService<UserLocalePreferenceService>());
         services.AddScoped<IUserLocalePreferenceCommand>(sp => sp.GetRequiredService<UserLocalePreferenceService>());
+        services.AddScoped<IWritingAidPreferenceReader>(sp => sp.GetRequiredService<UserLocalePreferenceService>());
+        services.AddScoped<IWritingAidPreferenceCommand>(sp => sp.GetRequiredService<UserLocalePreferenceService>());
         services.AddScoped<IAnonymousAccountBootstrapService, AnonymousAccountBootstrapService>();
         services.AddScoped<IAccountEnrollmentService, AccountEnrollmentService>();
         services.AddHostedService<AccountEnrollmentCleanupWorker>();
