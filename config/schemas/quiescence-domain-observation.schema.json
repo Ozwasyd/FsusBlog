@@ -1,0 +1,218 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.quiescence-domain-observation.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "runId",
+        "namespace",
+        "candidateIdentityDigest",
+        "runtimeIdentityDigest",
+        "highWatermark",
+        "observedGeneration",
+        "stateDomainCatalogDigest",
+        "inventoryDigest",
+        "evidenceDigest",
+        "contentDigest",
+        "pendingCount",
+        "inFlightCount",
+        "activeMutationTransactionCount",
+        "unacknowledgedInvalidationCount",
+        "terminalFailureCount",
+        "schema",
+        "domainId",
+        "status",
+        "commitPostcondition",
+        "activeClaims",
+        "observerIdentity"
+    ],
+    "properties": {
+        "runId": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "minLength": 1
+        },
+        "namespace": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "minLength": 1
+        },
+        "candidateIdentityDigest": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "minLength": 1
+        },
+        "runtimeIdentityDigest": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "minLength": 1
+        },
+        "highWatermark": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "minLength": 1
+        },
+        "observedGeneration": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "minLength": 1
+        },
+        "stateDomainCatalogDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "inventoryDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "evidenceDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "contentDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "pendingCount": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "minimum": 0
+        },
+        "inFlightCount": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "minimum": 0
+        },
+        "activeMutationTransactionCount": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "minimum": 0
+        },
+        "unacknowledgedInvalidationCount": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "minimum": 0
+        },
+        "terminalFailureCount": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "minimum": 0
+        },
+        "schema": {
+            "const": "fsusblog.quiescence-domain-observation.v1"
+        },
+        "domainId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]*$"
+        },
+        "status": {
+            "enum": [
+                "quiescent",
+                "blocked",
+                "failed",
+                "unknown",
+                "unavailable"
+            ]
+        },
+        "commitPostcondition": {
+            "enum": [
+                "verified",
+                "failed",
+                "unknown",
+                "unavailable"
+            ]
+        },
+        "activeClaims": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "namespace",
+                    "owner",
+                    "leaseId",
+                    "generation"
+                ],
+                "properties": {
+                    "namespace": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "owner": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "leaseId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "generation": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "uniqueItems": true
+        },
+        "observerIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "api",
+                "version",
+                "incarnation",
+                "sourceDigest",
+                "schemaDigest"
+            ],
+            "properties": {
+                "api": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "version": {
+                    "const": "v1"
+                },
+                "incarnation": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "minLength": 1
+                },
+                "sourceDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "schemaDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                }
+            }
+        }
+    }
+}

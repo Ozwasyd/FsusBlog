@@ -15,6 +15,35 @@ node --test tests/tools/bounded-channel-contracts.test.mjs
 
 ## Catalog-driven bounded queue drain matrix
 
+Quiescence source contracts are registered under `quiescence` in the existing
+`runtime-state-domain-registry.json`, reached through the sole state-domain
+catalog. `tools/test-matrix/quiescence-contract.mjs` derives the inventory from
+those background state-access declarations and every drain participant in the
+existing bounded-channel catalog; it does not maintain another queue roster.
+The current source includes eight domain contracts, 23 queue participants and
+55 explicit hosted-worker source identities. The matrix state-domain validator
+rejects a missing registration or a changed worker roster, including a new
+worker without a new channel. Source registration is a review boundary, not
+proof that a worker's namespace/high-watermark/freeze API already exists.
+
+`quiescence-domain-observation.schema.json` preserves unknown/unavailable state
+as null or an explicit status. Its independent consumer refuses missing fields,
+nonzero work/claims/transactions/invalidations/terminal failures, unverified commit
+postconditions, cross-run/namespace/runtime observations, worker incarnation or
+source drift, high-watermark/generation drift and non-quiescent measurements.
+Only verified current-namespace managed mutation transactions block; idle pool
+connections do not. Catalog/registry, queue catalog, observer schema and inventory
+digests bind the plan inputs. No source checker emits runtime-state-ready,
+acquires a lease, freezes admission, drains work or seals a runtime receipt.
+
+Run `node tools/test-matrix/quiescence-contract.mjs` and
+`node --test tests/tools/quiescence-contract.test.mjs` for source contracts.
+The complete state-domain gate remains distinct: existing missing
+`fixture.public-content` creates declarations in `security-runtime-core` and
+`resilience` still fail its bidirectional-exact control. Passing the source
+inventory and model refusal tests does not supply actual domain observers or
+runtime qualification.
+
 `drainParticipant: true` in the sole bounded-channel catalog is the participant admission boundary. `BoundedQueueDeliveryCatalog` loads that same embedded catalog, and `BoundedQueueDrainAggregator` accepts exactly one registered adapter receipt for every participant queue. A receipt is current-run and content-addressed: it binds queue identity, delivery class, generation, sequence, queued/in-flight/durable-pending/terminal counts, commit postcondition, and any class-valid drop proof. Missing, duplicate, unknown, stale, cross-run, underflowed, observer-unavailable, or digest-mismatched observations fail closed. A rejected generation/sequence regression or content collision must not replace the participant watermark; rereading the same rejected snapshot cannot make health, readiness, or qualification succeed. Digest-, run-, or catalog-binding-invalid receipts cannot establish the watermark; correcting only their envelope can recover without changing the queue version, while valid pending receipts still advance monotonic observation.
 
 The release drain wrapper and `ProductionHealth` both consume the aggregate; health, readiness, and qualification are not computed from a second queue list or a `QueuedCount`-only shortcut. Queue adapters only expose existing queue-owned snapshots. The PublicHot adapter remains a wrapper around the authoritative PublicHot activity/quiescence APIs and does not copy or change PublicHot delivery behavior.

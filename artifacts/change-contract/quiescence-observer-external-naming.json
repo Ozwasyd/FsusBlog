@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/quiescence-contract.mjs",
+                "tools/test-matrix/runtime-state-domain-catalog.mjs"
+            ],
+            "reason": "Preserve established external catalog, schema, CLI and runtime identity spellings while internal JavaScript identifiers follow repository conventions. This source contract does not grant runtime admission."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/quiescence-domain-observation.schema.json",
+                "config/schemas/runtime-state-domain-registry.schema.json",
+                "config/testing/runtime-state-domain-registry.json"
+            ],
+            "reason": "Preserve machine-readable registry and schema field names consumed by independent catalog validators and observation consumers."
+        }
+    ]
+}

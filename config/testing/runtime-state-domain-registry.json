@@ -262,5 +262,212 @@
             "observerVersion": "v1",
             "semanticClass": "object-storage"
         }
-    ]
+    ],
+    "quiescence": {
+        "schema": "fsusblog.quiescence-contract-registration.v1",
+        "boundedQueueCatalog": "config/testing/bounded-channel-delivery-contracts.json",
+        "contracts": [
+            {
+                "domainId": "comment-mutation-outbox",
+                "owner": "src/backend/Services/Background/CommentMutationOutboxWorker.cs",
+                "stateDomains": [
+                    "postgres.comment",
+                    "postgres.outbox"
+                ],
+                "observerApi": "comment-mutation-outbox.Observe/v1",
+                "namespaceScope": "verified current-run namespace, runtime key scope and database identity; caller coordinates do not prove scope",
+                "highWatermarkSource": "durable event Id and retained committed prefix",
+                "generationSource": "claim ownership epoch and actual worker incarnation",
+                "freezeAdmissionHook": "src/backend/Services/Background/CommentMutationOutboxWorker.cs#before-new-obligation-or-claim (required contract; not implemented freeze)",
+                "commitPostcondition": "comment effects/outbox committed; poison fails",
+                "qualificationImpact": "unknown/unavailable/missing/terminal-failure blocks qualification; no zero defaults",
+                "proofTests": [
+                    "tests/tools/quiescence-contract.test.mjs"
+                ]
+            },
+            {
+                "domainId": "article-mutation-outbox",
+                "owner": "src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs",
+                "stateDomains": [
+                    "postgres.article",
+                    "postgres.outbox"
+                ],
+                "observerApi": "article-mutation-outbox.Observe/v1",
+                "namespaceScope": "verified current-run namespace, runtime key scope and database identity; caller coordinates do not prove scope",
+                "highWatermarkSource": "durable event Id and retained committed prefix",
+                "generationSource": "active release generation plus claim ownership epoch",
+                "freezeAdmissionHook": "src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs#before-new-obligation-or-claim (required contract; not implemented freeze)",
+                "commitPostcondition": "article effects/outbox committed; poison fails",
+                "qualificationImpact": "unknown/unavailable/missing/terminal-failure blocks qualification; no zero defaults",
+                "proofTests": [
+                    "tests/tools/quiescence-contract.test.mjs"
+                ]
+            },
+            {
+                "domainId": "scheduled-publication",
+                "owner": "src/backend/Services/Background/ScheduledPublishWorker.cs",
+                "stateDomains": [
+                    "postgres.article"
+                ],
+                "observerApi": "scheduled-publication.Observe/v1",
+                "namespaceScope": "verified current-run namespace, runtime key scope and database identity; caller coordinates do not prove scope",
+                "highWatermarkSource": "immutable due-work/claim identity snapshot",
+                "generationSource": "active release plus claim lease generation",
+                "freezeAdmissionHook": "src/backend/Services/Background/ScheduledPublishWorker.cs#before-new-obligation-or-claim (required contract; not implemented freeze)",
+                "commitPostcondition": "publication committed under the same lease",
+                "qualificationImpact": "unknown/unavailable/missing/terminal-failure blocks qualification; no zero defaults",
+                "proofTests": [
+                    "tests/tools/quiescence-contract.test.mjs"
+                ]
+            },
+            {
+                "domainId": "background-mutation-claims",
+                "owner": "src/backend/Infrastructure/Operations/ActiveReleaseFencedCommit.cs",
+                "stateDomains": [
+                    "postgres.article",
+                    "postgres.comment",
+                    "postgres.outbox"
+                ],
+                "observerApi": "background-mutation-claims.Observe/v1",
+                "namespaceScope": "verified current-run namespace, runtime key scope and database identity; caller coordinates do not prove scope",
+                "highWatermarkSource": "managed mutation admission sequence",
+                "generationSource": "worker incarnation and transactional fence generation",
+                "freezeAdmissionHook": "src/backend/Infrastructure/Operations/ActiveReleaseFencedCommit.cs#before-new-obligation-or-claim (required contract; not implemented freeze)",
+                "commitPostcondition": "only managed active mutation transactions/claims block; idle connections do not",
+                "qualificationImpact": "unknown/unavailable/missing/terminal-failure blocks qualification; no zero defaults",
+                "proofTests": [
+                    "tests/tools/quiescence-contract.test.mjs"
+                ]
+            },
+            {
+                "domainId": "public-hot-obligation",
+                "owner": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs",
+                "stateDomains": [
+                    "postgres.article",
+                    "artifact.static-web-assets"
+                ],
+                "observerApi": "public-hot-obligation.Observe/v1",
+                "namespaceScope": "verified current-run namespace, runtime key scope and database identity; caller coordinates do not prove scope",
+                "highWatermarkSource": "authoritative CurrentTargetGeneration and obligation target",
+                "generationSource": "authoritative PublishedGeneration and CurrentTargetGeneration",
+                "freezeAdmissionHook": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs#before-new-obligation-or-claim (required contract; not implemented freeze)",
+                "commitPostcondition": "PublicHotQuiescence plus target publication/revocation commit",
+                "qualificationImpact": "unknown/unavailable/missing/terminal-failure blocks qualification; no zero defaults",
+                "proofTests": [
+                    "tests/tools/quiescence-contract.test.mjs"
+                ]
+            },
+            {
+                "domainId": "public-aot-backfill-and-publish",
+                "owner": "src/backend/Infrastructure/PublicAot/PublicAotBackfillScheduler.cs",
+                "stateDomains": [
+                    "artifact.public-aot-overlay",
+                    "artifact.static-web-assets"
+                ],
+                "observerApi": "public-aot-backfill-and-publish.Observe/v1",
+                "namespaceScope": "verified current-run namespace, runtime key scope and database identity; caller coordinates do not prove scope",
+                "highWatermarkSource": "TargetGeneration and retained request identities",
+                "generationSource": "target/active manifest generation and worker incarnation",
+                "freezeAdmissionHook": "src/backend/Infrastructure/PublicAot/PublicAotBackfillScheduler.cs#before-new-obligation-or-claim (required contract; not implemented freeze)",
+                "commitPostcondition": "manifest/overlay committed; mtime and queue-empty are insufficient",
+                "qualificationImpact": "unknown/unavailable/missing/terminal-failure blocks qualification; no zero defaults",
+                "proofTests": [
+                    "tests/tools/quiescence-contract.test.mjs"
+                ]
+            },
+            {
+                "domainId": "redis-invalidation",
+                "owner": "src/backend/Infrastructure/Distributed/DistributedInvalidationContracts.cs",
+                "stateDomains": [
+                    "redis.cache.public",
+                    "redis.cache.private"
+                ],
+                "observerApi": "redis-invalidation.Observe/v1",
+                "namespaceScope": "verified current-run namespace, runtime key scope and database identity; caller coordinates do not prove scope",
+                "highWatermarkSource": "durable invalidation sequence and recipient obligations",
+                "generationSource": "origin/target/acked generation plus dispatcher incarnation",
+                "freezeAdmissionHook": "src/backend/Infrastructure/Distributed/DistributedInvalidationContracts.cs#before-new-obligation-or-claim (required contract; not implemented freeze)",
+                "commitPostcondition": "inbox and dispatcher settled; all required recipients acked",
+                "qualificationImpact": "unknown/unavailable/missing/terminal-failure blocks qualification; no zero defaults",
+                "proofTests": [
+                    "tests/tools/quiescence-contract.test.mjs"
+                ]
+            },
+            {
+                "domainId": "runtime-cache-rebuild-or-flush",
+                "owner": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs",
+                "stateDomains": [
+                    "redis.cache.public",
+                    "redis.cache.private"
+                ],
+                "observerApi": "runtime-cache-rebuild-or-flush.Observe/v1",
+                "namespaceScope": "verified current-run namespace, runtime key scope and database identity; caller coordinates do not prove scope",
+                "highWatermarkSource": "dirty/rebuild/flush admission sequence",
+                "generationSource": "cache publication generation and worker incarnation",
+                "freezeAdmissionHook": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs#before-new-obligation-or-claim (required contract; not implemented freeze)",
+                "commitPostcondition": "flush/rebuild committed; dirty state cleared by owner postcondition",
+                "qualificationImpact": "unknown/unavailable/missing/terminal-failure blocks qualification; no zero defaults",
+                "proofTests": [
+                    "tests/tools/quiescence-contract.test.mjs"
+                ]
+            }
+        ],
+        "managedWorkerSources": [
+            "src/backend/Infrastructure/Audit/AdminAuditLogWriterWorker.cs#AdminAuditLogWriterWorker",
+            "src/backend/Infrastructure/Audit/AuditDetachedCheckpointRuntime.cs#AuditDetachedCheckpointHostedService",
+            "src/backend/Infrastructure/Audit/AuditLogWriterWorker.cs#AuditLogWriterWorker",
+            "src/backend/Infrastructure/Bootstrap/DataProtectionKeyProtection.cs#DataProtectionKeyRingStartupValidator",
+            "src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs#LifecycleHostedBootstrapService",
+            "src/backend/Infrastructure/Bootstrap/WebApplicationBuilderCompositionExtensions.cs#FsusHostRuntimeTuningLogService",
+            "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs#HotStatsInvalidationCoalescer",
+            "src/backend/Infrastructure/Distributed/Cluster/ClusterMembershipHostedService.cs#ClusterMembershipHostedService",
+            "src/backend/Infrastructure/Distributed/DistributedInvalidationBus.cs#DistributedInvalidationBus",
+            "src/backend/Infrastructure/Distributed/Scheduling/ResponsibilityRuntime.cs#ResponsibilityAssignmentHostedService",
+            "src/backend/Infrastructure/Helpers/Initializer/RedisInitializer.cs#ArticleHotRegistryRetirementHostedService",
+            "src/backend/Infrastructure/Helpers/Initializer/RedisInitializer.cs#RedisMultiplexerHostedService",
+            "src/backend/Infrastructure/NotificationStream/NotificationStreamLocalFanoutQueue.cs#NotificationStreamLocalFanoutWorker",
+            "src/backend/Infrastructure/Operations/ActiveReleaseFence.cs#ActiveReleaseFenceRefreshWorker",
+            "src/backend/Infrastructure/Operations/ActiveReleaseFenceAvailability.cs#ActiveReleaseFenceStartupValidationHostedService",
+            "src/backend/Infrastructure/Operations/ActiveReleaseFencedCommit.cs#ActiveReleaseFencedCommitAuditWorker",
+            "src/backend/Infrastructure/Operations/DeploymentRuntimeState.cs#DeploymentLifecycleHostedService",
+            "src/backend/Infrastructure/Operations/ProductionHealth.cs#ConfigurationHealthSnapshotRefreshWorker",
+            "src/backend/Infrastructure/Operations/ProductionStartupValidator.cs#ProductionStartupValidationHostedService",
+            "src/backend/Infrastructure/Operations/ReleaseIdentity.cs#ReleaseIdentityStartupLogger",
+            "src/backend/Infrastructure/PowLoadResetWorker.cs#PowLoadResetWorker",
+            "src/backend/Infrastructure/PublicAot/PublicAotArtifactRecoveryService.cs#PublicAotArtifactRecoveryService",
+            "src/backend/Infrastructure/PublicAot/PublicAotFileShellCacheInvalidationSubscriber.cs#PublicAotFileShellCacheInvalidationSubscriber",
+            "src/backend/Infrastructure/PublicAot/PublicAotInvalidationGenerationAuthority.cs#PublicAotInvalidationGenerationCompactionWorker",
+            "src/backend/Infrastructure/PublicAot/PublicAotInvalidationGenerationAuthority.cs#PublicAotInvalidationGenerationStartupValidator",
+            "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs#ArticleDetailAedsArtifactBackfillWorker",
+            "src/backend/Infrastructure/PublicReadArtifacts/PublicArtifactRevocation.cs#PublicArtifactRevocationSubscriber",
+            "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs#PublicHotReadStartupWarmupService",
+            "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs#PublicHotArtifactUpdateWorker",
+            "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs#PublicHotReadMetricFlushWorker",
+            "src/backend/Infrastructure/PublicReadArtifacts/PublicMutationFenceLease.cs#PublicMutationFenceRecoveryWorker",
+            "src/backend/Infrastructure/RuntimeModes/RuntimeModeRuntimeState.cs#ClusterRuntimeFoundationHostedService",
+            "src/backend/Infrastructure/RuntimeModes/RuntimeModeRuntimeState.cs#RuntimeModeStartupLogService",
+            "src/backend/Infrastructure/Security/AdminSessionProjectionRuntime.cs#AdminSessionProjectionColdStartWorker",
+            "src/backend/Infrastructure/Security/AdminSessionProjectionRuntime.cs#AdminSessionTouchScheduler",
+            "src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs#PublicHotReadRiskProjectionWorker",
+            "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs#SecurityRiskEventWriterWorker",
+            "src/backend/Services/ArticleViewWriteBuffer.cs#ArticleViewFlushWorker",
+            "src/backend/Services/Background/AccountEnrollmentCleanupWorker.cs#AccountEnrollmentCleanupWorker",
+            "src/backend/Services/Background/ArticleAssetCleanupWorker.cs#ArticleAssetCleanupWorker",
+            "src/backend/Services/Background/ArticleBodyRepairWorker.cs#ArticleBodyRepairWorker",
+            "src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs#ArticleMutationOutboxDispatcher",
+            "src/backend/Services/Background/CommentMutationOutboxWorker.cs#CommentMutationOutboxWorker",
+            "src/backend/Services/Background/CrawlerUpdateWorker.cs#CrawlerUpdateWorker",
+            "src/backend/Services/Background/LogCleanupService.cs#LogCleanupService",
+            "src/backend/Services/Background/MessageMutationOutboxWorker.cs#MessageMutationOutboxWorker",
+            "src/backend/Services/Background/PublicAotBackfillWorker.cs#PublicAotBackfillWorker",
+            "src/backend/Services/Background/ScheduledPublishWorker.cs#ScheduledPublishWorker",
+            "src/backend/Services/Background/UploadSessionCleanupWorker.cs#UploadSessionCleanupWorker",
+            "src/backend/Services/Security/AnonymousCredentialRootLifecycleService.cs#AnonymousCredentialRootRefreshHostedService",
+            "src/backend/Services/Security/ChallengeV2EventWriter.cs#ChallengeV2AuditEventWriterWorker",
+            "src/backend/Services/Security/PerceptionCharacterV3KeyRing.cs#PerceptionCharacterV3StartupGate",
+            "src/backend/Services/Security/SecurityPolicySnapshotService.cs#SecurityPolicySnapshotHostedService",
+            "src/backend/Services/Telemetry/RumTelemetryService.cs#RumTelemetryFlushWorker",
+            "src/backend/Services/VisitLog/VisitLogProcessorService.cs#VisitLogProcessorService"
+        ]
+    }
 }

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { runtimeSteps } from '../test/bundles/bundle-steps.mjs';
 
 import { parseMatrix } from './parse-matrix.mjs';
+import {deriveQuiescenceInventory, discoverQuiescenceWorkerSources, validateQuiescenceWorkerRegistration} from './quiescence-contract.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const arrays = ['reads', 'writes', 'deletes', 'invalidates', 'creates', 'exclusiveStateDomains'];
@@ -531,6 +532,24 @@ export function validateRuntimeStateDomainCatalog(catalogPath = path.join(root, 
     errors.push(...validateSchemaValue(schema, schema, catalog));
     const registry = JSON.parse(fs.readFileSync(path.isAbsolute(catalog.registry) ? catalog.registry : path.join(root, catalog.registry), 'utf8'));
     const registrySchema = JSON.parse(fs.readFileSync(path.join(root, 'config/schemas/runtime-state-domain-registry.schema.json'), 'utf8'));
+    if (registry.quiescence)
+    {
+        errors.push(...validateQuiescenceWorkerRegistration(registry, discoverQuiescenceWorkerSources(root)));
+        try
+        {
+            deriveQuiescenceInventory({catalog, registry,
+                boundedCatalog: JSON.parse(fs.readFileSync(path.join(root, registry.quiescence.boundedQueueCatalog), 'utf8')),
+                schema: JSON.parse(fs.readFileSync(path.join(root, 'config/schemas/quiescence-domain-observation.schema.json'), 'utf8'))});
+        }
+        catch (error)
+        {
+            errors.push(`quiescence contract: ${error.message}`);
+        }
+    }
+    else
+    {
+        errors.push('quiescence contract registration is unavailable');
+    }
     errors.push(...validateSchemaValue(registrySchema, registrySchema, registry, '$registry'));
     if (catalog.schema !== 'fsusblog.runtime-state-domain-catalog.v1')
     {
