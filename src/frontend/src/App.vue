@@ -206,7 +206,9 @@ const onDocumentClick = (event: MouseEvent): void =>
     event.preventDefault();
     void router.push(`${url.pathname}${url.search}${url.hash}`)
         .catch(() =>
-        {});
+        {
+            // Retain the current view without logging private navigation URLs.
+        });
 };
 
 function runAppRouteMotion(el: Element, phase: MotionPhase, done: () => void): void
@@ -287,7 +289,7 @@ watch(
     { flush: 'pre' }
 );
 
-const stopStaticRouteTitleSync = syncStaticDocumentTitleOnLocaleChange(route, syncDocumentTitle);
+const stopStaticRouteTitleSync = syncStaticDocumentTitleOnLocaleChange(router.currentRoute, syncDocumentTitle);
 
 onMounted(() =>
 {
