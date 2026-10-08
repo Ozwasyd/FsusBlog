@@ -1,0 +1,20 @@
+
+> @ typecheck:web /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs web
+
+[typecheck:web] cache-hit source-hash=ad923387fa9d9cdd tsbuildinfo=.tmp/typecheck-cache/web.tsbuildinfo
+vue/packages/components/dropdown/src/viewport-modifiers.ts(48,23): error TS18048: 'data' is possibly 'undefined'.
+vue/packages/components/dropdown/src/viewport-modifiers.ts(50,7): error TS18048: 'offsets' is possibly 'undefined'.
+vue/packages/components/dropdown/src/viewport-modifiers.ts(50,20): error TS18048: 'current' is possibly 'undefined'.
+vue/packages/components/dropdown/src/viewport-modifiers.ts(51,7): error TS18048: 'offsets' is possibly 'undefined'.
+vue/packages/components/dropdown/src/viewport-modifiers.ts(51,20): error TS18048: 'current' is possibly 'undefined'.
+vue/packages/components/dropdown/src/viewport-modifiers.ts(52,41): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(o: { [s: string]: Offsets; } | ArrayLike<Offsets>): Offsets[]', gave the following error.
+    Argument of type 'OffsetData | undefined' is not assignable to parameter of type '{ [s: string]: Offsets; } | ArrayLike<Offsets>'.
+      Type 'undefined' is not assignable to type '{ [s: string]: Offsets; } | ArrayLike<Offsets>'.
+  Overload 2 of 2, '(o: {}): any[]', gave the following error.
+    Argument of type 'OffsetData | undefined' is not assignable to parameter of type '{}'.
+      Type 'undefined' is not assignable to type '{}'.
+vue/packages/components/dropdown/src/viewport-modifiers.ts(81,44): error TS18048: 'offsets' is possibly 'undefined'.
+vue/packages/components/dropdown/src/viewport-modifiers.ts(81,65): error TS18048: 'offsets' is possibly 'undefined'.
+ ELIFECYCLE  Command failed with exit code 2.

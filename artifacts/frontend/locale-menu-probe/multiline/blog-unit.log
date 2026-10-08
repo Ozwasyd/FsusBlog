@@ -1,0 +1,14 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog/src/frontend
+
+ ✓ ../../tests/frontend/unit/components/LocaleSelector.test.ts (17 tests) 1882ms
+ ✓ ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts (9 tests) 560ms
+ ✓ ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts (7 tests) 312ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  04:38:47
+   Duration  18.22s (transform 11.41s, setup 390ms, import 14.27s, tests 2.75s, environment 436ms)
+
+JSON report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.xml

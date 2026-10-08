@@ -1,0 +1,5 @@
+
+> @ typecheck:web /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs web
+
+[typecheck:web] cache-hit source-hash=90d22743ae5e3db8 tsbuildinfo=.tmp/typecheck-cache/web.tsbuildinfo

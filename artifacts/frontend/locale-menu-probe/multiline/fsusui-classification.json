@@ -1,0 +1,80 @@
+{
+  "schema": "fsusui-design-conformance.ui-ux-classification-receipt.v2",
+  "ownerRepository": "Ozwasyd/FsusUI",
+  "affectedSurfaces": [
+    "Dropdown public single-selection overlay"
+  ],
+  "uiDecisionClass": "layout-judgment",
+  "verificationClass": "ux-path",
+  "requiredAuthorities": [
+    {
+      "id": "docs/design.md",
+      "path": "docs/design.md",
+      "digest": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039"
+    },
+    {
+      "id": "docs/design/governance.md",
+      "path": "docs/design/governance.md",
+      "digest": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104"
+    },
+    {
+      "id": "docs/design/change-classification.md",
+      "path": "docs/design/change-classification.md",
+      "digest": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e"
+    },
+    {
+      "id": "docs/workflows/visual-change.md",
+      "path": "docs/workflows/visual-change.md",
+      "digest": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042"
+    },
+    {
+      "id": "docs/consumers/design-integration.md",
+      "path": "docs/consumers/design-integration.md",
+      "digest": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b"
+    },
+    {
+      "id": "docs/components/dropdown.md",
+      "path": "docs/components/dropdown.md",
+      "digest": "7341685123535eb228b1792a7877bb60171dbefe3703ab7976bd665b9dbd1d74"
+    },
+    {
+      "id": "docs/api-stability.md",
+      "path": "docs/api-stability.md",
+      "digest": "cfc1acd37ea205d7bc94784747e211e6238ca4efd0afe10728a1679ea52cb85f"
+    }
+  ],
+  "requiredSkillDigests": [
+    "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+  ],
+  "activeBaselineIdentity": {
+    "repository": "Ozwasyd/FsusUI",
+    "revision": "a19fe53018d1561b1e3bd6bdc2e678ce87ef34e7",
+    "skillDigest": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+    "authorityDigest": "39b0c4a61b3329c480eaf0aa70c3f84e4739f8e55dce26ae8cce07d27b3179d1",
+    "dirtyFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "candidateSha": "a19fe53018d1561b1e3bd6bdc2e678ce87ef34e7",
+  "candidateDigest": "6dbcb78a3ba023e4130d031e4d5ed837c5be1f90ac4dc8a2426b4fe078f7a358",
+  "stateEvidenceMatrix": [
+    {
+      "state": "All ten locale labels; nine bilingual rows clipped; 2x CSS zoom popup overflow",
+      "viewport": "375x900 and 1440x900",
+      "theme": "both",
+      "evidenceDigest": "938c3069339ab0bd8bf31f37735854bae06d043c7b7ce412b1a88da115b22e04"
+    }
+  ],
+  "inScope": [
+    "Explicit DropdownItem multiline content, description and suffix public slots; flat natural-height rows, unchanged default single-line density",
+    "CSS zoom coordinate correctness through existing Popper owner; viewport bounds and text size preserved",
+    "Existing keyboard/radio/disabled/selection semantics and regression negative controls"
+  ],
+  "outOfScope": [
+    "Shared Menu implementation",
+    "Consumer locale/resource/preferences/routing ownership",
+    "Package publishing, merging and independent UX qualification"
+  ],
+  "classificationEvidenceDigest": "938c3069339ab0bd8bf31f37735854bae06d043c7b7ce412b1a88da115b22e04",
+  "domainPolicyDigest": "620c4f746c1f259e3b640044975ad2878b7913806038706f7991bee9d72104d3",
+  "status": "frozen",
+  "receiptDigest": "77b0e28e388c490511ddd94d76cc402a37a10d98e918c1b28e435f875ba8c1fe"
+}

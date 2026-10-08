@@ -1,0 +1,8 @@
+{
+  "sourceCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+  "matchesPreviouslyTestedAssets": true,
+  "hashes": {
+    "index.css": "01840e9f7ede215b2efa32da490bdcc5a969c0a3c7d6a91d066c914f37128a6d",
+    "el-fsus-theme.css": "a2ca87ad487bbb0b3fbea08ee7076d6b6ea7f54172c410f65dd2d81e6b12a880"
+  }
+}

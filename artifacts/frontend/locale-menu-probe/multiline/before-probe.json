@@ -1,0 +1,283 @@
+{
+    "schema": "fsusblog.locale-menu-api-probe.v1",
+    "runId": "locale-menu-local-2026-10-08T04:17:02.037Z",
+    "mode": "local",
+    "blogCommit": "fbb90a21d029ea795060c7a5e6266b55e2eb067f",
+    "blogStatus": "M tests/frontend/checks/runtime/probe-locale-menu.mjs",
+    "localRoot": "/workspace/FsusUI",
+    "localCommit": "a19fe53018d1561b1e3bd6bdc2e678ce87ef34e7",
+    "localTree": "7b48d88b4dcc573fd3956044dd119aa99c90b9cc",
+    "localStatus": "",
+    "nodeVersion": "v24.19.0",
+    "harnessDigests": {
+        "tests/frontend/fixtures/localeMenuProbe/App.vue": "e7ba645a0d71cda83a8f36b15cbe6441e59f354ee1da9e6be43f71bd140ac600",
+        "tests/frontend/fixtures/localeMenuProbe/Consumer.vue": "d8fabac443ade7bbe40f1aa87dd5795a81a42b56aadb8455a7baeb44cb1ee918",
+        "tests/frontend/fixtures/localeMenuProbe/main.ts": "e295dd61fbd7e3c13ec4de264607f090240f918dfe9dc3b56cd6e8ce667eaf80",
+        "tests/frontend/fixtures/localeMenuProbe/index.html": "52f5c8e6b05020c7461fdf72535610a26b98cb6d3f2f73c1419e7ad7d9e372eb",
+        "tests/frontend/checks/runtime/probe-locale-menu.mjs": "28687a04fcb273d19194cc1a19b9ae0e293a9059cf2e14f9ff59fcdd580e5370"
+    },
+    "authorityDigests": {
+        ".agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+        "docs/design.md": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+        "docs/design/governance.md": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+        "docs/design/change-classification.md": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+        "docs/workflows/visual-change.md": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+        "docs/consumers/design-integration.md": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+        "docs/components/dropdown.md": "7341685123535eb228b1792a7877bb60171dbefe3703ab7976bd665b9dbd1d74",
+        "docs/components/menu.md": "e1cefbe282c93edf225ecc5f5b9b6da1ea7043ca3c5a6b0093eb35de4603a6d4",
+        "docs/components/select.md": "0e395da3fb2d3cbd662cac6629c7c4b3c5ac9056be87217a6a956986893cd762",
+        "docs/api-stability.md": "cfc1acd37ea205d7bc94784747e211e6238ca4efd0afe10728a1679ea52cb85f"
+    },
+    "observations": {
+        "publicOpen": true,
+        "triggerAssociation": {
+            "expanded": "true",
+            "controls": "el-id-5920-1",
+            "haspopup": "menu"
+        },
+        "radioItem": {
+            "role": "menuitemradio",
+            "checked": "true"
+        },
+        "publicClose": true,
+        "keyboardEntry": true,
+        "keyboard": {
+            "ArrowDown": true,
+            "End": true,
+            "Home": true,
+            "ArrowUp": true
+        },
+        "pendingOpen": true,
+        "commandKeepsUrl": true,
+        "commandsAfterEnter": [
+            "ja"
+        ],
+        "commandsAfterSpace": [
+            "ja",
+            "ja"
+        ],
+        "escapeFocusReturn": true,
+        "outsideClose": false,
+        "outsideFocus": "outside",
+        "retryCommand": "retry",
+        "retryOpen": true,
+        "disabledItemIgnored": true,
+        "linkKeyboardHash": "#linked-locale",
+        "linkPointerHash": "#linked-locale",
+        "linkPointerCommand": "link",
+        "triggerDisabled": true,
+        "disabledOpen": false,
+        "selectAfterActivation": {
+            "selection": "en",
+            "selectPending": "ja",
+            "selectVisible": false
+        },
+        "selectRetryReachable": false,
+        "menuAlternativeRole": "menuitemradio",
+        "menuAlternativeKeyboardEntry": false,
+        "menuAlternativeOpenAfterArrow": false,
+        "menuAlternativeArrowDown": false,
+        "consumerFailureRetry": {
+            "active": "zh-CN",
+            "pending": "ru-RU",
+            "failed": null,
+            "open": true,
+            "requests": [
+                "ja-JP",
+                "de-DE",
+                "ru-RU",
+                "ru-RU"
+            ]
+        },
+        "consumerUrl": {
+            "active": "ru-RU",
+            "pending": null,
+            "failed": null,
+            "open": true,
+            "requests": [
+                "ja-JP",
+                "de-DE",
+                "ru-RU",
+                "ru-RU"
+            ]
+        },
+        "consumerVariants": [
+            {
+                "width": 375,
+                "theme": "light",
+                "rtl": false,
+                "forcedColors": "none",
+                "reducedMotion": "no-preference",
+                "zoom": 1,
+                "cssZoomOnly": true,
+                "overflow": false,
+                "clippedLabels": [
+                    "zh-CN",
+                    "zh-Hant",
+                    "ja-JP",
+                    "ko-KR",
+                    "es-419",
+                    "fr-FR",
+                    "de-DE",
+                    "pt-BR",
+                    "ru-RU"
+                ],
+                "viewportGeometry": {
+                    "innerWidth": 375,
+                    "clientWidth": 375,
+                    "scrollWidth": 375,
+                    "visualWidth": 375,
+                    "cssZoom": "1",
+                    "menu": {
+                        "left": 6,
+                        "right": 165.671875,
+                        "width": 159.671875
+                    },
+                    "overflowingElements": []
+                }
+            },
+            {
+                "width": 1440,
+                "theme": "dark",
+                "rtl": true,
+                "forcedColors": "none",
+                "reducedMotion": "reduce",
+                "zoom": 1,
+                "cssZoomOnly": true,
+                "overflow": false,
+                "clippedLabels": [
+                    "zh-CN",
+                    "zh-Hant",
+                    "ja-JP",
+                    "ko-KR",
+                    "es-419",
+                    "fr-FR",
+                    "de-DE",
+                    "pt-BR",
+                    "ru-RU"
+                ],
+                "viewportGeometry": {
+                    "innerWidth": 1440,
+                    "clientWidth": 1440,
+                    "scrollWidth": 1440,
+                    "visualWidth": 1440,
+                    "cssZoom": "1",
+                    "menu": {
+                        "left": 403,
+                        "right": 562.671875,
+                        "width": 159.671875
+                    },
+                    "overflowingElements": []
+                }
+            },
+            {
+                "width": 375,
+                "theme": "dark",
+                "rtl": true,
+                "forcedColors": "active",
+                "reducedMotion": "reduce",
+                "zoom": 2,
+                "cssZoomOnly": true,
+                "overflow": true,
+                "clippedLabels": [
+                    "zh-CN",
+                    "zh-Hant",
+                    "ja-JP",
+                    "ko-KR",
+                    "es-419",
+                    "fr-FR",
+                    "de-DE",
+                    "pt-BR",
+                    "ru-RU"
+                ],
+                "viewportGeometry": {
+                    "innerWidth": 375,
+                    "clientWidth": 375,
+                    "scrollWidth": 605,
+                    "visualWidth": 375,
+                    "cssZoom": "2",
+                    "menu": {
+                        "left": 284,
+                        "right": 603.328125,
+                        "width": 319.328125
+                    },
+                    "overflowingElements": [
+                        {
+                            "tag": "BUTTON",
+                            "class": "el-button",
+                            "text": "Toggle RTL direction"
+                        },
+                        {
+                            "tag": "DIV",
+                            "class": "el-popper is-pure is-light el-dropdown__popper",
+                            "text": "简体中文Simplified ChineseEnglish繁體中文Traditional Chinese日本語Japan"
+                        },
+                        {
+                            "tag": "DIV",
+                            "class": "el-scrollbar",
+                            "text": "简体中文Simplified ChineseEnglish繁體中文Traditional Chinese日本語Japan"
+                        },
+                        {
+                            "tag": "DIV",
+                            "class": "el-scrollbar__wrap el-scrollbar__wrap--hidden-default",
+                            "text": "简体中文Simplified ChineseEnglish繁體中文Traditional Chinese日本語Japan"
+                        },
+                        {
+                            "tag": "DIV",
+                            "class": "el-scrollbar__view el-dropdown__list",
+                            "text": "简体中文Simplified ChineseEnglish繁體中文Traditional Chinese日本語Japan"
+                        },
+                        {
+                            "tag": "UL",
+                            "class": "el-dropdown-menu",
+                            "text": "简体中文Simplified ChineseEnglish繁體中文Traditional Chinese日本語Japan"
+                        },
+                        {
+                            "tag": "LI",
+                            "class": "el-dropdown-menu__item",
+                            "text": "简体中文Simplified Chinese"
+                        },
+                        {
+                            "tag": "SPAN",
+                            "class": "locale-selector__item-copy safe-inline-wrap",
+                            "text": "简体中文Simplified Chinese"
+                        },
+                        {
+                            "tag": "SPAN",
+                            "class": "locale-selector__item-native",
+                            "text": "简体中文"
+                        },
+                        {
+                            "tag": "SPAN",
+                            "class": "locale-selector__item-english",
+                            "text": "Simplified Chinese"
+                        },
+                        {
+                            "tag": "LI",
+                            "class": "el-dropdown-menu__item",
+                            "text": "English"
+                        },
+                        {
+                            "tag": "SPAN",
+                            "class": "locale-selector__item-copy safe-inline-wrap",
+                            "text": "English"
+                        }
+                    ]
+                }
+            }
+        ],
+        "consumerAccessibilitySnapshot": "- menu \"Русский (ru-RU)\":\n  - menuitemradio \"简体中文 Simplified Chinese\"\n  - menuitemradio \"English\"\n  - menuitemradio \"繁體中文 Traditional Chinese\"\n  - menuitemradio \"日本語 Japanese\"\n  - menuitemradio \"한국어 Korean\"\n  - menuitemradio \"Español (Latinoamérica) Spanish (Latin America)\"\n  - menuitemradio \"Français French\"\n  - menuitemradio \"Deutsch German\"\n  - menuitemradio \"Português (Brasil) Portuguese (Brazil)\"\n  - menuitemradio \"Русский Russian\" [checked]",
+        "consumerComposition": true,
+        "consumerTouchPendingOutside": true
+    },
+    "errors": [],
+    "qualification": false,
+    "browserVersion": "147.0.7727.15",
+    "failures": [
+        "outside-close",
+        "consumer-horizontal-overflow",
+        "consumer-label-clipping"
+    ],
+    "status": "capability-gap",
+    "observedCoverage": "minimal public API/DOM probe; no product UX acceptance"
+}

@@ -1,0 +1,51 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog/src/frontend
+
+ ✓ ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts (9 tests) 3334ms
+ ✓ ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts (7 tests) 1421ms
+     ✓ projects the full catalog as selector items without hardcoding a bilingual list  1022ms
+ ❯ ../../tests/frontend/unit/components/LocaleSelector.test.ts (17 tests | 1 failed) 4894ms
+     ✓ is driven only by props and projects ten catalog items without hardcoding  594ms
+     ✓ desktop trigger shows globe affordance and current nativeName  408ms
+     ✓ compact trigger shows globe and locale code, never Aa 137ms
+     ✓ renders every projected item native name including long labels  316ms
+     ✓ marks the selected item with check and aria-current semantics  556ms
+     ✓ shows local pending progress on the pending item only  600ms
+     ✓ keeps error visible with retry and emits retry for the failed target  348ms
+     ✓ emits select for a non-selected item and for a pending target again  352ms
+     ✓ emits select when Enter activates the already selected item 248ms
+     ✓ honors item order from props and does not reorder to catalog default 191ms
+     ✓ renders an eleventh injected locale when the caller fails the catalog gate 198ms
+     ✓ routes URL items through the public command adapter without emitting select 247ms
+     × opens with Enter/Space, moves with arrows/Home/End, and restores focus on Escape 232ms
+     ✓ does not open when disabled and keeps the same items/event contract in compact mode 207ms
+     ✓ keeps long native names fully present without ellipsis truncation styles 182ms
+     ✓ keeps error visible near the trigger when the menu is closed 35ms
+     ✓ component module source does not import runtime, router, storage, or API 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  ../../tests/frontend/unit/components/LocaleSelector.test.ts > LocaleSelector presentational contract > opens with Enter/Space, moves with arrows/Home/End, and restores focus on Escape
+AssertionError: expected 'zh-CN' to be 'en-US' // Object.is equality
+
+Expected: "en-US"
+Received: "zh-CN"
+
+ ❯ ../../tests/frontend/unit/components/LocaleSelector.test.ts:254:94
+    252|     await getNode(wrapper, '[data-locale-code="zh-CN"]').trigger('keyd…
+    253|     await menuReady(wrapper)
+    254|     expect((document.activeElement as HTMLElement | null)?.getAttribut…
+       |                                                                                              ^
+    255|
+    256|     await getNode(wrapper, '[data-locale-code="en-US"]').trigger('keyd…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 32 passed (33)
+   Start at  04:36:03
+   Duration  26.74s (transform 35.86s, setup 1.75s, import 41.08s, tests 9.65s, environment 1.07s)
+
+JSON report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.xml
