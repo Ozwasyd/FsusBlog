@@ -136,3 +136,32 @@ introduced. The structural follow-up retains the stable cancellation commit
 are checked against that commit. Strict source checks still require canonical
 baseline admission and independent review; zero file diagnostics does not waive
 stale shared baseline bindings or provide native qualification.
+
+If terminal-vector publication fails after execution has already failed,
+`AtomicProducerExecutionError.cause` retains the original scheduler failure and
+`publicationError` retains the write error as a secondary diagnostic. Its in-memory
+`terminalVector` is available, but the error does not claim successful publication.
+When execution had no earlier failure, the original write error is thrown directly.
+
+An executable's `producerContexts[id].requiredInputAdmission` may install an
+additional domain-owned input reader as `{ inputClosureRef, validate }`.
+`inputClosureRef` must match that exact compiled producer's sealed input closure;
+when configured, the closed operation and validator are mandatory. The async
+validator runs once after dependency readiness and resource admission, before
+calling the unchanged attempt runner or allocating any attempt directory. It
+receives frozen producer, command, dependency, grant and run context plus the live
+signal. It must only read/check required material and throw on unavailable input.
+Its return value has no execution or authority effect. Existing command and
+wrapper checks remain mandatory; an absent hook supplies no admission evidence.
+
+A validator exception retains the original Error as the DAG's primary cause and
+records `failed` / `required-input-admission-failed`, with no attempt reference.
+Its existing terminal evidence reference points to the framework's own observation
+`required-input-admission-refused-before-attempt`, bound to the compiled DAG and
+input closure, with observed attempt allocation and physical spawn counts of zero.
+Hard descendants retain the existing blocked behavior; siblings and leaf finalizers
+continue under the original scheduler. This is distinct from a failed predecessor's
+blocked receipt: no predecessor failure or canonical qualification is invented.
+Coverage consumers must recognize this explicit zero-attempt refusal; their older
+null-attempt branch reports unknown counts. All domain input validation and native
+acceptance remains with its original owners.

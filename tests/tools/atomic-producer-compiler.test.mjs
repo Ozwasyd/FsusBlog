@@ -428,3 +428,169 @@ test('exit-zero command without a sidecar retains the real shared runner refusal
     assert.equal(receipts['alpha-check'].terminalState, 'failed');
     assert.equal(receipts['beta-check'].terminalState, 'success');
 }));
+
+function failTerminalPublication(t, failure)
+{
+    const original = fs.writeFileSync;
+    t.mock.method(fs, 'writeFileSync', (file, ...args) =>
+    {
+        if (typeof file === 'string' && path.basename(file) === 'terminal-vector.json')
+        {
+            throw failure;
+        }
+        return original(file, ...args);
+    });
+}
+
+test('terminal publication failure retains the earlier producer failure as primary', async (t) => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture({ alphaScenario: 'product-failure' });
+    const publication = new Error('ordinary terminal output write failed');
+    failTerminalPublication(t, publication);
+    let cleanupCount = 0;
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+    } });
+    const error = await executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options)
+        .then(() => null, (failure) => failure);
+    assert.ok(error instanceof AtomicProducerExecutionError);
+    assert.equal(error.cause.cause.reasonCode, 'assertion-mismatch');
+    assert.equal(error.publicationError, publication);
+    assert.equal(error.terminalVector.status, 'failed');
+    assert.equal(error.terminalVector.receipts.length, 6);
+    assert.equal(cleanupCount, 1);
+}));
+
+test('terminal publication failure retains the original cancellation Error object', async (t) => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture({ alphaScenario: 'timeout' });
+    const original = new StepTerminalError('cancelled', 'explicit-cancel', 'original cancellation');
+    const controller = new AbortController();
+    controller.abort(original);
+    const publication = new Error('ordinary terminal output write failed');
+    failTerminalPublication(t, publication);
+    let cleanupCount = 0;
+    const options = atomicExecutionOptions(fixture, directory, {
+        signalByProducer: { 'alpha-check': controller.signal },
+        onCleanup: () =>
+        {
+            cleanupCount += 1;
+        }
+    });
+    const error = await executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options)
+        .then(() => null, (failure) => failure);
+    assert.ok(error instanceof AtomicProducerExecutionError);
+    assert.equal(error.cause.cause, original);
+    assert.equal(error.publicationError, publication);
+    assert.equal(byProducer(error.terminalVector)['beta-check'].terminalState, 'success');
+    assert.equal(cleanupCount, 1);
+}));
+
+test('terminal publication failure without an earlier execution failure rejects with the write Error', async (t) => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture();
+    const publication = new Error('ordinary terminal output write failed');
+    failTerminalPublication(t, publication);
+    let cleanupCount = 0;
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+    } });
+    const error = await executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options)
+        .then(() => null, (failure) => failure);
+    assert.equal(error, publication);
+    assert.equal(cleanupCount, 1);
+}));
+
+test('ordinary required input absence refuses before an attempt and releases the grant for a settled sibling', async () => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture();
+    fixture.matrix.atomicProducerDeclarations.nodes.find((node) => node.producerId === 'beta-check').settledDependsOn = ['dependent-check'];
+    rebindAtomicFixture(fixture);
+    const compiled = compileAtomicProducerDag(fixture.matrix, fixture.authorities);
+    const target = compiled.steps.find((step) => step.id === 'dependent-check');
+    let original;
+    let checks = 0;
+    let cleanupCount = 0;
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+    } });
+    options.capacity = { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 };
+    const runRoot = path.join(directory, options.context.schedulerRunId);
+    options.producerContexts[target.id].requiredInputAdmission = {
+        inputClosureRef: target.inputClosureRef,
+        validate: (ready) =>
+        {
+            checks += 1;
+            assert.deepEqual(ready.dependencyOutcomes, { 'alpha-check': 'success' });
+            assert.equal(ready.runtimeCapacity.cpuUnits, 1);
+            assert.equal(fs.existsSync(path.join(runRoot, target.id)), false);
+            assert.equal(fs.existsSync(path.join(runRoot, 'alpha-check', 'attempt-1', 'receipt.json')), true);
+            try
+            {
+                fs.readFileSync(path.join(directory, 'ordinary-required-input.json'));
+            }
+            catch (error)
+            {
+                original = error;
+                throw error;
+            }
+        }
+    };
+    const error = await executeCompiledAtomicProducerDag(compiled, options).then(() => null, (failure) => failure);
+    assert.ok(error instanceof AtomicProducerExecutionError);
+    assert.equal(original.code, 'ENOENT');
+    assert.equal(error.cause.cause, original);
+    assert.equal(checks, 1);
+    assert.equal(cleanupCount, 1);
+    assert.equal(fs.existsSync(path.join(runRoot, target.id)), false);
+    const receipts = byProducer(error.terminalVector);
+    assert.equal(receipts[target.id].terminalState, 'failed');
+    assert.equal(receipts[target.id].reasonCode, 'required-input-admission-failed');
+    assert.equal(receipts[target.id].attemptRef, null);
+    assert.equal(receipts['beta-check'].terminalState, 'success');
+    const observation = JSON.parse(fs.readFileSync(receipts[target.id].evidenceRefs[0].path, 'utf8'));
+    assert.equal(observation.receiptKind, 'required-input-admission-refused-before-attempt');
+    assert.equal(observation.attemptAllocationCount, 0);
+    assert.equal(observation.physicalSpawnCount, 0);
+    assert.deepEqual(observation.inputClosureRef, target.inputClosureRef);
+}));
+
+test('ordinary required input validation runs after prerequisites and before exactly one unchanged attempt', async () => withEvidence(async (directory) =>
+{
+    const requiredFile = path.join(directory, 'ordinary-required-input.json');
+    fs.writeFileSync(requiredFile, '{"required":true}');
+    const fixture = atomicFixture();
+    const compiled = compileAtomicProducerDag(fixture.matrix, fixture.authorities);
+    const target = compiled.steps.find((step) => step.id === 'dependent-check');
+    const options = atomicExecutionOptions(fixture, directory);
+    const runRoot = path.join(directory, options.context.schedulerRunId);
+    let checks = 0;
+    options.producerContexts[target.id].requiredInputAdmission = {
+        inputClosureRef: target.inputClosureRef,
+        validate: async (ready) =>
+        {
+            checks += 1;
+            assert.ok(Object.isFrozen(ready));
+            assert.ok(Object.isFrozen(ready.command));
+            assert.deepEqual(ready.dependencyOutcomes, { 'alpha-check': 'success' });
+            assert.deepEqual(ready.command, target.command);
+            assert.equal(ready.context.sourceCommit, options.context.sourceCommit);
+            assert.ok(ready.runtimeCapacity.cpuUnits > 0);
+            assert.equal(fs.existsSync(path.join(runRoot, target.id)), false);
+            const prerequisite = JSON.parse(fs.readFileSync(path.join(runRoot, 'alpha-check', 'attempt-1', 'receipt.json'), 'utf8'));
+            assert.equal(prerequisite.status, 'clean-success');
+            await fs.promises.access(requiredFile, fs.constants.R_OK);
+        }
+    };
+    const vector = await executeCompiledAtomicProducerDag(compiled, options);
+    assert.equal(checks, 1);
+    assert.equal(vector.status, 'success');
+    const attempt = JSON.parse(fs.readFileSync(byProducer(vector)[target.id].attemptRef.path, 'utf8'));
+    assert.equal(attempt.attemptNumber, 1);
+    assert.equal(attempt.maxAttempts, 1);
+    assert.deepEqual(attempt.command, target.command);
+    assert.equal(fs.existsSync(path.join(runRoot, target.id, 'attempt-2')), false);
+}));
