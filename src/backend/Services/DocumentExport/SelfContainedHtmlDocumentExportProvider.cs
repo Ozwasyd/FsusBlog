@@ -61,6 +61,23 @@ public sealed class SelfContainedHtmlDocumentExportProvider
         DocumentExportTask task,
         DocumentExportFrozenInput input,
         CancellationToken cancellationToken = default)
+        => await ExportCoreAsync(task, input, null, cancellationToken);
+
+    public async Task<DocumentExportProviderResult> ExportAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+        return await ExportCoreAsync(task, input, resources, cancellationToken);
+    }
+
+    private async Task<DocumentExportProviderResult> ExportCoreAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportAttemptResources? resources,
+        CancellationToken cancellationToken)
     {
         DocumentExportContractValidator.ValidateCatalog(DocumentExportContractCatalog.Providers);
         DocumentExportFrozenInput frozenInput = DocumentExportContractValidator.Seal(input);
@@ -71,10 +88,13 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             throw new InvalidOperationException("Only the self-contained HTML provider is implemented in this slice.");
         }
 
-        CanonicalDocumentRendererResult rendererResult = await _renderer.RenderAsync(
-            task,
-            frozenInput,
-            cancellationToken);
+        CanonicalDocumentRendererResult rendererResult = resources is null
+            ? await _renderer.RenderAsync(task, frozenInput, cancellationToken)
+            : await _renderer.RenderAsync(task, frozenInput, resources, cancellationToken);
+        if (resources is not null && !ReferenceEquals(resources, rendererResult.AttemptResources))
+        {
+            throw new InvalidDataException("Canonical renderer did not retain the attempt resource owner.");
+        }
         DocumentExportRendererResponse response = rendererResult.Response;
         ValidateRendererResponse(response, frozenInput);
 
@@ -88,6 +108,7 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             frozenInput,
             fragmentBytes,
             provider.Budgets.MaxOutputBytes);
+        resources?.AccountHostOutputBytes(outputBytes.LongLength);
 
         string[] warnings = WarningsFor(observedFeatures, provider);
         DocumentExportToolContract tool = rendererResult.Tool;
