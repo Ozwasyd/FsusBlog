@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Memory.Capabilities;
+using FsusBlog.Server.Infrastructure.Memory.Contracts;
 using FsusBlog.Server.Infrastructure.Memory.Platform;
 using FsusBlog.Server.Infrastructure.Memory.Pressure;
 
