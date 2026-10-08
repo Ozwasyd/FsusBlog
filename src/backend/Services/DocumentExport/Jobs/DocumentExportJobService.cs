@@ -68,7 +68,8 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
                 || state.Jobs.Count >= DocumentExportJobPolicy.MaximumJobs
                 || state.Jobs.Where(job => job.Input is not null).Sum(job => InputBytes(job.Input!)) + InputBytes(frozen)
                     > DocumentExportJobPolicy.MaximumTotalInputBytes
-                || state.Jobs.Count(job => SameOwner(job.Snapshot.Task, actor)) >= DocumentExportJobPolicy.MaximumOwnerJobs)
+                || state.Jobs.Count(job => job.Snapshot.Task.UserId == actor.UserId) >= DocumentExportJobPolicy.MaximumOwnerJobs
+                || state.Jobs.Count(job => job.Snapshot.Task.SiteId == actor.SiteId) >= DocumentExportJobPolicy.MaximumSiteJobs)
             {
                 throw new DocumentExportJobDeniedException();
             }
@@ -881,7 +882,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         if (length > DocumentExportJobPolicy.MaximumOutputBytes
             || outputs.Sum(output => output.Length) + length > DocumentExportJobPolicy.MaximumTotalOutputBytes
             || outputs.Where(output => output.SiteId == task.SiteId).Sum(output => output.Length) + length > DocumentExportJobPolicy.MaximumSiteOutputBytes
-            || outputs.Where(output => output.UserId == task.UserId && output.SiteId == task.SiteId).Sum(output => output.Length) + length
+            || outputs.Where(output => output.UserId == task.UserId).Sum(output => output.Length) + length
                 > DocumentExportJobPolicy.MaximumOwnerOutputBytes)
         {
             throw new DocumentExportJobDeniedException();
@@ -892,8 +893,17 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
     {
         DocumentExportOutputRecord[] outputs = state.Jobs.SelectMany(job => new[] { job.Snapshot.Output, job.PendingOutput })
             .OfType<DocumentExportOutputRecord>().Where(output => output.DeletedAt is null).ToArray();
+        ImmutableArray<DocumentExportJobScopeUsage> scopes = state.Jobs.GroupBy(job => job.Snapshot.Task.UserId)
+            .Select(group => new DocumentExportJobScopeUsage(group.Key, null, group.Count(),
+                outputs.Count(output => output.UserId == group.Key), outputs.Where(output => output.UserId == group.Key).Sum(output => output.Length)))
+            .Concat(state.Jobs.GroupBy(job => job.Snapshot.Task.SiteId).Select(group => new DocumentExportJobScopeUsage(null, group.Key,
+                group.Count(), outputs.Count(output => output.SiteId == group.Key), outputs.Where(output => output.SiteId == group.Key).Sum(output => output.Length))))
+            .ToImmutableArray();
         return new DocumentExportJobUsage(state.Jobs.Count, outputs.Length, outputs.Sum(output => output.Length),
             state.Jobs.Count(job => job.Snapshot.Task.Status == DocumentExportTaskStatus.CleanupRequired
-                || job.WorkerDigest is not null && job.Snapshot.ExpiresAt <= Now));
+                || job.WorkerDigest is not null && job.Snapshot.ExpiresAt <= Now))
+        {
+            Scopes = scopes
+        };
     }
 }
