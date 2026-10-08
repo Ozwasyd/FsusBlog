@@ -1,6 +1,6 @@
 Ordinary isolated disk source tests; qualification=false. Original test-project/lock/config and shared source owners are unchanged. New tests were implemented in the actual owning-project test files. This temporary project links their current source and byte-exact common source; it is not canonical project integration or a replacement held QA audit.
 
-MemoryDiskSourceTests.csproj (raw):
+MemoryDiskSourceTests.csproj (trailing whitespace trimmed for display):
 <Project Sdk="Microsoft.NET.Sdk">
     <Import Project="/workspace/FsusBlog/Directory.Build.props" />
     <PropertyGroup>
@@ -15,7 +15,7 @@ MemoryDiskSourceTests.csproj (raw):
         <PackageReference Include="xunit" />
         <PackageReference Include="xunit.runner.visualstudio" />
         <Compile Include="common/*.cs" />
-        
+
         <Compile Include="/workspace/FsusBlog/src/backend/Infrastructure/Memory/Disk/*.cs" />
         <Compile Include="/workspace/FsusBlog/src/backend/Infrastructure/Memory/Platform/LinuxOwnedSpillDirectory.cs" />
         <Compile Include="/workspace/FsusBlog/tests/backend/Unit/DiskBudgetAdmissionTests.cs" />
