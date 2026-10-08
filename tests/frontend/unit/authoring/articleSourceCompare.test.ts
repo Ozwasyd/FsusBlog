@@ -7,13 +7,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
 import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
-import { ArticleEditorContinuityAdapter, createArticleEditorContinuityAcknowledgement, validateArticleEditorContinuityReceipt } from '@/services/authoring/articleEditorContinuity';
-import { ArticleFsusUiRenderProducer } from '@/services/authoring/articleFsusUiRenderProducer';
-import { ArticleRenderCache } from '@/services/authoring/articleRenderCache';
+import { createArticleEditorContinuityAcknowledgement, validateArticleEditorContinuityReceipt } from '@/services/authoring/articleEditorContinuity';
+import { ArticleAttachmentContextAdapter } from '@/services/authoring/articleAttachmentContext';
+import { bindArticleEditorRuntime } from '@/services/authoring/articleEditorRuntimeBinding';
 import { ArticleSourceCompareSession, isArticleSourceCompareAvailable, validateArticleSourceCompareRequest } from '@/services/authoring/articleSourceCompare';
 import { calculateOpenArticleDocumentDigest as digest } from '@/services/authoring/openArticleDocumentRegistry';
 
 import type { MarkdownEditorDispatchResult, MarkdownEditorTransaction } from '@ozwasyd/element-plus';
+import type { ArticleEditorRuntimeBinding } from '@/services/authoring/articleEditorRuntimeBinding';
 import type { ArticleEditorContinuityPort, ArticleEditorContinuityReceipt } from '@/services/authoring/articleEditorContinuity';
 
 const cleanup: (() => void)[] = [];
@@ -24,39 +25,37 @@ const restore = { origin: 'tool' as const, now: 100, viewportHeight: 500, reduce
 async function host(initialSurface: 'live' | 'source' = 'source', initialSource = '\ufeff# Heading\r\n\r\nparagraph  \r\n')
 {
     let source = initialSource;
-    let delay: Promise<void> | null = null;
     const owner = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1', editorSessionId: 'session:compare', siteScope: 'site:test', userScope: 'user:test', content: source });
     const anchors = new ArticleAnchorContextAdapter(owner);
     const configuration = { allowLatex: true, allowMermaid: true, baseUrl: null };
     const identity = { rendererVersion: MARKDOWN_RENDERER_VERSION, projectionVersion: MARKDOWN_RENDERER_VERSION, featureConfigurationDigest: digest(configuration), themeDigest: digest({ theme: 'light' }), locale: 'zh-CN' };
-    const producer = new ArticleFsusUiRenderProducer(() => source, configuration, 2000000);
-    const cache = new ArticleRenderCache(owner, identity, {
-        render: async request => { if (delay) await delay; return producer.render(request); },
-        verify: (request, result) => producer.verify(request, result), release: resultRef => producer.release(resultRef)
-    }, { maxEntryBytes: 2000000, maxAgeMs: 60000, maxReceipts: 8 });
-    let continuity: ArticleEditorContinuityAdapter | null = null;
+    const attachments = new ArticleAttachmentContextAdapter(owner, 'compare-test', 'v1.0', anchors);
+    let runtime: ArticleEditorRuntimeBinding | null = null;
     const wrapper = mount(ElMarkdownEditor, { attachTo: document.body, props: {
         modelValue: source, mode: initialSurface, documentIdentity: owner.documentIdentity,
         onTransaction: (result: MarkdownEditorDispatchResult) => {
             if (!result.accepted) return;
-            source = result.value;
-            if (result.revision > owner.context.sourceRevision) owner.updateSource(source, result.revision);
-            continuity?.observeTransaction(editor, result);
+            runtime?.consumeTransaction(result);
         }
     } });
     const editor = wrapper.vm as unknown as ArticleEditorContinuityPort;
-    continuity = new ArticleEditorContinuityAdapter(owner, anchors, cache, editor, initialSurface);
-    const adapter = continuity;
-    const compare = new ArticleSourceCompareSession(owner, adapter, cache, anchors);
+    const binding = () => ({ document: owner.context, map: createMarkdownAnchorMap({ identity: owner.documentIdentity, source }) });
+    runtime = bindArticleEditorRuntime(owner, anchors, attachments, {
+        dispatch: transaction => editor.dispatchTransaction(transaction),
+        commitSource: result => { source = result.value; if (result.revision > owner.context.sourceRevision) owner.updateSource(source, result.revision); },
+        binding
+    }, () => source, editor, { surface: initialSurface, configuration, identity, cachePolicy: { maxEntryBytes: 2000000, maxAgeMs: 60000, maxReceipts: 8 } });
+    const bound = runtime;
+    const adapter = bound.continuity;
+    const compare = new ArticleSourceCompareSession(owner, bound);
     let surface = initialSurface;
     let tool: 'none' | 'source-compare' = 'none';
-    const binding = () => ({ document: owner.context, map: createMarkdownAnchorMap({ identity: owner.documentIdentity, source }) });
     const options = () => ({ surface, tool, affinity: 'after' as const, viewportOffset: 0, percentage: 0 });
     const dispatch = (input: Partial<MarkdownEditorTransaction> = {}) => {
         const result = editor.dispatchTransaction({ changes: [], history: 'skip', origin: 'programmatic', documentIdentity: owner.documentIdentity,
             expectedRevision: owner.context.sourceRevision, selection: { start: 14, end: 18, direction: 'backward' }, ...input });
         expect(result.accepted).toBe(true);
-        expect(adapter.observeTransaction(editor, result)).toBe(true);
+        expect(bound.context).toBe(owner.context);
         return result;
     };
     const focusIn = () => adapter.observeFocus(editor, { document: owner.context, event: 'focusin' });
@@ -64,8 +63,9 @@ async function host(initialSurface: 'live' | 'source' = 'source', initialSource 
     wrapper.element.addEventListener('focusin', focusIn);
     wrapper.element.addEventListener('focusout', focusOut);
     cleanup.push(() => {
-        owner.dispose(); compare.dispose(); adapter.dispose(); cache.dispose(); wrapper.unmount();
+        owner.dispose(); compare.dispose(); bound.dispose(); attachments.dispose(); wrapper.unmount();
     });
+    expect(bound.initialize()).toBe(true);
     dispatch(); await nextTick(); await nextTick();
     const complete = async (receipt: ArticleEditorContinuityReceipt) => {
         const admitted = adapter.apply(receipt.requestRef);
@@ -98,8 +98,7 @@ async function host(initialSurface: 'live' | 'source' = 'source', initialSource 
         return opening;
     };
     const close = () => compare.close(binding(), options(), restore);
-    return { owner, anchors, cache, producer, compare, wrapper, adapter, identity, binding, options, dispatch, complete, open, close,
-        source: () => source, delay: (value: Promise<void> | null) => { delay = value; } };
+    return { owner, anchors, runtime: bound, compare, wrapper, adapter, identity, binding: bound.positionBinding, options, dispatch, complete, open, close, source: () => source };
 }
 
 describe('temporary compare using actual shared owners (#2284 source stage)', () => {
@@ -133,10 +132,11 @@ describe('temporary compare using actual shared owners (#2284 source stage)', ()
         expect(h.compare.state.sourceReady).toBe(true);
         expect(validateArticleSourceCompareRequest(h.compare.state.request)).toBe(true);
         expect(h.compare.state.request?.originalSurface).toBe(surface);
-        expect(await h.compare.refresh(h.binding(), h.options()), JSON.stringify(h.cache.receipts)).toBe('eligible');
+        expect(await h.compare.refresh(h.binding(), h.options()), JSON.stringify(h.runtime.renderState)).toBe('eligible');
         const content = h.compare.state.render!.content!;
         expect(content.context.contextDigest).toBe(h.owner.context.contextDigest);
-        expect(h.producer.resolve(content.result)?.render.rawSource).toBe(bytes);
+        expect(h.compare.retainedRender?.render.rawSource).toBe(bytes);
+        expect(h.compare.retainedRender).toBe(h.runtime.retainedRender);
         const planned = h.close();
         expect(planned.status).toBe('planned');
         expect(h.compare.state.open).toBe(false);
@@ -152,8 +152,44 @@ describe('temporary compare using actual shared owners (#2284 source stage)', ()
     it('leaves no compare tasks or renderer overhead while closed', async () => {
         const h = await host();
         expect(h.compare.state.render).toBeNull();
-        expect(h.cache.receipts).toHaveLength(0);
+        expect(h.runtime.renderState.content).toBeNull();
+        expect(h.compare.retainedRender).toBeNull();
         expect(h.owner.activeTaskRefs).toHaveLength(0);
+    });
+
+    it('uses the canonical runtime policy to refuse an oversized source without rendering', async () => {
+        const h = await host('source', 'a'.repeat(82000));
+        await h.open();
+        expect(await h.compare.refresh(h.binding(), h.options())).toBe('invalid');
+        expect(h.runtime.renderState.reason).toBe('render-source-byte-limit');
+        expect(h.runtime.renderState.content).toBeNull();
+        expect(h.compare.retainedRender).toBeNull();
+        expect(h.owner.activeTaskRefs).toHaveLength(1);
+        expect(h.compare.signal!.aborted).toBe(false);
+        await h.complete(h.close());
+    });
+
+    it('withdraws content and synchronization admission when the actual runtime grants a different tool task', async () => {
+        const h = await host();
+        await h.open();
+        h.compare.setSynchronization(true);
+        const signal = h.compare.signal!;
+        const previewLease = h.runtime.beginToolTask('publish-preview');
+        expect(signal.aborted).toBe(true);
+        expect(h.compare.state.sourceReady).toBe(false);
+        expect(h.compare.state.render).toBeNull();
+        expect(h.compare.retainedRender).toBeNull();
+        expect(await h.compare.refresh(h.binding(), h.options())).toBe('invalid');
+        await h.complete(h.close());
+        expect(previewLease.signal.aborted).toBe(false);
+        h.runtime.cancelToolTask();
+    });
+
+    it('rejects an editor runtime belonging to another article owner', async () => {
+        const h = await host();
+        const other = createArticleDocumentContextAdapter({ articleId: 2, draftId: 'article:2', editorSessionId: 'session:other', siteScope: 'site:test', userScope: 'user:test', content: h.source() });
+        expect(() => new ArticleSourceCompareSession(other, h.runtime)).toThrow('article-source-compare-runtime-context-invalid');
+        other.dispose();
     });
 
     it.each([375, 768, 1366 / 1.5, 1440 / 2])('refuses %s CSS px without forcing panes or invoking hooks', async inlineSize => {
@@ -176,7 +212,7 @@ describe('temporary compare using actual shared owners (#2284 source stage)', ()
     it('keeps the original same-document last-valid cache stale and rejects old sync', async () => {
         const h = await host();
         await h.open();
-        expect(await h.compare.refresh(h.binding(), h.options()), JSON.stringify(h.cache.receipts)).toBe('eligible');
+        expect(await h.compare.refresh(h.binding(), h.options()), JSON.stringify(h.runtime.renderState)).toBe('eligible');
         const retained = h.compare.state.render!.content!.result.resultRef;
         h.dispatch({ changes: [{ from: 14, to: 14, insert: 'new ' }], history: 'record' });
         await nextTick();
@@ -208,16 +244,13 @@ describe('temporary compare using actual shared owners (#2284 source stage)', ()
 
     it('cancels comparison admission on close, rapid edit and equal-source article switch', async () => {
         const h = await host(); await h.open();
-        let release!: () => void;
-        h.delay(new Promise<void>(resolve => { release = resolve; }));
         const pending = h.compare.refresh(h.binding(), h.options());
         const signal = h.compare.signal!;
         const planned = h.close();
         expect(signal.aborted).toBe(true);
-        release();
         expect(await pending).toBe('stale');
         await h.complete(planned);
-        h.delay(null); await h.open();
+        await h.open();
         h.owner.switchDocument({ articleId: 2, draftId: 'article:2', content: h.source() });
         expect(h.compare.state.open).toBe(false);
         expect(h.compare.state.render).toBeNull();
