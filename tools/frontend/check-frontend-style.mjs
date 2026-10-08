@@ -14,9 +14,11 @@ import {
     validateReviewedResidualDocument
 } from './reviewed-residual-classification.mjs';
 import { compareSourceUnitFindings } from './source-unit-style-diff.mjs';
+import { validateCandidatePolicy, validateSelectedCanonicalSource } from './style-toolchain/closed-canonical-edge.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), '../..');
+const authorityRoot = defaultRoot;
 const defaultPolicyPath = 'config/development/frontend-style-policy.json';
 const policySchema = 'fsusblog.frontend-style-policy.v1';
 const registrySchema = 'fsusblog.frontend-style-rule-registry.v1';
@@ -382,9 +384,9 @@ function runEslint(files, fix)
     {
         return [];
     }
-    const executable = path.join(root, policy.toolchain.eslint);
-    const cache = path.join(root, '.tmp/frontend-style/eslint.cache');
-    const cacheKeyFile = path.join(root, '.tmp/frontend-style/eslint.cache-key');
+    const executable = path.join(authorityRoot, policy.toolchain.eslint);
+    const cache = path.join(authorityRoot, '.tmp/frontend-style/eslint.cache');
+    const cacheKeyFile = path.join(authorityRoot, '.tmp/frontend-style/eslint.cache-key');
     const cacheKey = sha256(`${configurationDigest()}\n${sourceStateDigest()}`);
     fs.mkdirSync(path.dirname(cache), { recursive: true });
     const previousCacheKey = fs.existsSync(cacheKeyFile)
@@ -397,10 +399,7 @@ function runEslint(files, fix)
     }
     const args = [
         executable,
-        '--config', path.join(root, policy.eslintConfig),
-        '--cache',
-        '--cache-location', cache,
-        '--cache-strategy', 'content',
+        '--config', path.join(authorityRoot, policy.eslintConfig),
         '--format', 'json',
         '--no-error-on-unmatched-pattern',
         '--no-warn-ignored'
@@ -438,10 +437,10 @@ function runStylelint(files, fix)
     {
         return [];
     }
-    const executable = path.join(root, policy.toolchain.stylelint);
+    const executable = path.join(authorityRoot, policy.toolchain.stylelint);
     const args = [
         executable,
-        '--config', path.join(root, policy.stylelintConfig),
+        '--config', path.join(authorityRoot, policy.stylelintConfig),
         '--formatter', 'json',
         '--allow-empty-input'
     ];
@@ -489,12 +488,12 @@ function configurationDigest()
 {
     const paths = [
         policyFile,
-        path.join(root, policy.ruleRegistry),
-        path.join(root, policy.toolchain.package),
-        path.join(root, policy.toolchain.lock),
-        ...policy.configurationSources.map((file) => path.join(root, file))
+        path.join(authorityRoot, policy.ruleRegistry),
+        path.join(authorityRoot, policy.toolchain.package),
+        path.join(authorityRoot, policy.toolchain.lock),
+        ...policy.configurationSources.map((file) => path.join(authorityRoot, file))
     ];
-    const sources = paths.map((file) => `${toPosix(path.relative(root, file))}\n${sha256(fs.readFileSync(file))}`);
+    const sources = paths.map((file) => `${toPosix(path.relative(authorityRoot, file))}\n${sha256(fs.readFileSync(file))}`);
     sources.push(`runtime\nnode=${process.version}\nplatform=${process.platform}\narch=${process.arch}`);
     return sha256(sources.join('\n'));
 }
@@ -1047,7 +1046,7 @@ function validateConfiguration()
         policy.toolchain?.stylelint
     ])
     {
-        if (!file || !fs.existsSync(path.join(root, file)))
+        if (!file || !fs.existsSync(path.join(authorityRoot, file)))
         {
             fail(`missing configured frontend style path ${file ?? '<undefined>'}`);
         }
@@ -1085,7 +1084,7 @@ function validateConfiguration()
     {
         fail('AST-aware ESLint/Stylelint must be the authoritative formatter');
     }
-    const registry = readJson(path.join(root, policy.ruleRegistry), policy.ruleRegistry);
+    const registry = readJson(path.join(authorityRoot, policy.ruleRegistry), policy.ruleRegistry);
     if (registry)
     {
         if (registry.schema !== registrySchema)
@@ -1124,7 +1123,7 @@ function validateConfiguration()
     }
     for (const packagePath of [policy.toolchain.package, 'src/frontend/package.json'])
     {
-        const packageDocument = readJson(path.join(root, packagePath), packagePath);
+        const packageDocument = readJson(path.join(packagePath === policy.toolchain.package ? authorityRoot : root, packagePath), packagePath);
         if (!packageDocument)
         {
             continue;
@@ -1138,14 +1137,14 @@ function validateConfiguration()
             }
         }
     }
-    const residualAuthority = path.join(root, reviewedResidualAuthorityPath);
+    const residualAuthority = path.join(authorityRoot, reviewedResidualAuthorityPath);
     if (fs.existsSync(residualAuthority))
     {
         const bytes = fs.readFileSync(residualAuthority, 'utf8');
         const document = readJson(residualAuthority, reviewedResidualAuthorityPath);
         if (document)
         {
-            for (const residualFailure of validateReviewedResidualDocument(document, bytes, { root }))
+            for (const residualFailure of validateReviewedResidualDocument(document, bytes, { root: authorityRoot }))
             {
                 fail(residualFailure);
             }
@@ -1432,14 +1431,21 @@ function checkSourceDiff(args, files)
     try
     {
         // The original ESLint CLI loads identical original configuration in a separate base root.
-        for (const file of [policy.eslintConfig, 'tools/frontend/style-toolchain/eslint.config.mjs', policy.toolchain.package])
+        for (const file of [...new Set([
+            ...policy.configurationSources, defaultPolicyPath, policy.ruleRegistry,
+            policy.eslintConfig, policy.stylelintConfig, policy.toolchain.package, policy.toolchain.lock,
+            'tools/frontend/check-frontend-style.mjs',
+            'tools/frontend/source-unit-style-diff.mjs',
+            'tools/frontend/reviewed-residual-classification.mjs'
+        ])])
         {
             const destination = path.join(scratch, file);
             fs.mkdirSync(path.dirname(destination), { recursive: true });
             fs.writeFileSync(destination, command(['git', 'show', `${base}:${file}`]).stdout);
         }
-        fs.symlinkSync(fs.realpathSync(path.join(root, 'tools/frontend/style-toolchain/node_modules')),
-            path.join(scratch, 'tools/frontend/style-toolchain/node_modules'), 'dir');
+        fs.cpSync(path.join(authorityRoot, 'tools/frontend/style-toolchain/node_modules'),
+            path.join(scratch, 'tools/frontend/style-toolchain/node_modules'),
+            { recursive: true, verbatimSymlinks: true });
         report.baseResolverInputs = materializeSourceDiffBase({ repositoryRoot: root, baseCommit: base, scratch,
             files: files.filter((file) => command(['git', 'ls-tree', base, '--', file]).stdout.length > 0) });
         for (const file of files)
@@ -1533,11 +1539,6 @@ function main()
     {
         throw new Error(`invalid mode ${args.mode}`);
     }
-    if (args.mode === 'source-diff')
-    {
-        fs.mkdirSync(path.join(root, '.tmp/frontend-style'), { recursive: true });
-        fs.rmSync(path.join(root, '.tmp/frontend-style/source-diff.json'), { force: true });
-    }
     if (args.updateBaseline && args.fix)
     {
         throw new Error('--update-baseline and --fix cannot be combined');
@@ -1560,7 +1561,25 @@ function main()
     {
         throw new Error('refusing full-repository --fix; mechanical formatting requires a separate reviewed commit');
     }
-    policyFile = path.resolve(args.policy ?? path.join(root, defaultPolicyPath));
+    if (args.mode === 'source-diff')
+    {
+        if (root !== authorityRoot)
+        {
+            throw new Error('source-diff must execute inside its frozen authority checkout');
+        }
+        fs.mkdirSync(path.join(root, '.tmp/frontend-style'), { recursive: true });
+        fs.rmSync(path.join(root, '.tmp/frontend-style/source-diff.json'), { force: true });
+    }
+    if (root !== authorityRoot && (args.fix || args.updateBaseline))
+    {
+        throw new Error('cross-checkout candidate source is read-only');
+    }
+    policyFile = path.resolve(args.policy ?? path.join(authorityRoot, defaultPolicyPath));
+    if (policyFile !== path.join(authorityRoot, defaultPolicyPath))
+    {
+        throw new Error('policy must belong to the executing authority checkout');
+    }
+    validateCandidatePolicy(root);
     policy = readJson(policyFile, args.policy ?? defaultPolicyPath);
     if (!policy)
     {
@@ -1573,6 +1592,14 @@ function main()
     }
 
     const files = selectFiles(args);
+    try
+    {
+        validateSelectedCanonicalSource(root, files);
+    }
+    catch (error)
+    {
+        throw new Error(`eslint/import-x/no-relative-parent-imports: ${error.message}`, { cause: error });
+    }
     if (args.mode === 'source-diff')
     {
         fs.mkdirSync(path.join(root, '.tmp/frontend-style'), { recursive: true });
