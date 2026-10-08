@@ -72,7 +72,7 @@ public sealed record DocumentExportFrozenInput(
     string Schema,
     string InputId,
     long UserId,
-    long SiteId,
+    string SiteScope,
     DocumentExportArticleCoordinate Coordinate,
     ImmutableArray<byte> MarkdownUtf8,
     string SourceDigest,
@@ -88,6 +88,7 @@ public sealed record DocumentExportFrozenInput(
     string Locale,
     ImmutableArray<DocumentExportAsset> Assets,
     string ReadingStyleAuthorityDigest,
+    DocumentExportFrozenEmbeds? FrozenEmbeds,
     string ContentDigest);
 
 public sealed record DocumentExportTask(
@@ -96,7 +97,7 @@ public sealed record DocumentExportTask(
     string RequestId,
     string IdempotencyKey,
     long UserId,
-    long SiteId,
+    string SiteScope,
     DocumentExportArticleCoordinate Coordinate,
     string InputId,
     string InputDigest,
@@ -221,13 +222,13 @@ public sealed record DocumentExportProviderReceipt(
 /// </summary>
 public static class DocumentExportContractCatalog
 {
-    public const string InputSchema = "fsusblog.document-export-frozen-input.v2";
-    public const string TaskSchema = "fsusblog.document-export-task.v2";
-    public const string ResultSchema = "fsusblog.document-export-provider-result.v2";
-    public const string AttemptReceiptSchema = "fsusblog.document-export-attempt-receipt.v1";
-    public const string SandboxPlanSchema = "fsusblog.document-export-sandbox-plan.v1";
-    public const string RendererRequestSchema = "fsusblog.document-export-renderer-request.v2";
-    public const string RendererResponseSchema = "fsusblog.document-export-renderer-response.v2";
+    public const string InputSchema = "fsusblog.document-export-frozen-input.v4";
+    public const string TaskSchema = "fsusblog.document-export-task.v3";
+    public const string ResultSchema = "fsusblog.document-export-provider-result.v3";
+    public const string AttemptReceiptSchema = "fsusblog.document-export-attempt-receipt.v2";
+    public const string SandboxPlanSchema = "fsusblog.document-export-sandbox-plan.v2";
+    public const string RendererRequestSchema = "fsusblog.document-export-renderer-request.v3";
+    public const string RendererResponseSchema = "fsusblog.document-export-renderer-response.v3";
     public const string SandboxClass = "document-export-isolated-process-v1";
     public const string NetworkPolicy = "deny-all-except-declared-loopback-v1";
 

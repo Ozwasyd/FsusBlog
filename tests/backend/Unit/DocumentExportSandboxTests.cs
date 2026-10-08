@@ -55,6 +55,61 @@ public sealed class DocumentExportSandboxTests : IDisposable
             _fixture.Tool,
             _fixture.HostBuildDigest,
             result.OutputBytes);
+
+        DocumentExportSandboxResult temporaryResult = await _fixture.CreateSandbox().ExecuteAsync(
+            task,
+            input,
+            _fixture.Tool,
+            DocumentExportTestToolFixture.RequestBytes(input, "tmp-control"));
+        DocumentExportSandboxRuntime.ValidateReceipt(
+            temporaryResult.Receipt,
+            temporaryResult.Plan,
+            task,
+            input,
+            _fixture.Tool,
+            _fixture.HostBuildDigest,
+            temporaryResult.OutputBytes);
+        Assert.NotEqual(result.Receipt.RunId, temporaryResult.Receipt.RunId);
+        Assert.Empty(Directory.EnumerateDirectories(_fixture.RunsRoot));
+
+        DocumentExportSandboxResult rendererResult = await _fixture.CreateSandbox().ExecuteCanonicalRendererAsync(
+            task,
+            input,
+            (output, token) => output.WriteAsync(DocumentExportTestToolFixture.RequestBytes(input), token).AsTask());
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(
+            rendererResult.Receipt,
+            rendererResult.Plan,
+            task,
+            input,
+            _fixture.Tool,
+            _fixture.HostBuildDigest,
+            rendererResult.OutputBytes);
+        Assert.Equal(task.ContentDigest, rendererResult.Plan.TaskDigest);
+        Assert.Equal(task.ProviderId, rendererResult.Plan.ProviderId);
+        Assert.Empty(Directory.EnumerateDirectories(_fixture.RunsRoot));
+
+        foreach (DocumentExportProviderContract provider in DocumentExportContractCatalog.Providers.Where(
+            candidate => !candidate.ImplementationAvailable))
+        {
+            DocumentExportTask inactiveTask = DocumentExportContractValidator.Seal(task with
+            {
+                FormatId = provider.FormatId,
+                ProviderId = provider.ProviderId,
+                ProviderVersion = provider.ProviderVersion,
+                ContentDigest = string.Empty
+            });
+            bool requestWritten = false;
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _fixture.CreateSandbox().ExecuteCanonicalRendererAsync(
+                inactiveTask,
+                input,
+                (_, _) =>
+                {
+                    requestWritten = true;
+                    return Task.CompletedTask;
+                }));
+            Assert.False(requestWritten);
+            Assert.Empty(Directory.EnumerateDirectories(_fixture.RunsRoot));
+        }
     }
 
     [Fact]
@@ -176,6 +231,24 @@ public sealed class DocumentExportSandboxTests : IDisposable
                 _fixture.HostBuildDigest,
                 "failed",
                 "execution-failed");
+            DocumentExportSandboxRuntime.ValidateCanonicalRendererFailureReceipt(
+                exception.Receipt,
+                exception.Plan,
+                task,
+                input,
+                _fixture.Tool,
+                _fixture.HostBuildDigest,
+                "failed",
+                "execution-failed");
+            Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateFailureReceipt(
+                ResealReceiptWithDifferentRunId(exception.Receipt),
+                exception.Plan,
+                task,
+                input,
+                _fixture.Tool,
+                _fixture.HostBuildDigest,
+                "failed",
+                "execution-failed"));
         }
         finally
         {
@@ -280,12 +353,19 @@ public sealed class DocumentExportSandboxTests : IDisposable
         => AssertBudget("stderr-budget", "stderr-budget");
 
     [Fact]
-    public Task FileCountBudgetTerminatesAndSealsFailureReceipt()
-        => AssertBudget("file-count-budget", "file-count-budget");
+    public async Task FileCountBudgetTerminatesAndSealsFailureReceipt()
+    {
+        await AssertBudget("file-count-budget", "file-count-budget");
+        await AssertBudget("tmp-file-count-budget", "file-count-budget");
+    }
 
     [Fact]
-    public Task FileBytesBudgetTerminatesAndSealsFailureReceipt()
-        => AssertBudget("file-bytes-budget", "file-bytes-budget");
+    public async Task FileBytesBudgetTerminatesAndSealsFailureReceipt()
+    {
+        await AssertBudget("file-bytes-budget", "file-bytes-budget");
+        await AssertBudget("tmp-file-bytes-budget", "file-bytes-budget");
+        await AssertBudget("tmp-aggregate-bytes-budget", "file-bytes-budget");
+    }
 
     [Fact]
     public async Task InputAndMessageBudgetsRejectBeforeRunAdmission()
@@ -334,6 +414,15 @@ public sealed class DocumentExportSandboxTests : IDisposable
             "budget-exceeded",
             failureCode);
         Assert.Equal(1, exception.Receipt!.AttemptNumber);
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateFailureReceipt(
+            ResealReceiptWithDifferentRunId(exception.Receipt),
+            exception.Plan!,
+            task,
+            input,
+            _fixture.Tool,
+            _fixture.HostBuildDigest,
+            "budget-exceeded",
+            failureCode));
         return exception;
     }
 
@@ -488,6 +577,67 @@ public sealed class DocumentExportSandboxTests : IDisposable
             _fixture.Tool,
             _fixture.HostBuildDigest,
             result.OutputBytes));
+
+        DocumentExportSandboxRuntime.ValidatePlan(
+            result.Plan,
+            task,
+            input,
+            DocumentExportContractCatalog.RequireProvider(task.FormatId),
+            _fixture.Tool,
+            _fixture.HostBuildDigest);
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererPlan(
+            result.Plan, task, input, _fixture.Tool, _fixture.HostBuildDigest);
+        DocumentExportToolContract substitutedTool = _fixture.Tool with
+        {
+            ToolId = "document-export-pdf-toolchain",
+            ToolVersion = "unimplemented-v1"
+        };
+        DocumentExportSandboxPlan substitutedPlan = DocumentExportSandboxRuntime.SealPlan(result.Plan with
+        {
+            ToolId = substitutedTool.ToolId,
+            ToolVersion = substitutedTool.ToolVersion
+        });
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidatePlan(
+            substitutedPlan, task, input, DocumentExportContractCatalog.RequireProvider(task.FormatId), substitutedTool, _fixture.HostBuildDigest));
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateCanonicalRendererPlan(
+            substitutedPlan, task, input, substitutedTool, _fixture.HostBuildDigest));
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(
+            result.Receipt, result.Plan, task, input, _fixture.Tool, DocumentExportTestToolFixture.Digest("other-build"), result.OutputBytes));
+        string[] invalidRunIds =
+        [
+            null!,
+            string.Empty,
+            result.Plan.RunId[..31],
+            result.Plan.RunId + "0",
+            "A0000000000000000000000000000000",
+            "g0000000000000000000000000000000",
+            Guid.ParseExact(result.Plan.RunId, "N").ToString("D"),
+            result.Plan.RunId + "\n",
+            "../" + result.Plan.RunId
+        ];
+        foreach (string invalidRunId in invalidRunIds)
+        {
+            DocumentExportSandboxPlan planTamper = DocumentExportSandboxRuntime.SealPlan(
+                result.Plan with
+                {
+                    RunId = invalidRunId
+                });
+            Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidatePlan(
+                planTamper,
+                task,
+                input,
+                DocumentExportContractCatalog.RequireProvider(task.FormatId),
+                _fixture.Tool,
+                _fixture.HostBuildDigest));
+        }
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateReceipt(
+            ResealReceiptWithDifferentRunId(result.Receipt),
+            result.Plan,
+            task,
+            input,
+            _fixture.Tool,
+            _fixture.HostBuildDigest,
+            result.OutputBytes));
     }
 
     [Fact]
@@ -524,6 +674,11 @@ public sealed class DocumentExportSandboxTests : IDisposable
         Assert.Equal("/usr/bin/bwrap", start.FileName);
         Assert.Contains("--clearenv", start.ArgumentList);
         Assert.DoesNotContain("PATH", start.ArgumentList);
+        int temporaryMountIndex = start.ArgumentList.IndexOf("/tmp");
+        Assert.True(temporaryMountIndex >= 2);
+        Assert.Equal("--bind", start.ArgumentList[temporaryMountIndex - 2]);
+        Assert.Equal(Path.Combine(runRoot, "work"), start.ArgumentList[temporaryMountIndex - 1]);
+        Assert.DoesNotContain("--tmpfs", start.ArgumentList);
     }
 
     [Theory]
@@ -533,8 +688,8 @@ public sealed class DocumentExportSandboxTests : IDisposable
     {
         MethodInfo builder = RequireMetadataFixtureBuilder(type);
         IReadOnlyList<SandboxMemberSite> sites = ReadSandboxMemberSites(type);
-        Assert.Equal(builder, Assert.Single(sites.Where(IsStartInfoConstruction)).Method);
-        Assert.Equal(builder, Assert.Single(sites.Where(IsShellExecuteSetter)).Method);
+        Assert.Equal(builder, Assert.Single(sites, IsStartInfoConstruction).Method);
+        Assert.Equal(builder, Assert.Single(sites, IsShellExecuteSetter).Method);
         if (type == typeof(MemberLiteralSandboxMetadataFixture))
         {
             string compiled = DescribeSandboxTypeTree(type);
@@ -585,10 +740,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
                 Assert.Contains(sites, site => IsShellExecuteSetter(site) && site.Method.DeclaringType != type);
                 break;
             case "outside-builder-constructor":
-                Assert.NotEqual(builder, Assert.Single(sites.Where(IsStartInfoConstruction)).Method);
+                Assert.NotEqual(builder, Assert.Single(sites, IsStartInfoConstruction).Method);
                 break;
             case "outside-builder-setter":
-                Assert.NotEqual(builder, Assert.Single(sites.Where(IsShellExecuteSetter)).Method);
+                Assert.NotEqual(builder, Assert.Single(sites, IsShellExecuteSetter).Method);
                 break;
             case "process-start":
                 Assert.Contains(sites, site => IsProcessStart(site) && site.Method.DeclaringType != type);
@@ -611,8 +766,8 @@ public sealed class DocumentExportSandboxTests : IDisposable
     private static void AssertCompiledSandboxBoundary(Type type, MethodInfo builder)
     {
         IReadOnlyList<SandboxMemberSite> sites = ReadSandboxMemberSites(type);
-        SandboxMemberSite construction = Assert.Single(sites.Where(IsStartInfoConstruction));
-        SandboxMemberSite setter = Assert.Single(sites.Where(IsShellExecuteSetter));
+        SandboxMemberSite construction = Assert.Single(sites, IsStartInfoConstruction);
+        SandboxMemberSite setter = Assert.Single(sites, IsShellExecuteSetter);
         Assert.Equal(builder, construction.Method);
         Assert.Equal(builder, setter.Method);
         Assert.DoesNotContain(sites, IsProcessStart);
@@ -914,6 +1069,32 @@ public sealed class DocumentExportSandboxTests : IDisposable
     }
 
     public void Dispose() => _fixture.Dispose();
+
+    private static DocumentExportSandboxReceipt ResealReceiptWithDifferentRunId(DocumentExportSandboxReceipt receipt)
+    {
+        string differentRunId = (receipt.RunId[0] == '0' ? "1" : "0") + receipt.RunId[1..];
+        DocumentExportSandboxReceipt tampered = receipt with
+        {
+            RunId = differentRunId,
+            ContentDigest = string.Empty
+        };
+        if (receipt.RootProcessId > 0)
+        {
+            string differentUnitName = $"fsusblog-document-export-{differentRunId}.service";
+            string differentControlGroup = receipt.ControlGroup[..(receipt.ControlGroup.LastIndexOf('/') + 1)]
+                + differentUnitName;
+            tampered = tampered with
+            {
+                UnitName = differentUnitName,
+                ControlGroup = differentControlGroup,
+                ControlGroupDigest = DocumentExportDigest.Compute(differentControlGroup)
+            };
+        }
+        return tampered with
+        {
+            ContentDigest = DocumentExportDigest.Compute(tampered)
+        };
+    }
 
     private void AssertFailureReceipt(
         DocumentExportSandboxPlan plan,
