@@ -609,7 +609,10 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 };
                 _mfaChallenges.GetChallengeAsync(
                         "mfa-ticket", "issue-1053-device", Arg.Any<CancellationToken>())
-                    .Returns(Task.FromResult<MfaChallengeTicket?>(_mfaTicket with { InitialAuthentication = initial }));
+                    .Returns(Task.FromResult<MfaChallengeTicket?>(_mfaTicket with
+                    {
+                        InitialAuthentication = initial
+                    }));
             }
             else if (failure == MfaContinuationFailure.WrongCode)
             {

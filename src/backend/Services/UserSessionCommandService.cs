@@ -528,8 +528,14 @@ public sealed partial class UserSessionCommandService(
         }
         public string AuthenticationMethod { get; init; } = string.Empty;
         public string AuthenticationStrength { get; init; } = string.Empty;
-        public int? CredentialRowId { get; init; }
-        public UserSessionMode SessionMode { get; init; }
+        public int? CredentialRowId
+        {
+            get; init;
+        }
+        public UserSessionMode SessionMode
+        {
+            get; init;
+        }
         public string? PasskeyFriendlyName
         {
             get; init;

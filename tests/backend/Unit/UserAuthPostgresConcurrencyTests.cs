@@ -412,7 +412,10 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             "203.0.113.30",
             "issue-2330-device",
             "issue-2330-agent",
-            authenticationContext: initialAuthentication with { Strength = UserSessionAuthenticationStrengths.Mfa });
+            authenticationContext: initialAuthentication with
+            {
+                Strength = UserSessionAuthenticationStrengths.Mfa
+            });
         return new RecoveryCodeLoginAttempt(true, login.Success, login.Data);
     }
 

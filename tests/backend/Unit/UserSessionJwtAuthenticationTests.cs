@@ -436,7 +436,10 @@ public sealed class UserSessionJwtAuthenticationTests
             ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey
         });
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-            previousMaterial ? TestSecrets.SecondaryJwtSigningKey : TestSecrets.JwtSigningKey)) { KeyId = kid };
+            previousMaterial ? TestSecrets.SecondaryJwtSigningKey : TestSecrets.JwtSigningKey))
+        {
+            KeyId = kid
+        };
         var token = new JwtSecurityToken(
             issuer: "issue-1052-tests", audience: "issue-1052-tests",
             claims:

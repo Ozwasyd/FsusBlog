@@ -624,22 +624,40 @@ public class UserServiceValidationTests
         switch (scenario)
         {
             case "account":
-                account = account with { Id = 0 };
+                account = account with
+                {
+                    Id = 0
+                };
                 break;
             case "deleted":
-                account = account with { DeletedAt = DateTime.UnixEpoch };
+                account = account with
+                {
+                    DeletedAt = DateTime.UnixEpoch
+                };
                 break;
             case "status":
-                account = account with { Status = 2 };
+                account = account with
+                {
+                    Status = 2
+                };
                 break;
             case "identity":
-                account = account with { IdentityKind = AnonymousIdentityRuntime.AdminPrincipalKind };
+                account = account with
+                {
+                    IdentityKind = AnonymousIdentityRuntime.AdminPrincipalKind
+                };
                 break;
             case "registration":
-                account = account with { RegistrationState = AccountRegistrationStates.Provisional };
+                account = account with
+                {
+                    RegistrationState = AccountRegistrationStates.Provisional
+                };
                 break;
             case "subject":
-                account = account with { AccountSubjectHash = null };
+                account = account with
+                {
+                    AccountSubjectHash = null
+                };
                 break;
             case "session":
                 sessionId = " ";

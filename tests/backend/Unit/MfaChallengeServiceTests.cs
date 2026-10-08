@@ -282,7 +282,10 @@ public sealed class MfaChallengeServiceTests
         Assert.NotEqual(decoded.CreatedAtUtc, decoded.InitialAuthentication!.Value.AuthenticatedAtUtc);
         MfaChallengeTicket changed = decoded with
         {
-            InitialAuthentication = initial with { CredentialRowId = initial.CredentialRowId + 1 }
+            InitialAuthentication = initial with
+            {
+                CredentialRowId = initial.CredentialRowId + 1
+            }
         };
         Assert.Null(await service.ConsumeChallengeOnceAsync(changed, "device-a"));
         Assert.NotNull(await service.GetChallengeAsync(created.TicketId, "device-a"));

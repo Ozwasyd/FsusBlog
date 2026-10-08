@@ -137,7 +137,10 @@ public class UserSession
     public string AuthenticationStrength { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "authenticated_at_utc")]
-    public DateTime AuthenticatedAtUtc { get; set; }
+    public DateTime AuthenticatedAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "authenticated_credential_row_id", IsNullable = true)]
     public int? AuthenticatedCredentialRowId
