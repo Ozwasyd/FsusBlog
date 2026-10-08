@@ -14,13 +14,6 @@
                 "tools/test/probe-release-reliability-runtime-smoke.mjs"
             ],
             "reason": "Preserve caller-visible UPPER_SNAKE_CASE process and container environment spellings for the managed listener FD/socket/port/run/namespace/lease/attempt bindings, Node and Kestrel launch admission, and the final Docker publisher activation gate. The canonical port allocator, container reservation owner, Vite adapter and backend composition consume these bindings through existing internal camelCase/PascalCase options and members. This declaration does not authorize extra listeners, alternate owners, image qualification or readiness acceptance."
-        },
-        {
-            "id": "shell-environment-variable",
-            "paths": [
-                "tools/bootstrap-acceptance-env.sh"
-            ],
-            "reason": "Preserve the existing caller-visible FSUSBLOG Production Fresh run, namespace, output root and port manifest environment spellings at the canonical bootstrap shell boundary. Internal verifier options remain camelCase. This binds the explicit private manifest consumer input and fail-closed readiness admission without accepting diagnostic lifecycle or executable digests as readiness authority."
         }
     ]
 }
