@@ -96,6 +96,14 @@ identity independently of byte identity.
 
 The provider registry is the sole composition point for the implemented provider. Its replaceable canonical-renderer adapter invokes the exact sandbox-registered renderer with the fixed `render` argument. The HTML provider does not parse Markdown: it accepts the canonical renderer's digest-bound semantic fragment, applies a closed streaming HTML/SVG sanitizer, embeds frozen images and fonts, and independently verifies the completed document and receipt. The artifact carries a hash-bound CSP, has no script or runtime network dependency, and uses private authorized delivery with a 24-hour cleanup TTL; it is not a public static-root artifact.
 
+The same registry exposes the implemented provider through the sole durable-job
+provider contract. Its verification adapter retains the sandbox's frozen tool and
+host-build identities and checks the actual artifact and complete receipts;
+resealing a result cannot substitute its expected host identity. Inactive formats
+remain unavailable. This composition does not provide a durable store or a
+default identity/site permission adapter: those authorities must be supplied and
+independently qualified before job delivery is admitted.
+
 Sandbox finalization preserves the first observed budget or execution failure if caller cancellation arrives during cleanup. With no earlier failure, requested cancellation is still recorded. Physical cleanup must independently qualify the empty process tree, removed run directory, transient unit and cgroup; an unqualified cleanup remains fail closed and cannot become a qualified budget or cancellation receipt.
 
 Sandbox plans require the canonical lower-case 32-digit run identity. Both success

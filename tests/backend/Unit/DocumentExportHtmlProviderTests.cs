@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 
 using FsusBlog.Server.Services.DocumentExport;
+using FsusBlog.Server.Services.DocumentExport.Jobs;
 using FsusBlog.Server.Tests.Helpers;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -416,6 +417,58 @@ public sealed class DocumentExportHtmlProviderTests
             responseDigest: ValidResponse(input).ContentDigest);
         SelfContainedHtmlDocumentExportProvider provider = CreateProvider(fixture);
         DocumentExportProviderResult result = await provider.ExportAsync(task, input);
+        var registry = new DocumentExportProviderRegistry(fixture.CreateSandbox());
+        IDocumentExportJobProvider jobProvider = registry.RequireJobProvider("self-contained-html");
+        Assert.Equal(result.Receipt.ProviderId, jobProvider.ProviderId);
+        Assert.Same(jobProvider, registry.RequireJobProvider("self-contained-html"));
+        await jobProvider.VerifyAsync(result, task, input, CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidDataException>(() => jobProvider.VerifyAsync(
+            result with
+            {
+                Bytes = [.. result.Bytes, 0]
+            },
+            task,
+            input,
+            CancellationToken.None));
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => jobProvider.VerifyAsync(
+            result, task, input, cancelled.Token));
+        Assert.Throws<InvalidOperationException>(() => registry.RequireJobProvider("pdf"));
+        Assert.Throws<InvalidOperationException>(() => registry.RequireJobProvider("docx"));
+        Assert.Throws<InvalidOperationException>(() => registry.RequireJobProvider("epub"));
+
+        string substitutedHost = DocumentExportDigest.ComputeBytes("substituted host"u8);
+        DocumentExportSandboxPlan substitutedPlan = DocumentExportSandboxRuntime.SealPlan(result.SandboxPlan with
+        {
+            HostBuildDigest = substitutedHost
+        });
+        DocumentExportSandboxReceipt substitutedSandbox = result.SandboxReceipt with
+        {
+            HostBuildDigest = substitutedHost,
+            PlanDigest = substitutedPlan.ContentDigest,
+            ContentDigest = string.Empty
+        };
+        substitutedSandbox = substitutedSandbox with
+        {
+            ContentDigest = DocumentExportDigest.Compute(substitutedSandbox)
+        };
+        DocumentExportProviderReceipt substitutedReceipt = DocumentExportContractValidator.Seal(result.Receipt with
+        {
+            SandboxReceiptDigest = substitutedSandbox.ContentDigest
+        });
+        DocumentExportProviderResult substitutedResult = result with
+        {
+            SandboxPlan = substitutedPlan,
+            SandboxReceipt = substitutedSandbox,
+            Receipt = substitutedReceipt
+        };
+        // All changed envelopes are resealed; the registry must still use its
+        // own frozen host identity rather than adopting the result's identity.
+        SelfContainedHtmlDocumentExportProvider.ValidateResult(
+            substitutedResult, task, input, fixture.Tool, substitutedHost);
+        await Assert.ThrowsAsync<InvalidDataException>(() => jobProvider.VerifyAsync(
+            substitutedResult, task, input, CancellationToken.None));
 
         Assert.Throws<InvalidDataException>(() => SelfContainedHtmlDocumentExportProvider.ValidateResult(
             result with

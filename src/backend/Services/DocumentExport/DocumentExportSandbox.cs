@@ -141,6 +141,8 @@ public sealed class DocumentExportSandboxRuntime
     private readonly string _hostBuildDigest;
     private readonly IReadOnlyDictionary<string, DocumentExportResourceBudgets> _executionLimits;
 
+    internal string HostBuildDigest => _hostBuildDigest;
+
     public DocumentExportSandboxRuntime(
         string sandboxRoot,
         IReadOnlyList<DocumentExportToolContract> tools,
