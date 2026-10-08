@@ -16,7 +16,8 @@
             "id": "environment-variable",
             "paths": [
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/docs/behavior-document-consistency-final.mjs"
             ],
             "reason": "Preserve existing process environment and canonical execution authority names while restoring the original pure boundary and consuming the current roster verification."
         },
