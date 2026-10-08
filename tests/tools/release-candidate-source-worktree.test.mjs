@@ -4,9 +4,9 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { digestCanonical, sealContentDigest } from '../../tools/test/attempt-provenance.mjs';
-
 import { snapshotRepositorySourceIdentity, verifyRepositorySourceSnapshot, diffRepositorySourceSnapshots }
     from '../../tools/test/repository-source-snapshot.mjs';
+
 import { gitFixture, sourcePolicy } from './repository-source-snapshot-test-support.mjs';
 
 function snapshot(root, policy = sourcePolicy)
@@ -164,11 +164,20 @@ test('source snapshot refuses bytes changed after an earlier path was read', (t)
     fs.readFileSync = function (...args)
     {
         const bytes = originalRead.apply(this, args);
-        if (typeof args[0] === 'number' && ++reads === 3) fixture.write('source.txt', 'changed during scan');
+        if (typeof args[0] === 'number' && ++reads === 3)
+        {
+            fixture.write('source.txt', 'changed during scan');
+        }
         return bytes;
     };
-    try { assert.throws(() => snapshot(fixture.root), /changed during snapshot/u); }
-    finally { fs.readFileSync = originalRead; }
+    try
+    {
+        assert.throws(() => snapshot(fixture.root), /changed during snapshot/u);
+    }
+    finally
+    {
+        fs.readFileSync = originalRead;
+    }
 });
 
 test('source independent verifier rejects resealed malformed inventory and missing objects', (t) =>
@@ -177,8 +186,8 @@ test('source independent verifier rejects resealed malformed inventory and missi
     const receipt = snapshot(fixture.root);
     const changed = structuredClone(receipt);
     changed.worktreeEntries['source.txt'].mode = 'directory';
-    const { contentDigest, snapshotDigest, diagnostics, ...payload } = changed;
-    const resealed = sealContentDigest({ ...payload, snapshotDigest: digestCanonical(payload), diagnostics });
+    const payload = Object.fromEntries(Object.entries(changed).filter(([key]) => !['contentDigest', 'snapshotDigest', 'diagnostics'].includes(key)));
+    const resealed = sealContentDigest({ ...payload, snapshotDigest: digestCanonical(payload), diagnostics: changed.diagnostics });
     assert.throws(() => verifyRepositorySourceSnapshot(resealed), /invalid source content/u);
     fixture.git('update-index', '--cacheinfo', `100644,${'1'.repeat(40)},source.txt`);
     assert.throws(() => snapshot(fixture.root), /cat-file failed/u);

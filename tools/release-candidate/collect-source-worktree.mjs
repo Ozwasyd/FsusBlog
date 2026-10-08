@@ -18,5 +18,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         const receipt = snapshotRepositorySourceIdentity(args[1], { sourcePolicy: JSON.parse(fs.readFileSync(args[3], 'utf8')) });
         process.stdout.write(`${JSON.stringify(receipt, null, 4)}\n`);
     }
-    catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 1; }
+    catch (error)
+    {
+        process.stderr.write(`${error.message}\n`);
+        process.exitCode = 1;
+    }
 }
