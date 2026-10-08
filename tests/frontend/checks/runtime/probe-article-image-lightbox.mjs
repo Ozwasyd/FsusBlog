@@ -55,7 +55,10 @@ try
 {
     process.env.FSUSBLOG_USE_LOCAL_FSUSUI = mode === 'local' ? '1' : '0';
     const { resolveLocalFsusUiRepositoryRoot } = await import(path.join(frontend, 'scripts/fsusui-root.mjs'));
-    const upstream = resolveLocalFsusUiRepositoryRoot({ repositoryRoot: root });
+    const upstream = resolveLocalFsusUiRepositoryRoot({
+        repositoryRoot: root,
+        override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT
+    });
     if (mode === 'published' && !fs.existsSync(path.join(frontend, 'node_modules/@ozwasyd/element-plus/package.json')))
     {
         throw new Error('Exact locked published artifact is unavailable; no local-source fallback permitted');
@@ -74,7 +77,7 @@ try
     }
     if (mode === 'local')
     {
-        report.fsusui = { sha: git(upstream, 'rev-parse', 'HEAD'), dirty: git(upstream, 'status', '--porcelain'), css: hash(path.join(upstream, 'vue/packages/theme-chalk/dist/index.css')) };
+        report.fsusui = { root: upstream, sha: git(upstream, 'rev-parse', 'HEAD'), dirty: git(upstream, 'status', '--porcelain'), css: hash(path.join(upstream, 'vue/packages/theme-chalk/dist/index.css')) };
     }
     const buildId = `${new Date().toISOString().replace(/[-:T]/gu, '').slice(0, 14)}-${sha.slice(0, 12)}`;
     report.buildId = buildId;
