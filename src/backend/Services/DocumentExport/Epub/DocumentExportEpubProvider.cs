@@ -21,8 +21,23 @@ public sealed class DocumentExportEpubProvider
     }
 
     /// <summary>Exports only EPUB bytes and the existing sandbox-bound provider result; no storage or lifecycle is owned here.</summary>
-    public async Task<DocumentExportProviderResult> ExportAsync(DocumentExportTask task,
+    public Task<DocumentExportProviderResult> ExportAsync(DocumentExportTask task,
         DocumentExportFrozenInput input, EpubPublicationMetadata metadata, CancellationToken cancellationToken = default)
+        => ExportAttemptAsync(task, input, metadata, null, cancellationToken);
+
+    /// <summary>Retains the caller's sole attempt resource owner through rendering and host output accounting.</summary>
+    public Task<DocumentExportProviderResult> ExportAsync(DocumentExportTask task,
+        DocumentExportFrozenInput input, EpubPublicationMetadata metadata, DocumentExportAttemptResources attempt,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(attempt);
+        return ExportAttemptAsync(task, input, metadata, attempt, cancellationToken);
+    }
+
+    private async Task<DocumentExportProviderResult> ExportAttemptAsync(DocumentExportTask task,
+        DocumentExportFrozenInput input, EpubPublicationMetadata metadata, DocumentExportAttemptResources? attempt,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         DocumentExportContractValidator.ValidateCatalog(DocumentExportContractCatalog.Providers);
@@ -43,7 +58,7 @@ public sealed class DocumentExportEpubProvider
         using var deadline = TimeoutCancellationScope.Create(provider.Budgets.WallTime, cancellationToken);
         try
         {
-            return await ExportCoreAsync(task, frozen, metadata, provider, rendererTool, deadline.Token);
+            return await ExportCoreAsync(task, frozen, metadata, provider, rendererTool, attempt, deadline.Token);
         }
         catch (OperationCanceledException) when (deadline.IsTimeoutCancellationRequested)
         {
@@ -53,20 +68,35 @@ public sealed class DocumentExportEpubProvider
 
     private async Task<DocumentExportProviderResult> ExportCoreAsync(DocumentExportTask task, DocumentExportFrozenInput frozen,
         EpubPublicationMetadata metadata, DocumentExportProviderContract provider, DocumentExportToolContract rendererTool,
-        CancellationToken cancellationToken)
+        DocumentExportAttemptResources? attempt, CancellationToken cancellationToken)
     {
-        CanonicalDocumentRendererResult rendered = await _renderer.RenderAsync(task, frozen, cancellationToken);
+        CanonicalDocumentRendererResult rendered = attempt is null
+            ? await _renderer.RenderAsync(task, frozen, cancellationToken)
+            : await _renderer.RenderAsync(task, frozen, attempt, cancellationToken);
+        if (attempt is not null && !ReferenceEquals(attempt, rendered.AttemptResources))
+        {
+            throw new InvalidDataException("EPUB canonical renderer did not retain the sole attempt resource owner.");
+        }
         if (DocumentExportDigest.Compute(rendered.Tool) != DocumentExportDigest.Compute(rendererTool))
         {
             throw new InvalidDataException("EPUB canonical renderer substituted its frozen tool identity.");
         }
         DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(rendered.SandboxReceipt, rendered.SandboxPlan,
             task, frozen, rendererTool, rendered.SandboxPlan.HostBuildDigest, rendered.ResponseBytes);
-        _resources.Validate(frozen, cancellationToken);
+        DocumentExportAttemptResources? resourceOwner = attempt ?? rendered.AttemptResources;
+        if (resourceOwner is null)
+        {
+            _resources.Validate(frozen, cancellationToken);
+        }
+        else
+        {
+            _resources.Validate(frozen, resourceOwner, cancellationToken);
+        }
         RequireCanonicalToolBinding(provider, rendererTool);
         DocumentExportRendererResponse response = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(rendered.ResponseBytes);
         EpubPackageBuildResult package = EpubPackageBuilder.Build(frozen, response, metadata,
             provider.Budgets, cancellationToken);
+        resourceOwner?.AccountHostOutputBytes(package.Bytes.LongLength);
         EpubPackageValidation validation = package.Validation;
         DocumentExportProviderReceipt receipt = DocumentExportContractValidator.Seal(new DocumentExportProviderReceipt(
             DocumentExportContractCatalog.ResultSchema, task.ContentDigest, frozen.ContentDigest,
@@ -87,6 +117,23 @@ public sealed class DocumentExportEpubProvider
     public static EpubPackageValidation ValidateResult(DocumentExportProviderResult result, DocumentExportTask task,
         DocumentExportFrozenInput input, EpubPublicationMetadata metadata, DocumentExportToolContract tool,
         string expectedHostBuildDigest, IEpubFrozenResourceVerifier resources, CancellationToken cancellationToken = default)
+        => ValidateResultCore(result, task, input, metadata, tool, expectedHostBuildDigest, resources, null, cancellationToken);
+
+    /// <summary>Validates resource facts using the caller's exact attempt without creating or finalizing a stage.</summary>
+    public static EpubPackageValidation ValidateResult(DocumentExportProviderResult result, DocumentExportTask task,
+        DocumentExportFrozenInput input, EpubPublicationMetadata metadata, DocumentExportToolContract tool,
+        string expectedHostBuildDigest, IEpubFrozenResourceVerifier resources, DocumentExportAttemptResources attempt,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(attempt);
+        return ValidateResultCore(result, task, input, metadata, tool, expectedHostBuildDigest, resources, attempt, cancellationToken);
+    }
+
+    private static EpubPackageValidation ValidateResultCore(DocumentExportProviderResult result, DocumentExportTask task,
+        DocumentExportFrozenInput input, EpubPublicationMetadata metadata, DocumentExportToolContract tool,
+        string expectedHostBuildDigest, IEpubFrozenResourceVerifier resources, DocumentExportAttemptResources? attempt,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(result);
         cancellationToken.ThrowIfCancellationRequested();
@@ -98,7 +145,14 @@ public sealed class DocumentExportEpubProvider
             expectedHostBuildDigest, result.SandboxOutputBytes);
         DocumentExportRendererResponse response = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(result.SandboxOutputBytes);
         ArgumentNullException.ThrowIfNull(resources);
-        resources.Validate(input, cancellationToken);
+        if (attempt is null)
+        {
+            resources.Validate(input, cancellationToken);
+        }
+        else
+        {
+            resources.Validate(input, attempt, cancellationToken);
+        }
         EpubPackageValidation validation = DocumentExportEpubPackageValidator.Validate(result.Bytes, input, response,
             metadata, provider.Budgets, cancellationToken);
         DocumentExportContractValidator.Validate(result.Receipt, task, input, provider);

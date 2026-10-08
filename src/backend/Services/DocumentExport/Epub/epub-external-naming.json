@@ -7,7 +7,8 @@
                 "src/backend/Services/DocumentExport/Epub/DocumentExportEpubPackageValidator.cs",
                 "src/backend/Services/DocumentExport/Epub/DocumentExportEpubProvider.cs",
                 "src/backend/Services/DocumentExport/Epub/EpubDocumentExportJobProvider.cs",
-                "src/backend/Services/DocumentExport/Epub/EpubPublicationMetadata.cs"
+                "src/backend/Services/DocumentExport/Epub/EpubPublicationMetadata.cs",
+                "src/backend/Services/DocumentExport/Epub/IEpubFrozenResourceVerifier.cs"
             ],
             "reason": "the existing registry glob governs these affected C# production sources; no process-environment access or environment-variable keys are introduced, and canonical frozen task, renderer, tool and receipt identities and EPUB external package names remain unchanged while internal source identifiers retain repository C# conventions"
         }
