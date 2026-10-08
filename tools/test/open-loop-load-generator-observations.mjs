@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
 
 import { canonicalJson, sealContentDigest } from './attempt-provenance.mjs';
+import { readLoadTransportResponseFacts } from './load-request-observations.mjs';
 import { validateLoadTransportPolicy, verifyLoadTransportObservation } from './open-loop-load-client-transport.mjs';
 import { verifyOpenLoopLoadSchedule, verifyOpenLoopLoadTimeline } from './open-loop-load-schedule.mjs';
 
@@ -33,6 +34,65 @@ function numeric(value, label, minimum = 0, integer = false)
         || (integer && !Number.isSafeInteger(value)))
     {
         throw new Error(`${label} is unavailable or outside numeric bounds`);
+    }
+}
+
+// Headers arrive before the route decoder. Validate live facts and progression
+// here; the canonical terminal reader later checks the actual timeline sample.
+function responseFacts(event, headers)
+{
+    const facts = event.responseFacts;
+    exact(facts, ['httpStatus', 'contentType', 'bytesReceived', 'bodyState'], 'transport response facts');
+    for (const [name, source] of [['httpStatus', 'node:http.IncomingMessage.statusCode'],
+        ['contentType', 'node:http.IncomingMessage.headers.content-type']])
+    {
+        const field = facts[name];
+        exact(field, field?.status === 'ok' ? ['status', 'value', 'source'] : ['status', 'value', 'reason', 'source'], name);
+        if (field.source !== source || !['ok', 'unavailable'].includes(field.status)
+            || field.status === 'unavailable' && (field.value !== null || typeof field.reason !== 'string' || !field.reason))
+        {
+            throw new Error('transport response facts require actual availability/source');
+        }
+    }
+    const bytes = facts.bytesReceived;
+    exact(bytes, ['status', 'value', 'unit', 'source'], 'received byte counter');
+    if (bytes.status !== 'ok' || bytes.unit !== 'bytes' || bytes.source !== 'node:http.IncomingMessage.data')
+    {
+        throw new Error('actual delivered byte counter is unavailable');
+    }
+    numeric(bytes.value, 'actual delivered byte count', 0, true);
+    if (facts.bodyState === 'not-started')
+    {
+        if (facts.httpStatus.status !== 'unavailable' || facts.contentType.status !== 'unavailable'
+            || facts.httpStatus.reason !== 'response-headers-not-received'
+            || facts.contentType.reason !== 'response-headers-not-received' || bytes.value !== 0)
+        {
+            throw new Error('response facts contradict the no-response sentinel');
+        }
+    }
+    else if (!['partial', 'complete'].includes(facts.bodyState) || facts.httpStatus.status !== 'ok'
+        || !Number.isSafeInteger(facts.httpStatus.value) || facts.httpStatus.value < 100 || facts.httpStatus.value > 599
+        || (facts.contentType.status === 'ok' ? typeof facts.contentType.value !== 'string'
+            : facts.contentType.reason !== 'content-type-header-absent'))
+    {
+        throw new Error('response facts require actual header/body observations');
+    }
+    if (event.type === 'response-headers')
+    {
+        if (headers.has(event.sampleId) || facts.bodyState !== 'partial' || bytes.value !== 0)
+        {
+            throw new Error('response header boundary requires one partial zero-byte observation');
+        }
+        headers.set(event.sampleId, freeze(structuredClone(facts)));
+    }
+    else
+    {
+        const header = headers.get(event.sampleId);
+        if (header ? facts.bodyState === 'not-started' || ['httpStatus', 'contentType'].some((name) =>
+            canonicalJson(header[name]) !== canonicalJson(facts[name])) : facts.bodyState !== 'not-started')
+        {
+            throw new Error('terminal response facts differ from the actual header boundary');
+        }
     }
 }
 
@@ -229,6 +289,8 @@ function poolMetrics(rows)
  * Portable synchronous callbacks for runOpenLoopRouteContractProbe. Pass the
  * three named callbacks directly, then finish with the probe's exact schedule,
  * timeline, measurementWindow and transportEvidence. Always dispose in finally.
+ * Header/completion events require the transport's actual responseFacts; the
+ * shared probe also requires explicit registration from observeLoadIssuer().
  * No HTTP runner, arrival-rate change, backend observation or global dispatcher.
  * Timers use performance.now() in the scheduler's actual monotonic coordinate.
  */
@@ -251,6 +313,7 @@ export function createOpenLoopLoadGeneratorCollector({ policy: candidate, schedu
         backendIdentity: structuredClone(backend), policyDigest: digest(policy) }));
     const samples = [];
     const events = [];
+    const responseHeaders = new Map();
     let start;
     let end;
     let timer;
@@ -385,6 +448,10 @@ export function createOpenLoopLoadGeneratorCollector({ policy: candidate, schedu
         }
         snapshot(Object.fromEntries(snapshotKeys.map((key) => [key, value[key]])));
         numeric(value.atMs, 'transport event atMs', start.startedMonotonicMs);
+        if (value.type === 'response-headers' || value.type === 'request-completed')
+        {
+            responseFacts(value, responseHeaders);
+        }
         events.push(freeze(structuredClone(value)));
     }
 
@@ -490,12 +557,13 @@ function transportFacts(facts, inputs)
     const connectionCounts = new Map();
     const arrivals = new Map(inputs.timeline.records.map((row) => [row.sampleId, row]));
     const lifecycle = new Map();
+    const responseHeaders = new Map();
     let lastAt = start.startedMonotonicMs;
     for (const event of events)
     {
         const additionalKeys = { 'dns-verified': ['sampleId', 'dnsResult'],
-            'socket-assigned': ['sampleId', 'transport'], 'response-headers': ['sampleId', 'transport'],
-            'request-completed': ['sampleId', 'transport', 'failureStage', 'ok'], 'transport-closed': [] };
+            'socket-assigned': ['sampleId', 'transport'], 'response-headers': ['sampleId', 'transport', 'responseFacts'],
+            'request-completed': ['sampleId', 'transport', 'failureStage', 'ok', 'responseFacts'], 'transport-closed': [] };
         if (!eventTypes.includes(event.type) || event.identityDigest !== start.transportIdentity.contentDigest)
         {
             throw new Error('transport event vocabulary or identity drift');
@@ -526,6 +594,10 @@ function transportFacts(facts, inputs)
         }
         seen.push(event.type);
         lifecycle.set(event.sampleId, seen);
+        if (event.type === 'response-headers' || event.type === 'request-completed')
+        {
+            responseFacts(event, responseHeaders);
+        }
         if (event.type === 'dns-verified' && canonicalJson(event.dnsResult) !== canonicalJson(start.transportIdentity.policy.dnsResult))
         {
             throw new Error('actual transport DNS configuration drift');
@@ -554,6 +626,7 @@ function transportFacts(facts, inputs)
         }
         if (event.type === 'request-completed')
         {
+            readLoadTransportResponseFacts(event.responseFacts, arrival.sample);
             const assigned = assignments.get(event.sampleId)?.transport;
             if (!assigned || !event.transport || event.transport.connectionId !== assigned.connectionId
                 || typeof event.ok !== 'boolean' || event.ok !== arrival.sample?.ok
