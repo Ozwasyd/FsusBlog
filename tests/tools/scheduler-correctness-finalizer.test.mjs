@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
 
-const { fixture: receiptFixture } = await import(new URL('./support/correctness-terminal-fixture.mjs', import.meta.url));
+const { fixture: receiptFixture, seal } = await import(new URL('./support/correctness-terminal-fixture.mjs', import.meta.url));
 const { controlledSchedulerCandidate, writeCanonicalSchedulerFixture } = await import(new URL('./support/canonical-scheduler-fixture.mjs', import.meta.url));
 const { commitSchedulerCheckpointCAS, readCanonicalSchedulerCheckpoint, runDag } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 const { finalizeSchedulerCorrectness, readCurrentSchedulerCorrectness } = await import(new URL('../../tools/test-matrix/scheduler-correctness-finalizer.mjs', import.meta.url));
@@ -16,7 +16,15 @@ const { publishCorrectnessProvisional } = await import(new URL('../../tools/rele
 function fixture(t)
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scheduler-terminal-finalizer-'));
-    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    let controller;
+    t.after(() =>
+    {
+        if (controller && fs.existsSync(controller.lockPath))
+        {
+            controller.finalize('failed');
+        }
+        fs.rmSync(root, { recursive: true, force: true });
+    });
     const material = receiptFixture();
     const runsRoot = path.join(root, '.tmp/test-runs');
     const runDirectory = path.join(runsRoot, material.context.runId);
@@ -29,17 +37,10 @@ function fixture(t)
     const candidate = schedulerCandidateIdentityDigest({ runId: material.context.runId,
         targetTierId: 'production-correctness', namespace: 'test-matrix', sourceState: material.context.sourceState });
     // Real current-process owner/append-only store/CAS; domain inputs remain explicitly controlled source fixtures.
-    const controller = acquireSchedulerRunLock({ runsRoot, runId: material.context.runId,
+    controller = acquireSchedulerRunLock({ runsRoot, runId: material.context.runId,
         targetTierId: 'production-correctness', candidateIdentityDigest: candidate });
     controller.markRunning();
     controller.markFinalizing();
-    t.after(() =>
-    {
-        if (fs.existsSync(path.join(runsRoot, '.locks', `${material.context.runId}.lock`)))
-        {
-            controller.finalize('failed');
-        }
-    });
     const checkpoint = { ...material.snapshots.before.checkpoint, status: 'success',
         targetTierId: 'production-correctness', namespace: 'test-matrix', budgetPolicyDigest: null,
         schedulerCandidateIdentityDigest: candidate, schedulerRunOwnerToken: controller.owner.ownerToken,
@@ -56,6 +57,37 @@ function fixture(t)
         options: { checkpointFile, owner: controller.owner, readCanonical: readCanonicalSchedulerCheckpoint,
             commit: commitSchedulerCheckpointCAS, requiredDependencyTierIds: ['unit'], postflight: async () =>
             {} } };
+}
+
+function prepareCurrentReverseChild(current)
+{
+    const parent = readCanonicalSchedulerCheckpoint(current.checkpointFile);
+    const before = { ref: parent.checkpointDigest, checkpoint: parent.checkpoint };
+    const inputs = { context: current.material.context, provisional: current.material.provisional,
+        snapshots: { before, after: structuredClone(before), expected: {
+            ...current.material.snapshots.expected, checkpointRevision: parent.checkpoint.revision,
+            checkpointDigest: parent.checkpointDigest } },
+        aggregateTerminalReceipt: seal({ ...current.material.aggregateTerminalReceipt,
+            terminalCheckpointRef: parent.checkpointDigest, commandExitCode: 0, outcomeValidated: true }),
+        finalizedAt: current.material.finalizedAt };
+    const journal = new CorrectnessTerminalSealJournal({ store: current.store,
+        targetAttemptId: current.material.context.targetAttemptId });
+    const prepared = journal.prepare(inputs);
+    const packet = journal.readPacket(prepared.packetRef);
+    const final = current.store.publishObject(packet.receipt);
+    const child = commitSchedulerCheckpointCAS({ checkpointFile: current.checkpointFile,
+        expectedRevision: parent.checkpoint.revision, expectedDigest: parent.checkpointDigest,
+        owner: current.controller.owner, update(checkpoint)
+        {
+            checkpoint.correctnessSealPacketRef = prepared.packetRef;
+            checkpoint.correctnessFinalReceiptObjectRef = final.digest;
+            checkpoint.correctnessAttempt.status = 'finalized';
+            checkpoint.correctnessTerminalSeal = { status: 'finalized', runId: checkpoint.runId,
+                targetTierId: 'production-correctness', targetAttemptId: current.material.context.targetAttemptId,
+                terminalParentRef: parent.checkpointDigest, finalReceiptRef: packet.receipt.contentDigest,
+                finalReceiptDigest: packet.receipt.contentDigest };
+        } });
+    return { journal, packet, prepared, child };
 }
 
 test('scheduler finalizer commits real immutable final and reverse child exactly once under current owner', async (t) =>
@@ -79,6 +111,102 @@ test('scheduler finalizer commits real immutable final and reverse child exactly
     assert.equal(current.store.readJournal().length, sequence);
     const canonical = readCanonicalSchedulerCheckpoint(current.checkpointFile);
     assert.equal(canonical.checkpoint.correctnessTerminalSeal.finalReceiptDigest, result.receipt.contentDigest);
+});
+
+test('same active owner retries an already finalized current attempt without a new CAS or journal event', async (t) =>
+{
+    const current = fixture(t);
+    const first = await finalizeSchedulerCorrectness(current.options);
+    const canonical = readCanonicalSchedulerCheckpoint(current.checkpointFile);
+    const sequence = current.store.readJournal().length;
+    fs.rmSync(current.packetFile);
+    const retried = await finalizeSchedulerCorrectness({ ...current.options,
+        loadProvisional: () => assert.fail('retry must use immutable prepared packet'),
+        commit: () => assert.fail('retry must not create a new terminal parent') });
+    assert.equal(retried.receipt.contentDigest, first.receipt.contentDigest);
+    assert.equal(retried.packetRef, first.packetRef);
+    assert.equal(readCanonicalSchedulerCheckpoint(current.checkpointFile).checkpointDigest, canonical.checkpointDigest);
+    assert.equal(current.store.readJournal().length, sequence);
+    assert.equal(current.controller.finalize('complete'), true);
+    assert.equal(readCurrentSchedulerCorrectness({ checkpointFile: current.checkpointFile,
+        readCanonical: readCanonicalSchedulerCheckpoint }).receipt.contentDigest, first.receipt.contentDigest);
+});
+
+test('active owner completes only the explicit prepared current reverse child and recovery is idempotent', async (t) =>
+{
+    const current = fixture(t);
+    // Controlled domain setup, real store/owner/CAS: no killed-owner transfer or physical crash qualification.
+    const prepared = prepareCurrentReverseChild(current);
+    assert.equal(prepared.journal.state().record.status, 'prepared');
+    const sequence = current.store.readJournal().length;
+    let postflights = 0;
+    const options = { ...current.options, loadProvisional: () => assert.fail('must not rerun provisional producer'),
+        commit: () => assert.fail('must not mint another terminal parent'), postflight: async () =>
+        {
+            postflights += 1;
+        } };
+    const recovered = await finalizeSchedulerCorrectness(options);
+    assert.equal(recovered.receipt.contentDigest, prepared.packet.receipt.contentDigest);
+    assert.equal(recovered.packetRef, prepared.prepared.packetRef);
+    assert.equal(readCanonicalSchedulerCheckpoint(current.checkpointFile).checkpointDigest, prepared.child.checkpointDigest);
+    assert.equal(prepared.journal.state().record.status, 'finalized');
+    assert.equal(current.store.readJournal().length, sequence + 1);
+    await finalizeSchedulerCorrectness(options);
+    assert.equal(postflights, 2);
+    assert.equal(current.store.readJournal().length, sequence + 1);
+});
+
+test('current seal recovery rejects history, failed postflight, dependency drift and lost owner without finalizing', async (t) =>
+{
+    for (const kind of ['rejected', 'packet-ref', 'dependency-attempt', 'postflight', 'canonical-drift', 'inactive-owner'])
+    {
+        const current = fixture(t);
+        const prepared = prepareCurrentReverseChild(current);
+        const options = { ...current.options, commit: () => assert.fail('recovery must not use CAS') };
+        if (kind === 'rejected')
+        {
+            prepared.journal.reject({ packetRef: prepared.prepared.packetRef, reasonCode: 'prior-refusal' });
+        }
+        else if (['packet-ref', 'dependency-attempt'].includes(kind))
+        {
+            const checkpoint = readCanonicalSchedulerCheckpoint(current.checkpointFile).checkpoint;
+            if (kind === 'packet-ref')
+            {
+                checkpoint.correctnessSealPacketRef = `sha256:${'e'.repeat(64)}`;
+            }
+            else
+            {
+                checkpoint.currentRunEvidenceReferences.attemptId = 'old-attempt';
+            }
+            writeCanonicalSchedulerFixture(current.checkpointFile, checkpoint);
+        }
+        else if (kind === 'postflight')
+        {
+            options.postflight = async () =>
+            {
+                throw new Error('recovery postflight refused');
+            };
+        }
+        else if (kind === 'canonical-drift')
+        {
+            options.postflight = async () =>
+            {
+                const checkpoint = readCanonicalSchedulerCheckpoint(current.checkpointFile).checkpoint;
+                checkpoint.failure = { reason: 'different canonical state' };
+                writeCanonicalSchedulerFixture(current.checkpointFile, checkpoint);
+            };
+        }
+        else
+        {
+            current.controller.finalize('failed');
+        }
+        const sequence = current.store.readJournal().length;
+        await assert.rejects(finalizeSchedulerCorrectness(options),
+            /not-current-or-rejected|dependency-not-terminal|postflight refused|canonical-drift|owner-not-active/u, kind);
+        const events = current.store.readJournal().filter((event) => event.eventType === 'correctness-terminal-seal');
+        assert.equal(events.some((event) => event.status === 'finalized'), false, kind);
+        assert.equal(current.store.readJournal().length, sequence + (kind === 'canonical-drift' ? 1 : 0), kind);
+    }
 });
 
 test('canonical CAS refuses stale revisions/digests/wrong owner and identity drift before mutation publication', (t) =>

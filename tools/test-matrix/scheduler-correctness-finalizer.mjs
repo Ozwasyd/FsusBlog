@@ -3,11 +3,11 @@ import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 
 import { RunEvidenceObjectStore } from './content-addressed-evidence-store.mjs';
-import { schedulerRunOwnerIsComplete, verifySchedulerRunOwner } from './scheduler-run-owner.mjs';
+import { schedulerRunLockActivity, schedulerRunOwnerIsComplete, verifySchedulerRunOwner } from './scheduler-run-owner.mjs';
 
 const { digestValue } = await import(new URL('../release/browser-contract-receipt-contract.mjs', import.meta.url));
 const { validateCorrectnessProvisionalReceipt } = await import(new URL('../release/correctness-provisional-receipt.mjs', import.meta.url));
-const { createCorrectnessTerminalReceipt } = await import(new URL('../release/correctness-terminal-receipt.mjs', import.meta.url));
+const { createCorrectnessTerminalReceipt, verifyCorrectnessTerminalReceipt } = await import(new URL('../release/correctness-terminal-receipt.mjs', import.meta.url));
 const { CorrectnessTerminalSealJournal } = await import(new URL('../release/correctness-terminal-seal-journal.mjs', import.meta.url));
 
 function loadPacket(file)
@@ -20,30 +20,28 @@ function loadPacket(file)
     return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-/** Called by runDag after command settlement and every registered scheduler cleanup, while its owner is finalizing. */
-export async function finalizeSchedulerCorrectness({ checkpointFile, owner, readCanonical, commit,
-    requiredDependencyTierIds, loadProvisional = loadPacket, postflight, faultInjector = () =>
-    {} })
+function assertActiveSealOwner(checkpointFile, checkpoint, owner)
 {
-    let canonical = readCanonical(checkpointFile);
-    const initial = canonical?.checkpoint;
-    const attempt = initial?.correctnessAttempt;
-    const tier = initial?.tiers?.['production-correctness'];
-    if (!attempt || initial.status !== 'success' || initial.authoritative !== true || initial.candidateIdentityValidated !== true
-        || tier?.status !== 'success' || tier.commandExitCode !== 0 || tier.outcomeValidated !== true
-        || tier.targetAttemptId !== attempt.targetAttemptId || initial.schedulerRunOwnerToken !== owner.ownerToken)
+    const activity = schedulerRunLockActivity({ runsRoot: path.dirname(path.dirname(checkpointFile)),
+        runId: checkpoint.runId, targetTierId: checkpoint.targetTierId,
+        candidateIdentityDigest: checkpoint.schedulerCandidateIdentityDigest });
+    if (activity.status !== 'active' || activity.owner?.ownerToken !== owner?.ownerToken
+        || checkpoint.schedulerRunOwnerToken !== owner?.ownerToken)
     {
-        throw new Error('contract.correctness-terminal-ineligible: current canonical command/attempt/authority');
+        throw new Error('contract.correctness-seal-owner-not-active');
     }
-    const packet = await loadProvisional(attempt.provisionalPacketFile, { checkpoint: structuredClone(initial) });
+}
+
+function validateCurrentProvisional(initial, packet, requiredDependencyTierIds)
+{
     if (Object.keys(packet).sort().join(',') !== 'context,provisional')
     {
         throw new Error('correctness provisional packet requires only context and provisional');
     }
     const { context, provisional } = packet;
     validateCorrectnessProvisionalReceipt(provisional, context);
-    if (context.runId !== initial.runId || context.targetAttemptId !== attempt.targetAttemptId
-        || context.createdFromCheckpointRevision !== attempt.createdFromCheckpointRevision
+    if (context.runId !== initial.runId || context.targetAttemptId !== initial.correctnessAttempt.targetAttemptId
+        || context.createdFromCheckpointRevision !== initial.correctnessAttempt.createdFromCheckpointRevision
         || !isDeepStrictEqual(context.sourceState, initial.sourceState)
         || !isDeepStrictEqual(context.requiredDependencyTierIds, [...requiredDependencyTierIds].sort())
         || initial.releaseCandidateIdentity?.immutableBuildReceiptDigest !== context.buildReceiptDigest)
@@ -62,6 +60,89 @@ export async function finalizeSchedulerCorrectness({ checkpointFile, owner, read
             throw new Error(`contract.correctness-dependency-not-terminal: ${dependencyId}`);
         }
     }
+    return { context, provisional };
+}
+
+async function recoverCurrentSeal({ checkpointFile, canonical, owner, readCanonical, requiredDependencyTierIds, postflight })
+{
+    const checkpoint = canonical.checkpoint;
+    const seal = checkpoint.correctnessTerminalSeal;
+    if (checkpoint.correctnessAttempt.status !== 'finalized' || seal?.status !== 'finalized'
+        || seal.targetAttemptId !== checkpoint.correctnessAttempt.targetAttemptId
+        || !checkpoint.correctnessSealPacketRef || !checkpoint.correctnessFinalReceiptObjectRef)
+    {
+        throw new Error('contract.correctness-existing-seal-incomplete');
+    }
+    const store = new RunEvidenceObjectStore({ root: path.join(path.dirname(checkpointFile), 'evidence-store'),
+        runId: checkpoint.runId, sourceState: checkpoint.sourceState });
+    const journal = new CorrectnessTerminalSealJournal({ store, targetAttemptId: checkpoint.correctnessAttempt.targetAttemptId });
+    const state = journal.state();
+    if (!state || !['prepared', 'finalized'].includes(state.record.status)
+        || state.record.packetRef !== checkpoint.correctnessSealPacketRef)
+    {
+        throw new Error('contract.correctness-existing-seal-not-current-or-rejected');
+    }
+    const packet = journal.readPacket(checkpoint.correctnessSealPacketRef);
+    const { context } = validateCurrentProvisional(checkpoint,
+        { context: packet.inputs.context, provisional: packet.inputs.provisional }, requiredDependencyTierIds);
+    verifyCorrectnessTerminalReceipt({ ...packet.inputs, receipt: packet.receipt, finalizedCheckpoint: checkpoint });
+    if (!isDeepStrictEqual(store.readObject(checkpoint.correctnessFinalReceiptObjectRef).value, packet.receipt))
+    {
+        throw new Error('contract.correctness-existing-seal-object-drift');
+    }
+    const currentChild = () =>
+    {
+        const current = readCanonical(checkpointFile);
+        if (current?.checkpointDigest !== canonical.checkpointDigest
+            || !isDeepStrictEqual(current.checkpoint, checkpoint))
+        {
+            throw new Error('contract.correctness-existing-seal-canonical-drift');
+        }
+        assertActiveSealOwner(checkpointFile, current.checkpoint, owner);
+        return current.checkpoint;
+    };
+    await postflight(checkpoint, context);
+    currentChild();
+    const recovered = await journal.recover({ packetRef: checkpoint.correctnessSealPacketRef,
+        readFinalizedCheckpoint(binding)
+        {
+            if (binding.runId !== checkpoint.runId || binding.targetAttemptId !== checkpoint.correctnessAttempt.targetAttemptId
+                || binding.terminalParentRef !== seal.terminalParentRef || binding.finalReceiptDigest !== seal.finalReceiptDigest)
+            {
+                throw new Error('contract.correctness-existing-seal-recovery-binding-drift');
+            }
+            return currentChild();
+        } });
+    currentChild();
+    return { ...recovered, checkpoint };
+}
+
+/** Called by runDag after command settlement and every registered scheduler cleanup, while its owner is finalizing. */
+export async function finalizeSchedulerCorrectness({ checkpointFile, owner, readCanonical, commit,
+    requiredDependencyTierIds, loadProvisional = loadPacket, postflight, faultInjector = () =>
+    {} })
+{
+    let canonical = readCanonical(checkpointFile);
+    const initial = canonical?.checkpoint;
+    const attempt = initial?.correctnessAttempt;
+    const tier = initial?.tiers?.['production-correctness'];
+    if (!attempt || initial.status !== 'success' || initial.authoritative !== true || initial.candidateIdentityValidated !== true
+        || tier?.status !== 'success' || tier.commandExitCode !== 0 || tier.outcomeValidated !== true
+        || !['running', 'finalized'].includes(attempt.status)
+        || tier.targetAttemptId !== attempt.targetAttemptId || initial.schedulerRunOwnerToken !== owner?.ownerToken)
+    {
+        throw new Error('contract.correctness-terminal-ineligible: current canonical command/attempt/authority');
+    }
+    assertActiveSealOwner(checkpointFile, initial, owner);
+    // An explicit current reverse child may finish a prepared journal or retry its existing final.
+    // No new parent/CAS, producer invocation, clock selection, or historical attempt scan is allowed.
+    if (attempt.status === 'finalized' || initial.correctnessTerminalSeal || initial.correctnessSealPacketRef
+        || initial.correctnessFinalReceiptObjectRef)
+    {
+        return recoverCurrentSeal({ checkpointFile, canonical, owner, readCanonical, requiredDependencyTierIds, postflight });
+    }
+    const packet = await loadProvisional(attempt.provisionalPacketFile, { checkpoint: structuredClone(initial) });
+    const { context, provisional } = validateCurrentProvisional(initial, packet, requiredDependencyTierIds);
     await postflight(initial, context);
     canonical = commit({ checkpointFile, expectedRevision: canonical.checkpoint.revision,
         expectedDigest: canonical.checkpointDigest, owner, update(checkpoint)
