@@ -46,9 +46,15 @@ public sealed class DocumentExportPdfProviderTests
     [Fact]
     public void PrintDocument_RetainsRtlAndEscapesTitleWithoutInjectingMarkup()
     {
-        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(WithoutImages() with { Locale = "he-IL" });
+        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(WithoutImages() with
+        {
+            Locale = "he-IL"
+        });
         DocumentExportRendererResponse response = SelfContainedHtmlDocumentExportProvider.SealRendererResponse(
-            Response(input, "<p dir=\"rtl\">שלום</p>") with { Title = "<script>title</script>" });
+            Response(input, "<p dir=\"rtl\">שלום</p>") with
+            {
+                Title = "<script>title</script>"
+            });
 
         PdfPrintRenderRequest request = PdfPrintDocumentLayout.Compose(response, input, 1024 * 1024);
 
@@ -103,7 +109,10 @@ public sealed class DocumentExportPdfProviderTests
         DocumentExportFrozenInput input = WithoutImages();
         DocumentExportRendererResponse response = Response(input, "<p>Text</p>");
         DocumentExportRendererResponse drifted = SelfContainedHtmlDocumentExportProvider.SealRendererResponse(
-            response with { RendererDigest = DocumentExportDigest.ComputeBytes("other"u8) });
+            response with
+            {
+                RendererDigest = DocumentExportDigest.ComputeBytes("other"u8)
+            });
         Assert.Throws<InvalidDataException>(() => PdfPrintDocumentLayout.Compose(drifted, input, 1024 * 1024));
         Assert.Throws<DocumentExportBudgetExceededException>(() => PdfPrintDocumentLayout.Compose(response, input, 100));
     }
@@ -121,7 +130,11 @@ public sealed class DocumentExportPdfProviderTests
         Assert.Equal(JsonValueKind.Null, root.GetProperty("pdfBase64").ValueKind);
         Assert.Equal(JsonValueKind.String, root.GetProperty("fontAssets")[0].GetProperty("bytes").ValueKind);
         Assert.Equal(request, DocumentExportDigest.Deserialize<PdfPrintRenderRequest>(DocumentExportDigest.Serialize(request))
-            with { FontAssets = request.FontAssets, ExpectedLinks = request.ExpectedLinks });
+            with
+        {
+            FontAssets = request.FontAssets,
+            ExpectedLinks = request.ExpectedLinks
+        });
     }
 
     [Theory]
@@ -143,7 +156,10 @@ public sealed class DocumentExportPdfProviderTests
         var response = new PdfPrintRenderResponse(Convert.ToBase64String("not a PDF"u8),
             "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1, 1, []);
         Assert.Throws<InvalidDataException>(() => PdfDocumentExportProvider.ReadResponse(DocumentExportDigest.Serialize(response), 1024));
-        response = response with { PdfBase64 = Convert.ToBase64String("%PDF-1.7\n"u8) };
+        response = response with
+        {
+            PdfBase64 = Convert.ToBase64String("%PDF-1.7\n"u8)
+        };
         string wire = Encoding.UTF8.GetString(DocumentExportDigest.Serialize(response));
         Assert.Throws<InvalidDataException>(() => PdfDocumentExportProvider.ReadResponse(
             Encoding.UTF8.GetBytes(wire[..^1] + ",\"outputId\":\"unexpected-second-authority\"}"), 1024));
@@ -187,6 +203,117 @@ public sealed class DocumentExportPdfProviderTests
 
         Assert.Throws<InvalidDataException>(() => PdfDocumentExportProvider.ValidateCanonicalEvidence(
             [], null!, null!, task, input, CanonicalTool(), DocumentExportContractTests.Digest("trusted-host")));
+    }
+
+    [Fact]
+    public void PdfAttemptEvidence_RetainsActualCanonicalEvidenceAndConsumesItOnce()
+    {
+        PdfDocumentExportResult result = AttemptResult();
+        var pending = new PdfDocumentExportAttemptEvidence();
+
+        Assert.Same(result.ProviderResult, pending.Retain(result));
+        Assert.Same(result, pending.Take(result.ProviderResult, result.AttemptResources));
+        Assert.Throws<InvalidDataException>(() => pending.Take(result.ProviderResult, result.AttemptResources));
+    }
+
+    [Fact]
+    public void PdfAttemptEvidence_RejectsChangedResultBytesWithoutConsumingTheOriginal()
+    {
+        PdfDocumentExportResult result = AttemptResult();
+        var pending = new PdfDocumentExportAttemptEvidence();
+        pending.Retain(result);
+        DocumentExportProviderResult reconstructed = result.ProviderResult with
+        {
+            SandboxOutputBytes = [9]
+        };
+
+        Assert.Throws<InvalidDataException>(() => pending.Take(reconstructed, result.AttemptResources));
+        Assert.Same(result, pending.Take(result.ProviderResult, result.AttemptResources));
+    }
+
+    [Fact]
+    public void PdfAttemptEvidence_VerifiesTheJobsPrivatelyOwnedCopyInTheSameAttempt()
+    {
+        PdfDocumentExportResult result = AttemptResult();
+        var pending = new PdfDocumentExportAttemptEvidence();
+        pending.Retain(result);
+        DocumentExportProviderResult owned = result.ProviderResult with
+        {
+            Bytes = result.ProviderResult.Bytes.ToArray(),
+            SandboxOutputBytes = result.ProviderResult.SandboxOutputBytes.ToArray()
+        };
+
+        PdfDocumentExportResult verified = pending.Take(owned, result.AttemptResources);
+
+        Assert.Same(owned, verified.ProviderResult);
+        Assert.Same(result.CanonicalRendererOutputBytes, verified.CanonicalRendererOutputBytes);
+        Assert.Same(result.AttemptResources, verified.AttemptResources);
+        Assert.Throws<InvalidDataException>(() => pending.Take(owned, result.AttemptResources));
+    }
+
+    [Fact]
+    public void PdfAttemptEvidence_RejectsAResetResourceOwnerWithoutConsumingTheOriginal()
+    {
+        PdfDocumentExportResult result = AttemptResult();
+        PdfDocumentExportResult other = AttemptResult();
+        var pending = new PdfDocumentExportAttemptEvidence();
+        pending.Retain(result);
+
+        Assert.Throws<InvalidDataException>(() => pending.Take(result.ProviderResult, other.AttemptResources));
+        Assert.Same(result, pending.Take(result.ProviderResult, result.AttemptResources));
+    }
+
+    [Fact]
+    public void PdfAttemptEvidence_RejectsUnownedEvidenceAndSupportsTheOriginalLegacyCallPair()
+    {
+        PdfDocumentExportResult result = AttemptResult();
+        var pending = new PdfDocumentExportAttemptEvidence();
+
+        Assert.Throws<InvalidDataException>(() => pending.Retain(result with { AttemptResources = null }));
+        Assert.Throws<InvalidDataException>(() => pending.Take(result.ProviderResult));
+        pending.Retain(result);
+        Assert.Same(result, pending.Take(result.ProviderResult));
+    }
+
+    [Fact]
+    public async Task PdfAttemptEvidence_ConcurrentVerifyCannotConsumeTheSameEvidenceTwice()
+    {
+        PdfDocumentExportResult result = AttemptResult();
+        var pending = new PdfDocumentExportAttemptEvidence();
+        pending.Retain(result);
+        Task<bool>[] claims = Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+        {
+            try
+            {
+                pending.Take(result.ProviderResult, result.AttemptResources);
+                return true;
+            }
+            catch (InvalidDataException)
+            {
+                return false;
+            }
+        })).ToArray();
+
+        Assert.Equal(1, (await Task.WhenAll(claims)).Count(claimed => claimed));
+    }
+
+    private static PdfDocumentExportResult AttemptResult()
+    {
+        DocumentExportFrozenInput input = WithoutImages();
+        DocumentExportProviderContract pdf = DocumentExportContractCatalog.RequireProvider("pdf");
+        DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input) with
+        {
+            FormatId = pdf.FormatId,
+            ProviderId = pdf.ProviderId,
+            ProviderVersion = pdf.ProviderVersion,
+            ContentDigest = string.Empty
+        });
+        // These are inert custody controls. Null receipt/plan fields cannot
+        // qualify a renderer or sandbox; native execution is not simulated.
+        return new(new([1, 2], [3, 4], null!, null!, null!), [], null!, null!, 1, 1)
+        {
+            AttemptResources = new(task, input, pdf.Budgets, TimeProvider.System)
+        };
     }
 
     private static DocumentExportToolContract CanonicalTool()

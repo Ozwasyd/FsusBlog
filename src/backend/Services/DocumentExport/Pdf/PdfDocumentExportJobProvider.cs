@@ -6,10 +6,11 @@ namespace FsusBlog.Server.Services.DocumentExport;
 /// Adapts the PDF implementation to the sole document-export job contract.
 /// Admission, persistence, lifecycle, registration and delivery remain job-owned.
 /// </summary>
-public sealed class PdfDocumentExportJobProvider : IDocumentExportJobProvider
+public sealed class PdfDocumentExportJobProvider : IDocumentExportAttemptJobProvider
 {
     private readonly PdfDocumentExportProvider _provider;
     private readonly string _expectedHostBuildDigest;
+    private readonly PdfDocumentExportAttemptEvidence _evidence = new();
 
     public PdfDocumentExportJobProvider(PdfDocumentExportProvider provider, string expectedHostBuildDigest)
     {
@@ -29,13 +30,40 @@ public sealed class PdfDocumentExportJobProvider : IDocumentExportJobProvider
         DocumentExportTask task,
         DocumentExportFrozenInput input,
         CancellationToken cancellationToken)
-        => (await _provider.ExportAsync(task, input, cancellationToken)).ProviderResult;
+        => _evidence.Retain(await _provider.ExportAsync(task, input, cancellationToken));
+
+    public DocumentExportAttemptResources CreateAttemptResources(
+        DocumentExportTask task, DocumentExportFrozenInput input, TimeProvider time)
+        => _provider.CreateAttemptResources(task, input, time);
+
+    public async Task<DocumentExportProviderResult> ExportAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken)
+        => _evidence.Retain(await _provider.ExportAsync(task, input, resources, cancellationToken));
 
     public async Task VerifyAsync(
         DocumentExportProviderResult result,
         DocumentExportTask task,
         DocumentExportFrozenInput input,
         CancellationToken cancellationToken)
-        => _ = await _provider.ValidateProviderResultAsync(
-            result, task, input, _expectedHostBuildDigest, cancellationToken);
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        PdfDocumentExportResult evidence = _evidence.Take(result);
+        _ = await _provider.ValidateResultAsync(evidence, task, input, _expectedHostBuildDigest, cancellationToken);
+    }
+
+    public async Task VerifyAsync(
+        DocumentExportProviderResult result,
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+        cancellationToken.ThrowIfCancellationRequested();
+        PdfDocumentExportResult evidence = _evidence.Take(result, resources);
+        _ = await _provider.ValidateResultAsync(evidence, task, input, _expectedHostBuildDigest, resources, cancellationToken);
+    }
 }
