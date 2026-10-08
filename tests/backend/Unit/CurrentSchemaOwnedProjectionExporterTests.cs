@@ -349,6 +349,63 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
     }
 
     [Fact]
+    public void RecipeExtraction_OriginalPropertyDefinitionRetainsNumericAndInlineTickChecks()
+    {
+        CurrentSchemaRuntimeRollupTable recipe = Assert.Single(CurrentSchemaRuntimeRollupTables.Tables,
+            static table => table.TableName == "article_property_definition");
+        CurrentSchemaRecipeFacts facts = CurrentSchemaRecipeFactExtractor.Extract(recipe);
+        foreach (string name in new[] { "min_number", "max_number" })
+        {
+            SchemaColumnModel column = facts.Table.Columns[name];
+            Assert.Equal("decimal", column.DataType);
+            Assert.Equal("numeric", column.PhysicalType);
+            Assert.True(column.IsNullable);
+            Assert.Null(column.DefaultValue);
+            Assert.Null(column.MaxLength);
+        }
+        foreach (string name in new[] { "min_date_utc_ticks", "max_date_utc_ticks" })
+        {
+            SchemaConstraintModel check = facts.Table.Constraints[$"article_property_definition_{name}_check"];
+            Assert.Equal("check", check.Kind);
+            Assert.Empty(check.Columns);
+            Assert.Equal($"{name} BETWEEN 0 AND 3155378975999999999", check.Expression);
+        }
+        Assert.Equal("article_property_definition", facts.Table.Name);
+        Assert.Empty(facts.AdditionalOperations);
+    }
+
+    [Fact]
+    public void RecipeExtraction_InlineCheckRetainsNestedLiteralAndOriginalImplicitName()
+    {
+        var recipe = new CurrentSchemaRuntimeRollupTable("probe", """
+            CREATE TABLE IF NOT EXISTS probe (
+                id integer PRIMARY KEY,
+                amount numeric NULL,
+                label varchar(64) NULL CHECK (label IN ('a  b', 'c) d'))
+            );
+            """);
+        CurrentSchemaRecipeFacts facts = CurrentSchemaRecipeFactExtractor.Extract(recipe);
+        SchemaConstraintModel check = facts.Table.Constraints["probe_label_check"];
+        Assert.Equal("label IN ('a  b', 'c) d')", check.Expression);
+        Assert.Empty(check.Columns);
+        Assert.Equal("numeric", facts.Table.Columns["amount"].PhysicalType);
+        Assert.Equal("decimal", facts.Table.Columns["amount"].DataType);
+    }
+
+    [Theory]
+    [InlineData("amount numeric(12, 2) NULL")]
+    [InlineData("amount numeric NULL UNKNOWN")]
+    [InlineData("amount numeric NULL CHECK ()")]
+    [InlineData("amount numeric NULL CHECK (amount > 0) DEFERRABLE")]
+    [InlineData("amount numeric NULL CHECK (amount > 0); DROP TABLE probe")]
+    [InlineData("amount numeric NULL CHECK (amount > 0 /* hidden */)")]
+    public void RecipeExtraction_UnknownNumericModifiersAndInlineCheckTailsRefuse(string column)
+    {
+        var recipe = new CurrentSchemaRuntimeRollupTable("probe", $"CREATE TABLE IF NOT EXISTS probe (id integer PRIMARY KEY, {column});");
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaRecipeFactExtractor.Extract(recipe));
+    }
+
+    [Fact]
     public void RecipeExtraction_PreservesNestedDefaultsDeferredConstraintsAndLiteralContents()
     {
         var recipe = new CurrentSchemaRuntimeRollupTable("probe", """
