@@ -4,6 +4,22 @@ import type { LocaleSchema } from '../keys';
 import type { admin as zhCNAdmin } from '../zh-CN/admin';
 
 export const admin = {
+    articleMetadata: {
+        title: '全域屬性',
+        refresh: '重新整理屬性',
+        empty: '尚無全域屬性',
+        missing: '未設定',
+        nullValue: '空值',
+        yes: '是',
+        no: '否',
+        unknownOption: '未知選項',
+        reconciliation: '部分屬性需要重新核對',
+        articleRequired: '儲存文章後可讀取屬性',
+        draftUnavailable: '獨立草稿的屬性暫時無法讀取',
+        loading: '正在讀取屬性',
+        unavailable: '屬性暫時無法使用',
+        revision: '文章版本 {articleRevision} · 屬性版本 {propertyRevision}'
+    },
     articleInspector: {
         commandGroup: '文章檢查器',
         commands: {

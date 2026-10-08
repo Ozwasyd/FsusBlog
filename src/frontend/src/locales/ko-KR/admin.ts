@@ -4,6 +4,22 @@ import type { LocaleSchema } from '../keys';
 import type { admin as zhCNAdmin } from '../zh-CN/admin';
 
 export const admin = {
+    articleMetadata: {
+        title: '전역 속성',
+        refresh: '속성 새로 고침',
+        empty: '전역 속성 없음',
+        missing: '설정되지 않음',
+        nullValue: '널 값',
+        yes: '예',
+        no: '아니요',
+        unknownOption: '알 수 없는 옵션',
+        reconciliation: '일부 속성을 검토해야 합니다',
+        articleRequired: '속성을 읽으려면 글을 저장하세요',
+        draftUnavailable: '독립 초안의 속성을 읽을 수 없습니다',
+        loading: '속성 읽는 중',
+        unavailable: '속성을 사용할 수 없음',
+        revision: '글 버전 {articleRevision} · 속성 버전 {propertyRevision}'
+    },
     articleInspector: {
         commandGroup: '글 검사기',
         commands: {

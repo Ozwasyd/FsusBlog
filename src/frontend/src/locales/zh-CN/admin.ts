@@ -1,6 +1,22 @@
 export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'admin' } as const);
 
 export const admin = {
+    articleMetadata: {
+        title: '全局属性',
+        refresh: '刷新属性',
+        empty: '暂无全局属性',
+        missing: '未设置',
+        nullValue: '空值',
+        yes: '是',
+        no: '否',
+        unknownOption: '未知选项',
+        reconciliation: '部分属性需要重新核对',
+        articleRequired: '保存文章后可读取属性',
+        draftUnavailable: '独立草稿的属性暂不可读取',
+        loading: '正在读取属性',
+        unavailable: '属性暂不可用',
+        revision: '文章版本 {articleRevision} · 属性版本 {propertyRevision}'
+    },
     articleInspector: {
         commandGroup: '文章检查器',
         commands: {

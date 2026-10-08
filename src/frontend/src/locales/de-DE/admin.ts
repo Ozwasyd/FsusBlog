@@ -4,6 +4,22 @@ import type { LocaleSchema } from '../keys';
 import type { admin as zhCNAdmin } from '../zh-CN/admin';
 
 export const admin = {
+    articleMetadata: {
+        title: 'Globale Eigenschaften',
+        refresh: 'Eigenschaften aktualisieren',
+        empty: 'Keine globalen Eigenschaften',
+        missing: 'Nicht gesetzt',
+        nullValue: 'Nullwert',
+        yes: 'Ja',
+        no: 'Nein',
+        unknownOption: 'Unbekannte Option',
+        reconciliation: 'Einige Eigenschaften müssen geprüft werden',
+        articleRequired: 'Artikel speichern, um Eigenschaften zu lesen',
+        draftUnavailable: 'Eigenschaften unabhängiger Entwürfe sind nicht verfügbar',
+        loading: 'Eigenschaften werden gelesen',
+        unavailable: 'Eigenschaften nicht verfügbar',
+        revision: 'Artikelversion {articleRevision} · Eigenschaftsversion {propertyRevision}'
+    },
     articleInspector: {
         commandGroup: 'Artikelinspektor',
         commands: {

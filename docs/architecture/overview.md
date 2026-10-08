@@ -128,6 +128,18 @@ retain their own focus target, and reopening invalidates delayed close restorati
 No private editor element, copied selection/history store, or viewport completion
 receipt is introduced.
 
+The publish inspector borrows the canonical `ArticleMetadataRead` consumer and
+its original typed model. It uses the live Writer binding context, persisted
+article identity and explicit global definition scope (`null`), never the actor
+as a definition owner. The canonical site scope is `primary-site`. Actor changes,
+permission loss, close, save and binding release invalidate pending reads;
+ordinary body/source-revision updates do not trigger metadata requests. The
+read-only panel preserves decimal96, Int64 and UTC tick precision and shows
+localized unavailable/reconciliation states without raw wire reasons. Its refresh
+button calls the same canonical no-store read. External definition-schema change
+notification has no current public source and remains an explicit integration gap;
+this composition does not claim authenticated database or migration acceptance.
+
 The Writer's inspector command entry sits above the body surface, keeping it
 reachable when the native selection toolbar is open. The same public command
 palette and editor instance remain in use; the native toolbar remains enabled.

@@ -208,6 +208,25 @@
                             @open-cover-upload="triggerCoverInput"
                             @clear-cover="articleForm.coverImageUrl = ''"
                         />
+                        <ArticleMetadataRead
+                            v-slot="{ model, state, refresh }"
+                            :context="metadataDocumentContext"
+                            :definition-owner-user-id="null"
+                            :enabled="metadataReadEnabled"
+                            :read-key="metadataReadKey"
+                        >
+                            <ArticleMetadataReadPanel
+                                :model="model"
+                                :state="state"
+                                :locale="activeLocale"
+                                :labels="metadataLabels"
+                                :revision-label="model ? translate('admin.articleMetadata.revision', {
+                                    articleRevision: model.currentArticleRevisionId,
+                                    propertyRevision: model.propertyRevision
+                                }) : ''"
+                                @refresh="refresh"
+                            />
+                        </ArticleMetadataRead>
                     </template>
 
                     <template #rights>
@@ -756,7 +775,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { ArticlePublishStatus } from '@/api/article';
@@ -764,6 +783,8 @@ import type { AssetLibraryItemResponse } from '@/api/authoring';
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue';
 import ArticleAuthorCommandEntry from '@/components/admin/article/ArticleAuthorCommandEntry.vue';
 import { focusFirstArticleValidationError } from '@/components/admin/article/articleEditorAccessibility';
+import ArticleMetadataRead from '@/components/admin/article/ArticleMetadataRead.vue';
+import ArticleMetadataReadPanel from '@/components/admin/article/ArticleMetadataReadPanel.vue';
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue';
 import ArticleRevisionPanel from '@/components/admin/article/ArticleRevisionPanel.vue';
 import ArticleSeoPreviewPanel from '@/components/admin/article/ArticleSeoPreviewPanel.vue';
@@ -1086,7 +1107,7 @@ const authoringModalActive = computed(() => quickCreateCategoryDialog.value || q
     submitConfirmDialog.value || leaveConfirmDialog.value);
 const authoringTheme = useThemeRuntime();
 const authoringAdmin = useAdminStore();
-let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
+const editorRuntimeBinding = shallowRef<ArticleEditorRuntimeBinding | null>(null);
 let boundEditorPort: ArticleEditorContinuityPort | null = null;
 let releaseEditorRuntime: (() => void) | null = null;
 let editorBindingGeneration = 0;
@@ -1096,7 +1117,7 @@ watch(articleEditorRef, () =>
     const generation = ++editorBindingGeneration;
     releaseEditorRuntime?.();
     releaseEditorRuntime = null;
-    editorRuntimeBinding = null;
+    editorRuntimeBinding.value = null;
     boundEditorPort = null;
     void nextTick().then(() =>
     {
@@ -1118,7 +1139,7 @@ watch(articleEditorRef, () =>
             cachePolicy: { maxEntryBytes: 4 * 1024 * 1024, maxAgeMs: 60_000, maxReceipts: 64 }
         });
         boundEditorPort = port;
-        editorRuntimeBinding = bound.binding;
+        editorRuntimeBinding.value = bound.binding;
         releaseEditorRuntime = bound.release;
         // Observe actual editor events; initialization dispatch would steal initial title focus.
     });
@@ -1127,13 +1148,13 @@ onUnmounted(() =>
 {
     editorBindingGeneration += 1;
     releaseEditorRuntime?.();
-    editorRuntimeBinding = null;
+    editorRuntimeBinding.value = null;
     boundEditorPort = null;
 });
 
 function consumeAuthoringTransaction(event: MarkdownEditorDispatchResult): void
 {
-    editorRuntimeBinding?.consumeTransaction(event);
+    editorRuntimeBinding.value?.consumeTransaction(event);
 }
 
 function consumeAuthoringSelection(event: {
@@ -1144,18 +1165,18 @@ function consumeAuthoringSelection(event: {
 {
     if (event.documentIdentity)
     {
-        editorRuntimeBinding?.consumeSelection({ ...event, documentIdentity: event.documentIdentity });
+        editorRuntimeBinding.value?.consumeSelection({ ...event, documentIdentity: event.documentIdentity });
     }
 }
 
 function consumeAuthoringFocus(event: 'focusin' | 'focusout'): void
 {
-    editorRuntimeBinding?.consumeFocus(event);
+    editorRuntimeBinding.value?.consumeFocus(event);
 }
 
 function createEditorFocusReturn(): (() => boolean) | null
 {
-    const binding = editorRuntimeBinding;
+    const binding = editorRuntimeBinding.value;
     const port = boundEditorPort;
     const document = authoringDocumentContext.value;
     if (!binding || !port || !document || !authoringDocumentContextAdapter.isCurrentContext(document) ||
@@ -1167,7 +1188,7 @@ function createEditorFocusReturn(): (() => boolean) | null
     const contextDigest = document.contextDigest;
     return () =>
     {
-        if (editorRuntimeBinding !== binding || boundEditorPort !== port ||
+        if (editorRuntimeBinding.value !== binding || boundEditorPort !== port ||
             authoringDocumentContext.value?.contextDigest !== contextDigest || pageLoading.value ||
             !authoringDocumentContextAdapter.isCurrentContext(document) ||
             submitting.value || authoringModalActive.value || authoringAdmin.adminState !== 'active' ||
@@ -1231,6 +1252,41 @@ const { commands: inspectorCommands } = useArticleWriteInspectorCommands({
     saving: submitting,
     modalActive: authoringModalActive
 });
+
+// Borrow the live canonical binding, including its scope and persisted/draft identity.
+const metadataDocumentContext = computed(() =>
+{
+    const context = authoringDocumentContext.value;
+    const binding = editorRuntimeBinding.value;
+    const userScope = `user:${authoringAdmin.adminPrincipal?.id?.trim() ?? 'unknown'}`;
+    return binding && context && authoringDocumentContextAdapter.isCurrentContext(context)
+        && context.userScope === userScope
+        ? binding.context : null;
+});
+const metadataReadEnabled = computed(() => activeInspector.value === 'publish' &&
+    metadataDocumentContext.value?.articleId != null && authoringAdmin.adminState === 'active' &&
+    authoringAdmin.hasPermission('article.write') && !pageLoading.value && !submitting.value);
+// Null explicitly selects global definitions; actor identity is only an invalidation input.
+// Source revisions/body edits are deliberately excluded from metadata refresh identity.
+const metadataReadKey = computed(() => `${authoringAdmin.adminPrincipal?.id ?? ''}:${authoringAdmin.adminState}:` +
+    `${authoringAdmin.hasPermission('article.write')}:${currentRevisionId.value ?? ''}`);
+const metadataLabels = computed(() => ({
+    title: translate('admin.articleMetadata.title'),
+    refresh: translate('admin.articleMetadata.refresh'),
+    empty: translate('admin.articleMetadata.empty'),
+    missing: translate('admin.articleMetadata.missing'),
+    nullValue: translate('admin.articleMetadata.nullValue'),
+    yes: translate('admin.articleMetadata.yes'),
+    no: translate('admin.articleMetadata.no'),
+    unknownOption: translate('admin.articleMetadata.unknownOption'),
+    reconciliation: translate('admin.articleMetadata.reconciliation'),
+    states: {
+        'article-required': translate('admin.articleMetadata.articleRequired'),
+        'draft-unavailable': translate('admin.articleMetadata.draftUnavailable'),
+        loading: translate('admin.articleMetadata.loading'),
+        unavailable: translate('admin.articleMetadata.unavailable')
+    }
+}));
 
 const triggerCoverInput = (): void =>
 {

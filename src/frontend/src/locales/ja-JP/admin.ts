@@ -4,6 +4,22 @@ import type { LocaleSchema } from '../keys';
 import type { admin as zhCNAdmin } from '../zh-CN/admin';
 
 export const admin = {
+    articleMetadata: {
+        title: 'グローバル属性',
+        refresh: '属性を更新',
+        empty: 'グローバル属性はありません',
+        missing: '未設定',
+        nullValue: '空値',
+        yes: 'はい',
+        no: 'いいえ',
+        unknownOption: '不明な選択肢',
+        reconciliation: '一部の属性を確認してください',
+        articleRequired: '属性を読み取るには記事を保存してください',
+        draftUnavailable: '独立した下書きの属性は読み取れません',
+        loading: '属性を読み取り中',
+        unavailable: '属性を利用できません',
+        revision: '記事リビジョン {articleRevision} · 属性リビジョン {propertyRevision}'
+    },
     articleInspector: {
         commandGroup: '記事インスペクター',
         commands: {

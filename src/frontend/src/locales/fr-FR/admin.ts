@@ -4,6 +4,22 @@ import type { LocaleSchema } from '../keys';
 import type { admin as zhCNAdmin } from '../zh-CN/admin';
 
 export const admin = {
+    articleMetadata: {
+        title: 'Propriétés globales',
+        refresh: 'Actualiser les propriétés',
+        empty: 'Aucune propriété globale',
+        missing: 'Non défini',
+        nullValue: 'Valeur nulle',
+        yes: 'Oui',
+        no: 'Non',
+        unknownOption: 'Option inconnue',
+        reconciliation: 'Certaines propriétés doivent être vérifiées',
+        articleRequired: 'Enregistrez l’article pour lire les propriétés',
+        draftUnavailable: 'Les propriétés des brouillons indépendants sont indisponibles',
+        loading: 'Lecture des propriétés',
+        unavailable: 'Propriétés indisponibles',
+        revision: 'Révision de l’article {articleRevision} · Révision des propriétés {propertyRevision}'
+    },
     articleInspector: {
         commandGroup: 'Inspecteur de l’article',
         commands: {

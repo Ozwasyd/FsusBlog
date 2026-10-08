@@ -817,9 +817,8 @@ export function useAdminArticleWrite()
             ? null
             : (window as Window & { BroadcastChannel?: typeof BroadcastChannel; }).BroadcastChannel ?? null
     });
-    const documentSiteHost = typeof window === 'undefined' ? '' : window.location.host.trim();
-    const documentSiteScope = `site:${documentSiteHost.length > 0 ? documentSiteHost : 'unknown'}`
-        .replace(/[^a-zA-Z0-9._:-]/gu, '-');
+    // Canonical author endpoints resolve the primary site; a browser host is not its authority.
+    const documentSiteScope = 'primary-site';
     const documentUserScope = `user:${adminStore.adminPrincipal?.id?.trim() ?? 'unknown'}`
         .replace(/[^a-zA-Z0-9._:-]/gu, '-');
     const articleDocumentContextBinding = articleDocumentContextAuthority.acquire({
