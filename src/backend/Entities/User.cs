@@ -162,14 +162,3 @@ public class User
         get; set;
     }
 }
-
-public static class AccountRegistrationStates
-{
-    public const string Provisional = "provisional";
-    public const string Active = "active";
-    public const string Suspended = "suspended";
-    public const string Closed = "closed";
-
-    public static bool IsActive(string? value)
-        => string.Equals(value, Active, StringComparison.Ordinal);
-}

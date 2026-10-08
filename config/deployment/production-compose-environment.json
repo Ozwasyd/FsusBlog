@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.production-compose-environment.v1",
     "composePath": "ops/docker/docker-compose.production.yml",
-    "variableCount": 60,
+    "variableCount": 59,
     "variables": {
         "ACTIVE_RELEASE_FENCE_REFRESH_INTERVAL_MS": {
             "requirement": "must-set-at-deploy",
@@ -58,12 +58,6 @@
             "source": "compose-default",
             "defaultValue": "FsusBlog",
             "expectedValue": "Human-readable production relying-party name."
-        },
-        "FSUSBLOG_ANONYMOUS_IDENTITY_MODE": {
-            "requirement": "defaulted",
-            "source": "compose-default",
-            "defaultValue": "1",
-            "expectedValue": "Enabled anonymous identity and admin-principal plane."
         },
         "FSUSBLOG_ASPNETCORE_ENVIRONMENT": {
             "requirement": "defaulted",

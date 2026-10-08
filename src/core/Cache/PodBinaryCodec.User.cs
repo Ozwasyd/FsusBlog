@@ -15,14 +15,12 @@ namespace FsusBlog.Core.Cache;
 /// </summary>
 public static partial class PodBinaryCodec
 {
-    private const string DefaultIdentityKind = "anonymous_account";
-
     /// <summary>
     /// Writes the <c>AuthLoginFlow</c> contract to the supplied binary destination.
     /// </summary>
     public static void WriteAuthLoginFlow(AuthLoginFlowDto flow, IBufferWriter<byte> destination)
     {
-        string identityKind = NormalizeIdentityKind(flow.IdentityKind);
+        string identityKind = RequireCurrentIdentityKind(flow.IdentityKind);
         var mutable = new MutableAuthLoginFlowPod
         {
             AccountId = flow.AccountId,
@@ -63,7 +61,8 @@ public static partial class PodBinaryCodec
             pod.AuthPhase is < 1 or > 3 ||
             pod.MfaMode > 2 ||
             pod.HasChallengeToken > 1 ||
-            pod.HasIdentityKind > 1)
+            pod.HasIdentityKind != 1 ||
+            !AnonymousIdentityRuntime.TryParse(PodUtf8Codec.FromFixed64(pod.IdentityKind), out CurrentIdentityKind identityKind))
         {
             flow = default;
             return false;
@@ -71,7 +70,7 @@ public static partial class PodBinaryCodec
 
         flow = new AuthLoginFlowDto(
             pod.AccountId,
-            pod.HasIdentityKind == 1 ? NormalizeIdentityKind(PodUtf8Codec.FromFixed64(pod.IdentityKind)) : DefaultIdentityKind,
+            AnonymousIdentityRuntime.ToWireValue(identityKind),
             pod.AuthPhase == 2 ? "mfa_required" : pod.AuthPhase == 3 ? "enrollment_required" : "authenticated",
             pod.MfaMode == 1 ? "risk" : pod.MfaMode == 2 ? "standard" : null,
             pod.HasChallengeToken == 1 ? PodUtf8Codec.FromFixed64(pod.ChallengeToken) : null);
@@ -83,7 +82,7 @@ public static partial class PodBinaryCodec
     /// </summary>
     public static void WriteCurrentUserSnapshot(CurrentUserSnapshotDto snapshot, IBufferWriter<byte> destination)
     {
-        string identityKind = NormalizeIdentityKind(snapshot.IdentityKind);
+        string identityKind = RequireCurrentIdentityKind(snapshot.IdentityKind);
         var mutable = new MutableCurrentUserSnapshotPod
         {
             AccountId = snapshot.AccountId,
@@ -115,7 +114,8 @@ public static partial class PodBinaryCodec
         var reader = new BinaryPodReader(source.Span);
         if (!reader.TryReadPod(out CurrentUserSnapshotPod pod) ||
             pod.HasDeletedAt > 1 ||
-            pod.HasIdentityKind > 1)
+            pod.HasIdentityKind != 1 ||
+            !AnonymousIdentityRuntime.TryParse(PodUtf8Codec.FromFixed64(pod.IdentityKind), out CurrentIdentityKind identityKind))
         {
             snapshot = default;
             return false;
@@ -123,7 +123,7 @@ public static partial class PodBinaryCodec
 
         snapshot = new CurrentUserSnapshotDto(
             pod.AccountId,
-            pod.HasIdentityKind == 1 ? NormalizeIdentityKind(PodUtf8Codec.FromFixed64(pod.IdentityKind)) : DefaultIdentityKind,
+            AnonymousIdentityRuntime.ToWireValue(identityKind),
             pod.Status,
             NullUserFieldIfEmpty(PodUtf8Codec.FromFixed256(pod.BanReason)),
             pod.HasDeletedAt == 1 ? PodTimeCodec.FromUnixMs(pod.DeletedAtUnixMs) : null);
@@ -141,7 +141,7 @@ public static partial class PodBinaryCodec
             !string.IsNullOrWhiteSpace(snapshot.AnonymousCredentialStatus) ||
             !string.IsNullOrWhiteSpace(snapshot.AnonymousCredentialLevel);
         bool hasBanReason = !string.IsNullOrWhiteSpace(snapshot.BanReason);
-        string identityKind = NormalizeIdentityKind(snapshot.IdentityKind);
+        string identityKind = RequireCurrentIdentityKind(snapshot.IdentityKind);
         var mutable = new MutableIdentityAccountSnapshotPod
         {
             AccountId = snapshot.AccountId,
@@ -196,7 +196,12 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        string identityKind = NormalizeIdentityKind(NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.IdentityKind, payload)));
+        if (!AnonymousIdentityRuntime.TryParse(PodProjector.ReadSlice(pod.IdentityKind, payload), out CurrentIdentityKind kind))
+        {
+            snapshot = default;
+            return false;
+        }
+        string identityKind = AnonymousIdentityRuntime.ToWireValue(kind);
         snapshot = new IdentityAccountSnapshotCoreModel(
             pod.AccountId,
             pod.HasPublicHandle == 1 ? PodProjector.ReadSlice(pod.PublicHandle, payload) : null,
@@ -497,7 +502,7 @@ public static partial class PodBinaryCodec
     /// </summary>
     public static void WriteMfaChallengeResult(MfaChallengeResultDto dto, IBufferWriter<byte> destination)
     {
-        string identityKind = dto.User.HasValue ? NormalizeIdentityKind(dto.User.Value.IdentityKind) : string.Empty;
+        string identityKind = dto.User.HasValue ? RequireCurrentIdentityKind(dto.User.Value.IdentityKind) : string.Empty;
         var mutable = new MutableMfaChallengeResultPod
         {
             AccountId = dto.User?.AccountId ?? 0,
@@ -530,58 +535,22 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        AuthIdentitySnapshotDto? user = pod.HasUser == 1
-            ? new AuthIdentitySnapshotDto(
-                pod.AccountId,
-                pod.HasIdentityKind == 1 ? NormalizeIdentityKind(PodUtf8Codec.FromFixed64(pod.IdentityKind)) : DefaultIdentityKind)
-            : null;
+        AuthIdentitySnapshotDto? user = null;
+        if (pod.HasUser == 1)
+        {
+            if (pod.HasIdentityKind != 1
+                || !AnonymousIdentityRuntime.TryParse(PodUtf8Codec.FromFixed64(pod.IdentityKind), out CurrentIdentityKind kind))
+            {
+                dto = default;
+                return false;
+            }
+            user = new AuthIdentitySnapshotDto(pod.AccountId, AnonymousIdentityRuntime.ToWireValue(kind));
+        }
         dto = new MfaChallengeResultDto(
             pod.Verified == 1,
             PodUtf8Codec.FromFixed64(pod.Action),
             pod.HasProofToken == 1 ? PodUtf8Codec.FromFixed128(pod.ProofToken) : null,
             user);
-        return reader.IsConsumed;
-    }
-
-    /// <summary>
-    /// Writes the <c>MfaPasswordProofRequest</c> contract to the supplied binary destination.
-    /// </summary>
-    public static void WriteMfaPasswordProofRequest(MfaPasswordProofRequestCoreModel request, IBufferWriter<byte> destination)
-    {
-        var payload = new ArrayBufferWriter<byte>(256);
-        var mutable = new MutableMfaPasswordProofRequestPod
-        {
-            Password = PodUtf8Codec.AppendSlice(request.Password, payload),
-            Code = PodUtf8Codec.AppendSlice(request.Code ?? string.Empty, payload),
-            RecoveryCode = PodUtf8Codec.AppendSlice(request.RecoveryCode ?? string.Empty, payload)
-        };
-        var writer = new BinaryPodWriter(destination);
-        writer.WritePod(CastUserPod<MutableMfaPasswordProofRequestPod, MfaPasswordProofRequestPod>(mutable));
-        writer.WriteBytes(payload.WrittenSpan);
-    }
-
-    /// <summary>
-    /// Encodes the <c>MfaPasswordProofRequest</c> contract into a new binary payload.
-    /// </summary>
-    public static byte[] EncodeMfaPasswordProofRequest(MfaPasswordProofRequestCoreModel request)
-        => EncodeToArray(256, writer => WriteMfaPasswordProofRequest(request, writer));
-
-    /// <summary>
-    /// Attempts to decode the <c>MfaPasswordProofRequest</c> contract from a binary payload.
-    /// </summary>
-    public static bool TryDecodeMfaPasswordProofRequest(ReadOnlyMemory<byte> source, out MfaPasswordProofRequestCoreModel request)
-    {
-        var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out MfaPasswordProofRequestPod pod) || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
-        {
-            request = default;
-            return false;
-        }
-
-        request = new MfaPasswordProofRequestCoreModel(
-            PodProjector.ReadSlice(pod.Password, payload),
-            NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.Code, payload)),
-            NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.RecoveryCode, payload)));
         return reader.IsConsumed;
     }
 
@@ -979,8 +948,10 @@ public static partial class PodBinaryCodec
 
     private static string? NullUserFieldIfEmpty(string value) => value.Length == 0 ? null : value;
 
-    private static string NormalizeIdentityKind(string? value)
-        => string.IsNullOrWhiteSpace(value) ? DefaultIdentityKind : value.Trim();
+    private static string RequireCurrentIdentityKind(string? value)
+        => AnonymousIdentityRuntime.TryParse(value, out CurrentIdentityKind kind)
+            ? AnonymousIdentityRuntime.ToWireValue(kind)
+            : throw new ArgumentException("Current identity kind is invalid.", nameof(value));
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableAuthLoginFlowPod
@@ -1113,14 +1084,6 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 ReservedIdentity;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 Action;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 ProofToken;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableMfaPasswordProofRequestPod
-    {
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Password;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Code;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RecoveryCode;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

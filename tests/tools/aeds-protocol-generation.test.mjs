@@ -9,6 +9,7 @@ import { renderAedsProtocolOutputs } from '../../tools/frontend/generate-aeds-pr
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const manifest = JSON.parse(readFileSync(path.join(root, 'src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'));
+const originalRendererFixture = JSON.parse(readFileSync(path.join(root, 'tests/frontend/fixtures/aeds-protocol-original-236.json'), 'utf8'));
 const goldenPath = 'tests/backend/Fixtures/aeds-golden-catalog.json';
 const productPaths = [
     'src/core/Algorithms/AedsFrameType.cs',
@@ -30,13 +31,6 @@ function digest(text)
     return createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-function retainedManifest()
-{
-    const source = structuredClone(manifest);
-    source.frameTypes = source.frameTypes.filter((frame) => frame.goldenOrder < 236);
-    return source;
-}
-
 function goldenFrom(source)
 {
     return JSON.parse(new Map(renderAedsProtocolOutputs(source)).get(goldenPath));
@@ -54,24 +48,60 @@ test('the original producer owns five products with manifest-derived identities 
     assert.deepEqual(golden.frames, [...manifest.frameTypes]
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
-    assert.equal(golden.frames.length, 244);
+    assert.equal(golden.frames.length, 243);
+    for (const [file, expected] of outputs)
+    {
+        assert.equal(readFileSync(path.join(root, file), 'utf8'), expected, file);
+    }
 });
 
 test('the original 236 golden records, evidence and retirement remain unchanged', () =>
 {
-    const retained = new Map(renderAedsProtocolOutputs(retainedManifest())).get(goldenPath);
+    // Frozen original-renderer bytes retain historical controls, independently of current admission.
+    const retained = originalRendererFixture.products[goldenPath];
     assert.equal(JSON.parse(retained).frames.length, 236);
     assert.equal(digest(retained), retainedProductDigests[4]);
+    assert.deepEqual(JSON.parse(retained).retiredFrameValues, originalRendererFixture.manifest.retiredFrameValues);
+    assert.deepEqual(JSON.parse(retained).defaultEvidence, originalRendererFixture.manifest.goldenCatalog.defaultEvidence);
 });
 
 test('the original four renderer outputs and complete golden bytes are preserved for the retained source', () =>
 {
-    // Original renderer controls remain independent of products, including tracked TS formatting drift.
-    const outputs = new Map(renderAedsProtocolOutputs(retainedManifest()));
+    // Historical renderer controls preserve the original five byte digests; current products are checked above.
+    const outputs = new Map(Object.entries(originalRendererFixture.products));
     for (const [index, file] of productPaths.entries())
     {
         assert.equal(digest(outputs.get(file)), retainedProductDigests[index], file);
     }
+});
+
+test('retired MFA password frame 53 is absent from all active language contracts and cannot be reused', () =>
+{
+    const outputs = new Map(renderAedsProtocolOutputs(manifest));
+    assert.ok(manifest.retiredFrameValues.some((frame) => frame.value === 53 && frame.reason === 'legacy-mfa-password-proof-request'));
+    assert.ok(!manifest.frameTypes.some((frame) => frame.value === 53));
+    for (const file of productPaths.slice(0, 4))
+    {
+        assert.ok(!outputs.get(file).includes('MfaPasswordProofRequest'), file);
+    }
+    assert.match(outputs.get(productPaths[1]), /public static bool IsRetiredFrameType\(ushort frameType\)/u);
+    assert.match(outputs.get(productPaths[1]), /frameType is .*\b53\b/u);
+    assert.match(outputs.get(productPaths[3]), /case 53:/u);
+    const attemptedReuse = structuredClone(manifest);
+    attemptedReuse.frameTypes[0].value = 53;
+    assert.throws(() => renderAedsProtocolOutputs(attemptedReuse), /reuses retired value 53/u);
+});
+
+test('future manifest retirements feed both generated decoder predicates without a copied runtime list', () =>
+{
+    const source = structuredClone(manifest);
+    source.retiredFrameValues.push({ value: 65534, reason: 'future-retirement-negative-control' });
+    const outputs = new Map(renderAedsProtocolOutputs(source));
+    assert.match(outputs.get(productPaths[1]), /frameType is .*\b65534\b/u);
+    assert.match(outputs.get(productPaths[3]), /case 65534:/u);
+    assert.ok(!goldenFrom(source).frames.some((frame) => frame.value === 65534));
+    source.frameTypes[0].value = 65534;
+    assert.throws(() => renderAedsProtocolOutputs(source), /reuses retired value 65534/u);
 });
 
 for (const [name, value, family] of [
@@ -135,7 +165,7 @@ for (const [label, mutate, expected] of [
 test('every frame, including future registrations, must explicitly provide complete golden metadata', () =>
 {
     const source = structuredClone(manifest);
-    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 244 });
+    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 243 });
     const golden = goldenFrom(source);
     assert.deepEqual(golden.frames.at(-1), { name: 'FutureFrame', value: 65535, family: 'test-response' });
 });

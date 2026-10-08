@@ -103,7 +103,6 @@ function createDeploymentFixture(t) {
     'FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME=fsusblog-public-assets-fixture',
     'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME=fsusblog-data-protection-fixture',
     `FSUSBLOG_RELEASE_ASSET_STORE=${assetStore}`,
-    'FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1',
     'FSUSBLOG_ZK_PROD_ENABLED=true',
     'FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED=true',
     'FSUSBLOG_ZK_CREDENTIAL_READY=true',

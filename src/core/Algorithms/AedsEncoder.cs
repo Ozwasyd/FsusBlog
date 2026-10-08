@@ -72,7 +72,7 @@ public sealed class AedsEncoder : IAedsEncoder
             return Result<AedsDecodeResult>.Failure(ErrorCode.Validation, "AEDS header length mismatch");
         }
 
-        if (IsRetiredFrameType(frameTypeRaw))
+        if (AedsFrameHeader.IsRetiredFrameType(frameTypeRaw))
         {
             return Result<AedsDecodeResult>.Failure(ErrorCode.Validation, "AEDS frame type retired");
         }
@@ -126,7 +126,4 @@ public sealed class AedsEncoder : IAedsEncoder
         BinaryPrimitives.WriteUInt32LittleEndian(header[10..14], (uint)payload.Length);
         BinaryPrimitives.WriteUInt16LittleEndian(header[14..16], AedsCrc16.Compute(payload));
     }
-
-    private static bool IsRetiredFrameType(ushort frameTypeRaw)
-        => frameTypeRaw is 40 or 43 or 44 or 45 or 46 or 180 or 181 or 186 or 187;
 }

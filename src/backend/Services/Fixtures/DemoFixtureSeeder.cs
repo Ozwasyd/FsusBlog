@@ -292,7 +292,7 @@ public sealed class DemoFixtureSeeder(
             });
             AddEntity("user", identity.UserId.ToString(CultureInfo.InvariantCulture), owner.UserHandle, new()
             {
-                ["identityKind"] = "anonymous_account",
+                ["identityKind"] = AnonymousIdentityRuntime.AnonymousAccountKind,
                 ["loginAuthority"] = false
             });
             AddEntity("admin-principal", identity.AdminPrincipalId.ToString(CultureInfo.InvariantCulture), owner.AdminHandle, new()

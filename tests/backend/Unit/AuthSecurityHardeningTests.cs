@@ -194,7 +194,8 @@ public sealed class AuthSecurityHardeningTests
             "BuildAnonymousSafeMetadata");
 
         Assert.Contains("BuildAnonymousSafeMetadata", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("Environment.GetEnvironmentVariable", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("get_PublicHandle", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("fsus-anonymous-account", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("Anonymous account", runtimeShape, StringComparison.Ordinal);

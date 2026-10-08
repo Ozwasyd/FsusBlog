@@ -72,7 +72,6 @@ const allowedRuntimeEnvironmentKeys = new Set([
     'AnonymousCredentialRoot__AttestationKey',
     'AnonymousCredentialRoot__AttestationKeyId',
     'AnonymousIdentity__NullifierPepper',
-    'FSUSBLOG_ANONYMOUS_IDENTITY_MODE',
     'Security__RiskControl__PublicReadChallenge__Enabled',
     'RateLimiting__PublicReadPermitLimit',
     'RateLimiting__PublicReadQueueLimit',

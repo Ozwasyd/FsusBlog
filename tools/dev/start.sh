@@ -272,7 +272,6 @@ export AnonymousCredentialIssuer__SubjectHashPepper="${FSUSBLOG_DEV_ANONYMOUS_SU
 export AnonymousCredentialRoot__AttestationKey="${FSUSBLOG_DEV_ANONYMOUS_ROOT_ATTESTATION_KEY:-local-development-anonymous-root-attestation-key-change-before-shared-use-2026}"
 export AnonymousCredentialRoot__AttestationKeyId="${FSUSBLOG_DEV_ANONYMOUS_ROOT_ATTESTATION_KEY_ID:-local-dev-root-attestation}"
 export AnonymousIdentity__NullifierPepper="${FSUSBLOG_DEV_ANONYMOUS_NULLIFIER_PEPPER:-local-development-anonymous-nullifier-pepper-change-before-shared-use-2026}"
-export FSUSBLOG_ANONYMOUS_IDENTITY_MODE="${FSUSBLOG_ANONYMOUS_IDENTITY_MODE:-1}"
 export CORS_ALLOWED_HOSTS="http://localhost:3000,http://127.0.0.1:3000"
 export Seo__BaseUrl="http://127.0.0.1:3000"
 export Fido2__ServerDomain="localhost"

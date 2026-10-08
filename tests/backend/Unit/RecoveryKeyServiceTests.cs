@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -8,6 +9,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
@@ -19,6 +21,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+
+using NSubstitute;
 
 using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
@@ -296,18 +301,98 @@ public sealed class RecoveryKeyServiceTests
             Assert.Contains(typeof(IMfaChallengeService), inputTypes);
             Assert.Contains(inputTypes, static type => type.Name == "IUserAccountReader");
             Assert.Contains(ReadCalledMethods(handler), static call =>
-                call.Method.DeclaringType == typeof(IMfaChallengeService)
-                && call.Method.Name == nameof(IMfaChallengeService.ValidateAndConsumeProofTokenAsync));
+                call.Method.DeclaringType == typeof(BinaryEndpoints)
+                && call.Method.Name == "VerifyMfaManagementStepUpAsync");
         }
+
+        MethodInfo verifyStepUp = typeof(BinaryEndpoints).GetMethod(
+            "VerifyMfaManagementStepUpAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.Contains(ReadAsyncCalledMethods(verifyStepUp), static call =>
+            call.Method.DeclaringType == typeof(UserMfaStepUpContext)
+            && call.Method.Name == nameof(UserMfaStepUpContext.VerifyAsync));
+        Assert.Contains(ReadAsyncCalledMethods(typeof(UserMfaStepUpContext).GetMethod(nameof(UserMfaStepUpContext.VerifyAsync))!), static call =>
+            call.Method.DeclaringType == typeof(IMfaChallengeService)
+            && call.Method.Name == nameof(IMfaChallengeService.ValidateAndConsumeProofTokenAsync));
 
         foreach (string methodName in new[] { "StartMfaSetupAsync", "DisableMfaAsync", "RegenerateMfaRecoveryCodesAsync" })
         {
             MethodInfo command = typeof(FsusBlog.Server.Services.UserService).GetMethods()
-                .Single(method => method.Name == methodName && method.GetParameters().Last().ParameterType == typeof(bool));
-            ParameterInfo stepUpVerified = command.GetParameters().Last();
-            Assert.Equal("stepUpVerified", stepUpVerified.Name);
-            Assert.True(stepUpVerified.HasDefaultValue);
-            Assert.Equal(false, stepUpVerified.DefaultValue);
+                .Single(method => method.Name == methodName);
+            ParameterInfo context = command.GetParameters().Last();
+            Assert.Equal(typeof(UserMfaStepUpContext), context.ParameterType);
+            Assert.Equal("context", context.Name);
+            Assert.False(context.HasDefaultValue);
+            Assert.DoesNotContain(command.GetParameters(), static parameter =>
+                parameter.Name is "password" or "code" or "recoveryCode" or "stepUpVerified");
+        }
+
+        Assert.Empty(typeof(UserMfaStepUpContext).GetConstructors());
+        Assert.All(typeof(UserMfaStepUpContext).GetProperties(), static property => Assert.False(property.CanWrite));
+    }
+
+    [Theory]
+    [InlineData("retired-frame")]
+    [InlineData("password-body")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "mfa-management-body-reject-before-service-effects")]
+    public async Task MfaManagementEndpoints_RejectLegacyBodiesBeforeAccountProofOrMutationCalls(string bodyKind)
+    {
+        MethodInfo[] stateMachineHandlers = FindBinaryAuthHandlersContaining("MFA_REQUEST_BODY_NOT_SUPPORTED");
+        Assert.Equal(3, stateMachineHandlers.Length);
+        foreach (MethodInfo stateMachineHandler in stateMachineHandlers)
+        {
+            MethodInfo handler = Assert.Single(EnumerateRuntimeMethods(typeof(BinaryEndpoints)), method =>
+                method.GetCustomAttribute<System.Runtime.CompilerServices.AsyncStateMachineAttribute>()?.StateMachineType
+                    == stateMachineHandler.DeclaringType);
+            var commands = Substitute.For<IUserMfaCommandService>();
+            var users = Substitute.For<IUserAccountReader>();
+            var challenges = Substitute.For<IMfaChallengeService>();
+            var system = Substitute.For<ISystemService>();
+            var encoder = new AedsEncoder();
+            byte[] body;
+            if (bodyKind == "retired-frame")
+            {
+                body = encoder.Encode(AedsFrameType.ArticleList, new byte[28]);
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(body.AsSpan(8, 2), 53);
+            }
+            else
+            {
+                body = "{\"password\":\"retired-password-proof\"}"u8.ToArray();
+            }
+
+            using var services = new ServiceCollection().BuildServiceProvider();
+            var http = new DefaultHttpContext { RequestServices = services };
+            http.Request.Method = HttpMethods.Post;
+            http.Request.ContentType = "application/octet-stream";
+            http.Request.ContentLength = body.Length;
+            http.Request.Body = new MemoryStream(body);
+            http.Request.Headers["X-Fsus-Mfa-Proof"] = "proof-must-not-be-consumed";
+            using var responseBody = new MemoryStream();
+            http.Response.Body = responseBody;
+            object?[] arguments = handler.GetParameters().Select(parameter => parameter.ParameterType switch
+            {
+                Type type when type == typeof(HttpContext) => (object)http,
+                Type type when type == typeof(IUserMfaCommandService) => commands,
+                Type type when type == typeof(IUserAccountReader) => users,
+                Type type when type == typeof(IMfaChallengeService) => challenges,
+                Type type when type == typeof(ISystemService) => system,
+                Type type when type == typeof(IAedsEncoder) => encoder,
+                _ => throw new InvalidOperationException($"Unexpected current MFA endpoint dependency: {parameter.ParameterType}")
+            }).ToArray();
+            object? target = handler.IsStatic ? null : Activator.CreateInstance(handler.DeclaringType!, nonPublic: true);
+            var pending = Assert.IsAssignableFrom<Task<BinaryFrameResult>>(handler.Invoke(target, arguments));
+
+            BinaryFrameResult result = await pending;
+            await result.ExecuteAsync(http);
+
+            Assert.Equal(StatusCodes.Status400BadRequest, http.Response.StatusCode);
+            var decoded = encoder.TryDecode(responseBody.ToArray());
+            Assert.True(decoded.IsSuccess);
+            Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
+            Assert.Contains("MFA_REQUEST_BODY_NOT_SUPPORTED", Encoding.UTF8.GetString(responseBody.ToArray()), StringComparison.Ordinal);
+            Assert.Empty(users.ReceivedCalls());
+            Assert.Empty(challenges.ReceivedCalls());
+            Assert.Empty(commands.ReceivedCalls());
+            Assert.Empty(system.ReceivedCalls());
         }
     }
 
@@ -403,6 +488,13 @@ public sealed class RecoveryKeyServiceTests
         }
 
         return calls;
+    }
+
+    private static IReadOnlyList<(int Offset, MethodBase Method)> ReadAsyncCalledMethods(MethodInfo method)
+    {
+        Type stateMachine = method.GetCustomAttribute<System.Runtime.CompilerServices.AsyncStateMachineAttribute>()!.StateMachineType;
+        MethodInfo moveNext = stateMachine.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        return ReadCalledMethods(moveNext);
     }
 
     private static Type[] RuntimeInputTypes(MethodInfo method)

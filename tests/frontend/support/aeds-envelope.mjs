@@ -944,17 +944,6 @@ export function encodePasskeyLoginCompleteRequest(data)
     return bytes;
 }
 
-export function encodeMfaPasswordProofRequest(data)
-{
-    const { bytes, refs, blobLength } = encodeStringBlob([data.password, data.code ?? '', data.recoveryCode ?? '']);
-    const view = new DataView(bytes.buffer);
-    writeSliceRef(view, 0, refs[0]);
-    writeSliceRef(view, 8, refs[1]);
-    writeSliceRef(view, 16, refs[2]);
-    view.setInt32(24, blobLength, true);
-    return bytes;
-}
-
 export function encodeMfaChallengeVerifyRequest(data)
 {
     const { bytes, refs, blobLength } = encodeStringBlob([

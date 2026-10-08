@@ -4,8 +4,8 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
@@ -299,10 +299,10 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             .Returns(Task.CompletedTask);
 
         return new UserService(
-            _db: db,
-            _logger: NullLogger<UserService>.Instance,
-            _accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
-            _totpService: Substitute.For<ITotpService>());
+            db: db,
+            logger: NullLogger<UserService>.Instance,
+            accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
+            totpService: Substitute.For<ITotpService>());
     }
 
     private static UserAdminModerationService CreateAdminService(

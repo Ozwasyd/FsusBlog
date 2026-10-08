@@ -503,7 +503,6 @@ public sealed class ProductionStartupValidatorTests
             ["FSUSBLOG_IMAGE_REF"] = $"ghcr.io/fsusblog/app@sha256:{new string('a', 64)}",
             [ActiveReleaseFenceAvailabilityPolicy.RefreshIntervalKey] = "5000",
             [ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey] = "30",
-            [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
@@ -1026,38 +1025,24 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("")]
     [InlineData("0")]
     [InlineData("false")]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "production-anonymous-identity-mode-required")]
-    public void ValidateCore_RejectsProductionWhenAnonymousIdentityModeIsMissingOrDisabled(string? modeValue)
-    {
-        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
-        {
-            [AnonymousIdentityRuntime.ModeEnvironmentVariable] = modeValue
-        });
-
-        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
-
-        Assert.Contains(
-            errors,
-            static error => error.Contains(AnonymousIdentityRuntime.ModeEnvironmentVariable, StringComparison.Ordinal));
-    }
-
-    [Theory]
     [InlineData("1")]
     [InlineData("true")]
     [InlineData("enabled")]
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
-    public void ValidateCore_AcceptsProductionWhenAnonymousIdentityModeIsEnabled(string modeValue)
+    public void ValidateCore_CurrentIdentityHasNoConfigurationMode(string? retiredModeValue)
     {
+        const string retiredKey = "FSUSBLOG_ANONYMOUS_IDENTITY_MODE";
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
         {
-            [AnonymousIdentityRuntime.ModeEnvironmentVariable] = modeValue
+            [retiredKey] = retiredModeValue
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+        IReadOnlyList<string> baseline = ProductionStartupValidator.ValidateCore(
+            CreateValidProductionConfiguration(new Dictionary<string, string?>()), enforceProductionRules: true);
 
-        Assert.DoesNotContain(
-            errors,
-            static error => error.Contains(AnonymousIdentityRuntime.ModeEnvironmentVariable, StringComparison.Ordinal));
+        Assert.Equal(baseline, errors);
+        Assert.DoesNotContain(retiredKey, ProductionStartupValidator.CurrentSchema.RequiredSettings);
     }
 
     [Fact]
@@ -1198,7 +1183,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
             report.Requirements.Select(static requirement => requirement.Key).Order(StringComparer.Ordinal));
-        Assert.Contains(AnonymousIdentityRuntime.ModeEnvironmentVariable, ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.DoesNotContain("FSUSBLOG_ANONYMOUS_IDENTITY_MODE", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Jwt:SecretKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Jwt:KeyVersion", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Jwt:RotationWindowDays", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -1596,7 +1581,6 @@ public sealed class ProductionStartupValidatorTests
             ["FSUSBLOG_IMAGE_REF"] = $"ghcr.io/fsusblog/app@sha256:{new string('a', 64)}",
             [ActiveReleaseFenceAvailabilityPolicy.RefreshIntervalKey] = "5000",
             [ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey] = "30",
-            [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };
 
         foreach ((string key, string? value) in overrides)

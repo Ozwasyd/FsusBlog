@@ -13,6 +13,27 @@ const runtimeBridgeMethod = ['BridgeToLegacy', 'Authoring', 'EndpointAsync'].joi
 
 const violationCases = [
     {
+        name: 'current auth mode false switch',
+        expected: 'current auth mode or password compatibility residue detected',
+        files: { 'config/examples/.env.production.example': 'FSUSBLOG_ANONYMOUS_IDENTITY_MODE=false\n' }
+    },
+    {
+        name: 'current auth password proof service',
+        expected: 'current auth mode or password compatibility residue detected',
+        files: { 'src/backend/Services/PasswordProof.cs': 'public bool MfaPasswordProofRequest(string password) => false;\n' }
+    },
+    {
+        name: 'current auth identity catalog copy',
+        expected: 'current auth identity catalog copy detected',
+        files: { 'src/backend/Services/AnotherIdentityService.cs': 'public bool IsValid(string value) => value is "anonymous_account";\n' }
+    },
+    {
+        name: 'current MFA constructor compatibility alias',
+        expected: 'current MFA constructor compatibility alias detected',
+        files: { 'src/backend/Services/UserService.cs': 'public class UserService(ISqlSugarClient _db, ILogger<UserService> _logger) {}\n' }
+    },
+
+    {
         name: 'legacy runtime bridge names',
         expected: 'legacy runtime bridge residue detected',
         files: {

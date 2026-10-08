@@ -522,7 +522,7 @@ public sealed class JwtHelperTests
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static IDisposable SetAnonymousIdentityMode(string? value)
-        => new EnvironmentVariableScope(AnonymousIdentityRuntime.ModeEnvironmentVariable, value);
+        => new EnvironmentVariableScope("FSUSBLOG_ANONYMOUS_IDENTITY_MODE", value);
 
     private sealed class EnvironmentVariableScope : IDisposable
     {

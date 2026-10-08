@@ -1,4 +1,5 @@
 using FsusBlog.Contracts.Articles;
+using FsusBlog.Shared.Contracts.AuthSystem;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -124,7 +125,7 @@ public readonly record struct IdentityAccountSnapshotCoreModel(
     bool? TotpStepUpEnabled,
     string? AnonymousCredentialStatus,
     string? AnonymousCredentialLevel,
-    string IdentityKind = "anonymous_account",
+    string IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
     int Status = 0,
     string? BanReason = null,
     DateTime? DeletedAt = null);
@@ -295,8 +296,6 @@ public readonly record struct AdminChangeUserStatusRequestCoreModel(int AccountI
 public readonly record struct AuthAnonymousBootstrapRequestCoreModel(string? PublicHandle, bool AcceptedGuidelines);
 
 public readonly record struct AuthDeleteAccountRequestCoreModel(string ConfirmText);
-
-public readonly record struct MfaPasswordProofRequestCoreModel(string Password, string? Code, string? RecoveryCode);
 
 public readonly record struct MfaChallengeVerifyRequestCoreModel(string ChallengeToken, string? Action, string? Code, string? RecoveryCode);
 

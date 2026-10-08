@@ -111,7 +111,6 @@ export function buildProductBackendEnvironment({
         AnonymousCredentialRoot__AttestationKeyId: 'local-dev-root-attestation',
         AnonymousIdentity__NullifierPepper:
             'local-development-anonymous-nullifier-pepper-change-before-shared-use-2026',
-        FSUSBLOG_ANONYMOUS_IDENTITY_MODE: '1',
         ActiveReleaseFence__AllowSyntheticLocalFence: 'true',
         fsus__allowLocalAuthFixture: 'false',
         Security__RiskControl__PublicReadChallenge__Enabled: 'false',

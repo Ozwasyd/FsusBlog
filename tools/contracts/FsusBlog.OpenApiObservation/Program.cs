@@ -17,6 +17,7 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Shared.Contracts.AuthSystem;
 using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Authorization;

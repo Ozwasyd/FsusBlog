@@ -1,13 +1,13 @@
 # Anonymous Identity Smoke Flow
 
-This runbook verifies anonymous identity mode after the account-subject physical projection cutover. Existing users, comments, credentials, sessions and message state are preserved; release acceptance is a deterministic expand/backfill/readiness sequence, not a destructive maintenance action.
+This runbook verifies current anonymous-account identity after the account-subject physical projection cutover. Existing users, comments, credentials, sessions and message state are preserved; release acceptance is a deterministic expand/backfill/readiness sequence, not a destructive maintenance action.
 
 Run these checks first against an isolated restored database, then repeat the same read-only acceptance queries against production before routing traffic to the candidate.
 
 ## Preconditions
 
 1. Restore the latest site backup into an isolated PostgreSQL database.
-2. Point the backend at that database and enable anonymous identity mode.
+2. Point the backend at that database using the current anonymous-account identity contract; no identity mode switch is available.
 3. Apply `20260711-pre-account-subject-hash-expand`, drain previous-version account writers, then apply `20260711-post-account-subject-hash-backfill`.
 4. Keep `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` available for first admin bootstrap.
 
