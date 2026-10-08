@@ -1750,5 +1750,110 @@
             "boundaryTags": [],
             "contentDigest": "sha256:2be85a2de0e3462acd3f963950a61af6a2d4224ca3bae36cd820d7868e133c19"
         }
+    ],
+    "entityShapes": [
+        {
+            "id": "article-comment-entity-lifecycle",
+            "schema": "fsusblog.temporal-entity-shape.v1",
+            "entityKinds": [
+                {
+                    "kind": "article",
+                    "states": [
+                        "draft",
+                        "scheduled",
+                        "published",
+                        "archived",
+                        "deleted"
+                    ],
+                    "revisionRequired": true,
+                    "publicationAllowed": true,
+                    "stateFacts": [
+                        "hasPublication"
+                    ],
+                    "roles": [
+                        {
+                            "roleId": "article.created",
+                            "presence": "always",
+                            "absent": "null"
+                        },
+                        {
+                            "roleId": "article.revision",
+                            "presence": "always",
+                            "absent": "null"
+                        },
+                        {
+                            "roleId": "article.metadata-updated",
+                            "presence": "always",
+                            "absent": "null"
+                        },
+                        {
+                            "roleId": "article.publication",
+                            "presence": "hasPublication",
+                            "absent": "null"
+                        },
+                        {
+                            "roleId": "article.published",
+                            "presence": "hasPublication",
+                            "absent": "null"
+                        }
+                    ],
+                    "invariantIds": [
+                        "article-lifecycle",
+                        "article-metadata-current"
+                    ]
+                },
+                {
+                    "kind": "comment",
+                    "states": [
+                        "active",
+                        "deleted"
+                    ],
+                    "revisionRequired": true,
+                    "publicationAllowed": false,
+                    "stateFacts": [
+                        "edited",
+                        "moderated"
+                    ],
+                    "roles": [
+                        {
+                            "roleId": "comment.created",
+                            "presence": "always",
+                            "absent": "null"
+                        },
+                        {
+                            "roleId": "comment.edited",
+                            "presence": "edited",
+                            "absent": "null"
+                        },
+                        {
+                            "roleId": "comment.moderated",
+                            "presence": "moderated",
+                            "absent": "null"
+                        }
+                    ],
+                    "invariantIds": [
+                        "comment-lifecycle"
+                    ]
+                },
+                {
+                    "kind": "row",
+                    "states": [
+                        "present"
+                    ],
+                    "revisionRequired": false,
+                    "publicationAllowed": false,
+                    "stateFacts": [],
+                    "roles": [
+                        {
+                            "roleId": "scale.row-created",
+                            "presence": "always",
+                            "absent": "null"
+                        }
+                    ],
+                    "invariantIds": []
+                }
+            ],
+            "contentDigest": "sha256:c070320ffd8ead759ff57434e0a5f2f00e5a54f7e6b6367243122ec9cb1de6da"
+        }
     ]
 }

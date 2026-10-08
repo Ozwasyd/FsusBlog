@@ -4,15 +4,28 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Infrastructure/Testing/ResolvedTemporalRoleContext.cs",
                 "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
                 "src/backend/Services/Fixtures/CanonicalArticleLifecycleTemporalBridge.cs",
                 "src/backend/Services/Fixtures/DataScale/SqlSugarCommentIdCore.cs",
                 "tools/data-scale/comment-id-plan.mjs",
                 "tools/test/data-scale-runtime-owner.mjs",
                 "tools/test/temporal-context-contract.mjs",
-                "tools/test/temporal-context.mjs"
+                "tools/test/temporal-context.mjs",
+                "tools/test/temporal-role-resolver.mjs",
+                "tools/test/temporal-shape-catalog.mjs"
             ],
             "reason": "Preserve existing registered backend adapter and test environment contract keys while consuming the exact SqlSugar layout metadata, resolved temporal artifact ingress, UTC fixture clocks and owned runtime teardown."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/resolved-temporal-roles.schema.json",
+                "config/testing/temporal-domain-producer-inventory.json",
+                "config/testing/temporal-shape-catalog.json",
+                "config/testing/temporal-shape-catalog.schema.json"
+            ],
+            "reason": "Preserve versioned temporal schema and producer wire keys while adding explicit entity coordinates, complete lifecycle role closure and state-bound nullable facts."
         }
     ]
 }

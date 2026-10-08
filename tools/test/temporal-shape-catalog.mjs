@@ -292,6 +292,53 @@ function validateShape(shape, context, index)
     }
 }
 
+function validateEntityShape(shape, context)
+{
+    exactKeys(shape, ['id', 'schema', 'entityKinds', 'contentDigest'], [], 'entityShape');
+    exactId(shape.id, 'entityShape.id');
+    if (shape.schema !== 'fsusblog.temporal-entity-shape.v1'
+        || shape.contentDigest !== temporalShapeDigest(shape)
+        || !Array.isArray(shape.entityKinds) || shape.entityKinds.length === 0)
+    {
+        fail('temporal.catalog-invalid', 'entity shape requires exact versioned content and entity kinds');
+    }
+    const kinds = new Set();
+    for (const kind of shape.entityKinds)
+    {
+        exactKeys(kind, ['kind', 'states', 'revisionRequired', 'publicationAllowed', 'stateFacts', 'roles', 'invariantIds'], [], 'entityKind');
+        exactId(kind.kind, 'entityKind.kind');
+        if (kinds.has(kind.kind) || !Array.isArray(kind.states) || kind.states.length === 0
+            || new Set(kind.states).size !== kind.states.length
+            || typeof kind.revisionRequired !== 'boolean' || typeof kind.publicationAllowed !== 'boolean'
+            || !Array.isArray(kind.stateFacts) || new Set(kind.stateFacts).size !== kind.stateFacts.length
+            || !Array.isArray(kind.roles) || kind.roles.length === 0 || !Array.isArray(kind.invariantIds))
+        {
+            fail('temporal.catalog-invalid', 'entity kind states and coordinate rules are incomplete');
+        }
+        kinds.add(kind.kind);
+        kind.states.forEach((state) => exactId(state, 'entityKind.state'));
+        const roleIds = new Set();
+        for (const role of kind.roles)
+        {
+            exactKeys(role, ['roleId', 'presence', 'absent'], [], 'entityRole');
+            if (!context.roleIds.has(role.roleId) || roleIds.has(role.roleId)
+                || role.absent !== 'null' || !(role.presence === 'always' || kind.stateFacts.includes(role.presence)))
+            {
+                fail('temporal.catalog-invalid', 'entity role presence must bind explicit state facts');
+            }
+            roleIds.add(role.roleId);
+        }
+        for (const id of kind.invariantIds)
+        {
+            const invariant = context.invariants.find((candidate) => candidate.id === id);
+            if (!invariant || invariant.kind !== 'ordered-chain' || invariant.roles.some((role) => !roleIds.has(role)))
+            {
+                fail('temporal.catalog-invalid', 'entity shape must include the complete invariant role closure');
+            }
+        }
+    }
+}
+
 export function validateTemporalShapeCatalog(catalog)
 {
     exactKeys(catalog, [
@@ -306,7 +353,7 @@ export function validateTemporalShapeCatalog(catalog)
         'invariants',
         'requiredBoundaryTags',
         'shapes'
-    ], [], 'catalog');
+    ], ['entityShapes'], 'catalog');
     if (catalog.schema !== TEMPORAL_SHAPE_CATALOG_SCHEMA
       || canonicalJson(catalog.baseEpochAuthority) !== canonicalJson({
           source: 'temporalContext.businessEpochUtc',
@@ -366,9 +413,12 @@ export function validateTemporalShapeCatalog(catalog)
         timezoneCaseIds,
         cultureCaseIds,
         tieBreakerIds,
-        invariantIds
+        invariantIds,
+        invariants: catalog.invariants
     };
     catalog.shapes.forEach((shape, index) => validateShape(shape, context, index));
+    const entityShapeIds = uniqueIds(catalog.entityShapes ?? [], 'entityShapes');
+    (catalog.entityShapes ?? []).forEach((shape) => validateEntityShape(shape, context));
     const coveredBoundaryTags = new Set(catalog.shapes.flatMap((shape) => shape.boundaryTags));
     const missingBoundaryTags = catalog.requiredBoundaryTags.filter((tag) => !coveredBoundaryTags.has(tag));
     if (missingBoundaryTags.length > 0)
@@ -381,6 +431,7 @@ export function validateTemporalShapeCatalog(catalog)
         invariantIds,
         roleIds,
         shapeIds,
+        entityShapeIds,
         tieBreakerIds
     });
 }
@@ -488,4 +539,15 @@ export function resolveTemporalShape(shapeId, { catalog = readTemporalShapeCatal
         shapeDigest: temporalShapeDigest(shape),
         catalogDigest: catalog.catalogDigest
     });
+}
+
+/** Resolve the canonical coordinate-aware contract without supplying or inventing producer dates. */
+export function resolveTemporalEntityShape(shapeId, { catalog = readTemporalShapeCatalog() } = {})
+{
+    const shape = catalog.catalog.entityShapes?.find((candidate) => candidate.id === exactId(shapeId, 'shapeId'));
+    if (!shape)
+    {
+        fail('temporal.shape-unknown', `unknown entity temporal shape: ${shapeId}`);
+    }
+    return Object.freeze({ shape, shapeDigest: temporalShapeDigest(shape), catalogDigest: catalog.catalogDigest });
 }
