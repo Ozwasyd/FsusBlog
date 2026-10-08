@@ -1,0 +1,83 @@
+{
+  "schema": "task-scoped-evidence-export.v1",
+  "scope": "One-lock exact consumer source capability; original SOURCE and runtime refusal retained. No qualification inferred.",
+  "sourceHead": "6ffa5cf34104b4197847f91c35a94b42fd981b4d",
+  "consumerBase": "7b79aed73b156fae328ca14252e78d9888001960",
+  "files": [
+    {
+      "path": "final-handoff.json",
+      "sha256": "10e3fdcbc03703c3e3c312c02c3a5ac9726b8699ae51e90e7a1ac4d90c17c6c7",
+      "bytes": 5801
+    },
+    {
+      "path": "consumer-donor-full-input-comparison.json",
+      "sha256": "9d8f2120a0cc9a2c0a20bdc2b378a00810a8d8f709784d38b5b9f4cdafe70dc8",
+      "bytes": 14862
+    },
+    {
+      "path": "exact-head-input-and-source-refusal-proof.json",
+      "sha256": "fc2f90d3f6f713f5c60166adced35cd4b5bae66b14ffe102c13e1fd6eb470d70",
+      "bytes": 13296
+    },
+    {
+      "path": "bounded-graph-source-proof.json",
+      "sha256": "bf69ae29fffa46500c2720d29388ea7deed21f8b4a9b00f5df103d249374c6d4",
+      "bytes": 5284
+    },
+    {
+      "path": "official-observer-semantic-delta.json",
+      "sha256": "caae623445acef2a3d7eae8f59f69e758d8f14e5ebd0aac3a22c9c4ea162a248",
+      "bytes": 6504
+    },
+    {
+      "path": "unrelated-serialization-proof.json",
+      "sha256": "935fb085bfdee49b03854495fce06484d2d018795fce23b4adabb59a6648e567",
+      "bytes": 410
+    },
+    {
+      "path": "original-consumer-locked-restore-result.json",
+      "sha256": "12b078c3beda97371500da37c2698557351e78459cec0d02a1443aa215104f1c",
+      "bytes": 544
+    },
+    {
+      "path": "original-consumer-locked-restore.log",
+      "sha256": "226a9dbe3947182a7526ebbdd04aaccfbe40f8a445ac82f6a591319f1436b0bb",
+      "bytes": 2016
+    },
+    {
+      "path": "official-observer-lock-generation-result.json",
+      "sha256": "75678677cfb3a91f430e376fb4b57a0c572f2670bf0767357f70d545de6325cd",
+      "bytes": 556
+    },
+    {
+      "path": "official-observer-lock-generation.log",
+      "sha256": "973c1217ccf79bc0e124b9065b0831c7fa2f3a8b3f303f1bb9f4a3dd2371be1e",
+      "bytes": 1594
+    },
+    {
+      "path": "exact-head-observer-locked-restore-result.json",
+      "sha256": "fcc8fdc965cec962b5443c3202cbecc9c7937f88f74b1f4680c859b75424a439",
+      "bytes": 1296
+    },
+    {
+      "path": "exact-head-observer-locked-restore.log",
+      "sha256": "3f9222d9d6bc7199b35dc27295e6a624e07a074e92644ff764642fd918e83e22",
+      "bytes": 1595
+    },
+    {
+      "path": "original-observer-lock-format.log",
+      "sha256": "dbec370211908ca6c896b91d425290b96db7090e1fccb42a093096a09b3c0b20",
+      "bytes": 112
+    },
+    {
+      "path": "trusted-source-range.log",
+      "sha256": "c05f1280cd7e0373082466ac204290898184eabd7e526d2605ccb6575f64ee53",
+      "bytes": 117
+    },
+    {
+      "path": "exact-head-source-stage.log",
+      "sha256": "0ff46ea36debd691ac6a0e2518366849239416ad7fc8533a0c8aad17579a8cfa",
+      "bytes": 531
+    }
+  ]
+}

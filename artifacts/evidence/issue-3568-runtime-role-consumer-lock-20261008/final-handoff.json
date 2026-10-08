@@ -1,0 +1,110 @@
+{
+  "recordedAtUTC": "2026-10-08T13:22:39.550302+00:00",
+  "scope": "One-lock full RuntimeRoleObserver package closure capability for exact supplied1889 source. No consumer behavior or native implementation added.",
+  "base": "7b79aed73b156fae328ca14252e78d9888001960",
+  "publishedHead": "6ffa5cf34104b4197847f91c35a94b42fd981b4d",
+  "remoteReadBackSHA": "6ffa5cf34104b4197847f91c35a94b42fd981b4d",
+  "branch": "codex/issue-3568-runtime-role-consumer-lock-20261008",
+  "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+  "lockBeforeBlob": "08e62e583616c40424a919b7eb188b5238e33d47",
+  "lockAfterBlob": "a342034a78b4270de17ebeea7ab20cef2da66dfe",
+  "lockSHA256": "ad6ed413264ee8dd99e50cb0adffe8e65839d95bdf3570253137f0e8fc15d655",
+  "producerSDK": "10.0.302",
+  "staticToolingNode": "24.16.0",
+  "originalConsumerReportedToolchain": "SDK10.0.100 / Node24.19 not rerun here",
+  "donorPublishedGraph": "e4ac73dad845c71cc0f12027e3fc65ed0d5923cb",
+  "donorActualTestedCandidate": "a5e29012c8f798209f3ab86a7f8a3ab102846a61",
+  "donorReuseRejected": "Exact supplied consumer Migration source lacks donor native3.53.3 direct PackageReference. Preserve source f4d1c7d1f1b76ee7a8295b08c9e5c17f58237264 and native2.1.11; official producer regenerated only consumer observer lock.",
+  "evidence": {
+    "baselineLockedRestore": {
+      "sourceCandidate": "7b79aed73b156fae328ca14252e78d9888001960",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+        "--locked-mode",
+        "--force",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:14:45.751322+00:00",
+      "exitCode": 1,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-runtime-role-consumer-lock-20261008/original-consumer-locked-restore.log",
+      "sha256": "226a9dbe3947182a7526ebbdd04aaccfbe40f8a445ac82f6a591319f1436b0bb"
+    },
+    "officialGraphGeneration": {
+      "sourceCandidate": "7b79aed73b156fae328ca14252e78d9888001960",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+        "--force-evaluate",
+        "--use-lock-file",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:15:28.779544+00:00",
+      "exitCode": 0,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-runtime-role-consumer-lock-20261008/official-observer-lock-generation.log",
+      "sha256": "973c1217ccf79bc0e124b9065b0831c7fa2f3a8b3f303f1bb9f4a3dd2371be1e"
+    },
+    "exactHeadLockedRestore": {
+      "candidate": "6ffa5cf34104b4197847f91c35a94b42fd981b4d",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+        "--locked-mode",
+        "--force",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:19:21.606844+00:00",
+      "exitCode": 0,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-runtime-role-consumer-lock-20261008/exact-head-observer-locked-restore.log",
+      "sha256": "3f9222d9d6bc7199b35dc27295e6a624e07a074e92644ff764642fd918e83e22",
+      "auditWarnings": [
+        "/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj]",
+        "/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q"
+      ]
+    },
+    "originalFormatter": {
+      "exitCode": 0,
+      "selected": 1,
+      "checked": 1,
+      "violations": 0,
+      "log": "original-observer-lock-format.log"
+    },
+    "trustedRange": {
+      "exitCode": 0,
+      "log": "trusted-source-range.log"
+    },
+    "sourceStage": {
+      "exitCode": 1,
+      "log": "exact-head-source-stage.log",
+      "stageReached": false,
+      "reason": "Five pre-existing applicable execution authority hash drifts; all five source blobs unchanged between base and candidate. No source-governance execution/qualification receipt fabricated."
+    }
+  },
+  "graph": {
+    "unchangedExistingPackageCount": 84,
+    "addedDeclaredClosurePackageCount": 9,
+    "totalPackageCount": 93,
+    "privateSourceReferenceExcluded": "Microsoft.Extensions.ApiDescription.Server has PrivateAssets=all; consumer graph respects source rule",
+    "SerilogVersionsUnchanged": {
+      "Serilog.AspNetCore": "10.0.0",
+      "Serilog.Sinks.Async": "2.1.0"
+    },
+    "newMigrationEdges": [
+      "AngleSharp1.5.0",
+      "Markdig1.3.2",
+      "Microsoft.Data.Sqlite10.0.4",
+      "MySqlConnector2.6.2"
+    ],
+    "newServerEdge": "AngleSharp1.5.0"
+  },
+  "remaining": [
+    "Original SDK10.0.100/Node24.19 static admission and spawn not rerun; original1889 consumer owner must run fresh admission on supplied exact lock input.",
+    "SOURCE authority drift remains an independent governance-owner handoff; no .csproj classifier or3926 exception consumed.",
+    "NU1903 for native2.1.11 retained without waiver; native runtime probes, compiled execution and product/UX acceptance not run.",
+    "Root3568 remains BLOCKED and no issue acceptance/closure claimed."
+  ],
+  "publicationConstraints": "No PR/comment/content API, merge, issue closure or deploy. Narrow source branch published and frozen."
+}

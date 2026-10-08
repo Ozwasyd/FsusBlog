@@ -1,0 +1,364 @@
+{
+  "consumer": "7b79aed73b156fae328ca14252e78d9888001960",
+  "donor": "a5e29012c8f798209f3ab86a7f8a3ab102846a61",
+  "publishedDonor": "e4ac73dad845c71cc0f12027e3fc65ed0d5923cb",
+  "inputCount": 49,
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "consumerBlob": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715",
+      "donorTestedBlob": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715",
+      "identical": true
+    },
+    {
+      "path": "Directory.Packages.props",
+      "consumerBlob": "0abc085c29fb28bcc5982c8f45e4085d2b739812",
+      "donorTestedBlob": "0abc085c29fb28bcc5982c8f45e4085d2b739812",
+      "identical": true
+    },
+    {
+      "path": "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+      "consumerBlob": "4aca7ddd43f73dd995bf29b93040056d4623c72d",
+      "donorTestedBlob": "4aca7ddd43f73dd995bf29b93040056d4623c72d",
+      "identical": true
+    },
+    {
+      "path": "benchmarks/core/packages.lock.json",
+      "consumerBlob": "53990209a76199c44fa8772a2fd04171e5e2506a",
+      "donorTestedBlob": "2fd0bc8ff2ac8ae9b4c828422d87abac16006d4a",
+      "identical": false
+    },
+    {
+      "path": "src/article-vault/linux/FsusBlog.ArticleVault.Linux.csproj",
+      "consumerBlob": "17d2ee14cf50d8ba3709fd0e5b8a81e9dc0c629e",
+      "donorTestedBlob": "17d2ee14cf50d8ba3709fd0e5b8a81e9dc0c629e",
+      "identical": true
+    },
+    {
+      "path": "src/article-vault/linux/packages.lock.json",
+      "consumerBlob": "a09c9f7ced5b678ee6ef082fcb73263a0c3be199",
+      "donorTestedBlob": "a09c9f7ced5b678ee6ef082fcb73263a0c3be199",
+      "identical": true
+    },
+    {
+      "path": "src/backend/FsusBlog.Server.csproj",
+      "consumerBlob": "c7e38c66b974862cddaef76897c957c9c28a5d81",
+      "donorTestedBlob": "c7e38c66b974862cddaef76897c957c9c28a5d81",
+      "identical": true
+    },
+    {
+      "path": "src/backend/packages.lock.json",
+      "consumerBlob": "d0f3030e8e8aa91f3ea07371fdb52fe528504d21",
+      "donorTestedBlob": "d0f3030e8e8aa91f3ea07371fdb52fe528504d21",
+      "identical": true
+    },
+    {
+      "path": "src/core/FsusBlog.Core.csproj",
+      "consumerBlob": "dca4d483ac841a816c9b2a2405cb431773f47f2a",
+      "donorTestedBlob": "dca4d483ac841a816c9b2a2405cb431773f47f2a",
+      "identical": true
+    },
+    {
+      "path": "src/core/packages.lock.json",
+      "consumerBlob": "96f49c26fa2525f2e6b51c73723de710fd8e06c3",
+      "donorTestedBlob": "96f49c26fa2525f2e6b51c73723de710fd8e06c3",
+      "identical": true
+    },
+    {
+      "path": "src/migration/FsusBlog.Migration.csproj",
+      "consumerBlob": "f4d1c7d1f1b76ee7a8295b08c9e5c17f58237264",
+      "donorTestedBlob": "7b3b4e0c5b225e17c3f4c9e59dcdcbbed74fc5a7",
+      "identical": false
+    },
+    {
+      "path": "src/migration/packages.lock.json",
+      "consumerBlob": "e74965f2a58cdc8abf2bec593089aa1aa7da10c3",
+      "donorTestedBlob": "66b2f8d186be94903befd67b63ec6eb23d76ed52",
+      "identical": false
+    },
+    {
+      "path": "src/shared/FsusBlog.Shared.csproj",
+      "consumerBlob": "fd5ab10d4e68c771aad5e80f0eb53447e51e0a47",
+      "donorTestedBlob": "fd5ab10d4e68c771aad5e80f0eb53447e51e0a47",
+      "identical": true
+    },
+    {
+      "path": "src/shared/packages.lock.json",
+      "consumerBlob": "6afd6786b95a8c85febce85cf6219643ee860872",
+      "donorTestedBlob": "6afd6786b95a8c85febce85cf6219643ee860872",
+      "identical": true
+    },
+    {
+      "path": "tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj",
+      "consumerBlob": "442575a6bdad454c0467beebd6ba1e4e8ad1cf7b",
+      "donorTestedBlob": "442575a6bdad454c0467beebd6ba1e4e8ad1cf7b",
+      "identical": true
+    },
+    {
+      "path": "tests/article-vault/linux/packages.lock.json",
+      "consumerBlob": "f83c2accc6e97fd537bd8f88372c687a47601d32",
+      "donorTestedBlob": "f83c2accc6e97fd537bd8f88372c687a47601d32",
+      "identical": true
+    },
+    {
+      "path": "tests/backend/FsusBlog.Server.Tests.csproj",
+      "consumerBlob": "eabae0a574d36a17a9af7885ef2528ec4f010707",
+      "donorTestedBlob": "eabae0a574d36a17a9af7885ef2528ec4f010707",
+      "identical": true
+    },
+    {
+      "path": "tests/backend/packages.lock.json",
+      "consumerBlob": "6b9bfe36493a1aa0aec4a5d75afa57c70c5f151f",
+      "donorTestedBlob": "10376ad517bbd800ec096ff2e9a4dcce4dc48898",
+      "identical": false
+    },
+    {
+      "path": "tests/cache-coordination-probe/CacheCoordinationProbe.csproj",
+      "consumerBlob": "62156e3c29de8539fcc7ecb2b9eeed6f7026e783",
+      "donorTestedBlob": "62156e3c29de8539fcc7ecb2b9eeed6f7026e783",
+      "identical": true
+    },
+    {
+      "path": "tests/cache-coordination-probe/packages.lock.json",
+      "consumerBlob": "ec1b8e08c5ea44c1769d194f801cc30137fb575b",
+      "donorTestedBlob": "ec1b8e08c5ea44c1769d194f801cc30137fb575b",
+      "identical": true
+    },
+    {
+      "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
+      "consumerBlob": "a0429efa5ba4ad42af667b0af5d9f5c117e7d210",
+      "donorTestedBlob": "a0429efa5ba4ad42af667b0af5d9f5c117e7d210",
+      "identical": true
+    },
+    {
+      "path": "tests/migration/packages.lock.json",
+      "consumerBlob": "9e289962c72dce2a415191635d02079fa7172888",
+      "donorTestedBlob": "383f088188899fc78973b17bed8c025561ff48a4",
+      "identical": false
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+      "consumerBlob": "94bf9c67257e799e344738bda5bf87301374c1b5",
+      "donorTestedBlob": "94bf9c67257e799e344738bda5bf87301374c1b5",
+      "identical": true
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json",
+      "consumerBlob": "721102ac7bd2f3b9b46fda035eb44eb365b75933",
+      "donorTestedBlob": "721102ac7bd2f3b9b46fda035eb44eb365b75933",
+      "identical": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+      "consumerBlob": "ac6538f325848d6a55343abda0092169edc16d8a",
+      "donorTestedBlob": "ac6538f325848d6a55343abda0092169edc16d8a",
+      "identical": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "consumerBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "donorTestedBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "identical": false
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+      "consumerBlob": "3d9e5c92d7dc0d49d8e44ab2b47dead7ded60ce7",
+      "donorTestedBlob": "3d9e5c92d7dc0d49d8e44ab2b47dead7ded60ce7",
+      "identical": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "consumerBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "donorTestedBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "identical": false
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+      "consumerBlob": "44286797b3f0ab2f6b79b03b2022c34537997e54",
+      "donorTestedBlob": "44286797b3f0ab2f6b79b03b2022c34537997e54",
+      "identical": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "consumerBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "donorTestedBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "identical": false
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "consumerBlob": "f4e2b49036284183ee1d9f93e928c12aa43e902d",
+      "donorTestedBlob": "f4e2b49036284183ee1d9f93e928c12aa43e902d",
+      "identical": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "consumerBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "donorTestedBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "identical": false
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+      "consumerBlob": "bdd3c1797230ebb548de84107f57ac83b8d5680a",
+      "donorTestedBlob": "bdd3c1797230ebb548de84107f57ac83b8d5680a",
+      "identical": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "consumerBlob": "08e62e583616c40424a919b7eb188b5238e33d47",
+      "donorTestedBlob": "0591c7b47fa2ef538235a408701beb96dd409cc3",
+      "identical": false
+    },
+    {
+      "path": "tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj",
+      "consumerBlob": "e87963bebc64439e73d0921934e0e55e1daf1d4a",
+      "donorTestedBlob": "e87963bebc64439e73d0921934e0e55e1daf1d4a",
+      "identical": true
+    },
+    {
+      "path": "tools/security/AnonymousCredentialRootBootstrap/packages.lock.json",
+      "consumerBlob": "3f9ff51e18261dc48ed4bcdad3700284aa230951",
+      "donorTestedBlob": "3f9ff51e18261dc48ed4bcdad3700284aa230951",
+      "identical": true
+    },
+    {
+      "path": "tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj",
+      "consumerBlob": "4e7749e833090b5c3a6bc48d2a8997d46487679b",
+      "donorTestedBlob": "4e7749e833090b5c3a6bc48d2a8997d46487679b",
+      "identical": true
+    },
+    {
+      "path": "tools/security/FsusBlog.SecuritySourceAnalyzer/packages.lock.json",
+      "consumerBlob": "e7f43bef25ef367c43529f769dca98e146883ae2",
+      "donorTestedBlob": "e7f43bef25ef367c43529f769dca98e146883ae2",
+      "identical": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj",
+      "consumerBlob": "ace25f7c171862b761cf6b5a8bb47d6bacb629f3",
+      "donorTestedBlob": "ace25f7c171862b761cf6b5a8bb47d6bacb629f3",
+      "identical": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/AdapterFixtureTests.csproj",
+      "consumerBlob": "ae12b127ed93fb722b1538450a8a0ff75c0e7c37",
+      "donorTestedBlob": "ae12b127ed93fb722b1538450a8a0ff75c0e7c37",
+      "identical": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/packages.lock.json",
+      "consumerBlob": "7d008c89e63fa5c8ccc90ff074e1f289ce8bd18c",
+      "donorTestedBlob": "7d008c89e63fa5c8ccc90ff074e1f289ce8bd18c",
+      "identical": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/packages.lock.json",
+      "consumerBlob": "ea63e2eec8ed69b1d04d3a4fd3e4f46733dcb279",
+      "donorTestedBlob": "ea63e2eec8ed69b1d04d3a4fd3e4f46733dcb279",
+      "identical": true
+    },
+    {
+      "path": "tools/test/xunit-replay-runner/FsusBlog.XunitReplayRunner.csproj",
+      "consumerBlob": "d9657b758fd382985b0f1b483d8a118ad88ebaf5",
+      "donorTestedBlob": "d9657b758fd382985b0f1b483d8a118ad88ebaf5",
+      "identical": true
+    },
+    {
+      "path": "tools/test/xunit-replay-runner/packages.lock.json",
+      "consumerBlob": "6e591efdacc92a916206fd6ed48c42c9faa1ac7b",
+      "donorTestedBlob": "6e591efdacc92a916206fd6ed48c42c9faa1ac7b",
+      "identical": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj",
+      "consumerBlob": "2060e0490c5dcfe9dfda2a4a409c4bc6befbf171",
+      "donorTestedBlob": "2060e0490c5dcfe9dfda2a4a409c4bc6befbf171",
+      "identical": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets",
+      "consumerBlob": "fd53f985fb4e1c5a38134359703789eb0b8ad727",
+      "donorTestedBlob": "fd53f985fb4e1c5a38134359703789eb0b8ad727",
+      "identical": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/packages.lock.json",
+      "consumerBlob": "8b79dba10730ad9b2e04e413be07a2375968e969",
+      "donorTestedBlob": "8b79dba10730ad9b2e04e413be07a2375968e969",
+      "identical": true
+    },
+    {
+      "path": "tools/transport/FsusBlog.Http3Lab/FsusBlog.Http3Lab.csproj",
+      "consumerBlob": "09e5f9ada359c0f81a53b5e41e8376c04b5e1024",
+      "donorTestedBlob": "09e5f9ada359c0f81a53b5e41e8376c04b5e1024",
+      "identical": true
+    },
+    {
+      "path": "tools/transport/FsusBlog.Http3Lab/packages.lock.json",
+      "consumerBlob": "f2d03b0dd31eb73eb213a3e8a02b20f8e23c2e9c",
+      "donorTestedBlob": "f2d03b0dd31eb73eb213a3e8a02b20f8e23c2e9c",
+      "identical": true
+    }
+  ],
+  "changedInputs": [
+    {
+      "path": "benchmarks/core/packages.lock.json",
+      "consumerBlob": "53990209a76199c44fa8772a2fd04171e5e2506a",
+      "donorTestedBlob": "2fd0bc8ff2ac8ae9b4c828422d87abac16006d4a",
+      "identical": false
+    },
+    {
+      "path": "src/migration/FsusBlog.Migration.csproj",
+      "consumerBlob": "f4d1c7d1f1b76ee7a8295b08c9e5c17f58237264",
+      "donorTestedBlob": "7b3b4e0c5b225e17c3f4c9e59dcdcbbed74fc5a7",
+      "identical": false
+    },
+    {
+      "path": "src/migration/packages.lock.json",
+      "consumerBlob": "e74965f2a58cdc8abf2bec593089aa1aa7da10c3",
+      "donorTestedBlob": "66b2f8d186be94903befd67b63ec6eb23d76ed52",
+      "identical": false
+    },
+    {
+      "path": "tests/backend/packages.lock.json",
+      "consumerBlob": "6b9bfe36493a1aa0aec4a5d75afa57c70c5f151f",
+      "donorTestedBlob": "10376ad517bbd800ec096ff2e9a4dcce4dc48898",
+      "identical": false
+    },
+    {
+      "path": "tests/migration/packages.lock.json",
+      "consumerBlob": "9e289962c72dce2a415191635d02079fa7172888",
+      "donorTestedBlob": "383f088188899fc78973b17bed8c025561ff48a4",
+      "identical": false
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "consumerBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "donorTestedBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "identical": false
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "consumerBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "donorTestedBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "identical": false
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "consumerBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "donorTestedBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "identical": false
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "consumerBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "donorTestedBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "identical": false
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "consumerBlob": "08e62e583616c40424a919b7eb188b5238e33d47",
+      "donorTestedBlob": "0591c7b47fa2ef538235a408701beb96dd409cc3",
+      "identical": false
+    }
+  ]
+}

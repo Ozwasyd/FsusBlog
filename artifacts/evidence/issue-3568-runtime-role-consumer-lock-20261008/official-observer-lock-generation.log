@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/shared/FsusBlog.Shared.csproj (in 155 ms).
+/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj]
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/migration/FsusBlog.Migration.csproj (in 404 ms).
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 198 ms).
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/core/FsusBlog.Core.csproj (in 3 ms).
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/backend/FsusBlog.Server.csproj (in 439 ms).
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj (in 441 ms).

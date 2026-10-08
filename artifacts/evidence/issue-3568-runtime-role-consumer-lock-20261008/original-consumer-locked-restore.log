@@ -1,0 +1,10 @@
+  Determining projects to restore...
+/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj]
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/core/FsusBlog.Core.csproj (in 786 ms).
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 802 ms).
+/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.
+/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj : error NU1004: The project references fsusblog.migration whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/shared/FsusBlog.Shared.csproj (in 3 ms).
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/backend/FsusBlog.Server.csproj (in 811 ms).
+  Restored /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/migration/FsusBlog.Migration.csproj (in 810 ms).
+  Failed to restore /workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj (in 9 ms).

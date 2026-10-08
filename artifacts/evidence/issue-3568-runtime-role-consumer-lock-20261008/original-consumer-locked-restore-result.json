@@ -1,0 +1,15 @@
+{
+  "sourceCandidate": "7b79aed73b156fae328ca14252e78d9888001960",
+  "command": [
+    "dotnet",
+    "restore",
+    "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+    "--locked-mode",
+    "--force",
+    "-p:NuGetAudit=true"
+  ],
+  "startedAtUTC": "2026-10-08T13:14:45.751322+00:00",
+  "exitCode": 1,
+  "log": "/workspace/FsusBlog/.tmp/issue-3568-runtime-role-consumer-lock-20261008/original-consumer-locked-restore.log",
+  "sha256": "226a9dbe3947182a7526ebbdd04aaccfbe40f8a445ac82f6a591319f1436b0bb"
+}

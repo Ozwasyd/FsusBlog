@@ -1,0 +1,19 @@
+{
+  "candidate": "6ffa5cf34104b4197847f91c35a94b42fd981b4d",
+  "command": [
+    "dotnet",
+    "restore",
+    "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+    "--locked-mode",
+    "--force",
+    "-p:NuGetAudit=true"
+  ],
+  "startedAtUTC": "2026-10-08T13:19:21.606844+00:00",
+  "exitCode": 0,
+  "log": "/workspace/FsusBlog/.tmp/issue-3568-runtime-role-consumer-lock-20261008/exact-head-observer-locked-restore.log",
+  "sha256": "3f9222d9d6bc7199b35dc27295e6a624e07a074e92644ff764642fd918e83e22",
+  "auditWarnings": [
+    "/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj]",
+    "/workspace/.task-worktrees/issue-3568-runtime-role-consumer-lock/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q"
+  ]
+}
