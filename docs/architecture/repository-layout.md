@@ -81,6 +81,60 @@ its operation identity, following the existing native bootstrap owner. Compiling
 these original sources does not qualify native preservation, recovery or bootstrap
 acceptance.
 
+## Memory allocation discovery boundary
+
+`config/development/memory-allocation-boundaries.json` belongs to the existing
+`development-governance` directory owner in the configuration ownership registry.
+It is inventory-only governance input and records initial
+source traces for PublicHotRead snapshots, PublicAOT file materialization, ordinary L1,
+owned AEDS frames, notification fanout, and database materialization. The established
+snapshot store, AOT commit journal, revocation boundary, queue delivery catalog,
+configuration contract, and test matrix retain their respective responsibilities.
+The catalog grants no data migration, publication, delivery, or runtime configuration
+authority. Every recorded migration permission remains denied pending its class contract.
+
+The producer is `tools/governance/memory-allocation-inventory.mjs`. It binds the current
+Git commit, complete index digest, tracked-change digest, source bytes, dependency
+manifests, ownership inputs, and producer bytes to a worktree fingerprint. Its reader
+reopens the candidate and independently compares lexical discovery with ripgrep.
+Generated and vendor matches stay in the denominator. Output contains source locations
+and digests, rather than payloads or credentials. A changed source, replacement SHA,
+altered trace, omitted match, or forged resolved count is refused.
+
+```bash
+node tools/governance/memory-allocation-inventory.mjs produce .tmp/memory-inventory/run.json <run-id>
+node tools/governance/memory-allocation-inventory.mjs verify .tmp/memory-inventory/run.json
+node tools/governance/memory-allocation-inventory.mjs verify .tmp/memory-inventory/run.json --require-complete
+node --test tests/tools/memory-allocation-inventory.test.mjs
+```
+
+Production creates a new file exclusively; repeat runs use new run identities and paths,
+preserving previous receipts. The ordinary reader verifies intake identity and discovery
+only. The strict command currently refuses acceptance: all lexical sites still need
+explicit family resolution, including comments, declarations, non-byte arrays, exclusions,
+requested length, actual capacity, and asynchronous release evidence. Six source traces
+are initial observations, not a complete per-family inventory or runtime qualification.
+The registered regression owner is the existing static-governance test topology.
+
+All future configurable memory capabilities must default to Auto: bounded discovery and
+qualification, automatic activation and deterministic eligible selection after admission.
+Disabled must stop new probes and use before draining old owners. Required must preserve
+permissions, safety, qualification, and budgets. Discovery, qualification, online state,
+selection, and per-operation admission remain distinct. This inventory changes no serving
+behavior and claims no performance improvement.
+
+The current backend, Core, Shared, and Migration projects target `net10.0`. A .NET target
+or an available local toolchain does not establish product platform support. The memory
+program's release support contract and installed offline dependency closure remain
+owner-resolution-required. Linux, Windows, and macOS on x64 and ARM64 are retained as
+NotVerified candidate rows, not asserted supported deployments; missing environments
+cannot be removed from subsequent qualification. A current Linux x64 SDK observation
+does not qualify a native, disk, GPU, or other platform backend. Docker validation remains
+with its authorized owner.
+
+Withdraw or revise the catalog and its producer through these existing governance owners
+to roll back inventory work. No product resources or serving state are changed.
+
 ## Configuration ownership
 
 Shared runtime, test, and observability configuration belongs in `config/`; only the .NET framework tool manifest uses `.config/`. Project-specific `appsettings*.json` and `Properties/launchSettings.json` stay with their owning project, so Docker Compose launch profiles live in `ops/docker/Properties/`. Root `configs/`, ownerless `Properties/`, and scattered JSON configuration are rejected by `tools/configuration/check-configuration-layout.mjs`. See [`docs/configuration-layout.md`](../configuration-layout.md) for the complete ownership table.
