@@ -9,7 +9,8 @@
         "tools/test-matrix/post-runtime-producer-registry.mjs",
         "tools/test/correctness-attempt-migration.mjs",
         "tools/docs/behavior-document-consistency-final.mjs",
-        "tests/tools/behavior-document-consistency-final.test.mjs"
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/matrix.yml"
     ],
     "outputs": [
         {
@@ -18,7 +19,15 @@
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
+            "sha256": "88afa63e1be25b36381cc2caa2af913fca16be82e387271e28772dfa42a67fd2"
+        },
+        {
+            "path": "config/testing/fixture-consumer-inventory.generated.json",
+            "sha256": "9e988a5791a2853eecc56b2e78df4a05a3aa4923ecdc166866a4f926497fbe9d"
+        },
+        {
+            "path": "config/testing/fixture-profile-matrix.generated.json",
+            "sha256": "c8934528b5e0d728264a3f55139c6ee73ae42deec68108818a4c0f5fedf91c17"
         }
     ]
 }
