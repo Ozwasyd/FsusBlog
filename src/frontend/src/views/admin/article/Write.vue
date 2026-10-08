@@ -170,6 +170,7 @@
                                 :authoring-commands="inspectorCommands"
                                 :article-identity="authoringDocumentIdentity.id"
                                 :document-identity="authoringDocumentIdentity"
+                                :document-context="authoringDocumentContext"
                                 :loading="pageLoading"
                                 :saving="submitting"
                                 @save="saveDraftNow"

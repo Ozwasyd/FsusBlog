@@ -24,7 +24,8 @@
             status-density="minimal"
             toolbar-density="standard"
             :show-mode-switcher="false"
-            :mode="activeSurface"
+            :authoring-surface="activeSurface"
+            :source-compare-open="sourceCompareOpen"
             :editor-class="editorSizingClass"
             :toolbars-exclude="['save']"
             :loading="loading"
@@ -53,19 +54,19 @@
             >
                 <button
                     type="button"
-                    :aria-pressed="persistedSurface === 'live'"
+                    :aria-pressed="sessionSurface === 'live'"
                     :disabled="loading"
                     data-authoring-surface="live"
-                    @click="setPersistedSurface('live')"
+                    @click="requestSurface('live')"
                 >
                     实时
                 </button>
                 <button
                     type="button"
-                    :aria-pressed="persistedSurface === 'source'"
+                    :aria-pressed="sessionSurface === 'source'"
                     :disabled="loading"
                     data-authoring-surface="source"
-                    @click="setPersistedSurface('source')"
+                    @click="requestSurface('source')"
                 >
                     源码
                 </button>
@@ -98,8 +99,12 @@ import type {
     FsusUiAuthoringDocumentIdentity,
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
+import type { ArticleDocumentContext } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
-import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor';
+import {
+    createArticleEditorSurfacePreference, validateArticleEditorSurfacePreference,
+    type ArticleEditorSurface, type ArticleEditorSurfacePreference
+} from '@/services/authoring/articleEditorSurface';
 
 import type {
     MarkdownEditorOutlineItem,
@@ -113,7 +118,6 @@ import type {
 defineOptions({ name: 'ArticleWriteEditor' });
 
 type EditorLayoutMode = 'standard' | 'focus' | 'fullscreen';
-type PersistedAuthoringSurface = Extract<MarkdownEditorMode, 'live' | 'source'>;
 type ArticleAuthoringSelectionEvent = FsusUiMarkdownEditorSelectionEvent & Readonly<{
     documentIdentity?: FsusUiAuthoringDocumentIdentity;
 }>;
@@ -127,6 +131,8 @@ const props = withDefaults(defineProps<{
     commandSurfaces?: FsusUiAuthoringSurfaceOptions;
     documentIdentity?: FsusUiAuthoringDocumentIdentity;
     articleIdentity?: string;
+    surfacePreference?: ArticleEditorSurfacePreference | null;
+    documentContext?: ArticleDocumentContext | null;
 }>(), {
     layoutMode: 'standard',
     authoringCommands: () => [],
@@ -137,7 +143,9 @@ const props = withDefaults(defineProps<{
         commandPalette: true
     }),
     documentIdentity: undefined,
-    articleIdentity: undefined
+    articleIdentity: undefined,
+    surfacePreference: null,
+    documentContext: null
 });
 
 const emit = defineEmits<{
@@ -148,6 +156,7 @@ const emit = defineEmits<{
     (e: 'transaction', event: MarkdownEditorTransactionEvent): void;
     (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
     (e: 'editor-focus', event: 'focusin' | 'focusout'): void;
+    (e: 'surface-request', surface: ArticleEditorSurface): void;
     (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
 }>();
 
@@ -169,7 +178,25 @@ const adapterRef = ref<{
         options?: MarkdownEditorRevealOptions
     ) => MarkdownEditorRevealResult;
 } | null>(null);
-const persistedSurface = ref<PersistedAuthoringSurface>('source');
+// Until the canonical preference owner supplies a real snapshot, this is a session choice only.
+const sessionSurface = ref<ArticleEditorSurface>('source');
+const ownedSurfacePreference = computed(() =>
+{
+    const preference = props.surfacePreference;
+    const context = props.documentContext;
+    return context && validateArticleEditorSurfacePreference(preference)
+        && preference.siteScope === context.siteScope && preference.userScope === context.userScope
+        ? createArticleEditorSurfacePreference(context, preference.surface) : null;
+});
+watch([
+    () => ownedSurfacePreference.value?.contentDigest ?? null,
+    () => props.documentContext?.siteScope,
+    () => props.documentContext?.userScope
+], () =>
+{
+    // Source revisions do not overwrite a session Source escape; owner/scope changes do.
+    sessionSurface.value = ownedSurfacePreference.value?.surface ?? 'source';
+}, { immediate: true });
 const sourceCompareOpen = ref(false);
 const sourceRevision = ref(0);
 const selection = ref<ArticleOutlineSelection>({
@@ -195,9 +222,7 @@ const outline = useArticleOutline({
 });
 const activeHeadingId = computed(() => outline.active.value?.headingId ?? null);
 
-const activeSurface = computed<MarkdownEditorMode>(() => (
-    sourceCompareOpen.value ? 'split' : persistedSurface.value
-));
+const activeSurface = computed<ArticleEditorSurface>(() => sessionSurface.value);
 
 const editorSizingClass = computed(() =>
 {
@@ -219,10 +244,11 @@ const handleUploadImg = (files: File[], callback: (urls: string[]) => void, onEr
     emit('upload-img', files, callback, onError);
 };
 
-function setPersistedSurface(surface: PersistedAuthoringSurface): void
+function requestSurface(surface: ArticleEditorSurface): void
 {
-    persistedSurface.value = surface;
+    sessionSurface.value = surface;
     sourceCompareOpen.value = false;
+    emit('surface-request', surface);
 }
 
 function toggleSourceCompare(): void

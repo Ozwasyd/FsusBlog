@@ -47,6 +47,7 @@ import type {
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
+import type { ArticleEditorSurface } from '@/services/authoring/articleEditorSurface';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorMode,
@@ -79,6 +80,8 @@ const props = withDefaults(defineProps<{
     loading?: boolean;
     saving?: boolean;
     mode?: MarkdownEditorMode;
+    authoringSurface?: ArticleEditorSurface;
+    sourceCompareOpen?: boolean;
     chrome?: MarkdownEditorChrome;
     statusDensity?: MarkdownEditorStatusDensity;
     showModeSwitcher?: boolean;
@@ -96,6 +99,8 @@ const props = withDefaults(defineProps<{
     loading: false,
     saving: false,
     mode: 'source',
+    authoringSurface: undefined,
+    sourceCompareOpen: false,
     chrome: 'framed',
     statusDensity: 'minimal',
     showModeSwitcher: true,
@@ -146,7 +151,9 @@ const content = computed({
     set: (value: string) => emit('update:modelValue', value)
 });
 
-const resolvedMode = computed<MarkdownEditorMode>(() => props.mode);
+// Product surfaces remain closed; the temporary compare tool maps at this native adapter boundary.
+const resolvedMode = computed<MarkdownEditorMode>(() => props.authoringSurface === undefined
+    ? props.mode : props.sourceCompareOpen ? 'split' : props.authoringSurface);
 const mergedToolbarsExclude = computed(() =>
 {
     return Array.from(new Set([...(props.toolbarsExclude ?? []), ...provider.value.defaultToolbarsExclude]));
@@ -172,7 +179,7 @@ function revealHeading(
     options?: MarkdownEditorRevealOptions
 ): MarkdownEditorRevealResult
 {
-    return editorRef.value?.revealHeading?.(nodeId, options) ?? 'not-found';
+    return editorRef.value?.revealHeading?.(nodeId, nativeRevealOptions(options)) ?? 'not-found';
 }
 
 function revealSourceRange(
@@ -180,7 +187,12 @@ function revealSourceRange(
     options?: MarkdownEditorRevealOptions
 ): MarkdownEditorRevealResult
 {
-    return editorRef.value?.revealSourceRange?.(range, options) ?? 'not-found';
+    return editorRef.value?.revealSourceRange?.(range, nativeRevealOptions(options)) ?? 'not-found';
+}
+
+function nativeRevealOptions(options?: MarkdownEditorRevealOptions): MarkdownEditorRevealOptions | undefined
+{
+    return options && props.authoringSurface !== undefined ? { ...options, mode: resolvedMode.value } : options;
 }
 
 function getAuthoringEditorPort(): ArticleEditorContinuityPort | null

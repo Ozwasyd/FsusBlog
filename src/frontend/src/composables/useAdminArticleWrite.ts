@@ -75,6 +75,9 @@ import {
 } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
+import { validateArticleEditorSurfacePreference, type ArticleEditorSurfacePreference } from '@/services/authoring/articleEditorSurface';
+import { ArticleEditorSurfaceRuntime } from '@/services/authoring/articleEditorSurfaceRuntime';
+import { ArticleLiveCapabilitySession } from '@/services/authoring/articleLiveCapability';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
@@ -935,6 +938,7 @@ export function useAdminArticleWrite()
                 throw error;
             }
             editorRuntimeBinding = binding;
+            let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
             const release = (): void =>
             {
                 if (editorRuntimeBinding !== binding)
@@ -943,11 +947,36 @@ export function useAdminArticleWrite()
                 }
                 editorRuntimeBinding = null;
                 releaseEditorRuntime = null;
+                surfaceRuntime?.dispose();
+                surfaceRuntime = null;
                 binding.dispose();
                 releaseAttachmentEditor();
             };
             releaseEditorRuntime = release;
-            return Object.freeze({ binding, release });
+            const bindSurfacePreference = (readPreference: () => ArticleEditorSurfacePreference | null): ArticleEditorSurfaceRuntime =>
+            {
+                if (!active || editorRuntimeBinding !== binding || surfaceRuntime || typeof readPreference !== 'function')
+                {
+                    throw new Error('article-editor-surface-binding-invalid');
+                }
+                const readCurrentPreference = (): ArticleEditorSurfacePreference =>
+                {
+                    const preference = readPreference();
+                    const context = binding.context;
+                    if (!articleDocumentContextAdapter.isCurrentContext(context) || !validateArticleEditorSurfacePreference(preference)
+                        || preference.siteScope !== context.siteScope || preference.userScope !== context.userScope)
+                    {
+                        throw new Error('article-editor-surface-preference-unavailable');
+                    }
+                    return preference;
+                };
+                // No guessed preference: admission requires a real current owner snapshot before construction.
+                readCurrentPreference();
+                surfaceRuntime = new ArticleEditorSurfaceRuntime(articleDocumentContextAdapter, binding,
+                    new ArticleLiveCapabilitySession(articleDocumentContextAdapter), readCurrentPreference);
+                return surfaceRuntime;
+            };
+            return Object.freeze({ binding, release, bindSurfacePreference });
         }
     });
     const initTask = useAbortableTask({

@@ -145,6 +145,23 @@ button calls the same canonical no-store read. External definition-schema change
 notification has no current public source and remains an explicit integration gap;
 this composition does not claim authenticated database or migration acceptance.
 
+The Writer's product surface is typed only as `ArticleEditorSurface` (`live` or
+`source`). Temporary source-compare mapping to the native generic editor belongs
+to `MarkdownEditorAdapter`; it is not a persisted product surface. A supplied
+surface preference is admitted only through the existing closed preference
+contract and the actual document's user/site scope. Without that source, the
+current choices remain session-only and do not write an invented preference.
+
+The existing `authoringEditorRuntime.bindEditor` handle exposes
+`bindSurfacePreference(readPreference)` to compose the canonical surface runtime
+from the supplied owner source. It refuses a missing, corrupt or foreign-scope
+snapshot before construction, keeps capability pending until a full typed result
+is supplied, and disposes surface work before releasing the same editor binding.
+The production preference snapshot getter is not yet available, so this controlled
+entry is not activated by a guessed default. Native typed capability delivery and
+real focus/viewport acknowledgement remain required before qualified restoration;
+public initialization and `awaiting-ack` are admission only.
+
 The Writer's inspector command entry sits above the body surface, keeping it
 reachable when the native selection toolbar is open. The same public command
 palette and editor instance remain in use; the native toolbar remains enabled.
