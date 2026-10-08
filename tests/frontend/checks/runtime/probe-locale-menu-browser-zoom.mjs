@@ -34,7 +34,10 @@ export async function probeLocaleMenuBrowserZoom({ chromium, expect, url, eviden
         const zoom = await worker.evaluate(async (targetUrl) =>
         {
             const tab = (await globalThis.chrome.tabs.query({})).find((candidate) => candidate.url === targetUrl);
-            if (!tab) throw new Error('consumer tab is unavailable to the zoom probe');
+            if (!tab)
+            {
+                throw new Error('consumer tab is unavailable to the zoom probe');
+            }
             await globalThis.chrome.tabs.setZoomSettings(tab.id, { scope: 'per-tab', mode: 'automatic' });
             await globalThis.chrome.tabs.setZoom(tab.id, 2);
             return globalThis.chrome.tabs.getZoom(tab.id);
