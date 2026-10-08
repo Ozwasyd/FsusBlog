@@ -6,8 +6,15 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+// Consume the existing release authority rather than creating CLI-only identities.
+// eslint-disable-next-line import-x/no-relative-parent-imports
+import { RELEASE_ID_CONTRACT } from '../release/release-id.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports
+import { readExplicitReleaseArtifact } from '../release/release-manifest.mjs';
+
 import { writeJsonAtomic } from './release-assets.mjs';
-import { executeReleaseAssetGc, normalizeGcState, RELEASE_GC_EVIDENCE_SCHEMA } from './release-gc.mjs';
+import { executeReleaseAssetGc, normalizeGcState, RELEASE_GC_EVIDENCE_SCHEMA,
+    planCurrentReleaseAssetGc, executeCurrentReleaseAssetGc } from './release-gc.mjs';
 const {readRolloutState} = await import(new URL('../deployment/release-rollout-lib.mjs', import.meta.url));
 const {readSlotState} = await import(new URL('../deployment/slot-lib.mjs', import.meta.url));
 const {readDestructiveOperationAuthority, verifyArtifactGcActiveIdentity} = await import(new URL('../deployment/destructive-operation-authority.mjs', import.meta.url));
@@ -16,6 +23,31 @@ let options = {};
 try
 {
     options = parseArgs(process.argv.slice(2));
+    if (options.ownership)
+    {
+        const required = ['ownership', 'ownership-sha256', 'release-manifest', 'release-manifest-sha256',
+            'trust-policy', 'trust-policy-sha256', 'store'];
+        if (required.some(key => !options[key]) || Object.keys(options).some(key => ![...required, 'apply', 'out'].includes(key)))
+        {
+            throw new Error('current GC requires explicit ownership, manifest, trust and store refs/digests only');
+        }
+        const readBytes = (reference, digest) => readExplicitReleaseArtifact(reference, digest.replace(/^sha256:/u, ''), 64 * 1024 * 1024);
+        const ownership = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(readBytes(options.ownership, options['ownership-sha256'])));
+        const manifest = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(readBytes(options['release-manifest'], options['release-manifest-sha256'])));
+        const inputs = { storeDirectory: options.store, ownership, manifest, readBytes, releaseIdContract: RELEASE_ID_CONTRACT,
+            trustPolicyReference: options['trust-policy'], trustPolicySha256: options['trust-policy-sha256'] };
+        const plan = planCurrentReleaseAssetGc(inputs);
+        if (options.apply === true)
+        {
+            executeCurrentReleaseAssetGc(plan, inputs);
+        }
+        if (options.out)
+        {
+            writeJsonAtomic(path.resolve(options.out), plan, { replace: false });
+        }
+        process.stdout.write(`${JSON.stringify(plan)}\n`);
+        process.exit(0);
+    }
     if (options.apply === true && options.locked === true
       && (!process.env.FSUSBLOG_GC_LOCK_TOKEN || options['lock-token'] !== process.env.FSUSBLOG_GC_LOCK_TOKEN))
     {

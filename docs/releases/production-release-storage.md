@@ -107,3 +107,37 @@ and the native admission bridge are implemented and independently accepted, inst
 and activate refuse before takeover and discard only owned staging. The focused
 Node/WebCrypto/Cache-adapter controls are source evidence, not browser or release
 qualification. Compatibility/retention tools remain pending replacement acceptance.
+
+## Current storage ownership planning
+
+The existing `release-gc.mjs` owns the current registry/plan version as well as the
+legacy reader awaiting retirement. `storage-ownership.v2` is closed and sealed;
+it binds exact active candidate/content/release/inventory identity and one explicit
+owner receipt reference/hash per path, hash and size. Current planning verifies the
+original signed active manifest and inventory bytes, then matches every regular
+file in the declared store against the ownership roster. Unknown files or roots,
+symlinks, external hardlinks, missing active refs and any hash/size/seal drift stop
+the entire plan. Active paths and content-addressed shared copies stay protected
+even when a caller mislabels their owner as obsolete.
+
+Plans retain current candidates/operations, explicit backup ownership, shared and
+user ownership; they select only terminal failed-candidate or explicit obsolete
+ownership for proposed deletion. Selection never depends on last access, mtime,
+version count, previous-client caches or grace deadlines. Occupation reports bind
+active/candidate/operation/backup/shared/user/obsolete bytes to the same per-file
+closure. Independent verification recomputes that closure from the exact source,
+owner bytes and filesystem; it does not discover a latest plan.
+
+The current CLI mode requires `--ownership`, `--ownership-sha256`,
+`--release-manifest`, `--release-manifest-sha256`, `--trust-policy`,
+`--trust-policy-sha256` and `--store`. It emits a content-addressed plan with
+`deleteExecutionEligible=false`; `--apply` explicitly refuses
+`native_storage_ownership_bridge_unconfigured`. Byte-bound owner receipts can
+conservatively protect backup/operation artifacts but cannot prove native operation
+state or verified backup restoration. The original native owner still must supply
+durable active/operation observations, policy-qualified backup/restore facts,
+locked crash/retry checkpoints and independent post-delete observations before
+execution/cutover. Unactivated discard planning requires only that exact terminal
+candidate's owned paths. Old directory/image restart is refused; backup restore
+requires the original verified native restore bridge, and forward fix requires a
+new exact current admission. No source planning check grants deletion or restore.

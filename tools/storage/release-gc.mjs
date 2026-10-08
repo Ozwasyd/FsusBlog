@@ -2,11 +2,314 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+// Reuse the release authority's canonical bytes and artifact verification.
+// eslint-disable-next-line import-x/no-relative-parent-imports
+import { canonicalize } from '../fact-extractors/lib/canonicalize.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports
+import { verifyReleaseManifestArtifacts } from '../release/release-manifest-signature-contract.mjs';
+
 import { normalizeReleaseId, sha256File, writeJsonAtomic } from './release-assets.mjs';
 
 export const RELEASE_GC_STATE_SCHEMA = 'fsusblog.release-assets.gc-state.v1';
 export const RELEASE_GC_EVIDENCE_SCHEMA = 'fsusblog.release-assets.gc-evidence.v1';
 export const RELEASE_GC_PLAN_SCHEMA = 'fsusblog.release-assets.gc-plan.v1';
+export const CURRENT_STORAGE_OWNERSHIP_SCHEMA = 'fsusblog.release-assets.storage-ownership.v2';
+export const CURRENT_STORAGE_GC_PLAN_SCHEMA = 'fsusblog.release-assets.gc-plan.v2';
+
+const currentStorageDigest = value => `sha256:${crypto.createHash('sha256').update(canonicalize(value)).digest('hex')}`;
+const currentDigest = value => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/u.test(value);
+const storageOwnerKinds = new Set(['active-current', 'current-candidate', 'current-operation',
+    'backup-owned', 'failed-candidate', 'obsolete', 'shared', 'user']);
+function freezeCurrentStoragePlan(value)
+{
+    if (value && typeof value === 'object')
+    {
+        Object.values(value).forEach(freezeCurrentStoragePlan);
+        Object.freeze(value);
+    }
+    return value;
+}
+
+// The current version lives in the existing GC owner. Its byte-bound planning
+// surface cannot replace durable native activation/backup/deletion admission.
+export function normalizeCurrentStorageOwnership(value)
+{
+    assertExactFields(value, ['schema', 'active', 'entries', 'contentDigest'], 'current storage ownership');
+    if (value.schema !== CURRENT_STORAGE_OWNERSHIP_SCHEMA || !Array.isArray(value.entries) || value.entries.length > 100000)
+    {
+        throw new Error('current storage ownership requires the closed current registry');
+    }
+    assertExactFields(value.active, ['candidateId', 'manifestContentDigest', 'releaseId', 'assetManifestSha256'], 'current storage active identity');
+    normalizeReleaseId(value.active.releaseId);
+    if (![value.active.candidateId, value.active.manifestContentDigest, value.active.assetManifestSha256].every(currentDigest))
+    {
+        throw new Error('current storage active identity is missing or ambiguous');
+    }
+    const seen = new Set();
+    for (const entry of value.entries)
+    {
+        assertExactFields(entry, ['path', 'sha256', 'bytes', 'owner'], 'current storage entry');
+        if (typeof entry.path !== 'string' || !/^(?:releases|objects|staging|backups)\/[A-Za-z0-9._/-]+$/u.test(entry.path)
+            || entry.path.split('/').some(part => !part || ['.', '..', 'latest', 'previous', 'stable'].includes(part))
+            || seen.has(entry.path) || !currentDigest(entry.sha256) || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0)
+        {
+            throw new Error('current storage entry path/hash/size is invalid or duplicated');
+        }
+        seen.add(entry.path);
+        const owner = entry.owner;
+        assertExactFields(owner, ['kind', 'candidateId', 'manifestContentDigest', 'ownerId', 'state', 'receipt'], 'current storage owner');
+        if (!storageOwnerKinds.has(owner.kind) || !currentDigest(owner.candidateId) || !currentDigest(owner.manifestContentDigest)
+            || typeof owner.ownerId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(owner.ownerId)
+            || !['prepared', 'running', 'completed', 'failed', 'abandoned', 'owned'].includes(owner.state))
+        {
+            throw new Error('current storage owner identity/state is invalid');
+        }
+        if (owner.kind === 'failed-candidate' && !['failed', 'abandoned'].includes(owner.state)
+            || owner.kind === 'obsolete' && owner.state !== 'owned')
+        {
+            throw new Error('current storage terminal cleanup ownership is inconsistent');
+        }
+        assertExactFields(owner.receipt, ['reference', 'sha256'], 'current storage owner receipt');
+        if (typeof owner.receipt.reference !== 'string' || !path.isAbsolute(owner.receipt.reference)
+            || path.resolve(owner.receipt.reference) !== owner.receipt.reference
+            || owner.receipt.reference.split(path.sep).some(part => ['latest', 'previous', 'stable'].includes(part))
+            || !currentDigest(owner.receipt.sha256))
+        {
+            throw new Error('current storage requires explicit owner receipt reference/digest');
+        }
+    }
+    const { contentDigest, ...payload } = value;
+    if (currentStorageDigest(payload) !== contentDigest)
+    {
+        throw new Error('current storage ownership content seal mismatch');
+    }
+    return structuredClone(value);
+}
+
+function currentStorageFiles(store)
+{
+    assertSafeStoreRoot(store);
+    const rows = [];
+    const visit = directory =>
+    {
+        for (const name of fs.readdirSync(directory).sort())
+        {
+            const absolute = path.join(directory, name);
+            const metadata = fs.lstatSync(absolute, { bigint: true });
+            if (metadata.isSymbolicLink() || fs.realpathSync(absolute) !== absolute)
+            {
+                throw new Error('current storage contains a symlink or noncanonical path');
+            }
+            if (metadata.isDirectory())
+            {
+                visit(absolute);
+            }
+            else if (metadata.isFile())
+            {
+                rows.push({ path: path.relative(store, absolute).split(path.sep).join('/'), bytes: Number(metadata.size),
+                    sha256: sha256File(absolute), inode: `${metadata.dev}:${metadata.ino}`, links: Number(metadata.nlink) });
+            }
+            else
+            {
+                throw new Error('current storage contains an unsupported entry');
+            }
+        }
+    };
+    for (const name of fs.readdirSync(store).sort())
+    {
+        const absolute = path.join(store, name);
+        if (!['releases', 'objects', 'staging', 'backups'].includes(name) || !fs.lstatSync(absolute).isDirectory())
+        {
+            throw new Error(`current storage contains unknown-owned root entry: ${name}`);
+        }
+        visit(absolute);
+    }
+    const counts = new Map();
+    for (const row of rows)
+    {
+        counts.set(row.inode, (counts.get(row.inode) ?? 0) + 1);
+    }
+    if (rows.some(row => row.links !== counts.get(row.inode)))
+    {
+        throw new Error('current storage file has an unknown/shared external hardlink reference');
+    }
+    return rows;
+}
+
+export function planCurrentReleaseAssetGc(options)
+{
+    const { storeDirectory, ownership, manifest, readBytes } = options;
+    const store = path.resolve(storeDirectory);
+    const registry = normalizeCurrentStorageOwnership(ownership);
+    const verified = verifyReleaseManifestArtifacts(options);
+    const active = registry.active;
+    if (active.candidateId !== manifest.candidateId || active.manifestContentDigest !== manifest.contentDigest
+        || active.releaseId !== manifest.releaseId || active.assetManifestSha256 !== manifest.identity.frontend.assetManifest.sha256
+        || manifest.identity.frontend.assetManifest.reference !== path.join(store, 'releases', manifest.releaseId, 'asset-manifest.json'))
+    {
+        throw new Error('current storage active identity does not match the exact signed manifest in this store');
+    }
+    const files = currentStorageFiles(store);
+    const byPath = new Map(registry.entries.map(entry => [entry.path, entry]));
+    const filesByPath = new Map(files.map(file => [file.path, file]));
+    if (byPath.size !== files.length || files.some(file => !byPath.has(file.path)))
+    {
+        throw new Error('current storage registry must exactly own every filesystem artifact; unknown/extra refs block GC');
+    }
+    for (const asset of verified.currentAssets)
+    {
+        const actual = filesByPath.get(`releases/${active.releaseId}/${asset.path}`);
+        if (!actual || actual.sha256 !== asset.sha256 || actual.bytes !== asset.bytes)
+        {
+            throw new Error('current filesystem asset differs from the signed inventory bytes');
+        }
+    }
+    for (const artifact of verified.artifacts)
+    {
+        const relative = path.relative(store, artifact.reference).split(path.sep).join('/');
+        const actual = filesByPath.get(relative);
+        if (actual && (actual.sha256 !== artifact.sha256 || actual.bytes !== artifact.bytes))
+        {
+            throw new Error('current filesystem artifact differs from the verified manifest bytes');
+        }
+    }
+    const activeHashes = new Set(verified.currentAssets.map(asset => asset.sha256));
+    activeHashes.add(active.assetManifestSha256);
+    const activePaths = new Set(verified.currentAssets.map(asset => `releases/${active.releaseId}/${asset.path}`));
+    activePaths.add(`releases/${active.releaseId}/asset-manifest.json`);
+    for (const artifact of verified.artifacts)
+    {
+        const relative = path.relative(store, artifact.reference);
+        if (relative && !relative.startsWith('..') && !path.isAbsolute(relative))
+        {
+            activePaths.add(relative.split(path.sep).join('/'));
+            activeHashes.add(artifact.sha256);
+        }
+    }
+    for (const protectedPath of activePaths)
+    {
+        if (!byPath.has(protectedPath))
+        {
+            throw new Error('current active asset or manifest reference is missing from storage ownership');
+        }
+    }
+    const ownerBytes = new Map();
+    const occupation = { active: 0, candidate: 0, operation: 0, backup: 0, shared: 0, user: 0, obsolete: 0 };
+    const artifacts = files.map(file =>
+    {
+        const entry = byPath.get(file.path);
+        if (file.sha256 !== entry.sha256 || file.bytes !== entry.bytes)
+        {
+            throw new Error('current storage artifact hash/size drift');
+        }
+        const receipt = entry.owner.receipt;
+        if (!ownerBytes.has(receipt.reference))
+        {
+            const bytes = readBytes(receipt.reference, receipt.sha256);
+            if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > 1024 * 1024
+                || `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}` !== receipt.sha256)
+            {
+                throw new Error('current storage owner receipt byte binding mismatch');
+            }
+            ownerBytes.set(receipt.reference, { bytes, sha256: receipt.sha256 });
+        }
+        if (ownerBytes.get(receipt.reference).sha256 !== receipt.sha256)
+        {
+            throw new Error('ambiguous current storage owner receipt binding');
+        }
+        // Receipt byte ownership conservatively retains operations/backups. It
+        // never qualifies their native state, a backup restore or delete execution.
+        const protectedActive = activePaths.has(file.path) || activeHashes.has(file.sha256)
+            || file.path.startsWith(`releases/${active.releaseId}/`)
+            || entry.owner.candidateId === active.candidateId;
+        let category;
+        let reason;
+        let action = 'retain';
+        if (protectedActive)
+        {
+            category = 'active';
+            reason = 'exact-current-active';
+        }
+        else if (['shared', 'user'].includes(entry.owner.kind))
+        {
+            category = entry.owner.kind;
+            reason = `${category}-owned`;
+        }
+        else if (entry.owner.kind === 'backup-owned')
+        {
+            category = 'backup';
+            reason = 'explicit-backup-owner';
+        }
+        else if (['current-candidate', 'current-operation'].includes(entry.owner.kind))
+        {
+            category = entry.owner.kind === 'current-candidate' ? 'candidate' : 'operation';
+            reason = 'explicit-operation-owner';
+        }
+        else if (['failed-candidate', 'obsolete'].includes(entry.owner.kind))
+        {
+            category = 'obsolete';
+            reason = entry.owner.kind === 'failed-candidate' ? 'terminal-candidate-only' : 'explicit-obsolete-owner';
+            action = 'delete';
+        }
+        else
+        {
+            throw new Error('unrecognized active owner cannot become obsolete');
+        }
+        occupation[category] += file.bytes;
+        return { path: file.path, sha256: file.sha256, bytes: file.bytes, owner: entry.owner,
+            activeCandidateId: active.candidateId, protectedActive, action, reason };
+    });
+    const payload = { schema: CURRENT_STORAGE_GC_PLAN_SCHEMA, storeDirectory: store,
+        ownershipContentDigest: registry.contentDigest, active, artifacts, occupation,
+        deleteExecutionEligible: false, recovery: 'native-storage-ownership-bridge-unconfigured' };
+    return freezeCurrentStoragePlan({ ...payload, contentDigest: currentStorageDigest(payload) });
+}
+
+export function verifyCurrentReleaseAssetGcPlan(plan, options)
+{
+    const expected = planCurrentReleaseAssetGc(options);
+    if (canonicalize(plan) !== canonicalize(expected))
+    {
+        throw new Error('current GC plan/ownership/active/filesystem closure mismatch');
+    }
+    return expected;
+}
+
+export function executeCurrentReleaseAssetGc(plan, options)
+{
+    verifyCurrentReleaseAssetGcPlan(plan, options);
+    // Original physical owner must provide durable active/operation observation,
+    // locked crash checkpoints and native backup qualification before cutover.
+    throw new Error('native_storage_ownership_bridge_unconfigured');
+}
+
+export function planCurrentReleaseRecovery(mode, ownership, candidateId)
+{
+    const registry = normalizeCurrentStorageOwnership(ownership);
+    if (!currentDigest(candidateId) || candidateId === registry.active.candidateId)
+    {
+        throw new Error('current recovery cannot discard or restart the active candidate');
+    }
+    if (mode === 'discard-unactivated-candidate')
+    {
+        const entries = registry.entries.filter(entry => entry.owner.candidateId === candidateId);
+        if (entries.length === 0 || entries.some(entry => entry.owner.kind !== 'failed-candidate'
+            || !['failed', 'abandoned'].includes(entry.owner.state)))
+        {
+            throw new Error('current recovery requires exact terminal unactivated candidate-only ownership');
+        }
+        return { mode, candidateId, activeUnchanged: registry.active, cleanupPaths: entries.map(entry => entry.path).sort(), executionEligible: false };
+    }
+    if (mode === 'forward-fix')
+    {
+        return { mode, candidateId, executionEligible: false, requirement: 'new-exact-current-admission' };
+    }
+    if (mode === 'verified-backup-restore')
+    {
+        throw new Error('native_verified_backup_restore_bridge_unconfigured');
+    }
+    throw new Error('old-directory/image/current-schema rollback is forbidden');
+}
 
 const GC_STATE_FIELDS = [
     'activeReleaseId', 'drainingReleaseIds', 'minimumRetainedReleaseCount', 'previousReleaseId',
