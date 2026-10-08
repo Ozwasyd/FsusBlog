@@ -257,6 +257,25 @@ test('original Release Reliability identity API binds the same Browser source bu
     assert.equal(source.inputAuthorityRefs.length, 2);
     f.options.releaseReliability.environment.FSUSBLOG_RELEASE_RELIABILITY_RUN_ID = 'other-run';
     assert.throws(f.read, /run identity is incomplete or mismatched/u);
+    f.options.releaseReliability.environment.FSUSBLOG_RELEASE_RELIABILITY_RUN_ID = identity.runId;
+    const originalReader = fs.readFileSync;
+    try
+    {
+        fs.readFileSync = function (file, ...args)
+        {
+            const bytes = originalReader.call(this, file, ...args);
+            if (file === identityFile && args[0] === 'utf8')
+            {
+                fs.appendFileSync(identityFile, ' ');
+            }
+            return bytes;
+        };
+        assert.throws(f.read, /artifact content digest mismatch/u);
+    }
+    finally
+    {
+        fs.readFileSync = originalReader;
+    }
 });
 
 test('native failed scenario cannot be replaced by passing individual assertions', (t) =>
@@ -274,4 +293,12 @@ test('native failed attempt cannot erase first-failure qualification provenance'
     f.fail();
     const inputs = memberInputs(f, true, { firstFailure: false, cleanFirstAttempt: true, qualificationEligible: true });
     assert.throws(inputs.adapt, /failed native attempt provenance was erased/u);
+});
+
+test('composed bridge pins the caller repository root over a runner options override', (t) =>
+{
+    const f = fixture(t);
+    f.fail();
+    f.options.repositoryRoot = path.join(f.value.directory, 'unavailable-other-repository');
+    assert.equal(memberInputs(f, true).adapt().outcome.status, 'failed');
 });
