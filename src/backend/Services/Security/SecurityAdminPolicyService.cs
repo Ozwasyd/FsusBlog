@@ -240,6 +240,14 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     public SecurityRiskPolicy UpdateRiskControlPolicy(RiskControlPolicyUpdateRequest request, string changedBy)
     {
+        if (request.GlobalMode is not null && request.GlobalMode is not (SecuritySystemModes.Disabled or SecuritySystemModes.Observe or SecuritySystemModes.Enforce or SecuritySystemModes.Strict or SecuritySystemModes.Lockdown))
+        {
+            throw new ArgumentException("Only current catalog risk modes are admitted.", nameof(request));
+        }
+        if (request.StrictRiskMultiplierPercent is < 100 or > 1000)
+        {
+            throw new ArgumentException("Current strict risk multiplier must be between 100 and 1000.", nameof(request));
+        }
         EnsurePolicyCapability(
             request.PoSpaceV1Enabled == true,
             SecurityChallengeKind.Argon2IdPoSpaceV1,
@@ -526,7 +534,9 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             "configuration");
         if (configuration.GetSection("RiskControl").Exists()
             || configuration.GetSection("Security:RiskControl").GetChildren().Any(static child =>
-                child.Key is "PoSpaceV1Enabled" or "PublicReadChallengeEnabled" or "CommentRiskControlEnabled" or "AuthRiskControlEnabled"))
+                child.Key is not ("GlobalMode" or "MaxRiskScore" or "StrictRiskMultiplierPercent" or "PoSpaceV1" or "PublicReadChallenge" or "CommentRiskControl" or "AuthRiskControl")
+                || (child.Key is "PoSpaceV1" or "PublicReadChallenge" or "CommentRiskControl" or "AuthRiskControl")
+                    && child.GetChildren().Any(static option => option.Key != "Enabled")))
         {
             throw new ArgumentException("Only the current Security:RiskControl configuration contract is accepted.", nameof(configuration));
         }
@@ -1559,12 +1569,9 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             return null;
         }
 
-        return (TextHelpers.LowerTrimmed(value) ?? string.Empty) switch
-        {
-            "1" or "true" or "enabled" or "enable" or "on" or "yes" => true,
-            "0" or "false" or "disabled" or "disable" or "off" or "no" => false,
-            _ => throw new ArgumentException("The current risk-control boolean configuration value is invalid.", nameof(configuration))
-        };
+        return bool.TryParse(value, out bool parsed)
+            ? parsed
+            : throw new ArgumentException("The current risk-control boolean configuration value is invalid.", nameof(configuration));
     }
 
     private static int? ReadConfigurationInt(IConfiguration configuration, params string[] keys)

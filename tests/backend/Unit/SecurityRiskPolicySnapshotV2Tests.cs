@@ -301,7 +301,6 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
         SecurityAdminPolicyService service = new(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(CreateConfiguration(new Dictionary<string, string?>
         {
             ["Security:RiskControl:GlobalMode"] = SecuritySystemModes.Observe,
-            ["Security:RiskControl:PerceptionCharacterV3:Enabled"] = "false",
             ["Security:RiskControl:PoSpaceV1:Enabled"] = "true",
             ["Security:RiskControl:PublicReadChallenge:Enabled"] = "false",
             ["Security:RiskControl:CommentRiskControl:Enabled"] = "false",
@@ -453,6 +452,8 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     [InlineData("Security:RiskControl:PublicReadChallengeEnabled", "false")]
     [InlineData("Security:RiskControl:GlobalMode", "unsupported")]
     [InlineData("Security:RiskControl:CommentRiskControl:Enabled", "invalid")]
+    [InlineData("Security:RiskControl:PerceptionCharacterV3:Enabled", "false")]
+    [InlineData("Security:RiskControl:CommentRiskControl:Enabled", "1")]
     [InlineData("Security:RiskControl:StrictRiskMultiplierPercent", "invalid")]
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative)]
     public void CurrentConfiguration_RejectsAliasesAndIllegalValues(string key, string value)
