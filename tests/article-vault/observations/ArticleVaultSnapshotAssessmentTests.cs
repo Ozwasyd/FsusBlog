@@ -5,7 +5,7 @@ using FsusBlog.Shared.Contracts.ArticleVault;
 
 using Xunit;
 
-namespace FsusBlog.ArticleVault.Linux.Tests;
+namespace FsusBlog.ArticleVault.Observations.Tests;
 
 [Trait("Category", "ArticleVaultSnapshotAssessment")]
 public sealed class ArticleVaultSnapshotAssessmentTests
