@@ -183,6 +183,85 @@ public sealed class AuthorTypographyPreferencePostgresTests(PostgresSchemaMigrat
     }
 
     [Fact]
+    public async Task AidInitialization_CannotOverwriteAnExistingTypographyPreference()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AuthorTypographyProfile profile = s_fixtureDefault with
+        {
+            CanvasWidth = "wide"
+        };
+        AuthorTypographyPreferenceWriteResult committed = await Service(db).UpdateTypographyAsync(s_scope, DeviceA,
+            Request(0, AuthorTypographyMutation.SetProfile, profile));
+        Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Committed, committed.Outcome);
+        WritingAidPreferenceResult initialization = await Service(db).InitializeWritingAidPreferenceAsync(
+            AidOwner(), DeviceB, Guid.NewGuid());
+        Assert.Equal(WritingAidPreferenceOutcome.RevisionConflict, initialization.Outcome);
+        Assert.Equal(committed.Record!.CommittedSnapshot, (await Service(db).GetTypographyAsync(s_scope)).Snapshot);
+        Assert.Equal(1, await CountAsync(db, "user_authoring_preference_operation"));
+    }
+
+    [Fact]
+    public async Task SharedJournalCapacity_RetainsTypographyReplayAndRefusesFreshWritesInBothDomains()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AuthorTypographyMutationRequest original = Request(0, AuthorTypographyMutation.SetProfile, s_fixtureDefault);
+        AuthorTypographyPreferenceWriteResult committed = await Service(db).UpdateTypographyAsync(s_scope, DeviceA, original);
+        Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Committed, committed.Outcome);
+        await FillSharedJournalAsync(db, 1, 256);
+        AuthorTypographySnapshot current = (await Service(db).GetTypographyAsync(s_scope)).Snapshot!;
+        Assert.Equal(256, current.Revision);
+        Assert.Equal(256, await CountAsync(db, "user_authoring_preference_operation"));
+        AuthorTypographyPreferenceWriteResult replay = await Service(db, false).UpdateTypographyAsync(s_scope, DeviceA, original);
+        Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Replayed, replay.Outcome);
+        Assert.Equal(committed.Record, replay.Record);
+        AuthorTypographyPreferenceWriteResult refused = await Service(db).UpdateTypographyAsync(s_scope, DeviceA,
+            Request(256, AuthorTypographyMutation.Reset));
+        Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Unavailable, refused.Outcome);
+        Assert.Null(refused.Record);
+        Assert.Equal(WritingAidPreferenceOutcome.Unavailable,
+            (await Service(db).UpdateWritingAidPreferenceAsync(AidOwner(), DeviceB,
+                new(256, Guid.NewGuid(), WritingAidPreferenceContract.Defaults))).Outcome);
+        Assert.Equal(current, (await Service(db).GetTypographyAsync(s_scope)).Snapshot);
+        Assert.Equal(256, await CountAsync(db, "user_authoring_preference_operation"));
+        Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Committed,
+            (await Service(db).UpdateTypographyAsync(s_scope with
+            {
+                SiteIdentity = "site:other"
+            }, DeviceA,
+                Request(0, AuthorTypographyMutation.SetProfile, s_fixtureDefault))).Outcome);
+        Assert.Equal(257, await CountAsync(db, "user_authoring_preference_operation"));
+    }
+
+    [Fact]
+    public async Task SharedJournalFinalSlot_AdmitsOneConcurrentTypographyRequestAndPreservesItsReplay()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        using SqlSugarClient other = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await FillSharedJournalAsync(db, 0, 255);
+        AuthorTypographyMutationRequest[] requests =
+        [
+            Request(255, AuthorTypographyMutation.SetProfile, s_fixtureDefault with { FontSize = "large" }),
+            Request(255, AuthorTypographyMutation.SetProfile, s_fixtureDefault with { CanvasWidth = "wide" })
+        ];
+        AuthorTypographyPreferenceWriteResult[] results = await Task.WhenAll(
+            Service(db).UpdateTypographyAsync(s_scope, DeviceA, requests[0]),
+            Service(other).UpdateTypographyAsync(s_scope, DeviceB, requests[1]));
+        Assert.Single(results, result => result.Outcome == AuthorTypographyPreferenceWriteOutcome.Committed);
+        Assert.Single(results, result => result.Outcome == AuthorTypographyPreferenceWriteOutcome.RevisionConflict);
+        int winner = results[0].Outcome == AuthorTypographyPreferenceWriteOutcome.Committed ? 0 : 1;
+        AuthorTypographyPreferenceWriteResult replay = await Service(other, false).UpdateTypographyAsync(s_scope,
+            winner == 0 ? DeviceA : DeviceB, requests[winner]);
+        Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Replayed, replay.Outcome);
+        Assert.Equal(results[winner].Record, replay.Record);
+        Assert.Equal(results[winner].Record!.CommittedSnapshot, (await Service(db).GetTypographyAsync(s_scope)).Snapshot);
+        Assert.Equal(256, await CountAsync(db, "user_authoring_preference_operation"));
+        Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Unavailable,
+            (await Service(db).UpdateTypographyAsync(s_scope, DeviceA,
+                Request(256, AuthorTypographyMutation.SetProfile, s_fixtureDefault))).Outcome);
+        Assert.Equal(256, await CountAsync(db, "user_authoring_preference_operation"));
+    }
+
+    [Fact]
     public async Task BothDomains_RejectTheSameOperationIdWithAnotherDomain()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
@@ -293,6 +372,25 @@ public sealed class AuthorTypographyPreferencePostgresTests(PostgresSchemaMigrat
         string sql = Assert.IsType<RawSqlStep>(Assert.Single(WritingAidPreferenceMigrationDefinitions.BuildMigration().Steps)).Sql;
         await db.Ado.ExecuteCommandAsync(sql);
         return db;
+    }
+
+    private static async Task FillSharedJournalAsync(SqlSugarClient db, long firstRevision, long finalRevision)
+    {
+        var service = Service(db);
+        for (long revision = firstRevision; revision < finalRevision; revision++)
+        {
+            if (revision % 2 == 0)
+            {
+                Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Committed,
+                    (await service.UpdateTypographyAsync(s_scope, DeviceA,
+                        Request(revision, AuthorTypographyMutation.SetProfile, s_fixtureDefault))).Outcome);
+            }
+            else
+            {
+                Assert.True((await service.UpdateWritingAidPreferenceAsync(AidOwner(), DeviceB,
+                    new(revision, Guid.NewGuid(), new(1, false, revision % 3 == 0, true)))).Success);
+            }
+        }
     }
 
     private static UserLocalePreferenceService Service(SqlSugarClient db, bool withFixturePolicy = true)
