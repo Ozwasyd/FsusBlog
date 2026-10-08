@@ -3767,6 +3767,41 @@
                     "anchor": "public static class MemoryGovernor"
                 }
             ]
+        },
+        {
+            "id": "memory-capability-controller-metadata",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityControlPolicy.cs",
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityController.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "MemoryCapabilityController consumes the single MemoryCapabilityPolicyPlan registry",
+            "producer": "Explicit input-bound control-plane TickAsync and bounded ProbeAsync; Select and operation admission consume current immutable facts",
+            "consumers": "Existing configuration/readiness/protected diagnostics owners and existing managed/native backing owners; no startup or timer is registered",
+            "releaseEvent": "Actual probe completion releases its scratch reservation; runtime disable/identity change stops new admissions then existing operation leases and backing Drained tasks govern final release",
+            "capacityModel": "One cell per immutable policy-plan registration; finite supplied concurrency/attempt/time/backoff controls; probe vectors and derived scopes use the canonical ledger; owner references retained during uncooperative probes and real reader/operation drain",
+            "frequency": "Explicit control-plane tick, policy/identity transition or operation boundary; no hot-path probing",
+            "asyncEscape": "An abandoned or timed-out caller does not own the actual probe completion; stale returned owners retire via existing backing APIs; no disposal proves disk/GPU physical drain",
+            "classification": "ephemeral-scratch",
+            "eligibilityOwner": "Existing baseline/pressure qualification owners supply facts; canonical content, revocation, configuration and publication owners remain unchanged",
+            "migrationDisposition": "No payload tier migration permission granted.",
+            "exclusionReason": "Typed baseline/release/runtime facts are consumed, not certified here; fixture backends do not qualify platform support or production Auto activation",
+            "observationHeadroom": "Measure CPU/allocation/retention against actual frozen P01/P02 limits before runtime acceptance; fixture targets are not production defaults",
+            "testOwner": "tests/backend/Unit/MemoryCapabilityControllerTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityController.cs",
+                    "anchor": "public sealed class MemoryCapabilityController"
+                }
+            ]
         }
     ],
     "syntaxObserver": {

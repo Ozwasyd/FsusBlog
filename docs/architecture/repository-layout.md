@@ -216,6 +216,31 @@ have no qualification or scheduler authority. The pure governor and explicit led
 adapter are not registered for production startup; authoritative P01 inputs, actual
 scoped sources and operating/performance acceptance remain required.
 
+`MemoryCapabilityController` consumes the single immutable policy-plan roster and
+explicit frozen baseline, current governor decision, runtime identity and release
+qualification inputs. `TickAsync` is an explicit control-plane operation, not a new
+scheduler. Missing prerequisites return UnmetBaseline/UnmetGovernor without invoking
+a backend; Disabled starts no probe or reservation. A admitted callback owns its
+actual completion: caller cancellation or deadline expiry cannot release scratch
+while an uncooperative probe continues. Policy/identity generations reject late
+results. Retry windows, cooldown and circuit bounds come from the supplied policy;
+qualified recovery requires no second enable flag. Budget rejection is per operation
+and does not discard a healthy backend's online facts.
+
+Operation admission linearizes with runtime disable and uses the same canonical
+scoped ledger gate. Controller operation leases delay retirement until their actual
+completion; `MemoryCapabilityOwner.FromManaged`/`FromNative` then use those existing
+owners' retirement and Drained tasks. No logical target or IDisposable return is
+used as proof that readers, pins or native operations have relinquished storage.
+Disk/GPU owner integration requires their actual final-drain/quarantine contract,
+which the controller does not invent. Read-only selection performs no probing or
+pressure-file I/O. These classes are not registered at startup or wired to public
+readiness/diagnostics routes; existing authorities retain those responsibilities.
+The new tests belong to the original backend Unit discovery and the existing
+`backend-unit` matrix/cache input closure. Their synthetic qualification and numeric
+inputs prove state transitions and actual managed ownership, not calibration,
+platform qualification, production Auto activation or full A01-A20 acceptance.
+
 The current backend, Core, Shared, and Migration projects target `net10.0`. A .NET target
 or an available local toolchain does not establish product platform support. The catalog distinguishes the Dockerfile's `linux-musl-x64` shipping default from
 additional candidate targets and binds each row's source and required offline closure.
