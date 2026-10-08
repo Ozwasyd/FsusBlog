@@ -40,7 +40,10 @@ public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixtur
         Assert.Equal(saved.ServerRevision, replay.ServerRevision);
 
         await Assert.ThrowsAsync<ServerDraftConflictException>(() =>
-            service.SaveDraftAsync(7, request with { Content = source + " " }));
+            service.SaveDraftAsync(7, request with
+            {
+                Content = source + " "
+            }));
         Assert.Equal(source, Assert.Single(await db.Queryable<ArticleDraft>().ToListAsync()).MarkdownContent);
     }
 
