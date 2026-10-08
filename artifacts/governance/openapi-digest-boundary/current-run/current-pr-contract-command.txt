@@ -1,0 +1,12 @@
+{
+  "candidate": "9d304765811e9f7f8785e69432a7f1d31f8ba280",
+  "start": "2026-10-08T04:09:16.485068+00:00",
+  "end": "2026-10-08T04:09:18.790524+00:00",
+  "command": [
+    "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--github-event",
+    "/workspace/scratch/chain-3540/resume/final-pr-event.json"
+  ],
+  "exitCode": 1
+}
