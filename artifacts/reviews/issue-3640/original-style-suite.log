@@ -1,0 +1,46 @@
+✔ frontend style governance accepts C#-mapped TypeScript JavaScript Vue and CSS fixtures (2925.744503ms)
+✔ reviewed residual authority does not suppress strict-full parent-import diagnostics (864.221903ms)
+▶ pure receipt parent import exception is limited to one file and one dependency
+  ✔ exact file and literal (1019.071804ms)
+  ✔ other file (1070.936185ms)
+  ✔ other literal (880.920058ms)
+  ✔ path alias (928.597682ms)
+✔ pure receipt parent import exception is limited to one file and one dependency (3900.430991ms)
+✔ pure receipt style mapping does not admit transitive I/O or execution (312.222811ms)
+✔ reviewed residual consumption requires a canonical repository-wide baseline update (82.297643ms)
+✔ frontend style governance aggregates indentation brace semicolon naming promise any and import failures (1441.686221ms)
+✔ frontend style governance checks Vue multiline attributes and CSS through AST parsers (1668.328751ms)
+✔ frontend style governance preserves JSON browser HTML and CSS contract spellings (1697.391817ms)
+✔ frontend style governance excludes generated and intentional fixture paths (33.191592ms)
+✔ frontend style governance rejects reduced source coverage or specialized governance commands (72.367763ms)
+✔ frontend style governance migrates specialized governance authority after retiring the ZK benchmark command (75.67477ms)
+✔ frontend style governance full mode accepts only unchanged baseline debt and strict-full exposes it (3264.20508ms)
+✔ frontend style governance invalidates typed lint cache when an ambient source changes (2357.828666ms)
+✔ frontend style governance baseline updates preserve paths and reject violation growth (2390.399838ms)
+✔ frontend style governance baseline updates reject equal-count violation identity replacement (1658.936277ms)
+✔ frontend style correction authority binds the malformed repository entry to the canonical rescan (3382.362753ms)
+✔ frontend style governance accepts only an exact pre-existing malformed baseline correction (21309.929358ms)
+✔ reviewed residual authority is exact, canonical and closed against structural mutation (23891.323395ms)
+✔ reviewed residual consumption rejects candidate authority, drift, partial use and reuse (8204.056049ms)
+✔ frontend style governance baseline configuration migration requires explicit old-digest authorization (2340.435905ms)
+✔ frontend style governance configuration identity binds the Node runtime boundary (0.231801ms)
+✔ frontend style governance migrates reviewed semantic paths without admitting new debt (8223.483743ms)
+✔ frontend style governance baseline records real zero state and candidate source identity (2471.525001ms)
+✔ frontend style governance full check rejects a tampered baseline source-state digest (1606.93234ms)
+✔ frontend style governance full check rejects a tampered baseline generatedFrom binding (1618.390236ms)
+✔ frontend style governance full check rejects source drift without a per-file baseline entry (1590.506437ms)
+✔ frontend style governance unchanged zero-debt bindings pass every scan mode (3034.954154ms)
+✔ frontend style governance rejects each clean full-scan binding drift without blocking other modes (9332.015025ms)
+✔ frontend style governance aggregates combined binding drift and every selected file finding (3089.619122ms)
+✔ frontend style governance clean source and real configuration drift preserve scan mode boundaries (3232.184614ms)
+✔ frontend style governance updater refreshes source bindings only after original debt checks (2404.826644ms)
+✔ frontend style governance baseline removes deleted paths only through reviewed pruning (850.71054ms)
+✔ frontend style governance AST fixes are idempotent and diagnostics are locale and CI stable (3228.484594ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 122687.572742
