@@ -4,6 +4,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 const { canonicalTestId } = await import(new URL('../execution-replay-contract.mjs', import.meta.url));
 const { validateCrossStackOwnershipRegistry } = await import(new URL('../../test-matrix/cross-stack-receipts.mjs', import.meta.url));
+const { staticAtomicDeclarations } = await import(new URL('./declarations.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../../..');
 const ownershipPath = 'tests/fixtures/evidence-projection/cross-stack-assertion-ownership.json';
 
@@ -21,7 +22,13 @@ export function staticAssertionObservation(assertionId, sourceUrl)
     {
         throw new Error('static assertion observer requires its original owned source binding');
     }
+    const producer = staticAtomicDeclarations(repositoryRoot).producers.find(entry => entry.assertionBindings.some(item => item.id === binding.id));
+    if (!producer)
+    {
+        throw new Error('static assertion observer requires its existing physical producer declaration');
+    }
     return {
+        producerId: producer.id,
         assertionId: binding.id,
         sourceTestId: binding.sourceTestId,
         source: binding.artifactPaths[0],
@@ -32,13 +39,8 @@ export function staticAssertionObservation(assertionId, sourceUrl)
     };
 }
 
-/** The original checker emits its completed terminal decision; this writer observes no other command. */
-export function publishStaticAtomicAssertionResult(assertionId, sourceUrl, outcome)
+function outputRequest(observation)
 {
-    if (!['success', 'failure'].includes(outcome))
-    {
-        throw new Error('static assertion result requires the original terminal decision');
-    }
     const output = process.env.FSUSBLOG_ATTEMPT_RESULT_PATH;
     if (output === undefined)
     {
@@ -48,7 +50,34 @@ export function publishStaticAtomicAssertionResult(assertionId, sourceUrl, outco
     {
         throw new Error('static assertion result request requires an absolute output path');
     }
+    const attemptDirectory = path.dirname(output);
+    if (path.basename(output) !== 'result.json'
+        || !/^attempt-[1-9][0-9]*$/u.test(path.basename(attemptDirectory))
+        || path.basename(path.dirname(attemptDirectory)) !== observation.producerId)
+    {
+        // An inherited parent request belongs to that parent's sole result writer.
+        return null;
+    }
+    return output;
+}
+
+/** The original checker emits its completed terminal decision; this writer observes no other command. */
+export function publishStaticAtomicAssertionResult(assertionId, sourceUrl, outcome)
+{
+    if (!['success', 'failure'].includes(outcome))
+    {
+        throw new Error('static assertion result requires the original terminal decision');
+    }
+    if (process.env.FSUSBLOG_ATTEMPT_RESULT_PATH === undefined)
+    {
+        return null;
+    }
     const observation = staticAssertionObservation(assertionId, sourceUrl);
+    const output = outputRequest(observation);
+    if (output === null)
+    {
+        return null;
+    }
     writeResult(output, observation, outcome === 'failure');
     return observation;
 }
@@ -83,16 +112,16 @@ export async function observeStaticAtomicAssertion(assertionId, sourceUrl, execu
     {
         throw new Error('static assertion observer requires the original assertion callback');
     }
-    const output = process.env.FSUSBLOG_ATTEMPT_RESULT_PATH;
-    if (output === undefined)
+    if (process.env.FSUSBLOG_ATTEMPT_RESULT_PATH === undefined)
     {
         return await execute();
     }
-    if (!output || !path.isAbsolute(output))
-    {
-        throw new Error('static assertion result request requires an absolute output path');
-    }
     const observation = staticAssertionObservation(assertionId, sourceUrl);
+    const output = outputRequest(observation);
+    if (output === null)
+    {
+        return await execute();
+    }
     let value;
     try
     {

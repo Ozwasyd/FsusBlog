@@ -27,7 +27,9 @@ function outputFixture(t)
         }
         fs.rmSync(directory, { recursive: true, force: true });
     });
-    return { directory, file: path.join(directory, 'observed.json') };
+    const file = path.join(directory, 'cross-stack-auth-state-coherence', 'attempt-1', 'result.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    return { directory, file };
 }
 
 test('one completed original assertion produces its own existing identity, independent of expected or replay lists', async t =>
@@ -107,6 +109,19 @@ test('the existing matrices owner can read its exact observation encoding withou
     assert.equal(observation.sourceTestId, 'command:security-static:security-matrix-schema');
     assert.equal(observation.source, 'tools/security/check-security-matrices.mjs');
     assert.equal(fs.existsSync(file), false);
+});
+
+test('an inherited legacy parent request remains with the parent writer and never gets a child result', async t =>
+{
+    const { directory } = outputFixture(t);
+    const file = path.join(directory, 'cross-stack-static', 'attempt-1', 'result.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'original-parent-result');
+    process.env.FSUSBLOG_ATTEMPT_RESULT_PATH = file;
+    let calls = 0;
+    assert.equal(await observeStaticAtomicAssertion('auth-state', originalAuthSource, () => calls += 1), 1);
+    assert.equal(calls, 1);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'original-parent-result');
 });
 
 test('six original coherence commands and PoW parity emit real observed IDs through the original runner output request', async t =>

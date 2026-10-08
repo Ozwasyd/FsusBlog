@@ -16,6 +16,14 @@ the original thrown reason even if result publication also fails. With no result
 request the original callback and console output continue normally. A result
 publication failure after successful validation remains a failed command.
 
+The result request must use the native runner's existing
+`<producerId>/attempt-N/result.json` namespace, matching the producer declaration
+for that source assertion. A child ignores an inherited legacy parent result
+request and never overwrites the parent's file or publishes child IDs as parent
+membership. This is output routing, not authority or qualification admission;
+the existing envelope still owns the exact path. No new runner environment key,
+caller command or expected-ID list is required.
+
 `staticAssertionObservation(assertionId, sourceUrl)` reads the existing unique
 cross-stack assertion registry binding and requires the exact original source.
 It exposes the original source test, assertion, coverage and artifact identities.
@@ -41,7 +49,8 @@ network and replay authority, exact-one attempts and verified logs/artifacts.
 Projections remain `qualificationEligible: false` until real integration is
 accepted. Do not register the thirteen producers as zero-ID process-only commands.
 
-The observed source closure now includes this module, its native canonical-ID and
+The observed source closure now includes this module, its producer declarations,
+package-script source, native canonical-ID and
 registry validators, the existing assertion registry and the original checker
 source/profile fixture. Input owners must hold those exact transitive bytes for
 the current candidate. A source descriptor alone is not an execution or held-input
