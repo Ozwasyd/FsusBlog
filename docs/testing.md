@@ -1735,3 +1735,19 @@ against the expected candidate HEAD before accepting any `.py` path. Unchecked
 Python paths remain unsupported. This checks AST syntax only; compiled, import,
 native, runtime, and release qualification remain unrun, and the default
 qualification and full-stage routes are unchanged.
+
+### Document export scheduling controls
+
+`DocumentExportTaskQueueTests` exercises the internal bounded scheduler using
+canonical task/input contract fixtures: concurrent idempotency, immutable source
+and asset ownership, tenant isolation, claim identity, cancellation, expiry,
+cleanup obligations, byte/count quotas, and 1000-task concurrency. The scheduler
+reuses `DocumentExportTask` and `DocumentExportFrozenInput`; it rejects unavailable
+exact providers and admits no successful output acknowledgement. Run these
+controls with `dotnet test tests/backend/FsusBlog.Server.Tests.csproj -c Release
+--filter FullyQualifiedName~DocumentExportTaskQueueTests` after the existing
+admission and locked restore. They do not freeze an article through its real
+permission/database authorities or provide durable recovery, retries, provider
+execution, host-stop evidence, output storage, download, or public API acceptance.
+Those stages retain their original gates; an executor acknowledgement in these
+scheduling tests is not a real sandbox cleanup receipt.
