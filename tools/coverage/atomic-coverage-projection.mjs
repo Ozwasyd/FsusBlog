@@ -36,7 +36,7 @@ export function projectCoverageSettled({ root, plan, projectionId, outcomes, ver
                 && blocked.planDigest === plan.contentDigest
                 && Array.isArray(blocked.blockedBy) && blocked.blockedBy.length > 0
                 && new Set(blocked.blockedBy).size === blocked.blockedBy.length
-                && blocked.blockedBy.every((id) => producer.dependsOn.includes(id))
+                && blocked.blockedBy.every((id) => (blocked.dependsOn ?? producer.dependsOn).includes(id))
                 && Array.isArray(blocked.primaryFailureRefs) && blocked.primaryFailureRefs.length > 0,
             'invalid/cross-run/unrelated blocked outcome');
             return { producerId, terminalState: 'blocked', reasonCode: 'coverage.hard-input-blocked',
