@@ -1,0 +1,1 @@
+chore(security): clarify missing ban authority documentation

@@ -1,0 +1,68 @@
+{
+  "schema": "fsusblog.3647.current-master-own-source.v1",
+  "runIdentity": "fsusblog-3647-current-master-20261008T131231Z",
+  "generatedUtc": "2026-10-08T13:13:54.145020+00:00",
+  "requestedMaster": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "actualFetchedMaster": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "candidate": "b653640c86d214283f6865bcfc4a47571764686d",
+  "sourceBranch": "task/3647-current-master-comment",
+  "baseIsDirectParent": true,
+  "changedPaths": [
+    "artifacts/change-contract/ban-projection-docs-external-naming.json",
+    "src/backend/Infrastructure/Security/BanStateProjection.cs"
+  ],
+  "completeDiff": "diff --git a/artifacts/change-contract/ban-projection-docs-external-naming.json b/artifacts/change-contract/ban-projection-docs-external-naming.json\nnew file mode 100644\nindex 000000000..b59d1aeae\n--- /dev/null\n+++ b/artifacts/change-contract/ban-projection-docs-external-naming.json\n@@ -0,0 +1,12 @@\n+{\n+    \"schema\": \"fsusblog.external-naming-exceptions.v1\",\n+    \"exceptions\": [\n+        {\n+            \"id\": \"environment-variable\",\n+            \"paths\": [\n+                \"src/backend/Infrastructure/Security/BanStateProjection.cs\"\n+            ],\n+            \"reason\": \"Preserve the registered C# environment-variable surface while correcting only XML documentation of missing authority facts and the concurrent local-state reread. Runtime tokens and signatures are unchanged.\"\n+        }\n+    ]\n+}\ndiff --git a/src/backend/Infrastructure/Security/BanStateProjection.cs b/src/backend/Infrastructure/Security/BanStateProjection.cs\nindex f4c07ad43..5c093a0c5 100644\n--- a/src/backend/Infrastructure/Security/BanStateProjection.cs\n+++ b/src/backend/Infrastructure/Security/BanStateProjection.cs\n@@ -150,7 +150,8 @@ public readonly record struct BanStateProjectionSnapshot(\n /// <summary>\n /// Loads one authoritative ban-state fact. Implementations may use a database or\n /// another authority, but the projection itself has no dependency on either.\n-/// A missing row is represented by <see langword=\"null\"/> and remains unknown.\n+/// A missing row is represented by <see langword=\"null\"/> and supplies no fact.\n+/// The projection then rereads local state, which may contain a concurrent update.\n /// </summary>\n public interface IBanStateProjectionSource\n {\n",
+  "sourceRows": [
+    {
+      "label": "original",
+      "commit": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
+      "blob": "6f3d1c74d3e5c4709160b12cf6d46c2b1e8a5cde",
+      "sha256": "40408c12574b93ae695d3b77de87e8636ff00457076c8d7aedf3908738212f4c",
+      "publicSource": "https://github.com/Ozwasyd/FsusBlog/blob/b19b3dc715691b871f0e3cab598ec5da8f27633c/src/backend/Infrastructure/Security/BanStateProjection.cs"
+    },
+    {
+      "label": "merged",
+      "commit": "0ea87e3c564f6fd62ee5e3de00167e0e11fc8bbd",
+      "blob": "f4c07ad43dab1e4c2c18b291977618879b6d9290",
+      "sha256": "f3ef038000b9c75388c3de78634c9097a6b051b9f935cb2847f73e0dcfec5e23",
+      "publicSource": "https://github.com/Ozwasyd/FsusBlog/blob/0ea87e3c564f6fd62ee5e3de00167e0e11fc8bbd/src/backend/Infrastructure/Security/BanStateProjection.cs"
+    },
+    {
+      "label": "base",
+      "commit": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+      "blob": "f4c07ad43dab1e4c2c18b291977618879b6d9290",
+      "sha256": "f3ef038000b9c75388c3de78634c9097a6b051b9f935cb2847f73e0dcfec5e23",
+      "publicSource": "https://github.com/Ozwasyd/FsusBlog/blob/6e287562b3f861d3eb81dcb23f93e6243205abd8/src/backend/Infrastructure/Security/BanStateProjection.cs"
+    },
+    {
+      "label": "candidate",
+      "commit": "b653640c86d214283f6865bcfc4a47571764686d",
+      "blob": "5c093a0c59424dc55efc6bdd3d75ee1d15f9875f",
+      "sha256": "e413eec74d38bef735db0e9f27407d95418b6102b31d64ce3860b7cdda2dd144",
+      "publicSource": "https://github.com/Ozwasyd/FsusBlog/blob/b653640c86d214283f6865bcfc4a47571764686d/src/backend/Infrastructure/Security/BanStateProjection.cs"
+    }
+  ],
+  "priorMergedPr3694": {
+    "merge": "0ea87e3c564f6fd62ee5e3de00167e0e11fc8bbd",
+    "ancestorOfCurrentBase": true,
+    "original17AlreadyMerged": true,
+    "footerDefectRetained": true
+  },
+  "roster": "probes/original-roster.json",
+  "originalDiagnostics": "probes/original-findings.log",
+  "historicalDiagnosticsNotNewWholeStyleRun": true,
+  "signatureProbe": "current/token-signature-roster-proof.json",
+  "runtimeTestsOraclesProjectPropsTargetsLocksPoliciesChanged": false,
+  "noStagedPrerequisiteImported": true,
+  "oldStackedBranchesRetained": true,
+  "methodTrace": {
+    "nullBranch": "LoadFromSourceAsync: loaded is null short-circuits validation and returns Read(subjectHash). It does not apply a missing source fact.",
+    "Read": "Read reopens the current ConcurrentDictionary entry; an intervening Apply can supply a newer known fact. The result remains subject to local generation/conflict/capacity rules and is not admission or authority readiness.",
+    "norms": [
+      "docs/security.md",
+      "docs/security/user-session-authentication-context.md",
+      "docs/architecture.md"
+    ],
+    "independentSecurityReview": "pending; source trace is not independent acceptance"
+  }
+}

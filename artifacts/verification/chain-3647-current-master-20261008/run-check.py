@@ -1,0 +1,9 @@
+import os,sys,pathlib,subprocess,json,datetime
+out=pathlib.Path('/workspace/fsusblog-3647-current-master-verification');scope,name=sys.argv[1:3];argv=sys.argv[3:];plan=json.loads((out/'plan.json').read_text())[scope];repo=plan['root'];dest=out/scope;dest.mkdir(exist_ok=True)
+head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip();tree=subprocess.check_output(['git','rev-parse','HEAD^{tree}'],cwd=repo,text=True).strip();assert head==plan['head'];assert not subprocess.check_output(['git','status','--porcelain'],cwd=repo,text=True)
+env=os.environ.copy();env.update(PATH='/tmp/fsusblog-3647-node24/bin:/tmp/fsusblog-3647-native-style-tools/node_modules/.bin:/tmp/fsusblog-3647-dotnet:'+env['PATH'],DOTNET_CLI_HOME='/tmp/fsusblog-3647-dotnet-home',NUGET_PACKAGES='/workspace/FsusBlog/.tmp/chain-3647-sdk-compile-20261008T062915/nuget-packages',DOTNET_NOLOGO='1',npm_config_cache='/tmp/fsusblog-3647-scoped-npm-cache')
+start=datetime.datetime.now(datetime.timezone.utc).isoformat()
+with (dest/(name+'.log')).open('w') as f:r=subprocess.run(argv,cwd=repo,env=env,stdout=f,stderr=subprocess.STDOUT)
+end=datetime.datetime.now(datetime.timezone.utc).isoformat();finish=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip();dirty=subprocess.check_output(['git','status','--porcelain'],cwd=repo,text=True)
+(dest/(name+'.json')).write_text(json.dumps({'scope':scope,'runIdentity':'fsusblog-3647-current-master-20261008T131231Z','candidate':head,'base':plan['base'],'tree':tree,'cwd':repo,'command':argv,'start':start,'end':end,'exitCode':r.returncode,'endCandidate':finish,'candidateStable':head==finish,'trackedWorktreeClean':not dirty,'log':name+'.log','oldReceiptReused':False},indent=2)+'\n')
+print(scope+'/'+name+' exit='+str(r.returncode)+' candidate='+head);print('\n'.join((dest/(name+'.log')).read_text(errors='replace').splitlines()[-8:]));sys.exit(r.returncode if finish==head and not dirty else 99)

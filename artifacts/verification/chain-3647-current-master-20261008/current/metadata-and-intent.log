@@ -1,0 +1,25 @@
+{
+  "scope": "trusted current-base scoped intent and prospective local PR metadata, not API/PR admission",
+  "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "head": "b653640c86d214283f6865bcfc4a47571764686d",
+  "changedFiles": [
+    "artifacts/change-contract/ban-projection-docs-external-naming.json",
+    "src/backend/Infrastructure/Security/BanStateProjection.cs"
+  ],
+  "errors": [
+    "docs commit/PR must not modify runtime logic"
+  ],
+  "intent": {
+    "errors": [],
+    "checkedFiles": 1,
+    "scopedFiles": 0
+  },
+  "externalNamingNecessityNegativeControl": {
+    "errors": [
+      "External naming Exceptions manifest must be none unless External naming exception is checked",
+      "docs commit/PR must not modify runtime logic",
+      "changes to registered external naming surfaces require External naming exception classification: src/backend/Infrastructure/Security/BanStateProjection.cs"
+    ],
+    "requiredMetadataProven": true
+  }
+}

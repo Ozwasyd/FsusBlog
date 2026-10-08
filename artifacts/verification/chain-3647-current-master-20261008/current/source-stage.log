@@ -1,0 +1,2 @@
+[csharp-style] ok files=1 violations=0 new=0
+[source-governance] success; no runtime or release qualification

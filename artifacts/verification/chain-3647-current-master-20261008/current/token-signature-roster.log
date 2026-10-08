@@ -1,0 +1,229 @@
+{
+  "schema": "fsusblog.ban-projection-contract-source-proof.v1",
+  "scope": "original/base/head source proof; not independent review/runtime qualification",
+  "inputs": [
+    {
+      "path": "/tmp/fsusblog-3647-current-master-source-proof/original.cs",
+      "sha256": "40408c12574b93ae695d3b77de87e8636ff00457076c8d7aedf3908738212f4c",
+      "completeNoncommentTokenSha256": "2d84c7ec536c2a1486f585097840280fb9365c36f066e11884c97dcd801d9ee3",
+      "completeAstSha256": "9b262828687f12b01a81eb0f99f62ce8b8226af5dcefc4f76894b093465a1843",
+      "xmlStrippedByteSha256": "335347aeb5534bd36908208a509e6c78d9625632b2af96e03cf7ada4d2a46a87",
+      "diagnostics": []
+    },
+    {
+      "path": "/tmp/fsusblog-3647-current-master-source-proof/base.cs",
+      "sha256": "f3ef038000b9c75388c3de78634c9097a6b051b9f935cb2847f73e0dcfec5e23",
+      "completeNoncommentTokenSha256": "2d84c7ec536c2a1486f585097840280fb9365c36f066e11884c97dcd801d9ee3",
+      "completeAstSha256": "9b262828687f12b01a81eb0f99f62ce8b8226af5dcefc4f76894b093465a1843",
+      "xmlStrippedByteSha256": "335347aeb5534bd36908208a509e6c78d9625632b2af96e03cf7ada4d2a46a87",
+      "diagnostics": []
+    },
+    {
+      "path": "/tmp/fsusblog-3647-current-master-source-proof/head.cs",
+      "sha256": "e413eec74d38bef735db0e9f27407d95418b6102b31d64ce3860b7cdda2dd144",
+      "completeNoncommentTokenSha256": "2d84c7ec536c2a1486f585097840280fb9365c36f066e11884c97dcd801d9ee3",
+      "completeAstSha256": "9b262828687f12b01a81eb0f99f62ce8b8226af5dcefc4f76894b093465a1843",
+      "xmlStrippedByteSha256": "335347aeb5534bd36908208a509e6c78d9625632b2af96e03cf7ada4d2a46a87",
+      "diagnostics": []
+    }
+  ],
+  "completeNoncommentTokensEqual": true,
+  "completeAstEqual": true,
+  "xmlStrippedBytesEqual": true,
+  "allSignaturesPreserved": true,
+  "exactOriginalRosterCount": 17,
+  "exact17Covered": true,
+  "allCurrentSummaryDeclarations": 21,
+  "negativeTokenMutationRejected": true,
+  "negativeMalformedXmlRejected": true,
+  "coverage": [
+    {
+      "originalLine": 9,
+      "kind": "EnumDeclaration",
+      "signature": "public enum BanStateProjectionStatus",
+      "originalMemberTokenSha256": "05073aef07e79bdb13b64d1f3eb3af4deb6e99060228fb8d5b5b6cf26bff869d",
+      "currentLine": 13,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Describes a process-local ban fact. Unknown is not a normal-account fact or permission to admit a request; these values are not database status codes. "
+    },
+    {
+      "originalLine": 17,
+      "kind": "RecordStructDeclaration",
+      "signature": "public readonly record struct BanStateProjectionUpdate ( string AccountSubjectHash , BanStateProjectionStatus Status , string ? ReasonCode , long Generation ) ;",
+      "originalMemberTokenSha256": "2c9cb77ed2dd1eb1d12a7caeb1afb8552eadfd3e7b5b7904195db4807b7daba5",
+      "currentLine": 29,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Carries a subject-scoped source fact for local validation and generation ordering. Constructing an update does not apply it or commit an authority transaction. "
+    },
+    {
+      "originalLine": 23,
+      "kind": "RecordStructDeclaration",
+      "signature": "public readonly record struct BanStateProjectionLookup ( BanStateProjectionStatus Status , string ? ReasonCode , long Generation )",
+      "originalMemberTokenSha256": "e630e0ea4784cc20855edf96abf89cea8b4eec4a30e63a975f041345e64b3c68",
+      "currentLine": 42,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Returns the local status and generation fence without certifying authority availability or request authorization. Unknown may retain a conflict generation. "
+    },
+    {
+      "originalLine": 28,
+      "kind": "PropertyDeclaration",
+      "signature": "public bool IsKnown",
+      "originalMemberTokenSha256": "98c88d3b54372bace18e828c731b353ab8e9c3b9b1d345d9fa48f8f67452fb2b",
+      "currentLine": 51,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Reports only whether the status differs from unknown; it performs no authority read and does not turn a banned or deleted fact into permission. "
+    },
+    {
+      "originalLine": 30,
+      "kind": "MethodDeclaration",
+      "signature": "public static BanStateProjectionLookup Unknown ( long generation = 0 )",
+      "originalMemberTokenSha256": "768b1b123065f894868960ddfdfed89a10800f99a82e768897c224f083b7ddcd",
+      "currentLine": 56,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Creates an unknown result while retaining the supplied generation fence."
+    },
+    {
+      "originalLine": 34,
+      "kind": "EnumDeclaration",
+      "signature": "public enum BanStateProjectionApplyResult",
+      "originalMemberTokenSha256": "6d511689c96c1d0a68e8eced6ddeccdbb862d2cfb29b99878ae938cdc2822163",
+      "currentLine": 64,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Distinguishes local application from validation, ordering, conflict, and capacity outcomes. A conflict can replace a known fact with an unknown fence. "
+    },
+    {
+      "originalLine": 44,
+      "kind": "ClassDeclaration",
+      "signature": "public sealed class BanStateProjectionLimits",
+      "originalMemberTokenSha256": "2b5900e3e3a0253ccc1f34d67922b2980cbf3b19ca3645b34614cef9c2f57b37",
+      "currentLine": 78,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Bounds stored entry count and UTF-8 subject/reason payload accounting. These limits do not measure or cap CLR objects, dictionaries, or total heap use. "
+    },
+    {
+      "originalLine": 46,
+      "kind": "PropertyDeclaration",
+      "signature": "public int MaxEntries",
+      "originalMemberTokenSha256": "169c72cee96245dfb16270491e8be3c19ce13439f9cd28b3cc0cc01938c88914",
+      "currentLine": 84,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Maximum stored subjects, including unknown fences. Capacity admission evicts earlier-written entries; local reads stay unknown until a fact is restored. "
+    },
+    {
+      "originalLine": 48,
+      "kind": "PropertyDeclaration",
+      "signature": "public long MaxUtf8ResidentBytes",
+      "originalMemberTokenSha256": "17969a977b8db4b22124550a7b856baee6dbe18351463d316bf6be482bf4eb7c",
+      "currentLine": 90,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Maximum sum of UTF-8 bytes for stored normalized subjects and ban reasons, excluding collection and managed-object overhead. "
+    },
+    {
+      "originalLine": 50,
+      "kind": "PropertyDeclaration",
+      "signature": "public int MaxReasonCodeUtf8Bytes",
+      "originalMemberTokenSha256": "878f53a4552f881ff31f38beee00604b019aef847055d22088a89259212b9b6f",
+      "currentLine": 96,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Maximum UTF-8 byte length, not character count, of a trimmed nonempty ban reason. A banned fact with an invalid reason is rejected rather than truncated. "
+    },
+    {
+      "originalLine": 59,
+      "kind": "RecordStructDeclaration",
+      "signature": "public readonly record struct BanStateProjectionSnapshot ( int Entries , long Utf8ResidentBytes , int MaxEntries , long MaxUtf8ResidentBytes , long AppliedUpdates , long InvalidUpdates , long StaleUpdates , long DuplicateUpdates , long Conflicts , long Evictions , long OverBudgetUpdates , long KnownReads , long UnknownReads , long SourceLoads , long HighestObservedGeneration , long HighestAppliedGeneration )",
+      "originalMemberTokenSha256": "9868e69e3ddfc4453d84990fac949e5012a535fdf40c32f360c8acc52b2928af",
+      "currentLine": 125,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Captures local capacity accounting, outcome counters, and generation watermarks for diagnostics; it is not a per-subject convergence or readiness certificate. "
+    },
+    {
+      "originalLine": 77,
+      "kind": "PropertyDeclaration",
+      "signature": "public long VersionLag",
+      "originalMemberTokenSha256": "68dc788f064bf5455279d8289e0c994a828c877256c4aadc7845db886901c6fc",
+      "currentLine": 147,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Nonnegative difference between observed and applied global watermarks. Zero does not prove that every subject is current or ready for admission. "
+    },
+    {
+      "originalLine": 121,
+      "kind": "ConstructorDeclaration",
+      "signature": "public BanStateProjection ( IBanStateProjectionSource source , BanStateProjectionLimits ? limits = null )",
+      "originalMemberTokenSha256": "2f1937d408e13690e608928ed9257b6c0350b1a609edc9d66a3247bdd90f9bc7",
+      "currentLine": 197,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Creates an initially empty local projection backed by the supplied authority source."
+    },
+    {
+      "originalLine": 188,
+      "kind": "MethodDeclaration",
+      "signature": "public ValueTask \u003C BanStateProjectionLookup \u003E GetAsync ( string ? accountSubjectHash , CancellationToken cancellationToken = default )",
+      "originalMemberTokenSha256": "28e66dc1d6ce6fdbc339ba838d6cb305cc5f63d4ee1d9ea6f92f8979ee6519d6",
+      "currentLine": 272,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Reads by subject alone, forwarding account ID zero to the existing load path. This does not supply the physical account identity an authority may require. Source failures propagate rather than becoming successful lookups. "
+    },
+    {
+      "originalLine": 193,
+      "kind": "MethodDeclaration",
+      "signature": "public BanStateProjectionApplyResult Apply ( BanStateProjectionUpdate update )",
+      "originalMemberTokenSha256": "d877ebf9df8e57f75d28ff84cf3bee4ead1dc378c1a16d5d6ba36579fdac76cb",
+      "currentLine": 286,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Validates and applies a fact under the local write lock, rejecting older generations and duplicates. Same-generation conflicts and invalid payloads at the stored generation or newer fail closed to unknown; capacity admission can evict other subjects. No authority write or cross-node acknowledgement is performed here. "
+    },
+    {
+      "originalLine": 283,
+      "kind": "MethodDeclaration",
+      "signature": "public BanStateProjectionSnapshot Snapshot ( )",
+      "originalMemberTokenSha256": "e84144dda241a3ddb29a325418daeab45c1df4b25866c690985f2d7d52cdd6b0",
+      "currentLine": 381,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Reads entry and payload accounting under the write lock and samples counters with volatile reads. Counters updated outside that lock are not one transaction. "
+    },
+    {
+      "originalLine": 553,
+      "kind": "MethodDeclaration",
+      "signature": "public static void Max ( ref long location , long value )",
+      "originalMemberTokenSha256": "02169a6e2b6e0057c520d56ae0e8fda754b0a2c3c113215808a1dce7819c3a2b",
+      "currentLine": 658,
+      "uniqueCompleteTokenMatch": true,
+      "signatureEqual": true,
+      "meaningfulXmlSummaryPresent": true,
+      "summary": "Raises a shared signed 64-bit value only while the candidate exceeds the observed value. A lost compare-exchange retries against the winning value; a candidate no larger than that observation leaves the location unchanged. "
+    }
+  ]
+}
+

@@ -1,0 +1,20 @@
+{
+  "scope": "supplementary direct product-assembly probe; fresh probe of the exact current product assembly; original test-project results are separately recorded",
+  "candidate": "b653640c86d214283f6865bcfc4a47571764686d",
+  "assembly": "/tmp/fsusblog-3647-current-master-runtime-probe/FsusBlog.Server.dll",
+  "assemblySha256": "9c524641baf572632166038eac5de31ce824800cc2f77a2bda4e7538a86f6dde",
+  "frameworkEnvironmentValues": {
+    "Development": "Development",
+    "Production": "Production"
+  },
+  "passed": [
+    "null authority \u002B concurrent known update",
+    "same generation conflict unknown fence",
+    "stale rejection",
+    "new generation recovery",
+    "singleflight waiter cancellation",
+    "shared load continuation",
+    "completed load cleanup",
+    "repeated missing loads"
+  ]
+}

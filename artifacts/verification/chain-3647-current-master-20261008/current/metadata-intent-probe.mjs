@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import {changedFilesBetween,validatePrContract,validateRepositoryBlameIgnore,validateRepositorySources} from '/tmp/fsusblog-3647-current-master-base/tools/governance/change-contract.mjs';
+import {checkCodeIntent} from '/tmp/fsusblog-3647-current-master-base/tools/governance/check-code-intent.mjs';
+const root='/workspace/FsusBlog-3647-current-master',base='6e287562b3f861d3eb81dcb23f93e6243205abd8',head='b653640c86d214283f6865bcfc4a47571764686d',authorityRoot='/tmp/fsusblog-3647-current-master-base',changedFiles=changedFilesBetween(root,base,head);
+const body=fs.readFileSync('/workspace/fsusblog-3647-current-master-verification/current/pr-body-local.md','utf8');
+const metadata={title:'docs(security): clarify missing ban authority documentation',body,labels:['release-note:internal'],actor:null,changedFiles,root,base,head,authorityRoot};
+const errors=[...validatePrContract(metadata),...validateRepositoryBlameIgnore(root),...validateRepositorySources(root)];
+const intent=checkCodeIntent({root,files:changedFiles});
+const undeclared=validatePrContract({...metadata,body:body.replace('- [x] External naming exception','- [ ] External naming exception')});
+const requiredMetadataProven=undeclared.some(x=>x.includes('changes to registered external naming surfaces require'));
+console.log(JSON.stringify({scope:'trusted current-base scoped intent and prospective local PR metadata, not API/PR admission',base,head,changedFiles,errors,intent,externalNamingNecessityNegativeControl:{errors:undeclared,requiredMetadataProven}},null,2));
+process.exitCode=errors.length||intent.errors.length||!requiredMetadataProven?1:0;

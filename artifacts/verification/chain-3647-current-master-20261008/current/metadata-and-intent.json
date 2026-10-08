@@ -1,0 +1,20 @@
+{
+  "scope": "current",
+  "runIdentity": "fsusblog-3647-current-master-20261008T131231Z",
+  "candidate": "b653640c86d214283f6865bcfc4a47571764686d",
+  "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "tree": "6963a5f1f7f8984413c8d4e09a0c4bda2244a351",
+  "cwd": "/workspace/FsusBlog-3647-current-master",
+  "command": [
+    "node",
+    "/workspace/fsusblog-3647-current-master-verification/current/metadata-intent-probe.mjs"
+  ],
+  "start": "2026-10-08T13:17:34.264901+00:00",
+  "end": "2026-10-08T13:17:35.432335+00:00",
+  "exitCode": 1,
+  "endCandidate": "b653640c86d214283f6865bcfc4a47571764686d",
+  "candidateStable": true,
+  "trackedWorktreeClean": true,
+  "log": "metadata-and-intent.log",
+  "oldReceiptReused": false
+}

@@ -1,0 +1,20 @@
+{
+  "scope": "current",
+  "runIdentity": "fsusblog-3647-current-master-20261008T131231Z",
+  "candidate": "b653640c86d214283f6865bcfc4a47571764686d",
+  "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "tree": "6963a5f1f7f8984413c8d4e09a0c4bda2244a351",
+  "cwd": "/workspace/FsusBlog-3647-current-master",
+  "command": [
+    "node",
+    "tools/docs/check-authoritative-development-docs.mjs"
+  ],
+  "start": "2026-10-08T13:13:11.530767+00:00",
+  "end": "2026-10-08T13:13:11.754845+00:00",
+  "exitCode": 0,
+  "endCandidate": "b653640c86d214283f6865bcfc4a47571764686d",
+  "candidateStable": true,
+  "trackedWorktreeClean": true,
+  "log": "docs.log",
+  "oldReceiptReused": false
+}
