@@ -1,0 +1,46 @@
+[
+  {
+    "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+    "originalBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+    "onlyNewPackage": "AngleSharp1.5.0",
+    "onlyProjectEdgeAdded": "fsusblog.server -> AngleSharp [1.5.0, )",
+    "allExistingPackageFieldsIdentical": true,
+    "existingPackageCount": 84,
+    "newPackageCount": 85,
+    "nativeAndMigrationGraphAbsent": true,
+    "currentGeneratedGraphEqualsDonorSemanticGraph": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+    "originalBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+    "onlyNewPackage": "AngleSharp1.5.0",
+    "onlyProjectEdgeAdded": "fsusblog.server -> AngleSharp [1.5.0, )",
+    "allExistingPackageFieldsIdentical": true,
+    "existingPackageCount": 84,
+    "newPackageCount": 85,
+    "nativeAndMigrationGraphAbsent": true,
+    "currentGeneratedGraphEqualsDonorSemanticGraph": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+    "originalBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+    "onlyNewPackage": "AngleSharp1.5.0",
+    "onlyProjectEdgeAdded": "fsusblog.server -> AngleSharp [1.5.0, )",
+    "allExistingPackageFieldsIdentical": true,
+    "existingPackageCount": 84,
+    "newPackageCount": 85,
+    "nativeAndMigrationGraphAbsent": true,
+    "currentGeneratedGraphEqualsDonorSemanticGraph": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+    "originalBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+    "onlyNewPackage": "AngleSharp1.5.0",
+    "onlyProjectEdgeAdded": "fsusblog.server -> AngleSharp [1.5.0, )",
+    "allExistingPackageFieldsIdentical": true,
+    "existingPackageCount": 84,
+    "newPackageCount": 85,
+    "nativeAndMigrationGraphAbsent": true,
+    "currentGeneratedGraphEqualsDonorSemanticGraph": true
+  }
+]

@@ -1,0 +1,262 @@
+{
+  "kind": "issue1889-ordinary-consumer-blocker-handoff",
+  "recordedAtUTC": "2026-10-08T13:43:22.240644+00:00",
+  "testedCommit": "6ffa5cf34104b4197847f91c35a94b42fd981b4d",
+  "implementationCommit": "7b79aed73b156fae328ca14252e78d9888001960",
+  "branch": "codex/issue-1889-privacy-runtime-verification",
+  "providedLockOwnerEvidenceCommit": "2eea953831f470038458f1cc883dc0fece9b0130",
+  "providedRuntimeRoleLockBlob": "a342034a78b4270de17ebeea7ab20cef2da66dfe",
+  "toolchain": {
+    "node": "v24.19.0",
+    "dotnet": "10.0.100",
+    "platform": "linux",
+    "architecture": "x64",
+    "directoryBuildPropsDigest": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4"
+  },
+  "run": {
+    "id": "ordinary-privacy-runtime-6ffa5cf-20261008"
+  },
+  "source": {
+    "commit": "6ffa5cf34104b4197847f91c35a94b42fd981b4d",
+    "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+  },
+  "qualification": "FAILED static admission; ordinary unit/runtime controls NOT RUN; no product/QA acceptance",
+  "checks": [
+    {
+      "name": "RuntimeRole audited locked restore",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+        "--locked-mode",
+        "--force",
+        "-p:NuGetAudit=true"
+      ],
+      "exitCode": 0,
+      "log": "locked-restore-6ffa5cf.log"
+    },
+    {
+      "name": "BehaviorDoc static admission",
+      "command": [
+        "node",
+        "tools/docs/behavior-doc-static-admission.mjs",
+        "--out",
+        ".tmp/privacy-runtime-verification/admission-6ffa5cf.json",
+        "--run-id",
+        "ordinary-privacy-runtime-6ffa5cf-20261008"
+      ],
+      "exitCode": 1,
+      "log": "admission-6ffa5cf.log"
+    },
+    {
+      "name": "AuthSession canonical host diagnostic",
+      "command": [
+        "dotnet",
+        "run",
+        "--project",
+        "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+        "--configuration",
+        "Release",
+        "--no-launch-profile",
+        "--no-cache",
+        "--disable-build-servers",
+        "--artifacts-path",
+        ".tmp/privacy-runtime-verification/auth-observer-diagnostic/artifacts",
+        "--",
+        "--output",
+        ".tmp/privacy-runtime-verification/auth-observer-diagnostic/observation.json"
+      ],
+      "exitCode": 1,
+      "log": "auth-observer-diagnostic.log"
+    },
+    {
+      "name": "local public consumer typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck:local-fsusui"
+      ],
+      "exitCode": 0,
+      "log": "local-consumer-6ffa5cf.log"
+    },
+    {
+      "name": "published public consumer typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck:published-fsusui"
+      ],
+      "exitCode": 2,
+      "log": "published-consumer-6ffa5cf.log"
+    },
+    {
+      "name": "application source no-emit typecheck",
+      "command": [
+        "node",
+        "./scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "exitCode": 2,
+      "log": "application-typecheck-6ffa5cf.log"
+    }
+  ],
+  "otherObserverRestoreChecks": [
+    {
+      "project": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+        "--locked-mode",
+        "--force",
+        "-p:NuGetAudit=true",
+        "--artifacts-path",
+        ".tmp/privacy-runtime-verification/ConfigErrorSecurity-restore-artifacts"
+      ],
+      "exitCode": 1,
+      "log": ".tmp/privacy-runtime-verification/ConfigErrorSecurity-locked-restore-6ffa5cf.log",
+      "diagnostics": [
+        "/workspace/scratch/issue-1889/privacy-source-canonical/tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file."
+      ]
+    },
+    {
+      "project": "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+        "--locked-mode",
+        "--force",
+        "-p:NuGetAudit=true",
+        "--artifacts-path",
+        ".tmp/privacy-runtime-verification/ContentLifecycle-restore-artifacts"
+      ],
+      "exitCode": 1,
+      "log": ".tmp/privacy-runtime-verification/ContentLifecycle-locked-restore-6ffa5cf.log",
+      "diagnostics": [
+        "/workspace/scratch/issue-1889/privacy-source-canonical/tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file."
+      ]
+    },
+    {
+      "project": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+        "--locked-mode",
+        "--force",
+        "-p:NuGetAudit=true",
+        "--artifacts-path",
+        ".tmp/privacy-runtime-verification/OpenApi-restore-artifacts"
+      ],
+      "exitCode": 1,
+      "log": ".tmp/privacy-runtime-verification/OpenApi-locked-restore-6ffa5cf.log",
+      "diagnostics": [
+        "/workspace/scratch/issue-1889/privacy-source-canonical/tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file."
+      ]
+    }
+  ],
+  "runtimeRoleAssemblyWithinAdmission": {
+    "exists": true,
+    "path": ".tmp/runtime-role-reproducible-builds/9b155a43f739607add7174d3102d51b2ffead905ac87256713bbdf41642036ac/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll",
+    "sha256": "98675d2657e6ebcf75c70c9ab17b629c77657e7bf5a07949c4eb07ee1dc1c562",
+    "qualification": "partial producer build only; no complete minimal-build or observation receipt"
+  },
+  "admissionFailure": [
+    "minimal contract host auth-session-permission-observation failed: The build failed. Fix the build errors and run again."
+  ],
+  "candidateSpawnCountBeforeReceipt": 0,
+  "minimalBuildReceipt": null,
+  "requestedLockOwner": 3568,
+  "remainingObserverLocks": [
+    {
+      "project": "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+      "projectBlob": "ac6538f325848d6a55343abda0092169edc16d8a",
+      "lock": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "lockBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "lockSHA256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "serverProjectEdgeMissing": "AngleSharp [1.5.0, )",
+      "observedFailure": "NU1004 fsusblog.server dependency graph changed",
+      "exitCode": 1
+    },
+    {
+      "project": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+      "projectBlob": "3d9e5c92d7dc0d49d8e44ab2b47dead7ded60ce7",
+      "lock": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "lockBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "lockSHA256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "serverProjectEdgeMissing": "AngleSharp [1.5.0, )",
+      "observedFailure": "NU1004 fsusblog.server dependency graph changed",
+      "exitCode": 1
+    },
+    {
+      "project": "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+      "projectBlob": "44286797b3f0ab2f6b79b03b2022c34537997e54",
+      "lock": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "lockBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "lockSHA256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "serverProjectEdgeMissing": "AngleSharp [1.5.0, )",
+      "observedFailure": "NU1004 fsusblog.server dependency graph changed",
+      "exitCode": 1
+    },
+    {
+      "project": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "projectBlob": "f4e2b49036284183ee1d9f93e928c12aa43e902d",
+      "lock": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "lockBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "lockSHA256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "serverProjectEdgeMissing": "AngleSharp [1.5.0, )",
+      "observedFailure": "NU1004 fsusblog.server dependency graph changed",
+      "exitCode": 1
+    }
+  ],
+  "separateSourceAuthorityRefusals": {
+    "evidenceCommit": "2eea953831f470038458f1cc883dc0fece9b0130",
+    "evidencePath": "artifacts/evidence/issue-3568-runtime-role-consumer-lock-20261008/exact-head-source-stage.log",
+    "status": "existing source-stage refusals remain; no authority regeneration or waiver",
+    "inputs": [
+      {
+        "path": "tools/test-matrix/source-governance.mjs",
+        "baseBlob": "ab90d0a98775f8cd76d9db3ce22d7fbc60128fa1",
+        "candidateBlob": "ab90d0a98775f8cd76d9db3ce22d7fbc60128fa1",
+        "changedByLockRepair": false
+      },
+      {
+        "path": "config/development/frontend-style-policy.json",
+        "baseBlob": "1458b6aaaec756827dabb2c3f08fcc9d31f1ff1e",
+        "candidateBlob": "1458b6aaaec756827dabb2c3f08fcc9d31f1ff1e",
+        "changedByLockRepair": false
+      },
+      {
+        "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "baseBlob": "2f338a003c951fb295eea59c64a93bb5197e06c3",
+        "candidateBlob": "2f338a003c951fb295eea59c64a93bb5197e06c3",
+        "changedByLockRepair": false
+      },
+      {
+        "path": "tools/frontend/check-frontend-style.mjs",
+        "baseBlob": "fa55a556c43b4caca707138f367f85421789e5fc",
+        "candidateBlob": "fa55a556c43b4caca707138f367f85421789e5fc",
+        "changedByLockRepair": false
+      },
+      {
+        "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+        "baseBlob": "fdde159aa5ccb86215492ac9899986b8516c67df",
+        "candidateBlob": "fdde159aa5ccb86215492ac9899986b8516c67df",
+        "changedByLockRepair": false
+      }
+    ]
+  },
+  "dtoOwner": 3735,
+  "dtoChangedHere": false,
+  "generatedFactSections": "NOT REACHED: no current-source FactObservation receipts; canonical generator not run",
+  "ordinaryTests": "Provider/Adapter/RevocationLocal/WasmProver and new regression tests BLOCKED/NOT RUN because admission failed",
+  "heldQA": "NOT RUN",
+  "publishedConsumerDiagnostics": 17,
+  "applicationSourcePrivacyDiagnostics": [
+    "src/privacy/commentPrivacyAdapter.ts(98,66): error TS2345: Argument of type '{ articleId: number; rootId: string | null; circuitNumericId: number; publicInputLayoutVersion: number; actionContext: string; anonymousScope: string; circuitId: string; verifyingKeyHash: string; ... 8 more ...; publicInputs: Uint8Array<...>; }' is not assignable to parameter of type 'AnonymousCommentTicketRequestDto'."
+  ],
+  "localTypecheckUiCommit": "c987c645a6ddc915bbc28429a97a3f21fafe258b",
+  "applicationTypecheckUiCommit": "6c836baff8bc1879b487bf019359fd5e433f58ea",
+  "smallestNextAction": "Sole3568 supplies exact four observer locks for this source graph; fresh full static admission before ordinary tests. Separate3735 DTO and authority owners retain their gates."
+}

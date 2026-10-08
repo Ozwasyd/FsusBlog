@@ -1,0 +1,113 @@
+{
+  "schema": "task-scoped-evidence-export.v1",
+  "scope": "Complete four exact consumer observer lock graphs, current actual audited restore evidence; SOURCE and runtime limitations retained",
+  "sourceHead": "c9875e42267816facd8d6109a457cb7b330d4332",
+  "consumerBase": "27ac342479ce9e01a4ced5157375e73309521da4",
+  "files": [
+    {
+      "path": "final-handoff.json",
+      "sha256": "5f916a2c363286faa7ecf3bb7d13d3ceef7ec1649f7bd024368179eeeb173ec3",
+      "bytes": 9054
+    },
+    {
+      "path": "consumer-donor-49-input-comparison.json",
+      "sha256": "24e391358202a98463dc8b831c7ec44d5c22d64d21463384911f82a783d162dd",
+      "bytes": 16503
+    },
+    {
+      "path": "exact-head-49-input-and-scope-proof.json",
+      "sha256": "00a49ea463515fed2e76d75544e2bdf36213890e091fe545653e905c2d7f1c65",
+      "bytes": 13359
+    },
+    {
+      "path": "supplied-consumer-final-handoff.json",
+      "sha256": "6a586fda183c339b34a3c1f5e223b19982a4d3c406653d44e34909d200f42239",
+      "bytes": 12334
+    },
+    {
+      "path": "official-four-observer-semantic-proof.json",
+      "sha256": "f6cb824674860cfb3f1d8e849847dfa845e689fd6ea21b9616da1dae581f28d8",
+      "bytes": 1908
+    },
+    {
+      "path": "fresh-four-observer-postimage-proof.json",
+      "sha256": "43e6f86c3e265d9050a09d1f655fa2b3611e5f2221c705191c2165b11c3e17b7",
+      "bytes": 944
+    },
+    {
+      "path": "unrelated-serialization-proof.json",
+      "sha256": "95e58687fabba6dcc96506c3ec19a4dcbfb0477019f2186e33c8741a1470642e",
+      "bytes": 434
+    },
+    {
+      "path": "official-four-observer-generation-results.json",
+      "sha256": "19518e792f70b470541b367cf12b89275ffdfa23e19184c73ea0db1804730e76",
+      "bytes": 2385
+    },
+    {
+      "path": "exact-head-four-observer-locked-restore-results.json",
+      "sha256": "702e17ac54a0a75ff0fb5d903b581fde677692814eae887e532e773b7b965577",
+      "bytes": 2441
+    },
+    {
+      "path": "original-four-observer-format.log",
+      "sha256": "15b1e719cc61d8d08e975321ef81b04d5530c1702b1261283acdf438460e79fd",
+      "bytes": 112
+    },
+    {
+      "path": "trusted-source-range.log",
+      "sha256": "7f055427860a2f5d6bc82d34c414e6e9646959d0b9cee54fb154fee8abe83b50",
+      "bytes": 117
+    },
+    {
+      "path": "exact-head-source-stage.log",
+      "sha256": "0ff46ea36debd691ac6a0e2518366849239416ad7fc8533a0c8aad17579a8cfa",
+      "bytes": 531
+    },
+    {
+      "path": "observer-projects.json",
+      "sha256": "2ba7da9f257e51aff9bc7692b96cd0d7feea0de76e939f192d5ae25de387798b",
+      "bytes": 389
+    },
+    {
+      "path": "official-four-observer-generation-0.log",
+      "sha256": "4e2bc2ac3fb319a508ef739c2bd031a7cdc2c81ff134799be7cc8645353bfdba",
+      "bytes": 760
+    },
+    {
+      "path": "official-four-observer-generation-1.log",
+      "sha256": "e2a8cc3a27c8858e51a7a257c09ee6c41b600399e112d6278185cfe0adc1f19a",
+      "bytes": 776
+    },
+    {
+      "path": "official-four-observer-generation-2.log",
+      "sha256": "94dbe70a5b0ad06aea3cdcbee3887b4e05891f8894c4eb6784deb74db04f0d35",
+      "bytes": 770
+    },
+    {
+      "path": "official-four-observer-generation-3.log",
+      "sha256": "941d5d8a94647b77c407971c8a59d298c10afdd2ec7463e9636d51411ea1552a",
+      "bytes": 751
+    },
+    {
+      "path": "exact-head-four-observer-locked-restore-0.log",
+      "sha256": "f5ee1bc6225be8f020a0515bd4e0bb25f104842e1866b641b3ed822904bc0209",
+      "bytes": 760
+    },
+    {
+      "path": "exact-head-four-observer-locked-restore-1.log",
+      "sha256": "dc27a983273713cdda500a74793cb625959225dbe5c8ee9ef2fd88fa528e1cc5",
+      "bytes": 776
+    },
+    {
+      "path": "exact-head-four-observer-locked-restore-2.log",
+      "sha256": "69ecc3fa5d27497b084a215a505b0232877273209bc90b350a22680d12a365db",
+      "bytes": 768
+    },
+    {
+      "path": "exact-head-four-observer-locked-restore-3.log",
+      "sha256": "1d377d4adf89163baae5b8fd877a829c786c680c9b98ab2921190cd1511b1af0",
+      "bytes": 750
+    }
+  ]
+}

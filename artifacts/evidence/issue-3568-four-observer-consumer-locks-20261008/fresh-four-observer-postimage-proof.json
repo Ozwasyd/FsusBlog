@@ -1,0 +1,22 @@
+[
+  {
+    "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+    "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+    "currentProducerBytesEqualExistingDonorPostimage": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+    "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+    "currentProducerBytesEqualExistingDonorPostimage": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+    "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+    "currentProducerBytesEqualExistingDonorPostimage": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+    "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+    "currentProducerBytesEqualExistingDonorPostimage": true
+  }
+]

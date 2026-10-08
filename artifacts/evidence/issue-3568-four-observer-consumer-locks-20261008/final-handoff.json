@@ -1,0 +1,207 @@
+{
+  "recordedAtUTC": "2026-10-08T13:56:26.334811+00:00",
+  "scope": "Complete all four ready observer lock dependency repairs for exact supplied1889 source, one atomic four-file increment",
+  "base": "27ac342479ce9e01a4ced5157375e73309521da4",
+  "publishedHead": "c9875e42267816facd8d6109a457cb7b330d4332",
+  "remoteReadBackSHA": "c9875e42267816facd8d6109a457cb7b330d4332",
+  "branch": "codex/issue-3568-four-observer-consumer-locks-20261008",
+  "scopeFiles": [
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "oldBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "newBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "oldBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "newBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "oldBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "newBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "oldBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "newBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689"
+    }
+  ],
+  "49InputComparison": "Only four requested observer locks differ; all projects/central props/other locks unchanged. Current source49-input closure also byte-identical to supplied consumer6ffa original four NU1004 negative controls.",
+  "originalConsumerNegativeControlEvidence": "supplied-consumer-final-handoff.json",
+  "actualProducerSDK": "10.0.302",
+  "actualStaticToolingNode": "24.16.0",
+  "currentGenerationResults": [
+    {
+      "sourceCandidate": "27ac342479ce9e01a4ced5157375e73309521da4",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+        "--force-evaluate",
+        "--use-lock-file",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:51:01.567591+00:00",
+      "exitCode": 0,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/official-four-observer-generation-0.log",
+      "sha256": "4e2bc2ac3fb319a508ef739c2bd031a7cdc2c81ff134799be7cc8645353bfdba"
+    },
+    {
+      "sourceCandidate": "27ac342479ce9e01a4ced5157375e73309521da4",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+        "--force-evaluate",
+        "--use-lock-file",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:51:04.241522+00:00",
+      "exitCode": 0,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/official-four-observer-generation-1.log",
+      "sha256": "e2a8cc3a27c8858e51a7a257c09ee6c41b600399e112d6278185cfe0adc1f19a"
+    },
+    {
+      "sourceCandidate": "27ac342479ce9e01a4ced5157375e73309521da4",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+        "--force-evaluate",
+        "--use-lock-file",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:51:05.762708+00:00",
+      "exitCode": 0,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/official-four-observer-generation-2.log",
+      "sha256": "94dbe70a5b0ad06aea3cdcbee3887b4e05891f8894c4eb6784deb74db04f0d35"
+    },
+    {
+      "sourceCandidate": "27ac342479ce9e01a4ced5157375e73309521da4",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+        "--force-evaluate",
+        "--use-lock-file",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:51:07.308975+00:00",
+      "exitCode": 0,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/official-four-observer-generation-3.log",
+      "sha256": "941d5d8a94647b77c407971c8a59d298c10afdd2ec7463e9636d51411ea1552a"
+    }
+  ],
+  "exactHeadAuditedLockedRestoreResults": [
+    {
+      "candidate": "c9875e42267816facd8d6109a457cb7b330d4332",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+        "--locked-mode",
+        "--force",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:54:17.522702+00:00",
+      "exitCode": 0,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/exact-head-four-observer-locked-restore-0.log",
+      "sha256": "f5ee1bc6225be8f020a0515bd4e0bb25f104842e1866b641b3ed822904bc0209",
+      "auditWarnings": []
+    },
+    {
+      "candidate": "c9875e42267816facd8d6109a457cb7b330d4332",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+        "--locked-mode",
+        "--force",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:54:19.331432+00:00",
+      "exitCode": 0,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/exact-head-four-observer-locked-restore-1.log",
+      "sha256": "dc27a983273713cdda500a74793cb625959225dbe5c8ee9ef2fd88fa528e1cc5",
+      "auditWarnings": []
+    },
+    {
+      "candidate": "c9875e42267816facd8d6109a457cb7b330d4332",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+        "--locked-mode",
+        "--force",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:54:21.229684+00:00",
+      "exitCode": 0,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/exact-head-four-observer-locked-restore-2.log",
+      "sha256": "69ecc3fa5d27497b084a215a505b0232877273209bc90b350a22680d12a365db",
+      "auditWarnings": []
+    },
+    {
+      "candidate": "c9875e42267816facd8d6109a457cb7b330d4332",
+      "command": [
+        "dotnet",
+        "restore",
+        "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+        "--locked-mode",
+        "--force",
+        "-p:NuGetAudit=true"
+      ],
+      "startedAtUTC": "2026-10-08T13:54:22.875301+00:00",
+      "exitCode": 0,
+      "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/exact-head-four-observer-locked-restore-3.log",
+      "sha256": "1d377d4adf89163baae5b8fd877a829c786c680c9b98ab2921190cd1511b1af0",
+      "auditWarnings": []
+    }
+  ],
+  "formatter": {
+    "exitCode": 0,
+    "selected": 4,
+    "checked": 4,
+    "violations": 0,
+    "log": "original-four-observer-format.log"
+  },
+  "trustedRange": {
+    "exitCode": 0,
+    "log": "trusted-source-range.log"
+  },
+  "sourceStage": {
+    "exitCode": 1,
+    "log": "exact-head-source-stage.log",
+    "notReached": true,
+    "reason": "Five existing applicable execution-authority mismatches; all five source blobs unchanged from base. SOURCE qualification not passed."
+  },
+  "dependencyGraphChanges": {
+    "perLock": "Add AngleSharp CentralTransitive1.5.0 node and already-declared Server [1.5.0, ) edge only",
+    "oldPackageCount": 84,
+    "newPackageCount": 85,
+    "allExistingPackageVersionsHashesAndMetadataUnchanged": true,
+    "freshOfficialProducerPostimagesEqualFourExistingDonorPostimages": true,
+    "noDonorMigrationNativeGraphImported": true
+  },
+  "runtimeRoleAndMigrationSourceUnchanged": true,
+  "notRun": [
+    "Ordinary observer build",
+    "BehaviorDoc static admission",
+    "Runtime entrypoints",
+    "Excluded integrity/cohort/source-substitution scenarios",
+    "Held QA and product/UX qualification",
+    "Original3568 retained-runtime acceptance"
+  ],
+  "remaining": [
+    "Consumer1889 original SDK10.0.100/Node24.19 needs fresh full static admission using all five matching observer locks.",
+    "Five source authority refusals and separate DTO/API owner gates remain; no source/classifier/governance waiver made.",
+    "Native2.1.11/NU1903 in unchanged RuntimeRole/Migration graph remains; the four Server-only observer restores themselves reported no audit warnings.",
+    "Root3568 remains BLOCKED; no issue completion inferred."
+  ],
+  "publication": "Source and evidence git branches only. No new task/PR/comment/content API mutation, merge, closure or package publication."
+}

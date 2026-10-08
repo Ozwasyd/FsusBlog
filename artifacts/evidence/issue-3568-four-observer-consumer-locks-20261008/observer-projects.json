@@ -1,0 +1,6 @@
+[
+  "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+  "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+  "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+  "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj"
+]

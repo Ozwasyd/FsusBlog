@@ -1,0 +1,62 @@
+[
+  {
+    "sourceCandidate": "27ac342479ce9e01a4ced5157375e73309521da4",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T13:51:01.567591+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/official-four-observer-generation-0.log",
+    "sha256": "4e2bc2ac3fb319a508ef739c2bd031a7cdc2c81ff134799be7cc8645353bfdba"
+  },
+  {
+    "sourceCandidate": "27ac342479ce9e01a4ced5157375e73309521da4",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T13:51:04.241522+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/official-four-observer-generation-1.log",
+    "sha256": "e2a8cc3a27c8858e51a7a257c09ee6c41b600399e112d6278185cfe0adc1f19a"
+  },
+  {
+    "sourceCandidate": "27ac342479ce9e01a4ced5157375e73309521da4",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T13:51:05.762708+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/official-four-observer-generation-2.log",
+    "sha256": "94dbe70a5b0ad06aea3cdcbee3887b4e05891f8894c4eb6784deb74db04f0d35"
+  },
+  {
+    "sourceCandidate": "27ac342479ce9e01a4ced5157375e73309521da4",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T13:51:07.308975+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-four-observer-consumer-locks-20261008/official-four-observer-generation-3.log",
+    "sha256": "941d5d8a94647b77c407971c8a59d298c10afdd2ec7463e9636d51411ea1552a"
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "path": "src/backend/packages.lock.json",
+    "semanticDifference": false,
+    "restoredOwnBeforeGenerationBytes": true
+  },
+  {
+    "path": "src/core/packages.lock.json",
+    "semanticDifference": false,
+    "restoredOwnBeforeGenerationBytes": true
+  },
+  {
+    "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json",
+    "semanticDifference": false,
+    "restoredOwnBeforeGenerationBytes": true
+  }
+]

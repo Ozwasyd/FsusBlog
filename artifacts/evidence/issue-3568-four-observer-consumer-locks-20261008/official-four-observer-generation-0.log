@@ -1,0 +1,6 @@
+  Determining projects to restore...
+  Restored /workspace/.task-worktrees/issue-3568-four-observer-consumer-locks/src/shared/FsusBlog.Shared.csproj (in 109 ms).
+  Restored /workspace/.task-worktrees/issue-3568-four-observer-consumer-locks/src/core/FsusBlog.Core.csproj (in 729 ms).
+  Restored /workspace/.task-worktrees/issue-3568-four-observer-consumer-locks/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 897 ms).
+  Restored /workspace/.task-worktrees/issue-3568-four-observer-consumer-locks/src/backend/FsusBlog.Server.csproj (in 919 ms).
+  Restored /workspace/.task-worktrees/issue-3568-four-observer-consumer-locks/tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj (in 919 ms).
