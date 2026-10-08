@@ -85,7 +85,6 @@ import { computed, ref } from 'vue';
 
 import VaultDependencyPlanReview from '@/components/admin/article/vault/VaultDependencyPlanReview.vue';
 import type { VaultDependencyPlanReviewDocument } from '@/services/articleVault/dependencyPlanPresentation';
-
 import {
     filterVaultPlanItems,
     presentVaultPlan,
