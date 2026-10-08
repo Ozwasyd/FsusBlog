@@ -1,4 +1,3 @@
-import type { SecuritySystemModesValue, SecurityRiskPolicyOutcomesValue, SecurityRiskPolicyReasonsValue } from '@/contracts/securityRiskPolicyCatalog.generated';
 import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder';
 import {
     encodeSecurityChallengeCancelRequest,
@@ -12,6 +11,7 @@ import {
     type SecurityChallengeIssueResponse,
     type SecurityChallengeVerifyResponse
 } from '@/contracts/binaryApi';
+import type { SecuritySystemModesValue, SecurityRiskPolicyOutcomesValue, SecurityRiskPolicyReasonsValue } from '@/contracts/securityRiskPolicyCatalog.generated';
 import { getBrowserFp } from '@/utils/fingerprint';
 
 import { FrameType } from '@wasm/protocol/frame';
@@ -402,7 +402,7 @@ export interface SecurityChallengeMetricsResponse {
 export interface SecurityPolicyVersionSummaryResponse {
     policyId: string;
     version: number;
-    mode: SecurityMode | string;
+    mode: SecurityMode;
     active: boolean;
     lastKnownGood: boolean;
     rollbackOfVersion: number | null;

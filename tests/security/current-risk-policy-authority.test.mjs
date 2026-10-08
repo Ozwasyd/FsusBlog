@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-import { generateSecurityRiskPolicyCatalog, renderSecurityRiskPolicyCatalog } from '../../tools/contracts/generate-security-risk-policy-catalog.mjs';
-import { readCurrentRiskPolicySources, validateCurrentRiskPolicySources } from '../../tools/security/check-current-risk-policy-authority.mjs';
+const { generateSecurityRiskPolicyCatalog, renderSecurityRiskPolicyCatalog } = await import(new URL('../../tools/contracts/generate-security-risk-policy-catalog.mjs', import.meta.url));
+const { readCurrentRiskPolicySources, validateCurrentRiskPolicySources } = await import(new URL('../../tools/security/check-current-risk-policy-authority.mjs', import.meta.url));
 
 test('current risk policy has one canonical authority across all production consumers', () =>
 {
