@@ -6,7 +6,7 @@
             "paths": [
                 "tools/test-inventory/discovery.mjs"
             ],
-            "reason": "preserve canonical SDK and execution environment spellings while interpreting observed MSBuild intermediate path separators at the original projection boundary"
+            "reason": "preserve canonical MSBuild property and SDK package spellings while binding observed intermediate paths and selected repository-contained compilation support inputs"
         }
     ]
 }
