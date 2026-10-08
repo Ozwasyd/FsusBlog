@@ -1,4 +1,5 @@
 using FsusBlog.Migration;
+using FsusBlog.Migration.Catalogs;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Services.Authoring;
