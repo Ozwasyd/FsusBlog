@@ -184,6 +184,11 @@ export function scanAccountAuthFixtureSources(domain, sources)
 export function inspectAccountAuthFixtureRepository(domain, repositoryRoot = root)
 {
     requireDomain(domain);
+    const rootStat = lstatSync(repositoryRoot);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink())
+    {
+        throw new Error('fixture scanner requires a regular repository root');
+    }
     const listing = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
         cwd: repositoryRoot, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024
     });
@@ -200,6 +205,31 @@ export function inspectAccountAuthFixtureRepository(domain, repositoryRoot = roo
             continue;
         }
         const absolute = path.join(repositoryRoot, relativePath);
+        let unsafeAncestor = false;
+        let directory = repositoryRoot;
+        for (const component of relativePath.split('/').slice(0, -1))
+        {
+            directory = path.join(directory, component);
+            try
+            {
+                const ancestor = lstatSync(directory);
+                if (!ancestor.isDirectory() || ancestor.isSymbolicLink())
+                {
+                    unsafeAncestor = true;
+                    break;
+                }
+            }
+            catch
+            {
+                unsafeAncestor = true;
+                break;
+            }
+        }
+        if (unsafeAncestor)
+        {
+            blockers.push({ code: 'source-ancestor-not-regular-directory', path: relativePath });
+            continue;
+        }
         let stat;
         try
         {

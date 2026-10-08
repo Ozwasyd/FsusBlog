@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -52,6 +52,12 @@ test('all checkers refuse terminal acceptance when actual cleanup authorities ar
         }
         symlinkSync('/does-not-exist', path.join(root, 'external.ts'));
         assert.ok(checkAuthTruthGovernance(root).blockers.some((item) => item.code === 'source-not-bounded-regular-file'));
+        mkdirSync(path.join(root, 'nested'));
+        writeFileSync(path.join(root, 'nested/source.ts'), 'const value = 1;');
+        execFileSync('git', ['add', 'nested/source.ts'], { cwd: root });
+        renameSync(path.join(root, 'nested'), path.join(root, 'actual'));
+        symlinkSync(path.join(root, 'actual'), path.join(root, 'nested'));
+        assert.ok(checkAuthTruthGovernance(root).blockers.some((item) => item.code === 'source-ancestor-not-regular-directory'));
     }
     finally
     {

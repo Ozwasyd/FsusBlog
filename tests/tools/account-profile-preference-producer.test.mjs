@@ -371,7 +371,7 @@ test('producer verification fails closed without the sealed auth ProducerReceipt
     const verification = await verifyAccountProfilePreferences(withoutReceipt, result);
 
     assert.equal(verification.ok, false);
-    assert.match(verification.reason, /exact sealed auth-session ProducerReceipt/u);
+    assert.match(verification.reason, /identity verification failed/u);
 });
 
 test('profile-only source verification uses canonical profile checks without device side effects', async () =>

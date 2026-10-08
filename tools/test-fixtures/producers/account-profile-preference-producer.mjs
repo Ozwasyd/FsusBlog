@@ -423,12 +423,16 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
     {
         return { ok: false, producerId, reason: 'missing composition receipt' };
     }
+    let verificationStage = 'temporal';
     try
     {
         validateBackendTemporalObservation(context.temporalContext, producerResult.temporalObservation);
         validateBackendTemporalObservation(context.temporalContext, producerResult.compositionReceipt.temporalObservation);
+        verificationStage = 'identity';
         const verifiedIdentityReferences = verifyIdentityReferences(context, producerResult);
+        verificationStage = 'cleanup-ownership';
         assertAccountCleanupOwnership(context, producerResult, verifiedIdentityReferences);
+        verificationStage = 'live';
         const verification = await invoke(
             context,
             'verify',
@@ -446,6 +450,7 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
         {
             return { ok: false, producerId, reason: 'live verification capability coverage is incomplete' };
         }
+        verificationStage = 'composition';
         const deviceProjectionRequests = composeAccountDeviceRequests(context, producerResult, verifiedIdentityReferences);
         if (deviceProjectionRequests.length > 0)
         {
@@ -474,7 +479,7 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
         return {
             ok: false,
             producerId,
-            reason: error instanceof Error ? error.message : 'account verification failed',
+            reason: `account profile/preference ${verificationStage} verification failed`,
             failureDigest: stableDigest({
                 name: error instanceof Error ? error.name : typeof error,
                 message: error instanceof Error ? error.message : null,
