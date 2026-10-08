@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { mapUploadAssetPreviewFromPayload } from '@/adapters/binary/uploadAdapter';
 
 function fixture(): Uint8Array {
@@ -18,6 +20,28 @@ function fixture(): Uint8Array {
 }
 
 describe('upload asset preview closed wire', () => {
+    if (process.env.FSUSBLOG_PREVIEW_BUDGET_TEST_FRAME) {
+        it('preserves the actual maximum-sized PostgreSQL/native upload bytes and digest', () => {
+            const frame = new Uint8Array(readFileSync(process.env.FSUSBLOG_PREVIEW_BUDGET_TEST_FRAME!));
+            expect(frame.length).toBe(8_388_608);
+            const preview = mapUploadAssetPreviewFromPayload(frame.subarray(16));
+            expect(preview.sizeBytes).toBe(8_387_832);
+            expect(preview.width).toBe(2048);
+            expect(preview.height).toBe(1364);
+            expect(bytesToHex(sha256(preview.bytes))).toBe(preview.sha256);
+        });
+    }
+    it('accepts the complete existing frame budget and refuses one extra original byte', () => {
+        const bytes = new Uint8Array(760 + 8_387_832);
+        bytes.set(fixture().subarray(0, 760));
+        new DataView(bytes.buffer).setBigInt64(544, 8_387_832n, true);
+        expect(bytes.length + 16).toBe(8_388_608);
+        expect(mapUploadAssetPreviewFromPayload(bytes).bytes.length).toBe(8_387_832);
+        const oversized = new Uint8Array(bytes.length + 1);
+        oversized.set(bytes);
+        new DataView(oversized.buffer).setBigInt64(544, 8_387_833n, true);
+        expect(() => mapUploadAssetPreviewFromPayload(oversized)).toThrow('upload_asset_preview_invalid');
+    });
     it('copies bytes and projects only closed public facts', () => {
         const bytes = fixture();
         const preview = mapUploadAssetPreviewFromPayload(bytes);

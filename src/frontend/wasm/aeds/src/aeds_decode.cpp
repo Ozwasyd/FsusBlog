@@ -63,7 +63,7 @@ const char* ToErrorString(ErrorCode errorCode)
             return "frame_type_retired";
         case ErrorCode::FontThemePayloadInvalid:
             return "font_theme_payload_invalid";
-        case ErrorCode::UploadAssetPreviewInvalid:
+        case ErrorCode::UploadAssetPreviewPayloadInvalid:
             return "upload_asset_preview_invalid";
         default:
             return "decode_failed";
@@ -133,7 +133,7 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
     if (FrameType == static_cast<std::uint16_t>(FrameType::UploadAssetPreview)
         && !FsusBlog::Pod::UploadPreview::Parse(payload, PayloadLength))
     {
-        return MakeError(ErrorCode::UploadAssetPreviewInvalid);
+        return MakeError(ErrorCode::UploadAssetPreviewPayloadInvalid);
     }
 
     if (FsusBlog::Pod::FontTheme::IsFontThemeFrame(FrameType)

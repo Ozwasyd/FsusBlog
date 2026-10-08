@@ -96,7 +96,8 @@ inline bool Parse(const std::uint8_t* p, std::size_t length)
         || f[3].substr(prefix.size() + 32) != ext)
         return false;
     const auto size = U32(p + 544), width = U32(p + 552), height = U32(p + 556);
-    return U32(p + 548) == 0 && size > 0 && size <= 20u * 1024u * 1024u && length - sizeof(Header) == size
+    constexpr std::uint32_t MaxPreviewBytes = 8u * 1024u * 1024u - 16u - sizeof(Header);
+    return U32(p + 548) == 0 && size > 0 && size <= MaxPreviewBytes && length - sizeof(Header) == size
            && width <= 0x7fffffffu && height <= 0x7fffffffu && (width == 0) == (height == 0) && U32(p + 752) <= 1024
            && U32(p + 756) == 0 && Hex(f[6], 64) && Hex(f[7], 64) && Hex(f[8], 64);
 }

@@ -8,6 +8,7 @@ using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,13 +24,20 @@ public sealed partial class FileService
         UploadSessionAccess access,
         string sha256,
         CancellationToken cancellationToken = default)
-        => (await ReadCommittedUploadPreviewAsync(access, sha256, cancellationToken).ConfigureAwait(false))
+        => (await ReadCommittedUploadObservationAsync(access, sha256, MaxUploadBytes, cancellationToken).ConfigureAwait(false))
             .Map(static preview => preview.Observation);
 
-    public async Task<Result<UploadAssetPreview>> ReadCommittedUploadPreviewAsync(
+    public Task<Result<UploadAssetPreview>> ReadCommittedUploadPreviewAsync(
         UploadSessionAccess access,
         string sha256,
         CancellationToken cancellationToken = default)
+        => ReadCommittedUploadObservationAsync(access, sha256, UploadAssetPreviewDto.MaxPreviewBytes, cancellationToken);
+
+    private async Task<Result<UploadAssetPreview>> ReadCommittedUploadObservationAsync(
+        UploadSessionAccess access,
+        string sha256,
+        long maxObservedBytes,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!TryNormalizeUploadId(access.UploadId, out string uploadId)
@@ -80,6 +88,13 @@ public sealed partial class FileService
                     && !string.Equals(session.Sha256, sha256, StringComparison.OrdinalIgnoreCase)))
             {
                 return Result<UploadAssetPreview>.Failure(ErrorCode.Conflict, "upload_asset_ledger_mismatch");
+            }
+
+            // The transport is bounded separately from the original upload and ledger observer.
+            // Refuse before opening or allocating the image; never return a truncated preview.
+            if (row.SizeBytes > maxObservedBytes)
+            {
+                return Result<UploadAssetPreview>.Failure(ErrorCode.Validation, "upload_asset_preview_too_large");
             }
 
             if (!OperatingSystem.IsLinux()

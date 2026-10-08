@@ -5,7 +5,8 @@ public sealed record UploadAssetPreviewDto
 {
     public const string SchemaName = "fsusblog.upload-asset-preview.v1";
     public const int HeaderBytes = 760;
-    public const int MaxPreviewBytes = 20 * 1024 * 1024;
+    public const int MaxPreviewFrameBytes = 8 * 1024 * 1024;
+    public const int MaxPreviewBytes = MaxPreviewFrameBytes - AedsFrameHeader.Size - HeaderBytes;
     public string Schema { get; init; } = SchemaName;
     public required string UploadId
     {

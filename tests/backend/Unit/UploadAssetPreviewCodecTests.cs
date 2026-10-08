@@ -9,6 +9,31 @@ namespace FsusBlog.Server.Tests;
 public sealed class UploadAssetPreviewCodecTests
 {
     [Fact]
+    public void CompletePreviewFrame_FitsExistingEightMiBBudgetAndRejectsNextByte()
+    {
+        Assert.Equal(8_387_832, UploadAssetPreviewDto.MaxPreviewBytes);
+        var dto = Fixture() with
+        {
+            SizeBytes = 8_387_832,
+            Bytes = new byte[8_387_832]
+        };
+        byte[] payload = PodBinaryCodec.EncodeUploadAssetPreview(dto);
+        byte[] frame = new FsusBlog.Core.Algorithms.AedsEncoder().Encode(
+            FsusBlog.Core.Algorithms.AedsFrameType.UploadAssetPreview, payload);
+        Assert.Equal(8_388_608, frame.Length);
+        Assert.True(PodBinaryCodec.TryDecodeUploadAssetPreview(payload, out _));
+        byte[] oversized = new byte[payload.Length + 1];
+        payload.CopyTo(oversized, 0);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(oversized.AsSpan(544), 8_387_833);
+        Assert.False(PodBinaryCodec.TryDecodeUploadAssetPreview(oversized, out _));
+        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodeUploadAssetPreview(dto with
+        {
+            SizeBytes = 8_387_833,
+            Bytes = new byte[8_387_833]
+        }));
+    }
+
+    [Fact]
     public void ClosedHeader_RetainsCanonicalAssetIdentityAndBorrowedBytes()
     {
         Assert.Equal(760, Marshal.SizeOf<UploadAssetPreviewPod>());

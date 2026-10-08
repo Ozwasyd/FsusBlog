@@ -152,7 +152,7 @@ export function mapUploadAssetPreviewFromPayload(payload: Uint8Array): UploadAss
     if (schema !== 'fsusblog.upload-asset-preview.v1' || !/^[0-9a-f]{32}$/u.test(uploadId)
         || assetId !== canonicalId || !mime || mimeType !== mime
         || publicUrl !== `/uploads/illustration/${uploadId}${extension}`
-        || size <= 0n || size > 20971520n || BigInt(payload.byteLength - 760) !== size
+        || size <= 0n || size > 8387832n || BigInt(payload.byteLength - 760) !== size
         || width < 0 || height < 0 || (width === 0) !== (height === 0)
         || referenceRowCount < 0 || referenceRowCount > 1024 || view.getInt32(756, true) !== 0
         || ![sha256, assetVersionSha256, referenceLedgerSha256].every(value => /^[0-9a-f]{64}$/u.test(value)))

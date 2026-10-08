@@ -18,8 +18,14 @@ enum class ErrorCode : std::uint8_t
     ArticlePayloadInvalid = 7,
     FrameTypeUnsupported = 8,
     FrameTypeRetired = 9,
-    FontThemePayloadInvalid = 10,
-    UploadAssetPreviewInvalid = 11
+    AuthoringCanvasPayloadInvalid = 11,
+    ArticleCanvasLinkPayloadInvalid = 12,
+    ArticlePropertyValueReadPayloadInvalid = 13,
+    AuthoringWorkspaceSnapshotPayloadInvalid = 14,
+    WritingAidPreferencePayloadInvalid = 15,
+    // Reserved for the UploadAssetPreview owner; no preview frame or codec is admitted here.
+    UploadAssetPreviewPayloadInvalid = 16,
+    FontThemePayloadInvalid = 10
 };
 
 struct DecodeResult

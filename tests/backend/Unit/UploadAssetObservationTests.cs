@@ -1,5 +1,7 @@
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Reflection;
@@ -44,6 +46,56 @@ namespace FsusBlog.Server.Tests;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture fixture)
 {
+    [Theory]
+    [InlineData(8_387_832, true)]
+    [InlineData(8_387_833, false)]
+    [InlineData(20_971_520, false)]
+    public async Task PreviewBudget_DoesNotReduceOriginalUploadOrLedgerObservation(int size, bool previewAllowed)
+    {
+        await using var context = await CreateAsync(CreateOriginalPng(size));
+        var observed = await context.ObserveAsync();
+        Assert.True(observed.IsSuccess, observed.Error.Message);
+        Assert.Equal(size, observed.Value!.Asset.SizeBytes);
+        Assert.Equal(context.Sha256, observed.Value.Asset.Sha256);
+        var preview = await context.Service.ReadCommittedUploadPreviewAsync(context.Access, context.Sha256);
+        Assert.Equal(previewAllowed, preview.IsSuccess);
+        var http = CreatePreviewRequest(context);
+        var aeds = new AedsEncoder();
+        var response = await BinaryEndpoints.HandleUploadAssetPreviewAsync(context.Access.UploadId, http, context.Service, aeds, default);
+        await response.ExecuteAsync(http);
+        await ((ServiceProvider)http.RequestServices).DisposeAsync();
+        byte[] responseBytes = ((MemoryStream)http.Response.Body).ToArray();
+        var decoded = aeds.TryDecode(responseBytes);
+        Assert.True(decoded.IsSuccess, decoded.Error.Message);
+        Assert.Equal(previewAllowed ? AedsFrameType.UploadAssetPreview : AedsFrameType.ApiError, decoded.Value.FrameType);
+        if (previewAllowed)
+        {
+            Assert.Equal(8_388_608, responseBytes.Length);
+            Assert.Equal(context.Bytes, preview.Value!.Bytes.ToArray());
+            Assert.Equal(context.Sha256, Convert.ToHexStringLower(SHA256.HashData(preview.Value.Bytes.Span)));
+            string? evidence = Environment.GetEnvironmentVariable("FSUSBLOG_PREVIEW_BUDGET_TEST_FRAME");
+            if (!string.IsNullOrWhiteSpace(evidence))
+                await File.WriteAllBytesAsync(evidence, responseBytes);
+        }
+        else
+        {
+            Assert.Null(preview.Value);
+            Assert.Equal(ErrorCode.Validation, preview.Error.Code);
+            Assert.Equal("upload_asset_preview_too_large", preview.Error.Message);
+            var unauthorized = await context.Service.ReadCommittedUploadPreviewAsync(context.Access with
+            {
+                UploadToken = "wrong-token"
+            }, context.Sha256);
+            Assert.Equal("UPLOAD_SESSION_NOT_FOUND", unauthorized.Error.Message);
+        }
+        var status = await context.Service.GetUploadStatusAsync(context.Access);
+        Assert.True(status.IsSuccess, status.Error.Message);
+        Assert.Equal("completed", status.Value!.Status);
+        var repeated = await context.ObserveAsync();
+        Assert.Equal(observed.Value.AssetVersionSha256, repeated.Value!.AssetVersionSha256);
+        Assert.Equal(observed.Value.ReferenceLedgerSha256, repeated.Value.ReferenceLedgerSha256);
+    }
+
     [Fact]
     public async Task OriginalUploadAndLedger_ProduceStableBytesAndVersionObservation()
     {
@@ -428,7 +480,7 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
         }
     }
 
-    private async Task<UploadContext> CreateAsync()
+    private async Task<UploadContext> CreateAsync(byte[]? sourceBytes = null)
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(db, typeof(ContentAsset), typeof(ContentAssetReference), typeof(ContentAssetCleanupQueueItem));
@@ -439,7 +491,7 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
         {
             var service = new FileService(ReleaseStorageTestPaths.Create(root), NullLogger<FileService>.Instance,
                 services.GetRequiredService<IServiceScopeFactory>());
-            byte[] bytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB14AAAAASUVORK5CYII=");
+            byte[] bytes = sourceBytes ?? Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB14AAAAASUVORK5CYII=");
             string sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
             Result<FsusBlog.Shared.Contracts.Outputs.UploadInitDto> initialized = await service.InitUploadSessionAsync(7, new UploadInitRequestDto
             {
@@ -447,15 +499,20 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
                 MimeType = "image/png",
                 TargetFormat = "png",
                 TotalBytes = bytes.Length,
-                ChunkSize = bytes.Length,
+                ChunkSize = 512 * 1024,
                 Sha256 = sha256
             });
             Assert.True(initialized.IsSuccess, initialized.Error.Message);
             var access = new UploadSessionAccess(initialized.Value!.UploadId, 7, initialized.Value.UploadToken);
-            using var stream = new MemoryStream(bytes);
-            var file = new FormFile(stream, 0, bytes.Length, "file", "source.png");
-            var uploaded = await service.UploadPartAsync(access, 0, 0, file, sha256);
-            Assert.True(uploaded.IsSuccess, uploaded.Error.Message);
+            for (int offset = 0, part = 0; offset < bytes.Length; offset += initialized.Value.ChunkSize, part++)
+            {
+                int count = Math.Min(initialized.Value.ChunkSize, bytes.Length - offset);
+                using var stream = new MemoryStream(bytes, offset, count);
+                var file = new FormFile(stream, 0, count, "file", "source.png");
+                string partDigest = Convert.ToHexStringLower(SHA256.HashData(bytes.AsSpan(offset, count)));
+                var uploaded = await service.UploadPartAsync(access, part, offset, file, partDigest);
+                Assert.True(uploaded.IsSuccess, uploaded.Error.Message);
+            }
             var complete = await service.CompleteUploadAsync(access, sha256);
             Assert.True(complete.IsSuccess, complete.Error.Message);
             return new UploadContext(root, db, services, service, access, bytes, sha256);
@@ -466,6 +523,56 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
             db.Dispose();
             Directory.Delete(root, recursive: true);
             throw;
+        }
+    }
+
+    // Test-only valid RGB PNGs, not a product image conversion or preview fallback.
+    private static byte[] CreateOriginalPng(int size)
+    {
+        const int Width = 2048;
+        int height = (size - 4096) / (Width * 3 + 1);
+        using var compressed = new MemoryStream();
+        using (var zlib = new ZLibStream(compressed, CompressionLevel.NoCompression, leaveOpen: true))
+            zlib.Write(new byte[height * (Width * 3 + 1)]);
+        using var image = new MemoryStream(size);
+        image.Write(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });
+        byte[] header = new byte[13];
+        BinaryPrimitives.WriteInt32BigEndian(header, Width);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
+        header[8] = 8;
+        header[9] = 2;
+        WritePngChunk(image, "IHDR"u8, header);
+        WritePngChunk(image, "IDAT"u8, compressed.ToArray());
+        int padding = checked(size - (int)image.Length - 24);
+        Assert.InRange(padding, 5, 16 * 1024);
+        byte[] text = new byte[padding];
+        "fsus\0"u8.CopyTo(text);
+        text.AsSpan(5).Fill((byte)'a');
+        WritePngChunk(image, "tEXt"u8, text);
+        WritePngChunk(image, "IEND"u8, []);
+        Assert.Equal(size, image.Length);
+        return image.ToArray();
+    }
+
+    private static void WritePngChunk(Stream image, ReadOnlySpan<byte> type, ReadOnlySpan<byte> data)
+    {
+        Span<byte> word = stackalloc byte[4];
+        BinaryPrimitives.WriteInt32BigEndian(word, data.Length);
+        image.Write(word);
+        image.Write(type);
+        image.Write(data);
+        uint crc = uint.MaxValue;
+        foreach (byte value in type)
+            Update(value);
+        foreach (byte value in data)
+            Update(value);
+        BinaryPrimitives.WriteUInt32BigEndian(word, ~crc);
+        image.Write(word);
+        void Update(byte value)
+        {
+            crc ^= value;
+            for (int bit = 0; bit < 8; bit++)
+                crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xedb88320u : crc >> 1;
         }
     }
 
