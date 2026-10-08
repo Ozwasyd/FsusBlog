@@ -6,7 +6,6 @@
             "paths": [
                 "tests/backend/packages.lock.json",
                 "tests/governance/test-lifecycle-registry.json",
-                "tests/test-retention-replacements.json",
                 "config/testing/correctness-attempt-producers.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
