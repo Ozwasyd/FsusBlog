@@ -12,8 +12,7 @@
             "id": "json-wire-key",
             "paths": [
                 "tests/backend/packages.lock.json",
-                "tests/governance/test-lifecycle-registry.json",
-                "tests/test-retention-replacements.json"
+                "tests/governance/test-lifecycle-registry.json"
             ],
             "reason": "Preserve external NuGet and governance JSON keys while consuming only coordinator-approved supporting commits. Backend lock bytes, every distinct static ID and test file, retention replacement-edge unions, assertion mappings and frozen before evidence retain their supplied contracts; no internal renaming or new exception policy is introduced."
         }
