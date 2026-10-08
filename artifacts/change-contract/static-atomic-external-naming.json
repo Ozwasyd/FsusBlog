@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/static-atomic/declarations.mjs",
+                "tools/test/static-atomic/producer.mjs",
+                "tools/test/static-atomic/summary.mjs"
+            ],
+            "reason": "Preserve existing FSUSBLOG environment keys, first-attempt runner interfaces and original static command identifiers while binding explicit domain execution and verified child projections; internal JavaScript names remain camelCase."
+        }
+    ]
+}
