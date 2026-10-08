@@ -48,3 +48,45 @@ node node_modules/vitest/vitest.mjs run \
   --config ../../tests/frontend/checks/integration/draft-preview-boundaries/vitest.config.ts \
   ../../tests/frontend/unit/integration/draftPreviewPublishedBoundaries.test.ts
 ```
+
+The mounted Writer probe requires the actual public three-layer host port shipped
+in Blog `790b3abb4c6de0da2d9fe177c04c05e7ce8695cc`; the older stacked QA base does
+not contain that API. Run its unchanged test file in an isolated checkout of that
+exact owner commit, using the real local UI at
+`f2b3bb89ffe5f749da26c388f058efdbb6aee864` and configured frontend dependencies:
+
+```sh
+# From that owner checkout's src/frontend, after copying only the QA test:
+FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI \
+FSUSBLOG_VITEST_REPORT_ID=mounted-writer-real-port-frozen \
+node node_modules/vitest/vitest.mjs run --config vitest.config.ts \
+  ../../tests/frontend/unit/integration/mountedWriterDraftBoundaries.test.ts
+```
+
+This host acquires the editor exclusively through
+`ArticleWriteEditor.getAuthoringEditorPort()` and consumes actual forwarded
+transaction, selection and focus events through the shipped runtime binding.
+It verifies port identity against the mounted public editor. The exact-source
+run has **2 passes and 2 failures**: port/events/continuity and pending-request
+unmount cancellation pass; two successful-render assertions fail because the
+real WASM runtime is unavailable in that Vitest environment. A cancellation
+pass does not prove successful rendering, the complete `Write.vue` route, or
+permission revocation. The separate Chromium suite exercises actual successful
+rendering and retained late-result disposal on its stated older owner source.
+
+The four same-mounted comment retry-ID regressions use the unchanged
+`commentPendingIdentityBoundaries.test.ts` in the canonical comment owner's
+checkout at `cebd4ba362714b732dcf508abbed18e0910d7bb6`:
+
+```sh
+# From that owner checkout's src/frontend, after copying only the QA test:
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI \
+FSUSBLOG_VITEST_REPORT_ID=comment-boundaries-owner-fix-counterexamples \
+node node_modules/vitest/vitest.mjs run --config vitest.config.ts \
+  ../../tests/frontend/unit/integration/commentPendingIdentityBoundaries.test.ts \
+  -t 'same mounted composer'
+```
+
+Independent replay has **4 passes**, with the other 10 cases intentionally unrun.
+The old `b4aa6c403e44b12242e9239cd2e4227f6eb660c0` failures remain preserved;
+the new result does not qualify the owner's broader admission, browser or types.

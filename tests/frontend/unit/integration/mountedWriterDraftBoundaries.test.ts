@@ -9,7 +9,8 @@ import {
   ElDrawer,
   ElIcon,
   type MarkdownEditorDispatchResult,
-  type MarkdownEditorTransaction
+  type MarkdownEditorTransaction,
+  type MarkdownEditorTransactionEvent
 } from '@ozwasyd/element-plus'
 import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue'
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite'
@@ -23,9 +24,9 @@ import { useAdminStore } from '@/store/admin'
 // This mounts the production editor host, not App.vue's private route boundary.
 // Permission revocation through its authGeneration/isClearing route owner remains
 // unverified here; the binding offers no direct revoke/permission API.
-// Candidate: FsusBlog 6bac4acccd5120e73e9001db06144a216168a9c8.
-// bindEditor is caller-driven below; this is a WIP host acceptance probe, not
-// proof of product wiring or a kernel regression in newer navigation candidates.
+// Candidate: FsusBlog 790b3abb4c6de0da2d9fe177c04c05e7ce8695cc.
+// Binding and consumption are supplied by the caller below through the shipped
+// three-layer getter/events. This does not qualify the full Write.vue route.
 const network = vi.hoisted(() => ({
   route: { params: {} as Record<string, string>, query: {} },
   article: vi.fn(), draft: vi.fn(), save: vi.fn(), publish: vi.fn(), update: vi.fn(),
@@ -79,6 +80,8 @@ const capture = { affinity: 'after' as const, viewportOffset: 0, percentage: 0, 
 async function mountWriter(articleId: number) {
   network.route.params = { id: String(articleId) }
   let writer!: Writer
+  let bound: Bound | null = null
+  const observed = { transactions: [] as boolean[], selections: [] as boolean[], focus: [] as boolean[] }
   const Host = defineComponent({
     setup() {
       writer = useAdminArticleWrite()
@@ -88,23 +91,40 @@ async function mountWriter(articleId: number) {
             modelValue: writer.articleForm.content,
             documentIdentity: writer.authoringDocumentIdentity.value,
             articleIdentity: `article:${articleId}`,
-            'onUpdate:modelValue': (value: string) => { writer.articleForm.content = value }
+            'onUpdate:modelValue': (value: string) => { writer.articleForm.content = value },
+            onTransaction: (event: MarkdownEditorTransactionEvent) => {
+              if (bound) observed.transactions.push(bound.binding.consumeTransaction(event))
+            },
+            onSelectionChange: (event: Parameters<Bound['binding']['consumeSelection']>[0]) => {
+              if (bound) observed.selections.push(bound.binding.consumeSelection(event))
+            },
+            onEditorFocus: (event: 'focusin' | 'focusout') => {
+              if (bound) observed.focus.push(bound.binding.consumeFocus(event))
+            }
           })
     }
   })
-  const wrapper = mount(Host, { global: { components: { ElDrawer, ElIcon } } })
+  const wrapper = mount(Host, { attachTo: document.body, global: { components: { ElDrawer, ElIcon } } })
   mounted.push(wrapper)
   await vi.waitFor(() => {
     expect(writer.pageLoading.value, 'Writer transport setup must finish before binding').toBe(false)
   }, { timeout: 2500, interval: 10 })
   await nextTick()
+  const editorHost = wrapper.findComponent(ArticleWriteEditor)
+  const hostPort = editorHost.vm as unknown as { getAuthoringEditorPort(): ArticleEditorContinuityPort | null }
+  const commands = hostPort.getAuthoringEditorPort()
+  expect(commands, 'the production three-layer getter must expose the mounted public editor').not.toBeNull()
+  if (!commands) throw new Error('article-write-host-port-unavailable')
+  expect(hostPort.getAuthoringEditorPort()).toBe(commands)
+  // Nested lookup verifies public instance identity only; the caller acquires
+  // its port exclusively through ArticleWriteEditor.getAuthoringEditorPort().
   const editor = wrapper.findComponent(ElMarkdownEditor)
   expect(editor.exists(), 'production ArticleWriteEditor must mount the actual public FsusUI editor').toBe(true)
-  const commands = editor.vm as unknown as ArticleEditorContinuityPort
-  const bound: Bound = writer.authoringEditorRuntime.bindEditor(commands, options)
+  expect(commands.dispatchTransaction).toBe(editor.vm.dispatchTransaction)
+  bound = writer.authoringEditorRuntime.bindEditor(commands, options)
   expect(bound.binding.initialize()).toBe(true)
   const dispatch = (transaction: MarkdownEditorTransaction): MarkdownEditorDispatchResult => commands.dispatchTransaction(transaction)
-  return { wrapper, writer, editor, bound, runtime: bound.binding, dispatch }
+  return { wrapper, writer, editor, editorHost, bound, runtime: bound.binding, observed, dispatch }
 }
 
 beforeEach(() => {
@@ -124,27 +144,37 @@ afterEach(() => {
 })
 
 describe('mounted production Writer draft boundaries (real local FsusUI)', () => {
-  it('qualifies transaction observation across the 6bac leaf host and caller-bound runtime', async () => {
+  it('consumes real transaction, selection and focus events through the three-layer host port', async () => {
     const host = await mountWriter(224501)
-    const transaction = host.dispatch({ changes: [{ from: 0, to: 0, insert: source }], history: 'separate',
+    const transaction = host.dispatch({ changes: [{ from: 0, to: 0, insert: source }], history: 'separate', origin: 'programmatic',
       selection: { start: 2, end: 9, direction: 'backward' } })
     expect(transaction.accepted).toBe(true)
     await nextTick()
     expect(host.writer.articleForm.content).toBe(source)
-    // No test-only transaction bridge: this checks the existing product host.
-    // Failure here is the missing leaf host -> caller-bound runtime event path.
-    // This does not open preview UI or test a newer navigation integration.
+    expect(host.observed.transactions.at(-1)).toBe(true)
+    expect(host.observed.selections.at(-1)).toBe(true)
+    expect(host.editorHost.emitted('transaction')).toHaveLength(host.observed.transactions.length)
+    expect(host.editorHost.emitted('selection-change')?.length).toBeGreaterThan(0)
+    const textarea = host.wrapper.get('textarea').element as HTMLTextAreaElement
+    textarea.focus()
+    await nextTick()
+    expect(document.activeElement).toBe(textarea)
+    expect(host.observed.focus.at(-1)).toBe(true)
     const context = host.runtime.continuity.capture(host.runtime.positionBinding(), capture)
     expect(context.document.contextDigest).toBe(host.writer.authoringDocumentContext.value.contextDigest)
     expect(context.anchor.range).toEqual({ start: 2, end: 9 })
     expect(context.history).toEqual(transaction.history)
+    expect(context.focus).toBe('editor')
+    textarea.blur()
+    await nextTick()
+    expect(host.observed.focus.at(-1)).toBe(true)
+    expect(host.runtime.continuity.capture(host.runtime.positionBinding(), capture).focus).toBe('outside')
   })
 
   it('isolates identical bodies in different mounted documents and rejects an old tool result', async () => {
     const first = await mountWriter(224502)
-    const firstChange = first.dispatch({ changes: [{ from: 0, to: 0, insert: source }], history: 'separate' })
-    // Explicit consumption exercises the shipped API; it is not product wiring evidence.
-    expect(first.runtime.consumeTransaction(firstChange)).toBe(true)
+    const firstChange = first.dispatch({ changes: [{ from: 0, to: 0, insert: source }], history: 'separate', origin: 'programmatic' })
+    expect(first.observed.transactions.at(-1)).toBe(true)
     const publicRender = await renderMarkdownResultWithRuntime({ source, mode: 'editor', ...options.configuration })
     const receipt = await first.runtime.autoRefresh()
     const oldContext = first.runtime.context
@@ -155,8 +185,9 @@ describe('mounted production Writer draft boundaries (real local FsusUI)', () =>
     expect(first.runtime.retainedRender).toBeNull()
 
     const second = await mountWriter(224503)
-    const secondChange = second.dispatch({ changes: [{ from: 0, to: 0, insert: source }], history: 'separate' })
-    expect(second.runtime.consumeTransaction(secondChange)).toBe(true)
+    const secondChange = second.dispatch({ changes: [{ from: 0, to: 0, insert: source }], history: 'separate', origin: 'programmatic' })
+    expect(secondChange.accepted).toBe(true)
+    expect(second.observed.transactions.at(-1)).toBe(true)
     expect(second.runtime.context.documentId).not.toBe(oldContext.documentId)
     expect(second.runtime.context.contentDigest).toBe(oldContext.contentDigest)
     expect(second.runtime.context.contextDigest).not.toBe(oldContext.contextDigest)
@@ -179,7 +210,8 @@ describe('mounted production Writer draft boundaries (real local FsusUI)', () =>
 
   it('cancels superseded and closed tool leases without admitting late public renderer results', async () => {
     const host = await mountWriter(224504)
-    expect(host.runtime.consumeTransaction(host.dispatch({ changes: [{ from: 0, to: 0, insert: source }], history: 'separate' }))).toBe(true)
+    expect(host.dispatch({ changes: [{ from: 0, to: 0, insert: source }], history: 'separate', origin: 'programmatic' }).accepted).toBe(true)
+    expect(host.observed.transactions.at(-1)).toBe(true)
     const preview = host.runtime.beginToolTask('publish-preview')
     const compare = host.runtime.beginToolTask('source-compare')
     expect(preview.signal.aborted).toBe(true)
@@ -199,7 +231,8 @@ describe('mounted production Writer draft boundaries (real local FsusUI)', () =>
 
   it('unmounts during a pending renderer request, releases attachments and rejects late leases', async () => {
     const host = await mountWriter(224505)
-    expect(host.runtime.consumeTransaction(host.dispatch({ changes: [{ from: 0, to: 0, insert: source }], history: 'separate' }))).toBe(true)
+    expect(host.dispatch({ changes: [{ from: 0, to: 0, insert: source }], history: 'separate', origin: 'programmatic' }).accepted).toBe(true)
+    expect(host.observed.transactions.at(-1)).toBe(true)
     const attachments = host.writer.authoringAttachmentRuntime
     const anchor = attachments.captureAnchor({ start: source.length, end: source.length, direction: 'none' }, capture)
     const attachment = attachments.commitCreated(attachments.capture({ origin: 'pick', anchor,
