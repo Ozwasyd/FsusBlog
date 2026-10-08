@@ -3,11 +3,12 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-
-import { collectSubmoduleCheckoutIdentities, verifySubmoduleCheckoutIdentities } from '../../tools/release-candidate/collect-source-aliases.mjs';
-import { snapshotRepositorySourceIdentity } from '../../tools/test/repository-source-snapshot.mjs';
+import { URL } from 'node:url';
 
 import { gitFixture, sourcePolicy } from './repository-source-snapshot-test-support.mjs';
+
+const { collectSubmoduleCheckoutIdentities, verifySubmoduleCheckoutIdentities } = await import(new URL('../../tools/release-candidate/collect-source-aliases.mjs', import.meta.url));
+const { snapshotRepositorySourceIdentity } = await import(new URL('../../tools/test/repository-source-snapshot.mjs', import.meta.url));
 
 function fixture(t)
 {

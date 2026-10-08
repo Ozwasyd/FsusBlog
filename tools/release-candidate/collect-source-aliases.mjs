@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 
-import { canonicalJson, digestCanonical, sealContentDigest, sha256 } from '../test/attempt-provenance.mjs';
-import { snapshotRepositorySourceIdentity, verifyRepositorySourceSnapshot } from '../test/repository-source-snapshot.mjs';
+const { canonicalJson, digestCanonical, sealContentDigest, sha256 } = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
+const { snapshotRepositorySourceIdentity, verifyRepositorySourceSnapshot } = await import(new URL('../test/repository-source-snapshot.mjs', import.meta.url));
 
 export const submoduleCheckoutIdentitySchema = 'fsusblog.candidate-submodule-checkouts.v1';
 
