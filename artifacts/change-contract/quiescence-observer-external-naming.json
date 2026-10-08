@@ -6,6 +6,7 @@
             "paths": [
                 "src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs",
                 "src/backend/Infrastructure/Operations/OutboxQuiescenceSourceReader.cs",
+                "src/backend/Infrastructure/Operations/PublicProjectionQuiescenceSourceReader.cs",
                 "src/backend/Infrastructure/Operations/QuiescenceSourceCapture.cs",
                 "tools/test-matrix/quiescence-contract.mjs",
                 "tools/test-matrix/runtime-state-domain-catalog.mjs"

@@ -364,7 +364,11 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped(sp => new OutboxQuiescenceSourceReader(
             sp.GetService<CommentMutationOutboxRuntimeState>(),
             sp.GetService<ScheduledPublishRuntimeState>()));
-
+        services.AddScoped(sp => new PublicProjectionQuiescenceSourceReader(
+            sp.GetService<PublicHotArtifactUpdateQueue>(),
+            sp.GetService<PublicAotBackfillScheduler>(),
+            sp.GetService<DistributedInvalidationIngressRuntimeState>(),
+            sp.GetService<IHotStatsInvalidationCoalescer>()));
         services.AddScoped<IAdminOperationsHealthReader, AdminOperationsHealthReader>();
         services.AddSingleton<IAdminDangerousOperationPolicyReader, AdminDangerousOperationPolicyReader>();
         services.AddScoped<IAdminIntegrityOperations, AdminIntegrityOperations>();

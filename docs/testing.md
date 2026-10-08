@@ -48,6 +48,19 @@ claim, acknowledge, retry, delete, publish or commit business work. The focused
 `OutboxQuiescenceSourceReaderTests` exercise the actual runtime state objects,
 semantic digest changes, unavailable sources, cancellation and unchanged state.
 
+The adjacent `PublicProjectionQuiescenceSourceReader` consumes the existing
+PublicHot activity snapshot and delegates its business predicate exclusively to
+`PublicHotQuiescence.Evaluate`. It reads the actual AOT scheduler snapshot,
+Redis ingress snapshot and shared hot/stats coalescer snapshot without consuming
+channels or flushing caches. A dequeued item can still be in flight; unavailable
+ledger/shared reads stay unknown. AOT active manifest generation, current-namespace
+invalidation ACK coverage, live cache flush state and protected runtime identity
+are absent from these source APIs and remain explicit blockers. No directory
+mtime or caller-supplied target is substituted. These captures are source inputs,
+not qualified domain observations or admission receipts. Focused tests use real
+queue/scheduler/ingress owners; shared-cache refusal tests use a unit-test double
+and do not establish Redis/runtime qualification.
+
 Run `node tools/test-matrix/quiescence-contract.mjs` and
 `node --test tests/tools/quiescence-contract.test.mjs` for source contracts.
 The complete state-domain gate remains distinct: existing missing
