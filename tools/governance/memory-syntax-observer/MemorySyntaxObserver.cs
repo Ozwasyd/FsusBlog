@@ -23,10 +23,18 @@ internal static class MemorySyntaxObserver
         PropertyNameCaseInsensitive = true
     };
 
-    private static int Main()
+    private static int Main(string[] arguments)
     {
         try
         {
+            if (arguments.SequenceEqual(new[] { "--bind-source" }))
+            {
+                return MemorySemanticSourceObserver.Run();
+            }
+            if (arguments.Length != 0)
+            {
+                throw new InvalidDataException("unsupported memory source observer mode");
+            }
             SourceInput[] inputs = JsonSerializer.Deserialize<SourceInput[]>(Console.In.ReadToEnd(), s_json)
                 ?? throw new InvalidDataException("syntax observation inputs missing");
             var observations = new List<SiteObservation>();
@@ -36,9 +44,14 @@ internal static class MemorySyntaxObserver
                 SyntaxTree tree = CSharpSyntaxTree.ParseText(input.Source,
                     new CSharpParseOptions(LanguageVersion.CSharp14), input.Path);
                 parseDiagnostics.AddRange(tree.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
-                    .Select(diagnostic => (object)new { path = input.Path, id = diagnostic.Id,
+                    .Select(diagnostic => (object)new
+                    {
+                        path = input.Path,
+                        id = diagnostic.Id,
                         line = diagnostic.Location.GetLineSpan().StartLinePosition.Line + 1,
-                        severity = "Error", evidence = "syntax-recovery-only; no semantic compilation claim" }));
+                        severity = "Error",
+                        evidence = "syntax-recovery-only; no semantic compilation claim"
+                    }));
                 SyntaxNode root = tree.GetRoot();
                 SourceText text = tree.GetText();
                 string sourceDigest = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input.Source)));

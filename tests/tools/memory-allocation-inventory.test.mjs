@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -270,7 +270,7 @@ test('installed SDK syntax observer distinguishes creation, reference, literal a
     {
         const { root, write, catalog, saveCatalog } = fixture(context);
         const observer = 'tools/governance/memory-syntax-observer/';
-        for (const name of ['MemorySyntaxObserver.cs', 'FsusBlog.MemorySyntaxObserver.csproj'])
+        for (const name of ['MemorySyntaxObserver.cs', 'MemorySemanticSourceObserver.cs', 'FsusBlog.MemorySyntaxObserver.csproj'])
         {
             write(observer + name, fs.readFileSync(new URL('../../' + observer + name, import.meta.url)));
         }
@@ -282,7 +282,8 @@ test('installed SDK syntax observer distinguishes creation, reference, literal a
             '// byte[] is a documentation reference',
             '}'
         ].join('\n'));
-        catalog.syntaxObserver = { source: observer + 'MemorySyntaxObserver.cs', project: observer + 'FsusBlog.MemorySyntaxObserver.csproj' };
+        catalog.syntaxObserver = { source: observer + 'MemorySyntaxObserver.cs', project: observer + 'FsusBlog.MemorySyntaxObserver.csproj',
+            additionalSources: [observer + 'MemorySemanticSourceObserver.cs'] };
         catalog.families = [{ ...catalog.traces[0], id: 'frame-family',
             sourcePaths: ['src/backend/Frame.cs'], exclusionReason: 'Fixture stays migration denied' }];
         saveCatalog();
@@ -298,4 +299,57 @@ test('installed SDK syntax observer distinguishes creation, reference, literal a
         const forged = structuredClone(inventory);
         forged.syntax.observations[0].facts[0].capacityModel = 'invented unlimited capacity';
         assert.throws(() => verifyMemoryInventory(root, forged), /syntax observation changed/u);
+    });
+
+test('owning compiler references distinguish unresolved calls and text without qualifying lifetime',
+    { skip: !process.env.FSUS_MEMORY_SEMANTIC_COMPILER_INPUT }, (context) =>
+    {
+        const { root, write } = fixture(context);
+        const captured = JSON.parse(fs.readFileSync(process.env.FSUS_MEMORY_SEMANTIC_COMPILER_INPUT, 'utf8'));
+        const references = captured.arguments.filter((argument) => argument.startsWith('/reference:'));
+        assert.ok(references.length > 0, 'real owning SDK reference closure required');
+        assert.ok(path.isAbsolute(process.env.FSUS_MEMORY_SYNTAX_OBSERVER));
+        write('src/backend/Frame.cs', [
+            'using System.Linq;',
+            'class Frame {',
+            'byte[] data = new byte[8];',
+            'byte[] Copy() => data.ToArray();',
+            'object Broken() => Missing.ToArray();',
+            '// ToArray();',
+            'string Text() => "ToArray(";',
+            '}'
+        ].join('\n'));
+        const input = {
+            baseDirectory: root,
+            arguments: ['/target:library', '/langversion:14', ...references, 'src/backend/Frame.cs'],
+            sites: [4, 5, 6, 7].map((line) => ({ id: `line-${line}`, path: 'src/backend/Frame.cs', line, pattern: 'ToArray\\(' }))
+        };
+        const run = (value) => spawnSync('dotnet', [process.env.FSUS_MEMORY_SYNTAX_OBSERVER, '--bind-source'], {
+            input: JSON.stringify(value), encoding: 'utf8', maxBuffer: 16 * 1024 * 1024
+        });
+        const result = run(input);
+        assert.equal(result.status, 0, result.stderr);
+        const observation = JSON.parse(result.stdout);
+        assert.equal(observation.acceptance, 'NotVerified');
+        assert.equal(observation.sourceCount, 1);
+        assert.equal(observation.referenceCount, references.length);
+        assert.ok(observation.compilationErrorCount > 0, 'unresolved source diagnostics retained');
+        const binding = (index) => observation.observations[index].bindings[0];
+        assert.equal(binding(0).status, 'BoundSourceSymbol');
+        assert.match(binding(0).symbol, /ToArray/u);
+        assert.equal(binding(1).status, 'UnboundSourceSymbol');
+        assert.equal(binding(2).status, 'NonExecutableText');
+        assert.equal(binding(3).status, 'NonExecutableText');
+        assert.ok(observation.observations.every((site) => site.bindings.every((item) => item.ownership === 'NotVerified')));
+        assert.match(observation.snapshots[path.join(root, 'src/backend/Frame.cs')], /^sha256:[0-9a-f]{64}$/u);
+
+        const outside = run({ ...input, sites: [{ ...input.sites[0], path: 'src/backend/NoMatches.cs' }] });
+        assert.equal(outside.status, 0, outside.stderr);
+        assert.equal(JSON.parse(outside.stdout).observations[0].status, 'OutsideOwningCompilation');
+        const mismatch = run({ ...input, sites: [{ ...input.sites[0], pattern: 'NonexistentAllocator' }] });
+        assert.equal(mismatch.status, 1);
+        assert.match(mismatch.stderr, /differs from original source/u);
+        const noReferences = run({ ...input, arguments: ['/target:library', 'src/backend/Frame.cs'] });
+        assert.equal(noReferences.status, 1);
+        assert.match(noReferences.stderr, /reference closure required/u);
     });

@@ -3354,7 +3354,8 @@
     "syntaxObserver": {
         "project": "tools/governance/memory-syntax-observer/FsusBlog.MemorySyntaxObserver.csproj",
         "source": "tools/governance/memory-syntax-observer/MemorySyntaxObserver.cs",
-        "dependencyPolicy": "official-installed-SDK-Roslyn-BCL-only; no NuGet packages; syntax-only, not product compilation"
+        "additionalSources": ["tools/governance/memory-syntax-observer/MemorySemanticSourceObserver.cs"],
+        "dependencyPolicy": "official-installed-SDK-Roslyn-BCL-only; no NuGet packages; source observation, not product compilation or lifetime acceptance"
     },
     "reuseOwners": [
         {

@@ -82,7 +82,8 @@ export function captureMemoryCandidate(root)
         ...(catalog.reuseOwners ?? []).map((entry) => entry.path),
         ...(catalog.supportInventory?.rows ?? []).flatMap((row) => [row.source, ...row.offlineClosure]),
         ...(catalog.supportInventory?.targetFrameworks ?? []).map((entry) => entry.project),
-        ...(catalog.syntaxObserver ? [catalog.syntaxObserver.project, catalog.syntaxObserver.source] : [])
+        ...(catalog.syntaxObserver ? [catalog.syntaxObserver.project, catalog.syntaxObserver.source,
+            ...(catalog.syntaxObserver.additionalSources ?? [])] : [])
     ]);
     const selected = files.filter((file) => (file.startsWith('src/') && sourceExtensions.test(file))
         || dependencyFiles.test(file) || boundaryInputs.has(file) || file === catalogPath || file === producerPath);

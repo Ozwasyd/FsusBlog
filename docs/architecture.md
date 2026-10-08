@@ -149,6 +149,16 @@ The L1 lifecycle of the precoded AEDS frame is managed through the independent `
 
 ## Memory contract boundary
 
+The existing governance inventory's SDK observer also supports `--bind-source` with
+JSON containing `baseDirectory`, the owning project's captured compiler `arguments`,
+and lexical `sites` (`id`, `path`, `line`, `pattern`). It holds and hashes the actual
+source and resolved reference images, binds source symbols, retains compiler errors,
+and rejects changes during observation. Comments, literals, unbound calls and files
+outside that compilation remain distinct. This mode does not execute generators or
+analyzers, emit product code, trace owner release or qualify a platform. Its result
+always remains `NotVerified`; symbol binding cannot satisfy the inventory's strict
+ownership/lifetime gate. All observer source inputs remain candidate-bound.
+
 The backend-internal memory contracts live under `Infrastructure/Memory/Contracts` and
 `Infrastructure/Memory/Capabilities`. Blob, generation and representation identity are
 separate from allocation, block, residency revision and device epoch. A location token
