@@ -6,8 +6,8 @@
         aria-atomic="true"
         :aria-label="label"
     >
-        {{ label }}: {{ statusLabels[presentation.status] }}
-        <template v-if="presentation.status === 'ready' && presentation.precision !== null">
+        {{ label }}: {{ statusLabels[presentation?.status ?? 'unavailable'] }}
+        <template v-if="presentation?.status === 'ready' && presentation.precision !== null">
             · {{ precisionLabels[presentation.precision] }}
         </template>
     </output>
@@ -20,10 +20,11 @@ import type { ArticleSearchRevealPresentation } from '@/services/authoring/artic
  * Read-only command availability, never a focus/viewport success acknowledgement.
  * The host supplies localized labels and a fresh canonical projection whenever
  * its command, context, binding or active search lease changes. Raw reasons and
- * command digests are deliberately not rendered.
+ * command digests are deliberately not rendered. A null presentation from the
+ * canonical search lifecycle clears availability and its previous precision.
  */
 defineProps<{
-    presentation: ArticleSearchRevealPresentation;
+    presentation: ArticleSearchRevealPresentation | null;
     label: string;
     statusLabels: Readonly<Record<ArticleSearchRevealPresentation['status'], string>>;
     precisionLabels: Readonly<Record<NonNullable<ArticleSearchRevealPresentation['precision']>, string>>;
