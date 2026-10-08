@@ -3,8 +3,9 @@ import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import VaultDependencyPlanReview from '@/components/admin/article/vault/VaultDependencyPlanReview.vue';
+import VaultPlanReview from '@/components/admin/article/vault/VaultPlanReview.vue';
 import { presentVaultDependencyPlan, type VaultDependencyPlanReviewDocument } from '@/services/articleVault/dependencyPlanPresentation';
-import type { VaultPlanReviewDocument } from '@/services/articleVault/planReview';
+import { presentVaultPlan, type VaultPlanReviewDocument } from '@/services/articleVault/planReview';
 
 const digest = 'a'.repeat(64);
 const coordinate = { serverRevision: 3, contentSha256: digest, metadataManifestSha256: digest,
@@ -46,6 +47,56 @@ describe('canonical dependency extension read-only scope', () => {
         expect(presentVaultDependencyPlan({ ...extension, items: [] }, plan)).toBeNull();
         expect(presentVaultDependencyPlan({ ...extension, items: [...extension.items, ...extension.items] }, plan)).toBeNull();
         expect(presentVaultDependencyPlan({ ...extension, operationOrder: ['other'] }, plan)).toBeNull();
+    });
+    it('refuses the unchanged same-scope unknown-order counterexample without projecting undefined', () => {
+        const malformedPlan = { ...plan, operationOrder: ['unknown-op'] };
+        const malformedExtension = { ...extension, operationOrder: ['unknown-op'] };
+        const before = JSON.stringify({ malformedPlan, malformedExtension });
+        expect(presentVaultPlan(malformedPlan).orderAvailable).toBe(false);
+        expect(presentVaultDependencyPlan(malformedExtension, malformedPlan)).toBeNull();
+        expect(JSON.stringify({ malformedPlan, malformedExtension })).toBe(before);
+    });
+    it.each(['unknown', 'duplicate-order', 'missing-order', 'duplicate-plan-item', 'duplicate-extension-item'])('keeps %s membership closed with matching plan/extension order', (kind) => {
+        const first = plan.groups[0].items[0];
+        const second = { ...first, operationIdentity: 'op-two' };
+        const dependency = extension.items[0];
+        const operationOrder = kind === 'unknown' ? ['op-one', 'unknown-op']
+            : kind === 'duplicate-order' ? ['op-one', 'op-one']
+                : kind === 'missing-order' ? ['op-one'] : ['op-one', 'op-two'];
+        const malformedPlan = { ...plan, operationOrder, groups: [{ ...plan.groups[0],
+            items: [first, kind === 'duplicate-plan-item' ? first : second] }] };
+        const malformedExtension = { ...extension, operationOrder,
+            items: [dependency, kind === 'duplicate-extension-item' ? dependency : { ...dependency, operationIdentity: 'op-two' }] };
+        expect(presentVaultDependencyPlan(malformedExtension, malformedPlan)).toBeNull();
+    });
+    it('projects every valid member exactly once in the unchanged canonical order', () => {
+        const second = { ...plan.groups[0].items[0], operationIdentity: 'op-two' };
+        const operationOrder = ['op-two', 'op-one'];
+        const orderedPlan = { ...plan, operationOrder, groups: [{ ...plan.groups[0], items: [...plan.groups[0].items, second] }] };
+        const orderedExtension = { ...extension, operationOrder,
+            items: [...extension.items, { ...extension.items[0], operationIdentity: 'op-two' }] };
+        const before = JSON.stringify({ orderedPlan, orderedExtension });
+        const view = presentVaultDependencyPlan(orderedExtension, orderedPlan)!;
+        expect(view.items.map(item => item.operationIdentity)).toEqual(operationOrder);
+        expect(view.items.every(item => item !== undefined)).toBe(true);
+        expect(view.items[0]).toBe(orderedExtension.items[1]);
+        expect(view.items[1]).toBe(orderedExtension.items[0]);
+        expect(JSON.stringify({ orderedPlan, orderedExtension })).toBe(before);
+        expect(view).not.toHaveProperty('canExecute');
+    });
+    it.each(['dependency', 'plan'] as const)('renders the original unknown-order counterexample through %s as unavailable without crashing', (component) => {
+        const malformedPlan = { ...plan, operationOrder: ['unknown-op'] };
+        const malformedExtension = { ...extension, operationOrder: ['unknown-op'] };
+        const wrapper = component === 'dependency'
+            ? mount(VaultDependencyPlanReview, { props: { plan: malformedPlan, extension: malformedExtension } })
+            : mount(VaultPlanReview, { props: { plan: malformedPlan, dependencyPlan: malformedExtension } });
+        expect(wrapper.get('[aria-label="Vault 计划依赖范围"] [role="alert"]').text()).toContain('不匹配');
+        expect(wrapper.get('[aria-label="Vault 计划依赖范围"] [role="status"]').text()).toContain('不能据此执行同步或发布');
+        expect(wrapper.find('[aria-label="按同步操作顺序审查依赖"]').exists()).toBe(false);
+        expect(wrapper.text()).not.toContain('exact-node-key');
+        expect(wrapper.findAll('button')).toHaveLength(0);
+        expect(wrapper.emitted()).toEqual({});
+        wrapper.unmount();
     });
     it('refuses crossed node article identity instead of reusing another article permissions', () => {
         const item = extension.items[0]!;

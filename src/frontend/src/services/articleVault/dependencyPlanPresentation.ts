@@ -60,17 +60,26 @@ export function presentVaultDependencyPlan(extension: VaultDependencyPlanReviewD
         return null;
     }
     const plannedItems = plan.groups.flatMap((group) => group.items);
+    const plannedItemsByIdentity = new Map(plannedItems.map((item) => [item.operationIdentity, item]));
     const extensionItems = new Map(extension.items.map((item) => [item.operationIdentity, item]));
     if (extensionItems.size !== extension.items.length || extension.items.length !== plannedItems.length
+        || plannedItemsByIdentity.size !== plannedItems.length
         || plan.operationOrder.length !== plannedItems.length
         || new Set(plan.operationOrder).size !== plan.operationOrder.length)
     {
         return null;
     }
-    for (const item of plannedItems)
+    const orderedItems: VaultDependencyPlanReviewDocument['items'][number][] = [];
+    for (const identity of plan.operationOrder)
     {
-        const dependency = extensionItems.get(item.operationIdentity);
-        if (dependency?.groupIdentity !== item.groupIdentity
+        const item = plannedItemsByIdentity.get(identity);
+        const dependency = extensionItems.get(identity);
+        // Every unique order member must resolve in both maps before any projection.
+        if (!item || !dependency)
+        {
+            return null;
+        }
+        if (dependency.groupIdentity !== item.groupIdentity
             || dependency.portableArticleIdentity !== item.portableArticleIdentity)
         {
             return null;
@@ -82,6 +91,7 @@ export function presentVaultDependencyPlan(extension: VaultDependencyPlanReviewD
         {
             return null;
         }
+        orderedItems.push(dependency);
     }
-    return { items: plan.operationOrder.map((identity) => extensionItems.get(identity)!) };
+    return { items: orderedItems };
 }
