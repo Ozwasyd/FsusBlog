@@ -346,6 +346,144 @@
                     "consumer": "nullifier-policy"
                 }
             ]
+        },
+        {
+            "producerId": "development-demo",
+            "shapeId": "article-comment-entity-lifecycle",
+            "resolutionMode": "entity-plan",
+            "implementations": [
+                "src/backend/Services/Fixtures/DemoFixtureSeeder.cs",
+                "tools/test-fixtures/producers/demo-public-producer.mjs"
+            ],
+            "fieldMappings": [
+                {
+                    "field": "article.createtime",
+                    "roleId": "article.created",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "article.metadata-updated-at",
+                    "roleId": "article.metadata-updated",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "article.published-at",
+                    "roleId": "article.published",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "article.last-published-at",
+                    "roleId": "article.published",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "revision.created-at",
+                    "roleId": "article.revision",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "publication.published-at",
+                    "roleId": "article.publication",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "rights-policy.created-at",
+                    "roleId": "article.created",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "rights-snapshot.created-at",
+                    "roleId": "article.publication",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "comment.create-time",
+                    "roleId": "comment.created",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "comment.revision.created-at",
+                    "roleId": "comment.created",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "comment.moderated-at",
+                    "roleId": "comment.moderated",
+                    "consumer": "entity-lifecycle"
+                }
+            ],
+            "requiredRoleIds": [
+                "article.created",
+                "article.revision",
+                "article.metadata-updated",
+                "article.publication",
+                "article.published",
+                "comment.created",
+                "comment.edited",
+                "comment.moderated",
+                "scale.row-created"
+            ],
+            "scalarRoleIds": [
+                "profile.created",
+                "audit.occurred"
+            ]
+        },
+        {
+            "producerId": "scale-data",
+            "shapeId": "article-comment-entity-lifecycle",
+            "resolutionMode": "entity-plan",
+            "implementations": [
+                "tools/data-scale/seed.sh"
+            ],
+            "fieldMappings": [
+                {
+                    "field": "row.created-at",
+                    "roleId": "scale.row-created",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "article.createtime",
+                    "roleId": "article.created",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "article.metadata-updated-at",
+                    "roleId": "article.metadata-updated",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "article.published-at",
+                    "roleId": "article.published",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "article.revision.created-at",
+                    "roleId": "article.revision",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "article.publication.published-at",
+                    "roleId": "article.publication",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "comment.create-time",
+                    "roleId": "comment.created",
+                    "consumer": "entity-lifecycle"
+                }
+            ],
+            "requiredRoleIds": [
+                "article.created",
+                "article.revision",
+                "article.metadata-updated",
+                "article.publication",
+                "article.published",
+                "comment.created",
+                "comment.edited",
+                "comment.moderated",
+                "scale.row-created"
+            ],
+            "scalarRoleIds": []
         }
     ]
 }

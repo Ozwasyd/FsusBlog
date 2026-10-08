@@ -10,7 +10,9 @@
                 "tools/data-scale/comment-id-plan.mjs",
                 "tools/test/data-scale-runtime-owner.mjs",
                 "tools/test/temporal-context-contract.mjs",
-                "tools/test/temporal-context.mjs"
+                "tools/test/temporal-context.mjs",
+                "tools/test/temporal-role-resolver.mjs",
+                "tools/test/temporal-shape-catalog.mjs"
             ],
             "reason": "Preserve existing registered backend adapter and test environment contract keys while consuming the exact SqlSugar layout metadata, resolved temporal artifact ingress, UTC fixture clocks and owned runtime teardown."
         }

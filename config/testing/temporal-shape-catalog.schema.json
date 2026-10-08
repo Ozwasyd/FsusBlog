@@ -238,6 +238,12 @@
             "items": {
                 "$ref": "#/$defs/shape"
             }
+        },
+        "entityShapes": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/entityShape"
+            }
         }
     },
     "$defs": {
@@ -415,6 +421,103 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/$defs/id"
+                    }
+                },
+                "contentDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "entityShape": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "schema",
+                "entityKinds",
+                "contentDigest"
+            ],
+            "properties": {
+                "id": {
+                    "$ref": "#/$defs/id"
+                },
+                "schema": {
+                    "const": "fsusblog.temporal-entity-shape.v1"
+                },
+                "entityKinds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "kind",
+                            "states",
+                            "revisionRequired",
+                            "publicationAllowed",
+                            "stateFacts",
+                            "roles",
+                            "invariantIds"
+                        ],
+                        "properties": {
+                            "kind": {
+                                "$ref": "#/$defs/id"
+                            },
+                            "states": {
+                                "type": "array",
+                                "minItems": 1,
+                                "uniqueItems": true,
+                                "items": {
+                                    "$ref": "#/$defs/id"
+                                }
+                            },
+                            "revisionRequired": {
+                                "type": "boolean"
+                            },
+                            "publicationAllowed": {
+                                "type": "boolean"
+                            },
+                            "stateFacts": {
+                                "type": "array",
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                }
+                            },
+                            "roles": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "roleId",
+                                        "presence",
+                                        "absent"
+                                    ],
+                                    "properties": {
+                                        "roleId": {
+                                            "$ref": "#/$defs/id"
+                                        },
+                                        "presence": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "absent": {
+                                            "const": "null"
+                                        }
+                                    }
+                                }
+                            },
+                            "invariantIds": {
+                                "type": "array",
+                                "uniqueItems": true,
+                                "items": {
+                                    "$ref": "#/$defs/id"
+                                }
+                            }
+                        }
                     }
                 },
                 "contentDigest": {

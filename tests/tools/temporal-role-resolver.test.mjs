@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 const {defaultTimeoutPolicyDigest, qualificationTemporalContext, semanticOutcomeDigest} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
-const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, requireResolvedTemporalRole, resolveTemporalRoles, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
+const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, requireResolvedTemporalRole, resolveTemporalEntityRoles, resolveTemporalRoles, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const sourceCommit = 'a'.repeat(40);
 const sourceFingerprint = `sha256:${'b'.repeat(64)}`;
@@ -326,4 +326,123 @@ test('artifact and role tamper fail before qualification', () =>
         () => requireResolvedTemporalRole(artifact, 'session.unknown'),
         (error) => error.reasonCode === 'temporal.role-missing'
     );
+});
+
+function ordinaryEntityPlan()
+{
+    const fact = (instantUtc) => ({ applicability: instantUtc === null ? 'null' : 'instant', instantUtc });
+    const article = (semanticIdentity, ordinal, revisionNumber, publicationNumber, state, revisionAt, metadataAt) => ({
+        coordinate: { entityKind: 'article', semanticIdentity, operationIdentity: `revision-${revisionNumber}`, ordinal,
+            revisionNumber, publicationNumber, publicationRevisionNumber: publicationNumber === null ? null : 1, articleIdentity: null },
+        state, stateFacts: { hasPublication: publicationNumber !== null }, facts: {
+            'article.created': fact('2024-02-29T23:59:40.000Z'), 'article.revision': fact(revisionAt),
+            'article.metadata-updated': fact(metadataAt),
+            'article.publication': fact(publicationNumber === null ? null : '2024-02-29T23:59:50.000Z'),
+            'article.published': fact(publicationNumber === null ? null : '2024-02-29T23:59:50.000Z')
+        }
+    });
+    return {
+        schema: 'fsusblog.temporal-entity-plan.v1', sourcePlanDigest: sourceFingerprint,
+        distribution: { kind: 'demo', tier: null, ordinalBase: 1, counts: { article: 2, comment: 1, row: 1 },
+            stateCounts: { article: { draft: 1, scheduled: 1, published: 0, archived: 0, deleted: 0 },
+                comment: { active: 1, deleted: 0 }, row: { present: 1 } },
+            rootNested: [{ commentIdentity: 'root-comment', parentIdentity: null, rootIdentity: 'root-comment' }] },
+        entities: [
+            article('scheduled-article', 1, 1, 1, 'published', '2024-02-29T23:59:45.000Z', '2024-02-29T23:59:45.000Z'),
+            article('scheduled-article', 1, 2, 1, 'scheduled', '2024-02-29T23:59:55.000Z', '2024-02-29T23:59:55.000Z'),
+            article('draft-article', 2, 1, null, 'draft', '2024-02-29T23:59:45.000Z', '2024-02-29T23:59:45.000Z'),
+            { coordinate: { entityKind: 'comment', semanticIdentity: 'root-comment', operationIdentity: 'moderation', ordinal: 1,
+                revisionNumber: 1, publicationNumber: null, publicationRevisionNumber: null, articleIdentity: 'scheduled-article' },
+            state: 'active', stateFacts: { edited: false, moderated: true }, facts: {
+                'comment.created': fact('2024-02-29T23:59:46.000Z'), 'comment.edited': fact(null),
+                'comment.moderated': fact('2024-02-29T23:59:48.000Z') } },
+            { coordinate: { entityKind: 'row', semanticIdentity: 'fixture-row', operationIdentity: 'create', ordinal: 1,
+                revisionNumber: null, publicationNumber: null, publicationRevisionNumber: null, articleIdentity: null },
+            state: 'present', stateFacts: {}, facts: { 'scale.row-created': fact('2024-02-29T23:59:40.000Z') } }
+        ]
+    };
+}
+
+function resolveOrdinaryEntityPlan(entityPlan = ordinaryEntityPlan(), producerId = 'development-demo')
+{
+    return resolveTemporalRolesForProducer({ temporalContext: context(producerId), namespace: 'ordinary',
+        fixtureId: 'entity-history', planDigest: sourceFingerprint, entityPlan });
+}
+
+test('entity resolver consumes explicit histories and nullable states with complete role closure', () =>
+{
+    const artifact = resolveOrdinaryEntityPlan();
+    assert.equal(artifact.schema, 'fsusblog.resolved-temporal-entities.v1');
+    assert.equal(artifact.qualificationEligible, false);
+    assert.equal(artifact.entities.length, 5);
+    assert.equal(artifact.entities[1].relations[0].status, 'verified');
+    assert.deepEqual(artifact.entities[2].relations[0].nullRoleIds, ['article.publication']);
+    assert.deepEqual(artifact.entities[3].relations[0].roleIds, ['comment.created', 'comment.edited', 'comment.moderated']);
+    assert.deepEqual(artifact.entities[3].relations[0].nullRoleIds, ['comment.edited']);
+    assert.equal(requireResolvedTemporalRole(artifact.scalarRoles, 'profile.created').epochMilliseconds, Date.parse(context().businessEpochUtc));
+    assert.equal(requireResolvedTemporalRole(artifact.scalarRoles, 'audit.occurred').epochMilliseconds, Date.parse(context().businessEpochUtc) + 120000);
+    const schema = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/testing/resolved-temporal-roles.schema.json'), 'utf8'));
+    assert.deepEqual(validateJsonSchema(artifact, schema), []);
+    assert.equal(verifyResolvedTemporalArtifact(artifact, { temporalContext: context('development-demo') }).qualificationEligible, false);
+});
+
+test('entity producer registrations refuse absent ordinary inputs and incomplete comment closure', () =>
+{
+    assert.throws(() => resolveTemporalRolesForProducer({ temporalContext: context('development-demo'), namespace: 'ordinary',
+        fixtureId: 'entity-history', planDigest: sourceFingerprint }), /entityPlan requires/u);
+    const plan = ordinaryEntityPlan();
+    delete plan.entities[3].facts['comment.edited'];
+    assert.throws(() => resolveOrdinaryEntityPlan(plan), /complete entity role closure/u);
+    const absentState = ordinaryEntityPlan();
+    delete absentState.entities[3].stateFacts.moderated;
+    assert.throws(() => resolveOrdinaryEntityPlan(absentState), /stateFacts requires/u);
+});
+
+test('entity plans reject ordinary inconsistent lifecycle coordinates and distributions', () =>
+{
+    const change = (mutate, pattern) =>
+    {
+        const plan = ordinaryEntityPlan();
+        mutate(plan);
+        assert.throws(() => resolveOrdinaryEntityPlan(plan), pattern);
+    };
+    change((plan) =>
+    {
+        plan.entities[0].facts['article.revision'].instantUtc = '2024-02-29T23:59:51.000Z';
+    }, /cross-field invariant/u);
+    change((plan) =>
+    {
+        plan.entities[1].coordinate.publicationRevisionNumber = 3;
+    }, /coordinates are inconsistent/u);
+    change((plan) =>
+    {
+        plan.entities[2].facts['article.publication'].instantUtc = '2024-02-29T23:59:50.000Z';
+    }, /explicitly null/u);
+    change((plan) =>
+    {
+        plan.distribution.counts.article = 3;
+    }, /count\/ordinal distribution/u);
+    change((plan) =>
+    {
+        plan.distribution.rootNested = [];
+    }, /cover every comment/u);
+    change((plan) =>
+    {
+        plan.entities[3].facts['comment.moderated'].instantUtc = '2024-02-29T23:59:44.000Z';
+    }, /cross-field invariant/u);
+});
+
+test('scale entity API requires the declared tier and actual complete distribution', () =>
+{
+    const plan = ordinaryEntityPlan();
+    plan.distribution.kind = 'scale';
+    plan.distribution.tier = 'scale-s';
+    const artifact = resolveOrdinaryEntityPlan(plan, 'scale-data');
+    assert.equal(artifact.scalarRoles, null);
+    assert.equal(artifact.entityPlan.distribution.tier, 'scale-s');
+    delete plan.distribution.tier;
+    assert.throws(() => resolveOrdinaryEntityPlan(plan, 'scale-data'), /distribution requires/u);
+    assert.throws(() => resolveTemporalEntityRoles({ temporalContext: context('scale-data'),
+        fixtureIdentity: identity('scale-data', { fixtureId: 'entity-history', planDigest: sourceFingerprint }),
+        shapeId: 'article-comment-entity-lifecycle', entityPlan: plan }), /distribution requires/u);
 });
