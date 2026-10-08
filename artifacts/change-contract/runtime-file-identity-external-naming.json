@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/generated-output-digest-repair-repository.mjs"
+            ],
+            "reason": "preserve the existing Git and sparse runtime environment spellings while retaining exact filesystem identities in the canonical replay adapter"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "preserve documented canonical command and contract spellings while clarifying exact runtime metadata observation"
+        }
+    ]
+}
