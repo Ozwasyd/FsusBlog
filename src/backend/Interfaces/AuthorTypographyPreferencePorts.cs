@@ -2,24 +2,6 @@ using FsusBlog.Shared.Contracts.AuthorTypography;
 
 namespace FsusBlog.Server.Interfaces;
 
-/// <summary>Finite read outcomes from the sole server preference authority.</summary>
-public enum AuthorTypographyPreferenceReadOutcome : byte
-{
-    Stored = 1,
-    CurrentDesignDefault = 2,
-    Forbidden = 3,
-    CurrentDesignDefaultUnavailable = 4,
-    Unavailable = 5
-}
-
-/// <summary>
-/// Stored/default observations carry their authenticated scope and actual shared revision.
-/// Refusals carry no snapshot. A missing row uses revision zero, never a client default.
-/// </summary>
-public sealed record AuthorTypographyPreferenceReadResult(
-    AuthorTypographyPreferenceReadOutcome Outcome,
-    AuthorTypographySnapshot? Snapshot);
-
 /// <summary>
 /// Sole server policy for a profile verified against the active public design baseline.
 /// An unavailable policy returns null; consumers must not invent a client/default catalog.
@@ -41,29 +23,6 @@ public interface IAuthorTypographyPreferenceReader
         AuthorTypographyScope authenticatedScope,
         CancellationToken cancellationToken = default);
 }
-
-/// <summary>Only Committed/Replayed denote an authoritative persisted request result.</summary>
-public enum AuthorTypographyPreferenceWriteOutcome : byte
-{
-    Committed = 1,
-    Replayed = 2,
-    RevisionConflict = 3,
-    RequestIdentityConflict = 4,
-    InvalidRequest = 5,
-    Forbidden = 6,
-    CurrentDesignDefaultUnavailable = 7,
-    Unavailable = 8
-}
-
-/// <summary>
-/// A successful writer result carries its original persisted request record. A CAS refusal
-/// may expose a scoped current snapshot but never a newly constructed success record.
-/// Consumers must validate record content; the domain digest alone does not authenticate storage.
-/// </summary>
-public sealed record AuthorTypographyPreferenceWriteResult(
-    AuthorTypographyPreferenceWriteOutcome Outcome,
-    AuthorTypographyRecordedRequest? Record,
-    AuthorTypographySnapshot? CurrentSnapshot);
 
 /// <summary>
 /// Mutates only typography fields through the single shared author preference transaction.
