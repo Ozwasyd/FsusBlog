@@ -25,3 +25,14 @@ For each migration, first pin selector counts and business states with a failing
 Record this baseline, per-surface reduction, and real-browser evidence status in `tests/frontend/internal-selector-migration-evidence.json`; `null` or `pending` is not passed and must not be reported as green in issue or release evidence. `check:fsusui-boundary` also rejects FsusUI internal-DOM queries in scripts. Form-error focus and similar behavior must use `aria-invalid` or a consumer-owned stable data hook.
 
 No-restart rollback is per static-asset slot: restore the last verified frontend asset. A rollback may temporarily restore an unexpired registry entry, but never PublicShell internals, a wider budget, or a disabled fail-closed gate.
+
+
+For consumer-owned label text, use the public default slot and style that markup
+with a business class. Set wrapping on the public component root through its
+ordinary class fallthrough when the label inherits it; do not reach into the
+library label node. Tags accept a consumer class on their public root, so a
+collection can constrain that root without selecting its BEM class. Retain the
+original model, disabled state, inline action modifiers and event identities.
+Before/after component diagnostics must use the actual public alias and the same
+controlled business state. They do not establish backend authentication or
+independent UX acceptance, and unmeasured focus or other limits stay explicit.
