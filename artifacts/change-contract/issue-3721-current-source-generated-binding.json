@@ -2,11 +2,14 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "config/testing/release-final-execution-authority-index.json",
+        "tests/tools/native-tooling-style.test.mjs",
+        "tools/governance/change-contract-registry.mjs",
+        "tools/governance/change-contract.mjs",
         "tools/style/check-native-tooling-style.mjs",
-        "tools/style/command-wrapper-input-model.mjs",
-        "tools/style/command-wrapper-input-ast.mjs",
+        "tools/style/command-wrapper-caller-binding.mjs",
         "tools/style/command-wrapper-compile-binding.mjs",
-        "tools/style/command-wrapper-caller-binding.mjs"
+        "tools/style/command-wrapper-input-ast.mjs",
+        "tools/style/command-wrapper-input-model.mjs"
     ],
     "outputs": [
         {
