@@ -95,8 +95,9 @@ public sealed class NativeMemoryArenaBuilder : IDisposable
             catch (OutOfMemoryException)
             {
                 FailAndClean();
-                // The common failure contract has no AllocationFailed value. This
-                // is backend unavailability, never a fabricated budget rejection.
+                // Native storage or control-metadata exhaustion aborts this candidate
+                // after cleanup. Keep that failure distinct from resource-admission
+                // denial, which the ledger reports as BudgetRejected.
                 return MemoryOperationResult<NativeMemorySlice>.Reject(MemoryFailure.TierUnavailable);
             }
             catch
