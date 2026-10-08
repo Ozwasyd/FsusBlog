@@ -2171,7 +2171,7 @@
             "owner": "SharedNotificationStreamFrame",
             "producer": "NotificationFrameCodec and SharedNotificationStreamFrame.FromOwnedBuffer",
             "consumers": "NotificationStreamConnection queues and NotificationStreamFramePump; one Retain per accepted fanout target",
-            "releaseEvent": "Rejected/consumed target releases retain; zero count returns pool with clearArray true. Pump copies bytes to PipeWriter then releases frame; transport owns the copied bytes",
+            "releaseEvent": "Rejected/consumed target releases retain; zero count returns pool with clearArray true. Pump copies bytes to PipeWriter then releases frame; transport owns the copied bytes; admitted memory owners dispose only when the existing shared frame reaches its final recipient/operation hold.",
             "capacityModel": "Frame.Length distinct from rented buffer.Length; per-connection queue bytes and writer copy capacity remain separate",
             "frequency": "Per notification encode/fanout/dequeue/drop/disconnect",
             "asyncEscape": "Connection queues retain frame; PipeWriter.GetSpan copies data before frame.Release; flushing owns separate transport buffers",
@@ -2192,7 +2192,7 @@
             "evidence": [
                 {
                     "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs",
-                    "anchor": "_pool.Return(_buffer, clearArray: true)"
+                    "anchor": "_pool.Return(_buffer!, clearArray: true)"
                 },
                 {
                     "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamFramePump.cs",
@@ -3647,7 +3647,7 @@
             "eligibilityOwner": "Existing content and configuration owners; bounded internal control structures are not transferable public payload eligibility.",
             "migrationDisposition": "No payload tier migration permission granted.",
             "exclusionReason": "Source contracts and development fixtures do not qualify backend activation or arbitrary data migration.",
-            "observationHeadroom": "Include roster/string/list/object/pin overhead in process headroom without treating retained buffers as reclaimed. Preserve current transient T41 and database-reader failures as unresolved.",
+            "observationHeadroom": "Include roster/string/list/object/pin overhead in process headroom without treating retained buffers as reclaimed. Historical database-reader and T41 failures remain preserved; the exact updated source requires current executable verification.",
             "testOwner": "tests/backend/Unit/MemoryCapabilityPolicyPlanTests.cs",
             "permissions": {
                 "disk": false,
@@ -3682,7 +3682,7 @@
             "eligibilityOwner": "Existing content and configuration owners; bounded internal control structures are not transferable public payload eligibility.",
             "migrationDisposition": "No payload tier migration permission granted.",
             "exclusionReason": "Source contracts and development fixtures do not qualify backend activation or arbitrary data migration.",
-            "observationHeadroom": "Include roster/string/list/object/pin overhead in process headroom without treating retained buffers as reclaimed. Preserve current transient T41 and database-reader failures as unresolved.",
+            "observationHeadroom": "Include roster/string/list/object/pin overhead in process headroom without treating retained buffers as reclaimed. Historical database-reader and T41 failures remain preserved; the exact updated source requires current executable verification.",
             "testOwner": "tests/backend/Unit/TransientBufferPoolTests.cs",
             "permissions": {
                 "disk": false,

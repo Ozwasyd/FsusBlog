@@ -761,7 +761,7 @@
             ],
             "claimLevel": "S",
             "status": "structural-only",
-            "structuralBoundary": "The internal admitted adapter transfers the memory owner into the existing counted notification frame. Per-recipient holds and actual completion retain that owner. This registration does not certify successful shutdown cleanup, physical reclamation, or transient product acceptance; the current T41 failure remains open."
+            "structuralBoundary": "The internal admitted adapter transfers the memory owner into the existing counted notification frame. Per-recipient holds and actual completion retain that owner. This registration does not certify successful shutdown cleanup, physical reclamation or transient product acceptance; historical T41 failure and the exact corrected Complete/Drain control evidence remain separate."
         }
     ]
 }
