@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 await import('./check-article-document-context-governance.mjs');
 await import('./check-article-anchor-context-governance.mjs');
+await import('./check-article-attachment-context-governance.mjs');
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const failures = [];
