@@ -60,3 +60,9 @@ also passed15/15 on the same clean FsusUI source SHA. Their real reports are
 attached separately; they do not certify Blog frozen graph/permission/provider
 or package runtime acceptance. The actual failed native caption-render
 expectation and returned parser/figure/projection data are retained.
+
+Package-only read gaps are also explicit: historical rights `CanonicalUrl` is
+absent from the actual revision DTO, and the revision metadata projection omits
+route/lifecycle publication fields. Current builder defaults or current article
+state do not supply historical facts. Full root/registry integration remains
+owned and unfinished; the exact table preserves these gates.

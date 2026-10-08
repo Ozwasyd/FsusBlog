@@ -80,5 +80,22 @@
         "Complete package/source/read/rights/retention/privacy/migration/runtime requirements remain. Owned full schema/wire/bind and formal consumer integration unfinished.",
         "Existing PR4012 head569518458ad4aa27cbc885417121a2e04cb74254 remains frozen; API writes paused, no new draft PR."
     ],
-    "scopeNote": "#3735 root owns assigned #2323; do not reinterpret #3735 issue itself as an article-property endpoint request or duplicate its implementation."
+    "scopeNote": "#3735 root owns assigned #2323; do not reinterpret #3735 issue itself as an article-property endpoint request or duplicate its implementation.",
+    "packageOnlyExactReadGaps": [
+        {
+            "field": "Historical rights CanonicalUrl",
+            "actualAvailable": "AuthoringRevisionComparePackageReader.RevisionSnapshots serializes actual ArticleRevisionRightsSnapshotResponse. That DTO has policy/content hashes and rights fields but omits CanonicalUrl. The entity/source canonical rights input has that field.",
+            "required": "Exact actor/site-selected historical CanonicalUrl or an authoritative versioned absent/null policy bound to the observed rights snapshot. Do not infer historical null from the current snapshot builder. Coordinator routes original rights/revision source owner; do not duplicate it."
+        },
+        {
+            "field": "Historical PublicRouteKey / lifecycle publication facts",
+            "actualAvailable": "RevisionMetadata returns title, summary, cover-image-url, category-id and tag-ids; it does not supply selected-revision PublicRouteKey, status, published-at or scheduled-publish-at. Draft metadata separately has its own scheduled date.",
+            "required": "Canonical selected-revision/source route and lifecycle/publication projection with exact provenance; no title/ID slug, current-state substitution or draft-to-revision assumption."
+        },
+        {
+            "field": "Full package root / version registry / plan provenance",
+            "actualAvailable": "The current sole candidate root has finite article fields. Closed rights/taxonomy/property/asset components exist and remain non-admitting; no complete full-package producer/registry acceptance exists.",
+            "required": "Owned complete root/registry/decode-bind integration remains unfinished; it must consume all original authoritative source and syntax/dependency facts plus legitimate package/source/export-plan/build/policy coordinates. No second schema, shared registry change, lossless migration claim or manufactured producer metadata."
+        }
+    ]
 }
