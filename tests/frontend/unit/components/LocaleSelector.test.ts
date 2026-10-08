@@ -248,18 +248,18 @@ describe('LocaleSelector presentational contract', () => {
     expect(getNode(wrapper, '[data-locale-selector-menu]').isVisible()).toBe(true)
 
     const selected = getNode(wrapper, '[data-locale-code="zh-CN"]').element as HTMLElement
-    selected.focus()
+    await vi.waitFor(() => expect(document.activeElement).toBe(selected))
     await getNode(wrapper, '[data-locale-code="zh-CN"]').trigger('keydown', { key: 'ArrowDown', code: 'ArrowDown' })
     await menuReady(wrapper)
-    expect((document.activeElement as HTMLElement | null)?.getAttribute('data-locale-code')).toBe('en-US')
+    await vi.waitFor(() => expect((document.activeElement as HTMLElement | null)?.getAttribute('data-locale-code')).toBe('en-US'))
 
     await getNode(wrapper, '[data-locale-code="en-US"]').trigger('keydown', { key: 'End', code: 'End' })
     await menuReady(wrapper)
-    expect((document.activeElement as HTMLElement | null)?.getAttribute('data-locale-code')).toBe('ru-RU')
+    await vi.waitFor(() => expect((document.activeElement as HTMLElement | null)?.getAttribute('data-locale-code')).toBe('ru-RU'))
 
     await getNode(wrapper, '[data-locale-code="ru-RU"]').trigger('keydown', { key: 'Home', code: 'Home' })
     await menuReady(wrapper)
-    expect((document.activeElement as HTMLElement | null)?.getAttribute('data-locale-code')).toBe('zh-CN')
+    await vi.waitFor(() => expect((document.activeElement as HTMLElement | null)?.getAttribute('data-locale-code')).toBe('zh-CN'))
 
     await getNode(wrapper, '[data-locale-code="zh-CN"]').trigger('keydown', { key: 'Escape', code: 'Escape' })
     await vi.waitFor(() => expect(wrapper.emitted('open-change')?.at(-1)).toEqual([false]))
