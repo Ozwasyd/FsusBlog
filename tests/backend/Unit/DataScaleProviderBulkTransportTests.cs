@@ -18,6 +18,80 @@ public sealed class DataScaleProviderBulkTransportTests : IDisposable
     public void Dispose() => _cancellation.Dispose();
 
     [Fact]
+    public async Task DeferredCyclePointers_ArePatchedBeforeReadbackInOneTransaction()
+    {
+        await using SqliteConnection connection = await OpenAsync();
+        await using (DbCommand schema = connection.CreateCommand())
+        {
+            schema.CommandText = "ALTER TABLE bulk_parent ADD COLUMN child_id INTEGER NULL REFERENCES bulk_child(id)";
+            await schema.ExecuteNonQueryAsync(_cancellation.Token);
+        }
+        DataScaleBulkTableRows[] tables = Tables(2);
+        tables[0] = tables[0] with
+        {
+            Columns = tables[0].Columns.Concat([new DataScaleBulkColumn("child_id", DbType.Int64)]).ToArray(),
+            Rows = tables[0].Rows.Select(row => (IReadOnlyList<object?>)row.Concat([null]).ToArray()).ToArray()
+        };
+        DataScaleBulkTableRows[] patches = [new("bulk_parent", [new("id", DbType.Int64), new("child_id", DbType.Int64)],
+            [new object?[] { 1L, 1L }, new object?[] { 2L, null }])];
+        DataScaleBulkExecution result = await DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
+            connection, DataScaleBulkProvider.Sqlite, tables, patches, ExpectedDigest(2),
+            async (db, transaction, token) =>
+            {
+                await using DbCommand pointer = db.CreateCommand();
+                pointer.Transaction = transaction;
+                pointer.CommandText = "SELECT child_id FROM bulk_parent WHERE id = 1";
+                Assert.Equal(1L, await pointer.ExecuteScalarAsync(token));
+                return await ObserveAsync(db, transaction, token);
+            }, _cancellation.Token);
+        Assert.Equal(DataScaleBulkCommitState.Committed, result.State);
+        Assert.Equal(3, result.WriteCommands);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DeferredUpdate_RejectsNonownedKeysAndNonPrimaryKeys(bool nonowned)
+    {
+        await using SqliteConnection connection = await OpenAsync();
+        DataScaleBulkTableRows[] patches = nonowned
+            ? [new("bulk_child", [new("id", DbType.Int64), new("parent_id", DbType.Int64)], [new object?[] { 9001L, 1L }])]
+            : [new("bulk_child", [new("parent_id", DbType.Int64), new("id", DbType.Int64)], [new object?[] { 2L, 1L }])];
+        if (nonowned)
+        {
+            await Assert.ThrowsAsync<ArgumentException>(() => DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
+                connection, DataScaleBulkProvider.Sqlite, Tables(2), patches, ExpectedDigest(2), ObserveAsync, _cancellation.Token));
+        }
+        else
+        {
+            DataScaleBulkExecution result = await DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
+                connection, DataScaleBulkProvider.Sqlite, Tables(2), patches, ExpectedDigest(2), ObserveAsync, _cancellation.Token);
+            Assert.Equal(DataScaleBulkCommitState.RolledBack, result.State);
+            Assert.Equal(0, result.WriteCommands);
+        }
+        Assert.Equal(0, await CountAsync(connection));
+    }
+
+    [Fact]
+    public async Task DeferredForeignKeyFailure_RollsBackAllInsertedRowsBeforeVerifier()
+    {
+        await using SqliteConnection connection = await OpenAsync();
+        DataScaleBulkTableRows[] patches = [new("bulk_child", [new("id", DbType.Int64), new("parent_id", DbType.Int64)],
+            [new object?[] { 1L, 9001L }])];
+        bool verifierCalled = false;
+        DataScaleBulkExecution result = await DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
+            connection, DataScaleBulkProvider.Sqlite, Tables(2), patches, ExpectedDigest(2),
+            (db, transaction, token) =>
+            {
+                verifierCalled = true;
+                return ObserveAsync(db, transaction, token);
+            }, _cancellation.Token);
+        Assert.Equal(DataScaleBulkCommitState.RolledBack, result.State);
+        Assert.False(verifierCalled);
+        Assert.Equal(0, await CountAsync(connection));
+    }
+
+    [Fact]
     public async Task MultipleCommandsAndDependentTables_CommitOneExactTransaction()
     {
         await using SqliteConnection connection = await OpenAsync();
@@ -39,7 +113,10 @@ public sealed class DataScaleProviderBulkTransportTests : IDisposable
     {
         await using SqliteConnection connection = await OpenAsync();
         DataScaleBulkTableRows[] tables = Tables(600);
-        tables[1] = tables[1] with { Rows = [new object?[] { 1, 600 }, new object?[] { 1, 600 }] };
+        tables[1] = tables[1] with
+        {
+            Rows = [new object?[] { 1, 600 }, new object?[] { 1, 600 }]
+        };
         bool verifierCalled = false;
         DataScaleBulkExecution result = await DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
             connection, DataScaleBulkProvider.Sqlite, tables, ExpectedDigest(600),
@@ -129,7 +206,10 @@ public sealed class DataScaleProviderBulkTransportTests : IDisposable
     {
         await using SqliteConnection connection = await OpenAsync();
         DataScaleBulkTableRows[] tables = Tables(2);
-        tables[0] = tables[0] with { Table = "bulk_parent; DROP TABLE bulk_child" };
+        tables[0] = tables[0] with
+        {
+            Table = "bulk_parent; DROP TABLE bulk_child"
+        };
         await Assert.ThrowsAsync<ArgumentException>(() => DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
             connection, DataScaleBulkProvider.Sqlite, tables, ExpectedDigest(2), ObserveAsync, _cancellation.Token));
         await Assert.ThrowsAsync<InvalidOperationException>(() => DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
