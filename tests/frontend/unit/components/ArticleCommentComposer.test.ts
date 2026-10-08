@@ -1,9 +1,12 @@
 // @vitest-environment happy-dom
 
 import { mount } from '@vue/test-utils'
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import ArticleCommentComposer from '@/components/article/ArticleCommentComposer.vue'
+import { FsusUiCheckbox } from '@/fsusui/checkbox'
+import { FsusUiInput } from '@/fsusui/input'
+import { FsusUiSegmentedControl } from '@/fsusui/segmentedControl'
 import {
   COMMENT_PUBLIC_DRAFT_SCOPE_KEY,
   COMMENT_PUBLIC_DRAFT_STORAGE_PREFIX,
@@ -20,7 +23,7 @@ import {
 const ElButtonStub = defineComponent({
   inheritAttrs: false,
   emits: ['click'],
-  template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>'
+  template: '<button v-bind="$attrs" @click="$emit(\'click\', $event)"><slot /></button>'
 })
 
 const ElInputStub = defineComponent({
@@ -29,7 +32,27 @@ const ElInputStub = defineComponent({
     modelValue: { type: String, default: '' },
     disabled: { type: Boolean, default: false }
   },
-  template: '<textarea :value="modelValue" :disabled="disabled" />'
+  emits: ['update:modelValue', 'focus', 'keydown', 'compositionstart', 'compositionend'],
+  setup(props, { attrs, emit, expose }) {
+    const textarea = ref<HTMLTextAreaElement>()
+    expose({ textarea, focus: () => textarea.value?.focus() })
+    return () => h('textarea', {
+      ...attrs,
+      ref: textarea,
+      value: props.modelValue,
+      disabled: props.disabled,
+      onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
+      onFocus: (event: FocusEvent) => emit('focus', event),
+      onKeydown: (event: KeyboardEvent) => emit('keydown', event),
+      onCompositionstart: (event: CompositionEvent) => emit('compositionstart', event),
+      onCompositionend: (event: CompositionEvent) => emit('compositionend', event)
+    })
+  }
+})
+
+const FsusDialogStub = defineComponent({
+  props: { modelValue: Boolean },
+  template: '<div><slot /><slot name="footer" /></div>'
 })
 
 const RouterLinkStub = defineComponent({
@@ -63,13 +86,13 @@ const baseProps = {
   anonymousScope: 'article:42'
 }
 
-const mountComposer = (props: Partial<typeof baseProps> = {}) => mount(ArticleCommentComposer, {
+const mountComposer = (props: Partial<InstanceType<typeof ArticleCommentComposer>['$props']> = {}) => mount(ArticleCommentComposer, {
   props: { ...baseProps, ...props },
   global: {
     stubs: {
-      ElButton: ElButtonStub,
-      ElInput: ElInputStub,
-      FsusDialog: true,
+      FsusUiButton: ElButtonStub,
+      FsusUiInput: ElInputStub,
+      FsusDialog: FsusDialogStub,
       CommentMarkdownRenderer: true,
       RouterLink: RouterLinkStub
     }
@@ -131,7 +154,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
 
   it('defaults to strong anonymous and requires a user toggle before public attribution', async () => {
     const wrapper = mountComposer()
-    const identityToggle = wrapper.get<HTMLInputElement>('.comment-identity-toggle__input')
+    const identityToggle = wrapper.get<HTMLInputElement>('input[type=checkbox]')
 
     expect(identityToggle.element.checked).toBe(false)
     expect(wrapper.text()).toContain('强匿名发布')
@@ -233,36 +256,61 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     wrapper.unmount()
   })
 
-  it('restores a matching public draft after a new mount', async () => {
+  it.each(['policy-42', 'policy-old'])('requires review and a new public choice for a restored draft with %s', async policyHash => {
+    useDraftFakeTimers()
     const preparation = prepareCommentPublicDraftStorage(localStorage)
     const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
     writeCommentPublicDraft(localStorage, key, {
       version: 3,
       content: '跨刷新公开草稿',
       savedAt: 123,
-      policyHash: 'policy-42',
+      policyHash,
       clientMutationId: '018ff003-1234-7abc-8def-0123456789ab'
     })
 
-    const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    const stored = localStorage.getItem(key)
+    const wrapper = mountComposer({ articleId: 42, accountId: 7, authorMode: 'public', publicSendConfirmed: true })
     await nextTick()
 
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    expect(wrapper.emitted('update:authorMode')).toEqual([['zk_anonymous']])
+    expect(wrapper.emitted('update:publicSendConfirmed')).toEqual([[false]])
+    expect(wrapper.text()).toContain('请先审查草稿，本次发布身份需重新确认')
+    const identity = wrapper.get<HTMLInputElement>('input[type=checkbox]')
+    expect(identity.element.checked).toBe(false)
+    expect(identity.element.disabled).toBe(true)
+    expect(wrapper.text()).toContain('请先审查恢复的草稿，再确认本次公开署名')
+    await wrapper.setProps({ authorMode: 'zk_anonymous', publicSendConfirmed: false })
+    await vi.advanceTimersByTimeAsync(1000)
+    window.dispatchEvent(new Event('pagehide'))
+    expect(localStorage.getItem(key)).toBe(stored)
+    const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))!
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')).toBeUndefined()
+
+    await wrapper.get('.comment-composer-draft__actions button').trigger('click')
     expect(wrapper.emitted('update:modelValue')).toContainEqual(['跨刷新公开草稿'])
+    expect(wrapper.emitted('update:authorMode')).not.toContainEqual(['public'])
+    expect(wrapper.emitted('update:publicSendConfirmed')).not.toContainEqual([true])
+    expect(localStorage.getItem(key)).toBeNull()
+    await wrapper.setProps({ modelValue: '跨刷新公开草稿' })
+    expect(identity.element.checked).toBe(false)
+    expect(identity.element.disabled).toBe(false)
+    await identity.setValue(true)
     expect(wrapper.emitted('update:authorMode')).toContainEqual(['public'])
     expect(wrapper.emitted('update:publicSendConfirmed')).toContainEqual([true])
-    expect(wrapper.text()).toContain('已恢复公开草稿')
 
     await wrapper.setProps({
       modelValue: '跨刷新公开草稿',
       authorMode: 'public',
       publicSendConfirmed: true
     })
-    const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))
-    expect(submit).toBeTruthy()
-    await submit!.trigger('click')
-    expect(wrapper.emitted('submit')).toEqual([
-      ['018ff003-1234-7abc-8def-0123456789ab']
-    ])
+    await submit.trigger('click')
+    const mutationId = wrapper.emitted('submit')![0]![0]
+    if (policyHash === 'policy-42') expect(mutationId).toBe('018ff003-1234-7abc-8def-0123456789ab')
+    else expect(mutationId).not.toBe('018ff003-1234-7abc-8def-0123456789ab')
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')![1]![0]).toBe(mutationId)
 
     wrapper.unmount()
   })
@@ -283,7 +331,8 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
 
     expect(wrapper.text()).toContain('评论策略已更新')
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
-    expect(wrapper.emitted('update:authorMode')).toBeUndefined()
+    expect(wrapper.emitted('update:authorMode')).toEqual([['zk_anonymous']])
+    expect(wrapper.emitted('update:publicSendConfirmed')).toEqual([[false]])
     expect(wrapper.get('button').exists()).toBe(true)
 
     await wrapper.get('.comment-composer-draft__actions button').trigger('click')
@@ -292,6 +341,90 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     expect(wrapper.emitted('update:publicSendConfirmed')).toContainEqual([false])
     expect(localStorage.getItem(key)).toBeNull()
 
+    wrapper.unmount()
+  })
+
+  it('preserves the private in-memory body and unreviewed stored candidate across restoration and unmount', async () => {
+    useDraftFakeTimers()
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '待审公开草稿', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff005-1234-7abc-8def-0123456789ab'
+    })
+    const stored = localStorage.getItem(key)
+    const wrapper = mountComposer({ articleId: 42, accountId: 7, modelValue: '当前私密正文' })
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    expect(wrapper.props('modelValue')).toBe('当前私密正文')
+    expect(localStorage.getItem(key)).toBe(stored)
+    wrapper.unmount()
+    expect(localStorage.getItem(key)).toBe(stored)
+  })
+
+  it('discarding an unreviewed draft does not clear an equal private in-memory body', async () => {
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '相同文字但属于当前私密正文', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff009-1234-7abc-8def-0123456789ab'
+    })
+    const wrapper = mountComposer({ articleId: 42, accountId: 7, modelValue: '相同文字但属于当前私密正文' })
+    await wrapper.get('.comment-composer-draft__actions button:last-child').trigger('click')
+    expect(localStorage.getItem(key)).toBeNull()
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    expect(wrapper.props('modelValue')).toBe('相同文字但属于当前私密正文')
+    wrapper.unmount()
+  })
+
+  it('uses a new anonymous mutation identity after review and keeps cleanup failures closed', async () => {
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '审查后匿名发送', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff006-1234-7abc-8def-0123456789ab'
+    })
+    const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    await wrapper.get('.comment-composer-draft__actions button').trigger('click')
+    await wrapper.setProps({ modelValue: '审查后匿名发送' })
+    const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))!
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')![0]![0]).not.toBe('018ff006-1234-7abc-8def-0123456789ab')
+    wrapper.unmount()
+
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '无法清理的公开草稿', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff007-1234-7abc-8def-0123456789ab'
+    })
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('storage deletion denied') })
+    const blocked = mountComposer({ articleId: 42, accountId: 7 })
+    await blocked.get('.comment-composer-draft__actions button').trigger('click')
+    await blocked.setProps({ modelValue: '无法清理的公开草稿' })
+    expect(blocked.text()).toContain('强匿名发布已暂停')
+    await blocked.findAll('button').find(button => button.text().includes('发送'))!.trigger('click')
+    expect(blocked.emitted('submit')).toBeUndefined()
+    expect(blocked.get<HTMLInputElement>('input[type=checkbox]').element.checked).toBe(false)
+    blocked.unmount()
+  })
+
+  it('drops reviewed public retry identity when the anonymous credential lifecycle is purged', async () => {
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '已审查正文', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff008-1234-7abc-8def-0123456789ab'
+    })
+    const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    await wrapper.get('.comment-composer-draft__actions button').trigger('click')
+    await wrapper.setProps({ modelValue: '已审查正文' })
+    await purgeCommentPrivacyCredentialState('epoch-changed', { broadcast: false })
+    expect(wrapper.emitted('update:modelValue')).toContainEqual([''])
+    await wrapper.setProps({ modelValue: '' })
+    await wrapper.get<HTMLInputElement>('input[type=checkbox]').setValue(true)
+    await wrapper.setProps({ modelValue: '已审查正文', authorMode: 'public', publicSendConfirmed: true })
+    await wrapper.findAll('button').find(button => button.text().includes('发送'))!.trigger('click')
+    expect(wrapper.emitted('submit')![0]![0]).not.toBe('018ff008-1234-7abc-8def-0123456789ab')
     wrapper.unmount()
   })
 
@@ -338,6 +471,97 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     expect(wrapper.findAll('button').some(button => button.attributes('disabled') !== undefined)).toBe(true)
     expect(localStorage.getItem(`${LEGACY_COMMENT_DRAFT_STORAGE_PREFIX}7:42:root`)).not.toBeNull()
 
+    wrapper.unmount()
+  })
+})
+
+
+describe('ArticleCommentComposer public primitive delegation', () => {
+  it('delegates the two mode surfaces to one public configuration and state', async () => {
+    const wrapper = mountComposer({ modelValue: '正文' })
+    const modes = wrapper.findAllComponents(FsusUiSegmentedControl)
+    expect(modes).toHaveLength(2)
+    expect(modes[0]!.props('items')).toBe(modes[1]!.props('items'))
+    expect(modes[0]!.props('ariaLabel')).toBe(modes[1]!.props('ariaLabel'))
+    modes[1]!.vm.$emit('update:modelValue', 'preview')
+    await nextTick()
+    expect(modes.map(mode => mode.props('modelValue'))).toEqual(['preview', 'preview'])
+    modes[0]!.vm.$emit('update:modelValue', 'unexpected')
+    await nextTick()
+    expect(modes[0]!.props('modelValue')).toBe('preview')
+    wrapper.unmount()
+  })
+
+  it('delegates the same input contract and content to normal and expanded editors', async () => {
+    const wrapper = mountComposer({ modelValue: '共享正文', isSubmitting: true })
+    const editors = wrapper.findAllComponents(FsusUiInput)
+    expect(editors).toHaveLength(2)
+    for (const editor of editors) {
+      expect(editor.props('modelValue')).toBe('共享正文')
+      expect(editor.props('disabled')).toBe(true)
+      expect(editor.attributes('aria-label')).toBe('发表评论')
+      expect(editor.attributes('type')).toBe('textarea')
+      expect(editor.attributes('resize')).toBe('none')
+    }
+    editors[1]!.vm.$emit('update:modelValue', '扩展输入')
+    expect(wrapper.emitted('update:modelValue')).toContainEqual(['扩展输入'])
+    wrapper.unmount()
+  })
+
+  it.each([
+    [{ isBanned: true }, '当前账号已被禁言'],
+    [{ isPowCalculating: true }, '正在准备发送'],
+    [{ isSubmitting: true }, '正在发送评论'],
+    [{ publicCommentsEnabled: false }, '不允许公开署名评论']
+  ] as const)('keeps a reason in the disabled checkbox label and refuses updates: %s', async (props, reason) => {
+    const wrapper = mountComposer(props)
+    const checkbox = wrapper.getComponent(FsusUiCheckbox)
+    expect(checkbox.props('disabled')).toBe(true)
+    expect(checkbox.text()).toContain(reason)
+    checkbox.vm.$emit('update:modelValue', true)
+    await nextTick()
+    expect(wrapper.emitted('update:authorMode')).toBeUndefined()
+    expect(wrapper.emitted('update:publicSendConfirmed')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('explains anonymous unavailability while retaining explicit public choice', () => {
+    const wrapper = mountComposer({ zkAnonymousEnabled: false })
+    expect(wrapper.getComponent(FsusUiCheckbox).props('disabled')).toBe(false)
+    expect(wrapper.getComponent(FsusUiCheckbox).text()).toContain('勾选后将公开署名')
+    wrapper.unmount()
+  })
+
+  it('changes only this submit choice, with no mutation or account preference write', async () => {
+    const wrapper = mountComposer({ modelValue: '公开评论' })
+    await nextTick()
+    const storageWrite = vi.spyOn(Storage.prototype, 'setItem')
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    await wrapper.get<HTMLInputElement>('input[type=checkbox]').setValue(true)
+    expect(storageWrite).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+    expect(wrapper.emitted('submit')).toBeUndefined()
+    await wrapper.setProps({ authorMode: 'public', publicSendConfirmed: true })
+    const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))!
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')).toHaveLength(1)
+    wrapper.unmount()
+    const nextComposer = mountComposer()
+    expect(nextComposer.getComponent(FsusUiCheckbox).props('modelValue')).toBe(false)
+    nextComposer.unmount()
+  })
+
+  it('blocks composing submit shortcuts and submits once after composition finishes', async () => {
+    const wrapper = mountComposer({ modelValue: '输入中文' })
+    const editor = wrapper.getComponent(FsusUiInput)
+    editor.vm.$emit('compositionstart', new CompositionEvent('compositionstart'))
+    editor.vm.$emit('keydown', new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, isComposing: true }))
+    expect(wrapper.emitted('submit')).toBeUndefined()
+    editor.vm.$emit('compositionend', new CompositionEvent('compositionend'))
+    await nextTick()
+    editor.vm.$emit('keydown', new KeyboardEvent('keydown', { key: 'Enter', metaKey: true }))
+    expect(wrapper.emitted('submit')).toHaveLength(1)
     wrapper.unmount()
   })
 })
