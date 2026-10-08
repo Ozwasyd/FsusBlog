@@ -9,17 +9,17 @@ using NpgsqlTypes;
 
 using FsusBlog.Server.Infrastructure.Testing;
 
-if (args.Length > 0 && args[0] == "--self-test")
-{
-    return await CollectorControls.RunAsync(args);
-}
-if (args.Length != 4)
-{
-    Console.Error.WriteLine("usage: QueryPlanCollector <private-command-capture> <binding> <private-connection-file> <private-output>");
-    return 2;
-}
 try
 {
+    if (args.Length > 0 && args[0] == "--self-test")
+    {
+        return await CollectorControls.RunAsync(args);
+    }
+    if (args.Length != 4)
+    {
+        Console.Error.WriteLine("usage: QueryPlanCollector <private-command-capture> <binding> <private-connection-file> <private-output>");
+        return 2;
+    }
     await QueryPlanCollector.CollectAsync(args[0], args[1], args[2], args[3]);
     Console.WriteLine("{\"status\":\"collected\",\"qualification\":\"not-performed\"}");
     return 0;
