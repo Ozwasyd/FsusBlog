@@ -101,7 +101,7 @@ public static class CurrentSchemaControlShape
     /// <returns>The sole current semantic control shape.</returns>
     public static SchemaTableModel DescribeApplyJournal()
     {
-        const string table = ApplyJournalTableName;
+        const string Table = ApplyJournalTableName;
         var columns = new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal)
         {
             ["plan_digest"] = new("plan_digest", false, true, false, 64, "string", Conversion: "none"),
@@ -116,13 +116,13 @@ public static class CurrentSchemaControlShape
         // an unoccupied namespace. Collisions are not accepted as another shape.
         SchemaConstraintModel[] definitions =
         [
-            new(table + "_pkey", "primary-key", ["plan_digest", "database_digest", "invocation_id", "sequence"]),
+            new(Table + "_pkey", "primary-key", ["plan_digest", "database_digest", "invocation_id", "sequence"]),
             new("__fsus_schema_offline_apply_j_plan_digest_database_digest_i_key", "unique",
                 ["plan_digest", "database_digest", "invocation_id", "parent_digest"]),
-            new(table + "_entry_digest_key", "unique", ["entry_digest"]),
-            new(table + "_sequence_check", "check", ["sequence"], Expression: "sequence > 0")
+            new(Table + "_entry_digest_key", "unique", ["entry_digest"]),
+            new(Table + "_sequence_check", "check", ["sequence"], Expression: "sequence > 0")
         ];
-        return new(table, columns, [], constraints: definitions.ToDictionary(static value => value.Name,
+        return new(Table, columns, [], constraints: definitions.ToDictionary(static value => value.Name,
             StringComparer.Ordinal), owner: new SchemaOwnerModel("current-control", Version));
     }
 
