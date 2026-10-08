@@ -51,7 +51,7 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
     public async Task CurrentFullAuthSession_RealLoginAndMappedEndpointExecuteBusinessAction()
     {
         await using ScenarioContext scenario = await CreateScenarioAsync();
-        SessionTokenResponseDto login = await scenario.LoginAsync(FullAuthContext(scenario.Now));
+        SessionTokenResponseDto login = await scenario.LoginAsync(scenario.Authentication);
 
         using HttpResponseMessage response = await scenario.SendAsync(login.AccessToken, "current-full-handle");
 
@@ -70,7 +70,7 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
         string token = scenario.Jwt.GenerateAccessToken(
             scenario.User,
             "mfa-pending-session",
-            FullAuthContext(scenario.Now)).Token;
+            scenario.Authentication).Token;
         DatabaseSnapshot before = await scenario.CaptureDatabaseAsync();
 
         using HttpResponseMessage response = await scenario.SendAsync(token, "pending-handle");
@@ -86,7 +86,7 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
     public async Task RevokedOrLoggedOutSession_IsRejectedBeforeBusinessWithNoDatabaseWrite(string scenarioName)
     {
         await using ScenarioContext scenario = await CreateScenarioAsync();
-        SessionTokenResponseDto login = await scenario.LoginAsync(FullAuthContext(scenario.Now));
+        SessionTokenResponseDto login = await scenario.LoginAsync(scenario.Authentication);
         bool revoked = scenarioName switch
         {
             "revoked" => await scenario.Sessions.RevokeSessionAsync(scenario.User.Id, login.SessionId),
@@ -110,7 +110,7 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
     public async Task ExpiredTokenOrSession_IsRejectedBeforeBusinessWithNoDatabaseWrite(string scenarioName)
     {
         await using ScenarioContext scenario = await CreateScenarioAsync();
-        UserSessionAuthenticationContext authContext = FullAuthContext(scenario.Now);
+        UserSessionAuthenticationContext authContext = scenario.Authentication;
         SessionTokenResponseDto login = await scenario.LoginAsync(authContext);
         string accessToken = login.AccessToken;
         if (scenarioName == "jwt")
@@ -149,15 +149,19 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
     public async Task ForgedFullAuthClaimsAgainstLowStrengthDatabaseSession_AreRejectedWithoutSideEffects()
     {
         await using ScenarioContext scenario = await CreateScenarioAsync();
-        var lowStrength = new UserSessionAuthenticationContext(
-            UserSessionAuthenticationMethods.Other,
-            UserSessionAuthenticationStrengths.LegacyUnverified,
-            scenario.Now.UtcDateTime);
-        SessionTokenResponseDto login = await scenario.LoginAsync(lowStrength, mfaVerified: false);
+        SessionTokenResponseDto login = await scenario.LoginAsync(scenario.Authentication);
+        // Persist deliberately unsupported authentication metadata as the negative control;
+        // the current login producer never creates this session state.
+        Assert.Equal(1, await scenario.Db.Updateable<UserSession>()
+            .SetColumns(session => session.AuthenticationMethod == "unknown-method")
+            .SetColumns(session => session.AuthenticationStrength == "unknown-strength")
+            .Where(session => session.SessionId == login.SessionId)
+            .ExecuteCommandAsync());
+        scenario.Cache.RemoveState(login.SessionId);
         string forged = scenario.Jwt.GenerateAccessToken(
             scenario.User,
             login.SessionId,
-            FullAuthContext(scenario.Now)).Token;
+            scenario.Authentication).Token;
         DatabaseSnapshot before = await scenario.CaptureDatabaseAsync();
 
         using HttpResponseMessage response = await scenario.SendAsync(forged, "forged-handle");
@@ -173,7 +177,7 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
     public async Task WrongSessionOrUserIdentity_IsRejectedWithoutSideEffects(string scenarioName)
     {
         await using ScenarioContext scenario = await CreateScenarioAsync();
-        UserSessionAuthenticationContext authContext = FullAuthContext(scenario.Now);
+        UserSessionAuthenticationContext authContext = scenario.Authentication;
         SessionTokenResponseDto login = await scenario.LoginAsync(authContext);
         User tokenUser = scenarioName == "wrong-user-id"
             ? new User
@@ -201,7 +205,7 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
     public async Task RefreshRotation_RejectsOldRefreshAuthorityAndCurrentAccessExecutesBusinessAction()
     {
         await using ScenarioContext scenario = await CreateScenarioAsync();
-        SessionTokenResponseDto login = await scenario.LoginAsync(FullAuthContext(scenario.Now));
+        SessionTokenResponseDto login = await scenario.LoginAsync(scenario.Authentication);
 
         RefreshTokenRotationResult rotation = await scenario.Sessions.RotateRefreshTokenAsync(
             login.RefreshToken,
@@ -227,9 +231,12 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
         PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(User),
+            typeof(PasskeyCredential),
             typeof(UserSession),
             typeof(UserRefreshTokenTombstone));
         User user = await SeedAccountAsync(db, now.UtcDateTime);
+        UserSessionAuthenticationContext authentication = await VerifiedPasskeyTestAuthentication.CreateAsync(
+            db, user, timeProvider);
         var cache = new InMemorySessionValidationCache();
         var profileCommands = Substitute.For<IUserProfileCommandService>();
         profileCommands.UpdatePublicHandleAsync(
@@ -277,7 +284,8 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
             jwt,
             login,
             sessions,
-            now);
+            now,
+            authentication);
     }
 
     private static async Task<WebApplication> StartHostAsync(
@@ -297,7 +305,6 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
             ["Jwt:Issuer"] = "FsusBlog.Issue2345.Tests",
             ["Jwt:Audience"] = "FsusBlog.Issue2345.Tests",
             ["Jwt:AccessTokenExpiresMinutes"] = "15",
-            ["Jwt:RotationWindowDays"] = "30",
             ["AuthCookies:AllowInsecureTransportCookies"] = "true",
             ["AllowedHosts"] = HostName,
             ["CORS_ALLOWED_HOSTS"] = $"https://{HostName}",
@@ -339,12 +346,6 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
         user.Id = await db.Insertable(user).ExecuteReturnIdentityAsync();
         return user;
     }
-
-    private static UserSessionAuthenticationContext FullAuthContext(DateTimeOffset now)
-        => new(
-            UserSessionAuthenticationMethods.Passkey,
-            UserSessionAuthenticationStrengths.WebAuthnUv,
-            now.UtcDateTime);
 
     private static HttpRequestMessage CreatePutHandleRequest(string accessToken, string publicHandle)
     {
@@ -416,7 +417,8 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
         IJwtHelper jwt,
         UserLoginWorkflowService login,
         UserSessionCommandService sessions,
-        DateTimeOffset now) : IAsyncDisposable
+        DateTimeOffset now,
+        UserSessionAuthenticationContext authentication) : IAsyncDisposable
     {
         public SqlSugarClient Db => db;
         public User User => user;
@@ -426,18 +428,16 @@ public sealed class UserSessionSensitiveEndpointIntegrationTests(PostgresSchemaM
         public UserLoginWorkflowService Login => login;
         public UserSessionCommandService Sessions => sessions;
         public DateTimeOffset Now => now;
+        public UserSessionAuthenticationContext Authentication => authentication;
 
         public async Task<SessionTokenResponseDto> LoginAsync(
-            UserSessionAuthenticationContext context,
-            bool mfaVerified = true)
+            UserSessionAuthenticationContext context)
         {
             var result = await login.CompleteLoginAsync(
                 user,
                 "203.0.113.45",
                 "issue-2345-device",
                 "issue-2345-agent",
-                mfaVerified,
-                rememberMe: false,
                 context);
             Assert.True(result.Success, result.Message);
             return Assert.IsType<SessionTokenResponseDto>(result.Data);

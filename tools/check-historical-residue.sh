@@ -243,6 +243,34 @@ RunResidueCheck \
     src/backend/Infrastructure/Helpers/Security tests/backend
 
 RunResidueCheck \
+    "current session authentication and signing compatibility" \
+    "current session authentication or signing compatibility residue detected" \
+    '\blegacy_(?:verified|unverified)\b|\bUserSessionAuthenticationMethods[.]Other\b|\bFromLegacy\b|\bLegacyNoKidAcceptUntilUtc\b|\bPreviousKeys\b|\bJwtPreviousKeySettings\b|"other"' \
+    '' \
+    src/backend/Entities/UserSessionAuthenticationContext.cs src/backend/Entities/UserSession.cs src/backend/Infrastructure/Helpers/JwtHelper.cs src/backend/Services/UserLoginWorkflowService.cs src/backend/Services/UserSessionCommandService.cs src/backend/Models/JwtSettings.cs src/shared/Contracts/AuthSystem/user-session-authentication-contract.json src/shared/Contracts/AuthSystem/UserSessionAuthenticationContract.generated.cs src/frontend/src/contracts/binaryApi.ts src/frontend/src/generated/authSessionContract.ts
+
+RunResidueCheck \
+    "current auth mode and password compatibility" \
+    "current auth mode or password compatibility residue detected" \
+    '\bFSUSBLOG_ANONYMOUS_IDENTITY_MODE\b|\b(?:ModeEnvironmentVariable|IsAnonymousIdentityModeEnabled|LegacyPasswordDisabledMessage|MfaPasswordProofRequest(?:Pod|CoreModel)?|(?:Write|Encode|TryDecode)MfaPasswordProofRequest)\b' \
+    '' \
+    src/backend src/shared/Contracts/Models src/shared/Contracts/Validation/PodContractValidation.cs src/shared/Contracts/Validation/PodSizeCatalog.cs src/core/Cache/PodBinaryCodec.User.cs src/core/Mapping/Models/ReadModels.cs config/application config/deployment config/examples/.env.production.example config/examples ops/docker tools/dev tools/deploy-production.sh tools/bootstrap-acceptance-env.sh tools/test/bundles/runtime-environment.mjs tools/data-scale/product-backend.mjs
+
+RunResidueCheck \
+    "current auth identity catalog copies" \
+    "current auth identity catalog copy detected" \
+    '(?:const[[:space:]]+string[[:space:]]+\w+|IdentityKind|identityKind|identity_kind)[^;\n]*=[^;\n]*["'\''](?:anonymous_account|admin_principal)["'\'']|\b(?:is|or)[[:space:]]+["'\'']anonymous_account["'\'']' \
+    '^src/shared/Contracts/AuthSystem/UserSessionAuthenticationContract[.]generated[.]cs$' \
+    src/backend/Services src/backend/Modules/Endpoints src/backend/Infrastructure/Auth src/core/Cache/PodBinaryCodec.User.cs
+
+RunResidueCheck \
+    "current MFA constructor compatibility aliases" \
+    "current MFA constructor compatibility alias detected" \
+    '\bstepUpVerified\b|\b(?:ISqlSugarClient|ILogger<UserService>|IAccountStateProjectionMutationPublisher|ITotpService)[[:space:]]+_(?:db|logger|accountStates|cacheCounters|totpService)[[:space:]]*[,)]|\bUserService[[:space:]]*\([^\n]*(?:_db|_logger|_accountStates|_totpService)[[:space:]]*:' \
+    '' \
+    src/backend/Services/UserService.cs src/backend/Interfaces/UserApplicationPorts.cs
+
+RunResidueCheck \
     "legacy anonymous account auth contracts" \
     "legacy anonymous account auth contract residue detected" \
     '\b(?:FrameType|AedsFrameType)\.Auth(?:Login|Register)Request\b|binaryUrl:\s*["'\'']/api/binary/auth/(?:login|register)["'\'']|group[.]MapPost[(]["'\'']/auth/(?:login|register)["'\'']|export\s+interface\s+(?:Login|Register)Dto\b|function\s+encodeAuth(?:Login|Register)Request\b' \

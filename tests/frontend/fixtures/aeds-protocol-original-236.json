@@ -1,0 +1,1494 @@
+{
+    "schema": "fsusblog.aeds-protocol-historical-renderer-fixture.v1",
+    "classification": "historical renderer byte control; not current protocol acceptance",
+    "sourceCommit": "076542715c117b20837f23267e23bbca7b13792d",
+    "manifest": {
+        "schemaVersion": 1,
+        "header": {
+            "size": 16,
+            "magic": "0x53444541",
+            "version": 2
+        },
+        "retiredFrameValues": [
+            {
+                "value": 40,
+                "reason": "legacy-admin-password-reset"
+            },
+            {
+                "value": 43,
+                "reason": "legacy-password-login"
+            },
+            {
+                "value": 44,
+                "reason": "legacy-password-register"
+            },
+            {
+                "value": 45,
+                "reason": "legacy-username-mutation"
+            },
+            {
+                "value": 46,
+                "reason": "legacy-password-mutation"
+            },
+            {
+                "value": 180,
+                "reason": "precise-anonymous-credential-ticket-request"
+            },
+            {
+                "value": 181,
+                "reason": "precise-anonymous-credential-ticket-response"
+            }
+        ],
+        "anonymousPrivacyContract": {
+            "circuitId": "fsus.anonymous.comment.v5",
+            "publicInputLayoutVersion": 6,
+            "blindCredentialScheme": "rfc9474-rsabssa-sha384-pss-randomized-3072",
+            "blindRsaModulusBytes": 384,
+            "maxGroth16ProofBytes": 4096,
+            "anonymousTicketPublicInputs": [
+                "action_context",
+                "scope",
+                "credential_root",
+                "revocation_root",
+                "nullifier_hash",
+                "is_eligible",
+                "may_comment",
+                "rate_class",
+                "requires_moderation"
+            ]
+        },
+        "frameTypes": [
+            {
+                "name": "Unknown",
+                "value": 0,
+                "goldenFamily": "reserved",
+                "goldenOrder": 0
+            },
+            {
+                "name": "ArticleList",
+                "value": 1,
+                "goldenFamily": "public-article-response",
+                "goldenOrder": 1
+            },
+            {
+                "name": "ArticleDetail",
+                "value": 2,
+                "goldenFamily": "public-article-response",
+                "goldenOrder": 2
+            },
+            {
+                "name": "ArticleHot",
+                "value": 3,
+                "goldenFamily": "public-article-response",
+                "goldenOrder": 3
+            },
+            {
+                "name": "ArticleSearch",
+                "value": 4,
+                "goldenFamily": "public-article-response",
+                "goldenOrder": 4
+            },
+            {
+                "name": "CommentArticleCursor",
+                "value": 5,
+                "goldenFamily": "comment-response",
+                "goldenOrder": 5
+            },
+            {
+                "name": "CommentUserCursor",
+                "value": 6,
+                "goldenFamily": "comment-response",
+                "goldenOrder": 6
+            },
+            {
+                "name": "AdminStats",
+                "value": 7,
+                "goldenFamily": "admin-response",
+                "goldenOrder": 7
+            },
+            {
+                "name": "CommentThreadReplyCursor",
+                "value": 8,
+                "goldenFamily": "comment-response",
+                "goldenOrder": 8
+            },
+            {
+                "name": "CategoryList",
+                "value": 9,
+                "goldenFamily": "taxonomy-response",
+                "goldenOrder": 9
+            },
+            {
+                "name": "TagList",
+                "value": 10,
+                "goldenFamily": "taxonomy-response",
+                "goldenOrder": 10
+            },
+            {
+                "name": "RecentCommentStats",
+                "value": 11,
+                "goldenFamily": "stats-response",
+                "goldenOrder": 11
+            },
+            {
+                "name": "RegionStats",
+                "value": 12,
+                "goldenFamily": "stats-response",
+                "goldenOrder": 12
+            },
+            {
+                "name": "SeoConfig",
+                "value": 13,
+                "goldenFamily": "system-response",
+                "goldenOrder": 13
+            },
+            {
+                "name": "PageContent",
+                "value": 14,
+                "goldenFamily": "system-response",
+                "goldenOrder": 14
+            },
+            {
+                "name": "ArticleFeatured",
+                "value": 15,
+                "goldenFamily": "public-article-response",
+                "goldenOrder": 15
+            },
+            {
+                "name": "TrashClearResponse",
+                "value": 16,
+                "goldenFamily": "article-mutation-response",
+                "goldenOrder": 16
+            },
+            {
+                "name": "AdminUserList",
+                "value": 17,
+                "goldenFamily": "admin-user-response",
+                "goldenOrder": 17
+            },
+            {
+                "name": "AuthLoginFlow",
+                "value": 18,
+                "goldenFamily": "auth-response",
+                "goldenOrder": 18
+            },
+            {
+                "name": "CurrentUserSnapshot",
+                "value": 19,
+                "goldenFamily": "auth-response",
+                "goldenOrder": 19
+            },
+            {
+                "name": "UploadInit",
+                "value": 20,
+                "goldenFamily": "upload-response",
+                "goldenOrder": 20
+            },
+            {
+                "name": "UploadStatus",
+                "value": 21,
+                "goldenFamily": "upload-response",
+                "goldenOrder": 21
+            },
+            {
+                "name": "UploadPartAck",
+                "value": 22,
+                "goldenFamily": "upload-response",
+                "goldenOrder": 22
+            },
+            {
+                "name": "UploadComplete",
+                "value": 23,
+                "goldenFamily": "upload-response",
+                "goldenOrder": 23
+            },
+            {
+                "name": "UploadPartMap",
+                "value": 24,
+                "goldenFamily": "upload-response",
+                "goldenOrder": 24
+            },
+            {
+                "name": "AuthSessionList",
+                "value": 25,
+                "goldenFamily": "auth-response",
+                "goldenOrder": 25
+            },
+            {
+                "name": "SiteComplianceConfig",
+                "value": 26,
+                "goldenFamily": "system-response",
+                "goldenOrder": 26
+            },
+            {
+                "name": "ArticleRelatedReading",
+                "value": 27,
+                "goldenFamily": "public-article-response",
+                "goldenOrder": 27
+            },
+            {
+                "name": "HumanReadChallengeResponse",
+                "value": 28,
+                "goldenFamily": "read-proof-response",
+                "goldenOrder": 28
+            },
+            {
+                "name": "HumanReadSubmitResponse",
+                "value": 29,
+                "goldenFamily": "read-proof-response",
+                "goldenOrder": 29
+            },
+            {
+                "name": "PowChallenge",
+                "value": 30,
+                "goldenFamily": "auth-response",
+                "goldenOrder": 30
+            },
+            {
+                "name": "UploadInitRequest",
+                "value": 31,
+                "goldenFamily": "upload-request",
+                "goldenOrder": 31
+            },
+            {
+                "name": "UploadCompleteRequest",
+                "value": 32,
+                "goldenFamily": "upload-request",
+                "goldenOrder": 32
+            },
+            {
+                "name": "CategoryWriteRequest",
+                "value": 33,
+                "goldenFamily": "taxonomy-request",
+                "goldenOrder": 33
+            },
+            {
+                "name": "TagWriteRequest",
+                "value": 34,
+                "goldenFamily": "taxonomy-request",
+                "goldenOrder": 34
+            },
+            {
+                "name": "SeoConfigUpdateRequest",
+                "value": 35,
+                "goldenFamily": "system-request",
+                "goldenOrder": 35
+            },
+            {
+                "name": "PageContentUpdateRequest",
+                "value": 36,
+                "goldenFamily": "system-request",
+                "goldenOrder": 36
+            },
+            {
+                "name": "FileDeleteRequest",
+                "value": 38,
+                "goldenFamily": "file-request",
+                "goldenOrder": 37
+            },
+            {
+                "name": "AdminChangeUserStatusRequest",
+                "value": 39,
+                "goldenFamily": "admin-user-request",
+                "goldenOrder": 38
+            },
+            {
+                "name": "ArticleWriteRequest",
+                "value": 41,
+                "goldenFamily": "article-request",
+                "goldenOrder": 39
+            },
+            {
+                "name": "AuthDeleteAccountRequest",
+                "value": 47,
+                "goldenFamily": "auth-request",
+                "goldenOrder": 40
+            },
+            {
+                "name": "MfaSetupStart",
+                "value": 48,
+                "goldenFamily": "mfa-response",
+                "goldenOrder": 41
+            },
+            {
+                "name": "MfaSetupVerify",
+                "value": 49,
+                "goldenFamily": "mfa-response",
+                "goldenOrder": 42
+            },
+            {
+                "name": "MfaProfile",
+                "value": 50,
+                "goldenFamily": "mfa-response",
+                "goldenOrder": 43
+            },
+            {
+                "name": "MfaChallengeResult",
+                "value": 51,
+                "goldenFamily": "mfa-response",
+                "goldenOrder": 44
+            },
+            {
+                "name": "MfaSetupVerifyRequest",
+                "value": 52,
+                "goldenFamily": "mfa-request",
+                "goldenOrder": 45
+            },
+            {
+                "name": "MfaPasswordProofRequest",
+                "value": 53,
+                "goldenFamily": "mfa-request",
+                "goldenOrder": 46
+            },
+            {
+                "name": "MfaChallengeStartRequest",
+                "value": 54,
+                "goldenFamily": "mfa-request",
+                "goldenOrder": 47
+            },
+            {
+                "name": "MfaChallengeVerifyRequest",
+                "value": 55,
+                "goldenFamily": "mfa-request",
+                "goldenOrder": 48
+            },
+            {
+                "name": "ConversationList",
+                "value": 56,
+                "goldenFamily": "message-response",
+                "goldenOrder": 49
+            },
+            {
+                "name": "ConversationDetail",
+                "value": 57,
+                "goldenFamily": "message-response",
+                "goldenOrder": 50
+            },
+            {
+                "name": "ConversationMessage",
+                "value": 58,
+                "goldenFamily": "message-response",
+                "goldenOrder": 51
+            },
+            {
+                "name": "ConversationCreateRequest",
+                "value": 59,
+                "goldenFamily": "message-request",
+                "goldenOrder": 52
+            },
+            {
+                "name": "ConversationReplyRequest",
+                "value": 60,
+                "goldenFamily": "message-request",
+                "goldenOrder": 53
+            },
+            {
+                "name": "ConversationStatusRequest",
+                "value": 61,
+                "goldenFamily": "message-request",
+                "goldenOrder": 54
+            },
+            {
+                "name": "SystemMessageRequest",
+                "value": 62,
+                "goldenFamily": "message-request",
+                "goldenOrder": 55
+            },
+            {
+                "name": "PasskeyRegisterBegin",
+                "value": 63,
+                "goldenFamily": "passkey-response",
+                "goldenOrder": 56
+            },
+            {
+                "name": "PasskeyLoginBegin",
+                "value": 64,
+                "goldenFamily": "passkey-response",
+                "goldenOrder": 57
+            },
+            {
+                "name": "PasskeyCredentialList",
+                "value": 65,
+                "goldenFamily": "passkey-response",
+                "goldenOrder": 58
+            },
+            {
+                "name": "PasskeyRegisterCompleteRequest",
+                "value": 66,
+                "goldenFamily": "passkey-request",
+                "goldenOrder": 59
+            },
+            {
+                "name": "PasskeyLoginCompleteRequest",
+                "value": 67,
+                "goldenFamily": "passkey-request",
+                "goldenOrder": 60
+            },
+            {
+                "name": "PasskeyCredentialFriendlyNameUpdateRequest",
+                "value": 68,
+                "goldenFamily": "passkey-request",
+                "goldenOrder": 61
+            },
+            {
+                "name": "NotificationEvent",
+                "value": 69,
+                "goldenFamily": "notification-stream-response",
+                "goldenOrder": 62
+            },
+            {
+                "name": "NotificationHeartbeat",
+                "value": 70,
+                "goldenFamily": "notification-stream-response",
+                "goldenOrder": 63
+            },
+            {
+                "name": "PublicAotBootstrap",
+                "value": 71,
+                "goldenFamily": "public-aot-response",
+                "goldenOrder": 64
+            },
+            {
+                "name": "SiteComplianceConfigUpdateRequest",
+                "value": 72,
+                "goldenFamily": "system-request",
+                "goldenOrder": 65
+            },
+            {
+                "name": "HumanReadChallengeRequest",
+                "value": 73,
+                "goldenFamily": "read-proof-request",
+                "goldenOrder": 66
+            },
+            {
+                "name": "HumanReadSubmitRequest",
+                "value": 74,
+                "goldenFamily": "read-proof-request",
+                "goldenOrder": 67
+            },
+            {
+                "name": "RumMetricBatchRequest",
+                "value": 75,
+                "goldenFamily": "telemetry-request",
+                "goldenOrder": 68
+            },
+            {
+                "name": "RumMetricIngestResponse",
+                "value": 76,
+                "goldenFamily": "telemetry-response",
+                "goldenOrder": 69
+            },
+            {
+                "name": "AuthorDraftSaveRequest",
+                "value": 77,
+                "goldenFamily": "authoring-request",
+                "goldenOrder": 70
+            },
+            {
+                "name": "ArticlePreviewRequest",
+                "value": 78,
+                "goldenFamily": "authoring-request",
+                "goldenOrder": 71
+            },
+            {
+                "name": "PrepublishCheckRequest",
+                "value": 79,
+                "goldenFamily": "authoring-request",
+                "goldenOrder": 72
+            },
+            {
+                "name": "AiAssistRequest",
+                "value": 80,
+                "goldenFamily": "authoring-request",
+                "goldenOrder": 73
+            },
+            {
+                "name": "AdminCacheActionRequest",
+                "value": 81,
+                "goldenFamily": "authoring-request",
+                "goldenOrder": 74
+            },
+            {
+                "name": "IntegrityFixRequest",
+                "value": 82,
+                "goldenFamily": "authoring-request",
+                "goldenOrder": 75
+            },
+            {
+                "name": "ModerationRuntimeGlobalStateRequest",
+                "value": 83,
+                "goldenFamily": "moderation-request",
+                "goldenOrder": 76
+            },
+            {
+                "name": "ModerationRuntimeRegionStateRequest",
+                "value": 84,
+                "goldenFamily": "moderation-request",
+                "goldenOrder": 77
+            },
+            {
+                "name": "ModerationDictionaryStateRequest",
+                "value": 85,
+                "goldenFamily": "moderation-request",
+                "goldenOrder": 78
+            },
+            {
+                "name": "ModerationEffectivePolicyPreviewRequest",
+                "value": 86,
+                "goldenFamily": "moderation-request",
+                "goldenOrder": 79
+            },
+            {
+                "name": "ModerationModelRuntimeRequest",
+                "value": 87,
+                "goldenFamily": "moderation-request",
+                "goldenOrder": 80
+            },
+            {
+                "name": "ModerationReplayPreviewRequest",
+                "value": 88,
+                "goldenFamily": "moderation-request",
+                "goldenOrder": 81
+            },
+            {
+                "name": "CommentModerationRequest",
+                "value": 89,
+                "goldenFamily": "moderation-request",
+                "goldenOrder": 82
+            },
+            {
+                "name": "CommentModerationBulkRequest",
+                "value": 90,
+                "goldenFamily": "moderation-request",
+                "goldenOrder": 83
+            },
+            {
+                "name": "ContentImportRequest",
+                "value": 91,
+                "goldenFamily": "authoring-request",
+                "goldenOrder": 84
+            },
+            {
+                "name": "AuthorDraftResponse",
+                "value": 92,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 85
+            },
+            {
+                "name": "AuthorDraftDiscardResponse",
+                "value": 93,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 86
+            },
+            {
+                "name": "ArticlePreviewResponse",
+                "value": 94,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 87
+            },
+            {
+                "name": "PrepublishCheckResponse",
+                "value": 95,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 88
+            },
+            {
+                "name": "AiAssistResponse",
+                "value": 96,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 89
+            },
+            {
+                "name": "AssetLibraryList",
+                "value": 97,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 90
+            },
+            {
+                "name": "AssetCleanupResponse",
+                "value": 98,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 91
+            },
+            {
+                "name": "AuthorTaxonomyCategoryList",
+                "value": 99,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 92
+            },
+            {
+                "name": "AuthorTaxonomyTagList",
+                "value": 100,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 93
+            },
+            {
+                "name": "AuthorAnalytics",
+                "value": 101,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 94
+            },
+            {
+                "name": "AuditLogList",
+                "value": 102,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 95
+            },
+            {
+                "name": "AuditLogSummary",
+                "value": 103,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 96
+            },
+            {
+                "name": "AuditLogDetail",
+                "value": 104,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 97
+            },
+            {
+                "name": "AuditTamperVerifyResponse",
+                "value": 105,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 98
+            },
+            {
+                "name": "OpsHealth",
+                "value": 106,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 99
+            },
+            {
+                "name": "BackupStatus",
+                "value": 107,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 100
+            },
+            {
+                "name": "DangerousOperationPolicy",
+                "value": 108,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 101
+            },
+            {
+                "name": "CacheDiagnostics",
+                "value": 109,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 102
+            },
+            {
+                "name": "AdminCacheActionResponse",
+                "value": 110,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 103
+            },
+            {
+                "name": "IntegrityReport",
+                "value": 111,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 104
+            },
+            {
+                "name": "IntegrityFixPreview",
+                "value": 112,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 105
+            },
+            {
+                "name": "IntegrityFixResponse",
+                "value": 113,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 106
+            },
+            {
+                "name": "CommentModerationQueue",
+                "value": 114,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 107
+            },
+            {
+                "name": "CommentModerationBulkResponse",
+                "value": 115,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 108
+            },
+            {
+                "name": "CommentModerationResult",
+                "value": 116,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 109
+            },
+            {
+                "name": "ContentExport",
+                "value": 117,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 110
+            },
+            {
+                "name": "ContentBackupExport",
+                "value": 118,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 111
+            },
+            {
+                "name": "ContentImportResponse",
+                "value": 119,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 112
+            },
+            {
+                "name": "ArticleRevisionList",
+                "value": 120,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 113
+            },
+            {
+                "name": "ArticleRevisionDetail",
+                "value": 121,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 114
+            },
+            {
+                "name": "ArticleRevisionRollbackResponse",
+                "value": 122,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 115
+            },
+            {
+                "name": "ModerationOverview",
+                "value": 123,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 116
+            },
+            {
+                "name": "ModerationDictionarySnapshot",
+                "value": 124,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 117
+            },
+            {
+                "name": "ModerationDictionaryReloadResponse",
+                "value": 125,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 118
+            },
+            {
+                "name": "ModerationRuntimeStatus",
+                "value": 126,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 119
+            },
+            {
+                "name": "ModerationRegionList",
+                "value": 127,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 120
+            },
+            {
+                "name": "ModerationRegionGroupList",
+                "value": 128,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 121
+            },
+            {
+                "name": "ModerationPolicyTemplateList",
+                "value": 129,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 122
+            },
+            {
+                "name": "ModerationEffectivePolicy",
+                "value": 130,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 123
+            },
+            {
+                "name": "RegionPolicySummaryList",
+                "value": 131,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 124
+            },
+            {
+                "name": "ModerationModelStatus",
+                "value": 132,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 125
+            },
+            {
+                "name": "ModerationReplayPreview",
+                "value": 133,
+                "goldenFamily": "moderation-response",
+                "goldenOrder": 126
+            },
+            {
+                "name": "AntiCrawlerOptionsUpdateRequest",
+                "value": 134,
+                "goldenFamily": "security-request",
+                "goldenOrder": 127
+            },
+            {
+                "name": "SecurityRiskResetRequest",
+                "value": 135,
+                "goldenFamily": "security-request",
+                "goldenOrder": 128
+            },
+            {
+                "name": "AntiCrawlerRuleRequest",
+                "value": 136,
+                "goldenFamily": "security-request",
+                "goldenOrder": 129
+            },
+            {
+                "name": "AntiCrawlerListEntryRequest",
+                "value": 137,
+                "goldenFamily": "security-request",
+                "goldenOrder": 130
+            },
+            {
+                "name": "AntiCrawlerSimulationRequest",
+                "value": 138,
+                "goldenFamily": "security-request",
+                "goldenOrder": 131
+            },
+            {
+                "name": "PowOptionsUpdateRequest",
+                "value": 139,
+                "goldenFamily": "security-request",
+                "goldenOrder": 132
+            },
+            {
+                "name": "SecurityOverview",
+                "value": 140,
+                "goldenFamily": "security-response",
+                "goldenOrder": 133
+            },
+            {
+                "name": "AntiCrawlerOverview",
+                "value": 141,
+                "goldenFamily": "security-response",
+                "goldenOrder": 134
+            },
+            {
+                "name": "AntiCrawlerPolicySnapshot",
+                "value": 142,
+                "goldenFamily": "security-response",
+                "goldenOrder": 135
+            },
+            {
+                "name": "CrawlerRangesAdminStatus",
+                "value": 143,
+                "goldenFamily": "security-response",
+                "goldenOrder": 136
+            },
+            {
+                "name": "CrawlerRangeSyncResponse",
+                "value": 144,
+                "goldenFamily": "security-response",
+                "goldenOrder": 137
+            },
+            {
+                "name": "SecurityRiskEventList",
+                "value": 145,
+                "goldenFamily": "security-response",
+                "goldenOrder": 138
+            },
+            {
+                "name": "SecurityRiskSnapshotList",
+                "value": 146,
+                "goldenFamily": "security-response",
+                "goldenOrder": 139
+            },
+            {
+                "name": "SecurityRiskResetResponse",
+                "value": 147,
+                "goldenFamily": "security-response",
+                "goldenOrder": 140
+            },
+            {
+                "name": "AntiCrawlerRuleList",
+                "value": 148,
+                "goldenFamily": "security-response",
+                "goldenOrder": 141
+            },
+            {
+                "name": "AntiCrawlerRuleResponse",
+                "value": 149,
+                "goldenFamily": "security-response",
+                "goldenOrder": 142
+            },
+            {
+                "name": "AntiCrawlerRuleDeleteResponse",
+                "value": 150,
+                "goldenFamily": "security-response",
+                "goldenOrder": 143
+            },
+            {
+                "name": "AntiCrawlerListEntryList",
+                "value": 151,
+                "goldenFamily": "security-response",
+                "goldenOrder": 144
+            },
+            {
+                "name": "AntiCrawlerListEntryResponse",
+                "value": 152,
+                "goldenFamily": "security-response",
+                "goldenOrder": 145
+            },
+            {
+                "name": "AntiCrawlerListEntryDeleteResponse",
+                "value": 153,
+                "goldenFamily": "security-response",
+                "goldenOrder": 146
+            },
+            {
+                "name": "AntiCrawlerSimulationResult",
+                "value": 154,
+                "goldenFamily": "security-response",
+                "goldenOrder": 147
+            },
+            {
+                "name": "PowOverview",
+                "value": 155,
+                "goldenFamily": "security-response",
+                "goldenOrder": 148
+            },
+            {
+                "name": "PowPolicySnapshot",
+                "value": 156,
+                "goldenFamily": "security-response",
+                "goldenOrder": 149
+            },
+            {
+                "name": "SiteSubscriptionRequest",
+                "value": 157,
+                "goldenFamily": "subscription-request",
+                "goldenOrder": 150
+            },
+            {
+                "name": "SiteSubscriptionResponse",
+                "value": 158,
+                "goldenFamily": "subscription-response",
+                "goldenOrder": 151
+            },
+            {
+                "name": "RecoveryKeyCreateResponse",
+                "value": 159,
+                "goldenFamily": "recovery-key-response",
+                "goldenOrder": 152
+            },
+            {
+                "name": "RecoveryKeyVerifyRequest",
+                "value": 160,
+                "goldenFamily": "recovery-key-request",
+                "goldenOrder": 153
+            },
+            {
+                "name": "RecoveryKeyVerifyResponse",
+                "value": 161,
+                "goldenFamily": "recovery-key-response",
+                "goldenOrder": 154
+            },
+            {
+                "name": "RecoveryKeySessionRequest",
+                "value": 162,
+                "goldenFamily": "recovery-key-request",
+                "goldenOrder": 155
+            },
+            {
+                "name": "IdentityAccountSnapshot",
+                "value": 163,
+                "goldenFamily": "identity-response",
+                "goldenOrder": 156
+            },
+            {
+                "name": "CommentPolicySnapshot",
+                "value": 164,
+                "goldenFamily": "comment-policy-response",
+                "goldenOrder": 157
+            },
+            {
+                "name": "CommentPolicyUpdateRequest",
+                "value": 165,
+                "goldenFamily": "comment-policy-request",
+                "goldenOrder": 158
+            },
+            {
+                "name": "CommentCreateV2Request",
+                "value": 166,
+                "goldenFamily": "comment-request",
+                "goldenOrder": 159
+            },
+            {
+                "name": "CommentAuthorView",
+                "value": 167,
+                "goldenFamily": "comment-response",
+                "goldenOrder": 160
+            },
+            {
+                "name": "AnonymousGovernanceActionRequest",
+                "value": 168,
+                "goldenFamily": "anonymous-governance-request",
+                "goldenOrder": 161
+            },
+            {
+                "name": "AnonymousGovernanceActionResponse",
+                "value": 169,
+                "goldenFamily": "anonymous-governance-response",
+                "goldenOrder": 162
+            },
+            {
+                "name": "AdminSessionList",
+                "value": 170,
+                "goldenFamily": "auth-response",
+                "goldenOrder": 163
+            },
+            {
+                "name": "SecurityChallengeAssignment",
+                "value": 171,
+                "goldenFamily": "security-challenge",
+                "goldenOrder": 164
+            },
+            {
+                "name": "SecurityChallengeEnvelope",
+                "value": 172,
+                "goldenFamily": "security-challenge",
+                "goldenOrder": 165
+            },
+            {
+                "name": "SecurityChallengeIssueRequest",
+                "value": 173,
+                "goldenFamily": "security-challenge-request",
+                "goldenOrder": 166
+            },
+            {
+                "name": "SecurityChallengeVerifyRequest",
+                "value": 174,
+                "goldenFamily": "security-challenge-request",
+                "goldenOrder": 167
+            },
+            {
+                "name": "SecurityChallengeIssueResponse",
+                "value": 175,
+                "goldenFamily": "security-challenge-response",
+                "goldenOrder": 168
+            },
+            {
+                "name": "SecurityChallengeVerifyResponse",
+                "value": 176,
+                "goldenFamily": "security-challenge-response",
+                "goldenOrder": 169
+            },
+            {
+                "name": "Reserved177",
+                "value": 177,
+                "goldenFamily": "reserved",
+                "goldenOrder": 170
+            },
+            {
+                "name": "Reserved178",
+                "value": 178,
+                "goldenFamily": "reserved",
+                "goldenOrder": 171
+            },
+            {
+                "name": "AnonymousCredentialRootSnapshot",
+                "value": 179,
+                "goldenFamily": "anonymous-privacy-response",
+                "goldenOrder": 172
+            },
+            {
+                "name": "AnonymousCommentCreateRequest",
+                "value": 182,
+                "goldenFamily": "anonymous-comment-request",
+                "goldenOrder": 215
+            },
+            {
+                "name": "AnonymousPrivacyStateSnapshot",
+                "value": 183,
+                "goldenFamily": "anonymous-privacy-response",
+                "goldenOrder": 216
+            },
+            {
+                "name": "PerceptionSealedChallengeV2",
+                "value": 184,
+                "goldenFamily": "security-challenge-response",
+                "goldenOrder": 217
+            },
+            {
+                "name": "PerceptionSealedResultV2",
+                "value": 185,
+                "goldenFamily": "security-challenge-request",
+                "goldenOrder": 218
+            },
+            {
+                "name": "RetiredCredentialSpecificRevocationRequest",
+                "value": 186,
+                "goldenFamily": "retired",
+                "goldenOrder": 219
+            },
+            {
+                "name": "RetiredCredentialSpecificRevocationResponse",
+                "value": 187,
+                "goldenFamily": "retired",
+                "goldenOrder": 220
+            },
+            {
+                "name": "AdminPrincipalSnapshot",
+                "value": 188,
+                "goldenFamily": "admin-principal-response",
+                "goldenOrder": 221
+            },
+            {
+                "name": "AuthAnonymousBootstrapRequest",
+                "value": 189,
+                "goldenFamily": "auth-request",
+                "goldenOrder": 222
+            },
+            {
+                "name": "AuthUpdatePublicHandleRequest",
+                "value": 190,
+                "goldenFamily": "auth-request",
+                "goldenOrder": 223
+            },
+            {
+                "name": "ArticleResponsibilityRequest",
+                "value": 191,
+                "goldenFamily": "authoring-request",
+                "goldenOrder": 224
+            },
+            {
+                "name": "ArticleResponsibilityResponse",
+                "value": 192,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 225
+            },
+            {
+                "name": "BlindCredentialIssuerMetadata",
+                "value": 193,
+                "goldenFamily": "anonymous-privacy-response",
+                "goldenOrder": 226
+            },
+            {
+                "name": "BlindCredentialIssueRequest",
+                "value": 194,
+                "goldenFamily": "anonymous-privacy-request",
+                "goldenOrder": 227
+            },
+            {
+                "name": "BlindCredentialIssueResponse",
+                "value": 195,
+                "goldenFamily": "anonymous-privacy-response",
+                "goldenOrder": 228
+            },
+            {
+                "name": "AnonymousCredentialRevocationSnapshot",
+                "value": 196,
+                "goldenFamily": "anonymous-privacy-response",
+                "goldenOrder": 229
+            },
+            {
+                "name": "AnonymousCredentialRevocationDelta",
+                "value": 197,
+                "goldenFamily": "anonymous-privacy-response",
+                "goldenOrder": 230
+            },
+            {
+                "name": "AnonymousCommentTicketRequest",
+                "value": 198,
+                "goldenFamily": "anonymous-privacy-request",
+                "goldenOrder": 173
+            },
+            {
+                "name": "AnonymousCommentTicketResponse",
+                "value": 199,
+                "goldenFamily": "anonymous-privacy-response",
+                "goldenOrder": 174
+            },
+            {
+                "name": "SecurityChallengeCancelRequest",
+                "value": 200,
+                "goldenFamily": "security-challenge-request",
+                "goldenOrder": 175
+            },
+            {
+                "name": "ConversationReadRequest",
+                "value": 201,
+                "goldenFamily": "message-request",
+                "goldenOrder": 176
+            },
+            {
+                "name": "AccountConversationReplyRequest",
+                "value": 202,
+                "goldenFamily": "message-request",
+                "goldenOrder": 177
+            },
+            {
+                "name": "ConversationDetailV2",
+                "value": 203,
+                "goldenFamily": "message-response",
+                "goldenOrder": 178
+            },
+            {
+                "name": "ConversationDetailV3",
+                "value": 204,
+                "goldenFamily": "message-response",
+                "goldenOrder": 179
+            },
+            {
+                "name": "CommentCreateResult",
+                "value": 205,
+                "goldenFamily": "comment-response",
+                "goldenOrder": 180
+            },
+            {
+                "name": "AdminConversationList",
+                "value": 206,
+                "goldenFamily": "message-response",
+                "goldenOrder": 181
+            },
+            {
+                "name": "AdminConversationDetail",
+                "value": 207,
+                "goldenFamily": "message-response",
+                "goldenOrder": 182
+            },
+            {
+                "name": "CommentTreeRootCursor",
+                "value": 208,
+                "goldenFamily": "comment-response",
+                "goldenOrder": 183
+            },
+            {
+                "name": "CommentChildCursor",
+                "value": 209,
+                "goldenFamily": "comment-response",
+                "goldenOrder": 184
+            },
+            {
+                "name": "CommentPermalinkContext",
+                "value": 210,
+                "goldenFamily": "comment-response",
+                "goldenOrder": 185
+            },
+            {
+                "name": "ConversationStatusMutationResult",
+                "value": 211,
+                "goldenFamily": "message-response",
+                "goldenOrder": 186
+            },
+            {
+                "name": "PasskeySignalState",
+                "value": 212,
+                "goldenFamily": "passkey-response",
+                "goldenOrder": 187
+            },
+            {
+                "name": "ArticleRevisionRollbackRequest",
+                "value": 213,
+                "goldenFamily": "authoring-request",
+                "goldenOrder": 188
+            },
+            {
+                "name": "AnonymousCommentCreateResult",
+                "value": 214,
+                "goldenFamily": "anonymous-comment-response",
+                "goldenOrder": 189
+            },
+            {
+                "name": "CommentManagementChallengeRequest",
+                "value": 215,
+                "goldenFamily": "comment-management-request",
+                "goldenOrder": 190
+            },
+            {
+                "name": "CommentManagementChallengeResponse",
+                "value": 216,
+                "goldenFamily": "comment-management-response",
+                "goldenOrder": 191
+            },
+            {
+                "name": "CommentAuthorEditRequest",
+                "value": 217,
+                "goldenFamily": "comment-management-request",
+                "goldenOrder": 192
+            },
+            {
+                "name": "CommentAuthorMutationResult",
+                "value": 218,
+                "goldenFamily": "comment-management-response",
+                "goldenOrder": 193
+            },
+            {
+                "name": "CommentAuthorStatusRequest",
+                "value": 219,
+                "goldenFamily": "comment-management-request",
+                "goldenOrder": 194
+            },
+            {
+                "name": "CommentAuthorStatusResult",
+                "value": 220,
+                "goldenFamily": "comment-management-response",
+                "goldenOrder": 195
+            },
+            {
+                "name": "CommentAuthorAppealRequest",
+                "value": 221,
+                "goldenFamily": "comment-management-request",
+                "goldenOrder": 196
+            },
+            {
+                "name": "CommentRevisionList",
+                "value": 222,
+                "goldenFamily": "comment-management-response",
+                "goldenOrder": 197
+            },
+            {
+                "name": "CommentReportRequest",
+                "value": 223,
+                "goldenFamily": "comment-governance-request",
+                "goldenOrder": 198
+            },
+            {
+                "name": "CommentReportResult",
+                "value": 224,
+                "goldenFamily": "comment-governance-response",
+                "goldenOrder": 199
+            },
+            {
+                "name": "CommentModerationTimeline",
+                "value": 225,
+                "goldenFamily": "comment-governance-response",
+                "goldenOrder": 200
+            },
+            {
+                "name": "CommentAppealDecisionRequest",
+                "value": 226,
+                "goldenFamily": "comment-governance-request",
+                "goldenOrder": 201
+            },
+            {
+                "name": "CommentAppealDecisionResult",
+                "value": 227,
+                "goldenFamily": "comment-governance-response",
+                "goldenOrder": 202
+            },
+            {
+                "name": "ArticleResponsibilityHistory",
+                "value": 228,
+                "goldenFamily": "authoring-response",
+                "goldenOrder": 203
+            },
+            {
+                "name": "CommentModerationClaimRequest",
+                "value": 229,
+                "goldenFamily": "comment-moderation-request",
+                "goldenOrder": 204
+            },
+            {
+                "name": "CommentModerationClaimMutationRequest",
+                "value": 230,
+                "goldenFamily": "comment-moderation-request",
+                "goldenOrder": 205
+            },
+            {
+                "name": "CommentModerationClaimResponse",
+                "value": 231,
+                "goldenFamily": "comment-moderation-response",
+                "goldenOrder": 206
+            },
+            {
+                "name": "PluginPackageInstallRequest",
+                "value": 232,
+                "goldenFamily": "plugin-admin-request",
+                "goldenOrder": 207
+            },
+            {
+                "name": "PluginAdminSnapshot",
+                "value": 233,
+                "goldenFamily": "plugin-admin-response",
+                "goldenOrder": 208
+            },
+            {
+                "name": "PluginAdminMutationRequest",
+                "value": 234,
+                "goldenFamily": "plugin-admin-request",
+                "goldenOrder": 209
+            },
+            {
+                "name": "ClusterRuntimeSnapshot",
+                "value": 235,
+                "goldenFamily": "cluster-runtime-response",
+                "goldenOrder": 210
+            },
+            {
+                "name": "ClusterNodeStateRequest",
+                "value": 236,
+                "goldenFamily": "cluster-runtime-request",
+                "goldenOrder": 211
+            },
+            {
+                "name": "ClusterSchedulerStateRequest",
+                "value": 237,
+                "goldenFamily": "cluster-runtime-request",
+                "goldenOrder": 212
+            },
+            {
+                "name": "ClusterLeaseReleaseRequest",
+                "value": 238,
+                "goldenFamily": "cluster-runtime-request",
+                "goldenOrder": 213
+            },
+            {
+                "name": "UserLocalePreference",
+                "value": 239,
+                "goldenFamily": "locale-preference-response",
+                "goldenOrder": 214
+            },
+            {
+                "name": "EmptySuccess",
+                "value": 240,
+                "goldenFamily": "common-response",
+                "goldenOrder": 231
+            },
+            {
+                "name": "MutationId",
+                "value": 241,
+                "goldenFamily": "common-response",
+                "goldenOrder": 232
+            },
+            {
+                "name": "UserLocalePreferenceUpdateRequest",
+                "value": 242,
+                "goldenFamily": "locale-preference-request",
+                "goldenOrder": 233
+            },
+            {
+                "name": "TaxonomyExactMetadata",
+                "value": 243,
+                "goldenFamily": "taxonomy-response",
+                "goldenOrder": 234
+            },
+            {
+                "name": "ApiError",
+                "value": 251,
+                "goldenFamily": "error-response",
+                "goldenOrder": 235
+            }
+        ],
+        "goldenCatalog": {
+            "version": "fsusblog-aeds-golden-catalog-v1",
+            "defaultEvidence": [
+                "tests/backend/Unit/BackendGoldenCatalogTests.cs",
+                "tests/backend/Unit/PodBinaryCodecTests.cs",
+                "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
+            ]
+        }
+    },
+    "products": {
+        "src/core/Algorithms/AedsFrameType.cs": "// <auto-generated />\n// Generated from src/shared/Contracts/Validation/aeds-protocol.json. Run npm run generate:aeds-protocol from src/frontend.\n\nnamespace FsusBlog.Core.Algorithms;\n\npublic enum AedsFrameType : ushort\n{\n    Unknown = 0,\n    ArticleList = 1,\n    ArticleDetail = 2,\n    ArticleHot = 3,\n    ArticleSearch = 4,\n    CommentArticleCursor = 5,\n    CommentUserCursor = 6,\n    AdminStats = 7,\n    CommentThreadReplyCursor = 8,\n    CategoryList = 9,\n    TagList = 10,\n    RecentCommentStats = 11,\n    RegionStats = 12,\n    SeoConfig = 13,\n    PageContent = 14,\n    ArticleFeatured = 15,\n    TrashClearResponse = 16,\n    AdminUserList = 17,\n    AuthLoginFlow = 18,\n    CurrentUserSnapshot = 19,\n    UploadInit = 20,\n    UploadStatus = 21,\n    UploadPartAck = 22,\n    UploadComplete = 23,\n    UploadPartMap = 24,\n    AuthSessionList = 25,\n    SiteComplianceConfig = 26,\n    ArticleRelatedReading = 27,\n    HumanReadChallengeResponse = 28,\n    HumanReadSubmitResponse = 29,\n    PowChallenge = 30,\n    UploadInitRequest = 31,\n    UploadCompleteRequest = 32,\n    CategoryWriteRequest = 33,\n    TagWriteRequest = 34,\n    SeoConfigUpdateRequest = 35,\n    PageContentUpdateRequest = 36,\n    FileDeleteRequest = 38,\n    AdminChangeUserStatusRequest = 39,\n    ArticleWriteRequest = 41,\n    AuthDeleteAccountRequest = 47,\n    MfaSetupStart = 48,\n    MfaSetupVerify = 49,\n    MfaProfile = 50,\n    MfaChallengeResult = 51,\n    MfaSetupVerifyRequest = 52,\n    MfaPasswordProofRequest = 53,\n    MfaChallengeStartRequest = 54,\n    MfaChallengeVerifyRequest = 55,\n    ConversationList = 56,\n    ConversationDetail = 57,\n    ConversationMessage = 58,\n    ConversationCreateRequest = 59,\n    ConversationReplyRequest = 60,\n    ConversationStatusRequest = 61,\n    SystemMessageRequest = 62,\n    PasskeyRegisterBegin = 63,\n    PasskeyLoginBegin = 64,\n    PasskeyCredentialList = 65,\n    PasskeyRegisterCompleteRequest = 66,\n    PasskeyLoginCompleteRequest = 67,\n    PasskeyCredentialFriendlyNameUpdateRequest = 68,\n    NotificationEvent = 69,\n    NotificationHeartbeat = 70,\n    PublicAotBootstrap = 71,\n    SiteComplianceConfigUpdateRequest = 72,\n    HumanReadChallengeRequest = 73,\n    HumanReadSubmitRequest = 74,\n    RumMetricBatchRequest = 75,\n    RumMetricIngestResponse = 76,\n    AuthorDraftSaveRequest = 77,\n    ArticlePreviewRequest = 78,\n    PrepublishCheckRequest = 79,\n    AiAssistRequest = 80,\n    AdminCacheActionRequest = 81,\n    IntegrityFixRequest = 82,\n    ModerationRuntimeGlobalStateRequest = 83,\n    ModerationRuntimeRegionStateRequest = 84,\n    ModerationDictionaryStateRequest = 85,\n    ModerationEffectivePolicyPreviewRequest = 86,\n    ModerationModelRuntimeRequest = 87,\n    ModerationReplayPreviewRequest = 88,\n    CommentModerationRequest = 89,\n    CommentModerationBulkRequest = 90,\n    ContentImportRequest = 91,\n    AuthorDraftResponse = 92,\n    AuthorDraftDiscardResponse = 93,\n    ArticlePreviewResponse = 94,\n    PrepublishCheckResponse = 95,\n    AiAssistResponse = 96,\n    AssetLibraryList = 97,\n    AssetCleanupResponse = 98,\n    AuthorTaxonomyCategoryList = 99,\n    AuthorTaxonomyTagList = 100,\n    AuthorAnalytics = 101,\n    AuditLogList = 102,\n    AuditLogSummary = 103,\n    AuditLogDetail = 104,\n    AuditTamperVerifyResponse = 105,\n    OpsHealth = 106,\n    BackupStatus = 107,\n    DangerousOperationPolicy = 108,\n    CacheDiagnostics = 109,\n    AdminCacheActionResponse = 110,\n    IntegrityReport = 111,\n    IntegrityFixPreview = 112,\n    IntegrityFixResponse = 113,\n    CommentModerationQueue = 114,\n    CommentModerationBulkResponse = 115,\n    CommentModerationResult = 116,\n    ContentExport = 117,\n    ContentBackupExport = 118,\n    ContentImportResponse = 119,\n    ArticleRevisionList = 120,\n    ArticleRevisionDetail = 121,\n    ArticleRevisionRollbackResponse = 122,\n    ModerationOverview = 123,\n    ModerationDictionarySnapshot = 124,\n    ModerationDictionaryReloadResponse = 125,\n    ModerationRuntimeStatus = 126,\n    ModerationRegionList = 127,\n    ModerationRegionGroupList = 128,\n    ModerationPolicyTemplateList = 129,\n    ModerationEffectivePolicy = 130,\n    RegionPolicySummaryList = 131,\n    ModerationModelStatus = 132,\n    ModerationReplayPreview = 133,\n    AntiCrawlerOptionsUpdateRequest = 134,\n    SecurityRiskResetRequest = 135,\n    AntiCrawlerRuleRequest = 136,\n    AntiCrawlerListEntryRequest = 137,\n    AntiCrawlerSimulationRequest = 138,\n    PowOptionsUpdateRequest = 139,\n    SecurityOverview = 140,\n    AntiCrawlerOverview = 141,\n    AntiCrawlerPolicySnapshot = 142,\n    CrawlerRangesAdminStatus = 143,\n    CrawlerRangeSyncResponse = 144,\n    SecurityRiskEventList = 145,\n    SecurityRiskSnapshotList = 146,\n    SecurityRiskResetResponse = 147,\n    AntiCrawlerRuleList = 148,\n    AntiCrawlerRuleResponse = 149,\n    AntiCrawlerRuleDeleteResponse = 150,\n    AntiCrawlerListEntryList = 151,\n    AntiCrawlerListEntryResponse = 152,\n    AntiCrawlerListEntryDeleteResponse = 153,\n    AntiCrawlerSimulationResult = 154,\n    PowOverview = 155,\n    PowPolicySnapshot = 156,\n    SiteSubscriptionRequest = 157,\n    SiteSubscriptionResponse = 158,\n    RecoveryKeyCreateResponse = 159,\n    RecoveryKeyVerifyRequest = 160,\n    RecoveryKeyVerifyResponse = 161,\n    RecoveryKeySessionRequest = 162,\n    IdentityAccountSnapshot = 163,\n    CommentPolicySnapshot = 164,\n    CommentPolicyUpdateRequest = 165,\n    CommentCreateV2Request = 166,\n    CommentAuthorView = 167,\n    AnonymousGovernanceActionRequest = 168,\n    AnonymousGovernanceActionResponse = 169,\n    AdminSessionList = 170,\n    SecurityChallengeAssignment = 171,\n    SecurityChallengeEnvelope = 172,\n    SecurityChallengeIssueRequest = 173,\n    SecurityChallengeVerifyRequest = 174,\n    SecurityChallengeIssueResponse = 175,\n    SecurityChallengeVerifyResponse = 176,\n    Reserved177 = 177,\n    Reserved178 = 178,\n    AnonymousCredentialRootSnapshot = 179,\n    AnonymousCommentCreateRequest = 182,\n    AnonymousPrivacyStateSnapshot = 183,\n    PerceptionSealedChallengeV2 = 184,\n    PerceptionSealedResultV2 = 185,\n    RetiredCredentialSpecificRevocationRequest = 186,\n    RetiredCredentialSpecificRevocationResponse = 187,\n    AdminPrincipalSnapshot = 188,\n    AuthAnonymousBootstrapRequest = 189,\n    AuthUpdatePublicHandleRequest = 190,\n    ArticleResponsibilityRequest = 191,\n    ArticleResponsibilityResponse = 192,\n    BlindCredentialIssuerMetadata = 193,\n    BlindCredentialIssueRequest = 194,\n    BlindCredentialIssueResponse = 195,\n    AnonymousCredentialRevocationSnapshot = 196,\n    AnonymousCredentialRevocationDelta = 197,\n    AnonymousCommentTicketRequest = 198,\n    AnonymousCommentTicketResponse = 199,\n    SecurityChallengeCancelRequest = 200,\n    ConversationReadRequest = 201,\n    AccountConversationReplyRequest = 202,\n    ConversationDetailV2 = 203,\n    ConversationDetailV3 = 204,\n    CommentCreateResult = 205,\n    AdminConversationList = 206,\n    AdminConversationDetail = 207,\n    CommentTreeRootCursor = 208,\n    CommentChildCursor = 209,\n    CommentPermalinkContext = 210,\n    ConversationStatusMutationResult = 211,\n    PasskeySignalState = 212,\n    ArticleRevisionRollbackRequest = 213,\n    AnonymousCommentCreateResult = 214,\n    CommentManagementChallengeRequest = 215,\n    CommentManagementChallengeResponse = 216,\n    CommentAuthorEditRequest = 217,\n    CommentAuthorMutationResult = 218,\n    CommentAuthorStatusRequest = 219,\n    CommentAuthorStatusResult = 220,\n    CommentAuthorAppealRequest = 221,\n    CommentRevisionList = 222,\n    CommentReportRequest = 223,\n    CommentReportResult = 224,\n    CommentModerationTimeline = 225,\n    CommentAppealDecisionRequest = 226,\n    CommentAppealDecisionResult = 227,\n    ArticleResponsibilityHistory = 228,\n    CommentModerationClaimRequest = 229,\n    CommentModerationClaimMutationRequest = 230,\n    CommentModerationClaimResponse = 231,\n    PluginPackageInstallRequest = 232,\n    PluginAdminSnapshot = 233,\n    PluginAdminMutationRequest = 234,\n    ClusterRuntimeSnapshot = 235,\n    ClusterNodeStateRequest = 236,\n    ClusterSchedulerStateRequest = 237,\n    ClusterLeaseReleaseRequest = 238,\n    UserLocalePreference = 239,\n    EmptySuccess = 240,\n    MutationId = 241,\n    UserLocalePreferenceUpdateRequest = 242,\n    TaxonomyExactMetadata = 243,\n    ApiError = 251\n}\n",
+        "src/shared/AedsFrameHeader.cs": "// <auto-generated />\n// Generated from src/shared/Contracts/Validation/aeds-protocol.json. Run npm run generate:aeds-protocol from src/frontend.\n\nusing System.Runtime.InteropServices;\n\nnamespace FsusBlog.Shared;\n\n[StructLayout(LayoutKind.Sequential, Pack = 1)]\npublic readonly struct AedsFrameHeader\n{\n    public const int Size = 16;\n    public const uint Magic = 0x53444541; // \"AEDS\" little-endian\n    public const byte VersionValue = 2;\n    public const byte CurrentVersion = VersionValue;\n    public const byte CurrentHeaderLength = Size;\n\n    public AedsFrameHeader(\n        uint magic,\n        byte version,\n        byte headerLength,\n        ushort flags,\n        ushort frameType,\n        uint payloadLength,\n        ushort payloadCrc16)\n    {\n        MagicValue = magic;\n        Version = version;\n        HeaderLength = headerLength;\n        Flags = flags;\n        FrameType = frameType;\n        PayloadLength = payloadLength;\n        PayloadCrc16 = payloadCrc16;\n    }\n\n    public readonly uint MagicValue;\n    public readonly byte Version;\n    public readonly byte HeaderLength;\n    public readonly ushort Flags;\n    public readonly ushort FrameType;\n    public readonly uint PayloadLength;\n    public readonly ushort PayloadCrc16;\n}\n\npublic enum AedsFrameType : ushort\n{\n    Unknown = 0,\n    ArticleList = 1,\n    ArticleDetail = 2,\n    ArticleHot = 3,\n    ArticleSearch = 4,\n    CommentArticleCursor = 5,\n    CommentUserCursor = 6,\n    AdminStats = 7,\n    CommentThreadReplyCursor = 8,\n    CategoryList = 9,\n    TagList = 10,\n    RecentCommentStats = 11,\n    RegionStats = 12,\n    SeoConfig = 13,\n    PageContent = 14,\n    ArticleFeatured = 15,\n    TrashClearResponse = 16,\n    AdminUserList = 17,\n    AuthLoginFlow = 18,\n    CurrentUserSnapshot = 19,\n    UploadInit = 20,\n    UploadStatus = 21,\n    UploadPartAck = 22,\n    UploadComplete = 23,\n    UploadPartMap = 24,\n    AuthSessionList = 25,\n    SiteComplianceConfig = 26,\n    ArticleRelatedReading = 27,\n    HumanReadChallengeResponse = 28,\n    HumanReadSubmitResponse = 29,\n    PowChallenge = 30,\n    UploadInitRequest = 31,\n    UploadCompleteRequest = 32,\n    CategoryWriteRequest = 33,\n    TagWriteRequest = 34,\n    SeoConfigUpdateRequest = 35,\n    PageContentUpdateRequest = 36,\n    FileDeleteRequest = 38,\n    AdminChangeUserStatusRequest = 39,\n    ArticleWriteRequest = 41,\n    AuthDeleteAccountRequest = 47,\n    MfaSetupStart = 48,\n    MfaSetupVerify = 49,\n    MfaProfile = 50,\n    MfaChallengeResult = 51,\n    MfaSetupVerifyRequest = 52,\n    MfaPasswordProofRequest = 53,\n    MfaChallengeStartRequest = 54,\n    MfaChallengeVerifyRequest = 55,\n    ConversationList = 56,\n    ConversationDetail = 57,\n    ConversationMessage = 58,\n    ConversationCreateRequest = 59,\n    ConversationReplyRequest = 60,\n    ConversationStatusRequest = 61,\n    SystemMessageRequest = 62,\n    PasskeyRegisterBegin = 63,\n    PasskeyLoginBegin = 64,\n    PasskeyCredentialList = 65,\n    PasskeyRegisterCompleteRequest = 66,\n    PasskeyLoginCompleteRequest = 67,\n    PasskeyCredentialFriendlyNameUpdateRequest = 68,\n    NotificationEvent = 69,\n    NotificationHeartbeat = 70,\n    PublicAotBootstrap = 71,\n    SiteComplianceConfigUpdateRequest = 72,\n    HumanReadChallengeRequest = 73,\n    HumanReadSubmitRequest = 74,\n    RumMetricBatchRequest = 75,\n    RumMetricIngestResponse = 76,\n    AuthorDraftSaveRequest = 77,\n    ArticlePreviewRequest = 78,\n    PrepublishCheckRequest = 79,\n    AiAssistRequest = 80,\n    AdminCacheActionRequest = 81,\n    IntegrityFixRequest = 82,\n    ModerationRuntimeGlobalStateRequest = 83,\n    ModerationRuntimeRegionStateRequest = 84,\n    ModerationDictionaryStateRequest = 85,\n    ModerationEffectivePolicyPreviewRequest = 86,\n    ModerationModelRuntimeRequest = 87,\n    ModerationReplayPreviewRequest = 88,\n    CommentModerationRequest = 89,\n    CommentModerationBulkRequest = 90,\n    ContentImportRequest = 91,\n    AuthorDraftResponse = 92,\n    AuthorDraftDiscardResponse = 93,\n    ArticlePreviewResponse = 94,\n    PrepublishCheckResponse = 95,\n    AiAssistResponse = 96,\n    AssetLibraryList = 97,\n    AssetCleanupResponse = 98,\n    AuthorTaxonomyCategoryList = 99,\n    AuthorTaxonomyTagList = 100,\n    AuthorAnalytics = 101,\n    AuditLogList = 102,\n    AuditLogSummary = 103,\n    AuditLogDetail = 104,\n    AuditTamperVerifyResponse = 105,\n    OpsHealth = 106,\n    BackupStatus = 107,\n    DangerousOperationPolicy = 108,\n    CacheDiagnostics = 109,\n    AdminCacheActionResponse = 110,\n    IntegrityReport = 111,\n    IntegrityFixPreview = 112,\n    IntegrityFixResponse = 113,\n    CommentModerationQueue = 114,\n    CommentModerationBulkResponse = 115,\n    CommentModerationResult = 116,\n    ContentExport = 117,\n    ContentBackupExport = 118,\n    ContentImportResponse = 119,\n    ArticleRevisionList = 120,\n    ArticleRevisionDetail = 121,\n    ArticleRevisionRollbackResponse = 122,\n    ModerationOverview = 123,\n    ModerationDictionarySnapshot = 124,\n    ModerationDictionaryReloadResponse = 125,\n    ModerationRuntimeStatus = 126,\n    ModerationRegionList = 127,\n    ModerationRegionGroupList = 128,\n    ModerationPolicyTemplateList = 129,\n    ModerationEffectivePolicy = 130,\n    RegionPolicySummaryList = 131,\n    ModerationModelStatus = 132,\n    ModerationReplayPreview = 133,\n    AntiCrawlerOptionsUpdateRequest = 134,\n    SecurityRiskResetRequest = 135,\n    AntiCrawlerRuleRequest = 136,\n    AntiCrawlerListEntryRequest = 137,\n    AntiCrawlerSimulationRequest = 138,\n    PowOptionsUpdateRequest = 139,\n    SecurityOverview = 140,\n    AntiCrawlerOverview = 141,\n    AntiCrawlerPolicySnapshot = 142,\n    CrawlerRangesAdminStatus = 143,\n    CrawlerRangeSyncResponse = 144,\n    SecurityRiskEventList = 145,\n    SecurityRiskSnapshotList = 146,\n    SecurityRiskResetResponse = 147,\n    AntiCrawlerRuleList = 148,\n    AntiCrawlerRuleResponse = 149,\n    AntiCrawlerRuleDeleteResponse = 150,\n    AntiCrawlerListEntryList = 151,\n    AntiCrawlerListEntryResponse = 152,\n    AntiCrawlerListEntryDeleteResponse = 153,\n    AntiCrawlerSimulationResult = 154,\n    PowOverview = 155,\n    PowPolicySnapshot = 156,\n    SiteSubscriptionRequest = 157,\n    SiteSubscriptionResponse = 158,\n    RecoveryKeyCreateResponse = 159,\n    RecoveryKeyVerifyRequest = 160,\n    RecoveryKeyVerifyResponse = 161,\n    RecoveryKeySessionRequest = 162,\n    IdentityAccountSnapshot = 163,\n    CommentPolicySnapshot = 164,\n    CommentPolicyUpdateRequest = 165,\n    CommentCreateV2Request = 166,\n    CommentAuthorView = 167,\n    AnonymousGovernanceActionRequest = 168,\n    AnonymousGovernanceActionResponse = 169,\n    AdminSessionList = 170,\n    SecurityChallengeAssignment = 171,\n    SecurityChallengeEnvelope = 172,\n    SecurityChallengeIssueRequest = 173,\n    SecurityChallengeVerifyRequest = 174,\n    SecurityChallengeIssueResponse = 175,\n    SecurityChallengeVerifyResponse = 176,\n    Reserved177 = 177,\n    Reserved178 = 178,\n    AnonymousCredentialRootSnapshot = 179,\n    AnonymousCommentCreateRequest = 182,\n    AnonymousPrivacyStateSnapshot = 183,\n    PerceptionSealedChallengeV2 = 184,\n    PerceptionSealedResultV2 = 185,\n    RetiredCredentialSpecificRevocationRequest = 186,\n    RetiredCredentialSpecificRevocationResponse = 187,\n    AdminPrincipalSnapshot = 188,\n    AuthAnonymousBootstrapRequest = 189,\n    AuthUpdatePublicHandleRequest = 190,\n    ArticleResponsibilityRequest = 191,\n    ArticleResponsibilityResponse = 192,\n    BlindCredentialIssuerMetadata = 193,\n    BlindCredentialIssueRequest = 194,\n    BlindCredentialIssueResponse = 195,\n    AnonymousCredentialRevocationSnapshot = 196,\n    AnonymousCredentialRevocationDelta = 197,\n    AnonymousCommentTicketRequest = 198,\n    AnonymousCommentTicketResponse = 199,\n    SecurityChallengeCancelRequest = 200,\n    ConversationReadRequest = 201,\n    AccountConversationReplyRequest = 202,\n    ConversationDetailV2 = 203,\n    ConversationDetailV3 = 204,\n    CommentCreateResult = 205,\n    AdminConversationList = 206,\n    AdminConversationDetail = 207,\n    CommentTreeRootCursor = 208,\n    CommentChildCursor = 209,\n    CommentPermalinkContext = 210,\n    ConversationStatusMutationResult = 211,\n    PasskeySignalState = 212,\n    ArticleRevisionRollbackRequest = 213,\n    AnonymousCommentCreateResult = 214,\n    CommentManagementChallengeRequest = 215,\n    CommentManagementChallengeResponse = 216,\n    CommentAuthorEditRequest = 217,\n    CommentAuthorMutationResult = 218,\n    CommentAuthorStatusRequest = 219,\n    CommentAuthorStatusResult = 220,\n    CommentAuthorAppealRequest = 221,\n    CommentRevisionList = 222,\n    CommentReportRequest = 223,\n    CommentReportResult = 224,\n    CommentModerationTimeline = 225,\n    CommentAppealDecisionRequest = 226,\n    CommentAppealDecisionResult = 227,\n    ArticleResponsibilityHistory = 228,\n    CommentModerationClaimRequest = 229,\n    CommentModerationClaimMutationRequest = 230,\n    CommentModerationClaimResponse = 231,\n    PluginPackageInstallRequest = 232,\n    PluginAdminSnapshot = 233,\n    PluginAdminMutationRequest = 234,\n    ClusterRuntimeSnapshot = 235,\n    ClusterNodeStateRequest = 236,\n    ClusterSchedulerStateRequest = 237,\n    ClusterLeaseReleaseRequest = 238,\n    UserLocalePreference = 239,\n    EmptySuccess = 240,\n    MutationId = 241,\n    UserLocalePreferenceUpdateRequest = 242,\n    TaxonomyExactMetadata = 243,\n    ApiError = 251\n}\n",
+        "src/frontend/wasm/web/protocol/frame.ts": "// Generated from src/shared/Contracts/Validation/aeds-protocol.json. Run npm run generate:aeds-protocol from src/frontend.\n\nexport const FrameType = {\n  Unknown: 0,\n  ArticleList: 1,\n  ArticleDetail: 2,\n  ArticleHot: 3,\n  ArticleSearch: 4,\n  CommentArticleCursor: 5,\n  CommentUserCursor: 6,\n  AdminStats: 7,\n  CommentThreadReplyCursor: 8,\n  CategoryList: 9,\n  TagList: 10,\n  RecentCommentStats: 11,\n  RegionStats: 12,\n  SeoConfig: 13,\n  PageContent: 14,\n  ArticleFeatured: 15,\n  TrashClearResponse: 16,\n  AdminUserList: 17,\n  AuthLoginFlow: 18,\n  CurrentUserSnapshot: 19,\n  UploadInit: 20,\n  UploadStatus: 21,\n  UploadPartAck: 22,\n  UploadComplete: 23,\n  UploadPartMap: 24,\n  AuthSessionList: 25,\n  SiteComplianceConfig: 26,\n  ArticleRelatedReading: 27,\n  HumanReadChallengeResponse: 28,\n  HumanReadSubmitResponse: 29,\n  PowChallenge: 30,\n  UploadInitRequest: 31,\n  UploadCompleteRequest: 32,\n  CategoryWriteRequest: 33,\n  TagWriteRequest: 34,\n  SeoConfigUpdateRequest: 35,\n  PageContentUpdateRequest: 36,\n  FileDeleteRequest: 38,\n  AdminChangeUserStatusRequest: 39,\n  ArticleWriteRequest: 41,\n  AuthDeleteAccountRequest: 47,\n  MfaSetupStart: 48,\n  MfaSetupVerify: 49,\n  MfaProfile: 50,\n  MfaChallengeResult: 51,\n  MfaSetupVerifyRequest: 52,\n  MfaPasswordProofRequest: 53,\n  MfaChallengeStartRequest: 54,\n  MfaChallengeVerifyRequest: 55,\n  ConversationList: 56,\n  ConversationDetail: 57,\n  ConversationMessage: 58,\n  ConversationCreateRequest: 59,\n  ConversationReplyRequest: 60,\n  ConversationStatusRequest: 61,\n  SystemMessageRequest: 62,\n  PasskeyRegisterBegin: 63,\n  PasskeyLoginBegin: 64,\n  PasskeyCredentialList: 65,\n  PasskeyRegisterCompleteRequest: 66,\n  PasskeyLoginCompleteRequest: 67,\n  PasskeyCredentialFriendlyNameUpdateRequest: 68,\n  NotificationEvent: 69,\n  NotificationHeartbeat: 70,\n  PublicAotBootstrap: 71,\n  SiteComplianceConfigUpdateRequest: 72,\n  HumanReadChallengeRequest: 73,\n  HumanReadSubmitRequest: 74,\n  RumMetricBatchRequest: 75,\n  RumMetricIngestResponse: 76,\n  AuthorDraftSaveRequest: 77,\n  ArticlePreviewRequest: 78,\n  PrepublishCheckRequest: 79,\n  AiAssistRequest: 80,\n  AdminCacheActionRequest: 81,\n  IntegrityFixRequest: 82,\n  ModerationRuntimeGlobalStateRequest: 83,\n  ModerationRuntimeRegionStateRequest: 84,\n  ModerationDictionaryStateRequest: 85,\n  ModerationEffectivePolicyPreviewRequest: 86,\n  ModerationModelRuntimeRequest: 87,\n  ModerationReplayPreviewRequest: 88,\n  CommentModerationRequest: 89,\n  CommentModerationBulkRequest: 90,\n  ContentImportRequest: 91,\n  AuthorDraftResponse: 92,\n  AuthorDraftDiscardResponse: 93,\n  ArticlePreviewResponse: 94,\n  PrepublishCheckResponse: 95,\n  AiAssistResponse: 96,\n  AssetLibraryList: 97,\n  AssetCleanupResponse: 98,\n  AuthorTaxonomyCategoryList: 99,\n  AuthorTaxonomyTagList: 100,\n  AuthorAnalytics: 101,\n  AuditLogList: 102,\n  AuditLogSummary: 103,\n  AuditLogDetail: 104,\n  AuditTamperVerifyResponse: 105,\n  OpsHealth: 106,\n  BackupStatus: 107,\n  DangerousOperationPolicy: 108,\n  CacheDiagnostics: 109,\n  AdminCacheActionResponse: 110,\n  IntegrityReport: 111,\n  IntegrityFixPreview: 112,\n  IntegrityFixResponse: 113,\n  CommentModerationQueue: 114,\n  CommentModerationBulkResponse: 115,\n  CommentModerationResult: 116,\n  ContentExport: 117,\n  ContentBackupExport: 118,\n  ContentImportResponse: 119,\n  ArticleRevisionList: 120,\n  ArticleRevisionDetail: 121,\n  ArticleRevisionRollbackResponse: 122,\n  ModerationOverview: 123,\n  ModerationDictionarySnapshot: 124,\n  ModerationDictionaryReloadResponse: 125,\n  ModerationRuntimeStatus: 126,\n  ModerationRegionList: 127,\n  ModerationRegionGroupList: 128,\n  ModerationPolicyTemplateList: 129,\n  ModerationEffectivePolicy: 130,\n  RegionPolicySummaryList: 131,\n  ModerationModelStatus: 132,\n  ModerationReplayPreview: 133,\n  AntiCrawlerOptionsUpdateRequest: 134,\n  SecurityRiskResetRequest: 135,\n  AntiCrawlerRuleRequest: 136,\n  AntiCrawlerListEntryRequest: 137,\n  AntiCrawlerSimulationRequest: 138,\n  PowOptionsUpdateRequest: 139,\n  SecurityOverview: 140,\n  AntiCrawlerOverview: 141,\n  AntiCrawlerPolicySnapshot: 142,\n  CrawlerRangesAdminStatus: 143,\n  CrawlerRangeSyncResponse: 144,\n  SecurityRiskEventList: 145,\n  SecurityRiskSnapshotList: 146,\n  SecurityRiskResetResponse: 147,\n  AntiCrawlerRuleList: 148,\n  AntiCrawlerRuleResponse: 149,\n  AntiCrawlerRuleDeleteResponse: 150,\n  AntiCrawlerListEntryList: 151,\n  AntiCrawlerListEntryResponse: 152,\n  AntiCrawlerListEntryDeleteResponse: 153,\n  AntiCrawlerSimulationResult: 154,\n  PowOverview: 155,\n  PowPolicySnapshot: 156,\n  SiteSubscriptionRequest: 157,\n  SiteSubscriptionResponse: 158,\n  RecoveryKeyCreateResponse: 159,\n  RecoveryKeyVerifyRequest: 160,\n  RecoveryKeyVerifyResponse: 161,\n  RecoveryKeySessionRequest: 162,\n  IdentityAccountSnapshot: 163,\n  CommentPolicySnapshot: 164,\n  CommentPolicyUpdateRequest: 165,\n  CommentCreateV2Request: 166,\n  CommentAuthorView: 167,\n  AnonymousGovernanceActionRequest: 168,\n  AnonymousGovernanceActionResponse: 169,\n  AdminSessionList: 170,\n  SecurityChallengeAssignment: 171,\n  SecurityChallengeEnvelope: 172,\n  SecurityChallengeIssueRequest: 173,\n  SecurityChallengeVerifyRequest: 174,\n  SecurityChallengeIssueResponse: 175,\n  SecurityChallengeVerifyResponse: 176,\n  Reserved177: 177,\n  Reserved178: 178,\n  AnonymousCredentialRootSnapshot: 179,\n  AnonymousCommentCreateRequest: 182,\n  AnonymousPrivacyStateSnapshot: 183,\n  PerceptionSealedChallengeV2: 184,\n  PerceptionSealedResultV2: 185,\n  RetiredCredentialSpecificRevocationRequest: 186,\n  RetiredCredentialSpecificRevocationResponse: 187,\n  AdminPrincipalSnapshot: 188,\n  AuthAnonymousBootstrapRequest: 189,\n  AuthUpdatePublicHandleRequest: 190,\n  ArticleResponsibilityRequest: 191,\n  ArticleResponsibilityResponse: 192,\n  BlindCredentialIssuerMetadata: 193,\n  BlindCredentialIssueRequest: 194,\n  BlindCredentialIssueResponse: 195,\n  AnonymousCredentialRevocationSnapshot: 196,\n  AnonymousCredentialRevocationDelta: 197,\n  AnonymousCommentTicketRequest: 198,\n  AnonymousCommentTicketResponse: 199,\n  SecurityChallengeCancelRequest: 200,\n  ConversationReadRequest: 201,\n  AccountConversationReplyRequest: 202,\n  ConversationDetailV2: 203,\n  ConversationDetailV3: 204,\n  CommentCreateResult: 205,\n  AdminConversationList: 206,\n  AdminConversationDetail: 207,\n  CommentTreeRootCursor: 208,\n  CommentChildCursor: 209,\n  CommentPermalinkContext: 210,\n  ConversationStatusMutationResult: 211,\n  PasskeySignalState: 212,\n  ArticleRevisionRollbackRequest: 213,\n  AnonymousCommentCreateResult: 214,\n  CommentManagementChallengeRequest: 215,\n  CommentManagementChallengeResponse: 216,\n  CommentAuthorEditRequest: 217,\n  CommentAuthorMutationResult: 218,\n  CommentAuthorStatusRequest: 219,\n  CommentAuthorStatusResult: 220,\n  CommentAuthorAppealRequest: 221,\n  CommentRevisionList: 222,\n  CommentReportRequest: 223,\n  CommentReportResult: 224,\n  CommentModerationTimeline: 225,\n  CommentAppealDecisionRequest: 226,\n  CommentAppealDecisionResult: 227,\n  ArticleResponsibilityHistory: 228,\n  CommentModerationClaimRequest: 229,\n  CommentModerationClaimMutationRequest: 230,\n  CommentModerationClaimResponse: 231,\n  PluginPackageInstallRequest: 232,\n  PluginAdminSnapshot: 233,\n  PluginAdminMutationRequest: 234,\n  ClusterRuntimeSnapshot: 235,\n  ClusterNodeStateRequest: 236,\n  ClusterSchedulerStateRequest: 237,\n  ClusterLeaseReleaseRequest: 238,\n  UserLocalePreference: 239,\n  EmptySuccess: 240,\n  MutationId: 241,\n  UserLocalePreferenceUpdateRequest: 242,\n  TaxonomyExactMetadata: 243,\n  ApiError: 251,\n} as const;\n\nexport type FrameType = typeof FrameType[keyof typeof FrameType];\n\nexport const AEDS_HEADER_LENGTH = 16;\nexport const AEDS_MAGIC = 0x53444541;\nexport const AEDS_VERSION = 2;\n\nexport const PUBLIC_SEO_FRAME_TYPES = new Set<FrameType>([\n  FrameType.ArticleList,\n  FrameType.ArticleDetail,\n  FrameType.ArticleFeatured\n]);\n\nexport function isPublicSeoFrameType(frameType: FrameType | undefined): boolean {\n  return frameType !== undefined && PUBLIC_SEO_FRAME_TYPES.has(frameType);\n}\n",
+        "src/frontend/wasm/aeds/include/aeds_frame.hpp": "// <auto-generated />\n// Generated from src/shared/Contracts/Validation/aeds-protocol.json. Run npm run generate:aeds-protocol from src/frontend.\n#pragma once\n\n#include <cstddef>\n#include <cstdint>\n#include <type_traits>\n\nnamespace FsusBlog::Aeds\n{\n\ninline constexpr std::uint32_t kMagic = 0x53444541U; // \"AEDS\" little-endian\ninline constexpr std::uint8_t kVersion = 2U;\ninline constexpr std::size_t kHeaderSize = 16U;\n\n#pragma pack(push, 1)\n\nstruct AedsFrameHeader\n{\n    std::uint32_t magic;\n    std::uint8_t version;\n    std::uint8_t header_length;\n    std::uint16_t flags;\n    std::uint16_t frame_type;\n    std::uint32_t payload_length;\n    std::uint16_t payload_crc16;\n};\n\n#pragma pack(pop)\n\nstatic_assert(std::is_standard_layout_v<AedsFrameHeader>, \"AedsFrameHeader must remain standard layout\");\nstatic_assert(sizeof(AedsFrameHeader) == kHeaderSize, \"AedsFrameHeader size mismatch\");\nstatic_assert(offsetof(AedsFrameHeader, magic) == 0U, \"AedsFrameHeader.magic offset mismatch\");\nstatic_assert(offsetof(AedsFrameHeader, version) == 4U, \"AedsFrameHeader.version offset mismatch\");\nstatic_assert(offsetof(AedsFrameHeader, header_length) == 5U, \"AedsFrameHeader.header_length offset mismatch\");\nstatic_assert(offsetof(AedsFrameHeader, flags) == 6U, \"AedsFrameHeader.flags offset mismatch\");\nstatic_assert(offsetof(AedsFrameHeader, frame_type) == 8U, \"AedsFrameHeader.frame_type offset mismatch\");\nstatic_assert(offsetof(AedsFrameHeader, payload_length) == 10U, \"AedsFrameHeader.payload_length offset mismatch\");\nstatic_assert(offsetof(AedsFrameHeader, payload_crc16) == 14U, \"AedsFrameHeader.payload_crc16 offset mismatch\");\n\nenum class FrameType : std::uint16_t\n{\n    Unknown = 0,\n    ArticleList = 1,\n    ArticleDetail = 2,\n    ArticleHot = 3,\n    ArticleSearch = 4,\n    CommentArticleCursor = 5,\n    CommentUserCursor = 6,\n    AdminStats = 7,\n    CommentThreadReplyCursor = 8,\n    CategoryList = 9,\n    TagList = 10,\n    RecentCommentStats = 11,\n    RegionStats = 12,\n    SeoConfig = 13,\n    PageContent = 14,\n    ArticleFeatured = 15,\n    TrashClearResponse = 16,\n    AdminUserList = 17,\n    AuthLoginFlow = 18,\n    CurrentUserSnapshot = 19,\n    UploadInit = 20,\n    UploadStatus = 21,\n    UploadPartAck = 22,\n    UploadComplete = 23,\n    UploadPartMap = 24,\n    AuthSessionList = 25,\n    SiteComplianceConfig = 26,\n    ArticleRelatedReading = 27,\n    HumanReadChallengeResponse = 28,\n    HumanReadSubmitResponse = 29,\n    PowChallenge = 30,\n    UploadInitRequest = 31,\n    UploadCompleteRequest = 32,\n    CategoryWriteRequest = 33,\n    TagWriteRequest = 34,\n    SeoConfigUpdateRequest = 35,\n    PageContentUpdateRequest = 36,\n    FileDeleteRequest = 38,\n    AdminChangeUserStatusRequest = 39,\n    ArticleWriteRequest = 41,\n    AuthDeleteAccountRequest = 47,\n    MfaSetupStart = 48,\n    MfaSetupVerify = 49,\n    MfaProfile = 50,\n    MfaChallengeResult = 51,\n    MfaSetupVerifyRequest = 52,\n    MfaPasswordProofRequest = 53,\n    MfaChallengeStartRequest = 54,\n    MfaChallengeVerifyRequest = 55,\n    ConversationList = 56,\n    ConversationDetail = 57,\n    ConversationMessage = 58,\n    ConversationCreateRequest = 59,\n    ConversationReplyRequest = 60,\n    ConversationStatusRequest = 61,\n    SystemMessageRequest = 62,\n    PasskeyRegisterBegin = 63,\n    PasskeyLoginBegin = 64,\n    PasskeyCredentialList = 65,\n    PasskeyRegisterCompleteRequest = 66,\n    PasskeyLoginCompleteRequest = 67,\n    PasskeyCredentialFriendlyNameUpdateRequest = 68,\n    NotificationEvent = 69,\n    NotificationHeartbeat = 70,\n    PublicAotBootstrap = 71,\n    SiteComplianceConfigUpdateRequest = 72,\n    HumanReadChallengeRequest = 73,\n    HumanReadSubmitRequest = 74,\n    RumMetricBatchRequest = 75,\n    RumMetricIngestResponse = 76,\n    AuthorDraftSaveRequest = 77,\n    ArticlePreviewRequest = 78,\n    PrepublishCheckRequest = 79,\n    AiAssistRequest = 80,\n    AdminCacheActionRequest = 81,\n    IntegrityFixRequest = 82,\n    ModerationRuntimeGlobalStateRequest = 83,\n    ModerationRuntimeRegionStateRequest = 84,\n    ModerationDictionaryStateRequest = 85,\n    ModerationEffectivePolicyPreviewRequest = 86,\n    ModerationModelRuntimeRequest = 87,\n    ModerationReplayPreviewRequest = 88,\n    CommentModerationRequest = 89,\n    CommentModerationBulkRequest = 90,\n    ContentImportRequest = 91,\n    AuthorDraftResponse = 92,\n    AuthorDraftDiscardResponse = 93,\n    ArticlePreviewResponse = 94,\n    PrepublishCheckResponse = 95,\n    AiAssistResponse = 96,\n    AssetLibraryList = 97,\n    AssetCleanupResponse = 98,\n    AuthorTaxonomyCategoryList = 99,\n    AuthorTaxonomyTagList = 100,\n    AuthorAnalytics = 101,\n    AuditLogList = 102,\n    AuditLogSummary = 103,\n    AuditLogDetail = 104,\n    AuditTamperVerifyResponse = 105,\n    OpsHealth = 106,\n    BackupStatus = 107,\n    DangerousOperationPolicy = 108,\n    CacheDiagnostics = 109,\n    AdminCacheActionResponse = 110,\n    IntegrityReport = 111,\n    IntegrityFixPreview = 112,\n    IntegrityFixResponse = 113,\n    CommentModerationQueue = 114,\n    CommentModerationBulkResponse = 115,\n    CommentModerationResult = 116,\n    ContentExport = 117,\n    ContentBackupExport = 118,\n    ContentImportResponse = 119,\n    ArticleRevisionList = 120,\n    ArticleRevisionDetail = 121,\n    ArticleRevisionRollbackResponse = 122,\n    ModerationOverview = 123,\n    ModerationDictionarySnapshot = 124,\n    ModerationDictionaryReloadResponse = 125,\n    ModerationRuntimeStatus = 126,\n    ModerationRegionList = 127,\n    ModerationRegionGroupList = 128,\n    ModerationPolicyTemplateList = 129,\n    ModerationEffectivePolicy = 130,\n    RegionPolicySummaryList = 131,\n    ModerationModelStatus = 132,\n    ModerationReplayPreview = 133,\n    AntiCrawlerOptionsUpdateRequest = 134,\n    SecurityRiskResetRequest = 135,\n    AntiCrawlerRuleRequest = 136,\n    AntiCrawlerListEntryRequest = 137,\n    AntiCrawlerSimulationRequest = 138,\n    PowOptionsUpdateRequest = 139,\n    SecurityOverview = 140,\n    AntiCrawlerOverview = 141,\n    AntiCrawlerPolicySnapshot = 142,\n    CrawlerRangesAdminStatus = 143,\n    CrawlerRangeSyncResponse = 144,\n    SecurityRiskEventList = 145,\n    SecurityRiskSnapshotList = 146,\n    SecurityRiskResetResponse = 147,\n    AntiCrawlerRuleList = 148,\n    AntiCrawlerRuleResponse = 149,\n    AntiCrawlerRuleDeleteResponse = 150,\n    AntiCrawlerListEntryList = 151,\n    AntiCrawlerListEntryResponse = 152,\n    AntiCrawlerListEntryDeleteResponse = 153,\n    AntiCrawlerSimulationResult = 154,\n    PowOverview = 155,\n    PowPolicySnapshot = 156,\n    SiteSubscriptionRequest = 157,\n    SiteSubscriptionResponse = 158,\n    RecoveryKeyCreateResponse = 159,\n    RecoveryKeyVerifyRequest = 160,\n    RecoveryKeyVerifyResponse = 161,\n    RecoveryKeySessionRequest = 162,\n    IdentityAccountSnapshot = 163,\n    CommentPolicySnapshot = 164,\n    CommentPolicyUpdateRequest = 165,\n    CommentCreateV2Request = 166,\n    CommentAuthorView = 167,\n    AnonymousGovernanceActionRequest = 168,\n    AnonymousGovernanceActionResponse = 169,\n    AdminSessionList = 170,\n    SecurityChallengeAssignment = 171,\n    SecurityChallengeEnvelope = 172,\n    SecurityChallengeIssueRequest = 173,\n    SecurityChallengeVerifyRequest = 174,\n    SecurityChallengeIssueResponse = 175,\n    SecurityChallengeVerifyResponse = 176,\n    Reserved177 = 177,\n    Reserved178 = 178,\n    AnonymousCredentialRootSnapshot = 179,\n    AnonymousCommentCreateRequest = 182,\n    AnonymousPrivacyStateSnapshot = 183,\n    PerceptionSealedChallengeV2 = 184,\n    PerceptionSealedResultV2 = 185,\n    RetiredCredentialSpecificRevocationRequest = 186,\n    RetiredCredentialSpecificRevocationResponse = 187,\n    AdminPrincipalSnapshot = 188,\n    AuthAnonymousBootstrapRequest = 189,\n    AuthUpdatePublicHandleRequest = 190,\n    ArticleResponsibilityRequest = 191,\n    ArticleResponsibilityResponse = 192,\n    BlindCredentialIssuerMetadata = 193,\n    BlindCredentialIssueRequest = 194,\n    BlindCredentialIssueResponse = 195,\n    AnonymousCredentialRevocationSnapshot = 196,\n    AnonymousCredentialRevocationDelta = 197,\n    AnonymousCommentTicketRequest = 198,\n    AnonymousCommentTicketResponse = 199,\n    SecurityChallengeCancelRequest = 200,\n    ConversationReadRequest = 201,\n    AccountConversationReplyRequest = 202,\n    ConversationDetailV2 = 203,\n    ConversationDetailV3 = 204,\n    CommentCreateResult = 205,\n    AdminConversationList = 206,\n    AdminConversationDetail = 207,\n    CommentTreeRootCursor = 208,\n    CommentChildCursor = 209,\n    CommentPermalinkContext = 210,\n    ConversationStatusMutationResult = 211,\n    PasskeySignalState = 212,\n    ArticleRevisionRollbackRequest = 213,\n    AnonymousCommentCreateResult = 214,\n    CommentManagementChallengeRequest = 215,\n    CommentManagementChallengeResponse = 216,\n    CommentAuthorEditRequest = 217,\n    CommentAuthorMutationResult = 218,\n    CommentAuthorStatusRequest = 219,\n    CommentAuthorStatusResult = 220,\n    CommentAuthorAppealRequest = 221,\n    CommentRevisionList = 222,\n    CommentReportRequest = 223,\n    CommentReportResult = 224,\n    CommentModerationTimeline = 225,\n    CommentAppealDecisionRequest = 226,\n    CommentAppealDecisionResult = 227,\n    ArticleResponsibilityHistory = 228,\n    CommentModerationClaimRequest = 229,\n    CommentModerationClaimMutationRequest = 230,\n    CommentModerationClaimResponse = 231,\n    PluginPackageInstallRequest = 232,\n    PluginAdminSnapshot = 233,\n    PluginAdminMutationRequest = 234,\n    ClusterRuntimeSnapshot = 235,\n    ClusterNodeStateRequest = 236,\n    ClusterSchedulerStateRequest = 237,\n    ClusterLeaseReleaseRequest = 238,\n    UserLocalePreference = 239,\n    EmptySuccess = 240,\n    MutationId = 241,\n    UserLocalePreferenceUpdateRequest = 242,\n    TaxonomyExactMetadata = 243,\n    ApiError = 251,\n};\n\n[[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept\n{\n    switch (raw)\n    {\n        case 40:\n        case 43:\n        case 44:\n        case 45:\n        case 46:\n        case 180:\n        case 181:\n        case static_cast<std::uint16_t>(FrameType::RetiredCredentialSpecificRevocationRequest):\n        case static_cast<std::uint16_t>(FrameType::RetiredCredentialSpecificRevocationResponse):\n            return true;\n        default:\n            return false;\n    }\n}\n\n[[nodiscard]] constexpr bool IsKnownFrameType(std::uint16_t raw) noexcept\n{\n    switch (static_cast<FrameType>(raw))\n    {\n        case FrameType::Unknown:\n        case FrameType::ArticleList:\n        case FrameType::ArticleDetail:\n        case FrameType::ArticleHot:\n        case FrameType::ArticleSearch:\n        case FrameType::CommentArticleCursor:\n        case FrameType::CommentUserCursor:\n        case FrameType::AdminStats:\n        case FrameType::CommentThreadReplyCursor:\n        case FrameType::CategoryList:\n        case FrameType::TagList:\n        case FrameType::RecentCommentStats:\n        case FrameType::RegionStats:\n        case FrameType::SeoConfig:\n        case FrameType::PageContent:\n        case FrameType::ArticleFeatured:\n        case FrameType::TrashClearResponse:\n        case FrameType::AdminUserList:\n        case FrameType::AuthLoginFlow:\n        case FrameType::CurrentUserSnapshot:\n        case FrameType::UploadInit:\n        case FrameType::UploadStatus:\n        case FrameType::UploadPartAck:\n        case FrameType::UploadComplete:\n        case FrameType::UploadPartMap:\n        case FrameType::AuthSessionList:\n        case FrameType::SiteComplianceConfig:\n        case FrameType::ArticleRelatedReading:\n        case FrameType::HumanReadChallengeResponse:\n        case FrameType::HumanReadSubmitResponse:\n        case FrameType::PowChallenge:\n        case FrameType::UploadInitRequest:\n        case FrameType::UploadCompleteRequest:\n        case FrameType::CategoryWriteRequest:\n        case FrameType::TagWriteRequest:\n        case FrameType::SeoConfigUpdateRequest:\n        case FrameType::PageContentUpdateRequest:\n        case FrameType::FileDeleteRequest:\n        case FrameType::AdminChangeUserStatusRequest:\n        case FrameType::ArticleWriteRequest:\n        case FrameType::AuthDeleteAccountRequest:\n        case FrameType::MfaSetupStart:\n        case FrameType::MfaSetupVerify:\n        case FrameType::MfaProfile:\n        case FrameType::MfaChallengeResult:\n        case FrameType::MfaSetupVerifyRequest:\n        case FrameType::MfaPasswordProofRequest:\n        case FrameType::MfaChallengeStartRequest:\n        case FrameType::MfaChallengeVerifyRequest:\n        case FrameType::ConversationList:\n        case FrameType::ConversationDetail:\n        case FrameType::ConversationMessage:\n        case FrameType::ConversationCreateRequest:\n        case FrameType::ConversationReplyRequest:\n        case FrameType::ConversationStatusRequest:\n        case FrameType::SystemMessageRequest:\n        case FrameType::PasskeyRegisterBegin:\n        case FrameType::PasskeyLoginBegin:\n        case FrameType::PasskeyCredentialList:\n        case FrameType::PasskeyRegisterCompleteRequest:\n        case FrameType::PasskeyLoginCompleteRequest:\n        case FrameType::PasskeyCredentialFriendlyNameUpdateRequest:\n        case FrameType::NotificationEvent:\n        case FrameType::NotificationHeartbeat:\n        case FrameType::PublicAotBootstrap:\n        case FrameType::SiteComplianceConfigUpdateRequest:\n        case FrameType::HumanReadChallengeRequest:\n        case FrameType::HumanReadSubmitRequest:\n        case FrameType::RumMetricBatchRequest:\n        case FrameType::RumMetricIngestResponse:\n        case FrameType::AuthorDraftSaveRequest:\n        case FrameType::ArticlePreviewRequest:\n        case FrameType::PrepublishCheckRequest:\n        case FrameType::AiAssistRequest:\n        case FrameType::AdminCacheActionRequest:\n        case FrameType::IntegrityFixRequest:\n        case FrameType::ModerationRuntimeGlobalStateRequest:\n        case FrameType::ModerationRuntimeRegionStateRequest:\n        case FrameType::ModerationDictionaryStateRequest:\n        case FrameType::ModerationEffectivePolicyPreviewRequest:\n        case FrameType::ModerationModelRuntimeRequest:\n        case FrameType::ModerationReplayPreviewRequest:\n        case FrameType::CommentModerationRequest:\n        case FrameType::CommentModerationBulkRequest:\n        case FrameType::ContentImportRequest:\n        case FrameType::AuthorDraftResponse:\n        case FrameType::AuthorDraftDiscardResponse:\n        case FrameType::ArticlePreviewResponse:\n        case FrameType::PrepublishCheckResponse:\n        case FrameType::AiAssistResponse:\n        case FrameType::AssetLibraryList:\n        case FrameType::AssetCleanupResponse:\n        case FrameType::AuthorTaxonomyCategoryList:\n        case FrameType::AuthorTaxonomyTagList:\n        case FrameType::AuthorAnalytics:\n        case FrameType::AuditLogList:\n        case FrameType::AuditLogSummary:\n        case FrameType::AuditLogDetail:\n        case FrameType::AuditTamperVerifyResponse:\n        case FrameType::OpsHealth:\n        case FrameType::BackupStatus:\n        case FrameType::DangerousOperationPolicy:\n        case FrameType::CacheDiagnostics:\n        case FrameType::AdminCacheActionResponse:\n        case FrameType::IntegrityReport:\n        case FrameType::IntegrityFixPreview:\n        case FrameType::IntegrityFixResponse:\n        case FrameType::CommentModerationQueue:\n        case FrameType::CommentModerationBulkResponse:\n        case FrameType::CommentModerationResult:\n        case FrameType::ContentExport:\n        case FrameType::ContentBackupExport:\n        case FrameType::ContentImportResponse:\n        case FrameType::ArticleRevisionList:\n        case FrameType::ArticleRevisionDetail:\n        case FrameType::ArticleRevisionRollbackResponse:\n        case FrameType::ModerationOverview:\n        case FrameType::ModerationDictionarySnapshot:\n        case FrameType::ModerationDictionaryReloadResponse:\n        case FrameType::ModerationRuntimeStatus:\n        case FrameType::ModerationRegionList:\n        case FrameType::ModerationRegionGroupList:\n        case FrameType::ModerationPolicyTemplateList:\n        case FrameType::ModerationEffectivePolicy:\n        case FrameType::RegionPolicySummaryList:\n        case FrameType::ModerationModelStatus:\n        case FrameType::ModerationReplayPreview:\n        case FrameType::AntiCrawlerOptionsUpdateRequest:\n        case FrameType::SecurityRiskResetRequest:\n        case FrameType::AntiCrawlerRuleRequest:\n        case FrameType::AntiCrawlerListEntryRequest:\n        case FrameType::AntiCrawlerSimulationRequest:\n        case FrameType::PowOptionsUpdateRequest:\n        case FrameType::SecurityOverview:\n        case FrameType::AntiCrawlerOverview:\n        case FrameType::AntiCrawlerPolicySnapshot:\n        case FrameType::CrawlerRangesAdminStatus:\n        case FrameType::CrawlerRangeSyncResponse:\n        case FrameType::SecurityRiskEventList:\n        case FrameType::SecurityRiskSnapshotList:\n        case FrameType::SecurityRiskResetResponse:\n        case FrameType::AntiCrawlerRuleList:\n        case FrameType::AntiCrawlerRuleResponse:\n        case FrameType::AntiCrawlerRuleDeleteResponse:\n        case FrameType::AntiCrawlerListEntryList:\n        case FrameType::AntiCrawlerListEntryResponse:\n        case FrameType::AntiCrawlerListEntryDeleteResponse:\n        case FrameType::AntiCrawlerSimulationResult:\n        case FrameType::PowOverview:\n        case FrameType::PowPolicySnapshot:\n        case FrameType::SiteSubscriptionRequest:\n        case FrameType::SiteSubscriptionResponse:\n        case FrameType::RecoveryKeyCreateResponse:\n        case FrameType::RecoveryKeyVerifyRequest:\n        case FrameType::RecoveryKeyVerifyResponse:\n        case FrameType::RecoveryKeySessionRequest:\n        case FrameType::IdentityAccountSnapshot:\n        case FrameType::CommentPolicySnapshot:\n        case FrameType::CommentPolicyUpdateRequest:\n        case FrameType::CommentCreateV2Request:\n        case FrameType::CommentAuthorView:\n        case FrameType::AnonymousGovernanceActionRequest:\n        case FrameType::AnonymousGovernanceActionResponse:\n        case FrameType::AdminSessionList:\n        case FrameType::SecurityChallengeAssignment:\n        case FrameType::SecurityChallengeEnvelope:\n        case FrameType::SecurityChallengeIssueRequest:\n        case FrameType::SecurityChallengeVerifyRequest:\n        case FrameType::SecurityChallengeIssueResponse:\n        case FrameType::SecurityChallengeVerifyResponse:\n        case FrameType::Reserved177:\n        case FrameType::Reserved178:\n        case FrameType::AnonymousCredentialRootSnapshot:\n        case FrameType::AnonymousCommentCreateRequest:\n        case FrameType::AnonymousPrivacyStateSnapshot:\n        case FrameType::PerceptionSealedChallengeV2:\n        case FrameType::PerceptionSealedResultV2:\n        case FrameType::RetiredCredentialSpecificRevocationRequest:\n        case FrameType::RetiredCredentialSpecificRevocationResponse:\n        case FrameType::AdminPrincipalSnapshot:\n        case FrameType::AuthAnonymousBootstrapRequest:\n        case FrameType::AuthUpdatePublicHandleRequest:\n        case FrameType::ArticleResponsibilityRequest:\n        case FrameType::ArticleResponsibilityResponse:\n        case FrameType::BlindCredentialIssuerMetadata:\n        case FrameType::BlindCredentialIssueRequest:\n        case FrameType::BlindCredentialIssueResponse:\n        case FrameType::AnonymousCredentialRevocationSnapshot:\n        case FrameType::AnonymousCredentialRevocationDelta:\n        case FrameType::AnonymousCommentTicketRequest:\n        case FrameType::AnonymousCommentTicketResponse:\n        case FrameType::SecurityChallengeCancelRequest:\n        case FrameType::ConversationReadRequest:\n        case FrameType::AccountConversationReplyRequest:\n        case FrameType::ConversationDetailV2:\n        case FrameType::ConversationDetailV3:\n        case FrameType::CommentCreateResult:\n        case FrameType::AdminConversationList:\n        case FrameType::AdminConversationDetail:\n        case FrameType::CommentTreeRootCursor:\n        case FrameType::CommentChildCursor:\n        case FrameType::CommentPermalinkContext:\n        case FrameType::ConversationStatusMutationResult:\n        case FrameType::PasskeySignalState:\n        case FrameType::ArticleRevisionRollbackRequest:\n        case FrameType::AnonymousCommentCreateResult:\n        case FrameType::CommentManagementChallengeRequest:\n        case FrameType::CommentManagementChallengeResponse:\n        case FrameType::CommentAuthorEditRequest:\n        case FrameType::CommentAuthorMutationResult:\n        case FrameType::CommentAuthorStatusRequest:\n        case FrameType::CommentAuthorStatusResult:\n        case FrameType::CommentAuthorAppealRequest:\n        case FrameType::CommentRevisionList:\n        case FrameType::CommentReportRequest:\n        case FrameType::CommentReportResult:\n        case FrameType::CommentModerationTimeline:\n        case FrameType::CommentAppealDecisionRequest:\n        case FrameType::CommentAppealDecisionResult:\n        case FrameType::ArticleResponsibilityHistory:\n        case FrameType::CommentModerationClaimRequest:\n        case FrameType::CommentModerationClaimMutationRequest:\n        case FrameType::CommentModerationClaimResponse:\n        case FrameType::PluginPackageInstallRequest:\n        case FrameType::PluginAdminSnapshot:\n        case FrameType::PluginAdminMutationRequest:\n        case FrameType::ClusterRuntimeSnapshot:\n        case FrameType::ClusterNodeStateRequest:\n        case FrameType::ClusterSchedulerStateRequest:\n        case FrameType::ClusterLeaseReleaseRequest:\n        case FrameType::UserLocalePreference:\n        case FrameType::EmptySuccess:\n        case FrameType::MutationId:\n        case FrameType::UserLocalePreferenceUpdateRequest:\n        case FrameType::TaxonomyExactMetadata:\n        case FrameType::ApiError:\n            return true;\n        default:\n            return false;\n    }\n}\n\n} // namespace FsusBlog::Aeds\n",
+        "tests/backend/Fixtures/aeds-golden-catalog.json": "{\n  \"version\": \"fsusblog-aeds-golden-catalog-v1\",\n  \"generatedFrom\": \"src/core/Algorithms/AedsFrameType.cs\",\n  \"defaultEvidence\": [\n    \"tests/backend/Unit/BackendGoldenCatalogTests.cs\",\n    \"tests/backend/Unit/PodBinaryCodecTests.cs\",\n    \"tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs\"\n  ],\n  \"retiredFrameValues\": [\n    { \"value\": 40, \"reason\": \"legacy-admin-password-reset\" },\n    { \"value\": 43, \"reason\": \"legacy-password-login\" },\n    { \"value\": 44, \"reason\": \"legacy-password-register\" },\n    { \"value\": 45, \"reason\": \"legacy-username-mutation\" },\n    { \"value\": 46, \"reason\": \"legacy-password-mutation\" },\n    { \"value\": 180, \"reason\": \"precise-anonymous-credential-ticket-request\" },\n    { \"value\": 181, \"reason\": \"precise-anonymous-credential-ticket-response\" }\n  ],\n  \"frames\": [\n    { \"name\": \"Unknown\", \"value\": 0, \"family\": \"reserved\" },\n    { \"name\": \"ArticleList\", \"value\": 1, \"family\": \"public-article-response\" },\n    { \"name\": \"ArticleDetail\", \"value\": 2, \"family\": \"public-article-response\" },\n    { \"name\": \"ArticleHot\", \"value\": 3, \"family\": \"public-article-response\" },\n    { \"name\": \"ArticleSearch\", \"value\": 4, \"family\": \"public-article-response\" },\n    { \"name\": \"CommentArticleCursor\", \"value\": 5, \"family\": \"comment-response\" },\n    { \"name\": \"CommentUserCursor\", \"value\": 6, \"family\": \"comment-response\" },\n    { \"name\": \"AdminStats\", \"value\": 7, \"family\": \"admin-response\" },\n    { \"name\": \"CommentThreadReplyCursor\", \"value\": 8, \"family\": \"comment-response\" },\n    { \"name\": \"CategoryList\", \"value\": 9, \"family\": \"taxonomy-response\" },\n    { \"name\": \"TagList\", \"value\": 10, \"family\": \"taxonomy-response\" },\n    { \"name\": \"RecentCommentStats\", \"value\": 11, \"family\": \"stats-response\" },\n    { \"name\": \"RegionStats\", \"value\": 12, \"family\": \"stats-response\" },\n    { \"name\": \"SeoConfig\", \"value\": 13, \"family\": \"system-response\" },\n    { \"name\": \"PageContent\", \"value\": 14, \"family\": \"system-response\" },\n    { \"name\": \"ArticleFeatured\", \"value\": 15, \"family\": \"public-article-response\" },\n    { \"name\": \"TrashClearResponse\", \"value\": 16, \"family\": \"article-mutation-response\" },\n    { \"name\": \"AdminUserList\", \"value\": 17, \"family\": \"admin-user-response\" },\n    { \"name\": \"AuthLoginFlow\", \"value\": 18, \"family\": \"auth-response\" },\n    { \"name\": \"CurrentUserSnapshot\", \"value\": 19, \"family\": \"auth-response\" },\n    { \"name\": \"UploadInit\", \"value\": 20, \"family\": \"upload-response\" },\n    { \"name\": \"UploadStatus\", \"value\": 21, \"family\": \"upload-response\" },\n    { \"name\": \"UploadPartAck\", \"value\": 22, \"family\": \"upload-response\" },\n    { \"name\": \"UploadComplete\", \"value\": 23, \"family\": \"upload-response\" },\n    { \"name\": \"UploadPartMap\", \"value\": 24, \"family\": \"upload-response\" },\n    { \"name\": \"AuthSessionList\", \"value\": 25, \"family\": \"auth-response\" },\n    { \"name\": \"SiteComplianceConfig\", \"value\": 26, \"family\": \"system-response\" },\n    { \"name\": \"ArticleRelatedReading\", \"value\": 27, \"family\": \"public-article-response\" },\n    { \"name\": \"HumanReadChallengeResponse\", \"value\": 28, \"family\": \"read-proof-response\" },\n    { \"name\": \"HumanReadSubmitResponse\", \"value\": 29, \"family\": \"read-proof-response\" },\n    { \"name\": \"PowChallenge\", \"value\": 30, \"family\": \"auth-response\" },\n    { \"name\": \"UploadInitRequest\", \"value\": 31, \"family\": \"upload-request\" },\n    { \"name\": \"UploadCompleteRequest\", \"value\": 32, \"family\": \"upload-request\" },\n    { \"name\": \"CategoryWriteRequest\", \"value\": 33, \"family\": \"taxonomy-request\" },\n    { \"name\": \"TagWriteRequest\", \"value\": 34, \"family\": \"taxonomy-request\" },\n    { \"name\": \"SeoConfigUpdateRequest\", \"value\": 35, \"family\": \"system-request\" },\n    { \"name\": \"PageContentUpdateRequest\", \"value\": 36, \"family\": \"system-request\" },\n    { \"name\": \"FileDeleteRequest\", \"value\": 38, \"family\": \"file-request\" },\n    { \"name\": \"AdminChangeUserStatusRequest\", \"value\": 39, \"family\": \"admin-user-request\" },\n    { \"name\": \"ArticleWriteRequest\", \"value\": 41, \"family\": \"article-request\" },\n    { \"name\": \"AuthDeleteAccountRequest\", \"value\": 47, \"family\": \"auth-request\" },\n    { \"name\": \"MfaSetupStart\", \"value\": 48, \"family\": \"mfa-response\" },\n    { \"name\": \"MfaSetupVerify\", \"value\": 49, \"family\": \"mfa-response\" },\n    { \"name\": \"MfaProfile\", \"value\": 50, \"family\": \"mfa-response\" },\n    { \"name\": \"MfaChallengeResult\", \"value\": 51, \"family\": \"mfa-response\" },\n    { \"name\": \"MfaSetupVerifyRequest\", \"value\": 52, \"family\": \"mfa-request\" },\n    { \"name\": \"MfaPasswordProofRequest\", \"value\": 53, \"family\": \"mfa-request\" },\n    { \"name\": \"MfaChallengeStartRequest\", \"value\": 54, \"family\": \"mfa-request\" },\n    { \"name\": \"MfaChallengeVerifyRequest\", \"value\": 55, \"family\": \"mfa-request\" },\n    { \"name\": \"ConversationList\", \"value\": 56, \"family\": \"message-response\" },\n    { \"name\": \"ConversationDetail\", \"value\": 57, \"family\": \"message-response\" },\n    { \"name\": \"ConversationMessage\", \"value\": 58, \"family\": \"message-response\" },\n    { \"name\": \"ConversationCreateRequest\", \"value\": 59, \"family\": \"message-request\" },\n    { \"name\": \"ConversationReplyRequest\", \"value\": 60, \"family\": \"message-request\" },\n    { \"name\": \"ConversationStatusRequest\", \"value\": 61, \"family\": \"message-request\" },\n    { \"name\": \"SystemMessageRequest\", \"value\": 62, \"family\": \"message-request\" },\n    { \"name\": \"PasskeyRegisterBegin\", \"value\": 63, \"family\": \"passkey-response\" },\n    { \"name\": \"PasskeyLoginBegin\", \"value\": 64, \"family\": \"passkey-response\" },\n    { \"name\": \"PasskeyCredentialList\", \"value\": 65, \"family\": \"passkey-response\" },\n    { \"name\": \"PasskeyRegisterCompleteRequest\", \"value\": 66, \"family\": \"passkey-request\" },\n    { \"name\": \"PasskeyLoginCompleteRequest\", \"value\": 67, \"family\": \"passkey-request\" },\n    { \"name\": \"PasskeyCredentialFriendlyNameUpdateRequest\", \"value\": 68, \"family\": \"passkey-request\" },\n    { \"name\": \"NotificationEvent\", \"value\": 69, \"family\": \"notification-stream-response\" },\n    { \"name\": \"NotificationHeartbeat\", \"value\": 70, \"family\": \"notification-stream-response\" },\n    { \"name\": \"PublicAotBootstrap\", \"value\": 71, \"family\": \"public-aot-response\" },\n    { \"name\": \"SiteComplianceConfigUpdateRequest\", \"value\": 72, \"family\": \"system-request\" },\n    { \"name\": \"HumanReadChallengeRequest\", \"value\": 73, \"family\": \"read-proof-request\" },\n    { \"name\": \"HumanReadSubmitRequest\", \"value\": 74, \"family\": \"read-proof-request\" },\n    { \"name\": \"RumMetricBatchRequest\", \"value\": 75, \"family\": \"telemetry-request\" },\n    { \"name\": \"RumMetricIngestResponse\", \"value\": 76, \"family\": \"telemetry-response\" },\n    { \"name\": \"AuthorDraftSaveRequest\", \"value\": 77, \"family\": \"authoring-request\" },\n    { \"name\": \"ArticlePreviewRequest\", \"value\": 78, \"family\": \"authoring-request\" },\n    { \"name\": \"PrepublishCheckRequest\", \"value\": 79, \"family\": \"authoring-request\" },\n    { \"name\": \"AiAssistRequest\", \"value\": 80, \"family\": \"authoring-request\" },\n    { \"name\": \"AdminCacheActionRequest\", \"value\": 81, \"family\": \"authoring-request\" },\n    { \"name\": \"IntegrityFixRequest\", \"value\": 82, \"family\": \"authoring-request\" },\n    { \"name\": \"ModerationRuntimeGlobalStateRequest\", \"value\": 83, \"family\": \"moderation-request\" },\n    { \"name\": \"ModerationRuntimeRegionStateRequest\", \"value\": 84, \"family\": \"moderation-request\" },\n    { \"name\": \"ModerationDictionaryStateRequest\", \"value\": 85, \"family\": \"moderation-request\" },\n    { \"name\": \"ModerationEffectivePolicyPreviewRequest\", \"value\": 86, \"family\": \"moderation-request\" },\n    { \"name\": \"ModerationModelRuntimeRequest\", \"value\": 87, \"family\": \"moderation-request\" },\n    { \"name\": \"ModerationReplayPreviewRequest\", \"value\": 88, \"family\": \"moderation-request\" },\n    { \"name\": \"CommentModerationRequest\", \"value\": 89, \"family\": \"moderation-request\" },\n    { \"name\": \"CommentModerationBulkRequest\", \"value\": 90, \"family\": \"moderation-request\" },\n    { \"name\": \"ContentImportRequest\", \"value\": 91, \"family\": \"authoring-request\" },\n    { \"name\": \"AuthorDraftResponse\", \"value\": 92, \"family\": \"authoring-response\" },\n    { \"name\": \"AuthorDraftDiscardResponse\", \"value\": 93, \"family\": \"authoring-response\" },\n    { \"name\": \"ArticlePreviewResponse\", \"value\": 94, \"family\": \"authoring-response\" },\n    { \"name\": \"PrepublishCheckResponse\", \"value\": 95, \"family\": \"authoring-response\" },\n    { \"name\": \"AiAssistResponse\", \"value\": 96, \"family\": \"authoring-response\" },\n    { \"name\": \"AssetLibraryList\", \"value\": 97, \"family\": \"authoring-response\" },\n    { \"name\": \"AssetCleanupResponse\", \"value\": 98, \"family\": \"authoring-response\" },\n    { \"name\": \"AuthorTaxonomyCategoryList\", \"value\": 99, \"family\": \"authoring-response\" },\n    { \"name\": \"AuthorTaxonomyTagList\", \"value\": 100, \"family\": \"authoring-response\" },\n    { \"name\": \"AuthorAnalytics\", \"value\": 101, \"family\": \"authoring-response\" },\n    { \"name\": \"AuditLogList\", \"value\": 102, \"family\": \"authoring-response\" },\n    { \"name\": \"AuditLogSummary\", \"value\": 103, \"family\": \"authoring-response\" },\n    { \"name\": \"AuditLogDetail\", \"value\": 104, \"family\": \"authoring-response\" },\n    { \"name\": \"AuditTamperVerifyResponse\", \"value\": 105, \"family\": \"authoring-response\" },\n    { \"name\": \"OpsHealth\", \"value\": 106, \"family\": \"authoring-response\" },\n    { \"name\": \"BackupStatus\", \"value\": 107, \"family\": \"authoring-response\" },\n    { \"name\": \"DangerousOperationPolicy\", \"value\": 108, \"family\": \"authoring-response\" },\n    { \"name\": \"CacheDiagnostics\", \"value\": 109, \"family\": \"authoring-response\" },\n    { \"name\": \"AdminCacheActionResponse\", \"value\": 110, \"family\": \"authoring-response\" },\n    { \"name\": \"IntegrityReport\", \"value\": 111, \"family\": \"authoring-response\" },\n    { \"name\": \"IntegrityFixPreview\", \"value\": 112, \"family\": \"authoring-response\" },\n    { \"name\": \"IntegrityFixResponse\", \"value\": 113, \"family\": \"authoring-response\" },\n    { \"name\": \"CommentModerationQueue\", \"value\": 114, \"family\": \"moderation-response\" },\n    { \"name\": \"CommentModerationBulkResponse\", \"value\": 115, \"family\": \"moderation-response\" },\n    { \"name\": \"CommentModerationResult\", \"value\": 116, \"family\": \"moderation-response\" },\n    { \"name\": \"ContentExport\", \"value\": 117, \"family\": \"authoring-response\" },\n    { \"name\": \"ContentBackupExport\", \"value\": 118, \"family\": \"authoring-response\" },\n    { \"name\": \"ContentImportResponse\", \"value\": 119, \"family\": \"authoring-response\" },\n    { \"name\": \"ArticleRevisionList\", \"value\": 120, \"family\": \"authoring-response\" },\n    { \"name\": \"ArticleRevisionDetail\", \"value\": 121, \"family\": \"authoring-response\" },\n    { \"name\": \"ArticleRevisionRollbackResponse\", \"value\": 122, \"family\": \"authoring-response\" },\n    { \"name\": \"ModerationOverview\", \"value\": 123, \"family\": \"moderation-response\" },\n    { \"name\": \"ModerationDictionarySnapshot\", \"value\": 124, \"family\": \"moderation-response\" },\n    { \"name\": \"ModerationDictionaryReloadResponse\", \"value\": 125, \"family\": \"moderation-response\" },\n    { \"name\": \"ModerationRuntimeStatus\", \"value\": 126, \"family\": \"moderation-response\" },\n    { \"name\": \"ModerationRegionList\", \"value\": 127, \"family\": \"moderation-response\" },\n    { \"name\": \"ModerationRegionGroupList\", \"value\": 128, \"family\": \"moderation-response\" },\n    { \"name\": \"ModerationPolicyTemplateList\", \"value\": 129, \"family\": \"moderation-response\" },\n    { \"name\": \"ModerationEffectivePolicy\", \"value\": 130, \"family\": \"moderation-response\" },\n    { \"name\": \"RegionPolicySummaryList\", \"value\": 131, \"family\": \"moderation-response\" },\n    { \"name\": \"ModerationModelStatus\", \"value\": 132, \"family\": \"moderation-response\" },\n    { \"name\": \"ModerationReplayPreview\", \"value\": 133, \"family\": \"moderation-response\" },\n    { \"name\": \"AntiCrawlerOptionsUpdateRequest\", \"value\": 134, \"family\": \"security-request\" },\n    { \"name\": \"SecurityRiskResetRequest\", \"value\": 135, \"family\": \"security-request\" },\n    { \"name\": \"AntiCrawlerRuleRequest\", \"value\": 136, \"family\": \"security-request\" },\n    { \"name\": \"AntiCrawlerListEntryRequest\", \"value\": 137, \"family\": \"security-request\" },\n    { \"name\": \"AntiCrawlerSimulationRequest\", \"value\": 138, \"family\": \"security-request\" },\n    { \"name\": \"PowOptionsUpdateRequest\", \"value\": 139, \"family\": \"security-request\" },\n    { \"name\": \"SecurityOverview\", \"value\": 140, \"family\": \"security-response\" },\n    { \"name\": \"AntiCrawlerOverview\", \"value\": 141, \"family\": \"security-response\" },\n    { \"name\": \"AntiCrawlerPolicySnapshot\", \"value\": 142, \"family\": \"security-response\" },\n    { \"name\": \"CrawlerRangesAdminStatus\", \"value\": 143, \"family\": \"security-response\" },\n    { \"name\": \"CrawlerRangeSyncResponse\", \"value\": 144, \"family\": \"security-response\" },\n    { \"name\": \"SecurityRiskEventList\", \"value\": 145, \"family\": \"security-response\" },\n    { \"name\": \"SecurityRiskSnapshotList\", \"value\": 146, \"family\": \"security-response\" },\n    { \"name\": \"SecurityRiskResetResponse\", \"value\": 147, \"family\": \"security-response\" },\n    { \"name\": \"AntiCrawlerRuleList\", \"value\": 148, \"family\": \"security-response\" },\n    { \"name\": \"AntiCrawlerRuleResponse\", \"value\": 149, \"family\": \"security-response\" },\n    { \"name\": \"AntiCrawlerRuleDeleteResponse\", \"value\": 150, \"family\": \"security-response\" },\n    { \"name\": \"AntiCrawlerListEntryList\", \"value\": 151, \"family\": \"security-response\" },\n    { \"name\": \"AntiCrawlerListEntryResponse\", \"value\": 152, \"family\": \"security-response\" },\n    { \"name\": \"AntiCrawlerListEntryDeleteResponse\", \"value\": 153, \"family\": \"security-response\" },\n    { \"name\": \"AntiCrawlerSimulationResult\", \"value\": 154, \"family\": \"security-response\" },\n    { \"name\": \"PowOverview\", \"value\": 155, \"family\": \"security-response\" },\n    { \"name\": \"PowPolicySnapshot\", \"value\": 156, \"family\": \"security-response\" },\n    { \"name\": \"SiteSubscriptionRequest\", \"value\": 157, \"family\": \"subscription-request\" },\n    { \"name\": \"SiteSubscriptionResponse\", \"value\": 158, \"family\": \"subscription-response\" },\n    { \"name\": \"RecoveryKeyCreateResponse\", \"value\": 159, \"family\": \"recovery-key-response\" },\n    { \"name\": \"RecoveryKeyVerifyRequest\", \"value\": 160, \"family\": \"recovery-key-request\" },\n    { \"name\": \"RecoveryKeyVerifyResponse\", \"value\": 161, \"family\": \"recovery-key-response\" },\n    { \"name\": \"RecoveryKeySessionRequest\", \"value\": 162, \"family\": \"recovery-key-request\" },\n    { \"name\": \"IdentityAccountSnapshot\", \"value\": 163, \"family\": \"identity-response\" },\n    { \"name\": \"CommentPolicySnapshot\", \"value\": 164, \"family\": \"comment-policy-response\" },\n    { \"name\": \"CommentPolicyUpdateRequest\", \"value\": 165, \"family\": \"comment-policy-request\" },\n    { \"name\": \"CommentCreateV2Request\", \"value\": 166, \"family\": \"comment-request\" },\n    { \"name\": \"CommentAuthorView\", \"value\": 167, \"family\": \"comment-response\" },\n    { \"name\": \"AnonymousGovernanceActionRequest\", \"value\": 168, \"family\": \"anonymous-governance-request\" },\n    { \"name\": \"AnonymousGovernanceActionResponse\", \"value\": 169, \"family\": \"anonymous-governance-response\" },\n    { \"name\": \"AdminSessionList\", \"value\": 170, \"family\": \"auth-response\" },\n    { \"name\": \"SecurityChallengeAssignment\", \"value\": 171, \"family\": \"security-challenge\" },\n    { \"name\": \"SecurityChallengeEnvelope\", \"value\": 172, \"family\": \"security-challenge\" },\n    { \"name\": \"SecurityChallengeIssueRequest\", \"value\": 173, \"family\": \"security-challenge-request\" },\n    { \"name\": \"SecurityChallengeVerifyRequest\", \"value\": 174, \"family\": \"security-challenge-request\" },\n    { \"name\": \"SecurityChallengeIssueResponse\", \"value\": 175, \"family\": \"security-challenge-response\" },\n    { \"name\": \"SecurityChallengeVerifyResponse\", \"value\": 176, \"family\": \"security-challenge-response\" },\n    { \"name\": \"Reserved177\", \"value\": 177, \"family\": \"reserved\" },\n    { \"name\": \"Reserved178\", \"value\": 178, \"family\": \"reserved\" },\n    { \"name\": \"AnonymousCredentialRootSnapshot\", \"value\": 179, \"family\": \"anonymous-privacy-response\" },\n    { \"name\": \"AnonymousCommentTicketRequest\", \"value\": 198, \"family\": \"anonymous-privacy-request\" },\n    { \"name\": \"AnonymousCommentTicketResponse\", \"value\": 199, \"family\": \"anonymous-privacy-response\" },\n    { \"name\": \"SecurityChallengeCancelRequest\", \"value\": 200, \"family\": \"security-challenge-request\" },\n    { \"name\": \"ConversationReadRequest\", \"value\": 201, \"family\": \"message-request\" },\n    { \"name\": \"AccountConversationReplyRequest\", \"value\": 202, \"family\": \"message-request\" },\n    { \"name\": \"ConversationDetailV2\", \"value\": 203, \"family\": \"message-response\" },\n    { \"name\": \"ConversationDetailV3\", \"value\": 204, \"family\": \"message-response\" },\n    { \"name\": \"CommentCreateResult\", \"value\": 205, \"family\": \"comment-response\" },\n    { \"name\": \"AdminConversationList\", \"value\": 206, \"family\": \"message-response\" },\n    { \"name\": \"AdminConversationDetail\", \"value\": 207, \"family\": \"message-response\" },\n    { \"name\": \"CommentTreeRootCursor\", \"value\": 208, \"family\": \"comment-response\" },\n    { \"name\": \"CommentChildCursor\", \"value\": 209, \"family\": \"comment-response\" },\n    { \"name\": \"CommentPermalinkContext\", \"value\": 210, \"family\": \"comment-response\" },\n    { \"name\": \"ConversationStatusMutationResult\", \"value\": 211, \"family\": \"message-response\" },\n    { \"name\": \"PasskeySignalState\", \"value\": 212, \"family\": \"passkey-response\" },\n    { \"name\": \"ArticleRevisionRollbackRequest\", \"value\": 213, \"family\": \"authoring-request\" },\n    { \"name\": \"AnonymousCommentCreateResult\", \"value\": 214, \"family\": \"anonymous-comment-response\" },\n    { \"name\": \"CommentManagementChallengeRequest\", \"value\": 215, \"family\": \"comment-management-request\" },\n    { \"name\": \"CommentManagementChallengeResponse\", \"value\": 216, \"family\": \"comment-management-response\" },\n    { \"name\": \"CommentAuthorEditRequest\", \"value\": 217, \"family\": \"comment-management-request\" },\n    { \"name\": \"CommentAuthorMutationResult\", \"value\": 218, \"family\": \"comment-management-response\" },\n    { \"name\": \"CommentAuthorStatusRequest\", \"value\": 219, \"family\": \"comment-management-request\" },\n    { \"name\": \"CommentAuthorStatusResult\", \"value\": 220, \"family\": \"comment-management-response\" },\n    { \"name\": \"CommentAuthorAppealRequest\", \"value\": 221, \"family\": \"comment-management-request\" },\n    { \"name\": \"CommentRevisionList\", \"value\": 222, \"family\": \"comment-management-response\" },\n    { \"name\": \"CommentReportRequest\", \"value\": 223, \"family\": \"comment-governance-request\" },\n    { \"name\": \"CommentReportResult\", \"value\": 224, \"family\": \"comment-governance-response\" },\n    { \"name\": \"CommentModerationTimeline\", \"value\": 225, \"family\": \"comment-governance-response\" },\n    { \"name\": \"CommentAppealDecisionRequest\", \"value\": 226, \"family\": \"comment-governance-request\" },\n    { \"name\": \"CommentAppealDecisionResult\", \"value\": 227, \"family\": \"comment-governance-response\" },\n    { \"name\": \"ArticleResponsibilityHistory\", \"value\": 228, \"family\": \"authoring-response\" },\n    { \"name\": \"CommentModerationClaimRequest\", \"value\": 229, \"family\": \"comment-moderation-request\" },\n    { \"name\": \"CommentModerationClaimMutationRequest\", \"value\": 230, \"family\": \"comment-moderation-request\" },\n    { \"name\": \"CommentModerationClaimResponse\", \"value\": 231, \"family\": \"comment-moderation-response\" },\n    { \"name\": \"PluginPackageInstallRequest\", \"value\": 232, \"family\": \"plugin-admin-request\" },\n    { \"name\": \"PluginAdminSnapshot\", \"value\": 233, \"family\": \"plugin-admin-response\" },\n    { \"name\": \"PluginAdminMutationRequest\", \"value\": 234, \"family\": \"plugin-admin-request\" },\n    { \"name\": \"ClusterRuntimeSnapshot\", \"value\": 235, \"family\": \"cluster-runtime-response\" },\n    { \"name\": \"ClusterNodeStateRequest\", \"value\": 236, \"family\": \"cluster-runtime-request\" },\n    { \"name\": \"ClusterSchedulerStateRequest\", \"value\": 237, \"family\": \"cluster-runtime-request\" },\n    { \"name\": \"ClusterLeaseReleaseRequest\", \"value\": 238, \"family\": \"cluster-runtime-request\" },\n    { \"name\": \"UserLocalePreference\", \"value\": 239, \"family\": \"locale-preference-response\" },\n    { \"name\": \"AnonymousCommentCreateRequest\", \"value\": 182, \"family\": \"anonymous-comment-request\" },\n    { \"name\": \"AnonymousPrivacyStateSnapshot\", \"value\": 183, \"family\": \"anonymous-privacy-response\" },\n    { \"name\": \"PerceptionSealedChallengeV2\", \"value\": 184, \"family\": \"security-challenge-response\" },\n    { \"name\": \"PerceptionSealedResultV2\", \"value\": 185, \"family\": \"security-challenge-request\" },\n    { \"name\": \"RetiredCredentialSpecificRevocationRequest\", \"value\": 186, \"family\": \"retired\" },\n    { \"name\": \"RetiredCredentialSpecificRevocationResponse\", \"value\": 187, \"family\": \"retired\" },\n    { \"name\": \"AdminPrincipalSnapshot\", \"value\": 188, \"family\": \"admin-principal-response\" },\n    { \"name\": \"AuthAnonymousBootstrapRequest\", \"value\": 189, \"family\": \"auth-request\" },\n    { \"name\": \"AuthUpdatePublicHandleRequest\", \"value\": 190, \"family\": \"auth-request\" },\n    { \"name\": \"ArticleResponsibilityRequest\", \"value\": 191, \"family\": \"authoring-request\" },\n    { \"name\": \"ArticleResponsibilityResponse\", \"value\": 192, \"family\": \"authoring-response\" },\n    { \"name\": \"BlindCredentialIssuerMetadata\", \"value\": 193, \"family\": \"anonymous-privacy-response\" },\n    { \"name\": \"BlindCredentialIssueRequest\", \"value\": 194, \"family\": \"anonymous-privacy-request\" },\n    { \"name\": \"BlindCredentialIssueResponse\", \"value\": 195, \"family\": \"anonymous-privacy-response\" },\n    { \"name\": \"AnonymousCredentialRevocationSnapshot\", \"value\": 196, \"family\": \"anonymous-privacy-response\" },\n    { \"name\": \"AnonymousCredentialRevocationDelta\", \"value\": 197, \"family\": \"anonymous-privacy-response\" },\n    { \"name\": \"EmptySuccess\", \"value\": 240, \"family\": \"common-response\" },\n    { \"name\": \"MutationId\", \"value\": 241, \"family\": \"common-response\" },\n    { \"name\": \"UserLocalePreferenceUpdateRequest\", \"value\": 242, \"family\": \"locale-preference-request\" },\n    { \"name\": \"TaxonomyExactMetadata\", \"value\": 243, \"family\": \"taxonomy-response\" },\n    { \"name\": \"ApiError\", \"value\": 251, \"family\": \"error-response\" }\n  ]\n}\n"
+    }
+}

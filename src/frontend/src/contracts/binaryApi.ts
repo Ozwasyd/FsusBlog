@@ -1,3 +1,4 @@
+import type { UserSessionAuthenticationMethod, UserSessionAuthenticationStrength, UserSessionDurationPolicy, UserSessionMode } from '@/generated/authSessionContract';
 export const ArticlePublishStatus = {
     Draft: 0,
     Scheduled: 1,
@@ -240,11 +241,12 @@ export interface UserSessionSummary {
     deviceLabel: string;
     createdAt: string;
     lastSeenAt: string | null;
-    authenticationMethod: 'passkey' | 'recovery_key' | 'enrollment' | 'other';
-    authenticationStrength: 'webauthn_uv' | 'mfa' | 'recovery' | 'legacy_verified' | 'legacy_unverified';
+    authenticationMethod: UserSessionAuthenticationMethod;
+    authenticationStrength: UserSessionAuthenticationStrength;
     passkeyFriendlyName: string | null;
-    durationPolicy: 'browser_session' | 'persistent_30d';
+    durationPolicy: UserSessionDurationPolicy;
     isCurrent: boolean;
+    sessionMode: UserSessionMode;
 }
 
 export interface PasskeyCredentialSummary {

@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "d4bd57576791f6a6fbb20687264d9ba24ff4fe03",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401",
+        "command": "dotnet format whitespace /workspace/FsusBlog --folder --include src/backend/Entities/UserSession.cs src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs src/backend/Services/UserSessionCommandService.cs tests/backend/Unit/AuthCookieExpiryFlowTests.cs tests/backend/Unit/AuthFixtureCompositionRootTests.cs tests/backend/Unit/JwtHelperTests.cs tests/backend/Unit/MfaChallengeServiceTests.cs tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs tests/backend/Unit/UserServiceValidationTests.cs tests/backend/Unit/UserSessionAuthenticationContextTests.cs tests/backend/Unit/UserSessionJwtAuthenticationTests.cs --verbosity quiet"
+    },
+    "paths": [
+        "src/backend/Entities/UserSession.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "src/backend/Services/UserSessionCommandService.cs",
+        "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+        "tests/backend/Unit/AuthFixtureCompositionRootTests.cs",
+        "tests/backend/Unit/JwtHelperTests.cs",
+        "tests/backend/Unit/MfaChallengeServiceTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/UserServiceValidationTests.cs",
+        "tests/backend/Unit/UserSessionAuthenticationContextTests.cs",
+        "tests/backend/Unit/UserSessionJwtAuthenticationTests.cs"
+    ],
+    "firstPassTreeSha256": "9e59045b489236d919162a6537e6c1ddc59a7cd543f14b37ee9410a6bcdd6204",
+    "secondPassTreeSha256": "9e59045b489236d919162a6537e6c1ddc59a7cd543f14b37ee9410a6bcdd6204",
+    "idempotent": true
+}

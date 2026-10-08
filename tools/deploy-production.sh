@@ -296,7 +296,6 @@ ValidateEnv() {
         REDIS_PASSWORD
         Jwt__SecretKey
         Jwt__KeyVersion
-        Jwt__RotationWindowDays
         SITE_BASEURL
         CORS_ALLOWED_HOSTS
         APP_ALLOWED_HOSTS
@@ -321,7 +320,6 @@ ValidateEnv() {
         RequireEnvValue "$name" || failed=1
     done
 
-    RequireEnvEquals FSUSBLOG_ANONYMOUS_IDENTITY_MODE 1 || failed=1
     RequireEnvEquals FSUSBLOG_ZK_PROD_ENABLED true || failed=1
     RequireEnvEquals FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED true || failed=1
     RequireEnvEquals FSUSBLOG_ZK_CREDENTIAL_READY true || failed=1

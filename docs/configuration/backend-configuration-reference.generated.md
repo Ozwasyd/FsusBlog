@@ -5,8 +5,8 @@
 
 ASP.NET Core precedence remains: base appsettings < Production overlay < environment/Compose < explicit command line.
 
-- Application settings: 228
-- Tracked environment variables: 242
+- Application settings: 224
+- Tracked environment variables: 240
 - Mounted file classes: 4
 
 ## Application settings
@@ -90,7 +90,6 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `fsus:allowLocalAuthFixture` | None | Local development tooling setting: allowLocalAuthFixture | `boolean` | Development | optional: optional | no | repository-development-overlay; safe-non-secret-default | consumer: development-only host guard | `true or false` |
 | `fsus:allowLocalSecurityFixture` | None | Security and risk control setting: allowLocalSecurityFixture | `boolean` | Development | optional: optional | no | repository-development-overlay; safe-non-secret-default | consumer: development-only host guard | `true or false` |
 | `fsus:localSecurityFixtureSecret` | None | Security and risk control setting: localSecurityFixtureSecret | `secret-string` | Development | conditional: when local security fixture endpoints are enabled | yes | repository-development-overlay; known-development-fixture-only; Production overlay must be empty | feature-gate: development-only host guard | `<external secret; never a usable tracked value>` |
-| `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` | `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` | Anonymous identity and credentials setting: FSUSBLOG_ANONYMOUS_IDENTITY_MODE | `integer` | Production | required: Production | no | environment; safe-non-secret-default | startup: ProductionStartupValidator | `<integer>` |
 | `FSUSBLOG_COMMIT_SHA` | `FSUSBLOG_COMMIT_SHA` | Release and deployment lifecycle setting: FSUSBLOG_COMMIT_SHA | `sha` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `<commit or artifact digest>` |
 | `FSUSBLOG_DATA_ROOT` | `FSUSBLOG_DATA_ROOT` | Release and deployment lifecycle setting: FSUSBLOG_DATA_ROOT | `path` | Production | optional: optional | no | environment, mounted-file; safe-non-secret-default | consumer: release identity and lifecycle validator | `/mounted/operator/path` |
 | `FSUSBLOG_DEPLOYMENT_GENERATION` | `FSUSBLOG_DEPLOYMENT_GENERATION` | Release and deployment lifecycle setting: FSUSBLOG_DEPLOYMENT_GENERATION | `integer` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `<integer>` |
@@ -116,9 +115,6 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `Jwt:Audience` | None | Authentication and session security setting: Audience | `string` | Development, Production | optional: optional | no | repository-base; safe-non-secret-default | consumer: authentication runtime validator | `<value matching the declared type>` |
 | `Jwt:Issuer` | None | Authentication and session security setting: Issuer | `string` | Development, Production | optional: optional | no | repository-base; safe-non-secret-default | consumer: authentication runtime validator | `<value matching the declared type>` |
 | `Jwt:KeyVersion` | `Jwt__KeyVersion` | Authentication and session security setting: KeyVersion | `string` | Development, Production | required: Production | no | environment, repository-base, repository-production-overlay; safe-non-secret-default | startup: ProductionStartupValidator | `<value matching the declared type>` |
-| `Jwt:LegacyNoKidAcceptUntilUtc` | None | Authentication and session security setting: LegacyNoKidAcceptUntilUtc | `nullable-datetime` | Development, Production | optional: optional | no | repository-base, repository-production-overlay; safe-non-secret-default | consumer: authentication runtime validator | `<value matching the declared type>` |
-| `Jwt:PreviousKeys` | `Jwt__PreviousKeys` | Authentication and session security setting: PreviousKeys | `secret-array` | Development, Production | conditional: when the owning feature is enabled | yes | environment, repository-base, repository-production-overlay, secret-store; empty-only | feature-gate: authentication runtime validator | `<external secret; never a usable tracked value>` |
-| `Jwt:RotationWindowDays` | `Jwt__RotationWindowDays` | Authentication and session security setting: RotationWindowDays | `integer` | Development, Production | required: Production | no | environment, repository-base, repository-production-overlay; safe-non-secret-default | startup: ProductionStartupValidator | `<integer>` |
 | `Jwt:SecretKey` | `Jwt__SecretKey` | Authentication and session security setting: SecretKey | `secret-string` | Development, Production | required: Production | yes | environment, repository-base, repository-production-overlay, secret-store; empty-only | startup: ProductionStartupValidator | `<external secret; never a usable tracked value>` |
 | `Logging:LogLevel:Default` | None | Logging and observability setting: Default | `string` | Development, Production | optional: optional | no | repository-base, repository-production-overlay; safe-non-secret-default | consumer: observability bootstrap | `<value matching the declared type>` |
 | `Logging:LogLevel:FsusBlog` | None | Logging and observability setting: FsusBlog | `string` | Production | optional: optional | no | repository-production-overlay; safe-non-secret-default | consumer: observability bootstrap | `<value matching the declared type>` |
@@ -302,7 +298,6 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `Fido2__ServerName` | application-configuration | release-lifecycle | `Fido2:ServerName` | no | `ops/docker/docker-compose.production.yml` |
 | `FIDO2_SERVER_DOMAIN` | deployment-control | passkeys | `Fido2:ServerDomain` | no | `config/examples/.env.example`, `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `FIDO2_SERVER_NAME` | deployment-control | passkeys | `Fido2:ServerName` | no | `config/examples/.env.example`, `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` | application-configuration | anonymous-identity | `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_ASPNETCORE_ENVIRONMENT` | application-configuration | release-lifecycle | `ASPNETCORE_ENVIRONMENT` | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_ASSET_BROWSER_BINDING_KEY_FILE` | secret-file-path | release-lifecycle | None | no | `tools/deployment/release-asset-compatibility-probe.mjs` |
 | `FSUSBLOG_ASSET_CHECKPOINT_TIMEOUT_SECONDS` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
@@ -456,7 +451,6 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `GITHUB_PACKAGES_TOKEN` | tooling-only | development-tooling | None | yes | `config/examples/.env.example` |
 | `HOME` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.development-backend.yml` |
 | `Jwt__KeyVersion` | application-configuration | release-lifecycle | `Jwt:KeyVersion` | no | `config/examples/.env.production.example` |
-| `Jwt__RotationWindowDays` | application-configuration | release-lifecycle | `Jwt:RotationWindowDays` | no | `config/examples/.env.production.example` |
 | `Jwt__SecretKey` | application-configuration | release-lifecycle | `Jwt:SecretKey` | yes | `config/examples/.env.production.example` |
 | `LAST_ROLLOUT_STATUS` | tooling-only | development-tooling | None | no | `tools/deployment/zero-downtime-rehearsal.sh` |
 | `LOCAL_GID` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.development-backend.yml` |

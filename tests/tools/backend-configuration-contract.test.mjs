@@ -100,8 +100,8 @@ test('canonical contract inventories settings, environment inputs, mounted files
     const canonical = checkBackendConfigurationContract({ root: repositoryRoot });
     assert.deepEqual(canonical.errors, []);
     assert.equal(canonical.report.status, 'ok');
-    assert.equal(canonical.report.counts.applicationSettings, 228);
-    assert.equal(canonical.report.counts.environmentVariables, 242);
+    assert.equal(canonical.report.counts.applicationSettings, 224);
+    assert.equal(canonical.report.counts.environmentVariables, 240);
     assert.equal(canonical.report.counts.mountedFiles, 4);
     assert.match(canonical.generatedReference, /not an input template/u);
 
@@ -160,6 +160,23 @@ test('environment scope and duplicate authority drift are rejected together', (c
     assert.ok(result.errors.some(error => error.includes('duplicate configuration authority for Jwt:Issuer')));
 });
 
+test('removed anonymous identity mode is rejected as unknown config and environment input', (context) =>
+{
+    const { root, contract } = createFixture(context);
+    const removedKey = 'FSUSBLOG_ANONYMOUS_IDENTITY_MODE';
+    assert.ok(!contract.applicationSettings.some(entry => entry.key === removedKey));
+    assert.ok(!contract.environmentVariables.some(entry => entry.name === removedKey));
+    const productionPath = path.join(root, 'src/backend/appsettings.Production.json');
+    const production = fs.readFileSync(productionPath, 'utf8');
+    fs.writeFileSync(productionPath, production.replace(/^\s*\{/u, `{\n    "${removedKey}": false,`));
+    fs.appendFileSync(path.join(root, 'config/examples/.env.production.example'), `\n${removedKey}=false\n`);
+
+    const result = checkBackendConfigurationContract({ root });
+
+    assert.ok(result.errors.some(error => error.includes(`unowned appsettings key ${removedKey}`)));
+    assert.ok(result.errors.some(error => error.includes(`unclassified tracked environment variable ${removedKey}`)));
+});
+
 test('required production settings cannot lose startup validation or become optional', (context) =>
 {
     const { root, contract } = createFixture(context);
@@ -212,3 +229,24 @@ test('tracked variable ownership and generated reference are deterministic contr
     assert.ok(result.errors.some(error => error.includes('environment variable FSUSBLOG_BLUE_PORT source ownership drifted')));
     assert.ok(result.errors.some(error => error.includes('generated configuration reference is stale')));
 });
+
+for (const key of ['PreviousKeys', 'LegacyNoKidAcceptUntilUtc', 'RotationWindowDays'])
+{
+    test(`retired JWT signing setting ${key} is rejected as unknown configuration`, (context) =>
+    {
+        const { root, contract } = createFixture(context);
+        const setting = `Jwt:${key}`;
+        const variable = `Jwt__${key}`;
+        assert.ok(!contract.applicationSettings.some(entry => entry.key === setting));
+        assert.ok(!contract.environmentVariables.some(entry => entry.name === variable));
+        const productionPath = path.join(root, 'src/backend/appsettings.Production.json');
+        const original = fs.readFileSync(productionPath, 'utf8');
+        assert.match(original, /"Jwt"\s*:\s*\{/u);
+        fs.writeFileSync(productionPath, original.replace(/"Jwt"\s*:\s*\{/u, `"Jwt": {"${key}": false,`));
+        fs.appendFileSync(path.join(root, 'config/examples/.env.production.example'), `\n${variable}=false\n`);
+
+        const result = checkBackendConfigurationContract({ root });
+        assert.ok(result.errors.some(error => error.includes(`unowned appsettings key ${setting}`)));
+        assert.ok(result.errors.some(error => error.includes(`unclassified tracked environment variable ${variable}`)));
+    });
+}

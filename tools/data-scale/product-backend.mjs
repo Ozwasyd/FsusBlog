@@ -87,7 +87,6 @@ export function buildProductBackendEnvironment({
         Jwt__Issuer: 'FsusBlogServer',
         Jwt__Audience: 'FsusBlogClient',
         Jwt__AccessTokenExpiresMinutes: '1440',
-        Jwt__RotationWindowDays: '30',
         Security__Pow__SigningKey: 'local-development-pow-signing-key-change-before-shared-use-2026',
         Security__Pow__BaseDifficulty: '8',
         Security__Pow__MaxDifficulty: '8',
@@ -111,7 +110,6 @@ export function buildProductBackendEnvironment({
         AnonymousCredentialRoot__AttestationKeyId: 'local-dev-root-attestation',
         AnonymousIdentity__NullifierPepper:
             'local-development-anonymous-nullifier-pepper-change-before-shared-use-2026',
-        FSUSBLOG_ANONYMOUS_IDENTITY_MODE: '1',
         ActiveReleaseFence__AllowSyntheticLocalFence: 'true',
         fsus__allowLocalAuthFixture: 'false',
         Security__RiskControl__PublicReadChallenge__Enabled: 'false',

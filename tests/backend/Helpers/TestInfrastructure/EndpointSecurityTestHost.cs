@@ -638,7 +638,11 @@ public sealed class EndpointSecurityTestServer : IDisposable
                 AccountSubjectHash = AccountSubjectHash
             },
             sessionId,
-            mfaVerified: true).Token;
+            new UserSessionAuthenticationContext(
+                UserSessionAuthenticationMethods.Passkey,
+                UserSessionAuthenticationStrengths.WebAuthnUv,
+                DateTime.UtcNow,
+                CredentialRowId: 17)).Token;
 
     public static void AddAnonymousAccountAccessToken(HttpRequestMessage request, string accessToken)
         => request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);

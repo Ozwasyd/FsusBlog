@@ -733,11 +733,12 @@ public class PodBinaryCodecTests
                 DeviceLabel: "Firefox on Other",
                 CreatedAt: createdAt,
                 LastSeenAt: null,
-                AuthenticationMethod: "other",
-                AuthenticationStrength: "legacy_unverified",
+                AuthenticationMethod: "passkey",
+                AuthenticationStrength: "mfa",
                 PasskeyFriendlyName: null,
                 DurationPolicy: "browser_session",
-                IsCurrent: false)
+                IsCurrent: false,
+                SessionMode: UserSessionModes.RestrictedWireValue)
         ];
 
         byte[] encoded = PodBinaryCodec.EncodeUserSessions(sessions);
@@ -755,6 +756,8 @@ public class PodBinaryCodecTests
         Assert.Equal("Work security key", decoded[0].PasskeyFriendlyName);
         Assert.Equal("persistent_30d", decoded[0].DurationPolicy);
         Assert.True(decoded[0].IsCurrent);
+        Assert.Equal(UserSessionModes.NormalWireValue, decoded[0].SessionMode);
+        Assert.Equal(UserSessionModes.RestrictedWireValue, decoded[1].SessionMode);
         Assert.Null(decoded[1].LastSeenAt);
         Assert.Null(decoded[1].PasskeyFriendlyName);
         Assert.Null(typeof(UserSessionSummaryDto).GetProperty("DeviceFingerprint"));
@@ -772,7 +775,7 @@ public class PodBinaryCodecTests
         Assert.Equal(16, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.IsCurrent)).ToInt32());
         Assert.Equal(17, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.HasLastSeenAt)).ToInt32());
         Assert.Equal(18, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.HasPasskeyFriendlyName)).ToInt32());
-        Assert.Equal(19, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.Reserved0)).ToInt32());
+        Assert.Equal(19, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.SessionMode)).ToInt32());
         Assert.Equal(20, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.SessionId)).ToInt32());
         Assert.Equal(84, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.DeviceLabel)).ToInt32());
         Assert.Equal(148, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.AuthenticationMethod)).ToInt32());
@@ -782,7 +785,7 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void UserSessions_DecodeRejectsNonZeroReservedByte()
+    public void UserSessions_DecodeRejectsUnknownSessionMode()
     {
         UserSessionSummaryDto[] sessions =
         [
@@ -798,9 +801,33 @@ public class PodBinaryCodecTests
                 IsCurrent: true)
         ];
         byte[] encoded = PodBinaryCodec.EncodeUserSessions(sessions);
-        encoded[sizeof(int) + 19] = 1;
+        encoded[sizeof(int) + 19] = byte.MaxValue;
 
         Assert.False(PodBinaryCodec.TryDecodeUserSessions(encoded, out _));
+    }
+
+    [Theory]
+    [InlineData("other", "webauthn_uv", "browser_session")]
+    [InlineData("passkey", "legacy_verified", "browser_session")]
+    [InlineData("passkey", "legacy_unverified", "browser_session")]
+    [InlineData("recovery_key", "recovery", "browser_session")]
+    [InlineData("passkey", "webauthn_uv", "unknown")]
+    public void UserSessions_RejectUnsupportedAuthenticationContext(string method, string strength, string duration)
+    {
+        var row = new UserSessionSummaryDto(
+            "session-1", "Browser", DateTime.UnixEpoch, null, method, strength, null, duration, true);
+        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodeUserSessions([row]));
+
+        byte[] bytes = PodBinaryCodec.EncodeUserSessions([
+            row with { AuthenticationMethod = "passkey", AuthenticationStrength = "webauthn_uv", DurationPolicy = "browser_session" }
+        ]);
+        Encoding.UTF8.GetBytes(method).CopyTo(bytes.AsSpan(sizeof(int) + 148, 32));
+        bytes.AsSpan(sizeof(int) + 148 + Encoding.UTF8.GetByteCount(method), 32 - Encoding.UTF8.GetByteCount(method)).Clear();
+        Encoding.UTF8.GetBytes(strength).CopyTo(bytes.AsSpan(sizeof(int) + 180, 32));
+        bytes.AsSpan(sizeof(int) + 180 + Encoding.UTF8.GetByteCount(strength), 32 - Encoding.UTF8.GetByteCount(strength)).Clear();
+        Encoding.UTF8.GetBytes(duration).CopyTo(bytes.AsSpan(sizeof(int) + 212, 32));
+        bytes.AsSpan(sizeof(int) + 212 + Encoding.UTF8.GetByteCount(duration), 32 - Encoding.UTF8.GetByteCount(duration)).Clear();
+        Assert.False(PodBinaryCodec.TryDecodeUserSessions(bytes, out _));
     }
 
     [Fact]
@@ -885,6 +912,42 @@ public class PodBinaryCodecTests
         Assert.DoesNotContain("MfaVerified", userSessionJson, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("unknown")]
+    [InlineData("ANONYMOUS_ACCOUNT")]
+    [InlineData(" anonymous_account ")]
+    public void IdentityFrames_RejectUnknownOrRepairedCurrentIdentity(string invalidIdentity)
+    {
+        var flow = new AuthLoginFlowDto(1, AnonymousIdentityRuntime.AnonymousAccountKind, "authenticated", null, null);
+        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodeAuthLoginFlow(flow with { IdentityKind = invalidIdentity }));
+
+        byte[] encoded = PodBinaryCodec.EncodeAuthLoginFlow(flow);
+        int identityOffset = Marshal.OffsetOf<AuthLoginFlowPod>(nameof(AuthLoginFlowPod.IdentityKind)).ToInt32();
+        encoded.AsSpan(identityOffset, 64).Clear();
+        Encoding.UTF8.GetBytes(invalidIdentity).CopyTo(encoded.AsSpan(identityOffset, 64));
+        Assert.False(PodBinaryCodec.TryDecodeAuthLoginFlow(encoded, out _));
+    }
+
+    [Fact]
+    public void IdentityFrames_RejectMissingIdentityInsteadOfGrantingOrdinaryAccountKind()
+    {
+        byte[] flow = PodBinaryCodec.EncodeAuthLoginFlow(new AuthLoginFlowDto(
+            1, AnonymousIdentityRuntime.AnonymousAccountKind, "authenticated", null, null));
+        flow[Marshal.OffsetOf<AuthLoginFlowPod>(nameof(AuthLoginFlowPod.HasIdentityKind)).ToInt32()] = 0;
+        Assert.False(PodBinaryCodec.TryDecodeAuthLoginFlow(flow, out _));
+
+        byte[] snapshot = PodBinaryCodec.EncodeCurrentUserSnapshot(new CurrentUserSnapshotDto(
+            1, AnonymousIdentityRuntime.AnonymousAccountKind, 0, null, null));
+        snapshot[Marshal.OffsetOf<CurrentUserSnapshotPod>(nameof(CurrentUserSnapshotPod.HasIdentityKind)).ToInt32()] = 0;
+        Assert.False(PodBinaryCodec.TryDecodeCurrentUserSnapshot(snapshot, out _));
+
+        byte[] challenge = EncodeWithWriter(writer => PodBinaryCodec.WriteMfaChallengeResult(
+            new MfaChallengeResultDto(true, "login", null, new AuthIdentitySnapshotDto(1, AnonymousIdentityRuntime.AnonymousAccountKind)), writer));
+        challenge[Marshal.OffsetOf<MfaChallengeResultPod>(nameof(MfaChallengeResultPod.HasIdentityKind)).ToInt32()] = 0;
+        Assert.False(PodBinaryCodec.TryDecodeMfaChallengeResult(challenge, out _));
+    }
+
     [Fact]
     public void MfaPods_RoundTrip_PreserveFields()
     {
@@ -894,12 +957,12 @@ public class PodBinaryCodecTests
         Assert.True(verifyDecoded.Enabled);
         Assert.Equal(["code-1", "code-2"], verifyDecoded.RecoveryCodes);
 
-        var proof = new MfaPasswordProofRequestCoreModel("pw", "123456", null);
-        byte[] proofEncoded = PodBinaryCodec.EncodeMfaPasswordProofRequest(proof);
-        Assert.True(PodBinaryCodec.TryDecodeMfaPasswordProofRequest(proofEncoded, out var proofDecoded));
-        Assert.Equal("pw", proofDecoded.Password);
-        Assert.Equal("123456", proofDecoded.Code);
-        Assert.Null(proofDecoded.RecoveryCode);
+        var encoder = new AedsEncoder();
+        byte[] retiredProofFrame = encoder.Encode(AedsFrameType.ArticleList, new byte[28]);
+        BinaryPrimitives.WriteUInt16LittleEndian(retiredProofFrame.AsSpan(8, 2), 53);
+        Result<AedsDecodeResult> retiredProof = encoder.TryDecode(retiredProofFrame);
+        Assert.False(retiredProof.IsSuccess);
+        Assert.Equal("AEDS frame type retired", retiredProof.Error.Message);
 
         var challenge = new MfaChallengeVerifyRequestCoreModel("ticket", "login", "123456", null);
         byte[] challengeEncoded = PodBinaryCodec.EncodeMfaChallengeVerifyRequest(challenge);

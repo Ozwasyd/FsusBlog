@@ -484,21 +484,32 @@ public sealed partial class UserSessionCommandService(
                 LastSeenAt = session.LastSeenAt,
                 AuthenticationMethod = session.AuthenticationMethod,
                 AuthenticationStrength = session.AuthenticationStrength,
+                CredentialRowId = session.AuthenticatedCredentialRowId,
+                SessionMode = session.SessionMode,
                 PasskeyFriendlyName = credential.DeviceFriendlyName,
                 DurationPolicy = session.DurationPolicy
             })
             .ToListAsync();
+
+        if (sessions.Any(static session => !UserSessionAuthenticationContract.IsValid(
+            session.AuthenticationMethod, session.AuthenticationStrength, session.CredentialRowId)
+            || !UserSessionDurationPolicies.IsValid(session.DurationPolicy)
+            || session.SessionMode is not (UserSessionMode.Normal or UserSessionMode.Restricted)))
+        {
+            throw new InvalidOperationException("Session summary authentication context is invalid.");
+        }
 
         return sessions.Select(s => new UserSessionSummaryDto(
             SessionId: s.SessionId,
             DeviceLabel: BuildDeviceLabel(s.BrowserFamily, s.OperatingSystemFamily, s.FormFactor),
             CreatedAt: s.CreatedAt,
             LastSeenAt: s.LastSeenAt,
-            AuthenticationMethod: NormalizeAuthenticationMethod(s.AuthenticationMethod),
-            AuthenticationStrength: NormalizeAuthenticationStrength(s.AuthenticationStrength),
+            AuthenticationMethod: s.AuthenticationMethod,
+            AuthenticationStrength: s.AuthenticationStrength,
             PasskeyFriendlyName: NormalizeFriendlyName(s.PasskeyFriendlyName),
-            DurationPolicy: NormalizeDurationPolicy(s.DurationPolicy),
-            IsCurrent: string.Equals(s.SessionId, currentSessionId, StringComparison.Ordinal))).ToList();
+            DurationPolicy: s.DurationPolicy,
+            IsCurrent: string.Equals(s.SessionId, currentSessionId, StringComparison.Ordinal),
+            SessionMode: UserSessionModes.ToClaimValue(s.SessionMode))).ToList();
     }
 
     private sealed record UserSessionSummaryRow
@@ -515,8 +526,16 @@ public sealed partial class UserSessionCommandService(
         {
             get; init;
         }
-        public string AuthenticationMethod { get; init; } = UserSessionAuthenticationMethods.Other;
-        public string AuthenticationStrength { get; init; } = UserSessionAuthenticationStrengths.LegacyUnverified;
+        public string AuthenticationMethod { get; init; } = string.Empty;
+        public string AuthenticationStrength { get; init; } = string.Empty;
+        public int? CredentialRowId
+        {
+            get; init;
+        }
+        public UserSessionMode SessionMode
+        {
+            get; init;
+        }
         public string? PasskeyFriendlyName
         {
             get; init;
@@ -532,21 +551,6 @@ public sealed partial class UserSessionCommandService(
 
     private static string NormalizeCoarseLabel(string? value)
         => string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
-
-    private static string NormalizeAuthenticationMethod(string? value)
-        => UserSessionAuthenticationMethods.IsValid(value)
-            ? value!
-            : UserSessionAuthenticationMethods.Other;
-
-    private static string NormalizeAuthenticationStrength(string? value)
-        => UserSessionAuthenticationStrengths.IsValid(value)
-            ? value!
-            : UserSessionAuthenticationStrengths.LegacyUnverified;
-
-    private static string NormalizeDurationPolicy(string? value)
-        => UserSessionDurationPolicies.IsValid(value)
-            ? value!
-            : UserSessionDurationPolicies.BrowserSession;
 
     private static string? NormalizeFriendlyName(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

@@ -174,6 +174,9 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
     [InlineData(MfaContinuationFailure.Expired, "MFA_CHALLENGE_EXPIRED", 0, 0)]
     [InlineData(MfaContinuationFailure.CrossDevice, "MFA_CHALLENGE_EXPIRED", 0, 0)]
     [InlineData(MfaContinuationFailure.ActionMismatch, "MFA_CHALLENGE_EXPIRED", 0, 0)]
+    [InlineData(MfaContinuationFailure.MissingInitialAuthentication, "MFA_CHALLENGE_EXPIRED", 0, 0)]
+    [InlineData(MfaContinuationFailure.MissingCredentialReference, "MFA_CHALLENGE_EXPIRED", 0, 0)]
+    [InlineData(MfaContinuationFailure.MissingAuthenticationTime, "MFA_CHALLENGE_EXPIRED", 0, 0)]
     [InlineData(MfaContinuationFailure.WrongCode, "MFA_CHALLENGE_INVALID", 1, 0)]
     [InlineData(MfaContinuationFailure.Replay, "MFA_CHALLENGE_EXPIRED", 1, 1)]
     [Trait("Category", "SecurityStateMachine")]
@@ -207,6 +210,12 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         Assert.Equal(1, observation.VerificationCalls);
         Assert.Equal(1, observation.ConsumeCalls);
         Assert.Equal(1, observation.CompleteLoginCalls);
+        UserSessionAuthenticationContext authentication = Assert.IsType<UserSessionAuthenticationContext>(observation.Authentication);
+        Assert.Equal(UserSessionAuthenticationMethods.Passkey, authentication.Method);
+        Assert.Equal(UserSessionAuthenticationStrengths.Mfa, authentication.Strength);
+        Assert.Equal(41, authentication.CredentialRowId);
+        Assert.Equal(DateTime.UnixEpoch.AddDays(1), authentication.AuthenticatedAtUtc);
+        Assert.Equal(UserSessionDurationPolicies.Persistent30Days, authentication.DurationPolicy);
         Assert.Contains(
             response.Headers.GetValues("Set-Cookie"),
             value => value.StartsWith("AccessToken=", StringComparison.Ordinal));
@@ -363,7 +372,8 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                     response,
                     harness.MfaVerificationCallCount,
                     harness.MfaConsumeCallCount,
-                    harness.CompleteLoginCallCount);
+                    harness.CompleteLoginCallCount,
+                    harness.LastLoginAuthentication);
             }
             finally
             {
@@ -387,7 +397,8 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                     response,
                     harness.MfaVerificationCallCount,
                     harness.MfaConsumeCallCount,
-                    harness.CompleteLoginCallCount);
+                    harness.CompleteLoginCallCount,
+                    harness.LastLoginAuthentication);
             }
             finally
             {
@@ -464,6 +475,9 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         Expired,
         CrossDevice,
         ActionMismatch,
+        MissingInitialAuthentication,
+        MissingCredentialReference,
+        MissingAuthenticationTime,
         WrongCode,
         Replay
     }
@@ -472,7 +486,8 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         HttpResponseMessage Response,
         int VerificationCalls,
         int ConsumeCalls,
-        int CompleteLoginCalls);
+        int CompleteLoginCalls,
+        UserSessionAuthenticationContext? Authentication);
 
     public sealed record LocalFixtureProjectionObservation(
         HttpResponseMessage Response,
@@ -548,6 +563,11 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         public int CompleteLoginCallCount => _loginWorkflow.ReceivedCalls().Count(call =>
             call.GetMethodInfo().Name == nameof(IUserLoginWorkflowService.CompleteLoginAsync));
 
+        public UserSessionAuthenticationContext? LastLoginAuthentication => _loginWorkflow.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(IUserLoginWorkflowService.CompleteLoginAsync))
+            .Select(call => (UserSessionAuthenticationContext?)call.GetArguments()[4])
+            .LastOrDefault();
+
         public void PrepareForTest() => _prepareForTest();
 
         public void ConfigureAdminProjectionRefresh(bool ready)
@@ -577,6 +597,22 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                         "issue-1053-device",
                         Arg.Any<CancellationToken>())
                     .Returns(Task.FromResult<MfaChallengeTicket?>(null));
+            }
+            else if (failure is MfaContinuationFailure.MissingInitialAuthentication
+                or MfaContinuationFailure.MissingCredentialReference or MfaContinuationFailure.MissingAuthenticationTime)
+            {
+                UserSessionAuthenticationContext? initial = failure switch
+                {
+                    MfaContinuationFailure.MissingInitialAuthentication => null,
+                    MfaContinuationFailure.MissingCredentialReference => _mfaTicket.InitialAuthentication!.Value with { CredentialRowId = null },
+                    _ => _mfaTicket.InitialAuthentication!.Value with { AuthenticatedAtUtc = default }
+                };
+                _mfaChallenges.GetChallengeAsync(
+                        "mfa-ticket", "issue-1053-device", Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<MfaChallengeTicket?>(_mfaTicket with
+                    {
+                        InitialAuthentication = initial
+                    }));
             }
             else if (failure == MfaContinuationFailure.WrongCode)
             {
@@ -679,7 +715,9 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 AccountSubjectHash = AccountSubjectHash,
                 Type = "login",
                 Action = "login",
-                RememberMe = true
+                InitialAuthentication = new UserSessionAuthenticationContext(
+                    UserSessionAuthenticationMethods.Passkey, UserSessionAuthenticationStrengths.WebAuthnUv,
+                    DateTime.UnixEpoch.AddDays(1), 41, UserSessionDurationPolicies.Persistent30Days)
             };
             mfaChallenges.GetChallengeAsync(
                     "mfa-ticket",
@@ -767,15 +805,13 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                         Arg.Any<string>(),
                         Arg.Any<string?>(),
                         Arg.Any<string?>(),
-                        Arg.Any<bool>(),
-                        Arg.Any<bool>(),
-                        Arg.Any<UserSessionAuthenticationContext?>(),
+                        Arg.Any<UserSessionAuthenticationContext>(),
                         Arg.Any<CancellationToken>())
                     .Returns(call =>
                     {
-                        string durationPolicy = call.ArgAt<bool>(5)
-                            ? UserSessionDurationPolicies.Persistent30Days
-                            : UserSessionDurationPolicies.BrowserSession;
+                        UserSessionAuthenticationContext authentication = call.ArgAt<UserSessionAuthenticationContext>(4);
+                        Assert.True(authentication.IsValid());
+                        string durationPolicy = authentication.DurationPolicy;
                         var sessionTokens = new SessionTokenResponseDto(
                             $"issued-user-access-{testId}",
                             s_userAccessTokenExpiresAtUtc,

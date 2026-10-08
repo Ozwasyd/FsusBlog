@@ -240,6 +240,60 @@ public sealed class MfaChallengeServiceTests
         Assert.Null(await service.ConsumeChallengeOnceAsync(ticket, RawDevice));
     }
 
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("credential")]
+    [InlineData("time")]
+    [InlineData("method")]
+    [InlineData("already-mfa")]
+    public async Task MfaChallenge_InvalidInitialAuthenticationDoesNotWriteTicket(string scenario)
+    {
+        var cache = new RecordingCounterCache();
+        var service = CreateService(cache);
+        UserSessionAuthenticationContext verified = VerifiedInitialAuthentication(UserSessionDurationPolicies.BrowserSession);
+        UserSessionAuthenticationContext invalid = scenario switch
+        {
+            "missing" => default,
+            "credential" => verified with { CredentialRowId = null },
+            "time" => verified with { AuthenticatedAtUtc = default },
+            "method" => verified with { Method = "unknown-method" },
+            "already-mfa" => verified with { Strength = UserSessionAuthenticationStrengths.Mfa },
+            _ => throw new ArgumentOutOfRangeException(nameof(scenario))
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateLoginChallengeAsync(
+            42, s_atomicSubjectHash, false, invalid, "device-a"));
+
+        Assert.Empty(cache.StringWriteIdentities);
+        Assert.Empty(cache.Strings);
+    }
+
+    [Fact]
+    public async Task MfaChallenge_SignedContinuationPreservesOriginalPasskeyProvenanceAndRejectsChangedReference()
+    {
+        var cache = new RecordingCounterCache();
+        var service = CreateService(cache);
+        UserSessionAuthenticationContext initial = VerifiedInitialAuthentication(UserSessionDurationPolicies.Persistent30Days);
+        MfaChallengeTicket created = await service.CreateLoginChallengeAsync(
+            42, s_atomicSubjectHash, true, initial, "device-a");
+        MfaChallengeTicket decoded = Assert.IsType<MfaChallengeTicket>(await service.GetChallengeAsync(created.TicketId, "device-a"));
+
+        Assert.Equal(initial, decoded.InitialAuthentication);
+        Assert.NotEqual(decoded.CreatedAtUtc, decoded.InitialAuthentication!.Value.AuthenticatedAtUtc);
+        MfaChallengeTicket changed = decoded with
+        {
+            InitialAuthentication = initial with
+            {
+                CredentialRowId = initial.CredentialRowId + 1
+            }
+        };
+        Assert.Null(await service.ConsumeChallengeOnceAsync(changed, "device-a"));
+        Assert.NotNull(await service.GetChallengeAsync(created.TicketId, "device-a"));
+        MfaChallengeTicket consumed = Assert.IsType<MfaChallengeTicket>(await service.ConsumeChallengeOnceAsync(decoded, "device-a"));
+        Assert.Equal(initial, consumed.InitialAuthentication);
+        Assert.Null(await service.ConsumeChallengeOnceAsync(decoded, "device-a"));
+    }
+
     [Fact]
     public async Task MfaChallenge_AtomicConsumeAllowsExactlyOneConcurrentContinuation()
     {
@@ -249,7 +303,7 @@ public sealed class MfaChallengeServiceTests
             42,
             s_atomicSubjectHash,
             riskTriggered: true,
-            rememberMe: true,
+            authenticationContext: VerifiedInitialAuthentication(UserSessionDurationPolicies.Persistent30Days),
             deviceSignal: "device-a");
 
         Task<MfaChallengeTicket?>[] attempts = Enumerable.Range(0, 12)
@@ -271,7 +325,7 @@ public sealed class MfaChallengeServiceTests
             42,
             s_atomicSubjectHash,
             riskTriggered: true,
-            rememberMe: false,
+            authenticationContext: VerifiedInitialAuthentication(UserSessionDurationPolicies.BrowserSession),
             deviceSignal: "device-a");
 
         Assert.Null(await service.ConsumeChallengeOnceAsync(ticket, "device-b"));
@@ -388,6 +442,10 @@ public sealed class MfaChallengeServiceTests
                 token));
         }
     }
+
+    private static UserSessionAuthenticationContext VerifiedInitialAuthentication(string durationPolicy)
+        => new(UserSessionAuthenticationMethods.Passkey, UserSessionAuthenticationStrengths.WebAuthnUv,
+            DateTime.UnixEpoch.AddDays(1), 41, durationPolicy);
 
     private static MfaChallengeService CreateService(RecordingCounterCache cache)
         => new(

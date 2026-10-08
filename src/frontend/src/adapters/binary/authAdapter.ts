@@ -1,3 +1,4 @@
+import { isCurrentIdentityKind, isCurrentSessionAuthentication, sessionModeFromWire } from '@/generated/authSessionContract';
 import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import type { AuthLoginFlow, CurrentUserSnapshot, MfaChallengeResult, MfaProfile, MfaSetupStart, MfaSetupVerify, RecoveryKeyCreateResponse, RecoveryKeyVerifyResponse, UserSessionSummary } from '@/contracts/binaryApi';
 import { createAppError, AppErrorCode } from '@/utils/appError';
@@ -13,12 +14,13 @@ interface AdminCurrentUserSnapshot {
     deletedAt: string | null;
 }
 
-const DEFAULT_IDENTITY_KIND = 'anonymous_account';
-
-function normalizeIdentityKind(value: string): string
+function requireCurrentIdentityKind(value: string): string
 {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : DEFAULT_IDENTITY_KIND;
+    if (!isCurrentIdentityKind(value))
+    {
+        throw createAppError(AppErrorCode.Validation, 'auth_identity_kind_invalid');
+    }
+    return value;
 }
 
 export function mapAuthLoginFlowFromPayload(payload: Uint8Array): AuthLoginFlow
@@ -34,7 +36,7 @@ export function mapAuthLoginFlowFromPayload(payload: Uint8Array): AuthLoginFlow
     const hasIdentityKind = readByte(payload, 7) === 1;
     return {
         accountId: readInt32(payload, 0),
-        identityKind: hasIdentityKind ? normalizeIdentityKind(readFixedUtf8(payload, 8, 64)) : DEFAULT_IDENTITY_KIND,
+        identityKind: hasIdentityKind ? requireCurrentIdentityKind(readFixedUtf8(payload, 8, 64)) : requireCurrentIdentityKind(''),
         authPhase: authPhase === 2 ? 'mfa_required' : authPhase === 3 ? 'enrollment_required' : 'authenticated',
         mfaMode: mfaMode === 1 ? 'risk' : mfaMode === 2 ? 'standard' : null,
         challengeToken: hasChallengeToken ? readFixedUtf8(payload, 104, 64) : null
@@ -53,7 +55,7 @@ export function mapCurrentUserSnapshotFromPayload(payload: Uint8Array): AdminCur
     const banReason = readFixedUtf8(payload, 116, 256);
     return {
         accountId: readInt32(payload, 0),
-        identityKind: hasIdentityKind ? normalizeIdentityKind(readFixedUtf8(payload, 20, 64)) : DEFAULT_IDENTITY_KIND,
+        identityKind: hasIdentityKind ? requireCurrentIdentityKind(readFixedUtf8(payload, 20, 64)) : requireCurrentIdentityKind(''),
         status: readInt32(payload, 4),
         deletedAt: hasDeletedAt ? readIsoDate64(payload, 8) : null,
         banReason: banReason.length > 0 ? banReason : null
@@ -195,7 +197,7 @@ export function mapMfaChallengeResultFromPayload(payload: Uint8Array): MfaChalle
         proofToken: hasProofToken ? readFixedUtf8(payload, 168, 128) : null,
         user: hasUser ? {
       accountId: readInt32(payload, 0),
-      identityKind: hasIdentityKind ? normalizeIdentityKind(readFixedUtf8(payload, 8, 64)) : DEFAULT_IDENTITY_KIND
+      identityKind: hasIdentityKind ? requireCurrentIdentityKind(readFixedUtf8(payload, 8, 64)) : requireCurrentIdentityKind('')
     } : null
     };
 }
@@ -243,14 +245,15 @@ function readUserSessionSummary(reader: BinaryReader): UserSessionSummary
     const pod = reader.readSpan(USER_SESSION_SUMMARY_POD_SIZE);
     const hasLastSeenAt = readByte(pod, 17) === 1;
     const hasPasskeyFriendlyName = readByte(pod, 18) === 1;
-    if (readByte(pod, 16) > 1 || readByte(pod, 17) > 1 || readByte(pod, 18) > 1 || readByte(pod, 19) !== 0)
+    if (readByte(pod, 16) > 1 || readByte(pod, 17) > 1 || readByte(pod, 18) > 1 || sessionModeFromWire(readByte(pod, 19)) === undefined)
     {
         throw createAppError(AppErrorCode.Validation, 'auth_session_flags_invalid');
     }
-    return {
+    const result = {
         createdAt: readIsoDate64(pod, 0),
         lastSeenAt: hasLastSeenAt ? readIsoDate64(pod, 8) : null,
         isCurrent: readByte(pod, 16) === 1,
+        sessionMode: sessionModeFromWire(readByte(pod, 19))!,
         sessionId: readFixedUtf8(pod, 20, 64),
         deviceLabel: readFixedUtf8(pod, 84, 64),
         authenticationMethod: readFixedUtf8(pod, 148, 32) as UserSessionSummary['authenticationMethod'],
@@ -258,4 +261,9 @@ function readUserSessionSummary(reader: BinaryReader): UserSessionSummary
         durationPolicy: readFixedUtf8(pod, 212, 32) as UserSessionSummary['durationPolicy'],
         passkeyFriendlyName: hasPasskeyFriendlyName ? readFixedUtf8(pod, 244, 256) : null
     };
+    if (!isCurrentSessionAuthentication(result))
+    {
+        throw createAppError(AppErrorCode.Validation, 'auth_session_authentication_invalid');
+    }
+    return result;
 }

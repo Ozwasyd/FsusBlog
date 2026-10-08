@@ -267,7 +267,57 @@ public sealed class AuthFixtureCompositionRootTests
     }
 
     [Fact]
-    public async Task ControlledAuthenticator_PassesProductionFidoRegistrationAndAssertionValidation()
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "controlled-webauthn-exclusion-and-allowlist-bound")]
+    public async Task ControlledAuthenticator_RejectsExcludedCredentialAndWrongAssertionAllowListOrRp()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Fido2:Origins:0"] = "http://localhost:5173"
+            })
+            .Build();
+        using var authenticator = new ControlledWebAuthnAuthenticator(configuration);
+        var registrationOptions = new PasskeyRegisterBeginCoreModel
+        {
+            SessionKey = "registration-session",
+            RpId = "localhost",
+            Challenge = new byte[32],
+            AccountHandle = Enumerable.Repeat((byte)0xA5, 32).ToArray(),
+            PubKeyCredParams = [new(0, -7)]
+        };
+        PasskeyRegisterCompleteCoreModel registration = await authenticator.CreateRegistrationAsync(
+            registrationOptions, "fxauth-allowlist", CancellationToken.None);
+        registrationOptions = registrationOptions with
+        {
+            ExcludeCredentials = [new(0, registration.RawId, [])]
+        };
+
+        InvalidOperationException excluded = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            authenticator.CreateRegistrationAsync(registrationOptions, "fxauth-allowlist", CancellationToken.None));
+        Assert.Contains("excluded", excluded.Message, StringComparison.Ordinal);
+
+        var assertionOptions = new PasskeyLoginBeginCoreModel
+        {
+            ChallengeToken = "assertion-session",
+            RpId = "localhost",
+            Challenge = new byte[32],
+            AllowCredentials = [new(0, new byte[32], [])]
+        };
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            authenticator.CreateAssertionAsync(assertionOptions, "fxauth-allowlist", CancellationToken.None));
+        assertionOptions = assertionOptions with
+        {
+            AllowCredentials = [],
+            RpId = "another.example.test"
+        };
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            authenticator.CreateAssertionAsync(assertionOptions, "fxauth-allowlist", CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ControlledAuthenticator_PassesProductionFidoRegistrationAndAssertionValidation(bool discoverable)
     {
         const string Origin = "http://localhost:5173";
         var fido = new Fido2(new Fido2Configuration
@@ -350,7 +400,7 @@ public sealed class AuthFixtureCompositionRootTests
         AssertionOptions originalAssertion = fido.GetAssertionOptions(
             new GetAssertionOptionsParams
             {
-                AllowedCredentials = [new PublicKeyCredentialDescriptor(credential.Id)],
+                AllowedCredentials = discoverable ? [] : [new PublicKeyCredentialDescriptor(credential.Id)],
                 UserVerification = UserVerificationRequirement.Required
             });
         var assertionCore = new PasskeyLoginBeginCoreModel
@@ -360,7 +410,8 @@ public sealed class AuthFixtureCompositionRootTests
             RpId = originalAssertion.RpId!,
             UserVerification = (int?)originalAssertion.UserVerification,
             Challenge = originalAssertion.Challenge,
-            AllowCredentials = [new(0, credential.Id, [])]
+            AllowCredentials = [.. originalAssertion.AllowCredentials.Select(static item =>
+                new PasskeyCredentialDescriptorCoreModel((int)item.Type, item.Id, []))]
         };
         PasskeyLoginCompleteCoreModel assertion = await authenticator.CreateAssertionAsync(
             assertionCore,

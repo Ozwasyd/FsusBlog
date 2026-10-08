@@ -21,16 +21,17 @@ namespace FsusBlog.Server.Services;
 /// <summary>
 /// Coordinates user identity, authentication, session, and account-state operations.
 /// </summary>
-// Public named-argument source compatibility; exact exception registered in csharp-style-policy.
-#pragma warning disable IDE1006
 public partial class UserService(
-    ISqlSugarClient _db,
-    ILogger<UserService> _logger,
-    IAccountStateProjectionMutationPublisher _accountStates,
-    ITotpService _totpService,
+    ISqlSugarClient db,
+    ILogger<UserService> logger,
+    IAccountStateProjectionMutationPublisher accountStates,
+    ITotpService totpService,
     TimeProvider? timeProvider = null) : IUserMfaCommandService, IUserMfaVerificationService
-#pragma warning restore IDE1006
 {
+    private readonly ISqlSugarClient _db = db;
+    private readonly ILogger<UserService> _logger = logger;
+    private readonly IAccountStateProjectionMutationPublisher _accountStates = accountStates;
+    private readonly ITotpService _totpService = totpService;
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
     private async Task<UserMfaProfile?> GetUserMfaProfileAsync(int userId)
@@ -97,33 +98,28 @@ public partial class UserService(
     public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
         int userId,
         string issuer,
-        string? password = null,
-        string? code = null,
-        string? recoveryCode = null,
-        bool stepUpVerified = false)
+        UserMfaStepUpContext context)
     {
+        if (!context.IsValidFor(userId, UserMfaManagementAction.Setup)
+            && !context.IsValidFor(userId, UserMfaManagementAction.SetupRebind))
+        {
+            return (false, null, "MFA_STEP_UP_REQUIRED");
+        }
+
         var user = await _db.Queryable<User>().InSingleAsync(userId);
         if (user == null)
         {
             return (false, null, "用户不存在");
         }
 
-        UserMfaProfile? profile = await GetUserMfaProfileAsync(userId);
-        if (user.MfaEnabled)
+        UserMfaManagementAction action = user.MfaEnabled
+            ? UserMfaManagementAction.SetupRebind : UserMfaManagementAction.Setup;
+        if (!context.IsValidFor(userId, action))
         {
-            bool anonymousIdentityMode = AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled();
-            if (anonymousIdentityMode)
-            {
-                if (!stepUpVerified)
-                {
-                    return (false, null, "MFA_REBIND_STEP_UP_REQUIRED");
-                }
-            }
-            else
-            {
-                return (false, null, "MFA_REBIND_PASSWORD_REQUIRED");
-            }
+            return (false, null, "MFA_REBIND_STEP_UP_REQUIRED");
         }
+
+        UserMfaProfile? profile = await GetUserMfaProfileAsync(userId);
 
         string secret = _totpService.GenerateSecret();
         string protectedSecret = _totpService.ProtectSecret(secret);
@@ -232,40 +228,23 @@ public partial class UserService(
         }, "MFA_ENABLED");
     }
 
-    public async Task<(bool Success, string Message)> DisableMfaAsync(int userId, string password, string? code, string? recoveryCode, bool stepUpVerified = false)
+    public async Task<(bool Success, string Message)> DisableMfaAsync(int userId, UserMfaStepUpContext context)
     {
+        if (!context.IsValidFor(userId, UserMfaManagementAction.Disable))
+        {
+            return (false, "MFA_STEP_UP_REQUIRED");
+        }
+
         var user = await _db.Queryable<User>().InSingleAsync(userId);
         if (user == null)
         {
             return (false, "用户不存在");
         }
 
-        bool anonymousIdentityMode = AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled();
-        if (!anonymousIdentityMode)
-        {
-            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
-        }
-
         UserMfaProfile? profile = await GetUserMfaProfileAsync(userId);
         if (!user.MfaEnabled)
         {
             return (true, "MFA_ALREADY_DISABLED");
-        }
-
-        if (anonymousIdentityMode)
-        {
-            if (!stepUpVerified)
-            {
-                return (false, "MFA_STEP_UP_REQUIRED");
-            }
-        }
-        else
-        {
-            bool pass = await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption: true);
-            if (!pass)
-            {
-                return (false, "MFA_VERIFY_FAILED");
-            }
         }
 
         if (profile is not null)
@@ -306,43 +285,23 @@ public partial class UserService(
 
     public async Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> RegenerateMfaRecoveryCodesAsync(
         int userId,
-        string password,
-        string? code,
-        string? recoveryCode,
-        bool stepUpVerified = false)
+        UserMfaStepUpContext context)
     {
+        if (!context.IsValidFor(userId, UserMfaManagementAction.RecoveryCodesRegenerate))
+        {
+            return (false, null, "MFA_STEP_UP_REQUIRED");
+        }
+
         var user = await _db.Queryable<User>().InSingleAsync(userId);
         if (user == null)
         {
             return (false, null, "用户不存在");
         }
 
-        bool anonymousIdentityMode = AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled();
-        if (!anonymousIdentityMode)
-        {
-            return (false, null, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
-        }
-
         UserMfaProfile? profile = await GetUserMfaProfileAsync(userId);
         if (!user.MfaEnabled || string.IsNullOrWhiteSpace(profile?.MfaSecretEncrypted))
         {
             return (false, null, "MFA_NOT_ENABLED");
-        }
-
-        if (anonymousIdentityMode)
-        {
-            if (!stepUpVerified)
-            {
-                return (false, null, "MFA_STEP_UP_REQUIRED");
-            }
-        }
-        else
-        {
-            bool pass = await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption: true);
-            if (!pass)
-            {
-                return (false, null, "MFA_VERIFY_FAILED");
-            }
         }
 
         var recoveryCodes = _totpService.GenerateRecoveryCodes(10);

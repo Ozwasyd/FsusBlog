@@ -92,7 +92,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `50`: MfaProfile
 - `51`: MfaChallengeResult
 - `52`: MfaSetupVerifyRequest
-- `53`: MfaPasswordProofRequest
+- `53`: retired legacy MFA password proof request; current MFA mutations have no request body and consume a session-bound `X-Fsus-Mfa-Proof`.
 - `54`: MfaChallengeStartRequest
 - `55`: MfaChallengeVerifyRequest
 - `56`: ConversationList
@@ -201,7 +201,6 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - Retired legacy username/password auth slots (`43`/`44`/`45`/`46`) have no payload contract. Decoders, AEDS catalogs, OpenAPI, frontend frame mirrors, and production endpoints must not expose them.
 - `AuthDeleteAccountRequest` payload: `AuthDeleteAccountRequestPod` followed by blob payload for confirm text only. Account deletion step-up proof is carried by `X-Fsus-Mfa-Proof`, not by password, TOTP code, or recovery-code fields.
 - `MfaSetupVerifyRequest` payload: `StringMutationRequestPod` followed by blob payload for the TOTP code.
-- `MfaPasswordProofRequest` payload: `MfaPasswordProofRequestPod` followed by blob payload for password/TOTP/recovery code.
 - `MfaChallengeStartRequest` payload: `StringMutationRequestPod` followed by blob payload for action.
 - `MfaChallengeVerifyRequest` payload: `MfaChallengeVerifyRequestPod` followed by blob payload for challenge token/action/TOTP/recovery code.
 - `RecoveryKeyCreateResponse` payload: `RecoveryKeyCreateResponsePod` followed by blob payload for the one-time plaintext account Recovery Key. The plaintext is returned only by create/rotate responses and is never persisted server-side.

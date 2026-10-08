@@ -38,7 +38,7 @@ public sealed record class MfaChallengeTicket
     {
         get; init;
     }
-    public bool RememberMe
+    public UserSessionAuthenticationContext? InitialAuthentication
     {
         get; init;
     }
@@ -59,7 +59,7 @@ public sealed record class MfaChallengeTicket
 
 public interface IMfaChallengeService
 {
-    Task<MfaChallengeTicket> CreateLoginChallengeAsync(int accountId, string accountSubjectHash, bool riskTriggered, bool rememberMe, string? deviceSignal, CancellationToken cancellationToken = default);
+    Task<MfaChallengeTicket> CreateLoginChallengeAsync(int accountId, string accountSubjectHash, bool riskTriggered, UserSessionAuthenticationContext authenticationContext, string? deviceSignal, CancellationToken cancellationToken = default);
     Task<MfaChallengeTicket> CreateActionChallengeAsync(int accountId, string accountSubjectHash, string action, bool riskTriggered, string? deviceSignal, CancellationToken cancellationToken = default);
     Task<MfaChallengeTicket?> GetChallengeAsync(string ticketId, string? deviceSignal, CancellationToken cancellationToken = default);
     Task<MfaChallengeTicket?> ConsumeChallengeOnceAsync(MfaChallengeTicket expectedTicket, string? deviceSignal, CancellationToken cancellationToken = default);
@@ -83,17 +83,23 @@ public sealed class MfaChallengeService(
     public const int MinimumProofFreshnessMinutes = 1;
     public const int MaximumProofFreshnessMinutes = 15;
     private const uint TicketMagic = 0x41464D46; // FMFA
-    private const byte TicketVersion = 3;
+    private const byte TicketVersion = 4;
     private const int MaxTicketFailures = 5;
     private const int MaxSubjectWindowFailures = 10;
     private const int MaxIpWindowFailures = 25;
     private static readonly TimeSpan s_failureWindowTtl = TimeSpan.FromMinutes(10);
 
-    public Task<MfaChallengeTicket> CreateLoginChallengeAsync(int accountId, string accountSubjectHash, bool riskTriggered, bool rememberMe, string? deviceSignal, CancellationToken cancellationToken = default)
-        => CreateAsync(accountId, accountSubjectHash, "login", "login", riskTriggered, rememberMe, deviceSignal, TimeSpan.FromMinutes(5), cancellationToken);
+    public Task<MfaChallengeTicket> CreateLoginChallengeAsync(int accountId, string accountSubjectHash, bool riskTriggered, UserSessionAuthenticationContext authenticationContext, string? deviceSignal, CancellationToken cancellationToken = default)
+    {
+        if (!IsInitialPasskeyAuthentication(authenticationContext))
+        {
+            throw new ArgumentException("Initial verified passkey authentication is required for an MFA login ticket.", nameof(authenticationContext));
+        }
+        return CreateAsync(accountId, accountSubjectHash, "login", "login", riskTriggered, authenticationContext, deviceSignal, TimeSpan.FromMinutes(5), cancellationToken);
+    }
 
     public Task<MfaChallengeTicket> CreateActionChallengeAsync(int accountId, string accountSubjectHash, string action, bool riskTriggered, string? deviceSignal, CancellationToken cancellationToken = default)
-        => CreateAsync(accountId, accountSubjectHash, "action", action, riskTriggered, rememberMe: false, deviceSignal, TimeSpan.FromMinutes(3), cancellationToken);
+        => CreateAsync(accountId, accountSubjectHash, "action", action, riskTriggered, initialAuthentication: null, deviceSignal, TimeSpan.FromMinutes(3), cancellationToken);
 
     public async Task<MfaChallengeTicket?> GetChallengeAsync(string ticketId, string? deviceSignal, CancellationToken cancellationToken = default)
     {
@@ -274,7 +280,7 @@ public sealed class MfaChallengeService(
         string type,
         string action,
         bool riskTriggered,
-        bool rememberMe,
+        UserSessionAuthenticationContext? initialAuthentication,
         string? deviceSignal,
         TimeSpan ttl,
         CancellationToken cancellationToken)
@@ -288,7 +294,7 @@ public sealed class MfaChallengeService(
             AccountSubjectHash = ResolveAccountSubjectHash(accountSubjectHash),
             Type = type,
             Action = action,
-            RememberMe = rememberMe,
+            InitialAuthentication = initialAuthentication,
             RiskTriggered = riskTriggered,
             DeviceSignalHash = metadata.DeviceSignalHash,
             DeviceSignalEpoch = metadata.DeviceSignalEpoch,
@@ -301,32 +307,49 @@ public sealed class MfaChallengeService(
 
     private string EncodeTicket(MfaChallengeTicket ticket)
     {
+        if (!HasValidAuthenticationProvenance(ticket))
+        {
+            throw new ArgumentException("MFA ticket authentication provenance is invalid.", nameof(ticket));
+        }
+        UserSessionAuthenticationContext? initial = ticket.InitialAuthentication;
         byte[] ticketId = Encoding.UTF8.GetBytes(ticket.TicketId);
         byte[] accountSubjectHash = Encoding.UTF8.GetBytes(ticket.AccountSubjectHash);
         byte[] type = Encoding.UTF8.GetBytes(ticket.Type);
         byte[] action = Encoding.UTF8.GetBytes(ticket.Action);
         byte[] deviceSignalHash = Encoding.UTF8.GetBytes(ticket.DeviceSignalHash ?? string.Empty);
-        int length = 4 + 1 + 4 + 1 + 1 + 8 + 4
+        byte[] authenticationMethod = Encoding.UTF8.GetBytes(initial?.Method ?? string.Empty);
+        byte[] authenticationStrength = Encoding.UTF8.GetBytes(initial?.Strength ?? string.Empty);
+        byte[] durationPolicy = Encoding.UTF8.GetBytes(initial?.DurationPolicy ?? string.Empty);
+        int length = 36
             + 2 + ticketId.Length
             + 2 + type.Length
             + 2 + action.Length
             + 2 + accountSubjectHash.Length
-            + 2 + deviceSignalHash.Length;
+            + 2 + deviceSignalHash.Length
+            + 2 + authenticationMethod.Length
+            + 2 + authenticationStrength.Length
+            + 2 + durationPolicy.Length;
         byte[] bytes = new byte[length];
         Span<byte> span = bytes;
         BinaryPrimitives.WriteUInt32LittleEndian(span[..4], TicketMagic);
         span[4] = TicketVersion;
         BinaryPrimitives.WriteInt32LittleEndian(span[5..9], ticket.AccountId);
-        span[9] = ticket.RememberMe ? (byte)1 : (byte)0;
+        span[9] = initial.HasValue ? (byte)1 : (byte)0;
         span[10] = ticket.RiskTriggered ? (byte)1 : (byte)0;
         BinaryPrimitives.WriteInt64LittleEndian(span[11..19], ticket.CreatedAtUtc.ToUniversalTime().Ticks);
         BinaryPrimitives.WriteInt32LittleEndian(span[19..23], ticket.DeviceSignalEpoch ?? 0);
-        int offset = 23;
+        BinaryPrimitives.WriteInt64LittleEndian(span[23..31], initial?.AuthenticatedAtUtc.Ticks ?? 0);
+        BinaryPrimitives.WriteInt32LittleEndian(span[31..35], initial?.CredentialRowId ?? 0);
+        span[35] = initial.HasValue ? (byte)initial.Value.SessionMode : (byte)0;
+        int offset = 36;
         WriteString(bytes, ref offset, ticketId);
         WriteString(bytes, ref offset, type);
         WriteString(bytes, ref offset, action);
         WriteString(bytes, ref offset, accountSubjectHash);
         WriteString(bytes, ref offset, deviceSignalHash);
+        WriteString(bytes, ref offset, authenticationMethod);
+        WriteString(bytes, ref offset, authenticationStrength);
+        WriteString(bytes, ref offset, durationPolicy);
         byte[] signingKey = ResolveTicketSigningKey();
         byte[] mac = HMACSHA256.HashData(signingKey, bytes);
         byte[] signed = new byte[bytes.Length + mac.Length];
@@ -340,7 +363,7 @@ public sealed class MfaChallengeService(
         try
         {
             byte[] signed = Base64UrlDecode(value);
-            if (signed.Length < 23 + 32)
+            if (signed.Length < 36 + 32)
             {
                 return null;
             }
@@ -354,26 +377,43 @@ public sealed class MfaChallengeService(
                 return null;
             }
 
-            if (bytes.Length < 23 ||
+            if (bytes.Length < 36 ||
                 BinaryPrimitives.ReadUInt32LittleEndian(bytes[..4]) != TicketMagic ||
-                bytes[4] != TicketVersion)
+                bytes[4] != TicketVersion || bytes[9] > 1 || bytes[10] > 1)
             {
                 return null;
             }
 
             int accountId = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(5, 4));
             int deviceSignalEpochValue = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(19, 4));
-            int offset = 23;
+            int offset = 36;
             string ticketId = ReadString(signed, ref offset, bytes.Length);
             string type = ReadString(signed, ref offset, bytes.Length);
             string action = ReadString(signed, ref offset, bytes.Length);
             string accountSubjectHash = ReadString(signed, ref offset, bytes.Length);
             string deviceSignalHashValue = ReadString(signed, ref offset, bytes.Length);
+            string authenticationMethod = ReadString(signed, ref offset, bytes.Length);
+            string authenticationStrength = ReadString(signed, ref offset, bytes.Length);
+            string durationPolicy = ReadString(signed, ref offset, bytes.Length);
+            long authenticatedTicks = BinaryPrimitives.ReadInt64LittleEndian(bytes.Slice(23, 8));
+            int credentialRowId = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(31, 4));
+            UserSessionAuthenticationContext? initial = bytes[9] == 1
+                ? new UserSessionAuthenticationContext(
+                    authenticationMethod,
+                    authenticationStrength,
+                    new DateTime(authenticatedTicks, DateTimeKind.Utc),
+                    credentialRowId,
+                    durationPolicy,
+                    (UserSessionMode)bytes[35])
+                : null;
             string? deviceSignalHash = string.IsNullOrEmpty(deviceSignalHashValue) ? null : deviceSignalHashValue;
             int? deviceSignalEpoch = deviceSignalEpochValue == 0 ? null : deviceSignalEpochValue;
             if (offset != bytes.Length
                 || string.IsNullOrWhiteSpace(ticketId)
-                || string.IsNullOrWhiteSpace(type)
+                || accountId <= 0
+                || string.IsNullOrWhiteSpace(action)
+                || (initial is null && (authenticatedTicks != 0 || credentialRowId != 0 || bytes[35] != 0
+                    || authenticationMethod.Length != 0 || authenticationStrength.Length != 0 || durationPolicy.Length != 0))
                 || (deviceSignalHash is null) != (deviceSignalEpoch is null)
                 || deviceSignalEpoch is <= 0
                 || !AccountSubjectHashRequirement.TryResolve(
@@ -383,19 +423,20 @@ public sealed class MfaChallengeService(
                 return null;
             }
 
-            return new MfaChallengeTicket
+            var ticket = new MfaChallengeTicket
             {
                 TicketId = ticketId,
                 AccountId = accountId,
                 AccountSubjectHash = normalizedAccountSubjectHash,
                 Type = type,
                 Action = action,
-                RememberMe = bytes[9] == 1,
+                InitialAuthentication = initial,
                 RiskTriggered = bytes[10] == 1,
                 DeviceSignalHash = deviceSignalHash,
                 DeviceSignalEpoch = deviceSignalEpoch,
                 CreatedAtUtc = new DateTime(BinaryPrimitives.ReadInt64LittleEndian(bytes.Slice(11, 8)), DateTimeKind.Utc)
             };
+            return HasValidAuthenticationProvenance(ticket) ? ticket : null;
         }
         catch (FormatException)
         {
@@ -406,6 +447,20 @@ public sealed class MfaChallengeService(
             return null;
         }
     }
+
+    private static bool IsInitialPasskeyAuthentication(UserSessionAuthenticationContext authentication)
+        => authentication.IsValid()
+            && authentication.Method == UserSessionAuthenticationMethods.Passkey
+            && authentication.Strength == UserSessionAuthenticationStrengths.WebAuthnUv;
+
+    private static bool HasValidAuthenticationProvenance(MfaChallengeTicket ticket)
+        => ticket.Type switch
+        {
+            "login" => ticket.Action == "login" && ticket.InitialAuthentication.HasValue
+                && IsInitialPasskeyAuthentication(ticket.InitialAuthentication.Value),
+            "action" => ticket.InitialAuthentication is null,
+            _ => false
+        };
 
     private bool MatchesDevice(MfaChallengeTicket ticket, string? deviceSignal)
     {

@@ -97,6 +97,7 @@ public sealed class AuthCookieServiceSecurityTests
         var jwt = new JwtHelper(Options.Create(new JwtSettings
         {
             SecretKey = TestSecrets.JwtSigningKey,
+            KeyVersion = "cookie-expiry-current",
             Issuer = "cookie-expiry-tests",
             Audience = "cookie-expiry-tests",
             AccessTokenExpiresMinutes = expiresMinutes
@@ -109,7 +110,11 @@ public sealed class AuthCookieServiceSecurityTests
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
             PasskeyUserHandle = "cookie-expiry-account",
             AccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        }, sessionId: "ordinary-session", mfaVerified: true);
+        }, sessionId: "ordinary-session", authenticationContext: new UserSessionAuthenticationContext(
+                UserSessionAuthenticationMethods.Passkey,
+                UserSessionAuthenticationStrengths.WebAuthnUv,
+                DateTime.UtcNow,
+                CredentialRowId: 17));
         var ordinaryContext = new DefaultHttpContext();
         cookies.SetTokenCookies(
             ordinaryContext,

@@ -102,9 +102,7 @@ public interface IUserLoginWorkflowService
         string clientIp,
         string? deviceFingerprint,
         string? userAgent,
-        bool mfaVerified,
-        bool rememberMe,
-        UserSessionAuthenticationContext? authenticationContext = null,
+        UserSessionAuthenticationContext authenticationContext,
         CancellationToken cancellationToken = default);
 
     Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent, CancellationToken cancellationToken = default);
@@ -126,8 +124,6 @@ public interface IUserSessionFixtureLoginWorkflow
             string clientIp,
             string? deviceFingerprint,
             string? userAgent,
-            bool mfaVerified,
-            bool rememberMe,
             UserSessionAuthenticationContext authenticationContext,
             UserSessionFixtureIdentity fixtureIdentity,
             CancellationToken cancellationToken = default);
@@ -195,23 +191,17 @@ public interface IUserMfaCommandService
     Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
         int userId,
         string issuer,
-        string? password = null,
-        string? code = null,
-        string? recoveryCode = null,
-        bool stepUpVerified = false);
+        UserMfaStepUpContext context);
 
     Task<MfaProfileDto?> GetMfaProfileAsync(int userId);
 
     Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> VerifyMfaSetupAsync(int userId, string code);
 
-    Task<(bool Success, string Message)> DisableMfaAsync(int userId, string password, string? code, string? recoveryCode, bool stepUpVerified = false);
+    Task<(bool Success, string Message)> DisableMfaAsync(int userId, UserMfaStepUpContext context);
 
     Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> RegenerateMfaRecoveryCodesAsync(
         int userId,
-        string password,
-        string? code,
-        string? recoveryCode,
-        bool stepUpVerified = false);
+        UserMfaStepUpContext context);
 }
 
 public interface IUserMfaVerificationService

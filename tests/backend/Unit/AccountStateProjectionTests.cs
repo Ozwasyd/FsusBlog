@@ -1,4 +1,12 @@
+using System.Data;
+
 using FsusBlog.Server.Infrastructure.Projections;
+
+using Microsoft.Extensions.DependencyInjection;
+
+using NSubstitute;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -88,6 +96,103 @@ public sealed class AccountStateProjectionTests
         Assert.Equal(AccountStateReadOutcome.Conflict, wrongAccount.Outcome);
         Assert.Null(wrongAccount.Snapshot);
         Assert.Equal(1, source.LoadCount);
+    }
+
+    [Theory]
+    [InlineData(null, AccountRegistrationStates.Active)]
+    [InlineData("", AccountRegistrationStates.Active)]
+    [InlineData("user", AccountRegistrationStates.Active)]
+    [InlineData(" anonymous_account", AccountRegistrationStates.Active)]
+    [InlineData("anonymous_account ", AccountRegistrationStates.Active)]
+    [InlineData(AnonymousIdentityRuntime.AnonymousAccountKind, null)]
+    [InlineData(AnonymousIdentityRuntime.AnonymousAccountKind, "")]
+    [InlineData(AnonymousIdentityRuntime.AnonymousAccountKind, "registered")]
+    [InlineData(AnonymousIdentityRuntime.AnonymousAccountKind, " active")]
+    [InlineData(AnonymousIdentityRuntime.AnonymousAccountKind, "active ")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "account-projection-rejects-unknown-and-repaired-auth-state")]
+    public async Task InvalidCurrentAuthState_IsRejectedForWritesAndColdReads(
+        string? identityKind,
+        string? registrationState)
+    {
+        AccountStateSnapshot invalid = Present(42, 1, SubjectA) with
+        {
+            IdentityKind = identityKind!,
+            RegistrationState = registrationState!
+        };
+        var source = new DelegateSource((_, _) => ValueTask.FromResult(invalid));
+        AccountStateProjection projection = CreateProjection(source);
+
+        Assert.Equal(AccountStateApplyOutcome.Rejected, projection.ApplyAuthoritative(invalid));
+        Assert.Equal(0, projection.Snapshot().Entries);
+        AccountStateReadResult coldRead = await projection.ReadAsync(42, SubjectA);
+        Assert.Equal(AccountStateReadOutcome.Unknown, coldRead.Outcome);
+        Assert.False(coldRead.IsPresent);
+        Assert.Null(coldRead.Snapshot);
+        Assert.Equal(1, source.LoadCount);
+        Assert.Equal(1, projection.Snapshot().SourceFailures);
+
+        AccountStateReadResult repeated = await projection.ReadAsync(42, SubjectA);
+        Assert.Equal(AccountStateReadOutcome.Conflict, repeated.Outcome);
+        Assert.Null(repeated.Snapshot);
+        Assert.Equal(1, source.LoadCount);
+
+        Assert.Equal(AccountStateApplyOutcome.Updated, projection.ApplyAuthoritative(Present(42, 2, SubjectA)));
+        AccountStateReadResult recovered = await projection.ReadAsync(42, SubjectA);
+        Assert.True(recovered.IsPresent);
+        Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, recovered.Snapshot!.IdentityKind);
+        Assert.Equal(AccountRegistrationStates.Active, recovered.Snapshot.RegistrationState);
+    }
+
+    [Theory]
+    [InlineData(null, AccountRegistrationStates.Active)]
+    [InlineData(AnonymousIdentityRuntime.AnonymousAccountKind, null)]
+    [InlineData(null, null)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "account-sql-source-does-not-invent-missing-auth-state")]
+    public async Task SqlSource_DoesNotInventCurrentAuthStateForMissingColumns(
+        string? identityKind,
+        string? registrationState)
+    {
+        using var table = new DataTable();
+        (string Name, Type Type, object Value)[] fields =
+        [
+            ("Id", typeof(int), 42),
+            ("Generation", typeof(long), 1L),
+            ("Status", typeof(int), 0),
+            ("DeletedAt", typeof(DateTime), DBNull.Value),
+            ("AccountSubjectHash", typeof(string), SubjectA),
+            ("BanReason", typeof(string), DBNull.Value),
+            ("IdentityKind", typeof(string), (object?)identityKind ?? DBNull.Value),
+            ("RegistrationState", typeof(string), (object?)registrationState ?? DBNull.Value),
+            ("MfaEnabled", typeof(bool), true),
+            ("PasskeyEnabled", typeof(bool), true),
+            ("RecoveryEnabled", typeof(bool), true),
+            ("PublicHandle", typeof(string), "reader"),
+            ("AnonymousCredentialStatus", typeof(string), "active"),
+            ("AnonymousCredentialLevel", typeof(string), "basic")
+        ];
+        foreach (var field in fields)
+        {
+            table.Columns.Add(field.Name, field.Type);
+        }
+        table.Rows.Add(fields.Select(static field => field.Value).ToArray());
+
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(_ => Task.FromResult((IDataReader)table.CreateDataReader()));
+        using ServiceProvider provider = new ServiceCollection().AddSingleton(db).BuildServiceProvider();
+        var source = new SqlAccountStateProjectionSource(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            new AccountStateProjectionRuntimeState());
+
+        AccountStateSnapshot raw = await source.LoadAsync(42, CancellationToken.None);
+        Assert.Equal(identityKind ?? string.Empty, raw.IdentityKind);
+        Assert.Equal(registrationState ?? string.Empty, raw.RegistrationState);
+        AccountStateReadResult result = await CreateProjection(source).ReadAsync(42, SubjectA);
+        Assert.Equal(AccountStateReadOutcome.Unknown, result.Outcome);
+        Assert.False(result.IsPresent);
+        Assert.Null(result.Snapshot);
     }
 
     [Fact]
@@ -290,8 +395,8 @@ public sealed class AccountStateProjectionTests
             Knowledge = AccountStateKnowledge.Present,
             AccountSubjectHash = subjectHash,
             Status = 0,
-            IdentityKind = "anonymous_account",
-            RegistrationState = "active",
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            RegistrationState = AccountRegistrationStates.Active,
             MfaEnabled = true,
             PasskeyEnabled = true,
             RecoveryEnabled = true,

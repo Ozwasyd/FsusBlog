@@ -136,7 +136,10 @@
                 "src/backend/Services/Security/AdminPrincipalService.cs",
                 "src/backend/Infrastructure/Helpers/JwtHelper.cs",
                 "src/backend/Infrastructure/Auth/AuthCookieService.cs",
-                "tools/contracts/FsusBlog.AuthSessionObservation/Program.cs"
+                "tools/contracts/FsusBlog.AuthSessionObservation/Program.cs",
+                "src/shared/Contracts/AuthSystem/user-session-authentication-contract.json",
+                "src/shared/Contracts/AuthSystem/UserSessionAuthenticationContract.generated.cs",
+                "tools/contracts/generate-auth-session-contract.mjs"
             ],
             "outputSchema": "fsusblog.fact-observation-receipt.v1",
             "requiredBuildArtifact": "auth-session-permission-observation",

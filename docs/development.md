@@ -166,7 +166,7 @@ In dev mode, Vite uses `transformIndexHtml` to inject `public-shell-critical.css
 
 ### Local Passkey injection
 
-Under the current anonymous identity mode, legacy `sys_user` password login and legacy
+Under the current ordinary-account contract, legacy `sys_user` password login and legacy
 `role=admin` no longer grant login or admin access. Demo seed creates only the anonymous
 account container `demo-reader` and a disabled mock admin principal `demo-admin` for
 attribution display; neither is a login credential. For the first local login, create a

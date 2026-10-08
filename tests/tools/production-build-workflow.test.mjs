@@ -295,11 +295,11 @@ test('production image workflow reuses the production builder and proves health,
     assert.match(dockerfile, /FROM fsusui-build-tools AS wasm-builder/u);
 });
 
-test('production Compose environment contract documents the exact current 60-variable inventory', () =>
+test('production Compose environment contract documents the exact current 59-variable inventory', () =>
 {
     const report = checkProductionComposeEnvironment({ root });
     assert.deepEqual(report.errors, []);
-    assert.equal(report.variableCount, 60);
+    assert.equal(report.variableCount, 59);
     assert.equal(report.stopGracePeriodSeconds, 60);
     assert.equal(parseComposeDurationSeconds('60s'), 60);
     assert.equal(parseComposeDurationSeconds('2m'), 120);

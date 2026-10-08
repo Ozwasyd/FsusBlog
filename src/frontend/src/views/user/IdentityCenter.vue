@@ -1320,9 +1320,7 @@ const formatSessionDevice = (label: string | null | undefined): string =>
 
 const formatAuthenticationMethod = (method: UserSessionSummary['authenticationMethod']): string => ({
     passkey: sessionsCopy.value.authenticationPasskey,
-    recovery_key: sessionsCopy.value.authenticationRecoveryKey,
-    enrollment: sessionsCopy.value.authenticationEnrollment,
-    other: sessionsCopy.value.authenticationOther
+    enrollment: sessionsCopy.value.authenticationEnrollment
 })[method];
 
 const formatDurationPolicy = (policy: UserSessionSummary['durationPolicy']): string =>

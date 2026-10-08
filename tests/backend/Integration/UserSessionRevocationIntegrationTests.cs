@@ -658,8 +658,6 @@ public sealed class UserSessionRevocationIntegrationTests(
     {
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("rotated-refresh-token");
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns(
-            new IssuedAccessToken("rotated-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<UserSessionAuthenticationContext>()).Returns(
             new IssuedAccessToken("rotated-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         return new UserSessionCommandService(

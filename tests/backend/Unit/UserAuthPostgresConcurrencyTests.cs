@@ -289,6 +289,9 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
         int userId = SeedUser(setupDb, mfaEnabled: true);
+        PostgresSqlSugarTestClient.InitTables(setupDb, typeof(PasskeyCredential));
+        UserSessionAuthenticationContext initialAuthentication = await VerifiedPasskeyTestAuthentication.CreateAsync(
+            setupDb, await setupDb.Queryable<User>().InSingleAsync(userId));
         var totp = new TotpService(
             new EphemeralDataProtectionProvider(),
             TimeProvider.System,
@@ -337,7 +340,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
                         verificationServices[index],
                         loginServices[index],
                         userId,
-                        ConsumedCode)))
+                        ConsumedCode,
+                        initialAuthentication)))
                 .ToArray();
             await Task.Delay(TimeSpan.FromMilliseconds(300));
             Assert.All(attempts, static attempt => Assert.False(attempt.IsCompleted));
@@ -390,7 +394,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         UserService verificationService,
         UserLoginWorkflowService loginService,
         int userId,
-        string recoveryCode)
+        string recoveryCode,
+        UserSessionAuthenticationContext initialAuthentication)
     {
         bool verified = await verificationService.VerifyMfaOrRecoveryCodeAsync(
             userId,
@@ -407,13 +412,10 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             "203.0.113.30",
             "issue-2330-device",
             "issue-2330-agent",
-            mfaVerified: true,
-            rememberMe: false,
-            authenticationContext: new UserSessionAuthenticationContext(
-                UserSessionAuthenticationMethods.RecoveryKey,
-                UserSessionAuthenticationStrengths.Recovery,
-                DateTime.UtcNow,
-                DurationPolicy: UserSessionDurationPolicies.BrowserSession));
+            authenticationContext: initialAuthentication with
+            {
+                Strength = UserSessionAuthenticationStrengths.Mfa
+            });
         return new RecoveryCodeLoginAttempt(true, login.Success, login.Data);
     }
 
@@ -559,6 +561,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             PublicHandle = $"auth-race-{Guid.NewGuid():N}"[..20],
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
             PasskeyUserHandle = $"auth-race-handle-{Guid.NewGuid():N}",
+            AccountSubjectHash = AccountSubjectHasher.Create(
+                AnonymousIdentityRuntime.AnonymousAccountKind, $"auth-race-subject-{Guid.NewGuid():N}"),
             PrivacyInitializedAt = DateTime.UtcNow,
             Status = 0,
             MfaEnabled = mfaEnabled
@@ -592,15 +596,13 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
     {
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns(nextRefreshToken);
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string?>(), Arg.Any<bool>())
-            .Returns(new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string?>(), Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         return new UserService(
-            _db: db,
-            _logger: NullLogger<UserService>.Instance,
-            _accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
-            _totpService: totp ?? Substitute.For<ITotpService>());
+            db: db,
+            logger: NullLogger<UserService>.Instance,
+            accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
+            totpService: totp ?? Substitute.For<ITotpService>());
     }
 
     private static UserSessionCommandService CreateSessionService(
@@ -610,7 +612,7 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
     {
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns(nextRefreshToken);
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string?>(), Arg.Any<bool>())
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         return new UserSessionCommandService(
             db,

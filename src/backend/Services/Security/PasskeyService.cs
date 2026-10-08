@@ -238,7 +238,6 @@ public sealed class PasskeyService(
 
         PasskeyAccountMetadata accountMetadata = BuildAnonymousSafeMetadata(
             user.PublicHandle,
-            AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled(),
             stableUserHandle);
 
         var fidoUser = new Fido2User
@@ -1313,25 +1312,18 @@ public sealed class PasskeyService(
 
     internal static PasskeyAccountMetadata BuildAnonymousSafeMetadataForTests(
         string? publicHandle,
-        bool anonymousIdentityModeEnabled,
         byte[] stableUserHandle)
-        => BuildAnonymousSafeMetadata(publicHandle, anonymousIdentityModeEnabled, stableUserHandle);
+        => BuildAnonymousSafeMetadata(publicHandle, stableUserHandle);
 
     internal static bool IsUserHandleOwnerOfCredentialForTests(byte[]? userHandle, string? storedUserHandle)
         => IsUserHandleOwnerOfCredential(userHandle, storedUserHandle);
 
     private static PasskeyAccountMetadata BuildAnonymousSafeMetadata(
         string? publicHandle,
-        bool anonymousIdentityModeEnabled,
         byte[] stableUserHandle)
     {
         byte[] userHandle = stableUserHandle.ToArray();
         string displayName = NormalizeMetadataText(publicHandle, AnonymousPasskeyDisplayName);
-        if (!anonymousIdentityModeEnabled)
-        {
-            return new PasskeyAccountMetadata(displayName, displayName, userHandle);
-        }
-
         return new PasskeyAccountMetadata(AnonymousPasskeyAccountName, displayName, userHandle);
     }
 
@@ -1491,7 +1483,6 @@ public sealed class PasskeyService(
             .ToListAsync();
         PasskeyAccountMetadata metadata = BuildAnonymousSafeMetadata(
             user.PublicHandle,
-            AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled(),
             userHandle);
         string rpId = configuration?["Fido2:ServerDomain"]?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(rpId))

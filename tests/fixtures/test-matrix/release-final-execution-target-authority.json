@@ -75,8 +75,8 @@
         },
         {
             "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
-            "contentDigest": "sha256:6715f7357d63ea33d42e3f833837c2f7bca97d6b79d5170b4b436bbfcf988103",
-            "indexDigest": "sha256:6715f7357d63ea33d42e3f833837c2f7bca97d6b79d5170b4b436bbfcf988103"
+            "contentDigest": "sha256:88c855a0c9963fbe9f9b8ba4374ac9f42f07b429f05167516374a972c784cc9d",
+            "indexDigest": "sha256:88c855a0c9963fbe9f9b8ba4374ac9f42f07b429f05167516374a972c784cc9d"
         },
         {
             "path": "src/frontend/eslint.config.mjs",
@@ -147,6 +147,11 @@
             "path": "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
             "contentDigest": "sha256:d6066ea3ebde719f305f6312b01123378dc845cd77eed9421dfcc3037cbc070d",
             "indexDigest": "sha256:d6066ea3ebde719f305f6312b01123378dc845cd77eed9421dfcc3037cbc070d"
+        },
+        {
+            "path": "src/frontend/src/generated/authSessionContract.ts",
+            "contentDigest": "sha256:854b9db0613397c7df23ffd5e3e5e38a26e9b501070bc4a36c4b01d0355cad5c",
+            "indexDigest": "sha256:854b9db0613397c7df23ffd5e3e5e38a26e9b501070bc4a36c4b01d0355cad5c"
         },
         {
             "path": "src/frontend/src/generated/releaseIdContract.ts",
@@ -765,8 +770,8 @@
         },
         {
             "path": "src/frontend/wasm/web/protocol/frame.ts",
-            "contentDigest": "sha256:5926df80b86c71d15771ae8b21f17c1b3178e5f388819ae45401d2a38c146e19",
-            "indexDigest": "sha256:5926df80b86c71d15771ae8b21f17c1b3178e5f388819ae45401d2a38c146e19"
+            "contentDigest": "sha256:1c09a8da8046655648952002dfab3c4a903fc73f07805752b40eee571a97618d",
+            "indexDigest": "sha256:1c09a8da8046655648952002dfab3c4a903fc73f07805752b40eee571a97618d"
         },
         {
             "path": "stylelint.config.mjs",
@@ -1175,8 +1180,8 @@
         },
         {
             "path": "tests/frontend/checks/security/check-auth-mfa-smoke.mjs",
-            "contentDigest": "sha256:636b891fca0e73b6efff09775be08be5a021effb9b7b8e17edcda99e6afd25c4",
-            "indexDigest": "sha256:636b891fca0e73b6efff09775be08be5a021effb9b7b8e17edcda99e6afd25c4"
+            "contentDigest": "sha256:848f5e6f99bf846595b8789ac2c3d31c560d377fe1052105e9522c756dc01b3c",
+            "indexDigest": "sha256:848f5e6f99bf846595b8789ac2c3d31c560d377fe1052105e9522c756dc01b3c"
         },
         {
             "path": "tests/frontend/checks/security/check-auth-passkey-smoke.mjs",
@@ -1800,8 +1805,8 @@
         },
         {
             "path": "tests/frontend/support/aeds-envelope.mjs",
-            "contentDigest": "sha256:b6cf56b6741d468685f0c277dcfcef8bbb70b81c04a4e9a691b61a5ce3b4ddda",
-            "indexDigest": "sha256:b6cf56b6741d468685f0c277dcfcef8bbb70b81c04a4e9a691b61a5ce3b4ddda"
+            "contentDigest": "sha256:6feb70f55aba4b20debcec91c0913bdd92369322392a35fa8dee2cdd3e816fa8",
+            "indexDigest": "sha256:6feb70f55aba4b20debcec91c0913bdd92369322392a35fa8dee2cdd3e816fa8"
         },
         {
             "path": "tests/frontend/support/auth-fixture-projection.mjs",
@@ -1905,8 +1910,8 @@
         },
         {
             "path": "tests/tools/aeds-protocol-generation.test.mjs",
-            "contentDigest": "sha256:e7f6bc2377218409eff15b954935468ab01b9f53ad71c382b2f01ab7f945d699",
-            "indexDigest": "sha256:e7f6bc2377218409eff15b954935468ab01b9f53ad71c382b2f01ab7f945d699"
+            "contentDigest": "sha256:189d88108b1d78822535e0fe6282f958be34206b672b17c3c682abfc2d9a6bb4",
+            "indexDigest": "sha256:189d88108b1d78822535e0fe6282f958be34206b672b17c3c682abfc2d9a6bb4"
         },
         {
             "path": "tests/tools/article-bulk-authorities.test.mjs",
@@ -2350,8 +2355,8 @@
         },
         {
             "path": "tools/bootstrap-acceptance-env.sh",
-            "contentDigest": "sha256:b74b01c4960d11d66c69e3bb02c36546200d6d8a90dee69069391626a96b30bd",
-            "indexDigest": "sha256:b74b01c4960d11d66c69e3bb02c36546200d6d8a90dee69069391626a96b30bd"
+            "contentDigest": "sha256:2e355e4c0a23cd25651911251a6dd8dffe4e70eb73a81a5cd6c5c88a99885a85",
+            "indexDigest": "sha256:2e355e4c0a23cd25651911251a6dd8dffe4e70eb73a81a5cd6c5c88a99885a85"
         },
         {
             "path": "tools/build-final-image.sh",
@@ -2650,8 +2655,8 @@
         },
         {
             "path": "tools/data-scale/product-backend.mjs",
-            "contentDigest": "sha256:3e05eecd84d9b0a7e7280b4545f1e7bbd9da5044142410437e2a013f51736c27",
-            "indexDigest": "sha256:3e05eecd84d9b0a7e7280b4545f1e7bbd9da5044142410437e2a013f51736c27"
+            "contentDigest": "sha256:3cac4aa4d5e8748cc975db69521378f4c40bd7bb3dfbce81ece2948984c8d6f9",
+            "indexDigest": "sha256:3cac4aa4d5e8748cc975db69521378f4c40bd7bb3dfbce81ece2948984c8d6f9"
         },
         {
             "path": "tools/data-scale/runtime-plan.mjs",
@@ -3245,8 +3250,8 @@
         },
         {
             "path": "tools/frontend/generate-aeds-protocol.mjs",
-            "contentDigest": "sha256:13ddf5ad32553fe00908981d827f5b76bc478b6a341c726241d7e84f7e8bafa9",
-            "indexDigest": "sha256:13ddf5ad32553fe00908981d827f5b76bc478b6a341c726241d7e84f7e8bafa9"
+            "contentDigest": "sha256:7d1f34a7b1a9dec596058ba8f5e8efd95d4cfd09031633a7f9fc1db2e34d853b",
+            "indexDigest": "sha256:7d1f34a7b1a9dec596058ba8f5e8efd95d4cfd09031633a7f9fc1db2e34d853b"
         },
         {
             "path": "tools/frontend/generate-public-page-manifest.mjs",
@@ -4820,8 +4825,8 @@
         },
         {
             "path": "tools/test/bundles/runtime-environment.mjs",
-            "contentDigest": "sha256:09c393d0aae66ab2c454dee595be88643139f16dfd5d652c29c135d69aa24cb4",
-            "indexDigest": "sha256:09c393d0aae66ab2c454dee595be88643139f16dfd5d652c29c135d69aa24cb4"
+            "contentDigest": "sha256:1767fb0ce91317ef08153c320860d8546246d6df01ad6b26da6d9294c22db129",
+            "indexDigest": "sha256:1767fb0ce91317ef08153c320860d8546246d6df01ad6b26da6d9294c22db129"
         },
         {
             "path": "tools/test/changed-critical-mutation-attribution.mjs",
@@ -4900,8 +4905,8 @@
         },
         {
             "path": "tools/test/correctness-attempt-migration.mjs",
-            "contentDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
-            "indexDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+            "contentDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2",
+            "indexDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2"
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",
@@ -5806,6 +5811,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -7426,6 +7432,8 @@
             "contentDigest": "sha256:636e396ab01aafa5846ab8c732409ba0a52b86a699f05e043eb931973c8a8f52",
             "indexDigest": "sha256:636e396ab01aafa5846ab8c732409ba0a52b86a699f05e043eb931973c8a8f52",
             "dependencyClosure": [
+                "src/frontend/package.json",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "tests/frontend/package.json",
                 "tests/frontend/support/aeds-envelope.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",
@@ -7519,6 +7527,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -8470,6 +8479,8 @@
             "contentDigest": "sha256:37d625f664897079b51b39da2d5cc46d013612be932f751fc340c72783ac36b1",
             "indexDigest": "sha256:37d625f664897079b51b39da2d5cc46d013612be932f751fc340c72783ac36b1",
             "dependencyClosure": [
+                "src/frontend/package.json",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "tests/frontend/package.json",
                 "tests/frontend/support/aeds-envelope.mjs",
                 "tools/ci/production-build-artifacts.mjs",
@@ -8672,6 +8683,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -9484,6 +9496,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -10296,6 +10309,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -11262,6 +11276,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -12074,6 +12089,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -12886,6 +12902,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -13698,6 +13715,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -14676,6 +14694,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -15511,6 +15530,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -16323,6 +16343,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -17135,6 +17156,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -18138,6 +18160,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -18944,6 +18967,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -19595,6 +19619,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -20476,6 +20501,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -21290,6 +21316,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -22102,6 +22129,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -22965,6 +22993,8 @@
             "contentDigest": "sha256:b002d8bd47968628d6f6a8e74fec99032a93ea5bbeebececd5cdfe0a71fab85a",
             "indexDigest": "sha256:b002d8bd47968628d6f6a8e74fec99032a93ea5bbeebececd5cdfe0a71fab85a",
             "dependencyClosure": [
+                "src/frontend/package.json",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "tests/frontend/package.json",
                 "tests/frontend/support/aeds-envelope.mjs",
                 "tests/frontend/support/auth-helpers.mjs",
@@ -23152,6 +23182,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -23993,6 +24024,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -24812,6 +24844,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -25624,6 +25657,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -26461,6 +26495,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -27273,6 +27308,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -28085,6 +28121,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -28897,6 +28934,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -29769,6 +29807,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -30565,6 +30604,8 @@
             "contentDigest": "sha256:57b13b07350a1179f8c4854055c39cfe5836dbc4f5ba4299f1a3f2ba402fbbff",
             "indexDigest": "sha256:57b13b07350a1179f8c4854055c39cfe5836dbc4f5ba4299f1a3f2ba402fbbff",
             "dependencyClosure": [
+                "src/frontend/package.json",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "tests/frontend/checks/perf/markdown-preview-release-performance.mjs",
                 "tests/frontend/package.json",
                 "tests/frontend/support/aeds-envelope.mjs",
@@ -30668,6 +30709,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -31481,6 +31523,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -32470,6 +32513,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -33487,6 +33531,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -34299,6 +34344,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -35206,6 +35252,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -36253,6 +36300,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -37065,6 +37113,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -38025,6 +38074,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -38864,6 +38914,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -39684,6 +39735,8 @@
             "contentDigest": "sha256:0761a1a23597481af16ffdf9b510812f78e30ca3da2c8d8e8a5e61df572aa0f1",
             "indexDigest": "sha256:0761a1a23597481af16ffdf9b510812f78e30ca3da2c8d8e8a5e61df572aa0f1",
             "dependencyClosure": [
+                "src/frontend/package.json",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "tests/frontend/package.json",
                 "tests/frontend/support/aeds-envelope.mjs",
                 "tests/frontend/support/auth-helpers.mjs",
@@ -39866,6 +39919,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -40926,6 +40980,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -41738,6 +41793,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -42550,6 +42606,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -43362,6 +43419,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -44174,6 +44232,7 @@
                 "src/frontend/src/bootstrap/publicAotBinaryPayload.ts",
                 "src/frontend/src/codecs/binary/reader.ts",
                 "src/frontend/src/components/i18n/projectLocaleSelectorItems.ts",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "src/frontend/src/generated/releaseIdContract.ts",
                 "src/frontend/src/locales/de-DE/admin.ts",
                 "src/frontend/src/locales/de-DE/article.ts",
@@ -45561,6 +45620,7 @@
                 "src/backend/FsusBlog.Server.csproj",
                 "src/frontend/package.json",
                 "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "tests/backend/FsusBlog.Server.Tests.csproj",
                 "tests/frontend/package.json",
                 "tests/frontend/support/aeds-envelope.mjs",
@@ -46155,6 +46215,8 @@
             "contentDigest": "sha256:ee61988833a9d28bbcb2b730ec1f059f8055e73498d8a2db688c69de7a82c371",
             "indexDigest": "sha256:ee61988833a9d28bbcb2b730ec1f059f8055e73498d8a2db688c69de7a82c371",
             "dependencyClosure": [
+                "src/frontend/package.json",
+                "src/frontend/src/generated/authSessionContract.ts",
                 "tests/frontend/package.json",
                 "tests/frontend/support/aeds-envelope.mjs",
                 "tools/db/verify-current-schema-test-materialization-receipt.mjs",

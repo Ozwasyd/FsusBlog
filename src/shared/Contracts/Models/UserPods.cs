@@ -125,7 +125,7 @@ public readonly struct UserSessionSummaryPod
     public readonly byte IsCurrent;
     public readonly byte HasLastSeenAt;
     public readonly byte HasPasskeyFriendlyName;
-    public readonly byte Reserved0;
+    public readonly byte SessionMode;
     public readonly Utf8Fixed64 SessionId;
     public readonly Utf8Fixed64 DeviceLabel;
     public readonly Utf8Fixed32 AuthenticationMethod;
@@ -216,17 +216,6 @@ public readonly struct MfaChallengeResultPod
     public readonly Utf8Fixed32 ReservedIdentity;
     public readonly Utf8Fixed64 Action;
     public readonly Utf8Fixed128 ProofToken;
-}
-
-/// <summary>
-/// Defines the fixed-layout binary representation used by the <c>MfaPasswordProofRequest</c> wire contract.
-/// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct MfaPasswordProofRequestPod
-{
-    public readonly Utf8SliceRef Password;
-    public readonly Utf8SliceRef Code;
-    public readonly Utf8SliceRef RecoveryCode;
 }
 
 /// <summary>

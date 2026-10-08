@@ -160,9 +160,9 @@ public sealed class ControlledWebAuthnAuthenticator(
             string.IsNullOrWhiteSpace(options.ChallengeToken) ||
             options.Challenge.Length < 16 ||
             !string.Equals(options.RpId, state.RpId, StringComparison.Ordinal) ||
-            options.AllowCredentials.Count == 0 ||
-            !options.AllowCredentials.Any(item =>
-                CryptographicOperations.FixedTimeEquals(item.Id, state.CredentialId)))
+            (options.AllowCredentials.Count > 0 &&
+                !options.AllowCredentials.Any(item =>
+                    CryptographicOperations.FixedTimeEquals(item.Id, state.CredentialId))))
         {
             throw new InvalidOperationException(
                 "controlled WebAuthn assertion options do not bind the registered credential");
@@ -542,6 +542,7 @@ public sealed record AuthFixtureVerificationResult(
 public sealed partial class AuthFixtureSeeder(
     IAuthFixtureLifecycleRepository repository,
     IUserMfaCommandService mfaCommands,
+    IMfaChallengeService mfaChallenges,
     IRecoveryKeyService recoveryKeys,
     IUserSessionFixtureLoginWorkflow fixtureLoginWorkflow,
     IUserSessionCommandService sessionCommands,
@@ -718,7 +719,7 @@ public sealed partial class AuthFixtureSeeder(
             cancellationToken);
         if (role.CapabilityId == "auth.user.mfa-enabled" && !user.MfaEnabled)
         {
-            await EnableMfaAsync(user, cancellationToken);
+            await EnableMfaAsync(user, role.FixtureIdentity, cancellationToken);
             user = await RequireUserAsync(user.Id, cancellationToken);
         }
         else if (role.CapabilityId == "auth.user.passkey-enabled" && !user.PasskeyEnabled)
@@ -801,22 +802,24 @@ public sealed partial class AuthFixtureSeeder(
             return observedExisting;
         }
 
+        int firstCredentialRowId = await CompletePasskeyCeremonyAsync(user, subjectIdentity, cancellationToken);
         var outcomes = new List<(SessionTokenResponseDto Tokens, string DeviceSignal)>(count);
         for (int index = 0; index < count; index++)
         {
             bool remembered = role.CapabilityId == "session.remembered";
+            int credentialRowId = index == 0 ? firstCredentialRowId
+                : await CompletePasskeyAssertionAsync(user, subjectIdentity, cancellationToken);
             var authentication = new UserSessionAuthenticationContext(
-                UserSessionAuthenticationMethods.Other,
-                UserSessionAuthenticationStrengths.LegacyVerified,
+                UserSessionAuthenticationMethods.Passkey,
+                UserSessionAuthenticationStrengths.WebAuthnUv,
                 timeProvider.GetUtcNow().UtcDateTime,
+                credentialRowId,
                 DurationPolicy: UserSessionDurationPolicies.FromRememberMe(remembered));
             var login = await fixtureLoginWorkflow.CompleteFixtureLoginAsync(
                 user.Id,
                 "127.0.0.1",
                 role.DeviceSignals[index],
                 "fsusblog-auth-fixture",
-                mfaVerified: true,
-                rememberMe: remembered,
                 authentication,
                 new UserSessionFixtureIdentity(
                     role.SessionIdentities[index],
@@ -1051,26 +1054,73 @@ public sealed partial class AuthFixtureSeeder(
             SHA256.HashData(Encoding.UTF8.GetBytes(
                 $"fsusblog-fixture-public-handle\0{fixtureIdentity}"))[..10])}";
 
-    private async Task EnableMfaAsync(User user, CancellationToken cancellationToken)
+    private static string FixtureMfaIdentity(string fixtureIdentity, string purpose)
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"fsusblog-fixture-mfa\0{fixtureIdentity}\0{purpose}")));
+
+    private async Task EnableMfaAsync(User user, string fixtureIdentity, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var setup = await mfaCommands.StartMfaSetupAsync(
+        int credentialRowId = await CompletePasskeyCeremonyAsync(user, fixtureIdentity, cancellationToken);
+        var authentication = new UserSessionAuthenticationContext(
+            UserSessionAuthenticationMethods.Passkey,
+            UserSessionAuthenticationStrengths.WebAuthnUv,
+            timeProvider.GetUtcNow().UtcDateTime,
+            credentialRowId);
+        var login = await fixtureLoginWorkflow.CompleteFixtureLoginAsync(
             user.Id,
-            "FsusBlog fixture",
-            stepUpVerified: true);
-        if (!setup.Success || !setup.Data.HasValue)
+            "127.0.0.1",
+            fixtureIdentity,
+            "fsusblog-auth-fixture",
+            authentication,
+            new UserSessionFixtureIdentity(
+                FixtureMfaIdentity(fixtureIdentity, "session"),
+                FixtureMfaIdentity(fixtureIdentity, "family")),
+            cancellationToken);
+        if (!login.Success || !login.Data.HasValue || !login.User.HasValue)
         {
-            throw new InvalidOperationException(setup.Message);
+            throw new InvalidOperationException(login.Message);
         }
-        string code = ComputeTotp(setup.Data.Value.Secret, timeProvider.GetUtcNow());
-        var verified = await mfaCommands.VerifyMfaSetupAsync(user.Id, code);
-        if (!verified.Success)
+
+        string sessionId = login.Data.Value.SessionId;
+        try
         {
-            throw new InvalidOperationException(verified.Message);
+            const UserMfaManagementAction Action = UserMfaManagementAction.Setup;
+            if (!UserMfaManagementActions.TryGetProofAction(Action, out string proofAction)
+                || !AccountSubjectHashRequirement.TryResolve(login.User.Value.AccountSubjectHash, out string subjectHash))
+            {
+                throw new InvalidOperationException("Current MFA fixture subject or action is invalid.");
+            }
+            string proofToken = await mfaChallenges.CreateProofTokenAsync(
+                user.Id, subjectHash, sessionId, proofAction,
+                UserSessionAuthenticationMethods.Passkey, TimeSpan.FromMinutes(5));
+            UserMfaStepUpContext context = await UserMfaStepUpContext.VerifyAsync(
+                login.User.Value, sessionId, Action, proofToken, mfaChallenges)
+                ?? throw new InvalidOperationException("Current MFA fixture proof was rejected.");
+            var setup = await mfaCommands.StartMfaSetupAsync(user.Id, "FsusBlog fixture", context);
+            if (!setup.Success || !setup.Data.HasValue)
+            {
+                throw new InvalidOperationException(setup.Message);
+            }
+            string code = ComputeTotp(setup.Data.Value.Secret, timeProvider.GetUtcNow());
+            var verified = await mfaCommands.VerifyMfaSetupAsync(user.Id, code);
+            if (!verified.Success)
+            {
+                throw new InvalidOperationException(verified.Message);
+            }
+        }
+        finally
+        {
+            bool revoked = await sessionCommands.RevokeSessionAsync(
+                user.Id, sessionId, "fixture_mfa_setup_complete", CancellationToken.None);
+            if (!revoked)
+            {
+                throw new InvalidOperationException("Current MFA fixture session cleanup failed.");
+            }
         }
     }
 
-    private async Task CompletePasskeyCeremonyAsync(
+    private async Task<int> CompletePasskeyCeremonyAsync(
         User user,
         string fixtureIdentity,
         CancellationToken cancellationToken)
@@ -1095,6 +1145,19 @@ public sealed partial class AuthFixtureSeeder(
         {
             throw new InvalidOperationException(completed.Message);
         }
+        return await CompletePasskeyAssertionAsync(user, fixtureIdentity, cancellationToken);
+    }
+
+    private async Task<int> CompletePasskeyAssertionAsync(
+        User user,
+        string fixtureIdentity,
+        CancellationToken cancellationToken)
+    {
+        if (authenticator is null)
+        {
+            throw new InvalidOperationException(
+                "controlled WebAuthn authenticator is unavailable; validation cannot be weakened");
+        }
         var assertionBegin = await passkeys.BeginAssertionAsync(cancellationToken);
         if (!assertionBegin.Success || assertionBegin.Data is null)
         {
@@ -1103,10 +1166,11 @@ public sealed partial class AuthFixtureSeeder(
         PasskeyLoginCompleteCoreModel assertion = await authenticator
             .CreateAssertionAsync(assertionBegin.Data.Options, fixtureIdentity, cancellationToken);
         var asserted = await passkeys.CompleteAssertionAsync(assertion, cancellationToken);
-        if (!asserted.Success || asserted.User?.Id != user.Id)
+        if (!asserted.Success || asserted.User?.Id != user.Id || asserted.CredentialRowId is not > 0)
         {
             throw new InvalidOperationException(asserted.Message);
         }
+        return asserted.CredentialRowId.Value;
     }
 
     private async Task<User> RequireUserAsync(

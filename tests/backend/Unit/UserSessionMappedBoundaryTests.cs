@@ -217,7 +217,11 @@ public sealed class UserSessionMappedBoundaryTests(
                 AccountSubjectHash = new string('a', AccountSubjectHashRequirement.Sha256HexLength)
             },
             sessionId,
-            mfaVerified: true);
+            new UserSessionAuthenticationContext(
+                UserSessionAuthenticationMethods.Passkey,
+                UserSessionAuthenticationStrengths.WebAuthnUv,
+                DateTime.UtcNow,
+                CredentialRowId: 17));
 
     private static HttpRequestMessage CreateRevokedRequest(
         HttpMethod method,

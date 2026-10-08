@@ -1,3 +1,5 @@
+using FsusBlog.Shared.Contracts.AuthSystem;
+
 namespace FsusBlog.Shared.Contracts.Outputs;
 
 /// <summary>
@@ -1593,7 +1595,8 @@ public readonly record struct UserSessionSummaryDto(
     string AuthenticationStrength,
     string? PasskeyFriendlyName,
     string DurationPolicy,
-    bool IsCurrent);
+    bool IsCurrent,
+    string SessionMode = UserSessionModes.NormalWireValue);
 
 /// <summary>
 /// Defines the API output contract represented by <c>AdminSessionSummaryDto</c>.

@@ -12,6 +12,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 /// <summary>
@@ -55,7 +56,7 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_ReturnsNonEmptyString()
     {
         var helper = CreateHelper();
-        string token = helper.GenerateAccessToken(TestUser());
+        string token = helper.GenerateAccessToken(TestUser(), null, CurrentContext());
         Assert.False(string.IsNullOrWhiteSpace(token));
     }
 
@@ -65,7 +66,7 @@ public sealed class JwtHelperTests
         TestTemporalContext temporal = TestTemporalContext.CreateCanonical();
         var helper = CreateHelper(expiresMinutes: 15, timeProvider: temporal.BusinessClock);
 
-        IssuedAccessToken first = helper.GenerateAccessToken(TestUser());
+        IssuedAccessToken first = helper.GenerateAccessToken(TestUser(), null, CurrentContext());
         var firstJwt = new JwtSecurityTokenHandler().ReadJwtToken(first.Token);
         DateTimeOffset firstIssued = new(
             DateTime.SpecifyKind(firstJwt.Payload.IssuedAt, DateTimeKind.Utc));
@@ -74,7 +75,7 @@ public sealed class JwtHelperTests
             firstIssued);
 
         temporal.Advance(TimeSpan.FromHours(2));
-        IssuedAccessToken second = helper.GenerateAccessToken(TestUser());
+        IssuedAccessToken second = helper.GenerateAccessToken(TestUser(), null, CurrentContext());
         var secondJwt = new JwtSecurityTokenHandler().ReadJwtToken(second.Token);
         DateTimeOffset secondIssued = new(
             DateTime.SpecifyKind(secondJwt.Payload.IssuedAt, DateTimeKind.Utc));
@@ -86,7 +87,7 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_ProducesValidJwtWithThreeParts()
     {
         var helper = CreateHelper();
-        string token = helper.GenerateAccessToken(TestUser());
+        string token = helper.GenerateAccessToken(TestUser(), null, CurrentContext());
         // A JWT is always three base64url segments separated by dots
         Assert.Equal(3, token.Split('.').Length);
     }
@@ -94,7 +95,7 @@ public sealed class JwtHelperTests
     [Fact]
     public void GenerateAccessToken_BindsCurrentKeyVersionAsKid()
     {
-        string token = CreateHelper().GenerateAccessToken(TestUser());
+        string token = CreateHelper().GenerateAccessToken(TestUser(), null, CurrentContext());
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
 
@@ -106,7 +107,7 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_ContainsUserIdClaim()
     {
         var helper = CreateHelper();
-        string token = helper.GenerateAccessToken(TestUser(id: 42));
+        string token = helper.GenerateAccessToken(TestUser(id: 42), null, CurrentContext());
 
         var claims = ParseClaims(token);
         // JwtSecurityTokenHandler serialises ClaimTypes.NameIdentifier as the short JWT name "nameid"
@@ -120,7 +121,7 @@ public sealed class JwtHelperTests
     {
         using var _ = SetAnonymousIdentityMode(null);
         var helper = CreateHelper();
-        string token = helper.GenerateAccessToken(TestUser(role: "admin"));
+        string token = helper.GenerateAccessToken(TestUser(role: "admin"), null, CurrentContext());
 
         var claims = ParseClaims(token);
         Assert.DoesNotContain(claims, IsRoleClaim);
@@ -135,7 +136,7 @@ public sealed class JwtHelperTests
         var user = TestUser(role: "admin");
         user.IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind;
 
-        string token = helper.GenerateAccessToken(user);
+        string token = helper.GenerateAccessToken(user, null, CurrentContext());
 
         var claims = ParseClaims(token);
         Assert.DoesNotContain(claims, IsRoleClaim);
@@ -155,8 +156,8 @@ public sealed class JwtHelperTests
         second.PasskeyUserHandle = StablePasskeyUserHandle;
         second.AccountSubjectHash = StableAccountSubjectHash;
 
-        string firstToken = helper.GenerateAccessToken(first);
-        string secondToken = helper.GenerateAccessToken(second);
+        string firstToken = helper.GenerateAccessToken(first, null, CurrentContext());
+        string secondToken = helper.GenerateAccessToken(second, null, CurrentContext());
 
         var firstClaims = ParseClaims(firstToken).ToArray();
         var secondClaims = ParseClaims(secondToken).ToArray();
@@ -178,7 +179,7 @@ public sealed class JwtHelperTests
         user.IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind;
         user.AccountSubjectHash = new string('b', AccountSubjectHashRequirement.Sha256HexLength);
 
-        string token = helper.GenerateAccessToken(user);
+        string token = helper.GenerateAccessToken(user, null, CurrentContext());
 
         var claims = ParseClaims(token);
         Assert.Contains(claims, claim =>
@@ -194,7 +195,7 @@ public sealed class JwtHelperTests
         user.AccountSubjectHash = null;
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(
-            () => helper.GenerateAccessToken(user));
+            () => helper.GenerateAccessToken(user, null, CurrentContext()));
 
         Assert.Contains("access-token-issuance", error.Message, StringComparison.Ordinal);
     }
@@ -233,7 +234,7 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_WithSessionId_IncludesSessionClaim()
     {
         var helper = CreateHelper();
-        string token = helper.GenerateAccessToken(TestUser(), sessionId: "sess-abc-123");
+        string token = helper.GenerateAccessToken(TestUser(), sessionId: "sess-abc-123", authenticationContext: CurrentContext());
 
         var claims = ParseClaims(token);
         var sid = claims.FirstOrDefault(c => c.Type == "sid");
@@ -245,7 +246,7 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_WithoutSessionId_OmitsSessionClaim()
     {
         var helper = CreateHelper();
-        string token = helper.GenerateAccessToken(TestUser(), sessionId: null);
+        string token = helper.GenerateAccessToken(TestUser(), sessionId: null, authenticationContext: CurrentContext());
 
         var claims = ParseClaims(token);
         Assert.DoesNotContain(claims, c => c.Type == "sid");
@@ -255,17 +256,20 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_WithEmptySessionId_OmitsSessionClaim()
     {
         var helper = CreateHelper();
-        string token = helper.GenerateAccessToken(TestUser(), sessionId: "");
+        string token = helper.GenerateAccessToken(TestUser(), sessionId: "", authenticationContext: CurrentContext());
 
         var claims = ParseClaims(token);
         Assert.DoesNotContain(claims, c => c.Type == "sid");
     }
 
     [Fact]
-    public void GenerateAccessToken_MfaVerifiedTrue_SetsMfaClaim1()
+    public void GenerateAccessToken_CurrentMfaContext_SetsMfaClaim1()
     {
         var helper = CreateHelper();
-        string token = helper.GenerateAccessToken(TestUser(), mfaVerified: true);
+        string token = helper.GenerateAccessToken(TestUser(), null, CurrentContext() with
+        {
+            Strength = UserSessionAuthenticationStrengths.Mfa
+        });
 
         var claims = ParseClaims(token);
         var mfa = claims.FirstOrDefault(c => c.Type == "mfa");
@@ -274,15 +278,14 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    public void GenerateAccessToken_MfaVerifiedFalse_SetsMfaClaim0()
+    public void GenerateAccessToken_FormerUnverifiedContextCannotIssueAToken()
     {
         var helper = CreateHelper();
-        string token = helper.GenerateAccessToken(TestUser(), mfaVerified: false);
+        var context = new UserSessionAuthenticationContext(
+            "other", "legacy_unverified", DateTime.UtcNow, CredentialRowId: null);
 
-        var claims = ParseClaims(token);
-        var mfa = claims.FirstOrDefault(c => c.Type == "mfa");
-        Assert.NotNull(mfa);
-        Assert.Equal("0", mfa.Value);
+        Assert.False(UserSessionAuthenticationContract.IsCoarseMfa(context.Method, context.Strength, context.CredentialRowId));
+        Assert.Throws<InvalidOperationException>(() => helper.GenerateAccessToken(TestUser(), null, context));
     }
 
     [Fact]
@@ -303,7 +306,11 @@ public sealed class JwtHelperTests
         IEnumerable<Claim> claims = ParseClaims(token);
         Assert.Contains(claims, claim => claim.Type == "auth_method" && claim.Value == "passkey");
         Assert.Contains(claims, claim => claim.Type == "auth_strength" && claim.Value == "webauthn_uv");
-        Assert.Contains(claims, claim => claim.Type == "auth_time");
+        Assert.Contains(claims, claim => claim.Type == CurrentAuthSessionClaims.AuthenticatedAt &&
+            claim.Value == new DateTimeOffset(authenticatedAtUtc).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Contains(claims, claim => claim.Type == CurrentAuthSessionClaims.DurationPolicy &&
+            claim.Value == UserSessionDurationPolicies.BrowserSession);
+        Assert.Contains(claims, claim => claim.Type == CurrentAuthSessionClaims.SessionMode && claim.Value == "normal");
         Assert.Contains(claims, claim => claim.Type == "mfa" && claim.Value == "1");
         Assert.DoesNotContain(claims, claim => claim.Type.Contains("credential", StringComparison.OrdinalIgnoreCase));
     }
@@ -312,7 +319,7 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_RestrictedSessionCarriesExplicitModeClaim()
     {
         var helper = CreateHelper();
-        UserSessionAuthenticationContext context = UserSessionAuthenticationContext.FromLegacy(false, false) with
+        UserSessionAuthenticationContext context = CurrentContext() with
         {
             SessionMode = UserSessionMode.Restricted
         };
@@ -328,7 +335,7 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_UsesConfiguredIssuerAndAudience()
     {
         var helper = CreateHelper(issuer: "my-issuer", audience: "my-audience");
-        string token = helper.GenerateAccessToken(TestUser());
+        string token = helper.GenerateAccessToken(TestUser(), null, CurrentContext());
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         Assert.Equal("my-issuer", jwt.Issuer);
@@ -343,7 +350,7 @@ public sealed class JwtHelperTests
     public void GenerateAccessToken_ReturnedExpiryMatchesJwtAndConfiguredMinutes(int expiresMinutes)
     {
         var helper = CreateHelper(expiresMinutes: expiresMinutes);
-        IssuedAccessToken issuedToken = helper.GenerateAccessToken(TestUser());
+        IssuedAccessToken issuedToken = helper.GenerateAccessToken(TestUser(), null, CurrentContext());
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(issuedToken.Token);
         var diff = jwt.ValidTo - jwt.ValidFrom;
@@ -359,15 +366,16 @@ public sealed class JwtHelperTests
         configuration["Jwt:AccessTokenExpiresMinutes"] = "60";
         var helper = new JwtHelper(Options.Create(new JwtSettings
         {
+            KeyVersion = "test-v1",
             SecretKey = TestSecrets.JwtSigningKey,
             Issuer = "reloadable-expiry-test",
             Audience = "reloadable-expiry-test",
             AccessTokenExpiresMinutes = 15
         }), configuration);
 
-        IssuedAccessToken beforeRollback = helper.GenerateAccessToken(TestUser());
+        IssuedAccessToken beforeRollback = helper.GenerateAccessToken(TestUser(), null, CurrentContext());
         configuration["Jwt:AccessTokenExpiresMinutes"] = "15";
-        IssuedAccessToken afterRollback = helper.GenerateAccessToken(TestUser());
+        IssuedAccessToken afterRollback = helper.GenerateAccessToken(TestUser(), null, CurrentContext());
 
         Assert.Equal(60d, ReadLifetimeMinutes(beforeRollback));
         Assert.Equal(15d, ReadLifetimeMinutes(afterRollback));
@@ -386,14 +394,14 @@ public sealed class JwtHelperTests
         var session = new AdminSession
         {
             SessionId = "admin-session-1",
-            AdminPrincipalId = principal.Id
+            AdminPrincipalId = principal.Id,
+            StepUpVerified = true
         };
 
         string token = helper.GenerateAdminAccessToken(
             principal,
             session,
-            [AdminPermissions.AdminManage, AdminPermissions.SystemConfig, AdminPermissions.AdminManage],
-            stepUpVerified: true);
+            [AdminPermissions.AdminManage, AdminPermissions.SystemConfig, AdminPermissions.AdminManage]);
 
         var claims = ParseClaims(token).ToArray();
         Assert.DoesNotContain(claims, IsRoleClaim);
@@ -444,61 +452,90 @@ public sealed class JwtHelperTests
         Assert.Matches("^[A-Za-z0-9_-]*$", token);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("test-v1", true)]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("test-v0", false)]
+    [InlineData("unknown", false)]
+    [InlineData(" test-v1", false)]
+    [InlineData("test-v1 ", false)]
+    [InlineData("TEST-v1", false)]
     [Trait("Category", "SecurityStateMachine")]
-    public void SigningKeyRing_ResolvesOnlyCurrentOrActiveMatchingKid()
+    public void CurrentSigningKey_RequiresExactCurrentKid(string? kid, bool expected)
     {
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        var settings = new JwtSettings
+        SymmetricSecurityKey key = CurrentJwtSigningKey.CreateKey("test-v1", TestSecrets.JwtSigningKey);
+        var token = new JwtSecurityToken();
+        if (kid is not null)
         {
-            KeyVersion = "v2-2026-07",
-            SecretKey = TestSecrets.JwtSigningKey,
-            RotationWindowDays = 30,
-            PreviousKeys =
-            [
-                new JwtPreviousKeySettings
-                {
-                    Version = "v1-2026-01",
-                    Key = TestSecrets.SecondaryJwtSigningKey,
-                    AcceptUntilUtc = now.AddDays(7)
-                }
-            ]
-        };
+            token.Header["kid"] = kid;
+        }
 
-        Assert.Equal("v2-2026-07", Assert.Single(JwtSigningKeyRing.ResolveValidationKeys(settings, "v2-2026-07", now)).KeyId);
-        Assert.Equal("v1-2026-01", Assert.Single(JwtSigningKeyRing.ResolveValidationKeys(settings, "v1-2026-01", now)).KeyId);
-        Assert.Empty(JwtSigningKeyRing.ResolveValidationKeys(settings, "unknown", now));
-        Assert.Empty(JwtSigningKeyRing.ResolveValidationKeys(settings, "v1-2026-01", now.AddDays(8)));
-        Assert.Empty(JwtSigningKeyRing.ResolveValidationKeys(settings, null, now));
+        Assert.Equal(expected, CurrentJwtSigningKey.HasExactCurrentKeyId(key, token, "test-v1"));
     }
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
-    public void SigningKeyRing_AllowsMissingKidOnlyInsideExplicitLegacyWindow()
+    public void CurrentSigningKey_RejectsAnOldValidationKeyEvenWithCurrentKid()
     {
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        var settings = new JwtSettings
+        SymmetricSecurityKey oldKey = CurrentJwtSigningKey.CreateKey("test-v0", TestSecrets.SecondaryJwtSigningKey);
+        var token = new JwtSecurityToken();
+        token.Header["kid"] = "test-v1";
+
+        Assert.False(CurrentJwtSigningKey.HasExactCurrentKeyId(oldKey, token, "test-v1"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("user")]
+    [InlineData("admin_principal")]
+    [InlineData(" anonymous_account ")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "jwt-issuer-rejects-noncurrent-account-identity")]
+    public void GenerateAccessToken_RejectsMissingLegacyAdminOrPaddedIdentity(string? identityKind)
+    {
+        User user = TestUser();
+        user.IdentityKind = identityKind!;
+
+        Assert.Throws<InvalidOperationException>(() => CreateHelper().GenerateAccessToken(user, "session", CurrentContext()));
+    }
+
+    [Theory]
+    [InlineData("other", "mfa", 812)]
+    [InlineData("passkey", "legacy_verified", 812)]
+    [InlineData("passkey", "legacy_unverified", 812)]
+    [InlineData("passkey", "webauthn_uv", null)]
+    [InlineData("passkey", "webauthn_uv", 0)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "jwt-issuer-rejects-invalid-current-context-and-missing-credential")]
+    public void GenerateAccessToken_RejectsNonCurrentContextAndMissingCredential(string method, string strength, int? credential)
+    {
+        UserSessionAuthenticationContext context = CurrentContext() with
         {
-            KeyVersion = "v2-2026-07",
-            SecretKey = TestSecrets.JwtSigningKey,
-            RotationWindowDays = 30,
-            LegacyNoKidAcceptUntilUtc = now.AddHours(1),
-            PreviousKeys =
-            [
-                new JwtPreviousKeySettings
-                {
-                    Version = "v1-2026-01",
-                    Key = TestSecrets.SecondaryJwtSigningKey,
-                    AcceptUntilUtc = now.AddDays(7)
-                }
-            ]
+            Method = method,
+            Strength = strength,
+            CredentialRowId = credential
         };
 
-        Assert.Equal(2, JwtSigningKeyRing.ResolveValidationKeys(settings, null, now).Count);
-        Assert.Empty(JwtSigningKeyRing.ResolveValidationKeys(settings, null, now.AddHours(2)));
+        Assert.Throws<InvalidOperationException>(() => CreateHelper().GenerateAccessToken(TestUser(), "session", context));
+    }
+
+    [Fact]
+    public void GenerateAccessToken_RejectsAbsentContextAndIssuerHasNoBooleanOverloads()
+    {
+        Assert.Throws<InvalidOperationException>(() => CreateHelper().GenerateAccessToken(TestUser(), "session", default));
+        Assert.DoesNotContain(typeof(IJwtHelper).GetMethods(), method =>
+            method.GetParameters().Any(parameter => parameter.ParameterType == typeof(bool)));
     }
 
     // ─── helpers ──────────────────────────────────────────────────────────
+
+    private static UserSessionAuthenticationContext CurrentContext()
+        => new(
+            UserSessionAuthenticationMethods.Passkey,
+            UserSessionAuthenticationStrengths.WebAuthnUv,
+            DateTime.UtcNow,
+            CredentialRowId: 812,
+            UserSessionDurationPolicies.BrowserSession);
 
     private static IEnumerable<Claim> ParseClaims(string token)
     {
@@ -522,7 +559,7 @@ public sealed class JwtHelperTests
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static IDisposable SetAnonymousIdentityMode(string? value)
-        => new EnvironmentVariableScope(AnonymousIdentityRuntime.ModeEnvironmentVariable, value);
+        => new EnvironmentVariableScope("FSUSBLOG_ANONYMOUS_IDENTITY_MODE", value);
 
     private sealed class EnvironmentVariableScope : IDisposable
     {

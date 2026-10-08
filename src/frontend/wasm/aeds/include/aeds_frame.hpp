@@ -86,7 +86,6 @@ enum class FrameType : std::uint16_t
     MfaProfile = 50,
     MfaChallengeResult = 51,
     MfaSetupVerifyRequest = 52,
-    MfaPasswordProofRequest = 53,
     MfaChallengeStartRequest = 54,
     MfaChallengeVerifyRequest = 55,
     ConversationList = 56,
@@ -295,6 +294,7 @@ enum class FrameType : std::uint16_t
         case 44:
         case 45:
         case 46:
+        case 53:
         case 180:
         case 181:
         case static_cast<std::uint16_t>(FrameType::RetiredCredentialSpecificRevocationRequest):
@@ -355,7 +355,6 @@ enum class FrameType : std::uint16_t
         case FrameType::MfaProfile:
         case FrameType::MfaChallengeResult:
         case FrameType::MfaSetupVerifyRequest:
-        case FrameType::MfaPasswordProofRequest:
         case FrameType::MfaChallengeStartRequest:
         case FrameType::MfaChallengeVerifyRequest:
         case FrameType::ConversationList:

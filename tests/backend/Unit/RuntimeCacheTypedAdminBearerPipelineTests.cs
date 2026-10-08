@@ -43,7 +43,6 @@ public sealed class RuntimeCacheTypedAdminBearerPipelineTests(ITestOutputHelper 
             ["Jwt:Issuer"] = "slice-a-pipeline-unit",
             ["Jwt:Audience"] = "slice-a-pipeline-unit",
             ["Jwt:AccessTokenExpiresMinutes"] = "15",
-            ["Jwt:RotationWindowDays"] = "30",
             ["AuthCookies:AllowInsecureTransportCookies"] = "true"
         });
         var projection = new AdminSessionProjection(new AdminSessionProjectionLimits(8, 8, 16384));
