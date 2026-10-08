@@ -518,12 +518,26 @@ export function bindReservationServer({ host, port, timeoutMs = 2000, python = n
                             }
                             catch (error)
                             {
-                                if (child.exitCode === null && child.signalCode === null)
+                                if (!nativeIdentity)
                                 {
                                     throw error;
                                 }
+                                // EPIPE can arrive before Node publishes the owner's exit.
+                                // Only the independently verified guardian receipt and actual
+                                // member absence may prove cancellation across that race.
+                                const [verification] = await Promise.allSettled([
+                                    verifyNativeReservationCleanup(nativeIdentity)
+                                ]);
+                                if (verification.status === 'rejected')
+                                {
+                                    throw new AggregateError([error, verification.reason],
+                                        'native cancellation cleanup was not verified', {cause: error});
+                                }
+                                nativeRetained = false;
+                                return {canceled: true};
                             }
                             await verifyNativeReservationCleanup(nativeIdentity);
+                            nativeRetained = false;
                             return {canceled: true};
                         },
                         close: async () =>
