@@ -16,7 +16,7 @@ public sealed class DocumentExportDocxProviderTests
     private const string AssetId = "3f3b2e7a-1d2e-4f8a-9c5b-6a7b8c9d0e1f";
     private static readonly string s_fragment = $"""
         <h1 id="title">标题 中文 🌍</h1><p dir="rtl">שלום <strong>bold</strong> <em>italic</em> <code>inline</code></p><p><a href="#title">heading</a> <a href="https://example.com/reference?a=1&amp;b=2">reference</a></p><ol start="3"><li>third<ul><li>nested</li></ul></li><li>fourth</li></ol><table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>C</td><td>D</td></tr></tbody></table><pre><code class="language-csharp">  var x = 1;
-        &#9;Console.WriteLine(x);</code></pre><figure><img data-asset-id="{AssetId}" src="data:image/png;base64,{Pixel}" alt="red pixel" /><figcaption>caption</figcaption></figure><p><a href="#footnote-1">note label</a></p><aside id="footnote-1"><p>footnote text</p></aside><section data-embed="static"><p>embedded text</p></section><figure><svg xmlns="http://www.w3.org/2000/svg"><text>A to B</text></svg></figure><span class="katex">x²</span>
+        &#9;Console.WriteLine(x);</code></pre><figure><img data-asset-id="{AssetId}" src="data:image/png;base64,{Pixel}" alt="red pixel" /><figcaption>caption</figcaption></figure><p><sup><a href="#fn-note" id="fnref-note" class="footnote-ref">1</a></sup></p><section data-embed="static"><p>embedded text</p></section><figure><svg xmlns="http://www.w3.org/2000/svg"><text>A to B</text></svg></figure><span class="katex">x²</span><section class="footnotes"><hr /><ol><li id="fn-note">footnote text <a href="#fnref-note" class="footnote-backref">↩</a></li></ol></section>
         """;
 
     [Fact]
@@ -44,6 +44,163 @@ public sealed class DocumentExportDocxProviderTests
         Assert.Contains("mermaid:preserve-canonical-diagram-text", projection.Warnings);
         Assert.Contains("katex-latex:preserve-canonical-math-text", projection.Warnings);
         Assert.Contains("fonts:registered-family-references-require-reader-fonts", projection.Warnings);
+    }
+
+    // Captured by the actual FsusUI markdown_basic WASM renderer (article ABI).
+    // Source: f2b3bb89ffe5f749da26c388f058efdbb6aee864, markdown_contract.cpp.
+    // Markdown: two distinct [^alpha]/[^beta] notes, rich inline content and Unicode.
+    // The live source regression rerenders this Markdown and checks this snapshot.
+    internal const string CanonicalFootnotesMarkdown = "# Footnote regression\n\n正文 中文 🌍 first[^alpha], then second[^beta].\n\n[^alpha]: Alpha **bold** and `code`.\n[^beta]: שלום beta *italic*.\n";
+
+    internal const string CanonicalFootnotes = """
+        <h1>Footnote regression</h1><p class="markdown-renderer__text">正文 中文 🌍 first<sup><a href="#fn-alpha" id="fnref-alpha" class="footnote-ref">1</a></sup>, then second<sup><a href="#fn-beta" id="fnref-beta" class="footnote-ref">2</a></sup>.</p><section class="footnotes"><hr /><ol><li id="fn-alpha">Alpha <strong>bold</strong> and <code>code</code>. <a href="#fnref-alpha" class="footnote-backref">↩</a></li><li id="fn-beta">שלום beta <em>italic</em>. <a href="#fnref-beta" class="footnote-backref">↩</a></li></ol></section>
+        """;
+
+    [Fact]
+    public void ProjectsRealCanonicalListFootnotesIntoNativeOpenXml()
+    {
+        DocumentExportDocxProjection projection = Projection(CanonicalFootnotes, image: false, markdown: CanonicalFootnotesMarkdown);
+        byte[] bytes = DocumentExportDocxPackage.Render(projection);
+        _ = DocumentExportDocxVerifier.Validate(bytes, projection);
+        Dictionary<string, byte[]> parts = Parts(bytes);
+        XNamespace w = DocumentExportDocxPackage.Word;
+        XElement body = Xml(parts["word/document.xml"]);
+        XElement notes = Xml(parts["word/footnotes.xml"]);
+        Assert.Equal(new[] { "1", "2" }, body.Descendants(w + "footnoteReference").Select(reference => (string)reference.Attribute(w + "id")!));
+        Assert.Equal(new[] { "1", "2" }, notes.Elements(w + "footnote").Where(note => (int)note.Attribute(w + "id")! > 0)
+            .Select(note => (string)note.Attribute(w + "id")!));
+        Assert.Equal("Footnote regression正文 中文 🌍 first, then second.", string.Concat(body.Descendants(w + "t").Select(text => text.Value)));
+        Assert.Equal(new[] { "Alpha bold and code. ", "שלום beta italic. " }, notes.Elements(w + "footnote")
+            .Where(note => (int)note.Attribute(w + "id")! > 0).Select(note => string.Concat(note.Descendants(w + "t").Select(text => text.Value))));
+        Assert.Equal(2, notes.Descendants(w + "footnoteRef").Count());
+        Assert.Single(notes.Descendants(w + "b"));
+        Assert.Single(notes.Descendants(w + "i"));
+        using var stream = new MemoryStream(bytes);
+        using WordprocessingDocument document = WordprocessingDocument.Open(stream, false);
+        Assert.Empty(new OpenXmlValidator().Validate(document));
+        Assert.Equal(bytes, DocumentExportDocxPackage.Render(projection));
+    }
+
+    [Fact]
+    public void ProjectsTheIndependentlyReportedCanonicalFootnoteReproduction()
+    {
+        const string fragment = """
+            <p>text<sup><a href="#fn-a" id="fnref-a" class="footnote-ref">1</a></sup></p><section class="footnotes"><hr /><ol><li id="fn-a">note text <a href="#fnref-a" class="footnote-backref">↩</a></li></ol></section>
+            """;
+        DocumentExportDocxProjection projection = Projection(fragment, image: false);
+        byte[] bytes = DocumentExportDocxPackage.Render(projection);
+        _ = DocumentExportDocxVerifier.Validate(bytes, projection);
+        Assert.Single(Xml(Parts(bytes)["word/document.xml"]).Descendants(DocumentExportDocxPackage.Word + "footnoteReference"));
+    }
+
+    [Theory]
+    [InlineData("ordinal")]
+    [InlineData("definition-order")]
+    [InlineData("backlink-target")]
+    [InlineData("backlink-label")]
+    [InlineData("missing-definition")]
+    [InlineData("orphan-definition")]
+    [InlineData("missing-reference")]
+    [InlineData("missing-backlink")]
+    [InlineData("nested-footer")]
+    [InlineData("note-block")]
+    [InlineData("note-link")]
+    [InlineData("note-media")]
+    [InlineData("missing-content")]
+    public void RefusesMalformedCanonicalFootnoteGraphsBeforeRendering(string mutation)
+    {
+        XElement root = XElement.Parse("<root>" + CanonicalFootnotes + "</root>", LoadOptions.PreserveWhitespace);
+        XElement reference = root.Descendants("a").First();
+        XElement section = root.Element("section")!;
+        XElement definition = section.Descendants("li").First();
+        XElement backlink = definition.Element("a")!;
+        switch (mutation)
+        {
+            case "ordinal":
+                reference.Value = "2";
+                break;
+            case "definition-order":
+                definition.Remove();
+                section.Element("ol")!.Add(definition);
+                break;
+            case "backlink-target":
+                backlink.SetAttributeValue("href", "#fnref-beta");
+                break;
+            case "backlink-label":
+                backlink.Value = "lost";
+                break;
+            case "missing-definition":
+                definition.Remove();
+                break;
+            case "orphan-definition":
+                section.Element("ol")!.Add(new XElement("li", new XAttribute("id", "fn-orphan"), "extra"));
+                break;
+            case "missing-reference":
+                reference.Parent!.Remove();
+                break;
+            case "missing-backlink":
+                backlink.Remove();
+                break;
+            case "nested-footer":
+                section.Remove();
+                root.Add(new XElement("div", section));
+                break;
+            case "note-block":
+                definition.AddFirst(new XElement("div", "block content"));
+                break;
+            case "note-link":
+                definition.AddFirst(new XElement("a", new XAttribute("href", "https://example.com"), "linked"));
+                break;
+            case "note-media":
+                definition.AddFirst(new XElement("svg", new XElement("text", "diagram")));
+                break;
+            case "missing-content":
+                definition.AddFirst("[Footnote content missing]");
+                break;
+        }
+        Assert.Throws<InvalidDataException>(() => Projection(string.Concat(root.Nodes()), image: false));
+    }
+
+    [Theory]
+    [InlineData("reference")]
+    [InlineData("definition")]
+    [InlineData("content")]
+    [InlineData("marker")]
+    [InlineData("duplicate-marker")]
+    [InlineData("extra-definition")]
+    public void IndependentlyRefusesResealedCanonicalFootnoteSemanticMutations(string mutation)
+    {
+        DocumentExportDocxProjection projection = Projection(CanonicalFootnotes, image: false, markdown: CanonicalFootnotesMarkdown);
+        XNamespace w = DocumentExportDocxPackage.Word;
+        string part = mutation == "reference" ? "word/document.xml" : "word/footnotes.xml";
+        byte[] malformed = Mutate(projection, part, root =>
+        {
+            XElement? note = root.Elements(w + "footnote").FirstOrDefault(item => (int)item.Attribute(w + "id")! > 0);
+            switch (mutation)
+            {
+                case "reference":
+                    root.Descendants(w + "footnoteReference").First().Remove();
+                    break;
+                case "definition":
+                    note!.Remove();
+                    break;
+                case "content":
+                    note!.Descendants(w + "t").First().Value = "changed";
+                    break;
+                case "marker":
+                    note!.Descendants(w + "footnoteRef").Single().Remove();
+                    break;
+                case "duplicate-marker":
+                    note!.Element(w + "p")!.Add(new XElement(w + "r", new XElement(w + "footnoteRef")));
+                    break;
+                case "extra-definition":
+                    var extra = new XElement(note!);
+                    extra.SetAttributeValue(w + "id", "3");
+                    root.Add(extra);
+                    break;
+            }
+        });
+        Assert.Throws<InvalidDataException>(() => DocumentExportDocxVerifier.Validate(malformed, projection));
     }
 
     [Theory]
@@ -337,7 +494,7 @@ public sealed class DocumentExportDocxProviderTests
             => throw new InvalidOperationException("Inactive provider cannot invoke the renderer.");
     }
 
-    internal static DocumentExportDocxProjection Projection(string fragment, bool image = true)
+    internal static DocumentExportDocxProjection Projection(string fragment, bool image = true, string? markdown = null)
     {
         DocumentExportFrozenInput baseline = DocumentExportContractTests.ValidInput();
         DocumentExportAsset[] assets = baseline.Assets.Where(asset => asset.Role != "image").ToArray();
@@ -349,6 +506,8 @@ public sealed class DocumentExportDocxProviderTests
         }
         DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(baseline with
         {
+            MarkdownUtf8 = markdown is null ? baseline.MarkdownUtf8 : Encoding.UTF8.GetBytes(markdown).ToImmutableArray(),
+            SourceDigest = markdown is null ? baseline.SourceDigest : DocumentExportDigest.ComputeBytes(Encoding.UTF8.GetBytes(markdown)),
             Assets = assets.ToImmutableArray(),
             AssetManifestDigest = DocumentExportContractValidator.ComputeAssetManifestDigest(assets),
             FontManifestDigest = DocumentExportContractValidator.ComputeFontManifestDigest(assets),
