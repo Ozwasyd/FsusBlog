@@ -4,9 +4,10 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/correctness-attempt-producers.json"
             ],
-            "reason": "Preserve the serialized execution-authority keys while the original producer updates only the changed fixture source's content and index digests."
+            "reason": "Preserve existing serialized execution and producer inventory authority keys while retaining parent-supplied producer bindings and synchronizing restored source controls through the original execution-authority producer."
         }
     ]
 }

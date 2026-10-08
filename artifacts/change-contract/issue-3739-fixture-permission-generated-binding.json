@@ -1,12 +1,22 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "tests/browser-contract/fixture-lifecycle.test.mjs"
+        "tests/browser-contract/fixture-lifecycle.mjs",
+        "tests/browser-contract/fixture-lifecycle.test.mjs",
+        "tests/tools/post-runtime-producer-registry.test.mjs",
+        "tests/tools/release-manifest.test.mjs",
+        "tests/tools/runtime-cache-http-aeds-oracles.test.mjs",
+        "tools/test-matrix/post-runtime-producer-registry.mjs",
+        "tools/test/correctness-attempt-migration.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "347d273b6cd1c92db096dc9021c3e2bfe972a5ca0fc20a127b5e33021946a41c"
+            "sha256": "6f289dd76b0c79eef47b870e14dc2bf617de2bb24877e05567db2049535f94e4"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
         }
     ]
 }

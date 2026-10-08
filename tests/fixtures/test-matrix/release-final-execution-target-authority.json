@@ -795,13 +795,13 @@
         },
         {
             "path": "tests/browser-contract/fixture-lifecycle.mjs",
-            "contentDigest": "sha256:c70564de1c068856006b7365dbaf9c0513974637dfb4a26923ae4fb7ddf61d5c",
-            "indexDigest": "sha256:c70564de1c068856006b7365dbaf9c0513974637dfb4a26923ae4fb7ddf61d5c"
+            "contentDigest": "sha256:cc974c076dc1702f66d53a8ebba48205de41caca045445b52219ac410ae1ab2f",
+            "indexDigest": "sha256:cc974c076dc1702f66d53a8ebba48205de41caca045445b52219ac410ae1ab2f"
         },
         {
             "path": "tests/browser-contract/fixture-lifecycle.test.mjs",
-            "contentDigest": "sha256:e5db016fe36b9e3c351dd1c36dc6f11f8e2cefcc5c6ad3d29d438fbc80cc7731",
-            "indexDigest": "sha256:e5db016fe36b9e3c351dd1c36dc6f11f8e2cefcc5c6ad3d29d438fbc80cc7731"
+            "contentDigest": "sha256:ba2e2e1343e49ee09c1d32ff39ca4b149a5a9e2d6980fc4c9a32367052e548a2",
+            "indexDigest": "sha256:ba2e2e1343e49ee09c1d32ff39ca4b149a5a9e2d6980fc4c9a32367052e548a2"
         },
         {
             "path": "tests/browser-contract/fixture.mjs",
@@ -4375,8 +4375,8 @@
         },
         {
             "path": "tools/test-matrix/post-runtime-producer-registry.mjs",
-            "contentDigest": "sha256:128707f32c791cea969c28ed60dfb29f086a1b5d9703754c8c7079e08f62fc89",
-            "indexDigest": "sha256:128707f32c791cea969c28ed60dfb29f086a1b5d9703754c8c7079e08f62fc89"
+            "contentDigest": "sha256:94a0d4a13f8090cd9d22ac949236f9d68a53ad23cfbae86eaa6800b0e1634145",
+            "indexDigest": "sha256:94a0d4a13f8090cd9d22ac949236f9d68a53ad23cfbae86eaa6800b0e1634145"
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
