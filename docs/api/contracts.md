@@ -2400,6 +2400,15 @@ normalized query/status/bucket/locale/collation/limit identity、source/history/
 revisions 和完整 rank tuple。scope 或当前 authority 改变时返回 stale，篡改或其他 cursor purpose 返回 invalid。
 codec 不证明输入 binding 的来源；完整 source adapter 尚不能提供必需 slug，因此当前没有 query route 发行该 cursor。
 
+### Author query request sequencing core (#2232)
+
+`AuthorQueryRequestCoordinator` 仅管理一个 in-flight slot，复用原 `privateRequestRuntime.open('admin')`
+的 generation 与 AbortSignal。每次 begin 取消旧 slot，生成独立 request ID/递增 sequence，并绑定非文本
+scope digest。异步 response、verification 与 cache write 每阶段都必须 `assertCurrent()`；旧 release
+不能清除新 slot。caller abort、admin generation drift 和 registered private cleanup 均阻止旧 response。
+`release()`/`dispose()` 重复调用安全。此底层组件不读取 index、不执行 query、不验证 source receipt，也不
+签发成功 response；缺失的 query transport、完整 receipt、verified cache 和 selection revalidation 不由它替代。
+
 ### Admin Author Workbench
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：
