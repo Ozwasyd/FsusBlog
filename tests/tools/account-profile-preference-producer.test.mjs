@@ -398,6 +398,19 @@ test('no account capabilities and already-aborted prepare invoke no authority', 
     assert.deepEqual(adapter.calls, []);
 });
 
+test('duplicate variants and foreign owners fail before account preparation mutates', async () =>
+{
+    const adapter = compositionAdapter();
+    const context = plannedContext({ adapter });
+    await assert.rejects(() => prepareAccountProfilePreferences({ ...context,
+        variantPlan: { ...context.variantPlan, variants: [...context.variantPlan.variants, context.variantPlan.variants[0]] } }),
+    /exactly one typed fixture variant/u);
+    await assert.rejects(() => prepareAccountProfilePreferences({ ...context,
+        handles: { ...context.handles, accountProfilePreferenceOwner: 'foreign-owner' } }),
+    /owner must exact-match/u);
+    assert.deepEqual(adapter.calls, []);
+});
+
 test('foreign compensation plan never reaches cleanup authority', async () =>
 {
     const adapter = compositionAdapter();

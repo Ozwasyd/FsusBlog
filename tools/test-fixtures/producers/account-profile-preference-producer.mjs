@@ -72,6 +72,11 @@ function selectedCapabilities(context)
     {
         throw new Error('account profile/preference producer received zero owned capabilities');
     }
+    // Reject ambiguous or diagnostic variants before a backend command can mutate.
+    for (const capability of sorted)
+    {
+        variantForCapability(context, capability);
+    }
     return Object.freeze(sorted);
 }
 
@@ -105,6 +110,10 @@ function identityReferences(context)
             ?? `fxacct:${namespace}:${runId}`,
         'fixture owner'
     );
+    if (owner !== `fxacct:${namespace}:${runId}`)
+    {
+        throw new Error('account profile/preference owner must exact-match the current namespace and run');
+    }
     const roles = new Set();
     const publicIds = new Set();
     const producerResultDigest = String(authResult?.producerResultDigest
