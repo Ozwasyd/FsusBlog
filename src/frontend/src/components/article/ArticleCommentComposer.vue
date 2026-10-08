@@ -1401,11 +1401,6 @@ function createCommentMutationId(): string
     margin-right: auto;
 }
 
-:global(.comment-composer-focus-dialog .fsus-dialog__footer)
- {
-    width: 100%;
-}
-
 .comment-composer-focus__actions
  {
     display: flex;
