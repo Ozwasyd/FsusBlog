@@ -32,6 +32,65 @@ public static class AuthorFullTextSearchTokenizer
         AuthorFullTextSearchContract.ValidateRange(fieldRange, rawSource,
             admittedParserVersion, currentDocumentEpoch);
         var tokens = ImmutableArray.CreateBuilder<AuthorSearchToken>();
+        Scan(rawSource, fieldRange.Utf16Start, fieldRange.Utf16End, Add);
+        return tokens.ToImmutable();
+
+        void Add(int start, int end, int byteStart, int byteEnd)
+        {
+            if (tokens.Count >= MaxTokens)
+            {
+                throw new AuthorSearchContractException("author_search_tokenizer_token_budget_exceeded");
+            }
+            tokens.Add(new AuthorSearchToken(tokens.Count,
+                Normalize(rawSource.AsSpan(start, end - start)), fieldRange with
+                {
+                    Utf16Start = start,
+                    Utf16End = end,
+                    Utf8Start = byteStart,
+                    Utf8End = byteEnd
+                }));
+        }
+    }
+
+    /// <summary>
+    /// Shares the exact source tokenizer's segmentation/folding for a bounded query
+    /// operand. Query input is not a Markdown document and receives no source coordinates.
+    /// The separate query owner applies grammar, permission and execution semantics.
+    /// </summary>
+    public static ImmutableArray<string> TokenizeQueryValue(string rawValue)
+    {
+        ArgumentNullException.ThrowIfNull(rawValue);
+        if (rawValue.Length is <= 0 or > AuthorFullTextSearchContract.MaxQueryCharacters)
+        {
+            throw new AuthorSearchContractException("author_search_query_budget_invalid");
+        }
+        _ = AuthorFullTextSearchContract.Digest(rawValue);
+        var terms = ImmutableArray.CreateBuilder<string>();
+        Scan(rawValue, 0, rawValue.Length, Add);
+        return terms.ToImmutable();
+
+        void Add(int start, int end, int byteStart, int byteEnd)
+        {
+            if (terms.Count >= MaxTokens)
+            {
+                throw new AuthorSearchContractException("author_search_tokenizer_token_budget_exceeded");
+            }
+            terms.Add(Normalize(rawValue.AsSpan(start, end - start)));
+        }
+    }
+
+    private static string Normalize(ReadOnlySpan<char> raw)
+    {
+        var normalized = new StringBuilder(raw.Length);
+        foreach (Rune rune in raw.EnumerateRunes())
+        {
+            normalized.Append(AuthorFullTextSearchCaseFold.Fold(rune).ToString());
+        }
+        return normalized.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static void Scan(string rawSource, int rangeStart, int rangeEnd, Action<int, int, int, int> emit)
+    {
         TextElementEnumerator elements = StringInfo.GetTextElementEnumerator(rawSource);
         int byteOffset = 0;
         int wordStart = -1;
@@ -45,9 +104,9 @@ public static class AuthorFullTextSearchTokenizer
             int end = start + element.Length;
             int byteStart = byteOffset;
             byteOffset += Encoding.UTF8.GetByteCount(element);
-            if (start < fieldRange.Utf16Start || end > fieldRange.Utf16End)
+            if (start < rangeStart || end > rangeEnd)
             {
-                if (start < fieldRange.Utf16End && end > fieldRange.Utf16Start)
+                if (start < rangeEnd && end > rangeStart)
                 {
                     throw new AuthorSearchContractException("author_search_field_splits_grapheme");
                 }
@@ -58,7 +117,7 @@ public static class AuthorFullTextSearchTokenizer
             bool word = !independent && IsWord(scalar);
             if (!word && wordStart >= 0)
             {
-                Add(wordStart, wordEnd, wordByteStart, wordByteEnd);
+                emit(wordStart, wordEnd, wordByteStart, wordByteEnd);
                 wordStart = -1;
             }
             if (word)
@@ -73,34 +132,12 @@ public static class AuthorFullTextSearchTokenizer
             }
             else if (independent)
             {
-                Add(start, end, byteStart, byteOffset);
+                emit(start, end, byteStart, byteOffset);
             }
         }
         if (wordStart >= 0)
         {
-            Add(wordStart, wordEnd, wordByteStart, wordByteEnd);
-        }
-        return tokens.ToImmutable();
-
-        void Add(int start, int end, int byteStart, int byteEnd)
-        {
-            if (tokens.Count >= MaxTokens)
-            {
-                throw new AuthorSearchContractException("author_search_tokenizer_token_budget_exceeded");
-            }
-            var normalized = new StringBuilder(end - start);
-            foreach (Rune rune in rawSource.AsSpan(start, end - start).EnumerateRunes())
-            {
-                normalized.Append(AuthorFullTextSearchCaseFold.Fold(rune).ToString());
-            }
-            tokens.Add(new AuthorSearchToken(tokens.Count,
-                normalized.ToString().Normalize(NormalizationForm.FormC), fieldRange with
-                {
-                    Utf16Start = start,
-                    Utf16End = end,
-                    Utf8Start = byteStart,
-                    Utf8End = byteEnd
-                }));
+            emit(wordStart, wordEnd, wordByteStart, wordByteEnd);
         }
     }
 

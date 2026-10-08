@@ -105,6 +105,23 @@ public sealed class AuthorFullTextSearchTokenizerTests
         => AuthorFullTextSearchTokenizer.Tokenize(source, Range(source, 0, source.Length),
             "canonical-parser", "document:1");
 
+    [Theory]
+    [InlineData("中文 CAFÉ cafe\u0301 привет العربية 👩‍💻")]
+    [InlineData("Σ ς σ K İ I ı")]
+    [InlineData("a,b.c C++ 1️⃣")]
+    public void Query_Value_Uses_The_One_Source_Tokenizer_Without_Forging_Source_Ranges(string text)
+        => Assert.Equal(Tokenize(text).Select(static token => token.Term),
+            AuthorFullTextSearchTokenizer.TokenizeQueryValue(text));
+
+    [Fact]
+    public void Query_Value_Rejects_Invalid_Unicode_And_Query_Budget()
+    {
+        Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchTokenizer.TokenizeQueryValue("\uD800"));
+        Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchTokenizer.TokenizeQueryValue(string.Empty));
+        Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchTokenizer.TokenizeQueryValue(
+            new string('a', AuthorFullTextSearchContract.MaxQueryCharacters + 1)));
+    }
+
     private static AuthorSearchSourceRange Range(string source, int start, int end)
         => new(AuthorFullTextSearchContract.SourceCoordinateAuthority, "canonical-parser", "document:1", 1,
             AuthorFullTextSearchContract.Digest(source), start, end,
