@@ -72,7 +72,7 @@ describe('Article Vault terminal prerequisite: actual paragraph reader, without 
         }
         const { base: _base, ...twoWay } = input;
         expect(computeParagraphSourceMerge(twoWay as ParagraphSourceBytes)).toEqual({
-            kind: 'rejected', reasonCode: 'article_vault_source_three_snapshots_required'
+            kind: 'rejected', reasonCode: 'article_vault_source_three_snapshots_required', diagnostics: []
         });
         for (const bytes of [input.local, input.server]) {
             expect(verifyParagraphSourceCandidate(input, reseal({ ...candidate, bytes }))).toBe(false);

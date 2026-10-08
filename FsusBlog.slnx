@@ -16,6 +16,12 @@
   <Folder Name="/Article Vault/">
     <Project Path="src/article-vault/linux/FsusBlog.ArticleVault.Linux.csproj" />
     <Project Path="tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj" />
+    <Project Path="src/article-vault/windows/FsusBlog.ArticleVault.Windows.csproj" />
+    <Project Path="tests/article-vault/windows/FsusBlog.ArticleVault.Windows.Tests.csproj" />
+    <Project Path="src/article-vault/macos/FsusBlog.ArticleVault.MacOS.csproj" />
+    <Project Path="tests/article-vault/macos/FsusBlog.ArticleVault.MacOS.Tests.csproj" />
+    <Project Path="src/article-vault/observations/FsusBlog.ArticleVault.Observations.csproj" />
+    <Project Path="tests/article-vault-observations/FsusBlog.ArticleVault.Observations.Tests.csproj" />
   </Folder>
   <Folder Name="/Quality/">
     <Project Path="tests/backend/FsusBlog.Server.Tests.csproj" />

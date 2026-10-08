@@ -81,8 +81,9 @@ closes descriptors and frees callback contexts. It never alters user files.
 
 The project builds its Darwin dylib through the real Xcode compiler resolved by
 `xcrun` on macOS. The build helper emits a compile database in the native output
-directory only after that compiler succeeds. Native style registration remains
-with the integration owner. Linux can compile the managed declarations and
+directory only after that compiler succeeds. The integration registers the exact
+native output directories and lockfile paths in the existing style/document
+registries. Linux can compile the managed declarations and
 execute contract checks; it cannot compile or qualify this native boundary.
 
 ```bash

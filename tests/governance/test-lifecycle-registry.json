@@ -7637,6 +7637,50 @@
                 "category": "real-subprocess-lifecycle",
                 "physicalOwner": "process:lifecycle"
             }
+        },
+        {
+            "file": "tests/tools/macos-vault-observer-source.test.mjs",
+            "owner": "matrix-tier:macos-vault-observer-source",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/article-vault-conflict-terminal-contract.test.mjs",
+            "owner": "matrix-tier:article-vault-conflict-presentation-diagnostics",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/article-vault-conflict-terminal-ui.test.mjs",
+            "owner": "matrix-tier:article-vault-conflict-presentation-diagnostics",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/article-vault-conflict-terminal-plan.test.mjs",
+            "owner": "matrix-tier:article-vault-conflict-presentation-diagnostics",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
         }
     ]
 }

@@ -2,16 +2,19 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
-            "id": "json-wire-key",
+            "id": "css-selector-custom-property",
             "paths": [
+                "config/development/authoritative-development-docs.json",
+                "config/development/document-lifecycle.json",
+                "config/development/native-tooling-style-policy.json",
                 "config/testing/correctness-attempt-producers.json",
-                "tests/backend/packages.lock.json",
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/governance/test-lifecycle-registry.json",
-                "tests/article-vault-observations/packages.lock.json",
-                "tests/article-vault/windows/packages.lock.json"
+                "config/testing/release-reliability-lifecycle-action-registry.json",
+                "docs/api/contracts.md",
+                "docs/architecture/article-property-value-boundary.md",
+                "docs/architecture/article-vault-linux-watcher.md",
+                "docs/architecture/article-vault-macos-watcher.md"
             ],
-            "reason": "Preserve canonical serialized schema, lockfile, registry and authority keys while consuming exact supplied prerequisites and registering the diagnostic tier."
+            "reason": "Preserve the registered external schema, native interop or configuration spellings in these exact integrated canonical source surfaces; source variables follow repository conventions and this declaration changes no public protocol or runtime authority."
         },
         {
             "id": "environment-variable",
@@ -19,6 +22,13 @@
                 "src/article-vault/linux/LinuxVaultGitObserver.cs",
                 "src/article-vault/linux/LinuxVaultPathNative.cs",
                 "src/article-vault/linux/LinuxVaultRootPathScope.cs",
+                "src/article-vault/macos/FSEventsNative.cs",
+                "src/article-vault/macos/MacVaultObservationAdapter.cs",
+                "src/article-vault/macos/MacVaultRawFactBuffer.cs",
+                "src/article-vault/macos/MacVaultRawFactCodec.cs",
+                "src/article-vault/macos/MacVaultRootPathScope.cs",
+                "src/article-vault/macos/MacVaultWatchContracts.cs",
+                "src/article-vault/macos/MacVaultWatcherSession.cs",
                 "src/article-vault/observations/LinuxVaultObservationAdapter.cs",
                 "src/article-vault/windows/WindowsDirectoryChangesNative.cs",
                 "src/article-vault/windows/WindowsVaultFactBuffer.cs",
@@ -66,34 +76,37 @@
                 "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyCodec.cs",
                 "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyManifest.cs",
                 "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyVerifier.cs",
-                "tests/backend/Unit/ArticleVaultPropertyMetadataMergeTests.cs",
+                "tools/contracts/check-locale-catalog.mjs",
+                "tools/contracts/generate-locale-catalog.mjs",
+                "tools/governance/article-vault-conflict-terminal-ui.mjs",
                 "tools/governance/check-article-vault-conflicts.mjs",
+                "tools/test-inventory/ts-ast-adapter/index.mjs",
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test/build-macos-vault-native.mjs",
+                "tools/test/check-macos-vault-observer-source.mjs",
                 "tools/test/correctness-attempt-migration.mjs"
             ],
             "reason": "Preserve external process environment and protocol spellings while new internal C# and JavaScript symbols follow repository naming conventions."
         },
         {
-            "id": "css-like-contract",
+            "id": "json-api-field",
             "paths": [
+                "config/development/authoritative-development-docs.json",
+                "config/development/document-lifecycle.json",
+                "config/development/native-tooling-style-policy.json",
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/release-reliability-lifecycle-action-registry.json",
                 "docs/api/contracts.md",
-                "docs/architecture/article-vault-linux-watcher.md",
-                "docs/architecture/article-property-value-boundary.md"
+                "docs/testing.generated.md",
+                "tests/article-vault-observations/packages.lock.json",
+                "tests/article-vault/macos/packages.lock.json",
+                "tests/article-vault/windows/packages.lock.json",
+                "tests/backend/packages.lock.json",
+                "tests/coverage-registry.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
             ],
-            "reason": "Preserve caller-visible documented DOM/token spelling and existing document identifiers; regenerate the testing projection through its original producer."
-        },
-        {
-            "id": "content-doc-exactness-authority",
-            "paths": [
-                "tests/coverage-registry.json"
-            ],
-            "reason": "Preserve existing external coverage assertion and receipt identifiers while adding the owned diagnostic source-governance coverage."
-        },
-        {
-            "id": "search-index-utf8-scalar-owner",
-            "paths": [
-                "docs/testing.generated.md"
-            ],
-            "reason": "Preserve existing external testing document identifiers including the search scalar owner while the original matrix generator projects the added diagnostic tier."
+            "reason": "Preserve the registered external schema, native interop or configuration spellings in these exact integrated canonical source surfaces; source variables follow repository conventions and this declaration changes no public protocol or runtime authority."
         }
     ]
 }

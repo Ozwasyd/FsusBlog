@@ -2980,6 +2980,10 @@ This initial adapter only computes eligible paragraph changes. Same base semanti
 
 The frontend computation deliberately has no plan DTO or coordinate-admission result. There is currently no Article Vault AEDS/frontend consumer that transfers the actual Shared process-owned admission to this computation and returns the candidate for current canonical verification. That transport/candidate admission seam must be implemented through the real existing AEDS/shared owners; an asserted frontend verified flag or copied TS plan model is not a substitute. The #2116 automatic gate remains closed, and neither a process proof nor an unqualified frontend computation grants a resolution or executor capability. Full #2117 acceptance requires that seam, original compiled/frontend positive and negative controls and complete required syntax-boundary semantics; this staged subset is not full issue acceptance.
 
+### Article Vault bounded product review sources
+
+The unmounted `VaultConflictList` and `VaultResolutionStatus` compositions consume the original conflict schema and exact supplied plan, resolution and checkpoint references. They preserve input ordering and bounded disclosure, and emit scoped review intents. The privacy, plan, dependency, lease, progress and recovery compositions under `components/admin/article/vault` consume the same canonical evidence domains with actual public FsusUI controls. Privacy acknowledgements are review intent; they establish no connection or permission. Execute/resume remain unavailable where the real current command port is absent. These components do not establish authenticated current transport, change Article Write navigation, write content or infer a successful sync. Original source and Vue controls are diagnostic evidence; current rendered production flow and independent UX acceptance remain required.
+
 ## Portable article-package foundation
 
 The shared `Contracts/ArticlePackages` owner supplies the foundation used by the

@@ -3387,6 +3387,17 @@
             ],
             "supersedes": [],
             "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-vault-macos-watcher.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                2671,
+                2674
+            ],
+            "supersedes": [],
+            "supersededBy": null
         }
     ],
     "legacyNamingCompatibility": [
