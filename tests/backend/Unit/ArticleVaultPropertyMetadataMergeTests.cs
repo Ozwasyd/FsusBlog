@@ -1,8 +1,11 @@
 using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json.Nodes;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Services.ArticleVault;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticlePackages;
 using FsusBlog.Shared.Contracts.ArticleProperties;
 using FsusBlog.Shared.Contracts.ArticleVault;
@@ -276,6 +279,205 @@ public sealed class ArticleVaultPropertyMetadataMergeTests
         }, original).IsValid);
     }
 
+    [Fact]
+    public void PackageBridge_BindsExactFiniteInputsAndPreservesSourceHold()
+    {
+        ArticleVaultPackagePropertyMetadataInput input = PackageFixture();
+        ArticleVaultPackagePropertyMetadataResult result = ArticleVaultPackagePropertyMetadataBridge.Build(input);
+        Assert.Null(result.ReasonCode);
+        ArticleVaultPackagePropertyMetadataCandidate candidate = Assert.IsType<ArticleVaultPackagePropertyMetadataCandidate>(result.Candidate);
+        Assert.Equal(VaultPropertyChoiceOrigin.Local, candidate.Properties.Choices.Single().Origin);
+        Assert.Equal(3, candidate.PackageSemanticDigests.Length);
+        Assert.True(ArticleVaultPackagePropertyMetadataBridge.VerifyCurrentCandidate(input, candidate).IsValid);
+        Assert.True(candidate.SourceHold);
+        Assert.False(candidate.CanExecute);
+        Assert.False(candidate.CanCommitBase);
+        Assert.True(candidate.Properties.RequiresCurrentDefinitionAndRightsAdmission);
+        Assert.Equal("article_vault_package_property_source_hold_and_complete_metadata_authority_missing",
+            ArticleVaultPackagePropertyMetadataBridge.RequireExecutionAdmission(input, candidate).ReasonCode);
+    }
+
+    [Fact]
+    public void PackageBridge_RejectsBaseManifestReusedForLocalRevision()
+    {
+        ArticleVaultPackagePropertyMetadataInput input = PackageFixture();
+        Assert.Equal("article_vault_package_property_projection_binding_drift",
+            ArticleVaultPackagePropertyMetadataBridge.Build(input with
+            {
+                Local = input.Base
+            }).ReasonCode);
+    }
+
+    [Theory]
+    [InlineData("title")]
+    [InlineData("site")]
+    [InlineData("identity")]
+    public void PackageBridge_RejectsIndependentlyResealedProjectionDrift(string field)
+    {
+        ArticleVaultPackagePropertyMetadataInput input = PackageFixture();
+        ArticlePackageManifestCandidateInput actual = input.Local.Input;
+        ArticleCanonicalInput article = field == "title" ? actual.Article with
+        {
+            Title = "different exact title"
+        } : actual.Article;
+        ArticlePropertyValueSnapshot snapshot = field == "site"
+            ? Snapshot(actual.PropertySnapshot.Values, actual.PropertySnapshot.Coordinates with
+            {
+                SiteScope = "foreign-site"
+            })
+            : actual.PropertySnapshot;
+        ArticlePackageIdentity portable = field == "identity"
+            ? Parse(ArticlePackageIdentityKind.Article, "article:41180000-0000-4000-8000-000000000999")
+            : actual.TitleBinding.PortableArticle;
+        var binding = new ArticlePackageTitleSummaryBinding(actual.TitleBinding.SourceArticleId,
+            actual.TitleBinding.SourceRevisionId, actual.TitleBinding.SourceRevisionNo,
+            ArticleCanonicalHashV1.ComputeHashHex(article), portable);
+        var changed = new ArticlePackageManifestCandidateInput(article, binding, snapshot, Bindings(snapshot), input.Metadata.Source.LocalBytes.Span);
+        Assert.Equal("article_vault_package_property_projection_binding_drift",
+            ArticleVaultPackagePropertyMetadataBridge.Build(input with
+            {
+                Local = PackageSnapshot(changed)
+            }).ReasonCode);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PackageBridge_RejectsCanonicalEquivalentBomOrNewlineDrift(bool bom)
+    {
+        ArticleVaultPackagePropertyMetadataInput input = PackageFixture();
+        ArticlePackageManifestCandidateInput actual = input.Local.Input;
+        string markdown = bom ? actual.Article.MarkdownContent : actual.Article.MarkdownContent.Replace("\r\n", "\n", StringComparison.Ordinal);
+        byte[] bytes = bom ? [0xef, 0xbb, 0xbf, .. Encoding.UTF8.GetBytes(markdown)] : Encoding.UTF8.GetBytes(markdown);
+        ArticleCanonicalInput article = actual.Article with
+        {
+            MarkdownContent = markdown
+        };
+        Assert.Equal(actual.TitleBinding.SourceCanonicalHash, ArticleCanonicalHashV1.ComputeHashHex(article));
+        var changed = new ArticlePackageManifestCandidateInput(article, actual.TitleBinding,
+            actual.PropertySnapshot, actual.PropertyBindings, bytes);
+        Assert.Equal("article_vault_package_property_source_bytes_drift",
+            ArticleVaultPackagePropertyMetadataBridge.Build(input with
+            {
+                Local = PackageSnapshot(changed)
+            }).ReasonCode);
+    }
+
+    [Theory]
+    [InlineData("assets")]
+    [InlineData("taxonomy")]
+    [InlineData("rights")]
+    [InlineData("metadata")]
+    public void PackageBridge_PreservesCanonicalUnknownCapabilityRefusal(string field)
+    {
+        ArticleVaultPackagePropertyMetadataInput input = PackageFixture();
+        JsonObject document = JsonNode.Parse(input.Local.CandidateBytes.Span)!.AsObject();
+        document[field] = new JsonObject();
+        byte[] bytes = Encoding.UTF8.GetBytes(document.ToJsonString());
+        ArticlePackageManifestCandidateResult expected = ArticlePackageManifestCandidateCodec.TryParseCandidate(bytes, out _);
+        Assert.False(expected.IsValid);
+        ArticleVaultPackagePropertyMetadataResult actual = ArticleVaultPackagePropertyMetadataBridge.Build(input with
+        {
+            Local = input.Local with
+            {
+                CandidateBytes = bytes
+            }
+        });
+        Assert.Null(actual.Candidate);
+        Assert.Equal(expected.ReasonCode, actual.ReasonCode);
+    }
+
+    [Fact]
+    public void PackageBridge_RejectsVersionDriftAndRetainsExplicitOverlap()
+    {
+        ArticleVaultPackagePropertyMetadataInput input = PackageFixture();
+        JsonObject document = JsonNode.Parse(input.Local.CandidateBytes.Span)!.AsObject();
+        document["schemaVersion"] = 2;
+        Assert.Equal("article_package_manifest_version_unsupported", ArticleVaultPackagePropertyMetadataBridge.Build(input with
+        {
+            Local = input.Local with
+            {
+                CandidateBytes = Encoding.UTF8.GetBytes(document.ToJsonString())
+            }
+        }).ReasonCode);
+        ArticleVaultPropertyMetadataInput overlap = Fixture([Entry(s_first, new ArticlePropertyTextValue("base"))],
+            [Entry(s_first, new ArticlePropertyTextValue("local"))], [Entry(s_first, new ArticlePropertyTextValue("server"))],
+            portableIdentity: PackagePortableIdentity);
+        ArticleVaultPackagePropertyMetadataResult result = ArticleVaultPackagePropertyMetadataBridge.Build(PackageFixture(overlap));
+        Assert.Null(result.Candidate);
+        Assert.Equal(Definition(s_first), Assert.Single(result.OverlappingDefinitions));
+        Assert.Equal("article_vault_property_metadata_overlap", result.ReasonCode);
+    }
+
+    [Fact]
+    public void PackageBridge_RefusesSlugProjectionMissingFromFiniteSchema()
+    {
+        ArticleVaultPropertyMetadataInput metadata = Fixture([Entry(s_first, new ArticlePropertyBooleanValue(false))],
+            [Entry(s_first, new ArticlePropertyBooleanValue(true))], [Entry(s_first, new ArticlePropertyBooleanValue(false))],
+            portableIdentity: PackagePortableIdentity, localSlug: "changed-slug");
+        Assert.Equal("article_vault_package_property_slug_mapping_unavailable",
+            ArticleVaultPackagePropertyMetadataBridge.Build(PackageFixture(metadata)).ReasonCode);
+    }
+
+    [Fact]
+    public void PackageBridge_VerifierRejectsTamperedFrozenProvenance()
+    {
+        ArticleVaultPackagePropertyMetadataInput input = PackageFixture();
+        ArticleVaultPackagePropertyMetadataCandidate candidate = Assert.IsType<ArticleVaultPackagePropertyMetadataCandidate>(
+            ArticleVaultPackagePropertyMetadataBridge.Build(input).Candidate);
+        ImmutableCollectionsMarshal.AsArray(candidate.PackageSemanticDigests)![1] = s_digest;
+        Assert.Equal("article_vault_package_property_candidate_package_provenance_mismatch",
+            ArticleVaultPackagePropertyMetadataBridge.VerifyCurrentCandidate(input, candidate).ReasonCode);
+        Assert.False(ArticleVaultPackagePropertyMetadataBridge.RequireExecutionAdmission(input, candidate).IsValid);
+    }
+
+    [Fact]
+    public void PackageBridge_DoesNotAdmitEvenEmptyReferenceWithoutProvider()
+    {
+        ArticleVaultPackagePropertyMetadataInput input = PackageFixture();
+        ArticlePackageManifestCandidateInput actual = input.Local.Input;
+        ArticlePropertyValueSnapshot snapshot = Snapshot([Entry(s_first, new ArticlePropertyArticleReferenceValue([]))],
+            actual.PropertySnapshot.Coordinates);
+        var unsupported = new ArticlePackageManifestCandidateInput(actual.Article, actual.TitleBinding,
+            snapshot, Bindings(snapshot), input.Metadata.Source.LocalBytes.Span);
+        Assert.Equal("article_package_manifest_reference_authority_unavailable", ArticleVaultPackagePropertyMetadataBridge.Build(input with
+        {
+            Local = input.Local with
+            {
+                Input = unsupported
+            }
+        }).ReasonCode);
+    }
+
+    private const string PackagePortableIdentity = "article:41180000-0000-4000-8000-000000000700";
+
+    private static ArticleVaultPackagePropertyMetadataInput PackageFixture(ArticleVaultPropertyMetadataInput? metadata = null)
+    {
+        metadata ??= Fixture([Entry(s_first, new ArticlePropertyBooleanValue(false))],
+            [Entry(s_first, new ArticlePropertyBooleanValue(true))], [Entry(s_first, new ArticlePropertyBooleanValue(false))],
+            portableIdentity: PackagePortableIdentity);
+        ArticleVaultPackageManifestSnapshot Slot(ArticleVaultPropertySnapshotInput typed, ReadOnlyMemory<byte> metaBytes, ReadOnlyMemory<byte> source)
+        {
+            ArticleVaultMetadataManifest fields = ArticleVaultManifestCodec.DeserializeMetadata(metaBytes.Span);
+            var article = new ArticleCanonicalInput(typed.Snapshot.Coordinates.ArticleId,
+                typed.Snapshot.Coordinates.ArticleRevisionId, checked((int)typed.Snapshot.Coordinates.ArticleRevisionId),
+                null, fields.Title, fields.Summary, null, 1, [], ArticleStatusValues.Draft, null, null, Encoding.UTF8.GetString(source.Span));
+            var title = new ArticlePackageTitleSummaryBinding(article.ArticleId, article.ArticleRevisionId!.Value, article.RevisionNo!.Value,
+                ArticleCanonicalHashV1.ComputeHashHex(article), Parse(ArticlePackageIdentityKind.Article, fields.PortableArticleIdentity));
+            return PackageSnapshot(new(article, title, typed.Snapshot, typed.Bindings, source.Span));
+        }
+        return new(metadata, Slot(metadata.Base, metadata.BaseMetadataBytes, metadata.Source.BaseBytes),
+            Slot(metadata.Local, metadata.LocalMetadataBytes, metadata.Source.LocalBytes),
+            Slot(metadata.Server, metadata.ServerMetadataBytes, metadata.Source.ServerBytes));
+    }
+
+    private static ArticleVaultPackageManifestSnapshot PackageSnapshot(ArticlePackageManifestCandidateInput input)
+    {
+        ArticlePackageManifestCandidateResult result = ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan([input], out var plan);
+        Assert.True(result.IsValid, result.ReasonCode);
+        return new(ArticlePackageManifestCandidateCodec.WriteCandidate(plan!.Manifest), input);
+    }
+
     private static ArticleVaultPropertyMetadataInput BooleanFixture()
     {
         ArticlePropertyValueEntry[] entries = [Entry(s_first, new ArticlePropertyBooleanValue(false))];
@@ -299,9 +501,9 @@ public sealed class ArticleVaultPropertyMetadataMergeTests
     }
 
     private static ArticleVaultPropertyMetadataInput Fixture(ArticlePropertyValueEntry[] baseline,
-        ArticlePropertyValueEntry[] local, ArticlePropertyValueEntry[] server, string? context = null)
+        ArticlePropertyValueEntry[] local, ArticlePropertyValueEntry[] server, string? context = null,
+        string portableIdentity = "property-merge-article", string? localSlug = null)
     {
-        const string PortableIdentity = "property-merge-article";
         const string SourcePath = "articles/property-merge.md";
         byte[] sourceBytes = "raw source e\u0301 😀\r\n"u8.ToArray();
         ArticlePropertySnapshotCoordinates Coordinates(long revision)
@@ -309,10 +511,11 @@ public sealed class ArticleVaultPropertyMetadataMergeTests
                 context == "draft" ? 9 : null, context == "draft" ? 1 : null,
                 context == "publication" ? 11 : null);
         ArticlePropertyValueSnapshot[] typed = [Snapshot(baseline, Coordinates(100)), Snapshot(local, Coordinates(101)), Snapshot(server, Coordinates(102))];
-        ArticleVaultMetadataManifest[] metadata = typed.Select(snapshot =>
+        ArticleVaultMetadataManifest[] metadata = typed.Select((snapshot, index) =>
         {
             ArticleVaultMetadataManifest unsigned = new(ArticleVaultSchemas.MetadataManifest, ArticleVaultSchemas.Version,
-                "site-primary", "vault-primary", "device-primary", PortableIdentity, "700", "Title", null, "slug",
+                "site-primary", "vault-primary", "device-primary", portableIdentity, "700", "Title", null,
+                index == 1 && localSlug is not null ? localSlug : "slug",
                 s_digest, snapshot.ContentDigest, string.Empty);
             return unsigned with
             {
@@ -330,7 +533,7 @@ public sealed class ArticleVaultPropertyMetadataMergeTests
             };
         }).ToArray();
         ArticleVaultArticleManifest unsignedArticle = new(ArticleVaultSchemas.ArticleManifest, ArticleVaultSchemas.Version,
-            "site-primary", "vault-primary", "device-primary", PortableIdentity, "700",
+            "site-primary", "vault-primary", "device-primary", portableIdentity, "700",
             new(SourcePath, ArticleVaultManifestCodec.ComputeProjectionSha256(SourcePath)), new(coordinates[0], coordinates[1], coordinates[0]),
             new(0, null, null, null, null, null, null), VaultArticleState.Clean, string.Empty);
         unsignedArticle = unsignedArticle with
@@ -345,24 +548,24 @@ public sealed class ArticleVaultPropertyMetadataMergeTests
             ArticleVaultSchemas.ControlTreeVersion, new(ArticleVaultSchemas.RootManifestPath,
                 ArticleVaultSchemas.ArticleManifestDirectory, ArticleVaultSchemas.ReceiptDirectory),
             article.SiteIdentity, article.VaultIdentity, article.DeviceIdentity,
-            [new(PortableIdentity, $"{ArticleVaultSchemas.ArticleManifestDirectory}/{PortableIdentity}.json", article.ContentSha256, SourcePath)], [], string.Empty);
+            [new(portableIdentity, $"{ArticleVaultSchemas.ArticleManifestDirectory}/{portableIdentity}.json", article.ContentSha256, SourcePath)], [], string.Empty);
         ArticleVaultRootManifest root = unsignedRoot with
         {
             ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(unsignedRoot)
         };
         ArticleVaultServerObservation unsignedObservation = new(ArticleVaultPlanSchemas.ServerObservation, ArticleVaultPlanSchemas.Version,
-            article.SiteIdentity, article.VaultIdentity, article.DeviceIdentity, PortableIdentity, "700", coordinates[2], string.Empty);
+            article.SiteIdentity, article.VaultIdentity, article.DeviceIdentity, portableIdentity, "700", coordinates[2], string.Empty);
         ArticleVaultServerObservation observation = unsignedObservation with
         {
             ContentSha256 = ArticleVaultSyncPlanCodec.ComputeContentSha256(unsignedObservation)
         };
-        ArticleVaultPlanRequest request = new(root, [article], [observation], [new("property-group", [PortableIdentity], [])],
+        ArticleVaultPlanRequest request = new(root, [article], [observation], [new("property-group", [portableIdentity], [])],
             VaultSyncDirection.Sync, 1_800_000_000_000, 1_800_000_060_000, false);
         ArticleVaultPlanBuildResult built = ArticleVaultSyncPlanner.Build(request);
         Assert.True(built.IsSuccess, string.Join(',', built.Errors));
         ArticleVaultSyncPlan plan = built.Plan!;
         VaultSyncPlanItem item = plan.Groups.Single().Items.Single();
-        VaultConflictBinding binding = new(plan.SiteIdentity, plan.VaultIdentity, plan.DeviceIdentity, PortableIdentity, "700",
+        VaultConflictBinding binding = new(plan.SiteIdentity, plan.VaultIdentity, plan.DeviceIdentity, portableIdentity, "700",
             plan.PlanCandidateIdentity, plan.ContentSha256, "property-group", item.OperationIdentity,
             item.Preconditions.ArticleManifestSha256, item.Preconditions.ServerObservationSha256, new(item.Base, item.Local, item.Server));
         ArticleVaultSourceAdmissionInput source = new(plan, root, [article], [observation],
