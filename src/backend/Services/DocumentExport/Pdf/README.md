@@ -71,11 +71,16 @@ limit is the stricter shared/tool bound; no sandbox budget is widened here.
 The shared catalog intentionally remains inactive. Source availability does not
 activate PDF. Exact integration requirements:
 
-1. Admit a real canonical-renderer phase for the same frozen PDF task, preserving
-   its original task digest. The current canonical adapter binds the HTML tool,
-   while shared `ExecuteAsync`/`ValidateReceipt`/`ValidatePlan` select the PDF tool
-   from `task.FormatId`; the current combination rejects. Do not forge an HTML
-   task to bypass this check.
+1. Consume shared canonical-phase API commit
+   `a0538e235888076afd0463606d3650138fc6b18d` and its registry prerequisite
+   `f0d4d7990139ed9db432a28c8ec11575f5f908d3`. The canonical adapter calls
+   `ExecuteCanonicalRendererAsync` with the original frozen PDF task. PDF now
+   validates that phase through `ValidateCanonicalRendererReceipt`, then uses
+   ordinary provider receipt validation for the final PDF phase. Both preserve
+   the original task digest and the sandbox's trusted host build digest. Do not
+   forge an HTML task or use a canonical receipt to qualify final PDF bytes.
+   These exact shared commits must be integrated before compiling this adapter;
+   their source availability does not imply native/runtime qualification.
 2. Register the sole PDF provider owner
    `FsusBlog.Server.Services.DocumentExport.PdfDocumentExportProvider`, tool ID
    `document-export-pdf-toolchain`, version
@@ -119,9 +124,11 @@ Python tests use explicitly named local font fixtures at the canonical-HTML tool
 boundary. They generate and inspect real PDFs; they do not claim a real canonical
 Markdown renderer or sandbox receipt. The C# `DocumentExportPdfProviderTests`
 exercise actual frozen-input validation, print composition and closed response
-rejections. Source-include compilation is narrower than the original backend
-project or full local equivalent CI.
+rejections, including inactive-provider and frozen-input-drift refusals at the
+canonical-phase boundary. Source-include compilation consumes the exact shared
+canonical-phase and job APIs listed above; it is narrower than the original
+backend project or full local equivalent CI.
 
-Until canonical-phase registration, frozen native runtime packaging and original
+Until PDF registration, frozen native runtime packaging and original
 sandbox qualification are complete, end-to-end provider/job execution remains
 unrun and #2429 remains OPEN.
