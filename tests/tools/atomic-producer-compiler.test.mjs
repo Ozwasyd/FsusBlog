@@ -428,3 +428,77 @@ test('exit-zero command without a sidecar retains the real shared runner refusal
     assert.equal(receipts['alpha-check'].terminalState, 'failed');
     assert.equal(receipts['beta-check'].terminalState, 'success');
 }));
+
+function failTerminalPublication(t, failure)
+{
+    const original = fs.writeFileSync;
+    t.mock.method(fs, 'writeFileSync', (file, ...args) =>
+    {
+        if (typeof file === 'string' && path.basename(file) === 'terminal-vector.json')
+        {
+            throw failure;
+        }
+        return original(file, ...args);
+    });
+}
+
+test('terminal publication failure retains the earlier producer failure as primary', async (t) => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture({ alphaScenario: 'product-failure' });
+    const publication = new Error('ordinary terminal output write failed');
+    failTerminalPublication(t, publication);
+    let cleanupCount = 0;
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+    } });
+    const error = await executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options)
+        .then(() => null, (failure) => failure);
+    assert.ok(error instanceof AtomicProducerExecutionError);
+    assert.equal(error.cause.cause.reasonCode, 'assertion-mismatch');
+    assert.equal(error.publicationError, publication);
+    assert.equal(error.terminalVector.status, 'failed');
+    assert.equal(error.terminalVector.receipts.length, 6);
+    assert.equal(cleanupCount, 1);
+}));
+
+test('terminal publication failure retains the original cancellation Error object', async (t) => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture({ alphaScenario: 'timeout' });
+    const original = new StepTerminalError('cancelled', 'explicit-cancel', 'original cancellation');
+    const controller = new AbortController();
+    controller.abort(original);
+    const publication = new Error('ordinary terminal output write failed');
+    failTerminalPublication(t, publication);
+    let cleanupCount = 0;
+    const options = atomicExecutionOptions(fixture, directory, {
+        signalByProducer: { 'alpha-check': controller.signal },
+        onCleanup: () =>
+        {
+            cleanupCount += 1;
+        }
+    });
+    const error = await executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options)
+        .then(() => null, (failure) => failure);
+    assert.ok(error instanceof AtomicProducerExecutionError);
+    assert.equal(error.cause.cause, original);
+    assert.equal(error.publicationError, publication);
+    assert.equal(byProducer(error.terminalVector)['beta-check'].terminalState, 'success');
+    assert.equal(cleanupCount, 1);
+}));
+
+test('terminal publication failure without an earlier execution failure rejects with the write Error', async (t) => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture();
+    const publication = new Error('ordinary terminal output write failed');
+    failTerminalPublication(t, publication);
+    let cleanupCount = 0;
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+    } });
+    const error = await executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options)
+        .then(() => null, (failure) => failure);
+    assert.equal(error, publication);
+    assert.equal(cleanupCount, 1);
+}));
