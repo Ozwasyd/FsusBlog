@@ -141,7 +141,7 @@ public sealed class CanonicalCommentInitialOutboxTests
 
     [Theory]
     [InlineData(null, null)]
-    [InlineData(910003, 910007)]
+    [InlineData(910003L, 910007L)]
     public void ResolveInitialOutbox_RetainsNullableAnonymousActorAndObservedThreadFacts(long? rootId, long? parentId)
     {
         CommentScaleInitialOutboxFacts facts = Facts();
