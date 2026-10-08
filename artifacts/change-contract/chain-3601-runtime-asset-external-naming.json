@@ -6,7 +6,14 @@
             "paths": [
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve the canonical execution authority JSON wire keys while its official producer binds the original scheduler runtime-asset refusal tests to current source digests."
+            "reason": "Preserve canonical execution authority JSON wire keys while the original producer binds scheduler runtime-asset and locked dependency controls to their current source closure."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tests/tools/support/locked-schema-validator-fixture.mjs"
+            ],
+            "reason": "Preserve standard npm and operating-system environment names while provisioning integrity-bound offline schema-validator dependencies in an isolated fixture."
         }
     ]
 }
