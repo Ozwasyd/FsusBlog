@@ -1,7 +1,8 @@
 # Static atomic source contracts
 
-This domain source increment serves #2251 and #2272. It is not attached to the
-shared matrix, compiler, inventory or local/CI entry points. Those owners must
+This domain source increment serves #2251 and #2272. It consumes the canonical
+compiler/executor as an owner-supplied library contract; it is not attached to the
+shared matrix, inventory or local/CI entry points. Those owners must
 complete the integration described below before these issues can be accepted.
 No product checker, runtime phase, security policy or output schema changes here.
 
@@ -57,21 +58,59 @@ rejects changed or resealed summary outcomes. Trusted child refs must come from 
 compiler's exact run checkpoint; these APIs do not grant terminal authenticity to
 an arbitrary caller-provided reference set.
 
-All projections explicitly retain `qualificationEligible: false` while membership
-and shared integration are incomplete. Missing/blocked child receipts are refused
-rather than treated as successful executions. The existing scheduler's in-memory
-blocked terminal record is not yet an externally verified attempt reference; this
-module does not manufacture one.
+All projections explicitly retain `qualificationEligible: false` while canonical
+identity admission and shared integration are incomplete. The original executed-only
+projector still refuses absent attempts. The canonical terminal bridge below accepts
+verified zero-spawn blocked records without manufacturing attempts.
 
 ## Required shared integration
 
-The #2248 owner must provide the generic declaration compiler over the existing
-weighted scheduler and runner, including exact-one attempt execution, hard
-prerequisite edges, verified blocked terminals, settled joins and finalizers.
-That compiler is absent at this increment's base. The existing command-manifest
-runner lacks per-child attempt wrapping and is not a substitute. Its isolated
-scheduler controls in this increment are tests of the domain adapter/projection,
-not evidence of a completed compiler or current runtime qualification.
+The canonical framework is now available: original execution capability
+`653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0`, structural successor
+`ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c`, and canonical scheduler terminal
+capability `2eda290cc6098971b685b3fb1465d7193bd3dde2`. This branch consumes their
+actual ancestry and preserves the upstream compiler, executor and scheduler bytes.
+Open upstream issue status does not imply these usable source APIs are absent.
+
+`validateStaticAssertionMembership(producer, membership, replayPlan)` preserves
+all original registry bindings and legacy IDs while validating an owner-supplied,
+sealed canonical replay enumeration. It does not invent live test registrations.
+Every original assertion needs an explicit canonical observation; the five checks
+without registered assertions need explicit nonempty additional membership.
+Missing, altered, overlapping or extra observations fail closed.
+
+`bindStaticAtomicCompilation({ repositoryRoot, matrix, authorities, memberships,
+prerequisiteBindings })` consumes the owner-supplied attachment through the sole
+`compileAtomicProducerDag`. It verifies unchanged commands/resources, the canonical
+matrices physical owner, all thirteen membership bindings, real hard prerequisites,
+or prerequisites explicitly held by the exact compiled input closure. It does not
+add a frontend install/backend build edge to source-only checks or build a matrix.
+`verifyStaticAtomicCompilation` recomputes the exact compilation and binding.
+
+`executeStaticAtomicCompilation(compilation, options)` calls the canonical executor
+once after verifying the domain envelope bindings and explicit environment. It
+preserves `AtomicProducerExecutionError` and its complete terminal vector; callers
+must consume that vector without flattening failure into success. No child runner,
+scheduler, replay compiler or finalizer implementation is duplicated.
+
+`projectCompiledStaticAtomicSummary({ compilation, compilationOptions, vector,
+expectedVector, context, producerContexts, lane })` verifies the pinned complete
+canonical vector, exact current source/run identity, all executed first attempts,
+aggregate/log/artifact digests and canonical settled projection evidence. Blocked
+children require actual unsuccessful declared hard predecessors, no attempt and
+no execution artifacts. Cancellation/internal errors without verified attempts
+remain non-success. Original assertions and canonical membership remain attached.
+
+`readCurrentStaticAtomicSummary({ checkpointFile, expectedCheckpointDigest,
+evidenceContext, expectedVectorDigest, consumerId, authorityId, ...projectionOptions })`
+uses the existing immutable canonical journal reader without repair or compatibility
+JSON fallback. It requires an exact current-attempt reference block, owner-supplied
+consumer/authority IDs, finalized native publication state and the native sealed
+reference wrapper, then verifies its payload bytes and vector. The checkpoint
+reference `inputDigest` hashes wrapper bytes; `contentDigest` and
+`producerReceiptDigest` seal the wrapper, not the atomic vector. The vector's own
+digest is pinned separately. Readback refuses a changed checkpoint. This read-only
+bridge grants no correctness lease, terminal seal or release qualification.
 
 The existing attempt runner also rejects a real exit-zero command without its
 optional result sidecar: `failureIdentity` compares optional-chain `undefined`
@@ -95,7 +134,7 @@ The shared lane owner must then replace `RunCrossStackStaticContracts`' six-comm
 sequence and `RunSecurityStaticOnly`'s seven-command `RunParallel` with consumption
 of the compiled domain DAG. The cross-stack receipt owner must replace static
 artifact-existence receipt production with these verified child projections,
-including a separately verified blocked-terminal extension from #2248. There
+including the available canonical terminal bridge. There
 must remain one static summary per domain. Runtime phase commands and identities
 must stay separate. The combined frontend `check:cross-stack-contract` script also
 needs owner-controlled static routing; retaining its static commands would cause
@@ -107,8 +146,8 @@ or runtime bootstrap. Do not copy the old parent bundle's build/security orderin
 into child hard prerequisites. PoW's optional observed/generated OpenAPI input
 selection must be held by its input authority; a mutable preferred file is not an
 implicit build edge. Supply-chain's restore/network admission is independent of
-the source-only siblings. Blocked dependency propagation remains unaccepted until
-the compiler supplies real authority-bound edges and terminals.
+the source-only siblings. Owned controls now exercise real canonical blocked propagation. Production
+prerequisite authorities and real current-run publication remain unaccepted.
 
 ## Evidence and remaining acceptance
 
@@ -120,7 +159,33 @@ They exercise the existing weighted scheduler directly in isolated fixtures.
 They are not real production receipts or independent acceptance.
 
 The old entry points still execute their original paths. Matrix/CI digest parity,
-blocked terminal projection, canonical matrices reuse, owner stable-ID confirmation
+current-run terminal publication, canonical matrices reuse, owner stable-ID confirmation
 and current full-lane execution remain open issue acceptance conditions. Neither
 issue is closed by this source increment. Revert the domain source increment if
 its command/identity contract is incorrect; no production rollout has occurred.
+
+## Exact shared-owner requests
+
+The runner owner must supply a reviewed presence guard in `failureIdentity`:
+inspect structured failure fields only when `structuredResult !== null`. A missing
+optional sidecar can then use the unchanged process outcome and canonical replay
+`expectedTestIds`. Explicit sidecars still require the existing closed schema and
+all failed/executed test/artifact checks; malformed or contradictory sidecars must
+continue to fail. Exit zero alone does not qualify evidence: the external execution,
+input/network and replay authorities, first-attempt policy, sealed logs and complete
+assertion membership remain required. This partition does not edit that runner.
+
+The canonical compiler currently requires a logical projection to settle exactly
+its executable children with the same `logicalParentId`. It cannot also project a
+`security-matrices` physical child whose parent remains frontend-static-governance.
+The matrix/physical ownership and compiler owners must provide an exact shared-child
+projection contract or explicitly assign compatible parent ownership. This bridge
+refuses a second physical copy and does not change shared ownership to make a fixture
+pass. Its synthetic attachments explicitly assign the matrices physical owner to
+frontend-static-governance; they are not a live ownership admission.
+
+The publication/registry owners must admit the exact static observer/vector
+reference contract (including failed/blocked vectors as data) and attach it to the
+canonical current-attempt journal. Success-only correctness finalizers cannot
+admit those vectors as successful correctness. Positive native publication controls
+prove read compatibility only; no live entry, permission or receipt is fabricated.
