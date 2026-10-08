@@ -3,6 +3,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveBinaryTransportUrl } from '@/api/binaryApiClient';
 
+// Isolate unrelated application bootstrap, as in the existing Writer controls.
+// The URL function and its client source are original and remain unmocked.
+vi.mock('vue-router', () => ({
+    useRoute: () => ({ params: {}, query: {} }),
+    useRouter: () => ({ push: vi.fn() })
+}));
+vi.mock('@/store/admin', () => ({
+    useAdminStore: () => ({ setPageTitle: vi.fn(),
+        adminPrincipal: { id: 'url-model-control', username: 'url-model-control' } })
+}));
+
 afterEach(() => vi.unstubAllGlobals());
 
 // URL resolution only: this is no HTTP/session/PoW or browser-runtime receipt.
