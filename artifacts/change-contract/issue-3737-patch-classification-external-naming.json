@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/authoritative-development-docs.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve existing canonical classification and execution-authority JSON field names while registering exact dependency patch paths and regenerating their source closure through the unchanged canonical producer."
+        }
+    ]
+}
