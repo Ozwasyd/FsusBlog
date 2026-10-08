@@ -1,5 +1,6 @@
 using FsusBlog.Shared.Contracts.ArticleEmbeds;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
+using FsusBlog.Shared.Contracts.ArticleVault.Dependencies;
 
 namespace FsusBlog.Shared.Contracts.ArticleVault;
 
@@ -141,6 +142,34 @@ public static class ArticleVaultFrozenEmbedAdmission
     /// </summary>
     public static bool Verify(ArticleVaultFrozenEmbedInput input, ArticleVaultFrozenEmbedCandidate candidate)
         => Compare(input) == candidate;
+
+    /// <summary>
+    /// Binds an admitted current-source coordinate to the real #2124 graph and freshly
+    /// supplied authority projections. Different revisions remain different dependencies.
+    /// This check is read-only and cannot refresh a publication or materialize a target.
+    /// </summary>
+    public static ArticleVaultValidationResult VerifyGraph(
+        ArticleVaultFrozenEmbedInput input,
+        ArticleVaultFrozenEmbedCandidate candidate,
+        PortableDependencyManifest graph,
+        ReadOnlySpan<byte> sourceBytes,
+        IReadOnlyList<VaultDependencyNode> currentAuthorityNodes,
+        string currentRelationSha256)
+    {
+        if (graph is null || candidate is null || !candidate.Permitted || !Verify(input, candidate)
+            || !PortableDependencyVerifier.VerifyCurrent(graph, input.Manifest, sourceBytes,
+                currentAuthorityNodes, currentRelationSha256, input.Budgets).IsValid
+            || graph.SourceSide != VaultDependencySourceSide.Server
+            || graph.Source.Sha256 != input.Request.ContentDigest)
+        {
+            return ArticleVaultValidationResult.Invalid("vault_embed_graph_unavailable");
+        }
+        int matches = graph.Nodes.OfType<VaultFrozenEmbedDependency>()
+            .Count(node => node.Coordinate == candidate.After);
+        return matches == 1
+            ? ArticleVaultValidationResult.Valid()
+            : ArticleVaultValidationResult.Invalid("vault_embed_graph_exact_coordinate_missing");
+    }
 
     private static ArticleVaultFrozenEmbedCandidate Reject(string reasonCode)
     {

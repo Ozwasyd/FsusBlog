@@ -1,7 +1,10 @@
 using System.Text;
 
+using FsusBlog.Shared.Contracts.ArticleEmbeds;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 using FsusBlog.Shared.Contracts.ArticleRelations;
 using FsusBlog.Shared.Contracts.ArticleVault;
+using FsusBlog.Shared.Contracts.ArticleVault.Dependencies;
 using FsusBlog.Shared.Contracts.BlockLinks;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -25,7 +28,7 @@ public sealed class ArticleVaultBlockLinkRefactorTests
         Assert.True(candidate.Permitted);
         Assert.Equal(input.Before.Target, candidate.Target);
         Assert.Equal(BlockAnchorMarkdownBuilder.Build("显示", slug, input.Before.Target), candidate.Replacement);
-        Assert.Equal(input.Relation.Occurrence.First.MatchedText, candidate.ExpectedText);
+        Assert.Equal(input.SourceRange.MatchedText, candidate.ExpectedText);
         Assert.True(ArticleVaultBlockLinkRefactor.Verify(input, bytes, candidate));
         Assert.Equal(Encoding.UTF8.GetString(bytes)[candidate.Start!.Value..candidate.End!.Value], candidate.ExpectedText);
     }
@@ -38,17 +41,25 @@ public sealed class ArticleVaultBlockLinkRefactorTests
         {
             ExpectedRevision = 9
         }, bytes, "vault_block_link_binding_mismatch");
-        ArticleRelationRecord historical = ArticleRelationContractValidator.Seal(input.Relation with
+        VaultArticleCoordinate historical = input.Manifest.Coordinates.Server with
         {
-            Source = input.Relation.Source with
-            {
-                RevisionKind = ArticleRelationRevisionKind.Published,
-                Lifecycle = ArticleRelationLifecycleState.Published
-            }
-        });
+            Lifecycle = "published"
+        };
+        historical = historical with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(historical)
+        };
+        ArticleVaultArticleManifest manifest = input.Manifest with
+        {
+            Coordinates = new VaultArticleCoordinates(historical, historical, historical)
+        };
+        manifest = manifest with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(manifest)
+        };
         AssertRejected(input with
         {
-            Relation = historical
+            Manifest = manifest
         }, bytes, "vault_block_link_binding_mismatch");
     }
 
@@ -63,20 +74,17 @@ public sealed class ArticleVaultBlockLinkRefactorTests
                 Target = ArticleBlockTarget.Create(Host, BlockAnchorId.Create("stable"))
             }
         }, bytes, "vault_block_link_binding_mismatch");
-        ArticleRelationRecord crossSite = ArticleRelationContractValidator.Seal(input.Relation with
+        VaultDependencyNode crossSite = input.CurrentAuthorityNodes[0] with
         {
-            Visibility = input.Relation.Visibility with
+            Binding = input.CurrentAuthorityNodes[0].Binding with
             {
-                QueryActor = input.Relation.Visibility.QueryActor with
-                {
-                    SiteIdentity = "site:other"
-                }
+                SiteIdentity = "site:other"
             }
-        });
+        };
         AssertRejected(input with
         {
-            Relation = crossSite
-        }, bytes, "vault_block_link_binding_mismatch");
+            CurrentAuthorityNodes = [crossSite]
+        }, bytes, "vault_block_link_target_unavailable");
     }
 
     [Fact]
@@ -102,15 +110,16 @@ public sealed class ArticleVaultBlockLinkRefactorTests
     public void UnauthorizedRelationProducesNoTargetOrSourceFragment()
     {
         (ArticleVaultBlockLinkRefactorInput input, byte[] bytes) = Input("new");
-        ArticleRelationRecord denied = ArticleRelationContractValidator.Seal(input.Relation with
+        VaultDependencyNode denied = input.CurrentAuthorityNodes[0] with
         {
-            Resolution = ArticleRelationResolutionStatus.Unauthorized,
-            Target = new ArticleRelationTargetFacts(null, null, null, null, null, ArticleRelationPermissionState.Denied)
-        });
-        Assert.True(ArticleRelationContractValidator.Validate(denied).IsValid);
+            Admission = input.CurrentAuthorityNodes[0].Admission with
+            {
+                Permission = ArticleEmbedPermissionStatus.Denied
+            }
+        };
         AssertRejected(input with
         {
-            Relation = denied
+            CurrentAuthorityNodes = [denied]
         }, bytes, "vault_block_link_target_unavailable");
     }
 
@@ -147,22 +156,43 @@ public sealed class ArticleVaultBlockLinkRefactorTests
         {
             ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(manifest)
         };
-        var actor = new ArticleRelationActorContext("actor:01991e72-dbed-74bd-a467-027699b78ad8", "site:primary", Digest);
-        var source = new ArticleRelationSourceFacts(Host, "revision:01991e72-aaaa-7a86-bc95-5518cf8bd7dc", 8,
-            ArticleRelationRevisionKind.Draft, ArticleRelationLifecycleState.Draft, ArticleRelationPermissionState.Allowed, actor, sourceBytes.Sha256);
+        var binding = new VaultDependencyBinding(manifest.SiteIdentity, manifest.VaultIdentity, Host);
+        var admission = new VaultDependencyAdmission(ArticleEmbedPermissionStatus.Allowed,
+            VaultDependencyRight.Read | VaultDependencyRight.Reference,
+            VaultDependencyRight.Read | VaultDependencyRight.Reference, Digest, Digest, Digest);
+        var node = new VaultLinkDependency(binding, admission,
+            new ArticleEmbedTargetIdentity(Target, ArticleEmbedTargetKind.Block, null, "stable"), Digest);
+        var graph = new PortableDependencyManifest(PortableDependencySchemas.Manifest, PortableDependencySchemas.Version,
+            binding, manifest.ServerArticleIdentity, manifest.Coordinates, VaultDependencySourceSide.Server,
+            sourceBytes, Digest, [node], [], string.Empty, string.Empty);
+        string graphSha256 = PortableDependencyCodec.GraphDigest(graph);
+        coordinate = coordinate with
+        {
+            DependencySha256 = graphSha256
+        };
+        coordinate = coordinate with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(coordinate)
+        };
+        manifest = manifest with
+        {
+            Coordinates = new VaultArticleCoordinates(coordinate, coordinate, coordinate)
+        };
+        manifest = manifest with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(manifest)
+        };
+        graph = PortableDependencyCodec.Seal(graph with
+        {
+            Coordinates = manifest.Coordinates,
+            GraphSha256 = graphSha256
+        });
         int start = Encoding.UTF8.GetString(bytes).IndexOf(markdown, StringComparison.Ordinal);
         var range = new ArticleRelationSourceRange(start, start + markdown.Length, markdown);
-        ArticleRelationRecord relation = ArticleRelationContractValidator.Seal(new ArticleRelationRecord(
-            ArticleRelationSchemas.Relation, ArticleRelationSchemas.Version, string.Empty, 1, ArticleRelationKind.Outgoing,
-            source, new ArticleRelationOccurrence(markdown, range, range, 1),
-            new ArticleRelationTargetFacts(new ArticleRelationTargetIdentity(Target, ArticleRelationTargetKind.Block, null, "stable"),
-                "revision:01991e72-bbbb-7a86-bc95-5518cf8bd7dc", 17, ArticleRelationRevisionKind.Published,
-                ArticleRelationLifecycleState.Published, ArticleRelationPermissionState.Allowed),
-            new ArticleRelationVisibilityFacts(actor, actor, ArticleRelationQueryScope.Authoring, ArticleRelationPublicContext.AuthoringActor, Digest),
-            ArticleRelationResolutionStatus.Resolved, new ArticleRelationContractCoordinate(1, 1, 1, 1, 1), string.Empty));
+        var budgets = new ArticleEmbedResolutionBudgetLimits(8, 64, 1_048_576, 60_000, 128);
         Assert.True(ArticleVaultManifestValidator.Validate(manifest).IsValid);
-        Assert.True(ArticleRelationContractValidator.Validate(relation).IsValid);
-        return (new ArticleVaultBlockLinkRefactorInput(manifest, relation,
+        Assert.True(PortableDependencyVerifier.VerifyCurrent(graph, manifest, bytes, [node], Digest, budgets).IsValid);
+        return (new ArticleVaultBlockLinkRefactorInput(manifest, graph, [node], Digest, budgets, range,
             new ArticleBlockRouteProjection(target, "old"), new ArticleBlockRouteProjection(target, slug), 8), bytes);
     }
 }
