@@ -28,9 +28,10 @@ node --test tests/tools/release-candidate-qualification-policy.test.mjs
 
 ## Upstream capability boundary
 
-The inspected master provides the required-evidence catalog but does not provide the
-complete candidate identity verifier, immutable cohort create, atomic ordinal append,
-terminal seal or independent ledger verifier required by the candidate cohort contract.
+The inspected master provides the required-evidence catalog. Published candidate
+identity source is available separately at `4c53ad9216c84d8e39a2524d71d10a60e6b2e141`.
+The immutable cohort create, atomic ordinal append, terminal seal and independent
+ledger verifier required by the candidate cohort contract remain separate capabilities.
 The existing release clean-attempt cohort is a separate build/attempt admission API;
 its build digest and event slots do not supply the complete candidate ledger contract.
 
@@ -70,3 +71,29 @@ refs, identity, membership, coverage, cleanup, chronology and attempt eligibilit
 ```bash
 node --test tests/tools/release-candidate-qualification-plan.test.mjs tests/tools/release-candidate-qualification-comparison.test.mjs
 ```
+
+## Exact upstream consumer contracts
+
+`qualificationCandidateConfigurationDigests()` maps the three qualification digests
+to semantic IDs in the existing candidate `configurationDigests` map. Candidate
+source `4c53ad9216c84d8e39a2524d71d10a60e6b2e141` already admits this map;
+the candidate schema is not extended or copied. The collector must include these
+entries before `createCandidateIdentity()`, and the complete upstream
+`verifyCandidateIdentity()` must run before `verifyQualificationCandidatePolicyBinding()`.
+The latter checks only qualification's policy slice and the required-evidence catalog.
+It does not authenticate source facts or replace the complete identity verifier.
+
+`comparisonMaterialFromAggregateAnalysis()` consumes the actual aggregate analysis
+shape from `prepareAggregateOutcomeAnalysis()` at
+`c2f8586bf09078bb75198e9c777f13a663c14eda`. It preserves the original aggregate
+fingerprint and copies semantic-ID/digest arrays into comparison maps. Unknown or
+duplicate semantic entries, mismatched fingerprints and attempted promotion of
+`dataOnly`/`producerVerificationPending` are refused. Semantic ownership stays in
+the upstream fingerprint. Extraction performs no receipt normalization or independent
+producer verification. The complete externally expected analyzer must run first.
+
+Both source capabilities are usable while their issues remain open. The aggregate
+API is explicitly DATA_ONLY and still needs held-input producer authority and
+current-run checkpoint/CAS publication. Neither source contract supplies the missing
+cohort custody API or grants runtime, qualification or publish acceptance. Qualification
+documentation lives here to avoid concurrent edits to the identity owner's umbrella README.

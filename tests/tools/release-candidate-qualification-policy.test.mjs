@@ -11,7 +11,8 @@ const { digestCanonical, sealContentDigest } = await import(new URL(
 const {
     qualificationPolicy, verifyQualificationPolicy, deriveRepeatabilityCatalog,
     verifyRepeatabilityCatalog, verifyCandidateOnceOperation, qualificationIdentityBinding,
-    qualificationReceiptSchemaPath
+    qualificationReceiptSchemaPath, qualificationCandidateConfigurationDigests,
+    verifyQualificationCandidatePolicyBinding
 } = await import(new URL('../../tools/release-candidate/qualification-policy.mjs', import.meta.url));
 const {
     loadCanonicalRequiredEvidenceCatalog, entryContentDigest, producerContractDigest, ledgerContentDigest
@@ -128,6 +129,24 @@ test('identity binding covers policy, repeatability, required catalog and receip
     assert.equal(binding.qualificationPolicyDigest, qualificationPolicy().contentDigest);
     assert.equal(binding.repeatabilityCatalogDigest, deriveRepeatabilityCatalog().contentDigest);
     assert.equal(binding.qualificationReceiptSchemaDigest, digestCanonical(JSON.parse(fs.readFileSync(qualificationReceiptSchemaPath, 'utf8'))));
+});
+
+test('qualification digest integration uses the existing candidate configuration map and rejects missing or drifted policy slices', () =>
+{
+    const identity = {
+        configurationDigests: { application: `sha256:${'a'.repeat(64)}`, ...qualificationCandidateConfigurationDigests() },
+        requiredEvidenceCatalogDigest: qualificationIdentityBinding().requiredEvidenceCatalogDigest
+    };
+    assert.equal(verifyQualificationCandidatePolicyBinding(identity), identity);
+    for (const id of Object.keys(qualificationCandidateConfigurationDigests()))
+    {
+        const changed = structuredClone(identity);
+        delete changed.configurationDigests[id];
+        assert.throws(() => verifyQualificationCandidatePolicyBinding(changed), /binding mismatch/);
+        changed.configurationDigests[id] = `sha256:${'b'.repeat(64)}`;
+        assert.throws(() => verifyQualificationCandidatePolicyBinding(changed), /binding mismatch/);
+    }
+    assert.throws(() => verifyQualificationCandidatePolicyBinding({ ...identity, requiredEvidenceCatalogDigest: `sha256:${'b'.repeat(64)}` }), /catalog binding/);
 });
 
 test('qualification receipt schema requires all parent fields and rejects status-only, missing blocker IDs and unknown states', () =>

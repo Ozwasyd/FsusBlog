@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { compareQualificationSemantics } = await import(new URL(
+const { compareQualificationSemantics, comparisonMaterialFromAggregateAnalysis } = await import(new URL(
     '../../tools/release-candidate/qualification-comparison.mjs', import.meta.url
 ));
 
@@ -67,4 +67,38 @@ test('unknown fields, status-only and malformed digest material are refused rath
         assert.throws(() => compareQualificationSemantics(source));
     }
     assert.throws(() => compareQualificationSemantics([1, 2, 3].map((ordinal) => ({ ordinal, runId: `run-${ordinal}`, status: 'success' }))));
+});
+
+test('actual aggregate analysis shape is projected without fingerprint rewriting or DATA_ONLY authority promotion', () =>
+{
+    const digest = `sha256:${'a'.repeat(64)}`;
+    const analysis = {
+        schema: 'fsusblog.strong-outcome-analysis.v1', dataOnly: true, producerVerificationPending: true,
+        inputContentDigest: digest, outcomeFingerprint: digest,
+        canonicalOutcome: {
+            schema: 'fsusblog.aggregate-run-outcome.v1', runId: 'controlled-run', contentDigest: digest,
+            aggregateOutcomeFingerprint: digest,
+            stateSemanticDigests: [{ semanticId: 'state', owner: 'database', digest }],
+            artifactSemanticDigests: [{ semanticId: 'artifact', owner: 'build', digest }],
+            failureTopology: []
+        }
+    };
+    const material = comparisonMaterialFromAggregateAnalysis(analysis, 1);
+    assert.equal(material.aggregateOutcomeFingerprint, analysis.outcomeFingerprint);
+    assert.deepEqual(material.stateSemanticDigests, { state: digest });
+    assert.deepEqual(material.artifactSemanticDigests, { artifact: digest });
+    assert.equal(Object.hasOwn(material, 'qualificationEligible'), false);
+    for (const mutation of [{ dataOnly: false }, { producerVerificationPending: false },
+        { outcomeFingerprint: `sha256:${'b'.repeat(64)}` }, { inputContentDigest: `sha256:${'b'.repeat(64)}` }])
+    {
+        assert.throws(() => comparisonMaterialFromAggregateAnalysis({ ...analysis, ...mutation }, 1));
+    }
+    for (const mutation of [
+        { stateSemanticDigests: [...analysis.canonicalOutcome.stateSemanticDigests, ...analysis.canonicalOutcome.stateSemanticDigests] },
+        { artifactSemanticDigests: [{ semanticId: 'artifact', digest }] },
+        { stateSemanticDigests: [{ semanticId: 'state', owner: 'database', digest, ignored: true }] }
+    ])
+    {
+        assert.throws(() => comparisonMaterialFromAggregateAnalysis({ ...analysis, canonicalOutcome: { ...analysis.canonicalOutcome, ...mutation } }, 1));
+    }
 });

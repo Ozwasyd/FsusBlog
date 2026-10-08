@@ -53,3 +53,50 @@ export function compareQualificationSemantics(materials)
         comparisons
     };
 }
+
+/** Project the actual strong aggregate DATA_ONLY API without granting authority.
+ * The caller must use the upstream analyzer with complete external expectations.
+ * No raw receipt normalization, producer verification or fingerprinting occurs here.
+ */
+export function comparisonMaterialFromAggregateAnalysis(analysis, ordinal)
+{
+    const outcome = analysis?.canonicalOutcome;
+    if (![1, 2, 3].includes(ordinal) || analysis?.schema !== 'fsusblog.strong-outcome-analysis.v1'
+        || analysis.dataOnly !== true || analysis.producerVerificationPending !== true
+        || outcome?.schema !== 'fsusblog.aggregate-run-outcome.v1'
+        || analysis.inputContentDigest !== outcome.contentDigest
+        || analysis.outcomeFingerprint !== outcome.aggregateOutcomeFingerprint)
+    {
+        throw new Error('comparison extraction requires upstream aggregate DATA_ONLY analysis');
+    }
+    const digestMap = (entries) =>
+    {
+        if (!Array.isArray(entries))
+        {
+            throw new Error('aggregate semantic entries must be explicit arrays');
+        }
+        const result = {};
+        for (const entry of entries)
+        {
+            if (!entry || JSON.stringify(Object.keys(entry).sort()) !== JSON.stringify(['digest', 'owner', 'semanticId'])
+                || typeof entry.semanticId !== 'string' || !entry.semanticId
+                || typeof entry.owner !== 'string' || !entry.owner || !digestPattern.test(entry.digest)
+                || Object.hasOwn(result, entry.semanticId))
+            {
+                throw new Error('aggregate semantic entries must have exact unique ID/owner/digest');
+            }
+            Object.defineProperty(result, entry.semanticId, { value: entry.digest, enumerable: true });
+        }
+        return result;
+    };
+    const material = {
+        ordinal,
+        runId: outcome.runId,
+        aggregateOutcomeFingerprint: outcome.aggregateOutcomeFingerprint,
+        stateSemanticDigests: digestMap(outcome.stateSemanticDigests),
+        artifactSemanticDigests: digestMap(outcome.artifactSemanticDigests),
+        failureTopology: structuredClone(outcome.failureTopology)
+    };
+    validateMaterial(material, ordinal - 1);
+    return material;
+}

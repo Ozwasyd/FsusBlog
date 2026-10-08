@@ -145,3 +145,36 @@ export function qualificationIdentityBinding(ledger = loadCanonicalRequiredEvide
         requiredEvidenceCatalogDigest: ledger.contentDigest
     });
 }
+
+/** Semantic configuration IDs admitted by the existing immutable identity schema.
+ * The identity owner verifies/collects the complete descriptor; no new fields are added.
+ */
+export function qualificationCandidateConfigurationDigests(ledger = loadCanonicalRequiredEvidenceCatalog())
+{
+    const binding = qualificationIdentityBinding(ledger);
+    return freeze({
+        'qualification-policy': binding.qualificationPolicyDigest,
+        'qualification-receipt-schema': binding.qualificationReceiptSchemaDigest,
+        'qualification-repeatability-catalog': binding.repeatabilityCatalogDigest
+    });
+}
+
+/** Check qualification's policy slice after the upstream complete identity verifier.
+ * This function does not verify source facts, collectors or the whole identity.
+ */
+export function verifyQualificationCandidatePolicyBinding(identity, ledger = loadCanonicalRequiredEvidenceCatalog())
+{
+    const required = qualificationCandidateConfigurationDigests(ledger);
+    for (const [id, digest] of Object.entries(required))
+    {
+        if (identity?.configurationDigests?.[id] !== digest)
+        {
+            throw new Error(`candidate configuration binding mismatch: ${id}`);
+        }
+    }
+    if (identity.requiredEvidenceCatalogDigest !== ledger.contentDigest)
+    {
+        throw new Error('candidate required-evidence catalog binding mismatch');
+    }
+    return identity;
+}
