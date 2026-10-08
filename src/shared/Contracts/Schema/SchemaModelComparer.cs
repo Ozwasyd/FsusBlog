@@ -119,7 +119,7 @@ public static class SchemaModelComparer
                 errors.Add($"mysql-physical unobserved index {expected.Name}.{indexName} owner={Describe(expected.Owner)}");
             if (expectedIndex.Name != actualIndex.Name
                 || expectedIndex.IsUnique != actualIndex.IsUnique
-                || !expectedIndex.Keys.SequenceEqual(actualIndex.Keys)
+                || !EqualIndexKeys(expectedIndex.Keys, actualIndex.Keys)
                 || !expectedIndex.IncludedColumns.SequenceEqual(actualIndex.IncludedColumns, StringComparer.Ordinal)
                 || expectedIndex.AccessMethod != actualIndex.AccessMethod
                 || expectedIndex.Predicate != actualIndex.Predicate
@@ -215,6 +215,24 @@ public static class SchemaModelComparer
 
     private static string Describe(SchemaOwnerModel? owner)
         => owner is null ? "unknown" : $"{owner.Owner}@{owner.SourceRange}";
+
+    private static bool EqualIndexKeys(IReadOnlyList<SchemaIndexKeyModel> expected, IReadOnlyList<SchemaIndexKeyModel> actual)
+        => expected.Count == actual.Count && expected.Zip(actual).All(static pair => EqualIndexKey(pair.First, pair.Second));
+
+    private static bool EqualIndexKey(SchemaIndexKeyModel expected, SchemaIndexKeyModel actual)
+    {
+        SchemaIndexKeyModel expectedScalars = expected with
+        {
+            Expression = null
+        };
+        SchemaIndexKeyModel actualScalars = actual with
+        {
+            Expression = null
+        };
+        return expectedScalars == actualScalars
+            && (expected.Expression is null ? actual.Expression is null
+                : actual.Expression is not null && SchemaExpressionIdentity.Equal(expected.Expression, actual.Expression));
+    }
 
     private static bool HasMySqlTableFacts(SchemaMySqlTablePhysicalFacts? facts)
         => facts is not null && !string.IsNullOrWhiteSpace(facts.TableType)
