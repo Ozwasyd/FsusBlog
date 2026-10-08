@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { verifyConformanceArtifact } from './conformance.mjs';
 import { buildOracleFacts } from './oracle-facts.mjs';
 import { evaluateQuality, loadQualityPolicy } from './policy.mjs';
 import { contentDigest, QUALITY_ARTIFACT_SCHEMA } from './schema.mjs';
@@ -310,7 +311,6 @@ export function verifyQualityArtifact({
 }
 
 const { loadCanonicalInventory } = await import(new URL('../test-inventory/api.mjs', import.meta.url));
-import { verifyConformanceArtifact } from './conformance.mjs';
 export const requiredEvidenceVerifier = Object.freeze({
     version: 1, successStatuses: Object.freeze(['success']), describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeJobEvidence(receipt),
     async verify({ domainInputs, repositoryRoot, context })

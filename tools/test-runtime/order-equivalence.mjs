@@ -1,5 +1,5 @@
-/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
-import { digestCanonical, freezeDeep, plainObject } from '../test-fixtures/receipt/canonical.mjs';
+
+const { digestCanonical, freezeDeep, plainObject } = await import(new URL('../test-fixtures/receipt/canonical.mjs', import.meta.url));
 
 import { normalizeRuntimeIdentity, requireDigest, sealDocument } from './contract.mjs';
 import { validateRuntimeResetBarrierReceipt } from './reset-barrier.mjs';

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import childProcess from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -128,6 +130,26 @@ test('every catalog authority gets exact-one generic and owner verification, ind
 test('missing or multiple explicit receipts reject without executing the owner or a producer', async (t) =>
 {
     const f = fixture(t);
+    const calls = [];
+    const originals = new Map();
+    for (const method of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork'])
+    {
+        originals.set(method, childProcess[method]);
+        childProcess[method] = (...args) =>
+        {
+            calls.push({ method, args });
+            throw new Error('producer execution is forbidden in a binding verifier');
+        };
+    }
+    syncBuiltinESMExports();
+    t.after(() =>
+    {
+        for (const [method, original] of originals)
+        {
+            childProcess[method] = original;
+        }
+        syncBuiltinESMExports();
+    });
     const entry = f.catalog.entries[0];
     const options = { ...f, authorityId: entry.authorityId, expectedIdentity: {} };
     await assert.rejects(createRequiredEvidenceBinding({ ...options, explicitInputs: [] }),
@@ -135,6 +157,7 @@ test('missing or multiple explicit receipts reject without executing the owner o
     await assert.rejects(createRequiredEvidenceBinding({ ...options, explicitInputs: ['a', 'b'] }),
         (error) => error.reasonCode === 'AMBIGUOUS_EVIDENCE');
     assert.equal(fs.readdirSync(path.join(f.repositoryRoot, 'artifacts/current-run')).length, 0);
+    assert.equal(calls.length, 0, 'missing/ambiguous evidence must perform zero process executions');
 });
 
 test('all source/worktree/run/build/image/policy bindings are exact and never commit-only', async (t) =>

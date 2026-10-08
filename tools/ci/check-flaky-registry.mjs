@@ -4,8 +4,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { governanceContentDigest } from '../test/evidence-location-contract.mjs';
-import { parseYamlDocument } from '../yaml/parse-document.mjs';
+const { governanceContentDigest } = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
+const { parseYamlDocument } = await import(new URL('../yaml/parse-document.mjs', import.meta.url));
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const registryPath = path.join(root, 'tests/flaky.yml');
@@ -180,7 +180,7 @@ export const requiredEvidenceVerifier = Object.freeze({
     version: 1, successStatuses: Object.freeze(['ok']),
     async describe(receipt)
     {
-        const { describeOwnerReceipt, verifiedOwnerResult, requireOwnerChecks } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        const { describeOwnerReceipt } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
         return { ...describeOwnerReceipt(receipt, {
             identity: { namespace: 'namespace', runId: 'runId', sourceCommit: 'sourceCommit', worktreeFingerprint: 'worktreeFingerprint' },
             status: 'status', contentDigest: 'contentDigest'

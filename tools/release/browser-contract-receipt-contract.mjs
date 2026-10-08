@@ -2,8 +2,8 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 
 // The independent reader requires a statically closed, I/O-free import graph.
-// eslint-disable-next-line import-x/no-relative-parent-imports
-import { verifyProducerTemporalArtifacts } from '../test/temporal-context-contract.mjs';
+
+const { verifyProducerTemporalArtifacts } = await import(new URL('../test/temporal-context-contract.mjs', import.meta.url));
 
 export const browserContractReceiptSchema = 'fsusblog.browser-contract-receipt.v2';
 export const productionBuildReceiptSchema = 'fsusblog.ci-production-build-receipt.v1';
@@ -680,7 +680,7 @@ export const requiredEvidenceVerifier = Object.freeze({
     }),
     async verify({ receipt, context, domainInputs })
     {
-        const { describeOwnerReceipt, verifiedOwnerResult, requireOwnerChecks } = await import('./required-evidence-owner-contract.mjs');
+        const { verifiedOwnerResult, requireOwnerChecks } = await import('./required-evidence-owner-contract.mjs');
         requireOwnerChecks(validateBrowserContractReceipt(receipt, {
             expectedCommit: context.sourceCommit, expectedFingerprint: context.worktreeFingerprint,
             expectedBuildReceiptDigest: domainInputs?.buildReceiptDigest, requireSuccess: true

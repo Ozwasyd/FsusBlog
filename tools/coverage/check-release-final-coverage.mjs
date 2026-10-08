@@ -319,19 +319,19 @@ function runSelfTest()
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-if (process.argv.includes('--self-test'))
-{
-    runSelfTest();
-}
-else
-{
-    const errors = validate();
-    if (errors.length > 0)
+    if (process.argv.includes('--self-test'))
     {
-        fail(errors);
+        runSelfTest();
     }
-    console.log('[release-final-coverage] ok');
-}
+    else
+    {
+        const errors = validate();
+        if (errors.length > 0)
+        {
+            fail(errors);
+        }
+        console.log('[release-final-coverage] ok');
+    }
 
 }
 
