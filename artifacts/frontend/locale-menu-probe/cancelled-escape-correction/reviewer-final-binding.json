@@ -1,0 +1,36 @@
+{
+  "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+  "sourceStatus": "",
+  "command": [
+    "node",
+    "cancellation.mjs",
+    "/workspace/FsusUI-dropdown-current-main",
+    "reviewer-final.json",
+    "/workspace/FsusBlog"
+  ],
+  "exitCode": 0,
+  "reviewer": "01a11b3a-b8fa-7638-ae1c-eaea38fdb032",
+  "assertionsModified": false,
+  "runBy": "implementation task; not independent acceptance",
+  "recordedAt": "2026-10-08T11:54:25.823310+00:00",
+  "harnessFiles": [
+    {
+      "path": "cancellation.mjs",
+      "sha256": "73880e1a06436c1d215e68e4b88e8a846d4534a9ccda2ad786dfec3fe3f58359"
+    },
+    {
+      "path": "cancellation-fixture/App.vue",
+      "sha256": "ebfa8a1815deb8cf1ac0d2c0f8f41e01eaebd74f99965ae1b0994fa309e65f8b"
+    },
+    {
+      "path": "cancellation-fixture/main.js",
+      "sha256": "77e14e3a16c10c5a0a0083672879dfffc01dcc2e0f73ebd66e523b2eee1b6c9f"
+    },
+    {
+      "path": "cancellation-fixture/index.html",
+      "sha256": "829a7fbe19aeec63e89c141c88a0aa3ad5e8a026df4350285d1aeb1ab6c76aad"
+    }
+  ],
+  "sourceAfter": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+  "statusAfter": ""
+}

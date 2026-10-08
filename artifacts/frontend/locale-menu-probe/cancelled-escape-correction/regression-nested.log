@@ -1,0 +1,265 @@
+
+ RUN  v4.1.5 /workspace/FsusUI-dropdown-current-main
+
+ ❯ vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts (12 tests | 3 failed) 4897ms
+     × cancelled item Escape does not restore the trigger on later outside dismissal 1106ms
+     × nested Escape (cancelled=false) preserves parent state and subsequent outside focus 1374ms
+     × nested Escape (cancelled=true) preserves parent state and subsequent outside focus 1304ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts > Dropdown public checked state > cancelled item Escape does not restore the trigger on later outside dismissal
+AssertionError: expected <button …(9)>…(1)</button> to be <button data-outside></button> // Object.is equality
+
+- Expected
++ Received
+
+  <button
+-   data-outside=""
++   aria-controls="el-id-140-37"
++   aria-disabled="false"
++   aria-expanded="false"
++   aria-haspopup="menu"
++   class="el-button el-tooltip__trigger"
++   id="el-id-140-36"
++   role="button"
++   tabindex="0"
++   type="button"
++ >
++   <!--v-if-->
++   <span
++     class="el-button__content"
+    >
+-   Outside
++     
++     Language
++     
++   </span>
+  </button>
+
+ ❯ vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts:199:38
+    197|     await vi.waitFor(() => {
+    198|       expect(dropdown.emitted('visible-change')?.at(-1)).toEqual([fals…
+    199|       expect(document.activeElement).toBe(outside.element)
+       |                                      ^
+    200|     })
+    201|     wrapper.unmount()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts > Dropdown public checked state > nested Escape (cancelled=false) preserves parent state and subsequent outside focus
+AssertionError: expected <button …(10)>…(1)</button> to be <button data-outside></button> // Object.is equality
+
+- Expected
++ Received
+
+  <button
+-   data-outside=""
++   aria-controls="el-id-140-40"
++   aria-disabled="false"
++   aria-expanded="false"
++   aria-haspopup="menu"
++   class="el-button el-tooltip__trigger"
++   data-parent-trigger=""
++   id="el-id-140-39"
++   role="button"
++   tabindex="0"
++   type="button"
+  >
+-   Outside
++   <!--v-if-->
++   <span
++     class="el-button__content"
++   >
++     
++     Parent
++     
++   </span>
+  </button>
+
+ ❯ vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts:276:40
+    274|         expect(parent.emitted('visible-change')?.at(-1)).toEqual([fals…
+    275|         expect(child.emitted('visible-change')?.at(-1)).toEqual([false…
+    276|         expect(document.activeElement).toBe(outside.element)
+       |                                        ^
+    277|       })
+    278|       wrapper.unmount()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts > Dropdown public checked state > nested Escape (cancelled=true) preserves parent state and subsequent outside focus
+AssertionError: expected <li data-el-collection-item …(5)>…(1)</li> to be <button data-outside></button> // Object.is equality
+
+- Expected
++ Received
+
++ <li
++   aria-checked="true"
++   aria-disabled="false"
++   class="el-dropdown-menu__item selected"
++   data-el-collection-item=""
++   role="menuitemradio"
++   tabindex="0"
++ >
++   <!--v-if-->
++   
++   
++   <div
++     class="el-dropdown"
++     data-fsus-motion-preset="paper-settle"
++   >
++     
+      <button
+-   data-outside=""
++       aria-controls="el-id-140-49"
++       aria-disabled="false"
++       aria-expanded="false"
++       aria-haspopup="menu"
++       class="el-button el-tooltip__trigger"
++       data-child-trigger=""
++       id="el-id-140-48"
++       role="button"
++       tabindex="0"
++       type="button"
+      >
+-   Outside
++       <!--v-if-->
++       <span
++         class="el-button__content"
++       >
++         
++         Child
++         
++       </span>
+      </button>
++     <!--teleport start-->
++     <div
++       aria-hidden="true"
++       class="el-popper is-pure is-light el-dropdown__popper"
++       data-popper-escaped="true"
++       data-popper-placement="bottom"
++       data-popper-reference-hidden="true"
++       style="z-index: 2021; position: absolute; left: 0px; top: 0px; right: auto; bottom: auto; transform: translate(0px, 12px); display: none;"
++       tabindex="-1"
++     >
++       
++       
++       
++       
++       <div
++         class="el-scrollbar"
++       >
++         <div
++           class="el-scrollbar__wrap el-scrollbar__wrap--hidden-default"
++         >
++           <div
++             class="el-scrollbar__view el-dropdown__list"
++             style=""
++           >
++             
++             
++             
++             
++             
++             
++             <ul
++               aria-labelledby="el-id-140-48"
++               class="el-dropdown-menu"
++               id="el-id-140-49"
++               role="menu"
++               style="outline: none;"
++               tabindex="-1"
++             >
++               
++               
++               
++               
++               
++               <!--v-if-->
++               <li
++                 aria-checked="true"
++                 aria-disabled="false"
++                 class="el-dropdown-menu__item selected"
++                 data-child-item=""
++                 data-el-collection-item=""
++                 role="menuitemradio"
++                 tabindex="0"
++               >
++                 <!--v-if-->
++                 
++                 
++                 English
++                 
++                 
++                 <!--v-if-->
++               </li>
++               
++               
++               
++               
++               
++             </ul>
++             
++             
++             
++             
++             
++             
++           </div>
++         </div>
++         
++         <div
++           class="el-scrollbar__bar is-horizontal"
++           style="display: none;"
++         >
++           <div
++             class="el-scrollbar__thumb"
++             style="transform: translateX(0%);"
++           />
++         </div>
++         <div
++           class="el-scrollbar__bar is-vertical"
++           style="display: none;"
++         >
++           <div
++             class="el-scrollbar__thumb"
++             style="transform: translateY(0%);"
++           />
++         </div>
++         
++       </div>
++       
++       <span
++         class="el-popper__arrow"
++         data-popper-arrow=""
++         style="position: absolute; left: 0px; transform: translate(0px, 0px);"
++       />
++       
++       
++       
++     </div>
++     <!--teleport end-->
++     
++     <!--v-if-->
++   </div>
++   
++   
++   <!--v-if-->
++ </li>
+
+ ❯ vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts:276:40
+    274|         expect(parent.emitted('visible-change')?.at(-1)).toEqual([fals…
+    275|         expect(child.emitted('visible-change')?.at(-1)).toEqual([false…
+    276|         expect(document.activeElement).toBe(outside.element)
+       |                                        ^
+    277|       })
+    278|       wrapper.unmount()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 9 passed (12)
+   Start at  11:40:04
+   Duration  15.91s (transform 8.82s, setup 85ms, import 10.26s, tests 4.90s, environment 543ms)
+

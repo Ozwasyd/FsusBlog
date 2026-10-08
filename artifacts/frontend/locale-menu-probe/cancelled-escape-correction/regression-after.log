@@ -1,0 +1,53 @@
+
+ RUN  v4.1.5 /workspace/FsusUI-dropdown-current-main
+
+ ❯ vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts (10 tests | 1 failed) 2200ms
+     × cancelled item Escape does not restore the trigger on later outside dismissal 1154ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts > Dropdown public checked state > cancelled item Escape does not restore the trigger on later outside dismissal
+AssertionError: expected <button …(9)>…(1)</button> to be <button data-outside></button> // Object.is equality
+
+- Expected
++ Received
+
+  <button
+-   data-outside=""
++   aria-controls="el-id-868-37"
++   aria-disabled="false"
++   aria-expanded="false"
++   aria-haspopup="menu"
++   class="el-button el-tooltip__trigger"
++   id="el-id-868-36"
++   role="button"
++   tabindex="0"
++   type="button"
++ >
++   <!--v-if-->
++   <span
++     class="el-button__content"
+    >
+-   Outside
++     
++     Language
++     
++   </span>
+  </button>
+
+ ❯ vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts:199:38
+    197|     await vi.waitFor(() => {
+    198|       expect(dropdown.emitted('visible-change')?.at(-1)).toEqual([fals…
+    199|       expect(document.activeElement).toBe(outside.element)
+       |                                      ^
+    200|     })
+    201|     wrapper.unmount()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  11:39:07
+   Duration  13.52s (transform 9.14s, setup 87ms, import 10.58s, tests 2.20s, environment 536ms)
+

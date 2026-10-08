@@ -1,0 +1,27 @@
+{
+  "reviewedHead": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+  "correctionSource": "ea4e16b9b8bb62c5b75b1b60d66c6b73a489b8e4",
+  "candidate": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+  "paths": [
+    ".changeset/dropdown-cancelled-escape-focus.md",
+    "docs/avalonia/vue-public-api-baseline.md",
+    "docs/components/dropdown.md",
+    "spec/baselines/vue-current.json",
+    "spec/components/contracts/v2/contract-v2.json",
+    "vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts",
+    "vue/packages/components/dropdown/src/dropdown-menu.vue",
+    "vue/packages/components/dropdown/src/dropdown.vue"
+  ],
+  "onlyMetadataSuccessor": [
+    "docs/avalonia/vue-public-api-baseline.md",
+    "spec/baselines/vue-current.json",
+    "spec/components/contracts/v2/contract-v2.json"
+  ],
+  "originalRadioTestLinesPreserved": true,
+  "originalOtherTestFilesChanged": "",
+  "preservedReviewedBranch": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+  "status": "clean",
+  "fullCorrectionDiffSha256": "709debc2f040fa59fa9f3a81858a65c7c0b5a61b487d61d35e6c285bb42ac5c8",
+  "sameReviewer": "01a11b3a-b8fa-7638-ae1c-eaea38fdb032",
+  "newReviewTaskCreated": false
+}

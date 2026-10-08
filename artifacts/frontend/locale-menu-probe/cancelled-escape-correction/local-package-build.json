@@ -1,0 +1,13 @@
+{
+  "command": [
+    "pnpm",
+    "package:candidate:build"
+  ],
+  "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+  "processExitCode": 129,
+  "status": "blocked",
+  "abortReason": "Official build preparation changed the unowned icons index; stopped before candidate packaging to preserve exact narrow source binding.",
+  "unownedIndexRestored": true,
+  "tarballQualification": false,
+  "verifyAndFreshConsumerInstall": "not run unless a valid source-bound tarball exists"
+}

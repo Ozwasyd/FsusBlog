@@ -1,0 +1,5 @@
+
+> @ typecheck:web:no-cache /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs web --no-cache
+
+[typecheck:web] no-cache project=vue/tsconfig.web.json

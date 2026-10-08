@@ -1,0 +1,58 @@
+
+> @ package:candidate:build /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/package-candidate.mjs build
+
+
+> @ build:npm-package /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs pnpm run build && node ./scripts/with-node-heap.mjs node ./scripts/prepare-npm-package.mjs --strict
+
+
+> @ build /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs pnpm run -C vue/internal/build start
+
+
+> @element-plus/build@0.0.1 start /workspace/FsusUI-dropdown-current-main/vue/internal/build
+> node ../../../scripts/with-node-heap.mjs node --require tsx/cjs ../../../node_modules/gulp/bin/gulp.js -f gulpfile.ts
+
+[11:52:29] Using gulpfile /workspace/FsusUI-dropdown-current-main/vue/internal/build/gulpfile.ts
+[11:52:29] Starting 'default'...
+[11:52:29] Starting 'cleanPackageBuild'...
+ℹ run: pnpm run clean:package-build
+
+> @ clean:package-build /workspace/FsusUI-dropdown-current-main
+> rimraf dist/element-plus dist/types vue/packages/theme-chalk/dist
+
+[11:52:29] Finished 'cleanPackageBuild' after 369 ms
+[11:52:29] Starting 'createOutput'...
+[11:52:29] Finished 'createOutput' after 990 μs
+[11:52:29] Starting 'ensureWasmArtifacts'...
+[11:52:29] Starting 'ensureIconsVueArtifacts'...
+ℹ run: pnpm run ensure:wasm
+ℹ run: pnpm run ensure:icons
+
+> @ ensure:icons /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/ensure-icons-artifacts.mjs
+
+
+> @ ensure:wasm /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/ensure-wasm-artifacts.mjs
+
+[ensure-wasm] cache-hit source-hash=743a7500a128f6e6; reusing vue/packages/wasm/dist artifacts.
+[11:52:30] Finished 'ensureWasmArtifacts' after 493 ms
+[ensure-icons] cache-miss source-hash=caccef4c5cbb0cdc; rebuilding icons-vue artifacts.
+  - icons artifact fingerprint is missing
+
+> @element-plus/icons-vue@2.3.2 build /workspace/FsusUI-dropdown-current-main/vue/packages/icons-vue
+> node ../../../scripts/with-node-heap.mjs pnpm run build:generate && node ../../../scripts/with-node-heap.mjs run-p build:build build:types
+
+
+> @element-plus/icons-vue@2.3.2 build:generate /workspace/FsusUI-dropdown-current-main/vue/packages/icons-vue
+> node ../../../scripts/with-node-heap.mjs tsx build/generate.ts
+
+Generated 302 FsusUI design-aligned icons.
+ ELIFECYCLE  Command failed with exit code 129.
+ ELIFECYCLE  Command failed with exit code 129.
+ ELIFECYCLE  Command failed with exit code 129.
+ ELIFECYCLE  Command failed with exit code 129.
+ ELIFECYCLE  Command failed with exit code 129.
+ ELIFECYCLE  Command failed with exit code 129.

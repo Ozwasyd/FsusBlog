@@ -1,0 +1,9 @@
+ .changeset/dropdown-cancelled-escape-focus.md      |   5 +
+ docs/avalonia/vue-public-api-baseline.md           |   2 +-
+ docs/components/dropdown.md                        |   5 +
+ spec/baselines/vue-current.json                    |   6 +-
+ spec/components/contracts/v2/contract-v2.json      |   2 +-
+ .../dropdown/__tests__/dropdown-radio.test.ts      | 128 +++++++++++++++++++++
+ .../components/dropdown/src/dropdown-menu.vue      |   2 +-
+ vue/packages/components/dropdown/src/dropdown.vue  |  19 +--
+ 8 files changed, 155 insertions(+), 14 deletions(-)

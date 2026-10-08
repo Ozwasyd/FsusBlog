@@ -1,0 +1,249 @@
+{
+  "schema": "fsusblog.dropdown-cancelled-escape-source-correction.v1",
+  "recordedAt": "2026-10-08T11:57:18.968394+00:00",
+  "reviewedHead": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+  "sourceCorrection": "ea4e16b9b8bb62c5b75b1b60d66c6b73a489b8e4",
+  "candidate": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+  "branch": "task/830-cancelled-escape-focus",
+  "preservedReviewedBranch": "task/830-dropdown-current-main",
+  "sameReviewer": "01a11b3a-b8fa-7638-ae1c-eaea38fdb032",
+  "newReviewTask": false,
+  "qualification": false,
+  "issues": {
+    "1891": "OPEN/WIP; correction locally verified, published parity and independent product/UX/screen-reader acceptance outstanding",
+    "830": "OPEN/WIP; focus correction source ready for same reviewer; published identity and canonical visual/package producer gates outstanding"
+  },
+  "sourceGates": [
+    {
+      "name": "web",
+      "command": [
+        "pnpm",
+        "typecheck:web:no-cache"
+      ],
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "exitCode": 0,
+      "log": "web.log"
+    },
+    {
+      "name": "vitest",
+      "command": [
+        "pnpm",
+        "typecheck:vitest:no-cache"
+      ],
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "exitCode": 0,
+      "log": "vitest.log"
+    },
+    {
+      "name": "api",
+      "command": [
+        "pnpm",
+        "avalonia:baseline:check"
+      ],
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "exitCode": 0,
+      "log": "api.log"
+    },
+    {
+      "name": "contract",
+      "command": [
+        "pnpm",
+        "contract-v2:check"
+      ],
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "exitCode": 0,
+      "log": "contract.log"
+    },
+    {
+      "name": "public",
+      "command": [
+        "pnpm",
+        "conformance:v2:vue-public"
+      ],
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "exitCode": 0,
+      "log": "public.log"
+    },
+    {
+      "name": "lint",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "--config",
+        "vue/eslint.config.mjs",
+        "--max-warnings",
+        "0",
+        "vue/packages/components/dropdown/src"
+      ],
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "exitCode": 0,
+      "log": "lint.log"
+    },
+    {
+      "name": "format",
+      "command": [
+        "pnpm",
+        "exec",
+        "prettier",
+        "--check",
+        "vue/packages/components/dropdown/src/dropdown.vue",
+        "vue/packages/components/dropdown/src/dropdown-menu.vue",
+        "vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts",
+        "docs/components/dropdown.md",
+        ".changeset/dropdown-cancelled-escape-focus.md"
+      ],
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "exitCode": 0,
+      "log": "format.log"
+    },
+    {
+      "name": "interactions",
+      "command": [
+        "pnpm",
+        "interactions:check"
+      ],
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "exitCode": 0,
+      "log": "interactions.log"
+    },
+    {
+      "name": "design",
+      "command": [
+        "pnpm",
+        "check:fsusui-design-conformance"
+      ],
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "exitCode": 0,
+      "log": "design.log"
+    },
+    {
+      "name": "docs",
+      "command": [
+        "pnpm",
+        "check:documentation-architecture"
+      ],
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "exitCode": 0,
+      "log": "docs.log"
+    }
+  ],
+  "runtimeChecks": [
+    {
+      "command": "pnpm exec vitest run --config vue/vitest.config.ts vue/packages/components/dropdown/__tests__ vue/packages/hooks/__tests__/use-popper.test.tsx vue/packages/components/popper/__tests__ vue/packages/components/check-tag/__tests__ vue/packages/components/focus-trap/__tests__",
+      "source": "ea4e16b9b8bb62c5b75b1b60d66c6b73a489b8e4",
+      "exitCode": 0,
+      "tests": 85,
+      "files": 12,
+      "originalControls": 82,
+      "newControls": 3,
+      "log": "focused.log"
+    },
+    {
+      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-dropdown-current-main node node_modules/vitest/vitest.mjs run --config vitest.config.ts ../../tests/frontend/unit/components/LocaleSelector.test.ts ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts",
+      "source": "ea4e16b9b8bb62c5b75b1b60d66c6b73a489b8e4",
+      "blogSource": "49472afcbdc6a0321d53fe236aa42b26b29492f1",
+      "exitCode": 0,
+      "tests": 33,
+      "files": 3,
+      "log": "blog-unit.log"
+    },
+    {
+      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-dropdown-current-main FSUSBLOG_LOCALE_PROBE_REAL_ZOOM=1 PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI-dropdown-current-main EVIDENCE_ROOT",
+      "source": "ea4e16b9b8bb62c5b75b1b60d66c6b73a489b8e4",
+      "exitCode": 0,
+      "runId": "locale-menu-local-2026-10-08T11:44:06.973Z",
+      "report": "consumer/probe.json",
+      "qualification": false
+    },
+    {
+      "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node probe-public-escape.mjs UI_ROOT BLOG_ROOT EVIDENCE_ROOT",
+      "source": "ea4e16b9b8bb62c5b75b1b60d66c6b73a489b8e4",
+      "exitCode": 0,
+      "cycles": 12,
+      "runId": "public-escape-2026-10-08T11:44:56.682Z",
+      "report": "public-escape/probe.json",
+      "qualification": false
+    },
+    {
+      "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "sourceStatus": "",
+      "command": [
+        "node",
+        "cancellation.mjs",
+        "/workspace/FsusUI-dropdown-current-main",
+        "reviewer-final.json",
+        "/workspace/FsusBlog"
+      ],
+      "exitCode": 0,
+      "reviewer": "01a11b3a-b8fa-7638-ae1c-eaea38fdb032",
+      "assertionsModified": false,
+      "runBy": "implementation task; not independent acceptance",
+      "recordedAt": "2026-10-08T11:54:25.823310+00:00",
+      "harnessFiles": [
+        {
+          "path": "cancellation.mjs",
+          "sha256": "73880e1a06436c1d215e68e4b88e8a846d4534a9ccda2ad786dfec3fe3f58359"
+        },
+        {
+          "path": "cancellation-fixture/App.vue",
+          "sha256": "ebfa8a1815deb8cf1ac0d2c0f8f41e01eaebd74f99965ae1b0994fa309e65f8b"
+        },
+        {
+          "path": "cancellation-fixture/main.js",
+          "sha256": "77e14e3a16c10c5a0a0083672879dfffc01dcc2e0f73ebd66e523b2eee1b6c9f"
+        },
+        {
+          "path": "cancellation-fixture/index.html",
+          "sha256": "829a7fbe19aeec63e89c141c88a0aa3ad5e8a026df4350285d1aeb1ab6c76aad"
+        }
+      ],
+      "sourceAfter": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+      "statusAfter": ""
+    }
+  ],
+  "negativeControl": {
+    "testedSource": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+    "productionFiles": "two exact reviewed Dropdown source blobs temporarily selected only in the separate correction worktree; restored in finally",
+    "unitExitCode": 1,
+    "unitResult": "one failed / eleven passed; cancelled Escape then outside focuses trigger",
+    "browserExitCode": 1,
+    "browserFocus": "trigger",
+    "sameReviewerAssertionsChanged": false,
+    "report": "reviewer-negative.json",
+    "sourceBinding": "reviewer-negative-source.json"
+  },
+  "localPackageArtifact": {
+    "command": [
+      "pnpm",
+      "package:candidate:build"
+    ],
+    "source": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+    "processExitCode": 129,
+    "status": "blocked",
+    "abortReason": "Official build preparation changed the unowned icons index; stopped before candidate packaging to preserve exact narrow source binding.",
+    "unownedIndexRestored": true,
+    "tarballQualification": false,
+    "verifyAndFreshConsumerInstall": "not run unless a valid source-bound tarball exists"
+  },
+  "preservedAcceptanceLimits": [
+    {
+      "gate": "official affected visual",
+      "result": "earlier exit 1 before browser suites; not rerun on this correction because unchanged canonical icons producer prerequisite remains blocked",
+      "evidence": "../current-main-narrow/affected-visual.log"
+    },
+    {
+      "gate": "published/local acceptance parity",
+      "result": "OPEN; prior unavailable installed-package probe exit 3 retained, no registry provenance or package publication attested",
+      "evidence": "../current-main-narrow/final-published/probe.json"
+    },
+    {
+      "gate": "generated-contract formatting and build-utils",
+      "result": "Parent-supplied independent review diagnostics remain exit 1; these are not claimed repaired or freshly rerun by this correction."
+    },
+    {
+      "gate": "full visual, native/performance/release and independent production/screen-reader/UX",
+      "result": "not run or accepted on this correction; no historical qualification inherited"
+    }
+  ]
+}

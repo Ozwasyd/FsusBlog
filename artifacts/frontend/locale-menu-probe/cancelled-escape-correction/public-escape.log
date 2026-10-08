@@ -1,0 +1,110 @@
+{
+  "schema": "fsusui.dropdown-public-escape-probe.v1",
+  "runId": "public-escape-2026-10-08T11:44:56.682Z",
+  "source": "ea4e16b9b8bb62c5b75b1b60d66c6b73a489b8e4",
+  "sourceStatus": "",
+  "assertions": [
+    {
+      "nested": false,
+      "cancelled": true,
+      "cycle": 0,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": false,
+      "cancelled": true,
+      "cycle": 1,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": false,
+      "cancelled": true,
+      "cycle": 2,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": false,
+      "cancelled": false,
+      "cycle": 0,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": false,
+      "cancelled": false,
+      "cycle": 1,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": false,
+      "cancelled": false,
+      "cycle": 2,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": true,
+      "cancelled": true,
+      "cycle": 0,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": true,
+      "cancelled": true,
+      "cycle": 1,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": true,
+      "cancelled": true,
+      "cycle": 2,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": true,
+      "cancelled": false,
+      "cycle": 0,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": true,
+      "cancelled": false,
+      "cycle": 1,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    },
+    {
+      "nested": true,
+      "cancelled": false,
+      "cycle": 2,
+      "result": "passed",
+      "checkedState": "committed",
+      "dismissalFocus": "outside"
+    }
+  ],
+  "errors": [],
+  "qualification": false,
+  "fixtureSha256": "3ed3954092dda16b42a50b1923bb960044e4da407494e5f5b1d56468edcd0487",
+  "harnessSha256": "35f65dc3f5e0446547990c0cd06cdd9e8a14ac337cb6c2bbff9a3b450b397507",
+  "browser": "147.0.7727.15",
+  "status": "passed"
+}

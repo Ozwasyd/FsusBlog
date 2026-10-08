@@ -1,0 +1,47 @@
+/workspace/FsusUI-dropdown-current-main/node_modules/playwright/lib/matchers/expect.js:213
+        return matcher.call(target, ...args);
+                       ^
+
+A [Error]: expect(locator).toBeFocused() failed
+
+Locator:  locator('[data-test=outside]')
+Expected: focused
+Received: inactive
+Timeout:  5000ms
+
+Call log:
+  - Expect "to.be.focused" with timeout 5000ms
+  - waiting for locator('[data-test=outside]')
+    9 × locator resolved to <button data-test="outside">Outside</button>
+      - unexpected value "inactive"
+
+    at Proxy.<anonymous> (/workspace/FsusUI-dropdown-current-main/node_modules/playwright/lib/matchers/expect.js:213:24)
+    at file:///tmp/chain-830-escape-correction/cancellation.mjs:107:25 {
+  matcherResult: {
+    message: 'expect(locator).toBeFocused() failed\n' +
+      '\n' +
+      "Locator:  locator('[data-test=outside]')\n" +
+      'Expected: focused\n' +
+      'Received: inactive\n' +
+      'Timeout:  5000ms\n' +
+      '\n' +
+      'Call log:\n' +
+      '  - Expect "to.be.focused" with timeout 5000ms\n' +
+      "  - waiting for locator('[data-test=outside]')\n" +
+      '    9 × locator resolved to <button data-test="outside">Outside</button>\n' +
+      '      - unexpected value "inactive"\n',
+    pass: false,
+    actual: 'inactive',
+    name: 'toBeFocused',
+    expected: 'focused',
+    log: [
+      '  - Expect "to.be.focused" with timeout 5000ms',
+      "  - waiting for locator('[data-test=outside]')",
+      '    9 × locator resolved to <button data-test="outside">Outside</button>',
+      '      - unexpected value "inactive"'
+    ],
+    timeout: 5000
+  }
+}
+
+Node.js v24.19.0

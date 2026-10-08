@@ -1,0 +1,19 @@
+{
+  "worktreeHead": "ea4e16b9b8bb62c5b75b1b60d66c6b73a489b8e4",
+  "testedDropdownSource": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+  "testedRuntimeFiles": [
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown.vue",
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+      "sha256": "85315c148c0fd375af3f3ff40028627a7e2d8f6a52b725d3ed24aa2a2f3908c3"
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown-menu.vue",
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+      "sha256": "6f86784cccd4e36b03b2321c5f0bff773075e8c357b9f92a4418ed33b9887dc6"
+    }
+  ],
+  "exitCode": 1,
+  "expected": "active=trigger, public outside-focus assertion rejects reviewed regression",
+  "reviewer": "01a11b3a-b8fa-7638-ae1c-eaea38fdb032"
+}
