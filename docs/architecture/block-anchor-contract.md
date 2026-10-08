@@ -66,3 +66,39 @@ independently recomputed verification digest.
 marker, URL fragment, and Markdown link, then compares the exact `BlockAnchorId`,
 display text, and encoded route projection. It is a contract verifier, not a query,
 relation, UI, package, or source mutation implementation.
+
+## Target query contract
+
+`BlockTargetQueryRequest` separates the article page from heading/block drill-in.
+Drill-in requires an exact stable article/revision/content coordinate. Authoring
+accepts current or draft revisions; public queries require published coordinates.
+Requests bind actor/site, permission context and revision, query/index/route
+generations, request sequence, search and page limit, plus the existing anchor
+contract version/digest. A changed coordinate invalidates cursors and tokens.
+
+`BlockTargetQueryToken` carries the existing `ArticleBlockTarget`, selected source
+revision, canonical source node/range, block kind, bounded snippet and current slug.
+The source coordinate, content digest and slug are evidence/projections. They never
+replace stable article+anchor identity. The existing codec builds URLs and Markdown;
+the query contract introduces no grammar, parser, normalizer or source writer.
+
+Limits are 100 items per page, 128 search characters and 256 snippet characters.
+An over-budget page is rejected rather than truncated. Duplicate anchors cannot
+appear as selectable items. Duplicate/invalid/malformed/orphan inventories use a
+blocked page with no items or continuation. Missing and denied targets share the
+content-free unavailable shape; cancelled pages also carry no content. There are
+no global corpus counts in this contract.
+
+`BlockTargetQueryValidator` checks structural bounds, scopes, exact current request
+binding and recomputed digests. The producer must authorize the actor on the server
+before reading inventory or returning diagnostics, obtain inventory exclusively
+from the canonical parser, and supply independently observed current coordinates
+before opening or inserting a result. Seals are consistency checks, not signatures,
+permission evidence or proof of parser provenance. The opaque continuation must be
+admitted by the server pagination owner. Contract tests do not establish service
+privacy/timing, cancellation, database pagination, 100000-anchor scale or receipts.
+
+The permission-safe producer (#2441), sole relation producer/query (#2237/#2238 and
+#2443), transactional impact execution (#2447) and real package round-trip (#2450)
+remain separate integration obligations. This contract does not implement or certify
+those capabilities.
