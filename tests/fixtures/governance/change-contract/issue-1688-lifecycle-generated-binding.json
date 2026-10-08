@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/release-reliability-receipt.test.mjs",
+        "tools/test-runtime/production-observer-ports.mjs",
+        "tools/test/collect-release-reliability-fixture.mjs",
+        "tools/test/release-reliability-lifecycle-actions.mjs",
+        "tools/test/release-reliability-lifecycle.mjs",
+        "tools/test/release-reliability-receipt.mjs",
+        "tools/test/verify-release-reliability-lifecycle-action.mjs",
+        "tools/test/verify-release-reliability-receipt.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "53bd9ddc2960c478af89601158910de697226b13db8c8a1431b4a47c3a5bc868"
+        }
+    ]
+}
