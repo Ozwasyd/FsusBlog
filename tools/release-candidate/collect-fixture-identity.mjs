@@ -1,3 +1,6 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { canonicalJson, digestCanonical, sealContentDigest } from '../test/attempt-provenance.mjs';
 import { verifyRepositorySourceSnapshot } from '../test/repository-source-snapshot.mjs';
 import { buildProducerDag } from '../test-fixtures/dag.mjs';
@@ -124,10 +127,6 @@ export function verifyFixtureIdentity(fragment, inputs)
     same(fragment, recomputed, 'fragment content');
     return fragment;
 }
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
     process.stderr.write('fixture collector CLI admission requires verified upstream alias/policy refs and a canonical current-run locator binding; use the owned collectFixtureIdentity API until that integration capability is supplied\n');
