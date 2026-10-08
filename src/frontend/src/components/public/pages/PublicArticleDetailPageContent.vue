@@ -269,7 +269,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, shallowRef, watch } from 'vue';
 
 import ArticleDetailHeader from '@/components/article/ArticleDetailHeader.vue';
 import ArticleReadingNotice from '@/components/article/ArticleReadingNotice.vue';
@@ -282,7 +282,7 @@ import type { MarkdownSafeRenderResult } from '@/fsusui/markdown';
 import { usePublicSiteTitle } from '@/public-renderers/publicSiteIdentityContext';
 import { themeTokens } from '@/ui-tokens/themeTokens';
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail';
-import { admitArticleDraftResponsibilitySnapshot, type ArticleDraftResponsibilityDisclosure } from '@/view-contracts/articleDraftResponsibility';
+import { admitArticleDraftResponsibilitySnapshot, subscribeArticleDraftResponsibility, type ArticleDraftResponsibilityDisclosure } from '@/view-contracts/articleDraftResponsibility';
 import type { ArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility';
 import { resolvePublicCoverPresentation } from '@/view-contracts/coverArt';
 
@@ -312,9 +312,25 @@ const { messages, t } = useI18nText();
 
 const siteTitle = usePublicSiteTitle();
 const draftArticleId = computed(() => props.articleId === null ? null : safeArticleId.value);
+const draftAuthority = shallowRef(props.draftResponsibility);
+onMounted(() => watch(() => props.draftResponsibility, (value, _, onCleanup) =>
+{
+    draftAuthority.value = value;
+    if (value)
+    {
+        const invalidate = (): void =>
+        {
+            if (!admitArticleDraftResponsibilitySnapshot(value))
+            {
+                draftAuthority.value = null;
+            }
+        };
+        onCleanup(subscribeArticleDraftResponsibility(value, invalidate));
+    }
+}, { immediate: true, flush: 'sync' }));
 const admittedDraftResponsibility = computed(() =>
 {
-    const value = props.draftResponsibility;
+    const value = draftAuthority.value;
     if (value === undefined)
     {
         return undefined;

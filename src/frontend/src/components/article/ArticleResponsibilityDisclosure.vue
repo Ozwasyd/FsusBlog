@@ -80,10 +80,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, shallowRef, watch } from 'vue';
 
 import {
     admitArticleDraftResponsibilitySnapshot,
+    subscribeArticleDraftResponsibility,
     type ArticleDraftResponsibilityDisclosure
 } from '@/view-contracts/articleDraftResponsibility';
 import {
@@ -103,10 +104,26 @@ const props = defineProps<{
 const publishedManifest = ref<ArticleResponsibilityPublicView | null>(props.initialManifest ?? null);
 const publishedState = ref<'fallback' | 'ready' | 'unavailable'>(publishedManifest.value ? 'ready' : 'fallback');
 const isDraft = computed(() => props.draftResponsibility !== undefined);
+const draftAuthority = shallowRef(props.draftResponsibility);
 const draftSnapshot = computed(() => (
-    props.draftResponsibility && admitArticleDraftResponsibilitySnapshot(props.draftResponsibility, { articleId: props.articleId })
-        ? props.draftResponsibility.snapshot : null
+    draftAuthority.value && admitArticleDraftResponsibilitySnapshot(draftAuthority.value, { articleId: props.articleId })
+        ? draftAuthority.value.snapshot : null
 ));
+onMounted(() => watch(() => props.draftResponsibility, (value, _, onCleanup) =>
+{
+    draftAuthority.value = value;
+    if (value)
+    {
+        const invalidate = (): void =>
+        {
+            if (!admitArticleDraftResponsibilitySnapshot(value))
+            {
+                draftAuthority.value = null;
+            }
+        };
+        onCleanup(subscribeArticleDraftResponsibility(value, invalidate));
+    }
+}, { immediate: true, flush: 'sync' }));
 const manifest = computed(() => isDraft.value ? draftSnapshot.value : publishedManifest.value);
 const state = computed(() => isDraft.value ? draftSnapshot.value?.status ?? 'invalid' : publishedState.value);
 const safeFallbackAuthor = computed(() => props.fallbackAuthor.trim() || 'Fsu');
