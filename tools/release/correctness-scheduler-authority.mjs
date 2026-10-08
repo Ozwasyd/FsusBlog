@@ -46,6 +46,10 @@ export function validateCorrectnessTerminalSnapshot(snapshot, expected)
     equal(checkpoint.runId, expected.runId, 'runId');
     equal(checkpoint.sourceState, expected.sourceState, 'sourceState');
     equal(checkpoint.authoritative, true, 'canonical authority');
+    if (!['running', 'finalizing', 'success'].includes(checkpoint.status))
+    {
+        throw new Error('correctness terminal authority checkpoint run state is not eligible');
+    }
     const tier = checkpoint.tiers?.[expected.targetTierId];
     if (correctnessAggregateAuthorityLevel(tier?.status) !== 'terminal-success')
     {

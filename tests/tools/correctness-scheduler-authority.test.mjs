@@ -20,6 +20,7 @@ function fixture()
         runId: 'correctness-run',
         sourceState,
         authoritative: true,
+        status: 'running',
         revision: 4,
         tiers: {
             unit: { status: 'success' },
