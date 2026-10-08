@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
-    assertCpuEqual, cpuAssertDigest, cpuDigest, exactCpuFields, sealCpuValue, verifyCpuSeal
+    assertCpuEqual, cpuAssertDigest, cpuDigest, exactCpuFields, sealCpuValue, validateCpuIdentity, verifyCpuSeal
 } from './cpu-calibration-contract.mjs';
 
 export const machineCpuTopologySchema = 'fsusblog.machine-cpu-topology-receipt.v1';
@@ -221,6 +221,23 @@ export function validateMachineCpuTopology(receipt, expectedDigest)
         throw new Error('stale CPU topology receipt');
     }
     return receipt;
+}
+
+export function validateCpuMachineIdentity(topology, identity)
+{
+    validateCpuIdentity(identity);
+    validateMachineCpuTopology(topology, identity.topology);
+    const expected = { machine: topology.raw.machineIdentityDigest,
+        finiteBoundary: cpuDigest(topology.projection.finiteBoundary), platform: cpuDigest(topology.raw.platform),
+        arch: cpuDigest(topology.raw.arch), kernel: cpuDigest(topology.raw.kernel), powerPolicy: cpuDigest(topology.projection.power) };
+    for (const [field, value] of Object.entries(expected))
+    {
+        if (identity[field] !== value)
+        {
+            throw new Error(`CPU machine identity mismatch: ${field}`);
+        }
+    }
+    return identity;
 }
 
 function readObservation(file)

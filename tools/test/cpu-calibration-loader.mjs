@@ -4,10 +4,11 @@ import path from 'node:path';
 
 import { validateCpuCalibrationCohort } from './cpu-calibration-cohort.mjs';
 import {
-    assertCpuEqual, cpuAssertDigest, cpuDigest, exactCpuFields, freezeCpuValue, sealCpuValue, validateCpuIdentity, verifyCpuSeal
+    assertCpuEqual, cpuAssertDigest, exactCpuFields, freezeCpuValue, sealCpuValue, validateCpuIdentity, verifyCpuSeal
 } from './cpu-calibration-contract.mjs';
 import { verifyCpuCalibration } from './cpu-calibration-selection.mjs';
 import { calculateEffectiveCpuFallback } from './effective-cpu-fallback.mjs';
+import { validateCpuMachineIdentity } from './machine-cpu-topology.mjs';
 
 export const cpuActivePointerSchema = 'fsusblog.cpu-calibration-active-pointer.v1';
 export const cpuCapacitySelectionSchema = 'fsusblog.run-cpu-capacity-selection.v1';
@@ -100,12 +101,7 @@ export function resolveRunCpuCapacity({ runId, topology, identity, activePointer
         throw new Error('CPU capacity run identity required');
     }
     const fallback = calculateEffectiveCpuFallback(topology, identity.topology);
-    if (identity.machine !== topology.raw.machineIdentityDigest || identity.finiteBoundary !== fallback.finiteBoundaryDigest
-        || identity.platform !== cpuDigest(topology.raw.platform) || identity.arch !== cpuDigest(topology.raw.arch)
-        || identity.kernel !== cpuDigest(topology.raw.kernel) || identity.powerPolicy !== cpuDigest(topology.projection.power))
-    {
-        throw new Error('current CPU machine identity mismatch');
-    }
+    validateCpuMachineIdentity(topology, identity);
     let calibration;
     let calibrationReference;
     let invalidReason = null;
@@ -150,6 +146,7 @@ export function validateRunCpuCapacity(selection, { topology, identity })
         'invalidReason', 'contentDigest'], 'run CPU capacity');
     validateCpuIdentity(identity);
     assertCpuEqual(selection.identity, identity, 'plan CPU identity');
+    validateCpuMachineIdentity(topology, identity);
     const fallback = calculateEffectiveCpuFallback(topology, identity.topology);
     if (selection.capacitySource === 'fallback')
     {

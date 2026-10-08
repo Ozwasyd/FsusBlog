@@ -215,3 +215,18 @@ test('CPU plan independently rejects resealed capacity tampering and retains sel
     assert.equal(bound.effectiveCpuUnits, 12);
     assert.equal(bound.calibrationDigest, fixture.selected.contentDigest);
 });
+
+test('CPU independent plan verifier rejects resealed machine boundary identities even with matching fallback math', (t) =>
+{
+    const fixture = writeActivationFixture(t, planFor());
+    const original = resolve(fixture);
+    const { contentDigest, ...body } = original;
+    assert.ok(contentDigest);
+    for (const field of ['machine', 'finiteBoundary', 'platform', 'arch', 'kernel', 'powerPolicy'])
+    {
+        const identity = { ...original.identity, [field]: digest('incorrect-machine-binding') };
+        const altered = contract.sealCpuValue({ ...body, identity });
+        assert.throws(() => loader.bindCpuCapacityToPlan(altered, { runId: 'fixture-run', identity,
+            topology: fixture.plan.topology }), /machine identity mismatch/u);
+    }
+});

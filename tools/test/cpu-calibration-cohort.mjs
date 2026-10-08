@@ -3,6 +3,7 @@ import {
     sealCpuValue, validateCpuIdentity, verifyCpuSeal
 } from './cpu-calibration-contract.mjs';
 import { calculateEffectiveCpuFallback } from './effective-cpu-fallback.mjs';
+import { validateCpuMachineIdentity } from './machine-cpu-topology.mjs';
 
 export const cpuCandidatePlanSchema = 'fsusblog.cpu-calibration-candidate-plan.v1';
 export const cpuCalibrationSampleSchema = 'fsusblog.cpu-calibration-sample.v1';
@@ -19,12 +20,7 @@ export function createCpuCandidatePlan({ topology, identity, rounds = 3, executi
 {
     validateCpuIdentity(identity);
     const fallback = calculateEffectiveCpuFallback(topology, identity.topology);
-    if (identity.machine !== topology.raw.machineIdentityDigest || identity.finiteBoundary !== fallback.finiteBoundaryDigest
-        || identity.platform !== cpuDigest(topology.raw.platform) || identity.arch !== cpuDigest(topology.raw.arch)
-        || identity.kernel !== cpuDigest(topology.raw.kernel) || identity.powerPolicy !== cpuDigest(topology.projection.power))
-    {
-        throw new Error('candidate machine identity mismatch');
-    }
+    validateCpuMachineIdentity(topology, identity);
     cpuAssertDigest(executionAdapterDigest, 'executionAdapterDigest');
     cpuAssertDigest(selectionPolicyDigest, 'selectionPolicyDigest');
     if (!Number.isSafeInteger(rounds) || rounds < 3 || rounds > 30 || !['production', 'contract-fixture'].includes(mode))
