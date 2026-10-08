@@ -107,7 +107,9 @@
         {
             "check": "adapter oracle",
             "location": "tests/tools/ts-ast-adapter.test.mjs:630",
-            "reason": "unchanged test searches for removed input-only change invalidates title in repository-governance-authority.test.mjs; assert.ok(start > 0 && end > start) fails on base and candidate"
+            "reason": "unchanged test searches for removed input-only change invalidates title in repository-governance-authority.test.mjs; assert.ok(start > 0 && end > start) fails on base and candidate",
+            "currentStatus": "repaired on bounded canonical owner; original failed run retained as historical evidence",
+            "recoveryEvidence": "anchor-repair-verification.json"
         },
         {
             "check": "inventory negative control",
@@ -149,5 +151,11 @@
         "tools/test-replacement/transaction.mjs": "20006700774c879686d2ef3d60d3eb733ca6cb2c",
         "tests/tools/test-replacement-transaction.test.mjs": "a645ec4eb5e56d9e047c2c5cb0505694cae2e4ee"
     },
-    "followupToolchainRecovery": "pinned-toolchain-recovery.json"
+    "followupToolchainRecovery": "pinned-toolchain-recovery.json",
+    "followupAnchorRepair": "anchor-repair-verification.json",
+    "coordinatorAssignedRemainingOwners": {
+        "CS0182": 3654,
+        "sharedInventoryRetention": 3521,
+        "consumerLock": 3568
+    }
 }

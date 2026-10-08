@@ -1,0 +1,94 @@
+{
+    "schema": "fsusblog.issue-3242-anchor-repair-verification.v1",
+    "issue": 3242,
+    "runId": "issue-3242-anchor-repair-20261008T030539Z",
+    "base": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "repairParent": "25bffca28cb51eb981068074579412cc320561f4",
+    "testedRepairCommit": "6fb790778a7a3f1e9cca0cacdccb31268163695d",
+    "nodeVersion": "v24.16.0",
+    "scope": [
+        "Locate the existing immutable closed mutation loop after #2615 intentionally removed individual test titles.",
+        "Reuse the real fixture-root collection retained in the unchanged prefix; remove only its duplicate temporary-table declaration."
+    ],
+    "changeParity": {
+        "exactTwoEditComparisonPassed": true,
+        "allOtherTestBytesUnchanged": true,
+        "beforeAssertionSpellings": 129,
+        "afterAssertionSpellings": 129,
+        "parentTestBlob": "dcc3f9a75ae3e470920db2337ee80208b58d5727",
+        "candidateTestBlob": "55e812ec0fc94689942ae2d252fc44ae9eaee78e"
+    },
+    "checks": [
+        {
+            "command": "node --test tests/tools/ts-ast-adapter.test.mjs tests/tools/test-replacement-transaction.test.mjs tests/tools/repository-governance-authority.test.mjs",
+            "exitCode": 0,
+            "artifact": "anchor-repair-committed-focused.log",
+            "storedSha256": "e26aee9a9a15c1fae16c331ac7722891411d0021aa9523682369b43886f04cb0",
+            "rawLog": "/tmp/issue-3242-evidence/anchor-repair-committed-focused.log",
+            "rawSha256": "e26aee9a9a15c1fae16c331ac7722891411d0021aa9523682369b43886f04cb0",
+            "storedLogNormalization": "trailing whitespace removed; original raw log retained"
+        },
+        {
+            "command": "node --test --test-name-pattern='JavaScript|canonical transaction|checker parser installation' tests/tools/change-contract.test.mjs",
+            "exitCode": 0,
+            "artifact": "anchor-repair-parser.log",
+            "storedSha256": "e2bbe1b777d31a94af0b81fb89cac9fe5aa73f06bef2d2782fc38371b490efcd",
+            "rawLog": "/tmp/issue-3242-evidence/anchor-repair-parser.log",
+            "rawSha256": "e2bbe1b777d31a94af0b81fb89cac9fe5aa73f06bef2d2782fc38371b490efcd",
+            "storedLogNormalization": "trailing whitespace removed; original raw log retained"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/test-inventory/ts-ast-adapter/index.mjs --file tools/test-replacement/transaction.mjs --file tests/tools/test-replacement-transaction.test.mjs --file tests/tools/ts-ast-adapter.test.mjs",
+            "exitCode": 0,
+            "artifact": "anchor-repair-strict-style.log",
+            "storedSha256": "243d93aaa809368a217df715427e14a921736703774abc8c8d6031d729167a11",
+            "rawLog": "/tmp/issue-3242-evidence/anchor-repair-strict-style.log",
+            "rawSha256": "243d93aaa809368a217df715427e14a921736703774abc8c8d6031d729167a11",
+            "storedLogNormalization": "trailing whitespace removed; original raw log retained"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode source-diff --base 25bffca28cb51eb981068074579412cc320561f4 --file tests/tools/ts-ast-adapter.test.mjs",
+            "exitCode": 0,
+            "artifact": "anchor-repair-source-style.log",
+            "storedSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+            "rawLog": "/tmp/issue-3242-evidence/anchor-repair-source-style.log",
+            "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+            "storedLogNormalization": "trailing whitespace removed; original raw log retained"
+        }
+    ],
+    "passed": {
+        "adapterTests": 14,
+        "transactionTests": 23,
+        "liveGovernanceReceiptTests": 10,
+        "combinedTests": 47,
+        "parserTests": 6,
+        "strictStyleFiles": 4,
+        "styleViolations": 0,
+        "sourceDiffStyleViolations": 0,
+        "replacementRequiredChanges": []
+    },
+    "substantiveOracles": [
+        "All immutable/dynamic/escaped/shadowed/unsupported table negative controls preserved.",
+        "All 129 assertion spellings preserved; only the stale anchor and duplicate collection declaration changed.",
+        "Probe retains all three receipt mutation rows, valid-before-mutation checks, exact expected reasons, unrelated-reason exclusions and cleanup isolation.",
+        "Probe retains ten static/runtime cases and exact executed title identity comparison.",
+        "Surrounding manifest ownership, receipt tamper, output tamper, TTL absence and byte-identical later oracle assertions preserved."
+    ],
+    "noReplacementTransactionReason": "Canonical detectReplacementRequiredChanges on the exact repair-parent diff returns []: no deleted or renamed case identity.",
+    "remainingGates": {
+        "3654": "Sole coordinator-assigned owner for LifecycleHostedBootstrapServiceTests CS0182; no source changes by this task.",
+        "3521": "Shared inventory/retention repair; await exact supplied commits/evidence.",
+        "3568": "Consumer lock repair; await exact supplied commits/evidence.",
+        "globalStyle": "Existing global baseline authority failures retained; no baseline update or waiver.",
+        "fullSelectedExecutionGraph": "Planning passed; complete required graph not executed or qualified."
+    },
+    "acceptanceStatus": "bounded-anchor-and-adapter-acceptance-passed-wider-chain-gates-open",
+    "prohibitionsPreserved": [
+        "no fabricated baseline",
+        "no test-oracle weakening",
+        "no suppressions",
+        "no parser authority edits",
+        "no sibling-owned implementation",
+        "no merge or deployment or issue closure"
+    ]
+}
