@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release/correctness-scheduler-authority.mjs",
+                "tools/release/test-evidence-receipts-cli.mjs"
+            ],
+            "reason": "Preserve registered tooling environment spellings while refusing premature scheduler authority; no environment key, selector or override is added."
+        }
+    ]
+}

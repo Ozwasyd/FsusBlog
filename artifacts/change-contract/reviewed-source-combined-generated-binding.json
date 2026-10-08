@@ -1,0 +1,18 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/dotnet/check-csharp-style.mjs",
+        "config/development/csharp-style-policy.json",
+        "src/frontend/src/locales/routeLocaleDomains.ts"
+    ],
+    "outputs": [
+        {
+            "path": "config/development/csharp-style-baseline.json",
+            "sha256": "4351155657a6f448d27f2e7eb54dfd430d2a9246b8e0b4f463f5143ace6b204e"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "6c7c448cb46af78814bba22f28558355b2a2dc5b115d7f229c27b6e00ab2bdf6"
+        }
+    ]
+}
