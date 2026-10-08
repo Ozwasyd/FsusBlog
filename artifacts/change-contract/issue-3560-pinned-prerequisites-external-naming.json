@@ -20,9 +20,10 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test/correctness-attempt-migration.mjs",
+                "src/backend/Services/DocumentExport/DocumentExportTaskQueue.cs"
             ],
-            "reason": "The exact supplied producer roster validation preserves canonical execution environment and authority identifiers; this candidate does not rename or bypass those external bindings."
+            "reason": "The supplied producer validation preserves canonical process environment identifiers. The scheduler lies within the same registered C# source-path surface, preserves canonical task/provider identities, and introduces or renames no process environment keys."
         }
     ]
 }

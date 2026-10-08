@@ -156,7 +156,7 @@ public sealed class DocumentExportTaskQueueTests
     public async Task ExpiredQueuedRecords_ReleaseQuotaAndCannotReviveOldClaims()
     {
         var clock = new ManualClock();
-        var queue = Queue(clock, maxTasks: 1);
+        var queue = Queue(clock, maxTasks: 1, maxConcurrency: 1);
         DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
         await queue.EnqueueAsync(CreateTask(input, 1), input);
         DocumentExportTaskClaim old = Assert.IsType<DocumentExportTaskClaim>(await queue.TryClaimAsync());
@@ -195,15 +195,15 @@ public sealed class DocumentExportTaskQueueTests
     [Fact]
     public async Task CapacityAndConcurrency_AreBoundedForOneThousandTasks()
     {
-        var queue = Queue(maxTasks: 1000, maxConcurrency: 8);
+        var queue = Queue(maxTasks: 1000, maxConcurrency: 2);
         DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
         await Task.WhenAll(Enumerable.Range(1, 1000).Select(index => Task.Run(
             () => queue.EnqueueAsync(CreateTask(input, index), input))));
         await Assert.ThrowsAsync<InvalidOperationException>(() => queue.EnqueueAsync(CreateTask(input, 1001), input));
         DocumentExportTaskClaim?[] claims = await Task.WhenAll(
             Enumerable.Range(1, 1000).Select(_ => Task.Run(() => queue.TryClaimAsync())));
-        Assert.Equal(8, claims.Count(claim => claim is not null));
-        Assert.Equal(8, claims.Where(claim => claim is not null).Select(claim => claim!.TaskId).Distinct().Count());
+        Assert.Equal(2, claims.Count(claim => claim is not null));
+        Assert.Equal(2, claims.Where(claim => claim is not null).Select(claim => claim!.TaskId).Distinct().Count());
     }
 
     [Fact]
@@ -278,6 +278,55 @@ public sealed class DocumentExportTaskQueueTests
             .WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Equal(DocumentExportTaskStatus.Cancelled, cancelled.Task.Status);
         Assert.NotNull(await queue.TryClaimAsync());
+    }
+
+    [Fact]
+    public void InvalidSchedulingLimits_CannotExpandCatalogConcurrencyOrRetention()
+    {
+        var valid = new DocumentExportQueueLimits(1000, 2, 67108864, TimeSpan.FromMinutes(5));
+        foreach (DocumentExportQueueLimits invalid in new[]
+        {
+            valid with { MaxTasks = 0 },
+            valid with { MaxTasks = 1001 },
+            valid with { MaxConcurrency = 0 },
+            valid with { MaxConcurrency = 3 },
+            valid with { MaxFrozenBytes = 0 },
+            valid with { MaxFrozenBytes = 1073741825 },
+            valid with { RetentionTtl = TimeSpan.Zero },
+            valid with { RetentionTtl = TimeSpan.FromHours(25) }
+        })
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new DocumentExportTaskQueue(new ManualClock(), invalid));
+        }
+    }
+
+    [Fact]
+    public async Task IdempotencyScopes_SeparateUsersAndSitesWithoutExposingTheirTasks()
+    {
+        var queue = Queue();
+        DocumentExportFrozenInput original = DocumentExportContractTests.ValidInput();
+        DocumentExportFrozenInput otherUser = DocumentExportContractValidator.Seal(original with
+        {
+            UserId = original.UserId + 1
+        });
+        DocumentExportFrozenInput otherSite = DocumentExportContractValidator.Seal(original with
+        {
+            SiteId = original.SiteId + 1
+        });
+        DocumentExportFrozenInput[] inputs = [original, otherUser, otherSite];
+        for (int index = 0; index < inputs.Length; index++)
+        {
+            DocumentExportTask task = DocumentExportContractValidator.Seal(CreateTask(inputs[index], index + 1) with
+            {
+                IdempotencyKey = "shared-key"
+            });
+            Assert.Equal(task.TaskId, (await queue.EnqueueAsync(task, inputs[index])).Task.TaskId);
+        }
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => queue.ReadAsync(original.UserId, original.SiteId, "task-2"));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => queue.ReadAsync(original.UserId, original.SiteId, "task-3"));
+        Assert.Equal("task-1", (await queue.TryClaimAsync())!.TaskId);
+        Assert.Equal("task-2", (await queue.TryClaimAsync())!.TaskId);
+        Assert.Null(await queue.TryClaimAsync());
     }
 
     private static DocumentExportTask CreateTask(DocumentExportFrozenInput input, int index)

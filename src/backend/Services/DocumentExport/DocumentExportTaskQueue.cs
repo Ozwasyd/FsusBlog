@@ -54,6 +54,7 @@ internal sealed class DocumentExportTaskQueue
         ArgumentNullException.ThrowIfNull(limits);
         if (limits.MaxTasks is < 1 or > 1000
             || limits.MaxConcurrency < 1 || limits.MaxConcurrency > limits.MaxTasks
+            || limits.MaxConcurrency > DocumentExportContractCatalog.Providers.Min(provider => provider.Budgets.MaxConcurrency)
             || limits.MaxFrozenBytes is < 1 or > 1073741824
             || limits.RetentionTtl <= TimeSpan.Zero
             || limits.RetentionTtl > DocumentExportContractCatalog.Providers.Min(provider => provider.Delivery.RetentionTtl))
