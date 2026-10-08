@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultGitFacts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureValidator.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryJournal.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryStorageContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultResolutionOperationPlan.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultScalarMetadataMerge.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultSourceAdmission.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultRecoveryStorage.cs",
+                "src/backend/Services/ArticleVault/PostgresArticleVaultRecoveryStorage.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultResolutionProposalStore.cs",
+                "src/backend/Services/ArticleVault/PostgresArticleVaultResolutionProposalStore.cs",
+                "src/migration/Definitions/ArticleVaultRecoveryStorageMigrationDefinitions.cs",
+                "src/migration/Definitions/ArticleVaultResolutionProposalMigrationDefinitions.cs"
+            ],
+            "reason": "Consume exact published recovery/path/conflict contracts and stores without changing canonical external protocol and process spellings. No new environment keys or internal naming exception is introduced."
+        }
+    ]
+}
