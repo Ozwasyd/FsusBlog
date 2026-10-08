@@ -4,17 +4,21 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Services/CommentAuthorManagementService.cs",
                 "src/backend/Services/CommentService.cs",
-                "src/backend/Services/CommentAuthorManagementService.cs"
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.cs"
             ],
-            "reason": "Preserve existing production configuration names while sharing initial outbox construction and the same create/edit/delete revision constructor."
+            "reason": "Preserve existing production configuration and process environment names in the registered C# services and fixture adapters while sharing the same compiled comment construction and routing contracts."
         },
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/architecture/comment-command-boundary.md"
+                "docs/architecture/comment-command-boundary.md",
+                "docs/testing.md"
             ],
-            "reason": "Preserve canonical configuration and generated-section identifiers while documenting the production initial outbox source API."
+            "reason": "Preserve the documented external configuration and generated-section identifiers in the maintained command and testing boundaries."
         }
     ]
 }
