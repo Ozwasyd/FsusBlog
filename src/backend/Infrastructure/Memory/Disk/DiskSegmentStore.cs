@@ -5,6 +5,7 @@ namespace FsusBlog.Server.Infrastructure.Memory.Disk;
 
 /// <summary>A complete verified private replica publication, with no PublicAOT authority.</summary>
 public sealed record DiskSegmentPublication(Guid SegmentId, IReadOnlyList<DiskSegmentEntry> Entries);
+/// <summary>Counts only the bounded recovery scan; it does not certify unsampled files.</summary>
 public sealed record DiskSegmentRecovery(int Reused, int Discarded, int Examined);
 
 /// <summary>
