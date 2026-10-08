@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/physical-producer-filesystem.mjs"
+            ],
+            "reason": "Record the existing tools module environment-variable naming boundary. Process and CLI interfaces retain external spellings while new filesystem, access and context locals use camelCase. No environment key is introduced or renamed."
+        }
+    ]
+}
