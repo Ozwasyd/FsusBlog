@@ -41,3 +41,39 @@ legitimate original contract, while preserving original failure controls.
 The source controls are `tests/tools/strong-outcome-analysis.test.mjs` and
 `tests/tools/aggregate-outcome-analysis.test.mjs`. Their support fixture explicitly
 creates synthetic DATA_ONLY expectations, never native runtime evidence.
+
+`diffSemanticOutcomeData(left, right)` validates both strong inputs and recomputes
+their claimed semantic payload/fingerprint. Each side explicitly supplies outcome,
+external contract options, metadata and aggregate members. Unsupported/different
+schema, algorithm or registry versions report `versionMismatch`,
+`inputsValidated: false` and `semanticDrift: null`; they are never directly equal.
+Compatible valid inputs emit the eleven fixed difference domains with canonical
+paths, member/assertion identities, left/right presence and values, and exact
+source refs. Aggregate producer fingerprint/ref changes appear in the artifact
+evidence domain; its status vector and failure topology remain separately visible.
+
+`volatileOnlyChanges` contains only registry-declared volatile fields. Diagnostic
+and evidence-location differences use `nonSemanticChanges` and cannot be promoted
+to volatile. Unknown metadata or new semantic fields fail closed. The five source
+mutants in `tests/tools/semantic-outcome-diff.test.mjs` independently replace the
+real fingerprint/diff expression with status-only, raw JSON, unknown-ignore,
+failed-IDs-only and message-based implementations; the original controls must
+reject every imported mutant. This is source testing, not a terminal receipt.
+
+The read-only CLI is `node tools/test-matrix/outcomes/semantic-outcome-diff.mjs`.
+Every argument is mandatory: `--root`, `--left`, `--left-digest`, `--right`,
+`--right-digest`, `--max-bytes`, `--max-depth`, `--max-nodes`,
+`--max-string-bytes`, `--max-array-items`, `--max-object-keys`. Digests use the
+`sha256:` prefix. Each path names one exact JSON comparison-side object relative
+to the root, with no aliases, selection patterns, scans or fallback. The CLI
+holds regular files, verifies their bytes against the supplied digest and reads
+within the external byte limit. Side/member host budgets must match the CLI's
+independent limits; payload budgets cannot override the host. Exit 0 means valid
+data has no semantic drift, 1 means semantic drift, and 2 means version mismatch
+or input rejection. These exits grant no current-run locator binding or runtime
+acceptance. Use the original #1604 registry/locator/publication capability for
+actual producer receipts after the missing verified-producer bridge is supplied.
+
+Constructed-object admission enumerates own keys to reject hidden fields and
+symbols; this does not guarantee an allocation bound against arbitrary extra
+properties. CLI encoded bytes are independently bounded before JSON parsing.
