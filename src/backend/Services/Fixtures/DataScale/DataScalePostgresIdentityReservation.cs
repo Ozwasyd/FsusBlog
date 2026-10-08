@@ -34,6 +34,21 @@ internal static class DataScalePostgresIdentityReservation
         {
             throw new InvalidOperationException("native_reservation_roster_bound_invalid");
         }
+        requests = Array.AsReadOnly(requests.Select(request => request with
+        {
+            Groups = Array.AsReadOnly(request.Groups.Select(group => group with
+            {
+                SemanticRoles = Array.AsReadOnly(group.SemanticRoles.ToArray())
+            }).ToArray())
+        }).ToArray());
+        if (requests.Sum(request => (long)request.Groups.Count) > 50_000
+            || requests.SelectMany(request => request.Groups).Sum(group => (long)group.SemanticRoles.Count) > 50_000
+            || requests.SelectMany(request => request.Groups).Sum(group =>
+                (long)System.Text.Encoding.UTF8.GetByteCount(group.AllocationRole)
+                + group.SemanticRoles.Sum(role => (long)System.Text.Encoding.UTF8.GetByteCount(role))) > 64L * 1024 * 1024)
+        {
+            throw new InvalidOperationException("native_reservation_snapshot_bound_invalid");
+        }
         var roles = new HashSet<string>(StringComparer.Ordinal);
         foreach (DataScaleNativeIdentityTableRequest request in requests)
         {

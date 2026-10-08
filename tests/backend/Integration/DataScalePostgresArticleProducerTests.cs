@@ -32,6 +32,7 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
         ArticleScaleArticleGraph diagnostic = CanonicalArticleGraphFactory.BuildArticleGraph(plan, example.ArticleOrdinal,
             variant, ArticleScaleVariantContractCatalog.Get(variant));
         var schema = DataScaleArticlePhysicalProjectionTests.Schema();
+        var principals = DataScaleArticlePhysicalProjectionTests.Principals(plan);
         await using NpgsqlConnection db = await OpenAsync(schema);
         string root = Path.Combine(Path.GetTempPath(), "fsus-native-batch-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -56,6 +57,9 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
                     file.Flush(flushToDisk: true);
                 }
                 allocationSaved = true;
+                // Caller mutation after the awaited native allocation must not change product inputs.
+                ((Dictionary<string, string>)schema[ArticleScaleRowKind.Article].Columns)["Title"] = "not_an_owned_column";
+                principals[$"{plan.IdAllocation.NamespacePrefix}:principal/authoring-admin"] = 111111;
             }
             async Task Checkpoint(DataScaleBatchCheckpoint checkpoint, CancellationToken token)
             {
@@ -63,7 +67,7 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
                 await store.PersistAsync(checkpoint, token);
             }
             DataScalePostgresArticleProduction produced = await DataScalePostgresArticleProducer.ProduceAsync(db, plan, [diagnostic],
-                schema, DataScaleArticlePhysicalProjectionTests.Principals(plan), "component-native-run", "component-native-runtime",
+                schema, principals, "component-native-run", "component-native-runtime",
                 new string('a', 40), "canonical-component-batch", s_key, Allocation, Checkpoint, CancellationToken.None);
             Assert.Equal(DataScaleBulkCommitState.Committed, produced.Execution.Transport.State);
             Assert.True(produced.Execution.CleanupEligible);
@@ -73,6 +77,11 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
             ArticleScaleArticleGraph graph = Assert.Single(produced.Graphs);
             CanonicalArticleGraphVerifier.VerifyArticleGraph(plan, graph).ThrowIfInvalid();
             Assert.Equal(1L, produced.NativeBindings[graph.SemanticArticleId].Resolve(graph.SemanticArticleId));
+            await using (DbCommand creator = db.CreateCommand())
+            {
+                creator.CommandText = "SELECT created_by_admin_principal_id FROM article_revision LIMIT 1";
+                Assert.Equal(9701L, await creator.ExecuteScalarAsync());
+            }
             DataScaleBatchCheckpoint current = await store.ReadAsync(produced.Execution.Checkpoint!.Signature,
                 produced.Authority.Identity(db, DataScaleBulkProvider.PostgreSql), s_key, CancellationToken.None);
             DataScaleArticleBatchExecution replay = await DataScaleArticleBatchWriter.WriteAsync(db, DataScaleBulkProvider.PostgreSql,

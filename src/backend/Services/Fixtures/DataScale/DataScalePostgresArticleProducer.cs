@@ -33,6 +33,15 @@ internal static class DataScalePostgresArticleProducer
     {
         ArgumentNullException.ThrowIfNull(persistNativeAllocation);
         ArgumentNullException.ThrowIfNull(persistCheckpoint);
+        factoryBatch = Array.AsReadOnly(factoryBatch.ToArray());
+        schema = new System.Collections.ObjectModel.ReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding>(
+            schema.ToDictionary(pair => pair.Key, pair => pair.Value with
+            {
+                Columns = new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(
+                    new Dictionary<string, string>(pair.Value.Columns, StringComparer.Ordinal))
+            }));
+        externalIdentities = new System.Collections.ObjectModel.ReadOnlyDictionary<string, long>(
+            new Dictionary<string, long>(externalIdentities, StringComparer.Ordinal));
         if (resolvedBatch is not null)
         {
             foreach (ArticleScaleArticleGraph graph in factoryBatch)
