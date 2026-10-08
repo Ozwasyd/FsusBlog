@@ -2,15 +2,21 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 import ArticleRelationGraph from '@/components/admin/article/ArticleRelationGraph.vue';
+import * as graphLayout from '@/services/authoring/articleGraphLayout';
 import type { ArticleGraphRequest } from '@/services/authoring/articleGraphQuery';
 import { graphIdentity, graphResult } from './articleGraphFixtures';
+
+const settle = async (wrapper: ReturnType<typeof mount>): Promise<void> => {
+    await flushPromises();
+    await vi.waitFor(() => expect(wrapper.attributes('aria-busy')).toBe('false'));
+};
 
 const findButton = (wrapper: ReturnType<typeof mount>, text: string) => wrapper.findAll('button').find(button => button.text().includes(text))!;
 
 describe('bounded graph/list composition', () => {
     it('shows unavailable honestly, without canvas, placeholders or navigation fabrication', async () => {
         const wrapper = mount(ArticleRelationGraph, { props: { identity: graphIdentity, sessionId: 'session' } });
-        await flushPromises();
+        await settle(wrapper);
         expect(wrapper.text()).toContain('关系查询尚未接入');
         expect(wrapper.findAll('[data-list-node]')).toHaveLength(0);
         expect(wrapper.findAll('canvas')).toHaveLength(0);
@@ -22,7 +28,7 @@ describe('bounded graph/list composition', () => {
         const revealSource = vi.fn();
         const query = vi.fn(async (request: ArticleGraphRequest) => graphResult(request, 5));
         const wrapper = mount(ArticleRelationGraph, { props: { identity: graphIdentity, sessionId: 'session', queryHost: { query }, navigationHost: { openOrActivate, revealSource } } });
-        await flushPromises();
+        await settle(wrapper);
         expect(wrapper.findAll('[data-list-node]')).toHaveLength(5);
         expect(wrapper.findAll('[data-list-edge]')).toHaveLength(4);
         expect(wrapper.findAll('svg')).toHaveLength(0);
@@ -40,7 +46,7 @@ describe('bounded graph/list composition', () => {
     it('pages all 1000 nodes with bounded DOM and no background depth two', async () => {
         const query = vi.fn(async (request: ArticleGraphRequest) => graphResult(request, 1000));
         const wrapper = mount(ArticleRelationGraph, { props: { identity: graphIdentity, sessionId: 'session', queryHost: { query } } });
-        await flushPromises();
+        await settle(wrapper);
         expect(wrapper.findAll('[data-list-node]')).toHaveLength(40);
         expect(wrapper.findAll('[data-list-edge]')).toHaveLength(40);
         expect(wrapper.findAll('*').length).toBeLessThan(1000);
@@ -58,9 +64,58 @@ describe('bounded graph/list composition', () => {
         wrapper.unmount();
     });
 
+    it('keeps the bounded accessible list and source actions when a layout task is unavailable', async () => {
+        vi.stubGlobal('MessageChannel', class { public constructor() { throw new Error('task-unavailable'); } });
+        try {
+            const openOrActivate = vi.fn();
+            const revealSource = vi.fn();
+            const wrapper = mount(ArticleRelationGraph, { props: { identity: graphIdentity, sessionId: 'session', queryHost: { query: async request => graphResult(request, 1000) }, navigationHost: { openOrActivate, revealSource } } });
+            await settle(wrapper);
+            expect(wrapper.text()).toContain('仅列表（布局 task-unavailable）');
+            expect(wrapper.findAll('[data-list-node]')).toHaveLength(40);
+            expect(wrapper.findAll('[data-list-edge]')).toHaveLength(40);
+            expect(wrapper.findAll('svg')).toHaveLength(0);
+            await wrapper.find('[data-list-node="article-00001"] button').trigger('click');
+            await wrapper.find('[data-list-edge="relation-00000"] button').trigger('click');
+            expect(openOrActivate.mock.calls[0]![0].articleIdentity).toBe('article-00001');
+            expect(revealSource.mock.calls[0]![0].relationIdentity).toBe('relation-00000');
+            wrapper.unmount();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('offers the authorized list while layout is pending and erases it on unmount', async () => {
+        const realTask = graphLayout.runArticleGraphLayoutTask;
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const task = vi.spyOn(graphLayout, 'runArticleGraphLayoutTask').mockImplementation(async (result, signal) => {
+            await gate;
+            return realTask(result, signal);
+        });
+        const openOrActivate = vi.fn();
+        const wrapper = mount(ArticleRelationGraph, { props: { identity: graphIdentity, sessionId: 'session', queryHost: { query: async request => graphResult(request, 1000) }, navigationHost: { openOrActivate, revealSource: vi.fn() } } });
+        try {
+            await vi.waitFor(() => expect(wrapper.text()).toContain('正在布局（列表可用）'));
+            expect(wrapper.attributes('aria-busy')).toBe('true');
+            expect(wrapper.findAll('[data-list-node]')).toHaveLength(40);
+            expect(wrapper.findAll('[data-list-edge]')).toHaveLength(40);
+            await wrapper.find('[data-list-node="article-00001"] button').trigger('click');
+            expect(openOrActivate.mock.calls[0]![0].articleIdentity).toBe('article-00001');
+            wrapper.unmount();
+            release();
+            await flushPromises();
+            expect(task.mock.calls[0]![1].aborted).toBe(true);
+        } finally {
+            release();
+            wrapper.unmount();
+            task.mockRestore();
+        }
+    });
+
     it('refuses a 10000-node input wholesale rather than silently rendering a complete subset', async () => {
         const wrapper = mount(ArticleRelationGraph, { props: { identity: graphIdentity, sessionId: 'session', queryHost: { query: async request => graphResult(request, 10000) } } });
-        await flushPromises();
+        await settle(wrapper);
         expect(wrapper.text()).toContain('请求被拒绝');
         expect(wrapper.findAll('[data-list-node]')).toHaveLength(0);
         expect(wrapper.findAll('svg')).toHaveLength(0);
@@ -70,12 +125,12 @@ describe('bounded graph/list composition', () => {
     it('resets explicit depth two on epoch switch and clears closed facts', async () => {
         const query = vi.fn(async (request: ArticleGraphRequest) => graphResult(request));
         const wrapper = mount(ArticleRelationGraph, { props: { identity: graphIdentity, sessionId: 'session', queryHost: { query } } });
-        await flushPromises();
+        await settle(wrapper);
         await findButton(wrapper, '展开到两层').trigger('click');
-        await flushPromises();
+        await settle(wrapper);
         expect(query.mock.lastCall?.[0].requestedDepth).toBe(2);
         await wrapper.setProps({ identity: { ...graphIdentity, documentEpoch: 'epoch-new' } });
-        await flushPromises();
+        await settle(wrapper);
         expect(query.mock.lastCall?.[0].requestedDepth).toBe(1);
         await findButton(wrapper, '关闭').trigger('click');
         expect(wrapper.findAll('[data-list-node]')).toHaveLength(0);
@@ -88,16 +143,16 @@ describe('bounded graph/list composition', () => {
         const remove = vi.spyOn(document, 'removeEventListener');
         const query = vi.fn(async (request: ArticleGraphRequest) => graphResult(request));
         const wrapper = mount(ArticleRelationGraph, { props: { identity: graphIdentity, sessionId: 'session', queryHost: { query } } });
-        await flushPromises();
+        await settle(wrapper);
         await findButton(wrapper, '展开到两层').trigger('click');
-        await flushPromises();
+        await settle(wrapper);
         hidden.mockReturnValue(true);
         document.dispatchEvent(new Event('visibilitychange'));
-        await flushPromises();
+        await settle(wrapper);
         expect(wrapper.findAll('[data-list-node]')).toHaveLength(0);
         hidden.mockReturnValue(false);
         document.dispatchEvent(new Event('visibilitychange'));
-        await flushPromises();
+        await settle(wrapper);
         expect(query.mock.lastCall?.[0].requestedDepth).toBe(1);
         wrapper.unmount();
         expect(remove.mock.calls.some(([name]) => name === 'visibilitychange')).toBe(true);

@@ -1,3 +1,4 @@
+import { runArticleGraphLayoutTask } from './articleGraphLayout';
 import {
     admitArticleGraphResult,
     articleGraphEdgeKinds,
@@ -6,6 +7,7 @@ import {
     unavailableArticleGraphResult
 } from './articleGraphQuery';
 
+import type { ArticleGraphLayout, ArticleGraphLayoutOutcome, ArticleGraphLayoutRunner } from './articleGraphLayout';
 import type {
     ArticleGraphDepth,
     ArticleGraphFilters,
@@ -17,53 +19,19 @@ import type {
     ArticleGraphScope
 } from './articleGraphQuery';
 
-export interface ArticleGraphPosition {
-    readonly articleIdentity: string;
-    readonly x: number;
-    readonly y: number;
-}
-
-export interface ArticleGraphLayout {
-    readonly algorithm: 'stable-grid-v1';
-    readonly width: number;
-    readonly height: number;
-    readonly positions: readonly ArticleGraphPosition[];
-    readonly nodeOrder: readonly string[];
-    readonly edgeOrder: readonly string[];
-}
-
-const compareIds = (left: string, right: string): number => left < right ? -1 : left > right ? 1 : 0;
-
-/** A single bounded static pass: no workers, force loop, clock, randomness or persistent position authority. */
-export function layoutArticleGraph(result: ArticleGraphResult): ArticleGraphLayout
-{
-    if (result.nodes.length > articleGraphLimits.nodes || result.edges.length > articleGraphLimits.edges)
-    {
-        throw new Error('layout-budget');
-    }
-    const nodeOrder = result.nodes.map(node => node.articleIdentity).sort(compareIds);
-    const rootIndex = nodeOrder.indexOf(result.identity.rootArticle);
-    if (rootIndex >= 0)
-    {
-        nodeOrder.splice(rootIndex, 1);
-        nodeOrder.unshift(result.identity.rootArticle);
-    }
-    const columns = Math.max(1, Math.ceil(Math.sqrt(nodeOrder.length)));
-    const positions = nodeOrder.map((articleIdentity, index) => Object.freeze({ articleIdentity, x: 80 + index % columns * 160, y: 50 + Math.floor(index / columns) * 100 }));
-    return Object.freeze({ algorithm: 'stable-grid-v1', width: columns * 160, height: Math.max(100, Math.ceil(nodeOrder.length / columns) * 100), positions: Object.freeze(positions), nodeOrder: Object.freeze(nodeOrder), edgeOrder: Object.freeze(result.edges.map(edge => edge.relationIdentity).sort(compareIds)) });
-}
 
 export interface ArticleGraphSessionState {
     readonly request: ArticleGraphRequest | null;
     readonly result: ArticleGraphResult | null;
     readonly layout: ArticleGraphLayout | null;
     readonly pending: boolean;
+    readonly layoutOutcome: (Pick<ArticleGraphLayoutOutcome, 'status' | 'reason'> & { readonly usage: ArticleGraphLayoutOutcome['usage'] | null; }) | null;
     readonly selectedNode: string | null;
     readonly selectedEdge: string | null;
     readonly navigationStatus: 'idle' | 'pending' | 'complete' | 'unavailable' | 'failed';
 }
 
-const emptyState = (): ArticleGraphSessionState => Object.freeze({ request: null, result: null, layout: null, pending: false, selectedNode: null, selectedEdge: null, navigationStatus: 'idle' });
+const emptyState = (): ArticleGraphSessionState => Object.freeze({ request: null, result: null, layout: null, layoutOutcome: null, pending: false, selectedNode: null, selectedEdge: null, navigationStatus: 'idle' });
 
 /** The only graph state owner. Closing/invalidation erases facts and aborts outstanding query/navigation work. */
 export class ArticleGraphSession
@@ -72,11 +40,14 @@ export class ArticleGraphSession
     private generation = 0;
     private controller: AbortController | null = null;
     private navigationController: AbortController | null = null;
+    private layoutController: AbortController | null = null;
+    private layoutGeneration = 0;
 
     public constructor(
         private readonly host: ArticleGraphQueryHost = unavailableArticleGraphHost,
         private readonly navigation?: ArticleGraphNavigationHost,
-        private readonly changed?: (state: ArticleGraphSessionState) => void
+        private readonly changed?: (state: ArticleGraphSessionState) => void,
+        private readonly layoutRunner: ArticleGraphLayoutRunner = runArticleGraphLayoutTask
     )
     {}
 
@@ -143,16 +114,20 @@ export class ArticleGraphSession
         this.generation++;
         this.controller?.abort();
         this.navigationController?.abort();
+        this.layoutController?.abort();
+        this.layoutGeneration++;
+        this.layoutController = null;
         this.controller = null;
         this.navigationController = null;
         this.update(emptyState());
     }
 
-    public resetLayout(): void
+    public async resetLayout(): Promise<void>
     {
-        if (this.state.result)
+        const result = this.state.result;
+        if (result && (result.status === 'complete' || result.status === 'truncated'))
         {
-            this.update({ ...this.state, layout: layoutArticleGraph(this.state.result) });
+            await this.settleLayout(result, this.generation);
         }
     }
 
@@ -237,6 +212,7 @@ export class ArticleGraphSession
     {
         this.controller?.abort();
         this.navigationController?.abort();
+        this.layoutController?.abort();
         const controller = new AbortController();
         this.controller = controller;
         const generation = ++this.generation;
@@ -249,8 +225,14 @@ export class ArticleGraphSession
                 return;
             }
             const result = admitArticleGraphResult(request, candidate);
-            const layout = layoutArticleGraph(result);
-            this.update({ ...this.state, result, layout, pending: false });
+            if (result.status === 'complete' || result.status === 'truncated')
+            {
+                await this.settleLayout(result, generation);
+            }
+            else
+            {
+                this.update({ ...this.state, result, layout: null, pending: false });
+            }
         }
         catch
         {
@@ -264,6 +246,39 @@ export class ArticleGraphSession
             if (this.controller === controller)
             {
                 this.controller = null;
+            }
+        }
+    }
+
+    private async settleLayout(result: ArticleGraphResult, generation: number): Promise<void>
+    {
+        this.layoutController?.abort();
+        const controller = new AbortController();
+        this.layoutController = controller;
+        const layoutGeneration = ++this.layoutGeneration;
+        this.update({ ...this.state, result, layout: null, layoutOutcome: null, pending: true });
+        try
+        {
+            const outcome = await this.layoutRunner(result, controller.signal);
+            if (!controller.signal.aborted && generation === this.generation && layoutGeneration === this.layoutGeneration)
+            {
+                this.update({ ...this.state, layout: outcome.layout,
+                    layoutOutcome: Object.freeze({ status: outcome.status, reason: outcome.reason, usage: outcome.usage }), pending: false });
+            }
+        }
+        catch
+        {
+            if (!controller.signal.aborted && generation === this.generation && layoutGeneration === this.layoutGeneration)
+            {
+                // A rejected runner has no timing/resource receipt. Keep source facts available in the list.
+                this.update({ ...this.state, layout: null, layoutOutcome: Object.freeze({ status: 'blocked', reason: 'layout-error', usage: null }), pending: false });
+            }
+        }
+        finally
+        {
+            if (this.layoutController === controller)
+            {
+                this.layoutController = null;
             }
         }
     }
