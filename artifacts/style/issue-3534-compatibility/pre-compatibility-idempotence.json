@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "9044e70088d31898ba5b961a3a88b177e235c079",
+    "formatter": {
+        "identity": "eslint",
+        "version": "10.8.0",
+        "command": "node artifacts/style/issue-3534-whitespace-format.mjs"
+    },
+    "paths": [
+        "tests/tools/behavior-document-consistency-final.test.mjs"
+    ],
+    "firstPassTreeSha256": "f6fb05536c2e9b0f02bcf7ff7465bfa0804db745dd07d39663abe9f1a8184752",
+    "secondPassTreeSha256": "f6fb05536c2e9b0f02bcf7ff7465bfa0804db745dd07d39663abe9f1a8184752",
+    "idempotent": true,
+    "originalWhitespacePasses": {
+        "paths": [
+            "tools/docs/behavior-document-consistency-final.mjs",
+            "tests/tools/behavior-document-consistency-final.test.mjs"
+        ],
+        "firstPassTreeSha256": "ca7b913b335fdaf9440d1700676c9476307c9bfe1fb9a7daa88f3d36635c947b",
+        "secondPassTreeSha256": "ca7b913b335fdaf9440d1700676c9476307c9bfe1fb9a7daa88f3d36635c947b",
+        "idempotent": true
+    },
+    "verification": "Complete AST/raw-token/literal/token-anchored-comment fingerprints matched before write; independent validateFormatOnlyDiff returned zero errors.",
+    "formatRevisionTreeSha256": "7fd4ddffa8618555160bade626846a994a40db660313bbfc766544810c978ba3",
+    "candidatePasses": "Repeated after the narrow fixture-mode repair; original whitespace migration and prior candidate digests remain separately recorded.",
+    "previousCandidateTreeSha256": "140966458ba9d2219c3068bcd3eeed54d65d6345436e501c1f582629becf43ee"
+}

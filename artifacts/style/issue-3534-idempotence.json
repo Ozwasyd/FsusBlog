@@ -9,8 +9,8 @@
     "paths": [
         "tests/tools/behavior-document-consistency-final.test.mjs"
     ],
-    "firstPassTreeSha256": "f6fb05536c2e9b0f02bcf7ff7465bfa0804db745dd07d39663abe9f1a8184752",
-    "secondPassTreeSha256": "f6fb05536c2e9b0f02bcf7ff7465bfa0804db745dd07d39663abe9f1a8184752",
+    "firstPassTreeSha256": "b9cd8fac901c11baa91361857467ff92fd9e46b28e0c5fa833c256cd5087a5fc",
+    "secondPassTreeSha256": "b9cd8fac901c11baa91361857467ff92fd9e46b28e0c5fa833c256cd5087a5fc",
     "idempotent": true,
     "originalWhitespacePasses": {
         "paths": [
@@ -23,6 +23,13 @@
     },
     "verification": "Complete AST/raw-token/literal/token-anchored-comment fingerprints matched before write; independent validateFormatOnlyDiff returned zero errors.",
     "formatRevisionTreeSha256": "7fd4ddffa8618555160bade626846a994a40db660313bbfc766544810c978ba3",
-    "candidatePasses": "Repeated after the narrow fixture-mode repair; original whitespace migration and prior candidate digests remain separately recorded.",
-    "previousCandidateTreeSha256": "140966458ba9d2219c3068bcd3eeed54d65d6345436e501c1f582629becf43ee"
+    "candidatePasses": "Fresh actual two-pass run after authorized compatibility repairs. Original format revision, equivalence, blame registration, originalWhitespacePasses and formatRevisionTreeSha256 are unchanged; prior candidate evidence remains byte-identically archived at its original identity.",
+    "previousCandidateTreeSha256": "140966458ba9d2219c3068bcd3eeed54d65d6345436e501c1f582629becf43ee",
+    "priorCandidateEvidence": {
+        "path": "artifacts/style/issue-3534-compatibility/pre-compatibility-idempotence.json",
+        "sha256": "b412c1a60ef521866b3022dd23853422644f3a4cce6bce0cd55e0fd07fd663cb",
+        "publishedAtCommit": "b1f0fd6160289b2bab60eca55592050c42b07e83"
+    },
+    "currentCandidateRunId": "issue-3534-compatibility-20261008",
+    "sourceCommit": "30aa8a6660b881b61e15cffdd31fd18ed36c789a"
 }
