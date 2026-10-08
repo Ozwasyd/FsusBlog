@@ -1,0 +1,29 @@
+{
+  "key": "original-one-markdown-lint",
+  "sourceCommit": "b73fd6b9536e72773a44f56b410e6a51ab27d707",
+  "cwd": "/workspace/FsusBlog-scheduler-p2-minimal",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--operation",
+    "lint",
+    "--mode",
+    "changed",
+    "--domain",
+    "docs",
+    "--base",
+    "8a95130ab5e391729d5606275d483edc678e9b5d",
+    "--file",
+    "tools/test-matrix/atomic-producers/README.md",
+    "--require-tools"
+  ],
+  "startedUtc": "2026-10-08T15:00:08.628325+00:00",
+  "completedUtc": "2026-10-08T15:00:08.844528+00:00",
+  "elapsedSeconds": 0.216,
+  "exitCode": 1,
+  "pid": 676232,
+  "logSha256": "e6d28814d2c33f6d0b7219edd57b1ced3780dd398865eb628a35017738bc758e",
+  "logBytes": 165,
+  "rawLogArchive": "original-one-markdown-lint.log.gz",
+  "qualification": false
+}

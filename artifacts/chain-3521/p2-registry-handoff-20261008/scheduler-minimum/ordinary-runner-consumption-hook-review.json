@@ -1,0 +1,12 @@
+{
+  "candidate": "5dd15c40481ac4b0da211cc19b90f067527af494",
+  "readBeforeRerun": true,
+  "originalPeerRunnerBlob": "505655b3dc0b258074af42784b4ce449c1b53de9",
+  "importsUnchangedFromMaster": true,
+  "delta": "original owner records returned failure/cancellation reasons before derivative joins, retains interruption and preserves finalizer ordering",
+  "testAllowlistSameEight": true,
+  "heldOtherCallbacksNotExecuted": 19,
+  "harnessReplaced": false,
+  "sourceImplementationModified": false,
+  "qualificationEligible": false
+}

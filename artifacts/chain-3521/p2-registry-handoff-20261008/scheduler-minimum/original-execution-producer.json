@@ -1,0 +1,18 @@
+{
+  "key": "original-execution-producer",
+  "sourceCommit": "5dd15c40481ac4b0da211cc19b90f067527af494",
+  "cwd": "/workspace/FsusBlog-scheduler-p2-minimal",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "startedUtc": "2026-10-08T15:06:16.893387+00:00",
+  "completedUtc": "2026-10-08T15:09:38.409667+00:00",
+  "elapsedSeconds": 201.516,
+  "exitCode": 0,
+  "pid": 679300,
+  "logSha256": "fc10919060d20f917d65c4d3ae4f29b3b4d185580057e40e3d84da5b3b5b5596",
+  "logBytes": 258,
+  "rawLogArchive": "original-execution-producer.log.gz",
+  "qualification": false
+}

@@ -1,0 +1,12 @@
+{
+  "candidate": "b73fd6b9536e72773a44f56b410e6a51ab27d707",
+  "masterBase": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "currentFixtureDeclaredTargetCount": 102,
+  "currentFixtureClosedPathCount": 1128,
+  "componentPathsAlreadyDeclaredInFixture": [],
+  "schedulerImportsCorrectnessFinalizer": false,
+  "matrixMentionsAtomicModule": false,
+  "matrixAndIndependentIndexEdited": false,
+  "qualification": false,
+  "meaning": "Exact ordinary modules/import closure now exists. Their live scheduler/matrix consumer wiring is not introduced by this14-file composition; standard fixture cannot fabricate that declaration."
+}

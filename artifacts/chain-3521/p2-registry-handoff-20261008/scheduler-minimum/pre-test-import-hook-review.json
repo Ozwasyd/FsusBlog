@@ -1,0 +1,14 @@
+{
+  "candidate": "b73fd6b9536e72773a44f56b410e6a51ab27d707",
+  "inspectedUtc": "2026-10-08T14:50:44.981257+00:00",
+  "originalStaticInspectionExit": 0,
+  "originalImportInspectionErrors": [],
+  "topLevelTestHooks": [],
+  "finalizerAllowedCallbacks": "only retention/read diagnostics for ordinary extensible/nonextensible/sealed/frozen/readonly-property Errors; no finalizer state/receipt/journal operation called",
+  "atomicAllowedCallbacks": "only the original three terminal write-error precedence cases; ordinary writeFileSync throw via t.mock.method; original isolated command fixtures and original cleanup; no publication/substitution/cohort selector/race callback added",
+  "excludedHelper": "rebindAtomicFixture is defined/imported in exact peer source but never called by these three allowed callbacks",
+  "heldOtherAtomicCallbacks": 19,
+  "importsAndHelpersRewritten": false,
+  "testHarnessReplaced": false,
+  "qualification": false
+}

@@ -1,0 +1,20 @@
+{
+  "key": "original-generated-registration-observation",
+  "sourceCommit": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {generateEvidenceLocationGovernance} from \"./tools/test/generate-evidence-location-governance.mjs\";import {writeFileSync} from \"node:fs\";const generated=generateEvidenceLocationGovernance();const prefix=\"/workspace/chain-3521-evidence/registry-2060-93eca2bb/\";for(const key of [\"registry\",\"ledger\"])writeFileSync(prefix+\"original-generated-\"+key+\".json\",JSON.stringify(generated[key],null,4)+\"\\n\");const ids=[\"8182572599d451a2\",\"284b1f680dd4ee85\"];const requestedConsumer=\"evidence-consumer.release.publish-release-final-bindings\";const result={qualificationEligible:false,requestedConsumer,generatedRegistryEntryCount:generated.registry.entries.filter(x=>x.consumerId===requestedConsumer).length,unapprovedFindingSourceObservations:generated.scan.findings.filter(x=>ids.includes(x.findingId)),originalPolicyComputedDispositionsNotApproved:generated.ledger.entries.filter(x=>ids.includes(x.findingId)),registrationStatus:\"BLOCKED: unchanged generator does not emit requested consumer; classifications unapproved\",coupledAuditOrTestCallbacksExecuted:false};writeFileSync(prefix+\"registration-observation.json\",JSON.stringify(result,null,2)+\"\\n\");console.log(JSON.stringify(result));"
+  ],
+  "startedUtc": "2026-10-08T15:00:08.659146+00:00",
+  "completedUtc": "2026-10-08T15:00:15.507445+00:00",
+  "elapsedSeconds": 6.848,
+  "exitCode": 0,
+  "pid": 676234,
+  "logSha256": "b24b4a69e083d4e91252beeb7ed1c81e34f3d366dacc484180bcb4451a27923c",
+  "logBytes": 392,
+  "rawLogArchive": "original-generated-registration-observation.log.gz",
+  "qualification": false
+}

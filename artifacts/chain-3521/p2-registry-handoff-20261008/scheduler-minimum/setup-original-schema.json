@@ -1,0 +1,26 @@
+{
+  "key": "setup-original-schema",
+  "sourceCommit": "b73fd6b9536e72773a44f56b410e6a51ab27d707",
+  "cwd": "/workspace/FsusBlog-scheduler-p2-minimal",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+    "ci",
+    "--prefix",
+    "tools/test-matrix/schema-validator",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    "--cache",
+    "/workspace/.setup/npm-cache"
+  ],
+  "startedUtc": "2026-10-08T14:49:10.908079+00:00",
+  "completedUtc": "2026-10-08T14:49:12.180218+00:00",
+  "elapsedSeconds": 1.272,
+  "exitCode": 0,
+  "pid": 670628,
+  "logSha256": "bd50139c077a808b16d9f1cef93a40c768d24eed944b213079ba7b5be8a28151",
+  "logBytes": 27,
+  "rawLogArchive": "setup-original-schema.log.gz",
+  "qualification": false
+}

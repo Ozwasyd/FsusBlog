@@ -1,0 +1,148 @@
+{
+  "sourceCommit": "b73fd6b9536e72773a44f56b410e6a51ab27d707",
+  "mode": "original read-only regular Git-index source/import inspection; no test callbacks",
+  "qualification": false,
+  "inspections": [
+    {
+      "errors": [],
+      "target": "tests/tools/correctness-seal-error-precedence.test.mjs",
+      "contentDigest": "sha256:e96a54fdd39f7be7eabf087f70c9ada1de22af7270188957707aa6e83a6fc8e8",
+      "indexDigest": "sha256:e96a54fdd39f7be7eabf087f70c9ada1de22af7270188957707aa6e83a6fc8e8",
+      "dependencyClosure": [
+        {
+          "path": "tests/tools/package.json",
+          "contentDigest": "sha256:553a3def95f5b06bde33391361004fcd540a1d6f395f577a9227d20879e8b251",
+          "indexDigest": "sha256:553a3def95f5b06bde33391361004fcd540a1d6f395f577a9227d20879e8b251"
+        },
+        {
+          "path": "tools/package.json",
+          "contentDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd",
+          "indexDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd"
+        },
+        {
+          "path": "tools/release/browser-contract-receipt-contract.mjs",
+          "contentDigest": "sha256:5234ba29de7a0ac79f4d5b48466da6389e3f336132f2b846713ec63ec3fd91ca",
+          "indexDigest": "sha256:5234ba29de7a0ac79f4d5b48466da6389e3f336132f2b846713ec63ec3fd91ca"
+        },
+        {
+          "path": "tools/release/correctness-provisional-receipt.mjs",
+          "contentDigest": "sha256:52fd5b34b4033bddbb6803b307261fa7453772c51064c01cc9ac4a99abfefe0f",
+          "indexDigest": "sha256:52fd5b34b4033bddbb6803b307261fa7453772c51064c01cc9ac4a99abfefe0f"
+        },
+        {
+          "path": "tools/release/correctness-scheduler-authority.mjs",
+          "contentDigest": "sha256:40d8ca3f06d8789a8130727b2c3e31af22eaedaeded516449fd7cb52e5df2e47",
+          "indexDigest": "sha256:40d8ca3f06d8789a8130727b2c3e31af22eaedaeded516449fd7cb52e5df2e47"
+        },
+        {
+          "path": "tools/release/correctness-terminal-receipt.mjs",
+          "contentDigest": "sha256:5b2f2cd51ea3517a55844581b9947897e87c18d6ad1d960cc99d4ac9a69a18df",
+          "indexDigest": "sha256:5b2f2cd51ea3517a55844581b9947897e87c18d6ad1d960cc99d4ac9a69a18df"
+        },
+        {
+          "path": "tools/release/correctness-terminal-seal-journal.mjs",
+          "contentDigest": "sha256:dc92b41b8ff6d02123cfe9f0fe09011ee3729d230ad0cc4f856698cd5fcd2f22",
+          "indexDigest": "sha256:dc92b41b8ff6d02123cfe9f0fe09011ee3729d230ad0cc4f856698cd5fcd2f22"
+        },
+        {
+          "path": "tools/test-matrix/content-addressed-evidence-store.mjs",
+          "contentDigest": "sha256:126d87ebc5300715bc49cdd6735a74bb0f15263f35a1034cbb23bab04fd48952",
+          "indexDigest": "sha256:126d87ebc5300715bc49cdd6735a74bb0f15263f35a1034cbb23bab04fd48952"
+        },
+        {
+          "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+          "contentDigest": "sha256:4ef6d5eec6c94b4a214c2787cc82129e346073ad0c8de9a5b41ebf3c8c44e312",
+          "indexDigest": "sha256:4ef6d5eec6c94b4a214c2787cc82129e346073ad0c8de9a5b41ebf3c8c44e312"
+        },
+        {
+          "path": "tools/test-matrix/scheduler-run-owner.mjs",
+          "contentDigest": "sha256:c853286f7a18ed55f9abd79545389d7d338a7a48cff388b6d43e9a5def4f7d5b",
+          "indexDigest": "sha256:c853286f7a18ed55f9abd79545389d7d338a7a48cff388b6d43e9a5def4f7d5b"
+        },
+        {
+          "path": "tools/test/process-identity.mjs",
+          "contentDigest": "sha256:6f180ba73399eb759588a9be5615082a77d95417a14305f6a1408e8edf5e6d23",
+          "indexDigest": "sha256:6f180ba73399eb759588a9be5615082a77d95417a14305f6a1408e8edf5e6d23"
+        },
+        {
+          "path": "tools/test/temporal-context-contract.mjs",
+          "contentDigest": "sha256:7d12a5f5c1e123c2572ea829120d742b8517779f839a81dd7076bcea3197cc82",
+          "indexDigest": "sha256:7d12a5f5c1e123c2572ea829120d742b8517779f839a81dd7076bcea3197cc82"
+        }
+      ]
+    },
+    {
+      "errors": [],
+      "target": "tests/tools/atomic-producer-compiler.test.mjs",
+      "contentDigest": "sha256:98edee8fe3e6fbe304d4f8ee5430b1cdb7355ea5cedfdaa6d60c49a764df2e76",
+      "indexDigest": "sha256:98edee8fe3e6fbe304d4f8ee5430b1cdb7355ea5cedfdaa6d60c49a764df2e76",
+      "dependencyClosure": [
+        {
+          "path": "tests/tools/package.json",
+          "contentDigest": "sha256:553a3def95f5b06bde33391361004fcd540a1d6f395f577a9227d20879e8b251",
+          "indexDigest": "sha256:553a3def95f5b06bde33391361004fcd540a1d6f395f577a9227d20879e8b251"
+        },
+        {
+          "path": "tests/tools/support/atomic-producer-fixture.mjs",
+          "contentDigest": "sha256:60ba7fd64b84603590a73499a0019f937eba00a7df7f5ae4945d452b7201709c",
+          "indexDigest": "sha256:60ba7fd64b84603590a73499a0019f937eba00a7df7f5ae4945d452b7201709c"
+        },
+        {
+          "path": "tools/package.json",
+          "contentDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd",
+          "indexDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd"
+        },
+        {
+          "path": "tools/test-matrix/atomic-producers/compiler.mjs",
+          "contentDigest": "sha256:3b80785386fb4585bb20864461e62979e7dce62f51e7ecc87c89773602d48150",
+          "indexDigest": "sha256:3b80785386fb4585bb20864461e62979e7dce62f51e7ecc87c89773602d48150"
+        },
+        {
+          "path": "tools/test-matrix/atomic-producers/contract.mjs",
+          "contentDigest": "sha256:5e0bfe5d03cbdb817d15ac91a4ca9ce14a2d94e7eb7d8a96f882a55f1bac2651",
+          "indexDigest": "sha256:5e0bfe5d03cbdb817d15ac91a4ca9ce14a2d94e7eb7d8a96f882a55f1bac2651"
+        },
+        {
+          "path": "tools/test-matrix/atomic-producers/execution.mjs",
+          "contentDigest": "sha256:b8c6db1665e4e6cd6a970c48af9c38e466cc276f88b23fef5314ea43c2ea8d5f",
+          "indexDigest": "sha256:b8c6db1665e4e6cd6a970c48af9c38e466cc276f88b23fef5314ea43c2ea8d5f"
+        },
+        {
+          "path": "tools/test-matrix/receipt-command-sources.mjs",
+          "contentDigest": "sha256:b48d4e11a4922d1633fb0cbe9bb31433a7579fcec55ceb4cb7acce16aab2bd5a",
+          "indexDigest": "sha256:b48d4e11a4922d1633fb0cbe9bb31433a7579fcec55ceb4cb7acce16aab2bd5a"
+        },
+        {
+          "path": "tools/test-matrix/schema-validator/package.json",
+          "contentDigest": "sha256:a2be3670a2f5e3a68e2c392c9f86c693e99567d17760e292d9b0c4bc73013356",
+          "indexDigest": "sha256:a2be3670a2f5e3a68e2c392c9f86c693e99567d17760e292d9b0c4bc73013356"
+        },
+        {
+          "path": "tools/test-matrix/schema-validator/validate.mjs",
+          "contentDigest": "sha256:5c0129205799e39dc20f0a2b19498b26a04962b5577d1c59da4adefc4e5dec2c",
+          "indexDigest": "sha256:5c0129205799e39dc20f0a2b19498b26a04962b5577d1c59da4adefc4e5dec2c"
+        },
+        {
+          "path": "tools/test/attempt-provenance.mjs",
+          "contentDigest": "sha256:588d132a5e30a772f1990a3ed3d3f0e9e774d7743d2a41f43b5149edbca8bf1e",
+          "indexDigest": "sha256:588d132a5e30a772f1990a3ed3d3f0e9e774d7743d2a41f43b5149edbca8bf1e"
+        },
+        {
+          "path": "tools/test/attempt-runner.mjs",
+          "contentDigest": "sha256:a42fe86b68e31ac6357a660c33376b2c241933fee9992e5e0e23e90ca4daba6c",
+          "indexDigest": "sha256:a42fe86b68e31ac6357a660c33376b2c241933fee9992e5e0e23e90ca4daba6c"
+        },
+        {
+          "path": "tools/test/bundles/bundle-steps.mjs",
+          "contentDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727",
+          "indexDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727"
+        },
+        {
+          "path": "tools/test/execution-replay-contract.mjs",
+          "contentDigest": "sha256:7fd07e36b5284859a4f2d6a90a08592623d450dda530b2618dfd827516c6f18d",
+          "indexDigest": "sha256:7fd07e36b5284859a4f2d6a90a08592623d450dda530b2618dfd827516c6f18d"
+        }
+      ]
+    }
+  ]
+}

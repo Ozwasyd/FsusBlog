@@ -1,0 +1,56 @@
+{
+  "sourceCommit": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "observedUtc": "2026-10-08T15:02:46.187264+00:00",
+  "soleOutputWriter": "root3521 for registry/ledger per coordinating root assignment; generator source and scanner unchanged",
+  "requestedConsumer": "evidence-consumer.release.publish-release-final-bindings",
+  "requestedRegistryEntryPresent": false,
+  "originalGeneratedRegistryEntryPresent": false,
+  "sourceRequestPresent": true,
+  "sourceRequestPath": "tools/release/publish-release-final-bindings.mjs#releaseFinalBindingOutputRegistration",
+  "producerSourceBlob": "21e23c8c9df21d1409b10e0403baa72159d73e4d",
+  "publisherSourceBlob": "c5057b34cc3cf794fe135316df75e2435e3cbc4c",
+  "actualSchemaFact": "fsusblog.current-run-evidence-reference.v1 reference wrapper transports fsusblog.release-final-test-evidence-binding.v2 payload; publisher registeredOutput requires exact registration object digest",
+  "originalProducerLimitation": "buildGovernance only appends applicable scan files, fixed direct-release inputs, domain parent and required authority catalog entries. No branch reads exported publisher registration request; embedded scanned entry applies only to tools/release/check-release-final.mjs. Publisher itself has no source finding; generated requested consumer count0.",
+  "originalCheckExit": 1,
+  "originalCheckRefusal": "evidence location governance is stale: config/testing/evidence-location-migration-ledger.json",
+  "requestedFindingIds": [
+    "8182572599d451a2",
+    "284b1f680dd4ee85"
+  ],
+  "requestedFindingIdsPresent": false,
+  "actualCurrentMetadataFindings": [
+    {
+      "findingId": "e4792e2e6789cef9",
+      "consumerId": "evidence-consumer.artifacts.change-contract.release-authority-bindings-external-naming",
+      "location": "artifacts/change-contract/release-authority-bindings-external-naming.json:62",
+      "oldSelectionRule": "evidence-selection.latest-newest",
+      "classification": "not-evidence",
+      "newAuthorityId": null,
+      "locatorMode": "not-applicable",
+      "action": "close exact location and rule as non-evidence behavior",
+      "owner": "test-evidence-governance",
+      "proofTest": "tests/tools/evidence-location-governance.test.mjs#e4792e2e6789cef9"
+    },
+    {
+      "findingId": "c4470af966c8f87a",
+      "consumerId": "evidence-consumer.artifacts.change-contract.release-authority-bindings-external-naming",
+      "location": "artifacts/change-contract/release-authority-bindings-external-naming.json:62",
+      "oldSelectionRule": "evidence-selection.pointer-without-identity",
+      "classification": "not-evidence",
+      "newAuthorityId": null,
+      "locatorMode": "not-applicable",
+      "action": "close exact location and rule as non-evidence behavior",
+      "owner": "test-evidence-governance",
+      "proofTest": "tests/tools/evidence-location-governance.test.mjs#c4470af966c8f87a"
+    }
+  ],
+  "actualCurrentMetadataSourceLine62": "                \"config/testing/current-run-evidence-location-acceptance.json\",",
+  "findingClassificationsApproved": false,
+  "generatedLedgerPersistedToProduct": false,
+  "generatedRegistryPersistedToProduct": false,
+  "producerAdmissionPolicyEdited": false,
+  "testsRun": false,
+  "heldCoupledAcceptance": "NOT_RUN",
+  "qualificationEligible": false,
+  "smallestNextInput": "Canonical producer owner supplies narrow reviewed original-source capability to emit the actual embedded publisher request. Current unchanged producer cannot emit it; two metadata finding dispositions also need current-ID independent approval. Do not handwrite generated entries, approve not-evidence implicitly or invent finding matches."
+}

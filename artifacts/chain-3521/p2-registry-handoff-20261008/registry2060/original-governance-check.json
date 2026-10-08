@@ -1,0 +1,19 @@
+{
+  "key": "original-governance-check",
+  "sourceCommit": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test/generate-evidence-location-governance.mjs",
+    "--check"
+  ],
+  "startedUtc": "2026-10-08T14:57:26.628549+00:00",
+  "completedUtc": "2026-10-08T14:57:34.436849+00:00",
+  "elapsedSeconds": 7.808,
+  "exitCode": 1,
+  "pid": 674977,
+  "logSha256": "e411f250991d670f84ba9b10c5fb4e2c84dad67274f97c0bdf93af05f98d4727",
+  "logBytes": 714,
+  "rawLogArchive": "original-governance-check.log.gz",
+  "qualification": false
+}

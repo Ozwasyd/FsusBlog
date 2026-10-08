@@ -1,0 +1,63 @@
+{
+  "schema": "fsusblog.task-positive-test-allowlist.v1",
+  "writtenUtc": "2026-10-08T14:49:10.596916+00:00",
+  "expectedTotalPassedControls": 8,
+  "files": [
+    {
+      "file": "tests/tools/correctness-seal-error-precedence.test.mjs",
+      "literalNames": [
+        "ordinary extensible Error retains its cause and exposes secondary seal diagnostics",
+        "nonextensible but unfrozen Error keeps its original identity and descriptors",
+        "sealed Error retains secondary diagnostics without changing its own properties",
+        "frozen Error retains its original secondary diagnostic outside the error object",
+        "an existing readonly diagnostic property cannot replace the primary error"
+      ],
+      "expectedExecutedControls": 5
+    },
+    {
+      "file": "tests/tools/atomic-producer-compiler.test.mjs",
+      "literalNames": [
+        "terminal publication failure retains the earlier producer failure as primary",
+        "terminal publication failure retains the original cancellation Error object",
+        "terminal publication failure without an earlier execution failure rejects with the write Error"
+      ],
+      "expectedExecutedControls": 3
+    }
+  ],
+  "status": "positive literal name roster/count statically verified before execution",
+  "prohibited": [
+    "all other atomic test callbacks",
+    "held cohort-pointer",
+    "receipt/artifact substitution",
+    "race/TOCTOU",
+    "Git replacement",
+    "equivalent coupled audits"
+  ],
+  "standardSourceGateStatus": "NOT_RUN on any new candidate: must first prove its whole callback inventory fits the positive allowlist; no trimmed standard gate will be called a pass",
+  "qualification": false,
+  "candidate": "b73fd6b9536e72773a44f56b410e6a51ab27d707",
+  "sourceInspection": {
+    "tests/tools/correctness-seal-error-precedence.test.mjs": {
+      "registeredLiteralCases": 5,
+      "allowedLiteralCases": [
+        "ordinary extensible Error retains its cause and exposes secondary seal diagnostics",
+        "nonextensible but unfrozen Error keeps its original identity and descriptors",
+        "sealed Error retains secondary diagnostics without changing its own properties",
+        "frozen Error retains its original secondary diagnostic outside the error object",
+        "an existing readonly diagnostic property cannot replace the primary error"
+      ],
+      "expectedExecutedControls": 5,
+      "globalTestHooks": []
+    },
+    "tests/tools/atomic-producer-compiler.test.mjs": {
+      "registeredLiteralCases": 22,
+      "allowedLiteralCases": [
+        "terminal publication failure retains the earlier producer failure as primary",
+        "terminal publication failure retains the original cancellation Error object",
+        "terminal publication failure without an earlier execution failure rejects with the write Error"
+      ],
+      "expectedExecutedControls": 3,
+      "globalTestHooks": []
+    }
+  }
+}

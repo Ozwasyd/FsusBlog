@@ -1,0 +1,20 @@
+{
+  "key": "final-original-commit-range",
+  "sourceCommit": "e6efbce8ec875f92053af4ece5c82cc3044d7ed8",
+  "cwd": "/workspace/FsusBlog-scheduler-p2-minimal",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "8a95130ab5e391729d5606275d483edc678e9b5d..HEAD"
+  ],
+  "startedUtc": "2026-10-08T15:12:08.678106+00:00",
+  "completedUtc": "2026-10-08T15:12:12.745197+00:00",
+  "elapsedSeconds": 4.067,
+  "exitCode": 0,
+  "pid": 684784,
+  "logSha256": "d1943050af8b12dde53e9123e73f6ba1251c9573f5d2ec4dd0d23338da6c7036",
+  "logBytes": 81,
+  "rawLogArchive": "final-original-commit-range.log.gz",
+  "qualification": false
+}

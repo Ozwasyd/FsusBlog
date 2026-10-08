@@ -1,0 +1,9 @@
+{
+  "qualificationEligible": false,
+  "requestedConsumer": "evidence-consumer.release.publish-release-final-bindings",
+  "generatedRegistryEntryCount": 0,
+  "unapprovedFindingSourceObservations": [],
+  "originalPolicyComputedDispositionsNotApproved": [],
+  "registrationStatus": "BLOCKED: unchanged generator does not emit requested consumer; classifications unapproved",
+  "coupledAuditOrTestCallbacksExecuted": false
+}

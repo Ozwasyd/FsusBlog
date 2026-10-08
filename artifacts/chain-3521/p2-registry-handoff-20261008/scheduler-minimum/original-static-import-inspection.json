@@ -1,0 +1,20 @@
+{
+  "key": "original-static-import-inspection",
+  "sourceCommit": "b73fd6b9536e72773a44f56b410e6a51ab27d707",
+  "cwd": "/workspace/FsusBlog-scheduler-p2-minimal",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {inspectReleaseFinalCommandTarget} from \"./tools/test-matrix/release-final-static-boundary.mjs\"; import {writeFileSync} from \"node:fs\"; import {execFileSync} from \"node:child_process\";const targets=[\"tests/tools/correctness-seal-error-precedence.test.mjs\",\"tests/tools/atomic-producer-compiler.test.mjs\"];const inspections=targets.map(target=>inspectReleaseFinalCommandTarget({repositoryRoot:process.cwd(),target}));const result={sourceCommit:execFileSync(\"git\",[\"rev-parse\",\"HEAD\"],{encoding:\"utf8\"}).trim(),mode:\"original read-only regular Git-index source/import inspection; no test callbacks\",qualification:false,inspections};writeFileSync(\"/workspace/chain-3521-evidence/p2-minimal-ordinary-handoff/original-static-import-output.json\",JSON.stringify(result,null,2)+\"\\n\");console.log(JSON.stringify({sourceCommit:result.sourceCommit,qualification:false,inspections:inspections.map(x=>({target:x.target,errors:x.errors,dependencyCount:x.dependencyClosure.length}))}));process.exitCode=inspections.some(x=>x.errors.length)?1:0;"
+  ],
+  "startedUtc": "2026-10-08T14:49:45.746973+00:00",
+  "completedUtc": "2026-10-08T14:49:46.669980+00:00",
+  "elapsedSeconds": 0.923,
+  "exitCode": 0,
+  "pid": 670913,
+  "logSha256": "6b1f9c7d633453e76ae12359d5fe43349b226c0cc4d51e18b244625b77ff02ef",
+  "logBytes": 291,
+  "rawLogArchive": "original-static-import-inspection.log.gz",
+  "qualification": false
+}

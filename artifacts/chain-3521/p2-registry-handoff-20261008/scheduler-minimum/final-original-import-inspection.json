@@ -1,0 +1,20 @@
+{
+  "key": "final-original-import-inspection",
+  "sourceCommit": "e6efbce8ec875f92053af4ece5c82cc3044d7ed8",
+  "cwd": "/workspace/FsusBlog-scheduler-p2-minimal",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {inspectReleaseFinalCommandTarget} from \"./tools/test-matrix/release-final-static-boundary.mjs\";import {writeFileSync} from \"node:fs\";import {execFileSync} from \"node:child_process\";const inspections=[\"tests/tools/correctness-seal-error-precedence.test.mjs\",\"tests/tools/atomic-producer-compiler.test.mjs\"].map(target=>inspectReleaseFinalCommandTarget({repositoryRoot:process.cwd(),target}));const result={sourceCommit:execFileSync(\"git\",[\"rev-parse\",\"HEAD\"],{encoding:\"utf8\"}).trim(),qualification:false,testCallbacksExecuted:false,inspections};writeFileSync(\"/workspace/chain-3521-evidence/p2-minimal-ordinary-handoff/final-original-import-output.json\",JSON.stringify(result,null,2)+\"\\n\");console.log(JSON.stringify({sourceCommit:result.sourceCommit,inspections:inspections.map(x=>({target:x.target,errors:x.errors,dependencyCount:x.dependencyClosure.length}))}));process.exitCode=inspections.some(x=>x.errors.length)?1:0;"
+  ],
+  "startedUtc": "2026-10-08T15:12:59.089631+00:00",
+  "completedUtc": "2026-10-08T15:13:00.226772+00:00",
+  "elapsedSeconds": 1.137,
+  "exitCode": 0,
+  "pid": 685533,
+  "logSha256": "208a4e6d8369d4f375ecb3c8ec9410ac539d0535efc69956b888f464f686a19f",
+  "logBytes": 269,
+  "rawLogArchive": "final-original-import-inspection.log.gz",
+  "qualification": false
+}

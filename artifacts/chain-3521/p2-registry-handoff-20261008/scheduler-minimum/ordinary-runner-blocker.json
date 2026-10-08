@@ -1,0 +1,28 @@
+{
+  "candidate": "b73fd6b9536e72773a44f56b410e6a51ab27d707",
+  "positiveAllowed": 8,
+  "passed": 7,
+  "failed": 1,
+  "skipped": 0,
+  "failedOriginalCase": "terminal publication failure retains the original cancellation Error object",
+  "failure": "actual cause.cause was Error: step DAG failed: fixture-summary; expected exact original StepTerminalError object",
+  "missingBehaviourFile": "tools/test/bundles/bundle-steps.mjs",
+  "missingBehaviourExport": "executeWeightedStepDag",
+  "relatedPublishedClass": "StepDagExecutionError",
+  "candidateBlob": "702bc322fdf2acfc5e723a6a7560b83586276b08",
+  "suppliedAtomicCandidate": "395703a20dc438cf5fc74a71287536e1fa7d16c1",
+  "suppliedAtomicBlob": "505655b3dc0b258074af42784b4ce449c1b53de9",
+  "reviewedOrdinaryCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "reviewedOrdinaryBlob": "505655b3dc0b258074af42784b4ce449c1b53de9",
+  "sameAlreadyPublishedRunnerBlob": true,
+  "originalPublishedImplementationCommit": "653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0",
+  "activeOwner": "canonical atomic owner session01a119f9-854e-71e6-bcd9-2db47b378039",
+  "deltaAgainstMaster": {
+    "insertions": 55,
+    "deletions": 10,
+    "includes": "terminal failure/cancellation cause capture, finalizer ordering, global interruption accounting"
+  },
+  "supplierImplementationModified": false,
+  "nextAction": "Consume owner supplied exact runner prerequisite after bounded owner handoff; do not duplicate or trim failure/held controls",
+  "qualification": false
+}

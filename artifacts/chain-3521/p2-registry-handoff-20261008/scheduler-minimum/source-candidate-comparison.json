@@ -1,0 +1,65 @@
+[
+  {
+    "path": "tests/tools/support/atomic-producer-fixture.mjs",
+    "masterBlob": null,
+    "reviewed0dBlob": "27c152f0d8ab31f96a764a908500ef061a64b561",
+    "suppliedAtomic395Blob": "27c152f0d8ab31f96a764a908500ef061a64b561",
+    "sameIn0dAnd395": true
+  },
+  {
+    "path": "tests/tools/support/atomic-producer-command.mjs",
+    "masterBlob": null,
+    "reviewed0dBlob": "9cdd2a22d0199a08913d107f5b895736e52d7422",
+    "suppliedAtomic395Blob": "9cdd2a22d0199a08913d107f5b895736e52d7422",
+    "sameIn0dAnd395": true
+  },
+  {
+    "path": "tools/test-matrix/atomic-producers/compiler.mjs",
+    "masterBlob": null,
+    "reviewed0dBlob": "f9f0ba7630adc30273ec20a03b8704f1e0640496",
+    "suppliedAtomic395Blob": "f9f0ba7630adc30273ec20a03b8704f1e0640496",
+    "sameIn0dAnd395": true
+  },
+  {
+    "path": "tools/test-matrix/atomic-producers/contract.mjs",
+    "masterBlob": null,
+    "reviewed0dBlob": "0a6d61bc2a2cdee8138605e06f6275b163f22e1d",
+    "suppliedAtomic395Blob": "0a6d61bc2a2cdee8138605e06f6275b163f22e1d",
+    "sameIn0dAnd395": true
+  },
+  {
+    "path": "tools/test-matrix/atomic-producers/contract.schema.json",
+    "masterBlob": null,
+    "reviewed0dBlob": "20ec4abb69ea4f3f9c23fd06e86c25f300406849",
+    "suppliedAtomic395Blob": "20ec4abb69ea4f3f9c23fd06e86c25f300406849",
+    "sameIn0dAnd395": true
+  },
+  {
+    "path": "tools/release/correctness-provisional-receipt.mjs",
+    "masterBlob": null,
+    "reviewed0dBlob": "6b4c82357a0d6fa15d916bff770873f5d9d59f4c",
+    "suppliedAtomic395Blob": "6b4c82357a0d6fa15d916bff770873f5d9d59f4c",
+    "sameIn0dAnd395": true
+  },
+  {
+    "path": "tools/release/correctness-terminal-receipt.mjs",
+    "masterBlob": null,
+    "reviewed0dBlob": "73b8198228558f46a3f5f4437879faef760d2050",
+    "suppliedAtomic395Blob": "73b8198228558f46a3f5f4437879faef760d2050",
+    "sameIn0dAnd395": true
+  },
+  {
+    "path": "tools/release/correctness-terminal-seal-journal.mjs",
+    "masterBlob": null,
+    "reviewed0dBlob": "5420b537e636bc0ebe416a8a4ae79a629c15a5f0",
+    "suppliedAtomic395Blob": "5420b537e636bc0ebe416a8a4ae79a629c15a5f0",
+    "sameIn0dAnd395": true
+  },
+  {
+    "path": "tools/release/correctness-scheduler-authority.mjs",
+    "masterBlob": null,
+    "reviewed0dBlob": "af99d7639a41ca2e64c71de1d2e5a9d4879b69a3",
+    "suppliedAtomic395Blob": "af99d7639a41ca2e64c71de1d2e5a9d4879b69a3",
+    "sameIn0dAnd395": true
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "key": "original-allowed-eight-with-runner",
+  "sourceCommit": "5dd15c40481ac4b0da211cc19b90f067527af494",
+  "cwd": "/workspace/FsusBlog-scheduler-p2-minimal",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "--test-name-pattern",
+    "^(?:ordinary extensible Error retains its cause and exposes secondary seal diagnostics|nonextensible but unfrozen Error keeps its original identity and descriptors|sealed Error retains secondary diagnostics without changing its own properties|frozen Error retains its original secondary diagnostic outside the error object|an existing readonly diagnostic property cannot replace the primary error|terminal publication failure retains the earlier producer failure as primary|terminal publication failure retains the original cancellation Error object|terminal publication failure without an earlier execution failure rejects with the write Error)$",
+    "tests/tools/correctness-seal-error-precedence.test.mjs",
+    "tests/tools/atomic-producer-compiler.test.mjs"
+  ],
+  "startedUtc": "2026-10-08T15:05:28.228034+00:00",
+  "completedUtc": "2026-10-08T15:05:30.617599+00:00",
+  "elapsedSeconds": 2.39,
+  "exitCode": 0,
+  "pid": 678844,
+  "logSha256": "33b73d5686db91ae9137b789a35ce438b81c79cf9e9fc3dd7eb6d979055dd71a",
+  "logBytes": 899,
+  "rawLogArchive": "original-allowed-eight-with-runner.log.gz",
+  "qualification": false
+}

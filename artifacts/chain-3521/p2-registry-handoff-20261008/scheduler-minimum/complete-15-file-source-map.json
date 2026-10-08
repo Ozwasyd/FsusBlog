@@ -1,0 +1,129 @@
+{
+  "base": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "originalFiveFileCandidate": "c780d91b5bf71032458d2b0ebcc273a1623f13be",
+  "rows": [
+    {
+      "path": "tests/tools/atomic-producer-compiler.test.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "d3c80b3db8ea2438971a0a93b646efd9966c2047",
+      "sha256": "98edee8fe3e6fbe304d4f8ee5430b1cdb7355ea5cedfdaa6d60c49a764df2e76",
+      "originalOwnerCommit": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tests/tools/correctness-seal-error-precedence.test.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "c0421ac160fbd01d895445c1ad1364c537cd93eb",
+      "sha256": "e96a54fdd39f7be7eabf087f70c9ada1de22af7270188957707aa6e83a6fc8e8",
+      "originalOwnerCommit": "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/README.md",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "122df0149aa473aaca35df0e3694308dff529e17",
+      "sha256": "ba0e2c68be7940631d1808e2680c080ed613a469abfced856c4dd5ee2de87131",
+      "originalOwnerCommit": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/execution.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "8de3589ece367f3f8a6029f0b0dce0d8a5e03bda",
+      "sha256": "b8c6db1665e4e6cd6a970c48af9c38e466cc276f88b23fef5314ea43c2ea8d5f",
+      "originalOwnerCommit": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "a4554583b5761c898d3a1538ee7d348bf17093af",
+      "sha256": "4ef6d5eec6c94b4a214c2787cc82129e346073ad0c8de9a5b41ebf3c8c44e312",
+      "originalOwnerCommit": "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tests/tools/support/atomic-producer-fixture.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "27c152f0d8ab31f96a764a908500ef061a64b561",
+      "sha256": "60ba7fd64b84603590a73499a0019f937eba00a7df7f5ae4945d452b7201709c",
+      "originalOwnerCommit": "ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tests/tools/support/atomic-producer-command.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "9cdd2a22d0199a08913d107f5b895736e52d7422",
+      "sha256": "5fdd41e21204133e97d5cb8fbeed023c1c9c4acf004b7daed477041a85da4f73",
+      "originalOwnerCommit": "653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/compiler.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "f9f0ba7630adc30273ec20a03b8704f1e0640496",
+      "sha256": "3b80785386fb4585bb20864461e62979e7dce62f51e7ecc87c89773602d48150",
+      "originalOwnerCommit": "ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/contract.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "0a6d61bc2a2cdee8138605e06f6275b163f22e1d",
+      "sha256": "5e0bfe5d03cbdb817d15ac91a4ca9ce14a2d94e7eb7d8a96f882a55f1bac2651",
+      "originalOwnerCommit": "ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/contract.schema.json",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "20ec4abb69ea4f3f9c23fd06e86c25f300406849",
+      "sha256": "e21d5550a511e0b7223966e50920240803c06dda6199fc0db6cd9e18040dbb3e",
+      "originalOwnerCommit": "0acead3d180c8ac0f2afcbd85b0ebdd710abacb5",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/release/correctness-provisional-receipt.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "6b4c82357a0d6fa15d916bff770873f5d9d59f4c",
+      "sha256": "52fd5b34b4033bddbb6803b307261fa7453772c51064c01cc9ac4a99abfefe0f",
+      "originalOwnerCommit": "8f012d8b9696317fb00ea4c560bd878f2c08f373",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/release/correctness-terminal-receipt.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "73b8198228558f46a3f5f4437879faef760d2050",
+      "sha256": "5b2f2cd51ea3517a55844581b9947897e87c18d6ad1d960cc99d4ac9a69a18df",
+      "originalOwnerCommit": "c5c91ed112b07314c0a767531698193c0963b01a",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/release/correctness-terminal-seal-journal.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "5420b537e636bc0ebe416a8a4ae79a629c15a5f0",
+      "sha256": "dc92b41b8ff6d02123cfe9f0fe09011ee3729d230ad0cc4f856698cd5fcd2f22",
+      "originalOwnerCommit": "1a25ce9b948cde2a341bb1532f1f05e23934f3f9",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/release/correctness-scheduler-authority.mjs",
+      "publishedSourceCandidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+      "actualBlob": "af99d7639a41ca2e64c71de1d2e5a9d4879b69a3",
+      "sha256": "40d8ca3f06d8789a8130727b2c3e31af22eaedaeded516449fd7cb52e5df2e47",
+      "originalOwnerCommit": "a540575e05554c98aa1c830730cbc388b1b965d8",
+      "implementationRewritten": false
+    },
+    {
+      "path": "tools/test/bundles/bundle-steps.mjs",
+      "publishedSourceCandidate": "395703a20dc438cf5fc74a71287536e1fa7d16c1",
+      "actualBlob": "505655b3dc0b258074af42784b4ce449c1b53de9",
+      "sha256": "051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad",
+      "originalOwnerCommit": "653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0",
+      "implementationRewritten": false
+    }
+  ],
+  "qualified": false,
+  "candidate": "5dd15c40481ac4b0da211cc19b90f067527af494",
+  "count": 15
+}

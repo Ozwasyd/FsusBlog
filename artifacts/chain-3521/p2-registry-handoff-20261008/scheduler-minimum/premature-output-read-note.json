@@ -1,0 +1,8 @@
+{
+  "sourceCommit": "5dd15c40481ac4b0da211cc19b90f067527af494",
+  "incident": "one followup tool read output while original producer still running; saw no digest change and preservation assertion failed",
+  "productChangesFromPrematureStep": false,
+  "bindingCommitCreatedFromPrematureStep": false,
+  "correction": "waited original process exit0, then read complete actual output and verified exact one changed bundle-steps digest before creating binding",
+  "qualification": false
+}

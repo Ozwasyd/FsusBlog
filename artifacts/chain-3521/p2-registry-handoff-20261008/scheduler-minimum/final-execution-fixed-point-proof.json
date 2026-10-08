@@ -1,0 +1,11 @@
+{
+  "schema": "fsusblog.chain-3521.original-producer-fixed-point.v1",
+  "candidate": "e6efbce8ec875f92053af4ece5c82cc3044d7ed8",
+  "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "outputSha256": "43fb3bae0cc4649c1f1f58ba7c7d7f015a90920d664dcafacad4cb25f6952d62",
+  "gitBlob": "726e26fc3b39946d501a7fe6ebd45369836278ef",
+  "originalProducerReceipt": "final-original-execution-fixed-point.json",
+  "producerExitCode": 0,
+  "worktreeClean": true,
+  "qualification": false
+}

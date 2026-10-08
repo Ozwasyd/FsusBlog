@@ -1,0 +1,34 @@
+{
+  "producerSourceCommit": "5dd15c40481ac4b0da211cc19b90f067527af494",
+  "changedClosedFiles": [
+    {
+      "before": {
+        "path": "tools/test/bundles/bundle-steps.mjs",
+        "contentDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727",
+        "indexDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727"
+      },
+      "after": {
+        "path": "tools/test/bundles/bundle-steps.mjs",
+        "contentDigest": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad",
+        "indexDigest": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad"
+      }
+    }
+  ],
+  "all102TargetRecordsUnchanged": true,
+  "all1128ClosedPathsUnchanged": true,
+  "headerDeclarationsParserIndependentIndexUnchanged": true,
+  "binding": {
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+      "tools/test/bundles/bundle-steps.mjs"
+    ],
+    "outputs": [
+      {
+        "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "sha256": "43fb3bae0cc4649c1f1f58ba7c7d7f015a90920d664dcafacad4cb25f6952d62"
+      }
+    ]
+  },
+  "scope": "only real changed bundle-steps source that original fixture producer reads; no declaration of new component module routes or live scheduler wiring fabricated",
+  "qualificationEligible": false
+}
