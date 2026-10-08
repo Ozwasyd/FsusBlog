@@ -35,15 +35,13 @@ function writeInt64(b: Uint8Array, off: number, v: bigint): void {
 // readInt32
 // ---------------------------------------------------------------------------
 describe('readInt32', () => {
-  it('reads little-endian positive value', () => {
-    const b = new Uint8Array([0x01, 0x00, 0x00, 0x00])
-    expect(readInt32(b, 0)).toBe(1)
-  })
-
-  it('reads little-endian 0x01020304', () => {
-    const b = new Uint8Array([0x04, 0x03, 0x02, 0x01])
-    expect(readInt32(b, 0)).toBe(0x01020304)
-  })
+    it.each([
+        { caseName: 'one', bytes: [0x01, 0x00, 0x00, 0x00], expected: 1 },
+        { caseName: 'ordered-bytes', bytes: [0x04, 0x03, 0x02, 0x01], expected: 0x01020304 }
+    ])('reads little-endian int32: $caseName', ({ bytes, expected }) => {
+        const b = new Uint8Array(bytes);
+        expect(readInt32(b, 0)).toBe(expected);
+    });
 
   it('treats out-of-bounds bytes as 0', () => {
     const b = new Uint8Array([0x05])
