@@ -4,13 +4,22 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
                 "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
                 "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
                 "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaBuilder.cs",
                 "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaPolicy.cs",
-                "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs"
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+                "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+                "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs"
             ],
-            "reason": "Preserve existing process-environment spelling under the original path-based backend source admission; this native module adds no environment switch and all internal identifiers follow repository naming."
+            "reason": "Preserve existing process-environment spelling under trusted path-based backend source admission for the five native module paths and nine exact existing common prerequisite paths; this component adds no environment switch, changes no shared registry, and preserves all reviewed production blobs."
         }
     ]
 }
