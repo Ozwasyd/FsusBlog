@@ -14,11 +14,11 @@
             "reason": "Preserve the exact existing JSON schema, npm lock/package and ownership-manifest field spellings consumed by their canonical tooling. This naming declaration grants no runtime or control-registration acceptance."
         },
         {
-            "id": "css-like-contract",
+            "id": "search-index-utf8-scalar-owner",
             "paths": [
                 "docs/testing.generated.md"
             ],
-            "reason": "The existing test-document generator preserves matrix contract identifiers and CSS-like command/document spelling; the output is bound separately to its producer and actual SHA-256."
+            "reason": "The canonical generated test matrix retains its registered search UTF-8 scalar owner identifiers while adding control-admission input/output declarations. Only the generator-owned document path is bound here; no search behavior or authority is changed."
         },
         {
             "id": "environment-variable",
