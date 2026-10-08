@@ -58,7 +58,8 @@ const stable = (value) => Array.isArray(value)
         ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]))
         : value
 const hash = (value) => createHash('sha256').update(JSON.stringify(stable(value))).digest('hex')
-const seal = (value, keepNull = false) => {
+const seal = (value, keepNull = false) =>
+{
     const receipt = { ...value, contentDigest: null }
     const content = keepNull ? receipt : Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
     receipt.contentDigest = `sha256:${hash(content)}`
@@ -77,7 +78,8 @@ const emptyZeroLegacyScan = () => ({
     pathClassCounts: Object.fromEntries(zeroLegacyRequiredPathClasses.map((pathClass) => [pathClass, 0])),
     findings: []
 })
-const sealBare = (value, keepNull = false) => {
+const sealBare = (value, keepNull = false) =>
+{
     const receipt = seal(value, keepNull);
     receipt.contentDigest = receipt.contentDigest.replace(/^sha256:/u, '');
     return receipt;
@@ -680,7 +682,10 @@ test('owned scanner fixture preserves representative input bytes and rejection r
 test('owned scanner fixture rejects getters aliases and parser input replacement before creating data', () =>
 {
     let getterReads = 0
-    const getterInput = Object.defineProperty({}, 'input.json', { enumerable: true, get() { getterReads += 1; return '{}'; } })
+    const getterInput = Object.defineProperty({}, 'input.json', { enumerable: true, get()
+    {
+        getterReads += 1; return '{}';
+    } })
     const inputs = [getterInput, Object.create({ inherited: '{}' }), { '../outside.json': '{}' },
         { '/absolute.json': '{}' }, { 'nested//input.json': '{}' }, { 'nested/./input.json': '{}' },
         { 'nested\\input.json': '{}' }, { 'src/frontend/package.json': '{}' },
