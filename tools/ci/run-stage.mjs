@@ -24,7 +24,8 @@ function canonicalize(value)
 
 function contentDigest(value)
 {
-    const { contentDigest: _ignored, ...content } = value;
+    const content = { ...value };
+    delete content.contentDigest;
     return `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex')}`;
 }
 
@@ -145,6 +146,7 @@ function writeSummary(jobId, stage, status, durationMs, rootCause = null)
         durationMs: Math.max(0, Number(existing?.durationMs ?? 0)) + Math.max(0, durationMs),
         stageDurationsMs: stageDurations(existing, stage, durationMs),
         artifacts: existing?.artifacts ?? [],
+        requiredEvidenceResult: existing?.requiredEvidenceResult ?? null,
         localReproduction: existing?.localReproduction ?? `./tools/test.sh ci-job ${jobId}`,
         commit: process.env.GITHUB_SHA || existing?.commit || 'unknown',
         runId: process.env.GITHUB_RUN_ID ?? existing?.runId ?? 'local',
