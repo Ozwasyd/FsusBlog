@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve existing NuGet package/project identifiers and serialized lifecycle registry keys while consuming the exact coordinator-supplied lock and registry prerequisites for the cgroup authority test. This ordinary naming manifest grants no generated-output, compiler, runtime or historical acceptance."
+        }
+    ]
+}
