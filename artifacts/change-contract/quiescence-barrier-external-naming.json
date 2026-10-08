@@ -22,9 +22,10 @@
             "paths": [
                 "config/schemas/quiescence-domain-observation.schema.json",
                 "config/schemas/runtime-state-domain-registry.schema.json",
-                "config/testing/runtime-state-domain-registry.json"
+                "config/testing/runtime-state-domain-registry.json",
+                "tests/backend/packages.lock.json"
             ],
-            "reason": "Preserve machine-readable registry and schema field names consumed by independent catalog validators and observation consumers."
+            "reason": "Preserve machine-readable registry and schema field names consumed by independent catalog validators and observation consumers. The canonical lock-owner prerequisite adds only the existing Server AngleSharp project-reference edge; package names, versions and hashes remain unchanged."
         }
     ]
 }
