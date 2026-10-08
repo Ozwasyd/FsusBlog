@@ -230,3 +230,35 @@ test('CPU independent plan verifier rejects resealed machine boundary identities
             topology: fixture.plan.topology }), /machine identity mismatch/u);
     }
 });
+
+test('CPU scheduler input consumes existing explicit resource seam without enlarging capacity or changing memory', (t) =>
+{
+    const fixture = writeActivationFixture(t);
+    loader.activateCpuCalibration(fixture.pointerPath, fixture.reference);
+    const selected = resolve(fixture);
+    const resources = { cpuCount: 256, availableCpuUnits: 999, availableMemoryGiB: 3.5, load1: 2, diskFreeBytes: 123456 };
+    const input = loader.cpuCapacitySchedulerInput(selected, { runId: 'fixture-run', identity: fixture.plan.identity,
+        topology: fixture.plan.topology, resources });
+    assert.equal(input.systemResources.cpuCount, 16);
+    assert.equal(input.systemResources.availableCpuUnits, 12);
+    assert.equal(input.systemResources.availableMemoryGiB, 3.5);
+    assert.equal(input.systemResources.load1, 2);
+    assert.equal(input.systemResources.diskFreeBytes, 123456);
+    assert.equal(Math.min(input.systemResources.cpuCount, input.systemResources.availableCpuUnits), 12);
+    assert.equal(input.capacityReceipt.calibrationDigest, fixture.selected.contentDigest);
+    assert.deepEqual(resources, { cpuCount: 256, availableCpuUnits: 999, availableMemoryGiB: 3.5, load1: 2, diskFreeBytes: 123456 });
+    assert.throws(() =>
+    {
+        input.systemResources.availableCpuUnits = 999;
+    }, TypeError);
+    assert.throws(() => loader.cpuCapacitySchedulerInput(selected, { runId: 'fixture-run', identity: fixture.plan.identity,
+        topology: fixture.plan.topology, resources: { ...resources, availableMemoryGiB: Infinity } }), /current memory/u);
+    const fractional = machine({ quota: '50000' });
+    const fractionalIdentity = identityFor(fractional);
+    const fallback = loader.resolveRunCpuCapacity({ runId: 'fractional-input', topology: fractional,
+        identity: fractionalIdentity, activePointerPath: fixture.pointerPath });
+    const fractionalInput = loader.cpuCapacitySchedulerInput(fallback, { runId: 'fractional-input',
+        identity: fractionalIdentity, topology: fractional, resources });
+    assert.equal(fractionalInput.systemResources.availableCpuUnits, 0.5);
+    assert.equal(fractionalInput.capacityReceipt.capacitySource, 'fallback');
+});

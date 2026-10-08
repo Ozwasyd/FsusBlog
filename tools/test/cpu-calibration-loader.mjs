@@ -192,3 +192,21 @@ export function bindCpuCapacityToPlan(selection, { runId, identity, topology })
     }
     return freezeCpuValue(structuredClone(selection));
 }
+
+/** Prepare the existing runDag options.systemResources seam before ordinary plan seal. */
+export function cpuCapacitySchedulerInput(selection, { runId, identity, topology, resources })
+{
+    const capacityReceipt = bindCpuCapacityToPlan(selection, { runId, identity, topology });
+    if (!resources || typeof resources !== 'object' || Array.isArray(resources)
+        || !Number.isFinite(resources.availableMemoryGiB) || resources.availableMemoryGiB <= 0
+        || !Number.isFinite(resources.load1) || resources.load1 < 0)
+    {
+        throw new Error('scheduler CPU input requires current memory and load observations');
+    }
+    // CPU authority comes only from the sealed selection. Preserve the existing memory/load inputs.
+    // The existing scheduler resourceBudget min(cpuCount, availableCpuUnits) retains this envelope.
+    return freezeCpuValue({ capacityReceipt, systemResources: {
+        ...structuredClone(resources), cpuCount: topology.projection.allowed.value.length,
+        availableCpuUnits: capacityReceipt.schedulerEnvelopeCpuUnits
+    } });
+}
