@@ -30,3 +30,6 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 
 # Current auth formatter correction (Refs #1771)
 64e732c4fa7fb9ec01674c1be259b2702e9de51f
+
+# Canonical shared fixture whitespace; source f53b6b79/dbeac12c / #3737
+b1eebb5be12e3d5d027021f3d3d769f5fca7923c
