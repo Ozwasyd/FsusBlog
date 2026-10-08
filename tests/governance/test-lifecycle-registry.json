@@ -7641,6 +7641,38 @@
                 "category": "real-subprocess-lifecycle",
                 "physicalOwner": "process:lifecycle"
             }
+        },
+        {
+            "file": "tests/tools/layout-composition-diagnostic-consumer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/layout-composition-diagnostic-consumer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/control-legality.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/control-legality.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/tools/layout-composition-source.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/layout-composition-source.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
         }
     ]
 }

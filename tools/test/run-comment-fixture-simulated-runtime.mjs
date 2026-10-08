@@ -12,11 +12,19 @@ import {
     buildCommentFixtureModelReport,
     resolveCommentFixtureSourceIdentity
 } from './comment-fixture-governance.mjs';
+import { defaultTimeoutPolicyDigest, qualificationTemporalContext } from './temporal-context.mjs';
 const { createProducerContext } = await import(new URL('../test-fixtures/producer-port.mjs', import.meta.url));
 const { buildProducerReceipt, canonicalJson, digestCanonical, validateProducerReceipt } = await import(new URL('../test-fixtures/receipt/index.mjs', import.meta.url));
 const { buildFixtureVariantPlan, buildProducerFixtureVariantPlan, fixtureCatalogDigest, readFixtureCatalogs } = await import(new URL('../testing/fixture-catalog.mjs', import.meta.url));
 const {cleanupCommentModeration, prepareCommentModeration, verifyCommentModeration} = await import(new URL('../test-fixtures/producers/comment-moderation-producer.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+// Server-owned model state, never an observation copied from a caller's plan.
+// The 2042 fixture epoch remains a model value, not production clock evidence.
+const modelTemporalRuntime = Object.freeze({
+    businessEpochUtc: '2042-05-17T09:30:00.000Z',
+    backendCulture: 'Invariant',
+    postgresTimezone: 'UTC'
+});
 
 function hex(value)
 {
@@ -107,8 +115,16 @@ function contextFor(index, baseUrl, source)
             ).postconditionIds.map((postconditionId) => ({ capabilityId, postconditionId, ok: true }))), catalogs });
     };
     return createProducerContext({ plan, producerId: 'comment-moderation', producerOutputs, catalogs,
-        temporalContext: { schema: 'fsusblog.test-temporal-context.v1', authorityClass: 'local-simulated',
-            instantUtc: '2042-05-17T09:30:00.000Z' },
+        temporalContext: qualificationTemporalContext({
+            sourceCommit: source.commit,
+            sourceFingerprint: source.worktreeFingerprint,
+            producerId: 'comment-moderation',
+            schedulerRunId: runId,
+            businessEpochUtc: modelTemporalRuntime.businessEpochUtc,
+            locale: 'en-US',
+            uiLocale: 'en-US',
+            timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+        }),
         producerReceipts: {
             'auth-session': sealModelReceipt('auth-session', refs.map((item) => ({ kind: item.role === 'admin' ? 'admin' : 'user',
                 id: item.publicId, semanticRole: item.semanticRole, fixtureIdentity: item.fixtureIdentity,
@@ -262,7 +278,8 @@ async function startBackend({ mutateRead } = {})
                 response.end(JSON.stringify({
                     schema: 'fsusblog.comment-fixture-simulated-temporal-observation.v1',
                     runId,
-                    authorityClass: 'local-simulated'
+                    authorityClass: 'local-simulated',
+                    ...modelTemporalRuntime
                 }));
                 return;
             }

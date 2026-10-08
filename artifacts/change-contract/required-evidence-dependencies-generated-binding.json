@@ -1,0 +1,39 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/development/frontend-style-policy.json",
+        "config/schemas/test-execution-envelope-applicability.schema.json",
+        "package.json",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/checks/static/check-views-constraints.mjs",
+        "tests/frontend/package-lock.json",
+        "tests/frontend/package.json",
+        "tests/tools/correctness-attempt-migration.test.mjs",
+        "tests/tools/execution-envelope-policy.test.mjs",
+        "tests/tools/package.json",
+        "tools/frontend/check-frontend-style.mjs",
+        "tools/frontend/style-toolchain/eslint.config.mjs",
+        "tools/package.json",
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/test/run-matrix-governance-once.sh"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "b771156fe1e2f692562141d3ca93c11c967a4f932a79841d8945889a904a74a5"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+        },
+        {
+            "path": "config/testing/test-execution-envelope-applicability.json",
+            "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
+        }
+    ]
+}

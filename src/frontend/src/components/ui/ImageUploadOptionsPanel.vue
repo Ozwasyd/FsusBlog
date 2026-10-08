@@ -1,18 +1,27 @@
 <template>
     <div class="upload-options-panel-minimal">
-        <header class="flex items-center justify-between mb-10 pb-4 border-b border-[var(--fsusblog-panel-border)]">
-            <h3 class="section-title section-title--inline">上传与输出策略</h3>
-            <ElButton
-                type="primary"
-                plain
-                size="small"
-                @click="resetOptions"
+        <slot
+            name="header"
+            :reset="resetOptions"
+        >
+            <FsusUiSectionHeader
+                title="上传与输出策略"
+                title-tag="h3"
             >
-                重置
-            </ElButton>
-        </header>
+                <template #actions>
+                    <ElButton
+                        type="primary"
+                        plain
+                        size="small"
+                        @click="resetOptions"
+                    >
+                        重置
+                    </ElButton>
+                </template>
+            </FsusUiSectionHeader>
+        </slot>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-16 gap-y-10">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-[var(--fsus-space-6)] gap-y-[var(--fsus-space-4)]">
             <ElFormItem label="输出格式">
                 <ElSelect
                     :model-value="options.format"
@@ -42,42 +51,71 @@
             </ElFormItem>
 
             <ElFormItem label="压缩质量">
-                <ElSlider
-                    :model-value="options.quality"
-                    :min="1"
-                    :max="100"
-                    :show-input="true"
-                    @update:model-value="updateQuality"
-                />
+                <div class="upload-options-value-group">
+                    <ElSlider
+                        :model-value="options.quality"
+                        :min="1"
+                        :max="100"
+                        @update:model-value="updateQuality"
+                    />
+                    <ElInputNumber
+                        class="upload-options-value-input"
+                        :model-value="options.quality"
+                        :min="1"
+                        :max="100"
+                        label="压缩质量"
+                        @update:model-value="updateQuality"
+                    />
+                </div>
             </ElFormItem>
 
             <ElFormItem label="缩放倍率">
-                <ElSlider
-                    :model-value="options.scaleRatio"
-                    :min="0.1"
-                    :max="1"
-                    :step="0.05"
-                    :show-input="true"
-                    @update:model-value="updateScaleRatio"
-                />
+                <div class="upload-options-value-group">
+                    <ElSlider
+                        :model-value="options.scaleRatio"
+                        :min="0.1"
+                        :max="1"
+                        :step="0.05"
+                        @update:model-value="updateScaleRatio"
+                    />
+                    <ElInputNumber
+                        class="upload-options-value-input"
+                        :model-value="options.scaleRatio"
+                        :min="0.1"
+                        :max="1"
+                        :step="0.05"
+                        label="缩放倍率"
+                        @update:model-value="updateScaleRatio"
+                    />
+                </div>
             </ElFormItem>
 
             <ElFormItem label="最大边长">
-                <ElSlider
-                    :model-value="options.maxEdge"
-                    :min="256"
-                    :max="4096"
-                    :step="64"
-                    :show-input="true"
-                    @update:model-value="updateMaxEdge"
-                />
+                <div class="upload-options-value-group">
+                    <ElSlider
+                        :model-value="options.maxEdge"
+                        :min="256"
+                        :max="4096"
+                        :step="64"
+                        @update:model-value="updateMaxEdge"
+                    />
+                    <ElInputNumber
+                        class="upload-options-value-input"
+                        :model-value="options.maxEdge"
+                        :min="256"
+                        :max="4096"
+                        :step="64"
+                        label="最大边长"
+                        @update:model-value="updateMaxEdge"
+                    />
+                </div>
             </ElFormItem>
 
             <div class="flex flex-col gap-8 lg:col-span-2">
                 <div class="flex items-center justify-between py-4 border-y border-[var(--fsusblog-panel-border)]">
                     <div>
-                        <div class="text-[11px] font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">透明通道 (Alpha Channel)</div>
-                        <p class="text-[12px] text-[var(--fsusblog-text-tertiary)] mt-1">保留图片原始透明度信息。</p>
+                        <div class="text-xs font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">透明通道 (Alpha Channel)</div>
+                        <p class="text-xs text-[var(--fsusblog-text-tertiary)] mt-1">保留图片原始透明度信息。</p>
                     </div>
                     <ElSwitch
                         :model-value="options.preserveAlpha"
@@ -87,8 +125,8 @@
 
                 <div class="flex items-center justify-between py-4 border-b border-[var(--fsusblog-panel-border)]">
                     <div>
-                        <div class="text-[11px] font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">WASM-only 模式</div>
-                        <p class="text-[12px] text-[var(--fsusblog-color-warning-text)] mt-1 italic">仅使用 WASM codec；不支持时直接报错。</p>
+                        <div class="text-xs font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">WASM-only 模式</div>
+                        <p class="text-xs text-[var(--fsusblog-color-warning-text)] mt-1 italic">仅使用 WASM codec；不支持时直接报错。</p>
                     </div>
                     <ElSwitch
                         :model-value="wasmOnly"
@@ -99,12 +137,12 @@
         </div>
 
         <!-- 状态与预览 -->
-        <footer class="mt-12 space-y-6">
+        <footer class="mt-6 space-y-4">
             <div
                 v-if="statusText"
                 class="flex items-center gap-4 py-3 px-4 bg-[var(--fsusblog-page-bg)] border border-[var(--fsusblog-panel-border-strong)] rounded-[var(--fsus-radius-control)]"
             >
-                <span class="text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">{{ statusText }}</span>
+                <span class="text-xs tabular-nums font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">{{ statusText }}</span>
                 <ElButton
                     v-if="canResume"
                     link
@@ -145,7 +183,7 @@
                 </div>
             </div>
 
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] tabular-nums">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs tabular-nums">
                 <span class="font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">WASM 支持：</span>
                 <div class="flex gap-2">
                     <span
@@ -165,6 +203,7 @@
 import { computed } from 'vue';
 
 import type { ImageCompressionOptions } from '@/api/upload';
+import { FsusUiSectionHeader } from '@/fsusui';
 import type { ImageCompressionPreview } from '@/utils/imageCompression';
 
 const props = defineProps<{
@@ -198,7 +237,9 @@ const wasmSupportedFormatsDisplay = computed(() =>
 
 function updateOption<K extends keyof ImageCompressionOptions>(key: K, value: ImageCompressionOptions[K]): void
 {
-    emit('update:options', { [key]: value } as Partial<ImageCompressionOptions>);
+    const patch: Partial<ImageCompressionOptions> = {};
+    patch[key] = value;
+    emit('update:options', patch);
 }
 
 function updateFormat(value: string | number | boolean): void
@@ -209,17 +250,17 @@ function updateFormat(value: string | number | boolean): void
     }
 }
 
-function updateQuality(value: string | number | boolean): void
+function updateQuality(value: string | number | boolean | undefined): void
 {
     updateOption('quality', Number(value));
 }
 
-function updateScaleRatio(value: string | number | boolean): void
+function updateScaleRatio(value: string | number | boolean | undefined): void
 {
     updateOption('scaleRatio', Number(value));
 }
 
-function updateMaxEdge(value: string | number | boolean): void
+function updateMaxEdge(value: string | number | boolean | undefined): void
 {
     updateOption('maxEdge', Number(value));
 }
@@ -254,40 +295,56 @@ function formatBytes(value: number): string
 </script>
 
 <style scoped>
-@reference "@/assets/main.css";
-
-.section-title
+.upload-options-panel-minimal
  {
-    @apply text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-primary)] normal-case;
-
-    position: relative;
+    display: grid;
+    gap: var(--fsus-space-4);
 }
 
-.section-title::before
+.upload-options-value-group
  {
-    content: "";
-
-    @apply absolute bottom-[-4px] left-0 h-[2px] w-6 bg-[var(--fsusblog-text-primary)];
+    display: grid;
+    gap: var(--fsus-space-3);
+    width: 100%;
+    min-width: 0;
 }
 
-.section-title--inline
+.upload-options-value-input
  {
-    @apply mb-0 border-none pb-0;
+    width: 100%;
+    max-width: 100%;
+}
+
+@media (width >= 768px)
+ {
+    .upload-options-value-group
+     {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 8rem);
+        align-items: center;
+        gap: var(--fsus-space-4);
+    }
 }
 
 .preview-metric
  {
-    @apply flex flex-col gap-1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--fsus-space-1);
 }
 
 .preview-metric label
  {
-    @apply text-[11px] font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal;
+    color: var(--fsusblog-text-muted);
+    font-size: 12px;
+    font-weight: 700;
 }
 
 .preview-metric span
  {
-    @apply text-[12px] tabular-nums font-medium text-[var(--fsusblog-text-primary)];
+    color: var(--fsusblog-text-primary);
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
 }
 
 </style>

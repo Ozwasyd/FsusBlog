@@ -104,7 +104,7 @@ function runChecker(fixtureRoot, args, env = {})
     ], {
         cwd: fixtureRoot,
         encoding: 'utf8',
-        env: { ...process.env, ...env },
+        env: { ...process.env, FSUSBLOG_USE_LOCAL_FSUSUI: '0', ...env },
         timeout: 90_000
     });
 }
@@ -1666,4 +1666,124 @@ test('frontend style governance AST fixes are idempotent and diagnostics are loc
             .sort();
         assert.deepEqual(diagnostics(ci), diagnostics(local));
     });
+});
+function actualAppProgramProbe(localMode)
+{
+    const probe = `
+        import fs from 'node:fs';
+        import path from 'node:path';
+        import { pathToFileURL } from 'node:url';
+        const root = ${JSON.stringify(root)};
+        const { ESLint } = await import(pathToFileURL(path.join(root, 'tools/frontend/style-toolchain/node_modules/eslint/lib/api.js')));
+        const { default: ts } = await import(pathToFileURL(path.join(root, 'tools/frontend/style-toolchain/node_modules/typescript/lib/typescript.js')));
+        const file = path.join(root, 'src/frontend/src/fsusui/overlay.ts');
+        const eslint = new ESLint({ cwd: root, overrideConfigFile: path.join(root, 'eslint.config.mjs') });
+        const config = await eslint.calculateConfigForFile(file);
+        const parsed = config.languageOptions.parser.parseForESLint(fs.readFileSync(file, 'utf8'), {
+            ...config.languageOptions.parserOptions, filePath: file
+        });
+        const program = parsed.services.program;
+        const options = program.getCompilerOptions();
+        const typeLibraries = options.types.map((name) => ({
+            name,
+            file: ts.resolveTypeReferenceDirective(name, options.configFilePath, options, ts.sys)
+                .resolvedTypeReferenceDirective?.resolvedFileName ?? null
+        }));
+        const ui = ts.resolveModuleName('@ozwasyd/element-plus', file, options, ts.sys).resolvedModule?.resolvedFileName ?? null;
+        const runtime = ts.resolveModuleName('@ozwasyd/element-plus/markdown-runtime', file, options, ts.sys).resolvedModule?.resolvedFileName ?? null;
+        const resolve = (specifier, importer) => {
+            const resolved = ts.resolveModuleName(specifier, importer, options, ts.sys).resolvedModule?.resolvedFileName;
+            return resolved ? fs.realpathSync(resolved) : null;
+        };
+        const app = path.join(root, 'src/frontend/tsconfig.app.json');
+        const original = ts.parseJsonConfigFileContent(ts.readConfigFile(app, ts.sys.readFile).config,
+            ts.sys, path.dirname(app), {}, app, undefined,
+            [{ extension: '.vue', isMixedContent: true, scriptKind: ts.ScriptKind.Deferred }]);
+        console.log(JSON.stringify({
+            project: options.configFilePath, parserOptions: config.languageOptions.parserOptions,
+            optionDiagnostics: program.getOptionsDiagnostics().map((diagnostic) => diagnostic.code),
+            typeLibraries, originalTypes: original.options.types,
+            roots: program.getRootFileNames(), originalRoots: original.fileNames,
+            strict: options.strict, originalStrict: original.options.strict,
+            noUnusedLocals: options.noUnusedLocals, originalNoUnusedLocals: original.options.noUnusedLocals,
+            noUnusedParameters: options.noUnusedParameters, originalNoUnusedParameters: original.options.noUnusedParameters,
+            erasableSyntaxOnly: options.erasableSyntaxOnly, originalErasableSyntaxOnly: original.options.erasableSyntaxOnly,
+            ui, runtime, paths: options.paths,
+            vue: [resolve('vue', file), ui ? resolve('vue', ui) : null],
+            vueCore: [resolve('@vue/runtime-core', file), ui ? resolve('@vue/runtime-core', ui) : null],
+            unsafeArgument: config.rules['@typescript-eslint/no-unsafe-argument'],
+            unsafeAssignment: config.rules['@typescript-eslint/no-unsafe-assignment']
+        }));
+    `;
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', probe], {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 90_000,
+        env: { ...process.env, FSUSBLOG_STYLE_ROOT: root, FSUSBLOG_USE_LOCAL_FSUSUI: localMode }
+    });
+    assert.equal(result.status, 0, output(result));
+    return JSON.parse(result.stdout);
+}
+
+test('canonical local app program includes every original app, Wasm and SFC root with one Vue identity', () =>
+{
+    const program = actualAppProgramProbe('1');
+    assert.match(program.project, /tsconfig\.fsusui-local\.app\.generated\.json$/u);
+    assert.deepEqual(program.optionDiagnostics, []);
+    assert.deepEqual(program.typeLibraries.map((library) => library.name), program.originalTypes);
+    assert.ok(program.typeLibraries.every((library) => library.file));
+    const roots = new Set(program.roots.map((file) => path.normalize(file)));
+    assert.ok(program.originalRoots.length > 100);
+    for (const file of program.originalRoots)
+    {
+        assert.ok(roots.has(path.normalize(file)), `canonical app program omitted ${file}`);
+    }
+    assert.ok([...roots].some((file) => file.endsWith('.vue')));
+    assert.ok([...roots].some((file) => file.includes(`${path.sep}wasm${path.sep}web${path.sep}`)));
+    assert.equal(program.strict, program.originalStrict);
+    assert.equal(program.noUnusedLocals, program.originalNoUnusedLocals);
+    assert.equal(program.noUnusedParameters, program.originalNoUnusedParameters);
+    assert.equal(program.erasableSyntaxOnly, program.originalErasableSyntaxOnly);
+    assert.ok(program.ui?.endsWith('/vue/packages/element-plus/index.ts'));
+    assert.ok(program.runtime?.endsWith('/vue/packages/element-plus/markdown-runtime.ts'));
+    assert.ok(program.vue[0]);
+    assert.equal(program.vue[0], program.vue[1]);
+    assert.ok(program.vueCore[0]);
+    assert.equal(program.vueCore[0], program.vueCore[1]);
+    assert.deepEqual(program.unsafeArgument, [2]);
+    assert.deepEqual(program.unsafeAssignment, [2]);
+});
+
+test('canonical local-off mode retains the original application project service', () =>
+{
+    const program = actualAppProgramProbe('0');
+    assert.equal(path.normalize(program.project), path.join(root, 'src/frontend/tsconfig.app.json'));
+    assert.equal(program.parserOptions.projectService, true);
+    assert.equal(program.parserOptions.project, undefined);
+    assert.equal(program.paths['@ozwasyd/element-plus'], undefined);
+    assert.deepEqual(program.unsafeArgument, [2]);
+    assert.deepEqual(program.unsafeAssignment, [2]);
+});
+
+test('canonical local source and standard style commands accept public app consumers without rule overrides', () =>
+{
+    const files = ['src/frontend/src/fsusui/overlay.ts', 'src/frontend/src/security/trustedTypesRuntime.ts'];
+    const env = { ...process.env, FSUSBLOG_STYLE_ROOT: root, FSUSBLOG_USE_LOCAL_FSUSUI: '1' };
+    const source = spawnSync(process.execPath, [path.join(toolchain, 'node_modules/eslint/bin/eslint.js'),
+        '--config', path.join(root, 'eslint.config.mjs'), '--no-cache', '--max-warnings', '0', ...files],
+    { cwd: root, env, encoding: 'utf8', timeout: 90_000 });
+    assert.equal(source.status, 0, output(source));
+    const standard = spawnSync(process.execPath, [checker, '--root', root, '--mode', 'changed',
+        '--base', 'HEAD', ...files.flatMap((file) => ['--file', file])],
+    { cwd: root, env, encoding: 'utf8', timeout: 90_000 });
+    assert.equal(standard.status, 0, output(standard));
+    assert.match(standard.stdout, /files=2 eslint=2 stylelint=0 violations=0 new=0/u);
+});
+
+test('canonical local project rejects an invalid explicit source root and local-off ignores it', async () =>
+{
+    const { resolveLocalFsusUiApplicationProject } = await import(new URL('../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url));
+    const env = { FSUSBLOG_USE_LOCAL_FSUSUI: '1', FSUSBLOG_LOCAL_FSUSUI_ROOT: path.join(root, '.tmp/not-an-fsusui-source') };
+    assert.throws(() => resolveLocalFsusUiApplicationProject({ repositoryRoot: root, env }), /does not contain the FsusUI source contract/u);
+    assert.equal(resolveLocalFsusUiApplicationProject({ repositoryRoot: root, env: { ...env, FSUSBLOG_USE_LOCAL_FSUSUI: '0' } }), null);
 });

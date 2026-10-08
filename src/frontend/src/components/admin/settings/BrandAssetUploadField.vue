@@ -1,63 +1,70 @@
 <template>
     <ElFormItem :label="label">
-        <div class="brand-asset-upload-field min-w-0 space-y-3">
-            <ElUpload
-                class="brand-asset-upload-field__upload"
-                action="#"
-                :http-request="handleUpload"
-                :show-file-list="false"
-                :disabled="disabled || uploading"
-                :accept="accept"
-                :data-settings-upload-surface="`brand:${targetField}`"
-                :data-upload-state="uploadState"
-            >
-                <div
-                    v-loading="uploading"
-                    class="brand-asset-upload-field__preview group"
-                    :class="`brand-asset-upload-field__preview--${previewVariant}`"
-                    :aria-busy="uploading ? 'true' : undefined"
+        <div
+            class="brand-asset-upload-field min-w-0"
+            :class="{ 'brand-asset-upload-field--icon': previewVariant === 'icon' }"
+        >
+            <div class="brand-asset-upload-field__media">
+                <ElUpload
+                    class="brand-asset-upload-field__upload"
+                    action="#"
+                    media-field
+                    :media-aspect-ratio="previewVariant === 'icon' ? '1 / 1' : previewVariant === 'wide' ? '16 / 9' : '5 / 2'"
+                    :http-request="handleUpload"
+                    :show-file-list="false"
+                    :disabled="disabled || uploading"
+                    :accept="accept"
+                    :data-settings-upload-surface="`brand:${targetField}`"
+                    :data-upload-state="uploadState"
                 >
-                    <img
-                        v-if="hasPreviewCandidate"
-                        :src="previewUrl"
-                        :alt="previewAlt"
-                        class="brand-asset-upload-field__image"
-                        :class="{ 'brand-asset-upload-field__image--loaded': previewLoaded }"
-                        @load="handlePreviewLoad"
-                        @error="handlePreviewError"
-                    />
                     <div
-                        v-if="!canShowPreview"
-                        class="brand-asset-upload-field__empty"
+                        v-loading="uploading"
+                        class="brand-asset-upload-field__preview group"
+                        :class="`brand-asset-upload-field__preview--${previewVariant}`"
+                        :aria-busy="uploading ? 'true' : undefined"
                     >
-                        <ElIcon
-                            :size="18"
-                            aria-hidden="true"
-                        ><Plus /></ElIcon>
-                        <span>{{ emptyPrompt }}</span>
+                        <img
+                            v-if="hasPreviewCandidate"
+                            :src="previewUrl"
+                            :alt="previewAlt"
+                            class="brand-asset-upload-field__image"
+                            :class="{ 'brand-asset-upload-field__image--loaded': previewLoaded }"
+                            @load="handlePreviewLoad"
+                            @error="handlePreviewError"
+                        />
+                        <div
+                            v-if="!canShowPreview"
+                            class="brand-asset-upload-field__empty"
+                        >
+                            <ElIcon
+                                :size="18"
+                                aria-hidden="true"
+                            ><Plus /></ElIcon>
+                            <span>{{ emptyPrompt }}</span>
+                        </div>
+                        <div
+                            v-if="canShowPreview"
+                            class="image-replace-overlay absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center"
+                        >
+                            <span class="text-xs font-medium normal-case tracking-normal">点击更换</span>
+                        </div>
                     </div>
-                    <div
-                        v-if="canShowPreview"
-                        class="image-replace-overlay absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center"
-                    >
-                        <span class="text-xs font-medium normal-case tracking-normal">点击更换</span>
-                    </div>
-                </div>
-            </ElUpload>
-            <p
-                v-if="previewFailed"
-                class="brand-asset-upload-field__status"
-                role="status"
-            >
-                预览加载失败，可重新上传
-            </p>
-            <p
-                v-else-if="uploading"
-                class="brand-asset-upload-field__status"
-                role="status"
-            >
-                正在上传
-            </p>
+                </ElUpload>
+                <p
+                    v-if="previewFailed"
+                    class="brand-asset-upload-field__status"
+                    role="status"
+                >
+                    预览加载失败，可重新上传
+                </p>
+                <p
+                    v-else-if="uploading"
+                    class="brand-asset-upload-field__status"
+                    role="status"
+                >
+                    正在上传
+                </p>
+            </div>
             <ElInput
                 class="min-w-0 flex-1"
                 :model-value="modelValue"
@@ -169,6 +176,41 @@ const handlePreviewError = (): void =>
 </script>
 
 <style scoped>
+.brand-asset-upload-field
+ {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: var(--fsus-space-3);
+    width: 100%;
+}
+
+.brand-asset-upload-field__media
+ {
+    display: grid;
+    gap: var(--fsus-space-2);
+    min-width: 0;
+    max-width: 16rem;
+}
+
+.brand-asset-upload-field--icon .brand-asset-upload-field__media
+ {
+    max-width: 8rem;
+}
+
+@media (width >= 768px)
+ {
+    .brand-asset-upload-field
+     {
+        grid-template-columns: minmax(0, 16rem) minmax(0, 1fr);
+    }
+
+    .brand-asset-upload-field--icon
+     {
+        grid-template-columns: minmax(0, 8rem) minmax(0, 1fr);
+    }
+}
+
 .brand-asset-upload-field__upload
  {
     display: block;
@@ -215,7 +257,6 @@ const handlePreviewError = (): void =>
 .brand-asset-upload-field__preview--logo
  {
     aspect-ratio: 5 / 2;
-    min-height: 5.5rem;
 }
 
 .brand-asset-upload-field__preview--icon

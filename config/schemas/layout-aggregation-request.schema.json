@@ -1,0 +1,271 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:fsusblog:layout-aggregation-request:v1",
+    "title": "Layout aggregation preflight request; not an acceptance receipt",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "lane",
+        "matrixRef",
+        "ledgerRef",
+        "command",
+        "execution",
+        "sourceCommit",
+        "worktreeFingerprint",
+        "runId",
+        "attemptId",
+        "planDigest",
+        "compositionIdentities",
+        "receipts",
+        "mutationResults"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.layout-aggregation-request.v1"
+        },
+        "lane": {
+            "enum": [
+                "full",
+                "focused",
+                "static-only",
+                "not-executed"
+            ]
+        },
+        "matrixRef": {
+            "const": "tests/frontend/fixtures/layout-archetype-matrix.json"
+        },
+        "ledgerRef": {
+            "const": "tests/frontend/fixtures/layout-visual-change-ledger.json"
+        },
+        "command": {
+            "const": "check:views-constraints"
+        },
+        "execution": {
+            "enum": [
+                "completed",
+                "not-executed"
+            ]
+        },
+        "sourceCommit": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}$"
+        },
+        "worktreeFingerprint": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "runId": {
+            "type": "string",
+            "minLength": 1
+        },
+        "attemptId": {
+            "type": "string",
+            "minLength": 1
+        },
+        "planDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "compositionIdentities": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "local",
+                "published"
+            ],
+            "properties": {
+                "local": {
+                    "type": "object"
+                },
+                "published": {
+                    "type": "object"
+                }
+            }
+        },
+        "receipts": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/receiptReference"
+            }
+        },
+        "mutationResults": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/mutationResult"
+            }
+        }
+    },
+    "$defs": {
+        "receiptReference": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "requirementDigest",
+                "kind",
+                "contentDigest"
+            ],
+            "properties": {
+                "requirementDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "kind": {
+                    "enum": [
+                        "static",
+                        "dom",
+                        "geometry",
+                        "visual"
+                    ]
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                }
+            }
+        },
+        "mutationResult": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "status",
+                "evidenceDigests"
+            ],
+            "properties": {
+                "id": {
+                    "enum": [
+                        "card-three-levels",
+                        "double-task-header",
+                        "three-primary-actions",
+                        "four-editor-chrome-bands",
+                        "dashboard-kpi-displaces-task",
+                        "public-competing-hero-aside",
+                        "reading-decorative-shell",
+                        "settings-field-card-wall",
+                        "mobile-reorder-hidden-primary",
+                        "dark-saturated-only",
+                        "zoom-200-footer-obscures-primary",
+                        "unledgered-screenshot-update",
+                        "stale-source-fsusui-evidence",
+                        "not-observed-verified",
+                        "static-only",
+                        "route-specific-representative-layout",
+                        "aesthetic-score-authority",
+                        "permanent-bad-baseline-exception",
+                        "second-matrix",
+                        "second-ledger",
+                        "second-runner",
+                        "pixel-exact-only",
+                        "published-fallback-local",
+                        "focused-as-full",
+                        "job-success-only"
+                    ]
+                },
+                "status": {
+                    "enum": [
+                        "not-executed",
+                        "killed",
+                        "survived"
+                    ]
+                },
+                "evidenceDigests": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                    }
+                }
+            }
+        },
+        "successCounters": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "uncoveredArchetypes",
+                "invalidCompositionContracts",
+                "failedStaticCompositionChecks",
+                "failedBrowserGeometryChecks",
+                "failedVisualAdjudicationFields",
+                "notObservedRequiredFields",
+                "staleMissingEvidence",
+                "unledgeredBaselineMovements",
+                "blockingVisualIssues",
+                "warnings"
+            ],
+            "properties": {
+                "uncoveredArchetypes": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0
+                },
+                "invalidCompositionContracts": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0
+                },
+                "failedStaticCompositionChecks": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0
+                },
+                "failedBrowserGeometryChecks": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0
+                },
+                "failedVisualAdjudicationFields": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0
+                },
+                "notObservedRequiredFields": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0
+                },
+                "staleMissingEvidence": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0
+                },
+                "unledgeredBaselineMovements": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0
+                },
+                "blockingVisualIssues": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0
+                },
+                "warnings": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0
+                }
+            }
+        }
+    }
+}

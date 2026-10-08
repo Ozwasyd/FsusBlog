@@ -6,6 +6,10 @@
         "./test-convergence/audit": "./test-convergence/audit.mjs",
         "./test-convergence/post-baseline-history": "./test-convergence/post-baseline-history.mjs",
         "./test-retention/audit": "./test-retention/audit.mjs",
-        "./test-matrix/parse-matrix": "./test-matrix/parse-matrix.mjs"
+        "./test-matrix/parse-matrix": "./test-matrix/parse-matrix.mjs",
+        "./test-matrix/verify-behavior-test-evidence": "./test-matrix/verify-behavior-test-evidence.mjs",
+        "./contracts/behavior-contract-catalog": "./contracts/behavior-contract-catalog.mjs",
+        "./contracts/behavior-test-binding": "./contracts/behavior-test-binding.mjs",
+        "./test-observations/execution": "./test-observations/flaky-observer-execution.mjs"
     }
 }

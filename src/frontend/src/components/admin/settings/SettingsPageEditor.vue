@@ -8,6 +8,7 @@
             editor-class="settings-editor h-[400px] sm:h-[600px]"
             chrome="framed"
             status-density="minimal"
+            :toolbars-exclude="['save']"
             :loading="loading"
             :saving="saving"
         />
