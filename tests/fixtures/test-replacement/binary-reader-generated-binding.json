@@ -8,7 +8,13 @@
         "tools/docs/lib/matrix.mjs",
         "config/testing/test-execution-envelope-applicability.json",
         "tools/test/correctness-attempt-producers.mjs",
-        "tools/test/generate-correctness-attempt-producers.mjs"
+        "tools/test/generate-correctness-attempt-producers.mjs",
+        "config/schemas/test-execution-envelope-applicability.schema.json",
+        "tools/test/run-matrix-governance-once.sh",
+        "tools/test-inventory/discovery.mjs",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "tools/test-matrix/release-final-static-boundary.mjs",
+        "config/testing/release-final-execution-authority-index.json"
     ],
     "outputs": [
         {
@@ -30,6 +36,10 @@
         {
             "path": "config/testing/correctness-attempt-producers.json",
             "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "c9c4227e4220a19e542478d0bbc9ce52efe4aa52fe2391a7c30ccbe9f0e647bf"
         }
     ]
 }

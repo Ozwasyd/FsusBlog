@@ -9,7 +9,8 @@
                 "config/testing/correctness-attempt-producers.json",
                 "tests/test-replacement-transactions/issue-2612.json",
                 "tests/test-replacement-receipts/issue-2612.json",
-                "tests/fixtures/test-replacement/binary-reader-generated-binding.json"
+                "tests/fixtures/test-replacement/binary-reader-generated-binding.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "Preserve existing canonical transaction, receipt, catalog and schema JSON keys with real current-master producer bindings."
         },

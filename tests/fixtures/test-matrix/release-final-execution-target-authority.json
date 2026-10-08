@@ -4210,8 +4210,8 @@
         },
         {
             "path": "tools/test-inventory/discovery.mjs",
-            "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
-            "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+            "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+            "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
         },
         {
             "path": "tools/test-inventory/package.json",
@@ -5370,8 +5370,8 @@
         },
         {
             "path": "tools/test/run-matrix-governance-once.sh",
-            "contentDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
-            "indexDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42"
+            "contentDigest": "sha256:aa81ad38b08be84155e14481b34aef1e7ead1e766e5137052f3e0cfbb14c70be",
+            "indexDigest": "sha256:aa81ad38b08be84155e14481b34aef1e7ead1e766e5137052f3e0cfbb14c70be"
         },
         {
             "path": "tools/test/run-migration-tests.mjs",
@@ -45361,8 +45361,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
-            "indexDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
+            "contentDigest": "sha256:aa81ad38b08be84155e14481b34aef1e7ead1e766e5137052f3e0cfbb14c70be",
+            "indexDigest": "sha256:aa81ad38b08be84155e14481b34aef1e7ead1e766e5137052f3e0cfbb14c70be",
             "dependencyClosure": [
                 "tools/ci/production-build-artifacts.mjs",
                 "tools/contracts/behavior-contract-catalog.mjs",
