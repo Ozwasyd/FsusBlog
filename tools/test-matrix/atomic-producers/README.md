@@ -136,3 +136,9 @@ introduced. The structural follow-up retains the stable cancellation commit
 are checked against that commit. Strict source checks still require canonical
 baseline admission and independent review; zero file diagnostics does not waive
 stale shared baseline bindings or provide native qualification.
+
+If terminal-vector publication fails after execution has already failed,
+`AtomicProducerExecutionError.cause` retains the original scheduler failure and
+`publicationError` retains the write error as a secondary diagnostic. Its in-memory
+`terminalVector` is available, but the error does not claim successful publication.
+When execution had no earlier failure, the original write error is thrown directly.

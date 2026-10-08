@@ -11,11 +11,12 @@ const { buildSettledPhaseJoinEvidence, executeWeightedStepDag, StepDagExecutionE
 
 export class AtomicProducerExecutionError extends Error
 {
-    constructor(vector, cause)
+    constructor(vector, cause, publicationError = null)
     {
         super('atomic producer DAG reached a non-success terminal state', { cause });
         this.name = 'AtomicProducerExecutionError';
         this.terminalVector = vector;
+        this.publicationError = publicationError;
     }
 }
 
@@ -278,7 +279,18 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
         failure = error;
     }
     const vector = terminalVector(verified, scheduler, attempts, context);
-    fs.writeFileSync(path.join(directory, 'terminal-vector.json'), `${JSON.stringify(vector, null, 4)}\n`, { flag: 'wx', mode: 0o444 });
+    try
+    {
+        fs.writeFileSync(path.join(directory, 'terminal-vector.json'), `${JSON.stringify(vector, null, 4)}\n`, { flag: 'wx', mode: 0o444 });
+    }
+    catch (publicationError)
+    {
+        if (failure)
+        {
+            throw new AtomicProducerExecutionError(vector, failure, publicationError);
+        }
+        throw publicationError;
+    }
     if (failure)
     {
         throw new AtomicProducerExecutionError(vector, failure);
