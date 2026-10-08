@@ -3838,6 +3838,14 @@
                 {
                     "path": "tests/backend/Unit/LinuxCgroupDirectoryReaderTests.cs",
                     "anchor": "public sealed class LinuxCgroupDirectoryReaderTests"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Platform/LinuxCgroupContextReader.cs",
+                    "anchor": "public static class LinuxCgroupContextReader"
+                },
+                {
+                    "path": "tests/backend/Unit/LinuxCgroupContextReaderTests.cs",
+                    "anchor": "public sealed class LinuxCgroupContextReaderTests"
                 }
             ]
         }

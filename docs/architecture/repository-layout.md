@@ -401,3 +401,17 @@ does not certify process membership. Raw identity and scalar captures retain
 sampling, qualification, measured metadata/descriptor costs and canonical
 governor composition remain required. The supplied read bound is caller policy;
 the test's 64-byte buffer is not a production default.
+
+`LinuxCgroupContextReader` reads this process's membership/mount metadata into
+separate caller-owned admitted buffers under explicit byte/record/ancestor/time
+bounds. It checks actual cgroup and mount namespace links before/after the read,
+retains their observed identities even when path resolution fails, and reports
+UTC/monotonic capture provenance. It clears both used scratch spans on success,
+unavailable capture or clock exception. Overlapping/undersized spans reject before
+capture. Context comparison invalidates changed membership, mounts, namespaces,
+ancestors, source or clock, including expiry and checked timestamp overflow.
+Matching contexts remain `NotVerified`; complete ancestor sampling, actual inode
+continuity, measured metadata bounds and canonical qualification are still required.
+The existing background/capability owner controls discovery, disabled behavior and
+admitted buffer/metadata lifetime. This raw capture surface installs no timer,
+request hook, capability registry or growth policy.
