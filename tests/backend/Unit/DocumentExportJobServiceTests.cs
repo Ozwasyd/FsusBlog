@@ -106,12 +106,18 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
         if (oldInput)
         {
-            input = DocumentExportContractValidator.Seal(input with { Schema = "fsusblog.document-export-frozen-input.v2" });
+            input = DocumentExportContractValidator.Seal(input with
+            {
+                Schema = "fsusblog.document-export-frozen-input.v2"
+            });
             task = DocumentExportContractTests.ValidTask(input);
         }
         else
         {
-            task = DocumentExportContractValidator.Seal(task with { Schema = "fsusblog.document-export-task.v2" });
+            task = DocumentExportContractValidator.Seal(task with
+            {
+                Schema = "fsusblog.document-export-task.v2"
+            });
         }
         await Assert.ThrowsAsync<ArgumentException>(() => Service().CreateAsync(_actor, task, input, default));
         Assert.False(Directory.Exists(JobRoot));
@@ -156,6 +162,24 @@ public sealed class DocumentExportJobServiceTests : IDisposable
             row => row.SiteScope == other.SiteScope);
         Assert.Equal(1, scope.Jobs);
         Assert.Equal(1, scope.Outputs);
+    }
+
+    [Fact]
+    public async Task Retry_RejectsForeignScopeAfterOriginalAuthorityProvesQuiescence()
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Service().CreateAsync(_actor, task, input, default);
+        await Service().ExecuteAsync(_actor, task.TaskId, new ControlledProvider(task.ProviderId) { FailExport = true }, default);
+        DocumentExportJobSnapshot failed = await Service().RecoverInterruptedAsync(task.TaskId, new TestRecovery(true), default);
+        Assert.Equal(DocumentExportTaskStatus.Failed, failed.Task.Status);
+        DocumentExportJobActor other = _actor with
+        {
+            SiteScope = "https://other.example.test"
+        };
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().RetryAsync(other, task.TaskId, default));
+        Assert.Equal(DocumentExportDigest.Serialize(failed),
+            DocumentExportDigest.Serialize(await Service().GetAsync(_actor, task.TaskId, default)));
+        Assert.Equal(DocumentExportTaskStatus.Queued, (await Service().RetryAsync(_actor, task.TaskId, default)).Task.Status);
     }
 
     [Theory]
