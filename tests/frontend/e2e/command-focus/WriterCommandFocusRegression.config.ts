@@ -2,14 +2,18 @@ import { defineConfig } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { mergeConfig } from 'vite';
 import applicationViteConfig from '../../../../src/frontend/vite.config';
+import { resolveLocalFsusUiRoot } from '../../../../src/frontend/scripts/fsusui-local';
 
 const frontend = fileURLToPath(new URL('../../../../src/frontend/', import.meta.url));
 const evidence = process.env.COMMAND_FOCUS_EVIDENCE_ROOT ?? '/tmp/command-focus-qa/current';
+const fsusUiRoot = resolveLocalFsusUiRoot(process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT);
+if (fsusUiRoot === null) throw new Error('Command focus regression requires the real local FsusUI source.');
 
 const browserConfig = defineConfig({
     testDir: '.',
     testMatch: 'WriterCommandFocusRegression.spec.ts',
-    workers: 1,
+    workers: 3,
+    fullyParallel: true,
     retries: 0,
     timeout: 60_000,
     expect: { timeout: 10_000 },
@@ -18,7 +22,7 @@ const browserConfig = defineConfig({
     use: {
         baseURL: 'http://127.0.0.1:4317',
         viewport: { width: 1440, height: 900 },
-        reducedMotion: 'reduce',
+        contextOptions: { reducedMotion: 'reduce' },
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
         launchOptions: {
@@ -27,7 +31,7 @@ const browserConfig = defineConfig({
         }
     },
     webServer: {
-        command: 'node node_modules/vite/bin/vite.js --config ../../tests/frontend/integration/command-focus/WriterCommandFocusRegression.config.ts --host 127.0.0.1 --port 4317 --strictPort',
+        command: 'node node_modules/vite/bin/vite.js --config ../../tests/frontend/e2e/command-focus/WriterCommandFocusRegression.config.ts --host 127.0.0.1 --port 4317 --strictPort',
         cwd: frontend,
         url: 'http://127.0.0.1:4317',
         reuseExistingServer: false,
@@ -35,7 +39,7 @@ const browserConfig = defineConfig({
         env: {
             COMMAND_FOCUS_VITE: '1',
             FSUSBLOG_USE_LOCAL_FSUSUI: '1',
-            FSUSBLOG_LOCAL_FSUSUI_ROOT: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT ?? '/workspace/FsusUI',
+            FSUSBLOG_LOCAL_FSUSUI_ROOT: fsusUiRoot,
             FSUSBLOG_FRONTEND_CACHE_ROOT: `${evidence}/vite-cache`
         }
     }
