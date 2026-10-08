@@ -5,14 +5,16 @@ import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { recoverReleaseContainerPublisher, reserveContainerPublisher, validateContainerReservationOptions } from './production-fresh-container-reservation.mjs';
 
 export const portLeaseReservationEngine = 'python-bind-without-listen';
 
+const nativeGuardianFile = fileURLToPath(new URL('./production-fresh-native-reservation-guardian.py', import.meta.url));
+
 const reservationPythonScript = String.raw`
-import ctypes, json, os, signal, socket, subprocess, sys, time
+import json, os, socket, subprocess, sys
 port = int(sys.argv[1])
 mode = sys.argv[2] if len(sys.argv) > 2 else 'both'
 sockets = []
@@ -42,113 +44,83 @@ except Exception as exc:
             pass
     print('bind-failed: %s' % (exc,), file=sys.stderr, flush=True)
     sys.exit(1)
-native_child = None
-native_start = None
+guardian = None
+application_identity = None
+guardian_directory = None
 retained = False
-group_finished = False
-known_members = {}
-def start_identity(pid):
-    with open('/proc/%d/stat' % pid, encoding='utf-8') as source:
-        return source.read().rsplit(')', 1)[1].split()[19]
-def stop_child():
-    global group_finished
-    if native_child is None or group_finished:
+explicit_close = False
+
+def guardian_response():
+    response = json.loads(guardian.stdout.readline())
+    if not response['ok']:
+        raise RuntimeError(response['error'])
+    return response['result']
+
+def guardian_command(command):
+    guardian.stdin.write(json.dumps({'command': command}) + '\n')
+    guardian.stdin.flush()
+    return guardian_response()
+
+def stop_guardian():
+    if guardian is None:
         return
-    def active_members():
+    if guardian.poll() is None:
         try:
-            if start_identity(native_child.pid) != native_start:
-                raise RuntimeError('native process group leader identity drift')
-        except (FileNotFoundError, ProcessLookupError):
+            guardian.stdin.write(json.dumps({'command': 'cancel'}) + '\n')
+            guardian.stdin.flush()
+        except BrokenPipeError:
             pass
-        members = []
-        for entry in os.listdir('/proc'):
-            if not entry.isdigit():
-                continue
-            try:
-                with open('/proc/%s/stat' % entry, encoding='utf-8') as source:
-                    fields = source.read().rsplit(')', 1)[1].split()
-                if fields[2] == str(native_child.pid) and fields[3] == str(native_child.pid) and fields[0] != 'Z':
-                    if int(fields[19]) < int(native_start):
-                        raise RuntimeError('native process group identity drift')
-                    if entry in known_members and known_members[entry] != fields[19]:
-                        raise RuntimeError('native process group member identity drift')
-                    known_members[entry] = fields[19]
-                    members.append(entry)
-            except (FileNotFoundError, ProcessLookupError):
-                pass
-        native_child.poll()
-        while True:
-            try:
-                reaped, _ = os.waitpid(-1, os.WNOHANG)
-                if reaped == 0:
-                    break
-            except ChildProcessError:
-                break
-        return members
-    for cleanup_signal in (signal.SIGTERM, signal.SIGKILL):
-        if not active_members():
-            group_finished = True
-            return
-        try:
-            os.killpg(native_child.pid, cleanup_signal)
-        except ProcessLookupError:
-            pass
-        deadline = time.monotonic() + 2
-        while time.monotonic() < deadline:
-            if not active_members():
-                group_finished = True
-                return
-            time.sleep(0.01)
-    raise RuntimeError('native process group cleanup incomplete')
+        guardian.wait(timeout=6)
+    with open(os.path.join(guardian_directory, 'cleanup.json'), encoding='utf-8') as source:
+        observation = json.load(source)
+    if not observation['verified']:
+        raise RuntimeError('native guardian cleanup was not verified')
+
 print('ready', flush=True)
 try:
     for line in sys.stdin:
         request = json.loads(line)
         try:
             if request['command'] == 'launch-native':
-                if native_child is not None or mode != 'v4':
+                if guardian is not None or mode != 'v4':
                     raise ValueError('native socket handoff is not available')
                 specification = request['specification']
                 argv = specification['argv']
                 if not isinstance(argv, list) or not argv or not all(isinstance(arg, str) for arg in argv):
                     raise ValueError('native launch argv is invalid')
                 fd = sockets[0].fileno()
-                socket_identity = os.readlink('/proc/self/fd/%d' % fd)
-                environment = dict(os.environ, **specification['env'])
-                environment['FSUSBLOG_RUNTIME_LISTEN_FD'] = str(fd)
-                environment['FSUSBLOG_RUNTIME_LISTEN_SOCKET'] = socket_identity
-                # Only this disposable reservation process adopts its orphaned
-                # descendants; no host-wide process or permission setting changes.
-                if ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) != 0:
-                    raise OSError(ctypes.get_errno(), 'native reservation subreaper unavailable')
-                log_fd = os.open(specification['logFile'], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-                try:
-                    native_child = subprocess.Popen(argv, cwd=specification['cwd'], env=environment,
-                        stdin=subprocess.DEVNULL, stdout=log_fd, stderr=log_fd,
-                        pass_fds=(fd,), start_new_session=True)
-                finally:
-                    os.close(log_fd)
-                result = {'pid': native_child.pid, 'processStartIdentity': start_identity(native_child.pid),
-                    'socketIdentity': socket_identity}
-                native_start = result['processStartIdentity']
-                known_members[str(native_child.pid)] = native_start
+                guardian_directory = specification['logFile'] + '.guardian'
+                guardian = subprocess.Popen([sys.executable, '-I', '-B', sys.argv[3]],
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr,
+                    pass_fds=(fd,), text=True)
+                guardian.stdin.write(json.dumps({'specification': specification, 'descriptor': fd,
+                    'token': os.urandom(32).hex()}) + '\n')
+                guardian.stdin.flush()
+                application_identity = guardian_response()
+                result = application_identity
             elif request['command'] == 'retain-native':
-                if native_child is None or native_child.poll() is not None:
+                if guardian is None or not guardian_command('observe')['live']:
                     raise ValueError('native handoff child is not live')
                 retained = True
                 result = {'retained': True}
             elif request['command'] == 'cancel-native':
                 retained = False
-                stop_child()
+                stop_guardian()
                 result = {'canceled': True}
+            elif request['command'] == 'close':
+                explicit_close = True
+                break
             else:
                 raise ValueError('unsupported reservation command')
             print(json.dumps({'id': request['id'], 'ok': True, 'result': result}), flush=True)
         except Exception as exc:
             print(json.dumps({'id': request['id'], 'ok': False, 'error': str(exc)}), flush=True)
 finally:
-    if not retained:
-        stop_child()
+    if guardian is not None:
+        if retained and explicit_close:
+            guardian_command('transfer')
+        else:
+            stop_guardian()
     for sock in sockets:
         try:
             sock.close()
@@ -345,6 +317,70 @@ function readJsonFile(file)
     return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
+export async function verifyNativeReservationCleanup(identity, {timeoutMs = 6500} = {})
+{
+    const guardian = identity?.guardian;
+    if (!guardian || !path.isAbsolute(guardian.directory ?? '') ||
+        !Number.isInteger(identity.pid) || !/^\d+$/u.test(identity.processStartIdentity ?? '') ||
+        !/^[a-f0-9]{64}$/u.test(guardian.token ?? '') ||
+        guardian.bootId !== fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim())
+    {
+        throw new Error('native cleanup requires its exact guardian and application identity');
+    }
+    const deadline = Date.now() + timeoutMs;
+    while (true)
+    {
+        const directory = fs.lstatSync(guardian.directory);
+        if (!directory.isDirectory() || directory.isSymbolicLink() || (directory.mode & 0o777) !== 0o700 ||
+            directory.uid !== process.getuid() || directory.dev !== guardian.device || directory.ino !== guardian.inode)
+        {
+            throw new Error('native guardian cleanup directory identity drift');
+        }
+        let observation;
+        try
+        {
+            observation = JSON.parse(readPrivateFile(path.join(guardian.directory, 'cleanup.json')));
+        }
+        catch (error)
+        {
+            if ((error.code === 'ENOENT' || error instanceof SyntaxError) && Date.now() < deadline)
+            {
+                await new Promise((resolve) => setTimeout(resolve, 20));
+                continue;
+            }
+            throw new Error('native guardian cleanup receipt unavailable', {cause: error});
+        }
+        const {contentDigest, ...payload} = observation;
+        if (observation.schema !== 'fsusblog.native-reservation-cleanup.v1' || observation.verified !== true ||
+            contentDigest !== digest(JSON.stringify(canonicalize(payload))) ||
+            JSON.stringify(canonicalize(observation.guardian)) !== JSON.stringify(canonicalize(guardian)) ||
+            JSON.stringify(canonicalize(observation.application)) !== JSON.stringify(canonicalize(identity)) ||
+            !Array.isArray(observation.members))
+        {
+            throw new Error('native guardian cleanup receipt does not match its exact application');
+        }
+        for (const member of [identity, ...observation.members])
+        {
+            try
+            {
+                const stat = fs.readFileSync(`/proc/${member.pid}/stat`, 'utf8');
+                if (stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u)[19] === member.processStartIdentity)
+                {
+                    throw new Error(`native application member was not reaped: ${member.pid}`);
+                }
+            }
+            catch (error)
+            {
+                if (!['ENOENT', 'ESRCH'].includes(error.code))
+                {
+                    throw error;
+                }
+            }
+        }
+        return observation;
+    }
+}
+
 function shuffledPorts(minPort, maxPort, random = Math.random)
 {
     if (!Number.isInteger(minPort) || !Number.isInteger(maxPort) || minPort < 1 || maxPort > 65535 || minPort > maxPort)
@@ -369,7 +405,7 @@ function isAddressInUse(error)
     return error?.code === 'EADDRINUSE' || error?.code === 'EACCES' || error?.code === 'EADDRNOTAVAIL';
 }
 
-export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs = 2000, python = null })
+export function bindReservationServer({ host, port, timeoutMs = 2000, python = null })
 {
     return new Promise((resolve, reject) =>
     {
@@ -378,6 +414,8 @@ export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs 
         let settled = false;
         let stderr = '';
         let child;
+        let nativeIdentity;
+        let nativeRetained = false;
         let stdout = '';
         const pending = new Map();
         function request(command, specification)
@@ -396,7 +434,7 @@ export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs 
         }
         try
         {
-            child = spawn(pythonBin, ['-c', reservationPythonScript, String(port), mode], {
+            child = spawn(pythonBin, ['-c', reservationPythonScript, String(port), mode, nativeGuardianFile], {
                 stdio: ['pipe', 'pipe', 'pipe']
             });
         }
@@ -452,10 +490,61 @@ export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs 
                     resolve({
                         host,
                         port,
-                        launchNative: (specification) => request('launch-native', specification),
-                        retainNative: () => request('retain-native'),
-                        cancelNative: () => request('cancel-native'),
-                        close: () => closeReservationChild(child, () => stderr.trim())
+                        launchNative: async (specification) =>
+                        {
+                            nativeIdentity = await request('launch-native', specification);
+                            return nativeIdentity;
+                        },
+                        retainNative: async () =>
+                        {
+                            const result = await request('retain-native');
+                            nativeRetained = true;
+                            return result;
+                        },
+                        cancelNative: async () =>
+                        {
+                            try
+                            {
+                                if (child.exitCode === null && child.signalCode === null)
+                                {
+                                    const result = await request('cancel-native');
+                                    nativeRetained = false;
+                                    if (nativeIdentity)
+                                    {
+                                        await verifyNativeReservationCleanup(nativeIdentity);
+                                    }
+                                    return result;
+                                }
+                            }
+                            catch (error)
+                            {
+                                if (child.exitCode === null && child.signalCode === null)
+                                {
+                                    throw error;
+                                }
+                            }
+                            await verifyNativeReservationCleanup(nativeIdentity);
+                            return {canceled: true};
+                        },
+                        close: async () =>
+                        {
+                            try
+                            {
+                                await closeReservationChild(child, () => stderr.trim());
+                                if (nativeIdentity && !nativeRetained)
+                                {
+                                    return verifyNativeReservationCleanup(nativeIdentity);
+                                }
+                            }
+                            catch (error)
+                            {
+                                if (!nativeIdentity)
+                                {
+                                    throw error;
+                                }
+                                return verifyNativeReservationCleanup(nativeIdentity);
+                            }
+                        }
                     });
                     continue;
                 }
@@ -554,7 +643,7 @@ function closeReservationChild(child, diagnostics = () => '')
         });
         try
         {
-            child.stdin.end();
+            child.stdin.end(`${JSON.stringify({ command: 'close' })}\n`);
         }
         catch
         {
@@ -568,12 +657,6 @@ function closeReservationChild(child, diagnostics = () => '')
             }
         }
     });
-}
-
-function sealOwner(owner)
-{
-    const payload = canonicalize(owner);
-    return { ...owner, contentDigest: digest(JSON.stringify(payload)) };
 }
 
 function ownerIsComplete(owner)
@@ -591,7 +674,8 @@ function ownerIsComplete(owner)
 
 function leasePayload(lease)
 {
-    const { contentDigest: _contentDigest, ...payload } = lease;
+    const payload = { ...lease };
+    delete payload.contentDigest;
     return payload;
 }
 
@@ -975,9 +1059,10 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
 
     async function closeRoleReservations(role, { preserveRuntime = false } = {})
     {
-        await Promise.all((reservations.get(role) ?? []).map((reservation) =>
+        const observations = await Promise.all((reservations.get(role) ?? []).map((reservation) =>
             preserveRuntime && reservation.publisher ? Promise.resolve() : reservation.close()));
         reservations.delete(role);
+        return observations.filter((observation) => observation?.verified === true);
     }
 
     function updateLease(role, patch)
@@ -1188,8 +1273,8 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
                     {
                         await reservations.get(role)?.find((entry) => entry.host === '127.0.0.1')?.cancelNative?.();
                     }
-                    await closeRoleReservations(role, { preserveRuntime: lease.handoffState === 'bound' && !cancelBound });
-                    if ((lease.handoffState === 'bound' && !cancelBound) || lease.handoffState === 'released' || lease.handoffState === 'failed')
+                    const cleanup = await closeRoleReservations(role, { preserveRuntime: lease.handoffState === 'bound' && !cancelBound });
+                    if ((lease.handoffState === 'bound' && !cancelBound && cleanup.length === 0) || lease.handoffState === 'released' || lease.handoffState === 'failed')
                     {
                         released.push(lease);
                         return;
@@ -1304,7 +1389,7 @@ function connectControl(controlSocketPath, payload, timeoutMs = 5000)
             }
             catch (error)
             {
-                reject(new Error(`port lease control response is not JSON: ${line}`));
+                reject(new Error(`port lease control response is not JSON: ${line}`, {cause: error}));
             }
         });
         socket.write(`${JSON.stringify(payload)}\n`);
@@ -1623,7 +1708,7 @@ function containerHasHostPort(containerRef, port)
     }
 }
 
-export async function verifyListenerIdentityRef({ role, port, listenerIdentityRef })
+export async function verifyListenerIdentityRef({ port, listenerIdentityRef })
 {
     if (typeof listenerIdentityRef !== 'string' || listenerIdentityRef.length === 0)
     {
@@ -1945,7 +2030,7 @@ async function runRecover(manifestPath)
     }
     catch (error)
     {
-        throw new Error(`recover cannot validate stale manifest: ${error.message}`);
+        throw new Error(`recover cannot validate stale manifest: ${error.message}`, {cause: error});
     }
     const pidFile = manifest.pidFilePath;
     let alive = false;
@@ -1991,9 +2076,9 @@ async function runRecover(manifestPath)
             }
             else if (lease.handoffOwnerIdentity)
             {
-                // A dead reservation owner does not prove its application or
-                // descendants are gone. Do not manufacture a released receipt.
-                throw new Error(`native reservation recovery requires verified process-group cleanup: ${lease.role}`);
+                const {pid, processStartIdentity, socketIdentity, guardian} = lease.handoffOwnerIdentity;
+                cleanupObservations.push({role: lease.role,
+                    observation: await verifyNativeReservationCleanup({pid, processStartIdentity, socketIdentity, guardian})});
             }
             recoveredLeases.push({ ...lease, handoffState: 'released',
                 handedOffAt: new Date().toISOString(), failedReason: 'owner-crashed' });

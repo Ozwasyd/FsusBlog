@@ -184,9 +184,21 @@ Normal release preserves successfully transferred runtimes. Abort uses
 `releaseAll(reason, {cancelBound: true})` to stop the owned runtimes as well.
 Crash recovery skips bound runtimes, records individual verified container
 cleanup observations, and writes a failed terminal receipt for unverified
-cleanup. Native owner SIGKILL recovery remains unsupported and fails closed
-when a launched application's process-group cleanup cannot be proven. This
-source capability does not supply a readiness or qualification receipt.
+cleanup. Native launches retain child custody in a subprocess of the same port
+owner. Control EOF cancels even a completed handoff; only an explicit normal
+release transfers the application to runtime ownership. The custody process
+uses Linux subreaper and pidfd APIs, observes its actual descendants (including
+new sessions), drains them and reaps them before sealing a private cleanup
+receipt. Recovery verifies its boot, nonce, control-directory inode, exact
+application identity, receipt digest and current absence of each observed
+member. A missing/tampered receipt or still-live member fails closed. This is
+not host containment against killing the custody process itself; upper runtime
+containment and qualification remain required. A non-reaping host PID 1 can
+retain an exited orphan custody process as a zombie after its parent is killed;
+this is not claimed as zero-residual full-runtime acceptance. No application
+member or listener may be certified clean while still present. Focused crash
+checks are `node --test tests/tools/production-fresh-native-owner-recovery.test.mjs`.
+This source capability does not supply a readiness or qualification receipt.
 
 Focused checks are `node --test tests/tools/production-fresh-continuous-handoff.test.mjs`.
 These checks exercise real subprocesses and sockets. They do not establish a
