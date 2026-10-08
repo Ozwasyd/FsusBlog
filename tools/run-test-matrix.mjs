@@ -128,6 +128,12 @@ import {
     validateReleaseReliabilitySchedulerMatrix
 } from './test-matrix/release-reliability-scheduler-projection.mjs';
 import {
+    createRequiredEvidenceDependencies,
+    recordRequiredEvidenceExecution,
+    requiredEvidencePlanDigest,
+    requiredEvidencePlanIdentity
+} from './test-matrix/required-evidence-dependencies.mjs';
+import {
     measureResourceCollectorOverhead,
     writeResourceUtilizationEvidence
 } from './test-matrix/resource-utilization.mjs';
@@ -1685,7 +1691,7 @@ function planTier(matrix, requestedId)
     return planned;
 }
 
-function printPlan(tiers)
+function printPlan(tiers, matrix = null)
 {
     for (const [index, tier] of tiers.entries())
     {
@@ -1700,6 +1706,16 @@ function printPlan(tiers)
             : 'observe-only';
         console.log(`${index + 1}. ${tier.id} [job=${tier.ciJob} phase=${tier.phase} resource=${tier.resourceClass} cost=${tier.cost} timeout=${timeout} risk=${tier.risk}${shard}]${deps}${evidence}`);
         console.log(`   ${tier.command}`);
+        if (tier.id === 'release-final')
+        {
+            const finalizerPlan = buildReleaseFinalizerPlan(matrix ?? loadMatrix());
+            if (finalizerPlan.errors.length)
+            {
+                throw new Error(finalizerPlan.errors.join('; '));
+            }
+            console.log(`   requiredEvidenceDependencies=${JSON.stringify(finalizerPlan.requiredEvidenceDependencies)}`);
+            console.log(`   planContentDigest=${finalizerPlan.contentDigest}`);
+        }
     }
 }
 
@@ -2456,6 +2472,19 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {})
     const durationMs = Math.max(0, Number(existing?.durationMs ?? 0)) + deltaMs;
     const stage = stageForTier(tier, details);
     const groupEvidence = frontendFastGroupEvidence(tier);
+    const evidencePlanFile = path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+        ?? path.join(root, '.tmp/release-evidence'), 'test-plan.json');
+    let requiredEvidenceResult = existing?.requiredEvidenceResult ?? null;
+    if (fs.existsSync(evidencePlanFile))
+    {
+        const testPlan = JSON.parse(fs.readFileSync(evidencePlanFile, 'utf8'));
+        if (testPlan.requiredEvidenceDependencies?.dependencies
+            .some((entry) => entry.producerTierIds.includes(tier.id)))
+        {
+            requiredEvidenceResult = recordRequiredEvidenceExecution(testPlan, tier.id, status,
+                requiredEvidenceResult);
+        }
+    }
     const summary = sealContentDigest({
         schema: 'fsusblog.ci.job-result.v1',
         jobId,
@@ -2483,6 +2512,7 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {})
             ...(existing?.artifactDigests ?? {}),
             ...(details.artifactDigests ?? {})
         },
+        requiredEvidenceResult,
         generatedAt: new Date().toISOString(),
         ...(groupEvidence ?? {})
     });
@@ -4402,7 +4432,7 @@ async function runSourceCoordinationTier(matrix, id, args = [], callerContext = 
 {
     if (args.includes('--plan-only'))
     {
-        printPlan(planTier(matrix, id));
+        printPlan(planTier(matrix, id), matrix);
         return;
     }
     requireGlobalSourceDeclarations(matrix);
@@ -4484,7 +4514,7 @@ async function runTier(matrix, tierId, args)
 
     if (options.planOnly)
     {
-        printPlan(all);
+        printPlan(all, matrix);
         return;
     }
 
@@ -6418,18 +6448,24 @@ async function ciPrSmart(matrix, args)
 
 function ciPlan(matrix, format, outFile)
 {
-    writeTextOutput(`${JSON.stringify(buildCiPlan(matrix, format), null, 2)}\n`, outFile, 'matrix:ci-plan');
+    const plan = { ...buildCiPlan(matrix, format),
+        requiredEvidenceDependencies: createRequiredEvidenceDependencies(matrix) };
+    plan.contentDigest = requiredEvidencePlanDigest(plan);
+    writeTextOutput(`${JSON.stringify(plan, null, 2)}\n`, outFile, 'matrix:ci-plan');
 }
 
 function evidencePlan(matrix, outFile)
 {
     const resolvedTiers = resolveLogicalTierResources(matrix.tiers);
+    const identity = requiredEvidencePlanIdentity();
     const plan = {
         schema: 'fsusblog.release-evidence.test-plan.v1',
         generatedAt: new Date().toISOString(),
-        commit: git(['rev-parse', 'HEAD']),
-        namespace: process.env.FSUSBLOG_TEST_NAMESPACE ?? null,
-        tiers: resolvedTiers.map((tier) => ({
+        commit: identity.sourceCommit,
+        namespace: identity.namespace,
+        runId: identity.runId,
+        requiredEvidenceDependencies: createRequiredEvidenceDependencies(matrix, identity),
+        tiers: [...resolvedTiers].sort((left, right) => left.id.localeCompare(right.id)).map((tier) => ({
             id: tier.id,
             ciJob: tier.ciJob,
             command: tier.command,
@@ -6462,6 +6498,7 @@ function evidencePlan(matrix, outFile)
             manualOnly: tier.manualOnly === true
         }))
     };
+    plan.contentDigest = requiredEvidencePlanDigest(plan);
     const abs = path.resolve(root, outFile ?? '.tmp/release-evidence/test-plan.json');
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(abs, `${JSON.stringify(plan, null, 2)}\n`);
@@ -6761,7 +6798,7 @@ async function main()
     }
     if (command === 'plan')
     {
-        printPlan(resolveLogicalTierResources(planTier(matrix, args[0])));
+        printPlan(resolveLogicalTierResources(planTier(matrix, args[0])), matrix);
         return;
     }
     if (command === 'run')

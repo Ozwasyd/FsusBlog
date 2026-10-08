@@ -1,8 +1,16 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
+        "tests/tools/required-evidence-dependencies.test.mjs",
         "tests/tools/test-matrix-scheduler.test.mjs",
-        "tools/test/correctness-attempt-migration.mjs"
+        "tools/ci/check-job-summaries.mjs",
+        "tools/ci/run-stage.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/test-matrix/release-final-evidence-contract.mjs",
+        "tools/test-matrix/required-evidence-dependencies.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/test/lanes/static-governance.sh"
     ],
     "outputs": [
         {
@@ -10,8 +18,12 @@
             "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
         },
         {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+        },
+        {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "9fea08afb7ebb0948a5d7fd4ae2eb6e35fc5cdcc72ea1e7814d39beb3d612281"
+            "sha256": "a09382c75f65f15d1257db2c57909e2d2461d7430cd1e1c942423ad999cccd00"
         }
     ]
 }

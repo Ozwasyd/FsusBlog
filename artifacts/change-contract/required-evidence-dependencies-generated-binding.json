@@ -1,0 +1,36 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-matrix/required-evidence-dependencies.mjs",
+        "tools/test-matrix/release-final-evidence-contract.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/ci/check-job-summaries.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test/lanes/static-governance.sh",
+        "tests/tools/required-evidence-dependencies.test.mjs",
+        "tests/matrix.yml",
+        "tools/test-matrix/execution-dependency-contract.mjs",
+        "config/testing/release-reliability-scenario-catalog.json",
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+        "config/testing/replay-qualification-producers.json",
+        "config/testing/test-execution-envelope-applicability.json",
+        "tools/test/attempt-runner.mjs",
+        "tools/test/temporal-context.mjs",
+        "tools/test/temporal-context-contract.mjs",
+        "tools/test/correctness-attempt-migration.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "a09382c75f65f15d1257db2c57909e2d2461d7430cd1e1c942423ad999cccd00"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
+        }
+    ]
+}
