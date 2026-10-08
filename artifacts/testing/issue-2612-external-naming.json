@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-replacement/issue-2612-generated-binding.json",
+                "tests/test-replacement-receipts/issue-2612.json",
+                "tests/test-replacement-transactions/issue-2612.json"
+            ],
+            "reason": "Preserve the existing canonical generated-output, replacement-transaction and sealed-receipt JSON schema keys consumed by repository governance; issue #2612 changes only case identities and mappings."
+        }
+    ]
+}
