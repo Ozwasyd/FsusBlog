@@ -31,11 +31,15 @@ adapter, not a second job or receipt protocol. Stdout contains only a bounded
 result; errors contain stable codes without article text, URLs or private paths.
 
 The renderer uses WeasyPrint 66.0, pikepdf 9.11.0, PyMuPDF 1.26.4, pypdfium2
-4.30.0 and fontTools 4.59.2. `requirements.lock.txt` pins the complete Python dependency set used in the
+4.30.0 and fontTools 4.59.2. `Tools/dependencies.lock.json` pins the complete Python dependency set used in the
 real output checks. Packaging must also freeze the interpreter and native
 Pango/HarfBuzz/fontconfig/qpdf/MuPDF/PDFium dependencies under the shared tool runtime
 digest; package version checks alone do not prove native identity. Review upstream
 package licenses, including PyMuPDF's AGPL/commercial licensing, when packaging.
+The tool verifies that complete version set as well as its fixed engine identities.
+During packaging, translate the manifest's exact name/version pairs into pip
+requirements and install them with the official package manager. Include the
+unchanged manifest at `/tool/dependencies.lock.json` in the frozen runtime.
 Dependencies are installed during development/build, never by a provider run.
 
 Fontconfig is configured before importing the print engine and can enumerate only
