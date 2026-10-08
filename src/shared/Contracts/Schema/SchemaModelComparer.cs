@@ -221,8 +221,14 @@ public static class SchemaModelComparer
 
     private static bool EqualIndexKey(SchemaIndexKeyModel expected, SchemaIndexKeyModel actual)
     {
-        SchemaIndexKeyModel expectedScalars = expected with { Expression = null };
-        SchemaIndexKeyModel actualScalars = actual with { Expression = null };
+        SchemaIndexKeyModel expectedScalars = expected with
+        {
+            Expression = null
+        };
+        SchemaIndexKeyModel actualScalars = actual with
+        {
+            Expression = null
+        };
         return expectedScalars == actualScalars
             && (expected.Expression is null ? actual.Expression is null
                 : actual.Expression is not null && SchemaExpressionIdentity.Equal(expected.Expression, actual.Expression));

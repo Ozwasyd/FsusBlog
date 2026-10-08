@@ -664,8 +664,8 @@ the single neutral target projection binds both the entity facts and all recipe
 facts. Missing descriptions still refuse before any command is returned.
 The exporter payload is neither an apply grant nor a self-reported current target;
 the offline evidence owner must independently bind its original producer, bytes
-and complete source closure before consumption. No owned target artifact has
-been produced by this source-only change.
+and complete source closure before consumption. Producing an owned target
+artifact does not grant migration execution or current-schema runtime admission.
 
 The original property-definition recipe's unconstrained PostgreSQL `numeric`
 columns retain neutral `decimal` and physical `numeric` facts. Its inline tick
