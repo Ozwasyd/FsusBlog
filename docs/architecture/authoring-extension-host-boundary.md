@@ -51,8 +51,8 @@ New categories require a closed-registry and architecture change plus #1920
 conformance rather than a generic `register(any)` entrypoint.
 
 The implementation DAG has one host owner (#1914, with #2137–#2145 children), then
-the category owners #1915–#1919, and the final #1920 conformance owner. Tracking
-#1916 aggregates inspector/filter/panel children and #1918 aggregates
+the category owners #1915–#1919, and the final #1920 conformance owner. The tracking
+owner #1916 aggregates inspector/filter/panel children and #1918 aggregates
 import/export/diagnostic children; they do not create parallel host authorities.
 Each child consumes the exact implemented upstream capability while preserving
 any unfinished acceptance gates. Source integration or an open upstream alone is
@@ -434,6 +434,26 @@ uninstall, retained data, and separately approved removal. Every transition is a
 closed enum edge and advances a hash-chained receipt generation. Restore reads the
 latest receipt authority; it never scans package directories, timestamps, or a
 last-active marker to infer enabled state.
+
+Every stored receipt is checked for its closed schema and states, exact extension
+identity, bounded metadata, positive matching sequence and generation, and existing
+content digest before restore, late-result acceptance, or another transition can
+consume it. Malformed, identity-drifted, and tampered values refuse. This local
+content check does not authenticate the store or independently verify a durable
+receipt chain, backup, or restart recovery.
+
+An explicit disable or uninstall still attempts resource and grant cleanup when
+that stored receipt is invalid. Only the original lifecycle resource owner can
+capture its current active generation under its existing lifecycle gate; the
+corrupt receipt cannot select a generation or a different active package mapping.
+After confirming that exact mapping, the same gate protects resource cleanup and
+an attempt to revoke the original grant catalog, including when termination fails.
+That cleanup quarantines the extension, preserves the original receipt refusal
+and separate bounded cleanup diagnostics, and publishes no replacement receipt.
+A missing canonical resource owner or mismatched current package refuses cleanup
+authority for both resources and grants. A valid stored receipt must also match
+the shutdown package version, digest, schemas, and package identity; an older
+package cannot consume a newer package's receipt generation.
 
 Activation is all-or-nothing across the complete verified target set. Worker and
 service instances are registered against the exact active generation. A stale
