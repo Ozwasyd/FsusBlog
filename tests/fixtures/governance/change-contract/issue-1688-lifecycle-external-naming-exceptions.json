@@ -17,7 +17,6 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "benchmarks/core/packages.lock.json",
                 "config/schemas/release-reliability-lifecycle-action-registry.schema.json",
                 "config/testing/release-reliability-lifecycle-action-registry.json",
                 "tests/backend/packages.lock.json",
