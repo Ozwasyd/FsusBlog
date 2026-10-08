@@ -23,13 +23,27 @@ import {
 const mounted: VueWrapper[] = []
 const PUBLIC_RETRY_ID = '10000000-0000-4000-8000-000000000042'
 const PUBLIC_BODY = 'Pending public draft must not confirm this session'
+type ReplyTargetView = NonNullable<InstanceType<typeof ArticleCommentComposer>['$props']['replyTarget']>
 
-function seedPublicDraft(articleId = 42, policyHash = 'policy-42', retryId = PUBLIC_RETRY_ID): string {
+const firstReply: ReplyTargetView = {
+  id: '30000000-0000-4000-8000-000000000042',
+  rootId: '40000000-0000-4000-8000-000000000042',
+  depth: 1,
+  author: { mode: 'public', displayName: 'First reply author', displayLanguage: 'zh-CN' }
+}
+const secondReply: ReplyTargetView = {
+  id: '30000000-0000-4000-8000-000000000043',
+  rootId: '40000000-0000-4000-8000-000000000043',
+  depth: 1,
+  author: { mode: 'public', displayName: 'Second reply author', displayLanguage: 'zh-CN' }
+}
+
+function seedPublicDraft(articleId = 42, policyHash = 'policy-42', retryId = PUBLIC_RETRY_ID, replyId: string | null = null): string {
   const preparation = prepareCommentPublicDraftStorage(window.localStorage)
   expect(preparation.cleanupComplete).toBe(true)
   expect(preparation.scopeId).not.toBeNull()
   const key = createCommentPublicDraftStorageKey({
-    scopeId: preparation.scopeId!, articleId, replyId: null
+    scopeId: preparation.scopeId!, articleId, replyId
   })
   expect(writeCommentPublicDraft(window.localStorage, key, {
     version: 3,
@@ -41,15 +55,15 @@ function seedPublicDraft(articleId = 42, policyHash = 'policy-42', retryId = PUB
   return key
 }
 
-function mountBoundComposer(articleId = 42) {
+function mountBoundComposer(articleId = 42, replyTarget: ReplyTargetView | null = null) {
   const state = reactive({
     modelValue: '',
     isLoggedIn: true,
     isBanned: false,
     isPowCalculating: false,
     isSubmitting: false,
-    redirectPath: '/articles/42',
-    replyTarget: null,
+    redirectPath: `/articles/${articleId}`,
+    replyTarget,
     authorMode: 'zk_anonymous' as CommentAuthorMode,
     publicSendConfirmed: false,
     anonymousCommentsEnabled: true,
@@ -62,7 +76,9 @@ function mountBoundComposer(articleId = 42) {
     policySnapshotHash: 'policy-42',
     privacyState: 'ready' as const,
     displayLanguage: 'zh-CN' as const,
-    anonymousScope: 'comment:v1:article:42:top'
+    anonymousScope: replyTarget
+      ? `comment:v1:article:${articleId}:thread:${replyTarget.rootId}`
+      : `comment:v1:article:${articleId}:top`
   })
   const submit = vi.fn()
   const host = defineComponent({
@@ -173,6 +189,83 @@ describe('comment pending draft and current public identity integration', () => 
     expect(second.submit).toHaveBeenLastCalledWith(otherRetryId)
     expect(readCommentPublicDraft(window.localStorage, firstKey).draft?.clientMutationId).toBe(PUBLIC_RETRY_ID)
     expect(readCommentPublicDraft(window.localStorage, secondKey).draft?.clientMutationId).toBe(otherRetryId)
+  })
+
+  it('does not carry a reviewed public retry identity across an article switch in the same mounted composer', async () => {
+    const oldKey = seedPublicDraft()
+    const { wrapper, state, submit } = mountBoundComposer()
+    const composerElement = wrapper.getComponent(ArticleCommentComposer).element
+    await nextTick()
+    await clickAction(wrapper, '审查草稿')
+    expect(state.modelValue).toBe(PUBLIC_BODY)
+
+    state.articleId = 43
+    state.redirectPath = '/articles/43'
+    state.anonymousScope = 'comment:v1:article:43:top'
+    await nextTick()
+    expect(wrapper.getComponent(ArticleCommentComposer).element).toBe(composerElement)
+    expect(state.modelValue).toBe(PUBLIC_BODY)
+    expect(state.publicSendConfirmed).toBe(false)
+    expect(window.localStorage.getItem(oldKey)).toBeNull()
+    await confirmPublicIdentity(wrapper)
+    await clickAction(wrapper, '发送')
+
+    expect(submit).toHaveBeenCalledTimes(1)
+    expect(submit.mock.calls[0]![0]).not.toBe(PUBLIC_RETRY_ID)
+  })
+
+  it('does not carry a reviewed public retry identity from a top-level draft into a reply in the same mounted composer', async () => {
+    seedPublicDraft()
+    const { wrapper, state, submit } = mountBoundComposer()
+    const composerElement = wrapper.getComponent(ArticleCommentComposer).element
+    await nextTick()
+    await clickAction(wrapper, '审查草稿')
+    state.replyTarget = firstReply
+    state.anonymousScope = `comment:v1:article:42:thread:${firstReply.rootId}`
+    await nextTick()
+    expect(wrapper.getComponent(ArticleCommentComposer).element).toBe(composerElement)
+    expect(state.modelValue).toBe(PUBLIC_BODY)
+    await confirmPublicIdentity(wrapper)
+    await clickAction(wrapper, '发送')
+
+    expect(submit).toHaveBeenCalledTimes(1)
+    expect(submit.mock.calls[0]![0]).not.toBe(PUBLIC_RETRY_ID)
+  })
+
+  it('does not carry a reviewed public retry identity between reply targets in the same mounted composer', async () => {
+    seedPublicDraft(42, 'policy-42', PUBLIC_RETRY_ID, firstReply.id)
+    const { wrapper, state, submit } = mountBoundComposer(42, firstReply)
+    const composerElement = wrapper.getComponent(ArticleCommentComposer).element
+    await nextTick()
+    await clickAction(wrapper, '审查草稿')
+    state.replyTarget = secondReply
+    state.anonymousScope = `comment:v1:article:42:thread:${secondReply.rootId}`
+    await nextTick()
+    expect(wrapper.getComponent(ArticleCommentComposer).element).toBe(composerElement)
+    expect(state.modelValue).toBe(PUBLIC_BODY)
+    await confirmPublicIdentity(wrapper)
+    await clickAction(wrapper, '发送')
+
+    expect(submit).toHaveBeenCalledTimes(1)
+    expect(submit.mock.calls[0]![0]).not.toBe(PUBLIC_RETRY_ID)
+  })
+
+  it('does not carry a reviewed public retry identity from a reply draft to a top-level comment in the same mounted composer', async () => {
+    seedPublicDraft(42, 'policy-42', PUBLIC_RETRY_ID, firstReply.id)
+    const { wrapper, state, submit } = mountBoundComposer(42, firstReply)
+    const composerElement = wrapper.getComponent(ArticleCommentComposer).element
+    await nextTick()
+    await clickAction(wrapper, '审查草稿')
+    state.replyTarget = null
+    state.anonymousScope = 'comment:v1:article:42:top'
+    await nextTick()
+    expect(wrapper.getComponent(ArticleCommentComposer).element).toBe(composerElement)
+    expect(state.modelValue).toBe(PUBLIC_BODY)
+    await confirmPublicIdentity(wrapper)
+    await clickAction(wrapper, '发送')
+
+    expect(submit).toHaveBeenCalledTimes(1)
+    expect(submit.mock.calls[0]![0]).not.toBe(PUBLIC_RETRY_ID)
   })
 
   it('invalidates the reviewed retry identity on credential revocation before the same text is publicly confirmed', async () => {

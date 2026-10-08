@@ -6,8 +6,9 @@ import {
 import { describe, expect, it } from 'vitest';
 
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
-import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
+import { ArticleDocumentContextAuthority, createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
 import { ArticleFsusUiRenderProducer } from '@/services/authoring/articleFsusUiRenderProducer';
+import { ArticlePreviewSourceAdmission } from '@/services/authoring/articlePreviewSourceAdmission';
 import { ArticleRenderCache, validateArticleRenderReceipt } from '@/services/authoring/articleRenderCache';
 import { articleRenderSourceByteLimit, evaluateArticleRenderRefreshPolicy } from '@/services/authoring/articleRenderRefreshPolicy';
 import { calculateOpenArticleDocumentDigest as digest } from '@/services/authoring/openArticleDocumentRegistry';
@@ -35,6 +36,28 @@ function openDraft()
         owner, producer, cache, anchors, binding,
         update: (next: string) => { source = next; owner.updateSource(next); },
         dispose: () => { cache.dispose(); owner.dispose(); }
+    };
+}
+
+function openPreviewSource()
+{
+    let source = initialSource;
+    const authority = new ArticleDocumentContextAuthority();
+    const binding = authority.acquire({ articleId: 41, siteScope: 'site:preview-integration',
+        userScope: 'user:preview-integration', content: source });
+    const admission = ArticlePreviewSourceAdmission.attach(() => ({
+        context: binding.adapter.context, source, responsibility: null,
+        siteAuthor: 'Integration author', attachmentLifecycleHistory: []
+    }), authority);
+    const producer = new ArticleFsusUiRenderProducer(() => source, configuration, 2_000_000);
+    const cache = new ArticleRenderCache(binding.adapter, {
+        rendererVersion: MARKDOWN_RENDERER_VERSION, projectionVersion: MARKDOWN_RENDERER_VERSION,
+        featureConfigurationDigest: digest(configuration), themeDigest: digest({ theme: 'light' }), locale: 'zh-CN'
+    }, producer, { maxEntryBytes: 65_536, maxAgeMs: 60_000, maxReceipts: 8 });
+    return {
+        binding, admission, producer, cache,
+        update: (next: string) => { source = next; binding.adapter.updateSource(next); },
+        dispose: () => { admission.dispose(); cache.dispose(); binding.adapter.dispose(); binding.release(); }
     };
 }
 
@@ -155,6 +178,57 @@ describe('draft preview identity across real renderer, cache and anchor owners',
         finally
         {
             draft.dispose();
+        }
+    });
+
+    it('rejects a captured preview request after same-body article switch even when its renderer digest matches', async () =>
+    {
+        const preview = openPreviewSource();
+        try
+        {
+            const request = preview.admission.begin();
+            expect((await preview.cache.refresh()).status).toBe('committed');
+            const rendered = preview.cache.state.content!.result;
+            const oldDigest = preview.binding.adapter.context.contentDigest;
+            preview.binding.switchDocument({ articleId: 42, content: initialSource });
+            expect(preview.binding.adapter.context.contentDigest).toBe(oldDigest);
+            expect(request.signal.aborted).toBe(true);
+            expect(preview.producer.resolve(rendered)).toBeNull();
+            expect(preview.admission.accept(request, rendered)).toMatchObject({ accepted: false, value: null });
+            const current = preview.admission.begin();
+            expect(current.context.articleId).toBe(42);
+            expect(current.context.documentId).not.toBe(request.context.documentId);
+            expect((await preview.cache.refresh()).status).toBe('committed');
+            expect(preview.admission.accept(current, preview.cache.state.content!.result).accepted).toBe(true);
+        }
+        finally
+        {
+            preview.dispose();
+        }
+    });
+
+    it('rejects an old preview request after source changes away and back to identical bytes', async () =>
+    {
+        const preview = openPreviewSource();
+        try
+        {
+            const request = preview.admission.begin();
+            await preview.cache.refresh();
+            const rendered = preview.cache.state.content!.result;
+            preview.update('# Different private revision');
+            preview.update(initialSource);
+            expect(preview.binding.adapter.context.contentDigest).toBe(request.context.contentDigest);
+            expect(preview.binding.adapter.context.sourceRevision).toBe(request.context.sourceRevision + 2);
+            expect(request.signal.aborted).toBe(true);
+            expect(preview.admission.accept(request, rendered)).toMatchObject({ accepted: false, value: null });
+            expect(preview.cache.state.stale).toBe(true);
+            const current = preview.admission.begin();
+            await preview.cache.refresh();
+            expect(preview.admission.accept(current, preview.cache.state.content!.result).accepted).toBe(true);
+        }
+        finally
+        {
+            preview.dispose();
         }
     });
 });
