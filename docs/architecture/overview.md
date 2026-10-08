@@ -123,6 +123,14 @@ viewport observations or focus acknowledgements. Those public runtime gaps and
 product event wiring remain acceptance limits; successful restore admission alone
 is not completed focus or viewport restoration.
 
+The writer mounts `useArticleAuthorCommandPalette` once on the editor panel.
+Its scoped Mod+P listener and `ArticleAuthorCommandEntry` secondary action both
+call the existing `ArticleWriteEditor.openCommandPalette` public method. Loading,
+saving and the existing modal predicate suspend entry; command availability and
+execution remain in the unchanged inspector registry and handlers. The visible
+label uses the current locale owner. Delegation is not a business-completion or
+palette-visibility receipt, and this entry provides no search query authority.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:
