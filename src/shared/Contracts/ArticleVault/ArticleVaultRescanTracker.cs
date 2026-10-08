@@ -64,14 +64,21 @@ public static class ArticleVaultRescanTracker
     /// <summary>Retains an unsuccessful attempt and requires another rescan instead of accepting stale state.</summary>
     public static VaultRescanObligation Fail(
         VaultRescanObligation obligation, string ownerIdentity, string reasonCode)
+        => Fail(obligation, ownerIdentity, [reasonCode]);
+
+    /// <summary>Preserves every bounded native denial from one unsuccessful inventory attempt.</summary>
+    public static VaultRescanObligation Fail(
+        VaultRescanObligation obligation, string ownerIdentity, IReadOnlyList<string> failureReasonCodes)
     {
         RequireOwner(obligation, ownerIdentity);
-        if (obligation.State != VaultRescanState.Running || !IsReason(reasonCode))
+        ArgumentNullException.ThrowIfNull(failureReasonCodes);
+        if (obligation.State != VaultRescanState.Running || failureReasonCodes.Count is 0 or > ArticleVaultEventNormalizer.MaxRawFacts
+            || failureReasonCodes.Any(static reason => !IsReason(reason)))
         {
             throw new InvalidDataException("vault_rescan_transition_invalid");
         }
 
-        string[] reasons = obligation.ReasonCodes.Append(reasonCode).Distinct(StringComparer.Ordinal)
+        string[] reasons = obligation.ReasonCodes.Concat(failureReasonCodes).Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal).ToArray();
         if (reasons.Length > ArticleVaultEventNormalizer.MaxRawFacts)
         {

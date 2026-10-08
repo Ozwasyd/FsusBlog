@@ -327,6 +327,27 @@ public sealed class ArticleVaultEventNormalizationTests
     }
 
     [Fact]
+    public void OneFailedNativeScanRetainsEveryExactDenialWithoutTerminalPromotion()
+    {
+        ArticleVaultRootManifest root = Root();
+        VaultObservationBinding binding = Binding(root);
+        VaultRescanObligation running = ArticleVaultRescanTracker.Begin(
+            ArticleVaultRescanTracker.Require(binding, "agent", Watermark(binding, []), ["native_overflow"]), "agent");
+        VaultRescanObligation failed = ArticleVaultRescanTracker.Fail(running, "agent",
+            ["vault_snapshot_permission_blocked", "vault_path_unknown_artifact", "vault_snapshot_permission_blocked"]);
+        Assert.Equal(["native_overflow", "vault_path_unknown_artifact", "vault_snapshot_permission_blocked"], failed.ReasonCodes);
+        Assert.Equal(VaultRescanState.Failed, failed.State);
+        Assert.True(failed.BlocksSynchronization);
+        Assert.Null(failed.NativeTerminalReceiptSha256);
+        Assert.True(ArticleVaultRescanTracker.Validate(failed));
+        Assert.Throws<InvalidDataException>(() => ArticleVaultRescanTracker.Fail(running, "other", ["native_unreadable"]));
+        Assert.Throws<InvalidDataException>(() => ArticleVaultRescanTracker.Fail(running, "agent", Array.Empty<string>()));
+        Assert.Throws<InvalidDataException>(() => ArticleVaultRescanTracker.Fail(running, "agent", ["private source body"]));
+        Assert.Throws<InvalidDataException>(() => ArticleVaultRescanTracker.Fail(running, "agent",
+            Enumerable.Repeat("native_unreadable", ArticleVaultEventNormalizer.MaxRawFacts + 1).ToArray()));
+    }
+
+    [Fact]
     public void RescanFailureRetriesAreBoundedAndNativeTerminalReceiptCannotBeForged()
     {
         ArticleVaultRootManifest root = Root();
