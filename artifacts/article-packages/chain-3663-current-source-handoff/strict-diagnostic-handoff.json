@@ -1,0 +1,49 @@
+{
+    "testedPackageCommit": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+    "log": "/workspace/chain-3663-evidence/property-codec/final-strict-build.log",
+    "exitCode": 1,
+    "classification": "source diagnostics; not environment errors",
+    "diagnostics": [
+        {
+            "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+            "line": 12,
+            "column": 62,
+            "code": "IDE0055",
+            "message": "Fix formatting",
+            "sourceCommit": "d74d423c9635757455765df72be0f1c443061195",
+            "sourceBlob": "f68ff390616677381acfc94c453e2f8fb2deb075",
+            "sourceSha256": "f2aeded2a3f2871a967669e477f7e181fc1f9a5a21b6db0d3a5ae971f2a37ff0"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+            "line": 12,
+            "column": 64,
+            "code": "IDE0055",
+            "message": "Fix formatting",
+            "sourceCommit": "d74d423c9635757455765df72be0f1c443061195",
+            "sourceBlob": "f68ff390616677381acfc94c453e2f8fb2deb075",
+            "sourceSha256": "f2aeded2a3f2871a967669e477f7e181fc1f9a5a21b6db0d3a5ae971f2a37ff0"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+            "line": 12,
+            "column": 75,
+            "code": "IDE0055",
+            "message": "Fix formatting",
+            "sourceCommit": "d74d423c9635757455765df72be0f1c443061195",
+            "sourceBlob": "f68ff390616677381acfc94c453e2f8fb2deb075",
+            "sourceSha256": "f2aeded2a3f2871a967669e477f7e181fc1f9a5a21b6db0d3a5ae971f2a37ff0"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+            "line": 512,
+            "column": 47,
+            "code": "IDE1006",
+            "message": "Naming rule violation: These words must begin with upper case characters: allowedChanges",
+            "sourceCommit": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+            "sourceBlob": "6c3296c082f2d7c1732034effd9315d9cdd8a635",
+            "sourceSha256": "101782fbf052aa66cceb2b9647c31e98a60e82fb64656eec424ed9fc1f00fdba"
+        }
+    ],
+    "companionCommit": "d74d423c9635757455765df72be0f1c443061195"
+}

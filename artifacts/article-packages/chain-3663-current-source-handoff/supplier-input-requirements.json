@@ -1,0 +1,84 @@
+{
+    "schema": "fsusblog.article-package.current-source-handoff.v1",
+    "testedComponentCommit": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+    "publishedComponentBranch": "codex/chain-3663-property-codec",
+    "latestFetchedMasterBeforeWork": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "frozenExportHeadPreserved": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+    "consumedCompanion": "d74d423c9635757455765df72be0f1c443061195",
+    "consumerTableReadOnly": "42ece11c821dd01e9f372b66e7822f0fd0fc3864",
+    "fields": [
+        {
+            "field": "Schema / SchemaVersion",
+            "actualAvailable": "Original ArticleVaultManifestCodec / ArticleVaultSchemas already available; package finite schema remains1",
+            "remainingRequiredInputOrOwnedWork": "No new Vault codec; full accepted package manifest/registry integration remains owned and unfinished. Original current/known-old/future/unknown/lossy controls and exact digests remain."
+        },
+        {
+            "field": "SiteIdentity / VaultIdentity / DeviceIdentity",
+            "actualAvailable": "Actual #3582 reader/plan scopes already bound by consumer",
+            "remainingRequiredInputOrOwnedWork": "Package SiteScope, permission site and Vault identity are distinct; need explicit legitimate mapping, no conflation."
+        },
+        {
+            "field": "PortableArticleIdentity / ServerArticleIdentity",
+            "actualAvailable": "Existing finite ArticlePackageManifestArticle.Source.ArticleId + explicit PortableArticle; title mapper/manifest planner rebind exact supplied coordinates",
+            "remainingRequiredInputOrOwnedWork": "Cross-package persistent mappings/current provenance remain absent; no label/title/slug/URL/filename mapping."
+        },
+        {
+            "field": "Title / Summary",
+            "actualAvailable": "Actual authorized revision package metadata exists. Sole package title mapper and finite article codec exist; metadata component now closed and exact",
+            "remainingRequiredInputOrOwnedWork": "Consumer still needs all three original complete V1 bytes and their observed digests, not renamed finite projection digest."
+        },
+        {
+            "field": "Slug",
+            "actualAvailable": "ArticleCanonicalInput.PublicRouteKey is a supplied canonical field; revision reader/DTO has no historical/persisted slug. No fallback introduced",
+            "remainingRequiredInputOrOwnedWork": "Need canonical persisted/native/export slug and versioned mapping policy. Package cannot infer from ID/title/URL/path. Coordinator must route actual source owner; #3735 is only value bridge owner."
+        },
+        {
+            "field": "TaxonomySha256 / portable category + tags",
+            "actualAvailable": "Sole codec TryCreate/Parse/Write/BindTaxonomyCandidate + TryCreateTaxonomySetCandidate at47da and current0c; explicit category/tag UUIDs, IDs, names/descriptions, bijections and actual-source binding",
+            "remainingRequiredInputOrOwnedWork": "Need exact persisted actor/site revision taxonomy/definition source epochs/provenance and base/local/server stable bindings. Component digest is not automatically Vault TaxonomySha256; no label mapping."
+        },
+        {
+            "field": "PropertiesSha256 / typed rows",
+            "actualAvailable": "Sole codec TryCreate/Parse/WritePropertyCandidate plus backend ArticlePackageManifestPropertyBinder.TryBindCandidate at0c; calls existing ArticlePackagePropertyMapper.ValidateCandidate",
+            "remainingRequiredInputOrOwnedWork": "Sole #3735 root owning #2323 must supply genuine authorized persisted immutable ArticlePropertyValueSnapshot. Missing exact SiteScope/ArticleId/ArticleRevisionId/PropertyRevision/DefinitionOwnerUserId/DraftId/DraftServerRevision/PublicationId + immutable rows/content digest and command/audit/snapshot provenance. ReadExactAsync is requested name, not an available API. BindSnapshot assertions do not establish persistence."
+        },
+        {
+            "field": "Definition schema/options/current rights",
+            "actualAvailable": "IArticlePropertyDefinitionStore.GetAsync / VerifyAsync; IArticlePropertyDefinitionPermissionAuthority.EnsureAllowed; ArticlePropertyValueValidator.ValidateAsync already exist. Actual source hashes match3582 table",
+            "remainingRequiredInputOrOwnedWork": "Use those existing owners; #3735/#2323 must bind observed schema revision/digest, definition-scoped option IDs and current rights to actual persisted values. Do not add another store."
+        },
+        {
+            "field": "ContentSha256 / three original complete metadata snapshots",
+            "actualAvailable": "Original ArticleVaultManifestCodec.SerializeCanonical / DeserializeMetadataManifest / ComputeContentSha256 exist; no second Vault codec",
+            "remainingRequiredInputOrOwnedWork": "Base/Local/Server raw V1 manifests, all13 source fields, and original MetadataManifestSha256 coordinates still required. Component hash, current opaque projection or doc metadata digest cannot substitute."
+        },
+        {
+            "field": "Source bytes / SourceSha256",
+            "actualAvailable": "Actual server CurrentRevision read now bound by3582; package SourceBytes inspector and exact byte binders preserve raw UTF8/BOM/newlines",
+            "remainingRequiredInputOrOwnedWork": "Base/local actual native/Git-current stable snapshots remain unqualified, not reconstructed from normalized strings; #2110/#2112/#2117 consumers supply facts."
+        },
+        {
+            "field": "Cover / assets",
+            "actualAvailable": "Existing IPrivateAssetStore.OpenReadAsync + canonical AssetRecord/schema/media inspector; new actual-byte ArticlePackageAssetMetadataMapper.TryMapCandidate/ValidateCandidate at8280/current0c",
+            "remainingRequiredInputOrOwnedWork": "Need #1779/#2125 exact operation/plan/AssetId/source-revision/owner/rights/retention/ledger read and upload/reuse receipts. Public/active and OpenRead alone cannot grant export; private/deleting/SVG/unsupported media are refused. Signature/header inspection is not full image safety."
+        },
+        {
+            "field": "DependencySha256 / embeds/anchors/captions",
+            "actualAvailable": "Supplied d74 typed frozen embed slots/validators reviewed; actual FsusUI f2 public function local built probes +10 original caption source controls pass",
+            "remainingRequiredInputOrOwnedWork": "Need exact selected source/revision/authorized graph/publication/materializer providers and production registration. Local full native HTML render does not integrate caption automatically; public consumer-install/build provenance and actual Blog producer/roundtrip not accepted. No alternate parser/manifest caption payload."
+        },
+        {
+            "field": "Permission / lifecycle / writer admission",
+            "actualAvailable": "Actual complete-group/current/live-permission guards already exist in3582. Package finite components all refuse authority",
+            "remainingRequiredInputOrOwnedWork": "No mutation/publication/owner/rights grants from historical snapshot or component self-consistency. Consumer root owns verified executable candidate integration after genuine inputs; our full package admission also unfinished."
+        }
+    ],
+    "qualification": "Ordinary actual-source component evidence, never SOURCE/runtime/product/issue acceptance. No original held audits rerun, shared locks/registry/policy edits, API writes, merge, close, auto-merge or deployment.",
+    "originalLimits": [
+        "Current original qualification held: #3568 canonical consumer locks/native SQLite audit; no shared lock regeneration or audit suppression.",
+        "Original strict/full source matrix not green. Four compiled component source diagnostics attached unchanged, not environment classification.",
+        "Complete package/source/read/rights/retention/privacy/migration/runtime requirements remain. Owned full schema/wire/bind and formal consumer integration unfinished.",
+        "Existing PR4012 head569518458ad4aa27cbc885417121a2e04cb74254 remains frozen; API writes paused, no new draft PR."
+    ],
+    "scopeNote": "#3735 root owns assigned #2323; do not reinterpret #3735 issue itself as an article-property endpoint request or duplicate its implementation."
+}

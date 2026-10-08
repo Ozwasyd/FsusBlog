@@ -1,0 +1,252 @@
+{
+    "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+    "branch": "codex/chain-3663-property-codec",
+    "base": "8280ea5a578fe39812f4ea029af31ca2fa8892b3",
+    "incrementFiles": 6,
+    "additions": 1035,
+    "deletions": 3,
+    "tests": {
+        "total": "571",
+        "executed": "571",
+        "passed": "571",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "testsByClass": {
+        "FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests": 87,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests": 54,
+        "FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests": 38,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests": 91,
+        "FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests": 35,
+        "FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests": 64,
+        "FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests": 30,
+        "FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests": 43,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests": 60,
+        "FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests": 69
+    },
+    "checks": {
+        "final-tests": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "test",
+                "/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj",
+                "--no-build",
+                "--no-restore",
+                "--filter",
+                "FullyQualifiedName~ArticlePackageManifestPropertyCodecTests|FullyQualifiedName~ArticlePackagePropertyMapperTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~ArticlePackageAssetMetadataMapperTests|FullyQualifiedName~ArticlePackageManifestTaxonomyCodecTests|FullyQualifiedName~ArticlePackageInventoryTests|FullyQualifiedName~ArticlePackageManifestMetadataCodecTests|FullyQualifiedName~ArticlePackageManifestCandidateCodecTests|FullyQualifiedName~ArticlePackageManifestCandidatePlannerTests|FullyQualifiedName~ArticlePackageFrozenExportCandidateWriterTests",
+                "--logger",
+                "trx",
+                "--results-directory",
+                "/workspace/chain-3663-evidence/property-codec/final-trx"
+            ],
+            "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T14:35:58.710802+00:00",
+            "endUtc": "2026-10-08T14:36:06.807014+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/property-codec/final-tests.log"
+        },
+        "final-docs": {
+            "command": [
+                "node",
+                "tools/style/check-native-tooling-style.mjs",
+                "--domain",
+                "docs",
+                "--mode",
+                "changed",
+                "--file",
+                "docs/api/contracts.md",
+                "--require-tools"
+            ],
+            "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T14:35:50.156460+00:00",
+            "endUtc": "2026-10-08T14:35:51.072655+00:00",
+            "exitCode": 1,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/property-codec/final-docs.log"
+        },
+        "final-strict-build": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--no-incremental",
+                "-warnaserror"
+            ],
+            "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T14:35:49.831031+00:00",
+            "endUtc": "2026-10-08T14:35:54.304026+00:00",
+            "exitCode": 1,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/property-codec/final-strict-build.log"
+        },
+        "final-ordinary-build": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--no-incremental"
+            ],
+            "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T14:35:54.369235+00:00",
+            "endUtc": "2026-10-08T14:35:58.654397+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/property-codec/final-ordinary-build.log"
+        },
+        "final-commit-range": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-manifest-authority-3663/tools/governance/check-change-contract.mjs",
+                "--root",
+                "/workspace/FsusBlog-property-codec-3663",
+                "--range",
+                "6e287562b3f861d3eb81dcb23f93e6243205abd8..HEAD"
+            ],
+            "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T14:35:50.177160+00:00",
+            "endUtc": "2026-10-08T14:35:53.261361+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/property-codec/final-commit-range.log"
+        },
+        "final-sdk": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "--info"
+            ],
+            "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T14:39:09.028023+00:00",
+            "endUtc": "2026-10-08T14:39:09.197430+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/property-codec/final-sdk.log"
+        },
+        "final-locked-restore": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "restore",
+                "/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj",
+                "--locked-mode",
+                "-warnaserror",
+                "-p:NuGetAudit=true",
+                "-p:NuGetAuditMode=all",
+                "-p:NuGetAuditLevel=low"
+            ],
+            "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T14:35:48.846319+00:00",
+            "endUtc": "2026-10-08T14:35:49.785270+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/property-codec/final-locked-restore.log"
+        },
+        "final-style": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+                "--root",
+                "/workspace/FsusBlog-property-codec-3663",
+                "--mode",
+                "strict-full",
+                "--file",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs",
+                "--file",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs",
+                "--file",
+                "src/backend/Services/Authoring/ArticlePackageManifestPropertyBinder.cs",
+                "--file",
+                "tests/backend/Unit/ArticlePackageManifestPropertyCodecTests.cs"
+            ],
+            "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T14:35:50.185039+00:00",
+            "endUtc": "2026-10-08T14:36:00.376165+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/property-codec/final-style.log"
+        },
+        "published-remote-sha": {
+            "command": [
+                "git",
+                "ls-remote",
+                "--heads",
+                "origin",
+                "refs/heads/codex/chain-3663-property-codec"
+            ],
+            "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T14:37:44.907148+00:00",
+            "endUtc": "2026-10-08T14:37:45.341692+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/property-codec/published-remote-sha.log"
+        },
+        "published-push": {
+            "command": [
+                "git",
+                "push",
+                "-u",
+                "origin",
+                "codex/chain-3663-property-codec"
+            ],
+            "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T14:37:00.411419+00:00",
+            "endUtc": "2026-10-08T14:37:01.807209+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/property-codec/published-push.log"
+        }
+    },
+    "qualification": "Managed actual-source component only; original source/native/provider/full matrix and independent runtime HOLD. Component self-consistency is not actual persisted-read/current-definition/permission authority.",
+    "docsBaseline": {
+        "count": 26,
+        "identical": true,
+        "notWaived": true
+    },
+    "sourceCount": 105,
+    "strictDiagnostics": "/workspace/chain-3663-evidence/property-codec/strict-diagnostic-handoff.json",
+    "remainingGates": [
+        "Owned full accepted package manifest/registry/decode-bind integration unfinished",
+        "Actual persisted ArticlePropertyValueSnapshot + current authorized definition/option bridge supplied by #3735 root owning #2323; no ReadExactAsync API exists",
+        "Canonical persisted/native/export Slug + versioned mapping policy absent",
+        "All three original complete V1 snapshot bytes/digests and current/native provenance absent",
+        "Operation-bound canonical asset/read/upload/reuse/ledger/source-rights/retention grants absent",
+        "Actual frozen dependency/publication/materializer providers and native/public caption package-consumption qualification incomplete"
+    ]
+}

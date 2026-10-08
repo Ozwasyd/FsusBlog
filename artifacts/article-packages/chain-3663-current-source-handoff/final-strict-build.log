@@ -1,0 +1,16 @@
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,62): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj]
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,64): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj]
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,75): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj]
+/workspace/FsusBlog-property-codec-3663/src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs(512,47): error IDE1006: Naming rule violation: These words must begin with upper case characters: allowedChanges (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide1006) [/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj]
+  PropertyCodec.Tests -> /workspace/chain-3663-evidence/property-codec/harness/bin/Debug/net10.0/PropertyCodec.Tests.dll
+
+Build FAILED.
+
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,62): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj]
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,64): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj]
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,75): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj]
+/workspace/FsusBlog-property-codec-3663/src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs(512,47): error IDE1006: Naming rule violation: These words must begin with upper case characters: allowedChanges (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide1006) [/workspace/chain-3663-evidence/property-codec/harness/PropertyCodec.Tests.csproj]
+    0 Warning(s)
+    4 Error(s)
+
+Time Elapsed 00:00:04.22

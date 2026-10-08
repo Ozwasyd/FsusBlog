@@ -1,0 +1,169 @@
+{
+    "numTotalTestSuites": 5,
+    "numPassedTestSuites": 5,
+    "numFailedTestSuites": 0,
+    "numPendingTestSuites": 0,
+    "numTotalTests": 10,
+    "numPassedTests": 10,
+    "numFailedTests": 0,
+    "numPendingTests": 0,
+    "numTodoTests": 0,
+    "snapshot": {
+        "added": 0,
+        "failure": false,
+        "filesAdded": 0,
+        "filesRemoved": 0,
+        "filesRemovedList": [],
+        "filesUnmatched": 0,
+        "filesUpdated": 0,
+        "matched": 0,
+        "total": 0,
+        "unchecked": 0,
+        "uncheckedKeysByFile": [],
+        "unmatched": 0,
+        "updated": 0,
+        "didUpdate": false
+    },
+    "startTime": 1791470264735,
+    "success": true,
+    "testResults": [
+        {
+            "assertionResults": [
+                {
+                    "ancestorTitles": [
+                        "markdown caption directive grammar"
+                    ],
+                    "fullName": "markdown caption directive grammar owns a caption only when it immediately follows an image",
+                    "status": "passed",
+                    "title": "owns a caption only when it immediately follows an image",
+                    "duration": 27.188191999999844,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown caption directive grammar"
+                    ],
+                    "fullName": "markdown caption directive grammar rejects orphan, duplicate, cross-gap, non-media, and markup captions",
+                    "status": "passed",
+                    "title": "rejects orphan, duplicate, cross-gap, non-media, and markup captions",
+                    "duration": 1.09050400000001,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown caption directive grammar"
+                    ],
+                    "fullName": "markdown caption directive grammar unescapes only backslash and closing bracket",
+                    "status": "passed",
+                    "title": "unescapes only backslash and closing bracket",
+                    "duration": 0.5571800000000167,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown caption directive grammar"
+                    ],
+                    "fullName": "markdown caption directive grammar keeps caption ranges correct across BOM and CRLF",
+                    "status": "passed",
+                    "title": "keeps caption ranges correct across BOM and CRLF",
+                    "duration": 1.7693070000000262,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown caption directive grammar"
+                    ],
+                    "fullName": "markdown caption directive grammar keeps alt text independent from caption text",
+                    "status": "passed",
+                    "title": "keeps alt text independent from caption text",
+                    "duration": 0.6237999999998465,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown caption mutations"
+                    ],
+                    "fullName": "markdown caption mutations kills title-caption, alias, html, regroup, and cross-gap ownership",
+                    "status": "passed",
+                    "title": "kills title-caption, alias, html, regroup, and cross-gap ownership",
+                    "duration": 0.7539369999999508,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                }
+            ],
+            "startTime": 1791470266001,
+            "endTime": 1791470266032.754,
+            "status": "passed",
+            "message": "",
+            "name": "/workspace/FsusUI/vue/packages/wasm/__tests__/markdown-caption-directive.test.ts"
+        },
+        {
+            "assertionResults": [
+                {
+                    "ancestorTitles": [
+                        "markdown caption figure renderer"
+                    ],
+                    "fullName": "markdown caption figure renderer rejects the canonical raw-script corpus payload as caption syntax",
+                    "status": "passed",
+                    "title": "rejects the canonical raw-script corpus payload as caption syntax",
+                    "duration": 3.5383529999999155,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown caption figure renderer"
+                    ],
+                    "fullName": "markdown caption figure renderer emits safe figure/figcaption from parser groups without copying alt or title",
+                    "status": "passed",
+                    "title": "emits safe figure/figcaption from parser groups without copying alt or title",
+                    "duration": 1.5785090000000537,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown caption figure renderer"
+                    ],
+                    "fullName": "markdown caption figure renderer keeps caption and source fallback when media is broken",
+                    "status": "passed",
+                    "title": "keeps caption and source fallback when media is broken",
+                    "duration": 0.8279380000000174,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown caption figure renderer"
+                    ],
+                    "fullName": "markdown caption figure renderer kills title-caption, DOM regroup, arbitrary HTML, alt copy, and tab stops",
+                    "status": "passed",
+                    "title": "kills title-caption, DOM regroup, arbitrary HTML, alt copy, and tab stops",
+                    "duration": 0.6886579999999185,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                }
+            ],
+            "startTime": 1791470266768,
+            "endTime": 1791470266774.6887,
+            "status": "passed",
+            "message": "",
+            "name": "/workspace/FsusUI/vue/packages/wasm/__tests__/markdown-caption-renderer.test.ts"
+        }
+    ]
+}
