@@ -9,7 +9,10 @@ internal sealed record CanonicalDocumentRendererResult(
     DocumentExportSandboxReceipt SandboxReceipt,
     DocumentExportToolContract Tool)
 {
-    internal DocumentExportAttemptResources? AttemptResources { get; init; }
+    internal DocumentExportAttemptResources? AttemptResources
+    {
+        get; init;
+    }
 }
 
 /// <summary>
