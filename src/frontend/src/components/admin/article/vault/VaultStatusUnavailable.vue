@@ -3,6 +3,16 @@
         <summary>Vault：状态未知</summary>
         <p role="status">当前无法取得已验证的 Vault 状态与操作授权。</p>
         <p>服务端文章编辑、保存、发布和恢复仍可使用。Vault 本地变更是否已同步尚未验证。</p>
+        <VaultAgentLeaseDetail
+            v-if="leaseReport"
+            :report="leaseReport"
+            :expected-scope="leaseScope ?? null"
+        />
+        <VaultRecoveryCheckpointDetail
+            v-if="recoveryJournal && recoveryScope"
+            :journal="recoveryJournal"
+            :expected="recoveryScope"
+        />
         <ul aria-label="尚不可用的 Vault 命令">
             <li>同步现在 / 仅拉取计划 / 仅推送计划：当前无法获取已验证同步计划。</li>
             <li>暂停 / 恢复 / 重连：尚未取得当前允许操作与授权回执。</li>
@@ -13,5 +23,16 @@
 </template>
 
 <script setup lang="ts">
-// This disclosure is the missing-capability boundary, not a connection/status receipt.
+import VaultAgentLeaseDetail from '@/components/admin/article/vault/VaultAgentLeaseDetail.vue';
+import VaultRecoveryCheckpointDetail from '@/components/admin/article/vault/VaultRecoveryCheckpointDetail.vue';
+import type { VaultAgentLeaseReport, VaultAgentLeaseScope } from '@/services/articleVault/agentLeasePresentation';
+import type { VaultRecoveryCheckpointDisplayScope, VaultRecoveryCheckpointDocument } from '@/services/articleVault/recoveryCheckpointPresentation';
+
+// Supplied reports stay unverified; no connection, lifecycle or recovery state is derived here.
+defineProps<{
+    leaseReport?: VaultAgentLeaseReport | null;
+    leaseScope?: VaultAgentLeaseScope | null;
+    recoveryJournal?: VaultRecoveryCheckpointDocument | null;
+    recoveryScope?: VaultRecoveryCheckpointDisplayScope | null;
+}>();
 </script>

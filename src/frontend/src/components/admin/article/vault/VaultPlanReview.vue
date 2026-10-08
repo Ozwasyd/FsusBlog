@@ -11,17 +11,17 @@
             <h2>{{ presentation.directionLabel }}</h2>
             <dl>
                 <dt>站点 / Vault / 设备</dt>
-                <dd>{{ plan.siteIdentity }} / {{ plan.vaultIdentity }} / {{ plan.deviceIdentity }}</dd>
+                <dd class="break-all">{{ plan.siteIdentity }} / {{ plan.vaultIdentity }} / {{ plan.deviceIdentity }}</dd>
                 <dt>计划 digest</dt>
-                <dd>{{ plan.contentSha256 }}</dd>
+                <dd class="break-all">{{ plan.contentSha256 }}</dd>
                 <dt>Root manifest digest</dt>
-                <dd>{{ plan.rootManifestSha256 }}</dd>
+                <dd class="break-all">{{ plan.rootManifestSha256 }}</dd>
                 <dt>有效期（Unix 毫秒）</dt>
-                <dd>{{ plan.createdAtUnixMs }} → {{ plan.expiresAtUnixMs }}</dd>
+                <dd class="break-all">{{ plan.createdAtUnixMs }} → {{ plan.expiresAtUnixMs }}</dd>
                 <dt>计划报告状态</dt>
-                <dd>{{ plan.status }}（尚未验证是否仍然有效）</dd>
+                <dd class="break-all">{{ plan.status }}（尚未验证是否仍然有效）</dd>
                 <dt>取消边界</dt>
-                <dd>仅执行前可取消；已提交服务端记录不能在此撤销。</dd>
+                <dd class="break-all">仅执行前可取消；已提交服务端记录不能在此撤销。</dd>
             </dl>
             <p>文章 {{ presentation.articleCount }} · 依赖 {{ presentation.dependencyCount }} · 冲突 {{ presentation.conflictCount }}</p>
             <ul aria-label="计划效果计数">
@@ -50,15 +50,15 @@
                     <p>{{ item.portableArticleIdentity }} · {{ vaultPlanDecisionLabel(item.decision) }}</p>
                     <dl>
                         <dt>Group / operation / server article</dt>
-                        <dd>{{ item.groupIdentity }} / {{ item.operationIdentity }} / {{ item.serverArticleIdentity ?? '未绑定' }}</dd>
+                        <dd class="break-all">{{ item.groupIdentity }} / {{ item.operationIdentity }} / {{ item.serverArticleIdentity ?? '未绑定' }}</dd>
                         <dt>Base / local / server revision</dt>
-                        <dd>{{ item.base.serverRevision ?? '缺失' }} / {{ item.local.serverRevision ?? '缺失' }} / {{ item.server.serverRevision ?? '缺失' }}</dd>
+                        <dd class="break-all">{{ item.base.serverRevision ?? '缺失' }} / {{ item.local.serverRevision ?? '缺失' }} / {{ item.server.serverRevision ?? '缺失' }}</dd>
                         <dt>Base / local / server coordinate digest</dt>
-                        <dd>{{ item.base.contentSha256 }} / {{ item.local.contentSha256 }} / {{ item.server.contentSha256 }}</dd>
+                        <dd class="break-all">{{ item.base.contentSha256 }} / {{ item.local.contentSha256 }} / {{ item.server.contentSha256 }}</dd>
                         <dt>Expected server revision / permission / lifecycle</dt>
-                        <dd>{{ item.preconditions.expectedServerRevision ?? '缺失' }} / {{ item.preconditions.expectedPermissionSha256 ?? '缺失' }} / {{ item.preconditions.expectedLifecycle ?? '缺失' }}</dd>
+                        <dd class="break-all">{{ item.preconditions.expectedServerRevision ?? '缺失' }} / {{ item.preconditions.expectedPermissionSha256 ?? '缺失' }} / {{ item.preconditions.expectedLifecycle ?? '缺失' }}</dd>
                         <dt>依赖 operation</dt>
-                        <dd>{{ item.dependsOnOperationIdentities.join(' / ') || '无' }}</dd>
+                        <dd class="break-all">{{ item.dependsOnOperationIdentities.join(' / ') || '无' }}</dd>
                     </dl>
                 </li>
             </ol>

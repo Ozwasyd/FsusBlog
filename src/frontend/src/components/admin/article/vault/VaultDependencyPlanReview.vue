@@ -16,11 +16,11 @@
                     <p>{{ item.portableArticleIdentity }} / {{ item.groupIdentity }} / {{ item.operationIdentity }}</p>
                     <dl>
                         <dt>来源坐标</dt>
-                        <dd>{{ item.manifest.sourceSide }}</dd>
+                        <dd class="break-all">{{ item.manifest.sourceSide }}</dd>
                         <dt>Graph / relation / manifest digest</dt>
-                        <dd>{{ item.manifest.graphSha256 }} / {{ item.manifest.relationSha256 }} / {{ item.manifest.contentSha256 }}</dd>
+                        <dd class="break-all">{{ item.manifest.graphSha256 }} / {{ item.manifest.relationSha256 }} / {{ item.manifest.contentSha256 }}</dd>
                         <dt>依赖执行顺序引用</dt>
-                        <dd>{{ item.dependencyOrder.join(' / ') || '无' }}</dd>
+                        <dd class="break-all">{{ item.dependencyOrder.join(' / ') || '无' }}</dd>
                     </dl>
                     <ul aria-label="依赖类型与权限范围">
                         <li
