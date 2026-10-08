@@ -3418,7 +3418,7 @@
             "eligibilityOwner": "Existing content authority must approve payload eligibility; module publication and local passing tests grant no product activation or migration rights",
             "migrationDisposition": "Deny generic migration and automatic activation until content eligibility and required release/runtime qualification are verified",
             "exclusionReason": "Published module source remains in the denominator; generic payload classification and complete workload/platform/lifetime closure are not acceptance evidence",
-            "observationHeadroom": "Observe managed scratch and real filesystem backing separately; unresolved overlay/FUSE capacity remains Unknown; keep old segment disk charge through lease-aware compaction; current disk source is compile-blocked",
+            "observationHeadroom": "Observe managed scratch and real filesystem backing separately; unresolved overlay/FUSE capacity remains Unknown; keep old segment disk charge through lease-aware compaction; disk allocation-footprint, inode/startup inventory and formal Auto boundaries still require qualification",
             "testOwner": "tests/backend/Unit/DiskSegmentStoreTests.cs",
             "permissions": {
                 "disk": false,
