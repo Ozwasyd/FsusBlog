@@ -5,6 +5,7 @@
             "id": "environment-variable",
             "paths": [
                 "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
+                "tools/data-scale/comment-id-plan.mjs",
                 "tools/test/data-scale-runtime-owner.mjs",
                 "tools/test/temporal-context-contract.mjs"
             ],
