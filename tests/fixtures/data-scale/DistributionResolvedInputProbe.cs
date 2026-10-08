@@ -88,6 +88,9 @@ internal static class DistributionResolvedInputProbe
         Check(largeRoster.Length == 100_000, "actual_owner_100k_roster_coverage");
         Check(Prepare(largePlan, largeCoverage, [Input(largePlan, 1, ArticleScaleVariant.Published)]).Graphs.Count == 1,
             "bounded_payload_with_large_roster");
+        CheckTaxonomy(plan, []);
+        CheckTaxonomy(plan, [23]);
+        CheckTaxonomy(plan, [23, 29, 31]);
 
         ArticleScaleResolvedInput original = Input(plan, inputs[deleted].ArticleOrdinal, ArticleScaleVariant.Published);
         Console.WriteLine(JsonSerializer.Serialize(new
@@ -98,6 +101,7 @@ internal static class DistributionResolvedInputProbe
             LargeRosterCount = largeRoster.Length,
             LargePlanDigest = largeCoverage.PlanDigest,
             LargeCoverageDigest = largeCoverage.CoverageDigest,
+            TaxonomyCasesValidated = 3,
             PlanDigest = coverage.PlanDigest,
             CoverageDigest = coverage.CoverageDigest,
             InputDigest = ArticleScaleAssignmentCoverage.ComputeInputDigest(original),
@@ -106,6 +110,26 @@ internal static class DistributionResolvedInputProbe
             DatabaseWriterInvoked = false,
             ReleaseEvidenceEligible = false
         }));
+    }
+
+    private static void CheckTaxonomy(ArticleScalePlan plan, IReadOnlyList<int> tagIds)
+    {
+        List<ArticleScaleResolvedInput> inputs = Inputs(plan);
+        int selected = inputs.FindIndex(input => input.Variant == ArticleScaleVariant.PublishedWithScheduledUpdate);
+        inputs[selected] = inputs[selected] with
+        {
+            TagIds = tagIds
+        };
+        var coverage = new ArticleScaleAssignmentCoverage(plan, "unit-only-taxonomy-reference", Roster(inputs));
+        ArticleScaleArticleGraph graph = Prepare(plan, coverage, [inputs[selected]]).Graphs.Single();
+        string current = graph.Pointers.Single(pointer => pointer.Kind == ArticleScalePointerKind.CurrentRevision).TargetSemanticId;
+        ArticleScaleRowPlan[] references = graph.Rows.Where(row => row.Kind == ArticleScaleRowKind.ArticleTaxonomyReference).ToArray();
+        ArticleScaleRowPlan currentTaxonomy = references.Single(row => (string)row.Fields["RevisionSemanticId"]! == current);
+        Check(((IReadOnlyList<int>)currentTaxonomy.Fields["TagIds"]!).Order().SequenceEqual(tagIds.Order()),
+            "current_taxonomy_preserves_exact_zero_single_multi_tags");
+        Check(references.Length == 2 && references.All(row => (int)row.Fields["CategoryId"]! == inputs[selected].CategoryId
+            && ((IReadOnlyList<int>)row.Fields["TagIds"]!).Order().SequenceEqual(tagIds.Order())),
+            "canonical_historical_taxonomy_references_preserved");
     }
 
     private static (ArticleScaleResolvedGraphBatch ResolvedBatch, IReadOnlyList<ArticleScaleArticleGraph> Graphs) Prepare(

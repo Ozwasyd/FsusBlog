@@ -5,25 +5,42 @@ import { fileURLToPath } from 'node:url';
 
 const { readArticleBulkWriterSourceReference } = await import(new URL('../../tools/data-scale/distribution-writer-adapter.mjs', import.meta.url));
 
-const ownerCommit = 'c2847aaae1c1230a87435a26c13eae465d6b681c';
+const ownerCommits = Object.freeze([
+    'c2847aaae1c1230a87435a26c13eae465d6b681c',
+    '8f171ad68df48d139fb31f02d1f3e80dde5330ba'
+]);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const options = new Map();
 for (let index = 2; index < process.argv.length; index += 2)
 {
     const name = process.argv[index];
     const value = process.argv[index + 1];
-    if (!['--owner-root', '--dotnet'].includes(name) || options.has(name) || !value || !path.isAbsolute(value))
+    if (!['--owner-root', '--dotnet', '--owner-commit'].includes(name) || options.has(name) || !value)
     {
-        throw new Error('usage: --owner-root <exact-owner-checkout> --dotnet <absolute-dotnet>');
+        throw new Error('usage: --owner-root <exact-owner-checkout> --dotnet <absolute-dotnet> [--owner-commit <reviewed-commit>]');
+    }
+    if (name === '--owner-commit')
+    {
+        if (!ownerCommits.includes(value))
+        {
+            throw new Error('probe_unreviewed_owner_commit');
+        }
+        options.set(name, value);
+        continue;
+    }
+    if (!path.isAbsolute(value))
+    {
+        throw new Error('probe_absolute_owner_root_and_dotnet_required');
     }
     options.set(name, fs.realpathSync(value));
 }
-if (options.size !== 2)
+if (!options.has('--owner-root') || !options.has('--dotnet'))
 {
     throw new Error('probe_owner_root_and_dotnet_required');
 }
 const ownerRoot = options.get('--owner-root');
 const dotnet = options.get('--dotnet');
+const ownerCommit = options.get('--owner-commit') ?? ownerCommits[0];
 const observedCommit = execFileSync('git', ['--no-replace-objects', '-C', ownerRoot, 'rev-parse', 'HEAD'],
     { encoding: 'utf8' }).trim();
 const dirty = execFileSync('git', ['--no-replace-objects', '-C', ownerRoot, 'status', '--porcelain', '--untracked-files=no'],
@@ -33,7 +50,10 @@ if (observedCommit !== ownerCommit || dirty !== '')
     throw new Error('probe_owner_source_identity_or_worktree_drift');
 }
 const source = readArticleBulkWriterSourceReference({ repositoryRoot: ownerRoot, sourceCommit: ownerCommit });
-if (!source.resolvedSourceReviewed || source.files.some((file) => file.status !== 'present'))
+const missing = source.files.filter((file) => file.status !== 'present');
+if (!source.resolvedSourceReviewed
+    || (ownerCommit === ownerCommits[1] ? !source.taxonomySourceReviewed || missing.length !== 0
+        : missing.length !== 1 || !missing[0].path.endsWith('/DataScaleArticleTaxonomyProjection.cs')))
 {
     throw new Error('probe_reviewed_typed_owner_source_required');
 }
@@ -71,7 +91,8 @@ if (result.status === 0 && !result.error)
 {
     control = JSON.parse(lines.at(-1));
     if (control.Kind !== 'actual-owner-typed-api-unit-probe-not-db-or-release-receipt'
-        || control.ChecksPassed < 24 || control.LargeRosterCount !== 100_000
+        || control.ChecksPassed < 30 || control.LargeRosterCount !== 100_000
+        || control.TaxonomyCasesValidated !== 3
         || control.NativeAllocationInvoked !== false || control.DatabaseWriterInvoked !== false
         || control.ReleaseEvidenceEligible !== false)
     {
