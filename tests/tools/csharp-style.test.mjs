@@ -1284,7 +1284,15 @@ test('contextual record expressions do not exempt lowercase types named with', (
             '[System.Xml.Serialization.XmlInclude(\n    typeof(int[]))]\npublic class Container(int value)\n{\n    record with;\n}',
             '[Some(new int[] { 1 })]\npublic class Container(int value)\n{\n    record with;\n}',
             '[System.Obsolete]\n[Some(new int[] { 1 })]\npublic class Container(int value)\n{\n    record with;\n}',
-            'public class Container([Some(new int[] { 1 })] int value)\n{\n    record with;\n}'
+            'public class Container([Some(new int[] { 1 })] int value)\n{\n    record with;\n}',
+            'public class @Container(int value)\n{\n    record with;\n}',
+            'public class ΔContainer(int value)\n{\n    record with;\n}',
+            String.raw`public class \u0043ontainer(int value)
+{
+    record with;
+}`,
+            'public class @new(int value)\n{\n    record with;\n}',
+            'namespace @new\n{\n    record with;\n}'
         ])
         {
             writeFixture(fixtureRoot, 'src/sample/BadType.cs', `namespace Fixture;\n\n${declaration}${/[;}]$/u.test(declaration) ? '\n' : '\n{\n}\n'}`);
