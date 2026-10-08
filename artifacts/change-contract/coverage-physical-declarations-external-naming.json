@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/coverage-physical-declarations.mjs"
+            ],
+            "reason": "Record the existing tools naming boundary while projecting the sole coverage compiler and explicit owner access facts. Existing request and process interfaces remain with their owners; no environment key is introduced."
+        }
+    ]
+}
