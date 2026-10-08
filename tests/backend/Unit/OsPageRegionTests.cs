@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 
+using FsusBlog.Server.Infrastructure.Memory.Capabilities;
 using FsusBlog.Server.Infrastructure.Memory.Contracts;
 using FsusBlog.Server.Infrastructure.Memory.Platform;
 
@@ -9,6 +10,16 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OsPageRegionTests
 {
+    [Fact]
+    public void DisabledNeverConstructsAnOsAdapterAndOmissionUsesAutoDiscovery()
+    {
+        Assert.Equal(MemoryCapabilityMode.Auto, MemoryCapabilityPolicy.Parse(null));
+        Assert.Null(OsPageNativeApi.Detect(mode: MemoryCapabilityMode.Disabled));
+        IOsPageNativeApi? detected = OsPageNativeApi.Detect();
+        Assert.Equal(OperatingSystem.IsLinux() || OperatingSystem.IsWindows(), detected is not null);
+        Assert.Equal(detected?.Backend, OsPageNativeApi.Detect(mode: MemoryCapabilityMode.Required)?.Backend);
+    }
+
     [Fact]
     public void CompleteMappingIsAdmittedBeforeReserveAndChargedOnce()
     {
