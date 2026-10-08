@@ -5845,8 +5845,11 @@ async function runDagUnlocked(options)
         const previous = checkpoint.resourceUtilization.resourceGrants;
         const previousState = { ...(previous ?? {}) };
         delete previousState.generatedAt;
+        delete previousState.generation;
+        delete previousState.schedulerCheckpointRevision;
         const document = previous && fingerprint(previousState) === fingerprint(state)
-            ? previous : { ...state, generatedAt: new Date().toISOString() };
+            ? previous : { ...state, generation: (previous?.generation ?? 0) + 1,
+                schedulerCheckpointRevision: checkpoint.revision + 1, generatedAt: new Date().toISOString() };
         if (document !== previous)
         {
             checkpoint.resourceUtilization.resourceGrants = document;
@@ -7716,6 +7719,57 @@ function acquireRunLock(
 }
 
 /** Compare canonical state under the already acquired scheduler owner; never acquire a competing lock. */
+/** Live grant consumers bind the exact canonical generation and active run owner.
+ * This is a readback port, not the generic nested adapter or a live-admission receipt.
+ */
+export function readCanonicalSchedulerResourceGrant({ checkpointFile, runId, tierId, ownerToken,
+    minimumGeneration = 1, expectedGeneration = null })
+{
+    const canonical = readCanonicalSchedulerCheckpoint(checkpointFile);
+    const checkpoint = canonical?.checkpoint;
+    if (!runId || !tierId || !ownerToken || checkpoint?.runId !== runId
+        || checkpoint.schedulerRunOwnerToken !== ownerToken)
+    {
+        throw new Error('contract.scheduler-grant-identity-mismatch');
+    }
+    const activity = schedulerRunLockActivity({ runsRoot: path.dirname(path.dirname(checkpointFile)),
+        runId, targetTierId: checkpoint.targetTierId, candidateIdentityDigest: checkpoint.schedulerCandidateIdentityDigest });
+    if (activity.status !== 'active' || activity.owner?.ownerToken !== ownerToken)
+    {
+        throw new Error('contract.scheduler-grant-owner-inactive');
+    }
+    const document = checkpoint.resourceUtilization?.resourceGrants;
+    validateSchedulerGrantDocument(document, runId, checkpoint);
+    if (!Number.isInteger(document.generation) || document.generation < 1
+        || !Number.isInteger(minimumGeneration) || minimumGeneration < 1 || document.generation < minimumGeneration
+        || (expectedGeneration !== null && document.generation !== expectedGeneration)
+        || !Number.isInteger(document.schedulerCheckpointRevision)
+        || document.schedulerCheckpointRevision < 1 || document.schedulerCheckpointRevision > checkpoint.revision)
+    {
+        throw new Error('contract.scheduler-grant-generation-mismatch');
+    }
+    const projection = readSchedulerGrantProjection(path.join(path.dirname(checkpointFile), 'resource-grants.json'), runId);
+    if (!isDeepStrictEqual(document, projection))
+    {
+        throw new Error('contract.scheduler-grant-projection-drift');
+    }
+    const grant = document.grants[tierId];
+    const usage = Object.values(document.grants).reduce((total, value) => ({
+        cpuUnits: total.cpuUnits + value.cpuUnits, memoryGiB: total.memoryGiB + value.memoryGiB
+    }), { ...document.residentReservation });
+    if (!grant || !Number.isInteger(grant.cpuUnits)
+        || usage.cpuUnits > document.resourceBudget.cpuUnits
+        || usage.memoryGiB > document.resourceBudget.memoryGiB + Number.EPSILON * 16)
+    {
+        throw new Error('contract.scheduler-grant-tier-or-envelope-invalid');
+    }
+    return { runId, tierId, ownerToken, generation: document.generation,
+        schedulerCheckpointRevision: document.schedulerCheckpointRevision,
+        grant: structuredClone(grant), resourceBudget: structuredClone(document.resourceBudget),
+        checkpointDigest: canonical.checkpointDigest, grantReceiptDigest: fingerprint(document),
+        qualificationEligible: false };
+}
+
 export function commitSchedulerCheckpointCAS({ checkpointFile, expectedRevision, expectedDigest, owner, update })
 {
     if (projectionResumeTransactionState(checkpointFile))
