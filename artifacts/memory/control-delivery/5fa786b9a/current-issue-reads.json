@@ -1,0 +1,40 @@
+{
+  "readAt": "2026-10-08T11:40:57.822979+00:00",
+  "issues": [
+    {
+      "issue": 3444,
+      "exitCode": 0,
+      "state": "OPEN",
+      "updatedAt": "2026-10-08T05:48:43Z",
+      "comments": 4
+    },
+    {
+      "issue": 3447,
+      "exitCode": 0,
+      "state": "OPEN",
+      "updatedAt": "2026-10-08T05:48:47Z",
+      "comments": 2
+    },
+    {
+      "issue": 3450,
+      "exitCode": 0,
+      "state": "OPEN",
+      "updatedAt": "2026-10-08T05:48:50Z",
+      "comments": 2
+    },
+    {
+      "issue": 3452,
+      "exitCode": 0,
+      "state": "OPEN",
+      "updatedAt": "2026-09-15T11:53:32Z",
+      "comments": 0
+    },
+    {
+      "issue": 3454,
+      "exitCode": 0,
+      "state": "OPEN",
+      "updatedAt": "2026-09-15T11:54:48Z",
+      "comments": 0
+    }
+  ]
+}

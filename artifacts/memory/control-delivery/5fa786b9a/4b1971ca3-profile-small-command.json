@@ -1,0 +1,20 @@
+{
+  "candidate": "4b1971ca3d5b6d6a645d2ce98c09407136c3e4df",
+  "runId": "mem-4b1971ca3-p01-small-20261008",
+  "command": [
+    "bash",
+    "tools/test/lanes/public-hot-read-residency-profile.sh",
+    "--articles",
+    "1000",
+    "--frame-bytes",
+    "512"
+  ],
+  "exitCode": 1,
+  "artifact": ".tmp/memory-integration/4b1971ca3/profile-small.log",
+  "taskOwnedPaths": {
+    "FSUSBLOG_DATA_ROOT": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/4b1971ca3/profile-small/data",
+    "FSUSBLOG_PERFORMANCE_OUTPUT_ROOT": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/4b1971ca3/profile-small/perf",
+    "FSUSBLOG_RELEASE_EVIDENCE_DIR": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/4b1971ca3/profile-small/release-evidence"
+  },
+  "capturedAt": "2026-10-08T10:03:46.189234+00:00"
+}

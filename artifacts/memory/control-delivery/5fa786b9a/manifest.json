@@ -1,0 +1,201 @@
+{
+  "schema": "fsusblog.memory-source-delivery.v1",
+  "evidenceLevel": "DevelopmentSourceOnly_NotProductAcceptance",
+  "sourceCandidate": "5fa786b9a3de37cc47169a82269dd33450ab1c8e",
+  "candidateFingerprint": "sha256:070e71ffb787d0a03430c3af89502ec8ac00ddebb8bd95a72b80a341613204b8",
+  "branch": "codex/mem-3444-compliant-integration",
+  "runId": "mem-5fa786b9a-20261008-control-inventory",
+  "recordedAt": "2026-10-08T11:54:11.649398+00:00",
+  "incorporatedMaster": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "latestFetchedMaster": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+  "latestMasterIncorporated": false,
+  "originalBuildCandidate": "a74f87df104be90a864c53ce0fcbe7ffc1b6f7de",
+  "originalBuildCounters": {
+    "passed": 463,
+    "failed": 0,
+    "skipped": 0
+  },
+  "currentSourceRun": {
+    "candidate": "5fa786b9a3de37cc47169a82269dd33450ab1c8e",
+    "sourceAfter": "5fa786b9a3de37cc47169a82269dd33450ab1c8e",
+    "runId": "mem-5fa786b9a-20261008-control-inventory",
+    "startedAt": "2026-10-08T11:44:08.175617+00:00",
+    "command": [
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-build",
+      "--no-restore",
+      "--filter",
+      "FullyQualifiedName~NativeMemoryArenaTests|FullyQualifiedName~OsPageRegionTests|FullyQualifiedName~OsNumaTopologyTests|FullyQualifiedName~MemoryAllocationLayoutTests|FullyQualifiedName~ManagedMemoryBackingTests|FullyQualifiedName~MemoryReservationCoordinatorTests|FullyQualifiedName~MemoryAsyncOwnershipTests|FullyQualifiedName~MemoryContractTests|FullyQualifiedName~PortableMemoryPressureTests|FullyQualifiedName~MemoryArticlePageOracleTests|FullyQualifiedName~OwnedAedsFrameTests|FullyQualifiedName~BoundedTaskSingleFlightTests|FullyQualifiedName~ReleaseStorageTopologyTests|FullyQualifiedName~ReleaseStorageLifecycleTests|FullyQualifiedName~MemoryStorageBoundaryTests|FullyQualifiedName~GpuMemoryDeviceTests|FullyQualifiedName~GpuMetalTests|FullyQualifiedName~GpuNativeTests|FullyQualifiedName~GpuPeerCapabilitiesTests|FullyQualifiedName~GpuPeerMappingTests|FullyQualifiedName~GpuPeerTransferTests|FullyQualifiedName~FlatArtifactIndexTests|FullyQualifiedName~DiskBudgetAdmissionTests|FullyQualifiedName~DiskSpillEligibilityTests|FullyQualifiedName~OwnedSpillRootTests|FullyQualifiedName~DiskSegmentStoreTests|FullyQualifiedName~MemoryDiskPolicyTests|FullyQualifiedName~DatabaseMaterializationScopeTests|FullyQualifiedName~NotificationPayloadLeaseTests|FullyQualifiedName~TransientBufferPoolTests|FullyQualifiedName~MemoryCapabilityPolicyPlanTests|FullyQualifiedName~MemoryExistingAllocationTests|FullyQualifiedName~LinuxProcMemoryPressureTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests|FullyQualifiedName~MemoryCapabilityControllerTests",
+      "--logger",
+      "trx;LogFileName=memory-5fa786b9a.trx",
+      "--results-directory",
+      ".tmp/memory-integration/5fa786b9a/test-results"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/5fa786b9a/tests.log",
+    "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/5fa786b9a/data",
+    "buildCandidate": "a74f87df104be90a864c53ce0fcbe7ffc1b6f7de",
+    "changesSinceBuild": [
+      "config/development/memory-allocation-boundaries.json"
+    ],
+    "compiledArtifacts": {
+      "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "486d2c006805201a790c0b9bf47fddf95d06e74b9900a23ced73f575a0ad09b3",
+      "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "42252f009b889cf0abfca1a4c9f5db8b43270bc56f65bbb74513f9368d9f8ca8"
+    }
+  },
+  "counters": {
+    "total": "463",
+    "executed": "463",
+    "passed": "463",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "executionIssues": 22,
+  "trackingIssues": 1,
+  "acceptedIssues": 0,
+  "mandatoryCriteria": 237,
+  "acceptedCriteria": 0,
+  "inventoryProducer": "tools/governance/memory-allocation-inventory.mjs",
+  "inventoryReplayNote": "Checkout sourceCandidate and replay the frozen inventory with the recorded real SDK Roslyn observer and Node identity. This is not a receipt for a later metadata/receipt commit. Strict semantic/support completion remains rejected.",
+  "diagnosticsNote": "Prior original failures are preserved, not relabeled as current passes. Whole SOURCE was not rerun merely to repeat unchanged diagnostics.",
+  "files": [
+    {
+      "path": "4b1971ca3-profile-small-command.json",
+      "sha256": "de9ba7a345a569c362b491c7ee8ceaf6c909ae169d84cac3c80577e3586a41b8",
+      "bytes": 815
+    },
+    {
+      "path": "4b1971ca3-profile-small-failed.log",
+      "sha256": "08b6c5f3ee53bef635701863b0153585adfc02694ffd83db43225c725d7e698f",
+      "bytes": 285
+    },
+    {
+      "path": "4b1971ca3-systemd-user-probe-failed.log",
+      "sha256": "085b4aa9689f708861fd22966669715ff98a253eb09ce5b73ef1e01ff96ad11c",
+      "bytes": 81
+    },
+    {
+      "path": "4b1971ca3-systemd-user-probe.json",
+      "sha256": "eb7dbe57557d390aef52c3e1004a92ccc94fa574fe41d0df19b80d1687388066",
+      "bytes": 442
+    },
+    {
+      "path": "a74f87df1-owned-style.log",
+      "sha256": "f54efd8175b15ca1aed7ddf310213a50859ef46f488f6312f39f52b5d6dbd29a",
+      "bytes": 46
+    },
+    {
+      "path": "b8cdf988e-code-intent-failed.log",
+      "sha256": "c46a2a19cf335bef9d459ffd6b0174b56814d0f6f1926f7137744435636aab09",
+      "bytes": 203
+    },
+    {
+      "path": "b8cdf988e-source-admission-failed.log",
+      "sha256": "f3510dd560df18cdcc6401ff3cdc911ca0b1993f3cfbea8b93d587d9735b40cf",
+      "bytes": 17286
+    },
+    {
+      "path": "chain-status.json",
+      "sha256": "24deb5562f726477af51334789381ff61a2d248b85f6681554e27afaad9e63a8",
+      "bytes": 83282
+    },
+    {
+      "path": "chain-status.md",
+      "sha256": "5b156bf986dfde70da21aed32880bfd4833d0d041a25473ce16e3b323b7af622",
+      "bytes": 11305
+    },
+    {
+      "path": "commit-contract.log",
+      "sha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08",
+      "bytes": 54
+    },
+    {
+      "path": "current-issue-reads.json",
+      "sha256": "e8c8ca96d1ab56bb125deea5e2cc6cba504f13cc170627837fceec17441975db",
+      "bytes": 774
+    },
+    {
+      "path": "docs.log",
+      "sha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6",
+      "bytes": 38
+    },
+    {
+      "path": "inventory-produce.log",
+      "sha256": "a11c46aaf842320f94251f8888149f8cd9ed7113ff270fb414dc805afb8367df",
+      "bytes": 212
+    },
+    {
+      "path": "inventory-replay.log",
+      "sha256": "c4852380b332801840b4c4427aff9567199c73cc1582f1d72255da6b9d996f8c",
+      "bytes": 166
+    },
+    {
+      "path": "inventory-strict.log",
+      "sha256": "21733c2f62db5cbb15f2485916ae7e97649abc6605ceea9976ddaf5f2a0bcb13",
+      "bytes": 99
+    },
+    {
+      "path": "inventory.json",
+      "sha256": "9cbdccf97b9777887ab360161deaf6a803e836045d153aa2fa8afb7437bed28e",
+      "bytes": 6816134
+    },
+    {
+      "path": "observer-controls.log",
+      "sha256": "f615e799dc30bd5f7f6cb286126234f562b7dcd92cd8aedf0c67cb94e206033c",
+      "bytes": 1382
+    },
+    {
+      "path": "original-build-and-tests.log",
+      "sha256": "49c80434fd04c11efbc4be991d04576e7ca8c63592d00af475a61be1c85fa753",
+      "bytes": 445062
+    },
+    {
+      "path": "original-build-and-tests.trx",
+      "sha256": "ba822519342431cbb2ea5d0bddccddec3e73200c0149648fd800cf1a0b1889f0",
+      "bytes": 669081
+    },
+    {
+      "path": "original-build-runtime-checks.json",
+      "sha256": "2efcb9e04921e4a8fa2e39cce18a02ed5acc9e1ff461b966791b32de5f0801f3",
+      "bytes": 2276
+    },
+    {
+      "path": "runtime-checks.json",
+      "sha256": "34aa5aa91a19398e07acd77e68b91910a47d6df605b6d8bc2249d6e900a99a98",
+      "bytes": 2730
+    },
+    {
+      "path": "source-checks.json",
+      "sha256": "16e0c5f02819107c2ec3e82364c497eef0492033c8567cf5d2e5eba4a6182f4a",
+      "bytes": 5570
+    },
+    {
+      "path": "source-gate-diagnostics.json",
+      "sha256": "6a07963ebebf5bd222c4c8dc032ce6ede1ca1648282a07651b72bd89d7051415",
+      "bytes": 8020
+    },
+    {
+      "path": "tests-no-build.log",
+      "sha256": "0e918be4c9312fa695f6e80edcff5da8ce932c1bed08cfa66b80f0634f90e705",
+      "bytes": 430
+    },
+    {
+      "path": "tests.trx",
+      "sha256": "806a50545fc4bf17a57518278b3ae508126835cdacea315a81b79104902b1fc4",
+      "bytes": 669086
+    }
+  ]
+}
