@@ -159,8 +159,50 @@ These APIs follow the unadmitted inspection/revalidation boundary of the supplie
 query results. No item/count here may be exposed as a permission-safe response or
 used as an executable impact plan without current authorization admission.
 
-The canonical parse/link producer adapter, fresh permission admission, durable
-registration, permission-safe target query (#2441), remaining block-specific
-resolution/lifecycle production (#2443), transactional impact execution (#2447) and
-real package round-trip (#2450) remain integration work. The index and its fixture
-ports do not certify those capabilities.
+## Block source production
+
+`ArticleBlockRelationProducer.Produce` derives one complete canonical source set from
+original parsed-link nodes and target inventories. Each link carries its original
+node, exact UTF-16 range/literal and separately resolved `ArticleBlockTarget`.
+The existing `BlockAnchorMarkdownParser` validates that one supplied literal; the
+producer never scans raw source, rendered HTML or a DOM. The parsed fragment must
+match the already-bound canonical anchor. Route strings cannot resolve article
+identity. Existing relation validators and sealers own the output bytes and catalog.
+
+Inputs bind source facts, reader context, original parsed source digest, parser
+contract, source generation and the exact anchor contract. Target inventories bind
+the same reader/generation and existing article target facts. This is a consumption
+shape, not a new parse package or proof of observed permission/parser provenance.
+Denied target facts cannot carry route/anchor inventory. Unknown facts and unusable
+inventories are refused before a source set is returned. Transclusions are excluded.
+
+Production preserves the supported existing catalog states: outgoing/resolved,
+broken/missing-anchor, unauthorized, archived, deleted or stale route projection,
+and visibility-risk/draft or scheduled-private. A route change preserves the stable
+article+anchor and original link bytes. Duplicate anchors/target inventories,
+invalid/malformed/orphan diagnostics, duplicate nodes, overlapping/out-of-bounds
+spans and stale bindings refuse the whole production; there is no first-match or
+partial set. The current shared missing-target representation cannot retain a known
+stable block identity, so missing targets are refused rather than erasing that
+identity. Full diagnostic persistence remains a canonical schema integration gate.
+
+Limits are 100,000 links and anchors, 10,000 target articles and the existing source
+text budget. Controls actually exercise 100,000 links/anchors and 10,000 targets with
+100,000 anchors. These are parsed-fact fixtures, not observed production corpus,
+permission or storage evidence. `Produced` means internal fact projection only.
+
+`ArticleBlockRelationIndexSource` implements the actual `IArticleRelationIndexSource`
+integration. Its owned `IArticleBlockRelationParsedSource` read port supplies complete
+original article families: per-revision original non-block sets and block parse
+inputs. The integration verifies reader/generation/source binding, rejects a second
+block producer, preserves original article/heading records, and merges/seals the
+single complete source set before the sole index can stage it. Any refused revision
+refuses the family. Original publication inputs must replay frozen facts; the index
+also refuses publication rewrite/removal. This read port is now available to the
+original parser adapter owner, but does not itself implement that authority.
+
+The original observed parser/portable identity adapter, fresh permission admission,
+durable registration, permission-safe target query (#2441), complete block diagnostic
+lifecycle persistence (#2443), transactional impact execution (#2447) and real package
+round-trip (#2450) remain integration work. The producer, source integration, index
+and their fixture ports do not certify those capabilities.
