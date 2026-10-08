@@ -41,9 +41,13 @@
                             :value="item.id"
                             :disabled="!item.available"
                         >
-                            {{ item.label }}<span v-if="!item.available">：{{ item.reason }}</span>
+                            {{ item.label }}
                         </ElRadio>
                     </ElRadioGroup>
+                    <p
+                        v-for="item in port.catalog.filter((item) => !item.available)"
+                        :key="item.id"
+                    >{{ item.label }}：{{ item.reason }}</p>
                     <template v-if="format">
                         <label for="document-export-layout">布局</label>
                         <ElSelect
@@ -81,11 +85,12 @@
                         </ul>
                     </template>
                     <p v-if="source?.private">结果含私密内容，仅短期保留，未自动加密。</p>
+                    <p v-if="source">将冻结来源：{{ source.label }}</p>
                     <ElCheckbox
                         v-model="confirmed"
                         :disabled="!selectionValid || submissionLocked"
                     >
-                        {{ source ? `确认导出 ${source.label}；提交后来源、格式与选项冻结` : '选择来源后确认冻结' }}
+                        确认冻结来源、格式与选项
                     </ElCheckbox>
                 </fieldset>
                 <ElButton
