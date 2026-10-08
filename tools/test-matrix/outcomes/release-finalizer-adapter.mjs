@@ -130,25 +130,29 @@ export async function mapVerifiedReleaseFinalizerConsumedInputs({
         {
             throw new Error('finalizer mapping requires the original independent binding verifier and identity');
         }
-        const verified = await verifyBindings(structuredClone(binding), verificationOptions);
+        const suppliedBinding = structuredClone(binding);
+        const suppliedOptions = structuredClone(verificationOptions);
+        const suppliedIdentity = structuredClone(expectedIdentity);
+        const suppliedMatrix = structuredClone(matrix);
+        const verified = await verifyBindings(structuredClone(suppliedBinding), suppliedOptions);
         if (verified?.schema !== 'fsusblog.release-final-test-evidence-binding.v2'
             || verified.status !== 'verified-bindings-unpublished'
             || verified.qualificationEligible !== false || verified.reasonCodes?.length !== 0
             || verified.publicationRequired !== 'canonical-scheduler-CAS'
-            || digestCanonical(verified) !== digestCanonical(binding))
+            || digestCanonical(verified) !== digestCanonical(suppliedBinding))
         {
             throw new Error('original finalizer binding verifier did not return its unpublished source contract');
         }
         for (const field of ['sourceCommit', 'worktreeFingerprint', 'schedulerRunId'])
         {
-            if (verified.context[field] !== expectedIdentity[field])
+            if (verified.context[field] !== suppliedIdentity[field])
             {
                 throw Object.assign(new Error('finalizer native source identity mismatch'),
                     { reasonCode: 'PLAN_IDENTITY_MISMATCH' });
             }
         }
-        const plan = mapCanonicalReleaseFinalizerOutcomePlan(matrix);
-        const dependencies = verificationOptions.testPlan.requiredEvidenceDependencies.dependencies;
+        const plan = mapCanonicalReleaseFinalizerOutcomePlan(suppliedMatrix);
+        const dependencies = suppliedOptions.testPlan.requiredEvidenceDependencies.dependencies;
         const consumedIds = new Set();
         const consumedInputReceipts = [];
         const inputAuthorityRefs = [];

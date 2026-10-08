@@ -128,7 +128,7 @@ test('ordinary consumed binding shape maps actual catalog tier associations and 
         {
             calls++;
             assert.deepEqual(observed, binding);
-            assert.equal(options, verificationOptions);
+            assert.deepEqual(options, verificationOptions);
             return structuredClone(binding);
         } });
     assert.equal(calls, 1);
