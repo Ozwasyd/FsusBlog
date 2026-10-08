@@ -8,7 +8,7 @@ import test from 'node:test';
 
 const { digestCatalog, loadCatalog } = await import(new URL("../../tools/contracts/behavior-contract-catalog.mjs", import.meta.url));
 const { digestValue } = await import(new URL("../../tools/fact-extractors/lib/canonicalize.mjs", import.meta.url));
-const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, readJson, loadProtocol } = await import(new URL("../../tools/contracts/lib/openapi-contracts.mjs", import.meta.url));
+const { buildOpenApiFromMatrix, generateFrontendRoutes, committedOpenApiPath, operationsFromOpenApi, readJson, loadProtocol } = await import(new URL("../../tools/contracts/lib/openapi-contracts.mjs", import.meta.url));
 const { observationBuildSourcePaths, observationContentDigest, openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
 const { extract: extractOpenApi } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
 const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
@@ -597,6 +597,7 @@ function sampleObservation(overrides = {})
         }
         return {
             ...operation,
+            credentialPolicy: operation.auth === 'anonymous' ? 'omit' : 'include',
             request,
             responses: [
                 {
@@ -852,6 +853,37 @@ test('3) auth drift is visible in observation map fields', () =>
     const facts = observationToFactObservations(observation);
     assert.equal(facts.operations.binary_post_admin_article.auth, 'user');
     assert.notEqual(facts.operations.binary_post_admin_article.auth, 'admin');
+});
+
+test('route descriptors consume observed credentials without guessing anonymous policy', () =>
+{
+    const operation = {
+        operationId: 'binary_get_self_test', 'x-fsus-auth': 'anonymous', 'x-fsus-pow': false,
+        'x-fsus-rate-limit': 'public_read', 'x-fsus-cache': 'public-read'
+    };
+    const projection = { paths: { '/api/binary/self-test': { get: operation } } };
+    assert.throws(() => generateFrontendRoutes(projection), /route_metadata_missing/u);
+    for (const policy of ['include', 'omit'])
+    {
+        operation['x-fsus-credential-policy'] = policy;
+        assert.match(generateFrontendRoutes(projection), new RegExp(`credentialPolicy: "${policy}"`, 'u'));
+    }
+    operation['x-fsus-auth'] = 'admin';
+    assert.throws(() => generateFrontendRoutes(projection), /route_metadata_missing/u);
+});
+
+test('credential authority rejects missing policies and authenticated omission', () =>
+{
+    for (const policy of [undefined, 'same-origin', 'omit'])
+    {
+        const observation = sampleObservation();
+        observation.operations[1].credentialPolicy = policy;
+        assert.ok(validateObservationAgainstProtocol(observation, loadProtocol())
+            .some((error) => /credentialPolicy/u.test(error)), String(policy));
+    }
+    const facts = observationToFactObservations(sampleObservation());
+    assert.equal(facts.operations.binary_get_article_id_aeds.credentialPolicy, 'omit');
+    assert.equal(facts.operations.binary_post_admin_article.credentialPolicy, 'include');
 });
 
 test('4) rate-limit and cache metadata are required observation fields', () =>
