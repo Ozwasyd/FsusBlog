@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+                "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+                "src/backend/Infrastructure/Memory/Transient/DatabaseMaterializationScope.cs",
+                "src/backend/Infrastructure/Memory/Transient/NotificationPayloadLease.cs",
+                "src/backend/Infrastructure/Memory/Transient/TransientBufferLease.cs",
+                "src/backend/Infrastructure/Memory/Transient/TransientBufferPool.cs",
+                "src/backend/Infrastructure/Memory/Transient/TransientWorkload.cs",
+                "src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs"
+            ],
+            "reason": "Declare the exact backend infrastructure paths selected by the existing naming gate; preserve external environment spellings without adding environment configuration or changing internal C# naming. The eight shared dependency files are byte-identical to original3444 checkpoint 089d95e466c23a7fc781d30b80157cb4dd199c10."
+        }
+    ]
+}
