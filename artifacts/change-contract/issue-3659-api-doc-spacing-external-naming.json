@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/api/schemas-and-errors.md"
+            ],
+            "reason": "Preserve the current API document's registered external error, frame, JSON and fragment spellings while adding only a missing Markdown block separator; internal renaming cannot replace these public contract identities. Generated ranges and semantic content remain unchanged."
+        }
+    ]
+}
