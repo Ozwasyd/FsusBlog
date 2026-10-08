@@ -83,7 +83,9 @@ created-stage handles seal file metadata, ordered public item identity, provider
 version, the shared anchor context and the canonical task envelope; runtime
 signals cancel on document/source changes or disposal. Pending insertion plans
 come from FsusUI and carry the current expected revision and document identity.
-Created handles are bounded to 64 and never execute upload IO.
+Created and provider-pending handles share a bounded capacity of 100, allowing
+one 100-image writer batch while rejecting further captures atomically. They
+never execute upload IO; the lifecycle receipt log remains separately bounded.
 
 Created-stage handles are not provider completion admission. Insertion cancels
 the created lease and establishes a new anchored provider request. The adapter

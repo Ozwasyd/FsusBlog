@@ -106,7 +106,7 @@ describe('Article attachment created-stage public boundary (#2256)', () =>
         const input = { source: editor.source, origin: 'pick' as const, anchor: editor.anchor(), files: [file] };
         expect(editor.adapter.capture({ ...input, source: 'other' })).toEqual({ status: 'rejected', reason: 'source-context-invalid' });
         const handles = [];
-        for (let index = 0; index < 64; index++)
+        for (let index = 0; index < 100; index++)
         {
             const result = editor.adapter.capture(input);
             if (result.status !== 'created') throw new Error('capture rejected');
@@ -229,6 +229,31 @@ describe('Article attachment anchored provider lifecycle (#2256) actual public d
         editor.adapter.complete(handles[0]!, editor.resolved(handles[0]!, '/one.png'), editor.port);
         expect(editor.source()).toBe('![one.png](/one.png)\n![two.png](/two.png)paragraph');
     });
+
+    it.each([1, 10, 100])('keeps %i public file intents in creation order through reversed completion', count =>
+    {
+        const editor = lifecycle();
+        const files = Array.from({ length: count }, (_, index) => ({ ...file, name: `image-${index}.png` }));
+        const handles = editor.insert(files).handles;
+        expect(handles).toHaveLength(count);
+        expect(editor.adapter.currentTaskLeases).toHaveLength(count);
+        if (count === 100)
+        {
+            const anchor = editor.anchors.capture(editor.binding(), { start: 0, end: 0, direction: 'none' },
+                { affinity: 'after', viewportOffset: 0, percentage: 0, surface: 'source', tool: 'none' });
+            expect(editor.adapter.capture({ source: editor.source(), origin: 'pick', anchor, files: [file] }))
+                .toEqual({ status: 'rejected', reason: 'created-intent-capacity' });
+            expect(handles.every(handle => !handle.signal.aborted)).toBe(true);
+        }
+        for (let index = count - 1; index >= 0; index--)
+        {
+            const handle = handles[index]!;
+            expect(editor.adapter.complete(handle, editor.resolved(handle, `/image-${index}.png`), editor.port).state).toBe('transaction-committed');
+        }
+        expect(editor.source()).toBe(files.map((item, index) => `![${item.name}](/image-${index}.png)`).join('\n') + 'paragraph');
+        expect(handles.every(handle => handle.signal.aborted)).toBe(true);
+        expect(editor.adapter.currentTaskLeases).toEqual([]);
+    }, 30000);
 
     it('undo deletes a pending node and redo cannot revive the cancelled completion', () =>
     {
