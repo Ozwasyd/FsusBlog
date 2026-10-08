@@ -43,10 +43,7 @@
                 "tests/frontend/package.json",
                 "tests/governance/test-lifecycle-registry.json",
                 "tests/tools/package-lock.json",
-                "tests/tools/package.json",
-                "tools/frontend/control-legality/package-lock.json",
-                "tools/frontend/control-legality/package.json",
-                "tools/package.json"
+                "tests/tools/package.json"
             ],
             "reason": "Preserve exact schema, contract, fixture, package and lockfile wire keys across the complete coordinated PR source and canonical generated output set."
         },
