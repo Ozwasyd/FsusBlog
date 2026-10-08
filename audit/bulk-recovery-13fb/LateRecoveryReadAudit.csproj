@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/backend/Services/Articles/Bulk/ArticleBulkAtomicExecutor.cs" Link="Production/ArticleBulkAtomicExecutor.cs" />
+    <Compile Include="../../src/backend/Services/Articles/Bulk/ArticleBulkCanonicalCommandOwners.cs" Link="Production/ArticleBulkCanonicalCommandOwners.cs" />
+    <Compile Include="../../src/backend/Services/Articles/Bulk/ArticleBulkExecutionFramework.cs" Link="Production/ArticleBulkExecutionFramework.cs" />
+    <Compile Include="../../src/backend/Services/Articles/Bulk/ArticleBulkExecutorProtocol.cs" Link="Production/ArticleBulkExecutorProtocol.cs" />
+    <Compile Include="../../src/backend/Services/Articles/Bulk/ArticleBulkFileJournalAuthority.cs" Link="Production/ArticleBulkFileJournalAuthority.cs" />
+    <Compile Include="../../src/backend/Services/Articles/Bulk/ArticleBulkOperationRegistry.cs" Link="Production/ArticleBulkOperationRegistry.cs" />
+    <Compile Include="../../src/backend/Services/Articles/Bulk/ArticleBulkPerItemExecutor.cs" Link="Production/ArticleBulkPerItemExecutor.cs" />
+    <Compile Include="../../src/backend/Services/Articles/Bulk/ArticleBulkPlanAuthority.cs" Link="Production/ArticleBulkPlanAuthority.cs" />
+    <Compile Include="../../tests/backend/Unit/ArticleBulkExecutorTestFixture.cs" Link="OwnerInputs/ArticleBulkExecutorTestFixture.cs" />
+  </ItemGroup>
+</Project>
