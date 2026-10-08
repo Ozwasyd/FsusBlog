@@ -209,6 +209,42 @@ describe('real Vue builder controls', () => {
         expect(wrapper.text()).toContain('保存接口当前不可用');
     });
 
+    it('submits the latest authoritative query after revision-first split updates', async () => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        const latest = query();
+        latest.conditions[1]!.values = ['服务端 Q8'];
+        await wrapper.setProps({ revision: 8 });
+        expect(wrapper.get('input[aria-label="每页数量"]').attributes('disabled')).toBeDefined();
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        await wrapper.setProps({ query: latest });
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('服务端 Q8');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{
+            viewId,
+            expectedRevision: 8,
+            query: { ...latest, pageSize: 25 }
+        }]]);
+    });
+
+    it('preserves a dirty draft and refuses submission when only the authoritative query changes', async () => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        const latest = query();
+        latest.conditions[1]!.values = ['服务端刷新后的查询'];
+        await wrapper.setProps({ query: latest });
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        expect((wrapper.get('input[aria-label="每页数量"]').element as HTMLInputElement).value).toBe('25');
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('原始 私密检索');
+        await wrapper.get('[data-action="cancel"]').trigger('click');
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('服务端刷新后的查询');
+    });
+
     it('retains dirty operands across revision conflict and refuses a stale CAS submission', async () => {
         const wrapper = builder({ submitAvailable: true });
         await wrapper.get('[data-action="edit"]').trigger('click');
@@ -298,6 +334,49 @@ describe('one saved-view state adapter across surfaces', () => {
         await wrapper.get('button').trigger('click');
         expect(wrapper.emitted('repair')).toEqual([[viewId]]);
         expect(reasons).toHaveLength(1);
+    });
+
+    it.each(['rail', 'list', 'search'] as const)('%s masks invalid permission-revoked identity and actions', surface => {
+        const wrapper = mount(SavedViewSurface, {
+            props: {
+                surface,
+                status: 'invalid',
+                view,
+                pinnedViews: [view],
+                reasons: [{ fieldIdentity: 'private-property:original', operatorId: 'property.equals', reason: 'permission-revoked' }]
+            },
+            slots: { results: '旧私密结果' }
+        });
+        mounted.push(wrapper);
+        expect(wrapper.text()).not.toContain(view.name);
+        expect(wrapper.text()).not.toContain('private-property:original');
+        expect(wrapper.text()).not.toContain('旧私密结果');
+        expect(wrapper.find('button').exists()).toBe(false);
+        expect(wrapper.text()).toContain('不能访问此视图');
+    });
+
+    it.each(['unavailable', 'loading', 'stale', 'permission-denied', 'ready', 'empty', 'unsynced'] as const)(
+        '%s permission-revoked facts override retained Rail data', status => {
+            const wrapper = mount(SavedViewSurface, {
+                props: { surface: 'rail', status, view, pinnedViews: [view], reasons: [{ fieldIdentity: 'private-property:original', operatorId: 'property.equals', reason: 'permission-revoked' }] },
+                slots: { results: '旧私密结果' }
+            });
+            mounted.push(wrapper);
+            expect(wrapper.text()).not.toContain(view.name);
+            expect(wrapper.text()).not.toContain('旧私密结果');
+            expect(wrapper.find('button').exists()).toBe(false);
+        }
+    );
+
+    it('retains authorized identity and repair actions for an ordinary retired dependency', async () => {
+        const wrapper = mount(SavedViewSurface, {
+            props: { surface: 'rail', status: 'invalid', view, pinnedViews: [view], reasons: [{ fieldIdentity: 'property:retired', operatorId: 'property.equals', reason: 'retired' }] }
+        });
+        mounted.push(wrapper);
+        expect(wrapper.text()).toContain(view.name);
+        expect(wrapper.text()).toContain('property:retired');
+        await wrapper.get('li button').trigger('click');
+        expect(wrapper.emitted('open')).toEqual([[{ viewId, expectedRevision: 7, schemaVersion: 1 }]]);
     });
 
     it('bounds a 1000-view Rail to 20 server-ordered pins and requests the next server page', async () => {

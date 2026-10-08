@@ -19,11 +19,12 @@
                     :key="pin.viewId"
                 >
                     <ElButton
+                        class="saved-view-pin-button"
                         link
                         :aria-current="view?.viewId === pin.viewId ? 'page' : undefined"
                         @click="openView(pin)"
                     >
-                        {{ pin.name }}{{ pin.isDefault ? '（默认）' : '' }}
+                        <span class="saved-view-pin-name">{{ pin.name }}{{ pin.isDefault ? '（默认）' : '' }}</span>
                     </ElButton>
                 </li>
             </ul>
@@ -31,7 +32,7 @@
             <ElButton
                 v-if="hasMorePins || pinnedViews.length > 20"
                 data-action="next-pins"
-                @click="emit('nextPins')"
+                @click="nextPins"
             >下一页视图</ElButton>
         </template>
         <p v-if="view && identityVisible">{{ view.name }} · 服务端版本 {{ view.revision }}</p>
@@ -46,7 +47,7 @@
         </ul>
         <ElButton
             v-if="status === 'invalid' && view && identityVisible"
-            @click="emit('repair', view.viewId)"
+            @click="repairView"
         >修复条件</ElButton>
         <slot
             v-if="status === 'ready' && view && identityVisible"
@@ -91,24 +92,49 @@ const emit = defineEmits<{
     repair: [viewId: string];
 }>();
 
-const statusText = computed(() => ({
-    unavailable: '查询接口当前不可用。未执行筛选。',
-    loading: '正在等待服务端查询结果。',
-    invalid: '视图依赖已失效。所有条件均已保留，请修复后重试。',
-    stale: '视图或权限已变化，请从服务端重新确认。',
-    'permission-denied': '当前账号或站点不能访问此视图。',
-    ready: '服务端查询结果已就绪。',
-    empty: '服务端查询未返回文章。',
-    unsynced: '修改尚未同步；当前展示仍属于服务端版本。'
-}[props.status]));
+const permissionRevoked = computed(() => props.reasons.some(reason => reason.reason === 'permission-revoked'));
+
+const statusText = computed(() => permissionRevoked.value
+    ? '当前账号或站点不能访问此视图。'
+    : ({
+        unavailable: '查询接口当前不可用。未执行筛选。',
+        loading: '正在等待服务端查询结果。',
+        invalid: '视图依赖已失效。所有条件均已保留，请修复后重试。',
+        stale: '视图或权限已变化，请从服务端重新确认。',
+        'permission-denied': '当前账号或站点不能访问此视图。',
+        ready: '服务端查询结果已就绪。',
+        empty: '服务端查询未返回文章。',
+        unsynced: '修改尚未同步；当前展示仍属于服务端版本。'
+    }[props.status]));
 
 // A retained prior response is not authority after permission/link drift.
-const identityVisible = computed(() => !['stale', 'permission-denied'].includes(props.status)
+const identityVisible = computed(() => !permissionRevoked.value
+    && !['stale', 'permission-denied'].includes(props.status)
     && !['invalid', 'resolving'].includes(props.deepLinkStatus));
 
 function openView(view: SavedViewSummary): void
 {
+    if (!identityVisible.value)
+    {
+        return;
+    }
     emit('open', { viewId: view.viewId, expectedRevision: view.revision, schemaVersion: view.schemaVersion });
+}
+
+function nextPins(): void
+{
+    if (identityVisible.value)
+    {
+        emit('nextPins');
+    }
+}
+
+function repairView(): void
+{
+    if (identityVisible.value && props.view)
+    {
+        emit('repair', props.view.viewId);
+    }
 }
 </script>
 
@@ -133,5 +159,24 @@ function openView(view: SavedViewSummary): void
 .saved-view-surface p
  {
     margin: 0;
+}
+
+.saved-view-pins li
+ {
+    min-width: 0;
+}
+
+.saved-view-pin-button
+ {
+    max-width: 100%;
+    text-align: start;
+    justify-content: flex-start;
+}
+
+.saved-view-pin-name
+ {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 </style>

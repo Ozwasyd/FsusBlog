@@ -7,6 +7,7 @@
         <ElButton
             v-if="!open"
             data-action="edit"
+            :disabled="!sourceReady"
             @click="beginEdit"
         >编辑筛选</ElButton>
         <form
@@ -20,6 +21,10 @@
             @keydown.meta.enter.prevent="submit"
         >
             <p>满足全部条件（AND）；同字段多选满足任一值（OR）。</p>
+            <p
+                v-if="!sourceReady"
+                role="status"
+            >正在等待完整的服务端查询版本；不能将旧查询提交到新版本。</p>
             <p
                 v-if="dirty"
                 role="status"
@@ -229,6 +234,7 @@ import type {
 const props = withDefaults(defineProps<{
     viewId: string;
     revision: number;
+    /** Deliver a replacement immutable query snapshot together with its revision. */
     query: SavedViewQueryDraft;
     definitions: SavedViewBuilderDefinitions | null;
     submitAvailable?: boolean;
@@ -246,6 +252,13 @@ const emit = defineEmits<{
 }>();
 
 const open = ref(false);
+const acceptedSource = ref({
+    viewId: props.viewId,
+    revision: props.revision,
+    query: cloneSavedViewDraft(props.query)
+});
+let sourceQueryReference = props.query;
+const sourceReady = ref(true);
 const draft = ref(cloneSavedViewDraft(props.query));
 const baseRevision = ref(props.revision);
 const baseViewId = ref(props.viewId);
@@ -256,7 +269,7 @@ const root = ref<HTMLElement | null>(null);
 let returnFocus: HTMLElement | null = null;
 
 const issues = computed(() => validateSavedViewDraft(draft.value, props.definitions));
-const editable = computed(() => props.commandState !== 'pending'
+const editable = computed(() => sourceReady.value && props.commandState !== 'pending'
     && draft.value.schemaVersion === props.definitions?.schemaVersion);
 const visibleConditions = computed(() => draft.value.conditions.slice(
     0, Math.min(props.definitions?.maxConditions ?? 64, 64)
@@ -266,8 +279,28 @@ const canSubmit = computed(() => props.submitAvailable && editable.value
     && !drifted.value && !['conflict', 'stale'].includes(props.commandState)
     && dirty.value && issues.value.length === 0);
 
-watch(() => [props.viewId, props.revision] as const, () =>
+watch(() => [props.viewId, props.revision, props.query] as const, () =>
 {
+    const identityChanged = props.viewId !== acceptedSource.value.viewId
+        || props.revision !== acceptedSource.value.revision;
+    // Split prop delivery must not certify Q7 with revision8. Wait for the
+    // associated immutable query object even if the editor is currently clean.
+    if (identityChanged && props.query === sourceQueryReference)
+    {
+        sourceReady.value = false;
+        if (open.value && dirty.value)
+        {
+            drifted.value = true;
+        }
+        return;
+    }
+    acceptedSource.value = {
+        viewId: props.viewId,
+        revision: props.revision,
+        query: cloneSavedViewDraft(props.query)
+    };
+    sourceQueryReference = props.query;
+    sourceReady.value = true;
     if (open.value && dirty.value)
     {
         drifted.value = true;
@@ -276,19 +309,23 @@ watch(() => [props.viewId, props.revision] as const, () =>
     {
         resetDraft();
     }
-});
+}, { deep: true });
 
 function resetDraft(): void
 {
-    draft.value = cloneSavedViewDraft(props.query);
-    baseRevision.value = props.revision;
-    baseViewId.value = props.viewId;
+    draft.value = cloneSavedViewDraft(acceptedSource.value.query);
+    baseRevision.value = acceptedSource.value.revision;
+    baseViewId.value = acceptedSource.value.viewId;
     dirty.value = false;
     drifted.value = false;
 }
 
 async function beginEdit(event: MouseEvent): Promise<void>
 {
+    if (!sourceReady.value)
+    {
+        return;
+    }
     resetDraft();
     returnFocus = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     open.value = true;
