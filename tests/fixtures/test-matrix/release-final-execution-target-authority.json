@@ -2150,8 +2150,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252",
-            "indexDigest": "sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252"
+            "contentDigest": "sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc",
+            "indexDigest": "sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -4380,8 +4380,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe",
-            "indexDigest": "sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe"
+            "contentDigest": "sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f",
+            "indexDigest": "sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -6930,8 +6930,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
-            "indexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+            "contentDigest": "sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502",
+            "indexDigest": "sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502",
             "dependencyClosure": [
                 ".editorconfig",
                 ".markdownlint-cli2.jsonc",
