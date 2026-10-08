@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 const {defaultTimeoutPolicyDigest, qualificationTemporalContext, semanticOutcomeDigest} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
-const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, requireResolvedTemporalRole, resolveTemporalEntityRoles, resolveTemporalRoles, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
+const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, requireResolvedTemporalRole, requireResolvedTemporalEntityRole, resolveTemporalEntityRoles, resolveTemporalRoles, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const sourceCommit = 'a'.repeat(40);
 const sourceFingerprint = `sha256:${'b'.repeat(64)}`;
@@ -375,6 +375,7 @@ test('entity resolver consumes explicit histories and nullable states with compl
     assert.equal(artifact.schema, 'fsusblog.resolved-temporal-entities.v1');
     assert.equal(artifact.qualificationEligible, false);
     assert.equal(artifact.entities.length, 5);
+    assert.equal(requireResolvedTemporalEntityRole(artifact, { entityKind: 'comment', semanticIdentity: 'root-comment', operationIdentity: 'moderation' }, 'comment.edited', { temporalContext: context('development-demo') }).instantUtc, null);
     assert.equal(artifact.entities[1].relations[0].status, 'verified');
     assert.deepEqual(artifact.entities[2].relations[0].nullRoleIds, ['article.publication']);
     assert.deepEqual(artifact.entities[3].relations[0].roleIds, ['comment.created', 'comment.edited', 'comment.moderated']);

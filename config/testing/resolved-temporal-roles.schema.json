@@ -466,68 +466,409 @@
             }
         },
         "entityInput": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-                "coordinate",
-                "state",
-                "stateFacts",
-                "facts"
-            ],
-            "properties": {
-                "coordinate": {
-                    "$ref": "#/$defs/entityCoordinate"
-                },
-                "state": {
-                    "$ref": "#/$defs/id"
-                },
-                "stateFacts": {
+            "oneOf": [
+                {
                     "type": "object",
-                    "additionalProperties": {
-                        "type": "boolean"
-                    }
-                },
-                "facts": {
-                    "type": "object",
-                    "minProperties": 1,
-                    "additionalProperties": {
-                        "oneOf": [
-                            {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                    "applicability",
-                                    "instantUtc"
-                                ],
-                                "properties": {
-                                    "applicability": {
-                                        "const": "instant"
-                                    },
-                                    "instantUtc": {
-                                        "$ref": "#/$defs/instant"
+                    "additionalProperties": false,
+                    "required": [
+                        "coordinate",
+                        "state",
+                        "stateFacts",
+                        "facts"
+                    ],
+                    "properties": {
+                        "coordinate": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/$defs/entityCoordinate"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "entityKind": {
+                                            "const": "article"
+                                        }
                                     }
                                 }
-                            },
-                            {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                    "applicability",
-                                    "instantUtc"
-                                ],
-                                "properties": {
-                                    "applicability": {
-                                        "const": "null"
-                                    },
-                                    "instantUtc": {
-                                        "type": "null"
+                            ]
+                        },
+                        "state": {
+                            "enum": [
+                                "draft",
+                                "scheduled",
+                                "published",
+                                "archived",
+                                "deleted"
+                            ]
+                        },
+                        "stateFacts": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "hasPublication"
+                            ],
+                            "properties": {
+                                "hasPublication": {
+                                    "type": "boolean"
+                                }
+                            }
+                        },
+                        "facts": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "article.created",
+                                "article.revision",
+                                "article.metadata-updated",
+                                "article.publication",
+                                "article.published"
+                            ],
+                            "properties": {
+                                "article.created": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "applicability",
+                                        "instantUtc"
+                                    ],
+                                    "properties": {
+                                        "applicability": {
+                                            "const": "instant"
+                                        },
+                                        "instantUtc": {
+                                            "type": "string",
+                                            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                        }
+                                    }
+                                },
+                                "article.revision": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "applicability",
+                                        "instantUtc"
+                                    ],
+                                    "properties": {
+                                        "applicability": {
+                                            "const": "instant"
+                                        },
+                                        "instantUtc": {
+                                            "type": "string",
+                                            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                        }
+                                    }
+                                },
+                                "article.metadata-updated": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "applicability",
+                                        "instantUtc"
+                                    ],
+                                    "properties": {
+                                        "applicability": {
+                                            "const": "instant"
+                                        },
+                                        "instantUtc": {
+                                            "type": "string",
+                                            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                        }
+                                    }
+                                },
+                                "article.publication": {
+                                    "oneOf": [
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "applicability",
+                                                "instantUtc"
+                                            ],
+                                            "properties": {
+                                                "applicability": {
+                                                    "const": "instant"
+                                                },
+                                                "instantUtc": {
+                                                    "type": "string",
+                                                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "applicability",
+                                                "instantUtc"
+                                            ],
+                                            "properties": {
+                                                "applicability": {
+                                                    "const": "null"
+                                                },
+                                                "instantUtc": {
+                                                    "type": "null"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                },
+                                "article.published": {
+                                    "oneOf": [
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "applicability",
+                                                "instantUtc"
+                                            ],
+                                            "properties": {
+                                                "applicability": {
+                                                    "const": "instant"
+                                                },
+                                                "instantUtc": {
+                                                    "type": "string",
+                                                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "applicability",
+                                                "instantUtc"
+                                            ],
+                                            "properties": {
+                                                "applicability": {
+                                                    "const": "null"
+                                                },
+                                                "instantUtc": {
+                                                    "type": "null"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "coordinate",
+                        "state",
+                        "stateFacts",
+                        "facts"
+                    ],
+                    "properties": {
+                        "coordinate": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/$defs/entityCoordinate"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "entityKind": {
+                                            "const": "comment"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "state": {
+                            "enum": [
+                                "active",
+                                "deleted"
+                            ]
+                        },
+                        "stateFacts": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "edited",
+                                "moderated"
+                            ],
+                            "properties": {
+                                "edited": {
+                                    "type": "boolean"
+                                },
+                                "moderated": {
+                                    "type": "boolean"
+                                }
+                            }
+                        },
+                        "facts": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "comment.created",
+                                "comment.edited",
+                                "comment.moderated"
+                            ],
+                            "properties": {
+                                "comment.created": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "applicability",
+                                        "instantUtc"
+                                    ],
+                                    "properties": {
+                                        "applicability": {
+                                            "const": "instant"
+                                        },
+                                        "instantUtc": {
+                                            "type": "string",
+                                            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                        }
+                                    }
+                                },
+                                "comment.edited": {
+                                    "oneOf": [
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "applicability",
+                                                "instantUtc"
+                                            ],
+                                            "properties": {
+                                                "applicability": {
+                                                    "const": "instant"
+                                                },
+                                                "instantUtc": {
+                                                    "type": "string",
+                                                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "applicability",
+                                                "instantUtc"
+                                            ],
+                                            "properties": {
+                                                "applicability": {
+                                                    "const": "null"
+                                                },
+                                                "instantUtc": {
+                                                    "type": "null"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                },
+                                "comment.moderated": {
+                                    "oneOf": [
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "applicability",
+                                                "instantUtc"
+                                            ],
+                                            "properties": {
+                                                "applicability": {
+                                                    "const": "instant"
+                                                },
+                                                "instantUtc": {
+                                                    "type": "string",
+                                                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "applicability",
+                                                "instantUtc"
+                                            ],
+                                            "properties": {
+                                                "applicability": {
+                                                    "const": "null"
+                                                },
+                                                "instantUtc": {
+                                                    "type": "null"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "coordinate",
+                        "state",
+                        "stateFacts",
+                        "facts"
+                    ],
+                    "properties": {
+                        "coordinate": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/$defs/entityCoordinate"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "entityKind": {
+                                            "const": "row"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "state": {
+                            "enum": [
+                                "present"
+                            ]
+                        },
+                        "stateFacts": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [],
+                            "properties": {}
+                        },
+                        "facts": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "scale.row-created"
+                            ],
+                            "properties": {
+                                "scale.row-created": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "applicability",
+                                        "instantUtc"
+                                    ],
+                                    "properties": {
+                                        "applicability": {
+                                            "const": "instant"
+                                        },
+                                        "instantUtc": {
+                                            "type": "string",
+                                            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                        }
                                     }
                                 }
                             }
-                        ]
+                        }
                     }
                 }
-            }
+            ]
         },
         "entityPlan": {
             "type": "object",

@@ -13,17 +13,20 @@ public sealed class ResolvedTemporalRoleContext
     public const string ArtifactDigestEnvironmentVariable = "FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST";
     private const string ResolvedRolesSchema = "fsusblog.resolved-temporal-roles.v1";
     private readonly IReadOnlyDictionary<string, DateTimeOffset> _roles;
+    private readonly IReadOnlyDictionary<(string Kind, string Identity, string Operation, string Role), DateTimeOffset?> _entityRoles;
 
     private ResolvedTemporalRoleContext(
         string producerId,
         string schedulerRunId,
         string contentDigest,
-        IReadOnlyDictionary<string, DateTimeOffset> roles)
+        IReadOnlyDictionary<string, DateTimeOffset> roles,
+        IReadOnlyDictionary<(string Kind, string Identity, string Operation, string Role), DateTimeOffset?>? entityRoles = null)
     {
         ProducerId = producerId;
         SchedulerRunId = schedulerRunId;
         ContentDigest = contentDigest;
         _roles = roles;
+        _entityRoles = entityRoles ?? new Dictionary<(string, string, string, string), DateTimeOffset?>();
     }
 
     public string ProducerId
@@ -60,6 +63,10 @@ public sealed class ResolvedTemporalRoleContext
 
         using JsonDocument document = JsonDocument.Parse(raw);
         JsonElement root = document.RootElement;
+        if (root.GetProperty("schema").GetString() == "fsusblog.resolved-temporal-entities.v1")
+        {
+            return ParseEntities(root, expectedContentDigest);
+        }
         RequireString(root, "schema", ResolvedRolesSchema);
         string contentDigest = RequireDigest(root, "contentDigest");
         if (!string.Equals(contentDigest, expectedContentDigest, StringComparison.Ordinal))
@@ -95,6 +102,76 @@ public sealed class ResolvedTemporalRoleContext
         => _roles.TryGetValue(roleId, out DateTimeOffset instant)
             ? instant
             : throw new InvalidOperationException($"Resolved temporal role artifact is missing {roleId}.");
+
+    /// <summary>
+    /// Reads an explicit entity operation coordinate from the independently Node-verified
+    /// ordinary plan. An authorized null remains null; missing roles never become dates.
+    /// </summary>
+    public DateTimeOffset? RequireEntityInstant(string entityKind, string semanticIdentity, string operationIdentity, string roleId)
+        => _entityRoles.TryGetValue((entityKind, semanticIdentity, operationIdentity, roleId), out DateTimeOffset? instant)
+            ? instant
+            : throw new InvalidOperationException("Resolved temporal artifact is missing the exact entity operation role.");
+
+    private static ResolvedTemporalRoleContext ParseEntities(JsonElement root, string expectedContentDigest)
+    {
+        string digest = RequireDigest(root, "contentDigest");
+        if (digest != expectedContentDigest || root.GetProperty("qualificationEligible").GetBoolean())
+        {
+            throw new InvalidOperationException("Ordinary entity temporal input requires its exact source binding and cannot claim qualification.");
+        }
+        JsonElement identity = root.GetProperty("contextIdentity");
+        string producer = RequireText(identity, "producerId");
+        string run = RequireText(identity, "schedulerRunId");
+        var roles = new Dictionary<(string, string, string, string), DateTimeOffset?>();
+        foreach (JsonElement entity in root.GetProperty("entities").EnumerateArray())
+        {
+            JsonElement coordinate = entity.GetProperty("coordinate");
+            string kind = RequireText(coordinate, "entityKind");
+            string semanticIdentity = RequireText(coordinate, "semanticIdentity");
+            string operation = RequireText(coordinate, "operationIdentity");
+            foreach (JsonElement role in entity.GetProperty("roles").EnumerateArray())
+            {
+                string roleId = RequireText(role, "roleId");
+                string applicability = RequireText(role, "applicability");
+                DateTimeOffset? instant;
+                if (applicability == "null"
+                    && role.GetProperty("instantUtc").ValueKind == JsonValueKind.Null
+                    && role.GetProperty("epochMilliseconds").ValueKind == JsonValueKind.Null)
+                {
+                    instant = null;
+                }
+                else if (applicability == "instant")
+                {
+                    instant = ParseUtcInstant(RequireText(role, "instantUtc"), roleId);
+                    if (instant.Value.ToUnixTimeMilliseconds() != role.GetProperty("epochMilliseconds").GetInt64())
+                    {
+                        throw new InvalidOperationException("Entity temporal instant does not match its exact millisecond projection.");
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("Entity temporal applicability requires an instant or explicit null.");
+                }
+                if (!roles.TryAdd((kind, semanticIdentity, operation, roleId), instant))
+                {
+                    throw new InvalidOperationException("Entity temporal artifact has a duplicate operation role.");
+                }
+            }
+        }
+        IReadOnlyDictionary<string, DateTimeOffset> scalarRoles = new Dictionary<string, DateTimeOffset>();
+        JsonElement scalar = root.GetProperty("scalarRoles");
+        if (scalar.ValueKind != JsonValueKind.Null)
+        {
+            RequireString(scalar, "schema", ResolvedRolesSchema);
+            ResolvedTemporalRoleContext context = Parse(scalar.GetRawText(), RequireDigest(scalar, "contentDigest"));
+            if (context.ProducerId != producer || context.SchedulerRunId != run)
+            {
+                throw new InvalidOperationException("Entity temporal scalar roles do not match the producer/run identity.");
+            }
+            scalarRoles = context._roles;
+        }
+        return new ResolvedTemporalRoleContext(producer, run, digest, scalarRoles, roles);
+    }
 
     public TimeSpan RequireDuration(string fromRoleId, string toRoleId)
     {

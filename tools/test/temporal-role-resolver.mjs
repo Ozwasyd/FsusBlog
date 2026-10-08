@@ -624,7 +624,7 @@ function entityRoleFacts(entity, kind, epoch)
         {
             fail('temporal.entity-facts-invalid', `${binding.roleId} is later than observed business time`);
         }
-        roles.push({ roleId: binding.roleId, applicability: 'instant', instantUtc: fact.instantUtc, epochMilliseconds: milliseconds });
+        roles.push({ roleId: binding.roleId, applicability: 'instant', instantUtc: new Date(milliseconds).toISOString(), epochMilliseconds: milliseconds });
     }
     return roles;
 }

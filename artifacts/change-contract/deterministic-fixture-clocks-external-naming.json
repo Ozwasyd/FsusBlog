@@ -4,6 +4,7 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Infrastructure/Testing/ResolvedTemporalRoleContext.cs",
                 "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
                 "src/backend/Services/Fixtures/CanonicalArticleLifecycleTemporalBridge.cs",
                 "src/backend/Services/Fixtures/DataScale/SqlSugarCommentIdCore.cs",
