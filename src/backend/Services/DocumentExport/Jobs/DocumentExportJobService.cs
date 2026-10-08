@@ -479,7 +479,8 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             bool stop = cancelled || job.StopRequested || job.Snapshot.ExpiresAt <= Now;
             DocumentExportTaskStatus status = stop ? DocumentExportTaskStatus.Cancelled : DocumentExportTaskStatus.Failed;
             // Logical cancellation cannot overwrite an already observed sandbox failure.
-            bool observedFailure = reason is "sandbox_budget_failed" or "sandbox_execution_failed" or "task_wall_time_budget_failed";
+            bool observedFailure = reason is "sandbox_budget_failed" or "sandbox_execution_failed" or "task_wall_time_budget_failed"
+                or "attempt_resources_unqualified";
             job = FinishAttempt(Change(job, resultVerified ? status : DocumentExportTaskStatus.CleanupRequired, reason),
                 observedFailure ? DocumentExportTaskStatus.Failed : status, reason) with
             {

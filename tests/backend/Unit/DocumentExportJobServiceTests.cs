@@ -375,15 +375,29 @@ public sealed class DocumentExportJobServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData("incomplete")]
-    [InlineData("active")]
-    [InlineData("failed")]
-    public async Task AttemptResources_UnqualifiedCompletionCannotPublishOrReleaseClaim(string fault)
+    [InlineData("incomplete", false)]
+    [InlineData("active", false)]
+    [InlineData("failed", false)]
+    [InlineData("incomplete", true)]
+    [InlineData("active", true)]
+    [InlineData("failed", true)]
+    public async Task AttemptResources_UnqualifiedCompletionCannotPublishOrReleaseClaim(string fault, bool cancel)
     {
         (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
         await Service().CreateAsync(_actor, task, input, default);
-        var provider = new ControlledProvider(task.ProviderId) { ResourceFault = fault };
-        DocumentExportJobSnapshot result = await Service().ExecuteAsync(_actor, task.TaskId, provider, default);
+        using var caller = new CancellationTokenSource();
+        var provider = new ControlledProvider(task.ProviderId)
+        {
+            ResourceFault = fault,
+            OnVerify = () =>
+            {
+                if (cancel)
+                {
+                    caller.Cancel();
+                }
+            }
+        };
+        DocumentExportJobSnapshot result = await Service().ExecuteAsync(_actor, task.TaskId, provider, caller.Token);
         Assert.Equal(DocumentExportTaskStatus.CleanupRequired, result.Task.Status);
         Assert.Equal(DocumentExportTaskStatus.Failed, result.Attempts[0].Status);
         Assert.Null(result.Output);
@@ -396,7 +410,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().RecoverInterruptedAsync(task.TaskId, new TestRecovery(false), default));
         provider.HeldStage?.Dispose();
         DocumentExportJobSnapshot recovered = await Service().RecoverInterruptedAsync(task.TaskId, new TestRecovery(true), default);
-        Assert.Equal(DocumentExportTaskStatus.Failed, recovered.Task.Status);
+        Assert.Equal(cancel ? DocumentExportTaskStatus.Cancelled : DocumentExportTaskStatus.Failed, recovered.Task.Status);
         Assert.Equal(result.Attempts[0], recovered.Attempts[0]);
     }
 
