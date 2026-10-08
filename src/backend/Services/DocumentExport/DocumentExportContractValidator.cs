@@ -325,6 +325,27 @@ public static partial class DocumentExportContractValidator
         {
             throw new InvalidDataException("Document export provider receipt identity or result policy mismatch.");
         }
+        foreach (DocumentExportFeatureSupport feature in provider.Features)
+        {
+            if (!receipt.ObservedFeatures.Contains(feature.FeatureId, StringComparer.Ordinal))
+            {
+                continue;
+            }
+            if (feature.Disposition == DocumentExportFeatureDisposition.WarningWithPreservedFallback
+                    && !receipt.Warnings.Contains(
+                        $"{feature.FeatureId}:{feature.PreservedFallback}", StringComparer.Ordinal)
+                || feature.Disposition == DocumentExportFeatureDisposition.HardFail
+                    && receipt.Status == DocumentExportProviderResultStatus.Succeeded)
+            {
+                throw new InvalidDataException("Document export provider receipt violates the observed feature policy.");
+            }
+        }
+        DocumentExportNormalizationContract normalization = DocumentExportContractCatalog.Normalizations.Single(
+            candidate => candidate.ProviderId == provider.ProviderId);
+        if (normalization.ByteIdenticalForEqualFrozenInput && receipt.SemanticDigest != receipt.OutputDigest)
+        {
+            throw new InvalidDataException("Document export deterministic output and semantic digests must match.");
+        }
         DocumentExportProviderReceipt unsigned = receipt with
         {
             ContentDigest = string.Empty

@@ -674,6 +674,51 @@ public sealed class DocumentExportContractTests
             task,
             input,
             provider));
+
+        DocumentExportFeatureSupport warningFeature = Assert.Single(provider.Features,
+            feature => feature.Disposition == DocumentExportFeatureDisposition.WarningWithPreservedFallback);
+        DocumentExportProviderReceipt warningReceipt = DocumentExportContractValidator.Seal(receipt with
+        {
+            ObservedFeatures = ["headings", warningFeature.FeatureId],
+            Warnings = [$"{warningFeature.FeatureId}:{warningFeature.PreservedFallback}"]
+        });
+        DocumentExportContractValidator.Validate(warningReceipt, task, input, provider);
+        foreach (DocumentExportProviderResultStatus status in Enum.GetValues<DocumentExportProviderResultStatus>())
+        {
+            DocumentExportProviderReceipt statusReceipt = DocumentExportContractValidator.Seal(warningReceipt with
+            {
+                Status = status
+            });
+            DocumentExportContractValidator.Validate(
+                statusReceipt,
+                task,
+                input,
+                provider);
+        }
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            DocumentExportContractValidator.Seal(warningReceipt with
+            {
+                Warnings = []
+            }),
+            task,
+            input,
+            provider));
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            DocumentExportContractValidator.Seal(warningReceipt with
+            {
+                Warnings = [$"{warningFeature.FeatureId}:different-fallback"]
+            }),
+            task,
+            input,
+            provider));
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            DocumentExportContractValidator.Seal(receipt with
+            {
+                SemanticDigest = Digest("different-semantic-output")
+            }),
+            task,
+            input,
+            provider));
     }
 
     private static void AssertContractTypeHasNoExecutionOrAlternateParserAuthority(Type type)
@@ -922,6 +967,16 @@ public sealed class DocumentExportContractTests
         Assert.True(provider.Features.SequenceEqual(canonical.Features));
         DocumentExportContractValidator.Validate(task, input);
         DocumentExportContractValidator.Validate(receipt, task, input, provider);
+        DocumentExportNormalizationContract normalization = DocumentExportContractCatalog.Normalizations.Single(
+            candidate => candidate.ProviderId == provider.ProviderId);
+        if (!normalization.ByteIdenticalForEqualFrozenInput)
+        {
+            DocumentExportProviderReceipt normalizedReceipt = DocumentExportContractValidator.Seal(receipt with
+            {
+                SemanticDigest = Digest("normalized-semantic-output")
+            });
+            DocumentExportContractValidator.Validate(normalizedReceipt, task, input, provider);
+        }
     }
 
     [Fact]

@@ -5,12 +5,100 @@ using System.Runtime.InteropServices;
 using System.Text;
 
 using FsusBlog.Server.Services.DocumentExport;
+using FsusBlog.Server.Services.DocumentExport.Jobs;
 using FsusBlog.Server.Tests.Helpers;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class DocumentExportHtmlProviderTests
 {
+    // Captured from the actual FsusUI runtime probe; this fixture does not qualify
+    // the sandbox renderer tool, font coverage, or browser offline acceptance.
+    private const string CanonicalMermaidFragment = """
+        <figure class="markdown-renderer__mermaid" data-mermaid-rendered="true" data-mermaid-width="396" data-mermaid-height="104"><svg class="mermaid" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 396 104" width="396" height="104" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mermaid diagram"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#71717a" /></marker></defs><line x1="172" y1="52" x2="224" y2="52" stroke="#71717a" stroke-width="2" marker-end="url(#arrow)" /><rect x="24" y="24" width="148" height="56" rx="16" fill="#ffffff" stroke="#d4d4d8" stroke-width="1.5" /><text x="98" y="52" text-anchor="middle" dominant-baseline="middle" fill="#18181b" font-size="14" font-family="Google Sans, Noto Sans SC, system-ui, sans-serif">A</text><rect x="224" y="24" width="148" height="56" rx="16" fill="#ffffff" stroke="#d4d4d8" stroke-width="1.5" /><text x="298" y="52" text-anchor="middle" dominant-baseline="middle" fill="#18181b" font-size="14" font-family="Google Sans, Noto Sans SC, system-ui, sans-serif">B</text></svg></figure>
+        """;
+    private const string SvgOpen = "<svg xmlns=\"http://www.w3.org/2000/svg\">";
+
+    [Fact]
+    public void PreservesObservedCanonicalMermaidMarkerDocumentDeterministically()
+    {
+        long maximumBytes = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets.MaxOutputBytes;
+        byte[] first = DocumentExportHtmlSanitizer.Sanitize(CanonicalMermaidFragment, [], maximumBytes);
+        byte[] second = DocumentExportHtmlSanitizer.Sanitize(CanonicalMermaidFragment, [], maximumBytes);
+
+        Assert.Equal(first, second);
+        string output = Encoding.UTF8.GetString(first);
+        Assert.Contains("data-mermaid-rendered=\"true\"", output, StringComparison.Ordinal);
+        Assert.Contains("preserveAspectRatio=\"xMidYMid meet\"", output, StringComparison.Ordinal);
+        Assert.Contains("<defs><marker ", output, StringComparison.Ordinal);
+        Assert.Contains("id=\"arrow\"", output, StringComparison.Ordinal);
+        Assert.Contains("marker-end=\"url(#arrow)\"", output, StringComparison.Ordinal);
+        Assert.Contains("font-family=\"Google Sans, Noto Sans SC, system-ui, sans-serif\"", output, StringComparison.Ordinal);
+        Assert.Contains(">A</text>", output, StringComparison.Ordinal);
+        Assert.Contains(">B</text>", output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("url(#arrow)", "url(https://example.invalid/marker.svg#arrow)")]
+    [InlineData("url(#arrow)", "url(data:image/svg+xml,arrow)")]
+    [InlineData("url(#arrow)", "url(javascript:alert(1))")]
+    [InlineData("url(#arrow)", "url(#missing)")]
+    [InlineData("<defs>", "<defs onclick=\"alert(1)\">")]
+    [InlineData("<defs>", "<defs><script>alert(1)</script>")]
+    [InlineData("<defs>", "<defs><foreignObject />")]
+    [InlineData("<defs>", "<defs><use href=\"https://example.invalid/remote.svg#icon\" />")]
+    [InlineData("<svg class=\"mermaid\"", "<svg class=\"mermaid\" style=\"background:url(https://example.invalid)\"")]
+    [InlineData("markerWidth=\"7\"", "markerWidth=\"-1\"")]
+    [InlineData("markerWidth=\"7\"", "markerWidth=\"NaN\"")]
+    [InlineData("markerWidth=\"7\"", "markerWidth=\"100001\"")]
+    [InlineData("font-size=\"14\"", "font-size=\"100000\"")]
+    [InlineData("Google Sans, Noto Sans SC, system-ui, sans-serif", "url(https://example.invalid/font)")]
+    [InlineData("xMidYMid meet", "url(https://example.invalid/layout)")]
+    [InlineData("auto-start-reverse", "url(https://example.invalid/orient)")]
+    [InlineData("data-mermaid-rendered=\"true\"", "data-mermaid-rendered=\"false\"")]
+    [InlineData("data-mermaid-width=\"396\"", "data-mermaid-width=\"0\"")]
+    public void RejectsCanonicalMermaidActiveRemoteDanglingAndUnboundedMutations(string original, string mutation)
+    {
+        long maximumBytes = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets.MaxOutputBytes;
+        string fragment = CanonicalMermaidFragment.Replace(original, mutation, StringComparison.Ordinal);
+
+        Assert.NotEqual(CanonicalMermaidFragment, fragment);
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlSanitizer.Sanitize(fragment, [], maximumBytes));
+    }
+
+    [Theory]
+    [InlineData(SvgOpen + "<line marker-end=\"url(#arrow)\" /></svg><p id=\"arrow\">outside</p>")]
+    [InlineData("<p id=\"arrow\">outside</p>" + SvgOpen + "<line marker-end=\"url(#arrow)\" /></svg>")]
+    [InlineData(SvgOpen + "<line marker-end=\"url(#arrow)\" /></svg>" + SvgOpen + "<defs><marker id=\"arrow\" /></defs></svg>")]
+    [InlineData(SvgOpen + "<defs><marker id=\"arrow\" /></defs></svg>" + SvgOpen + "<line marker-end=\"url(#arrow)\" /></svg>")]
+    [InlineData(SvgOpen + "<path id=\"arrow\" /><line marker-end=\"url(#arrow)\" /></svg>")]
+    [InlineData(SvgOpen + "<defs><marker id=\"arrow\" /></defs><path marker-end=\"url(#arrow)\" /></svg>")]
+    [InlineData(SvgOpen + "<path fill=\"url(#outside)\" /></svg>" + SvgOpen + "<path id=\"outside\" /></svg>")]
+    [InlineData(SvgOpen + "<text aria-describedby=\"outside\">A</text></svg><p id=\"outside\">outside</p>")]
+    [InlineData(SvgOpen + "<marker id=\"arrow\" /><line marker-end=\"url(#arrow)\" /></svg>")]
+    [InlineData(SvgOpen + "<g><defs><marker id=\"arrow\" /></defs></g></svg>")]
+    [InlineData(SvgOpen + SvgOpen + "</svg></svg>")]
+    [InlineData(SvgOpen + "<p xmlns=\"http://www.w3.org/1999/xhtml\">outside namespace</p></svg>")]
+    public void RejectsSvgReferencesOutsideTheirDocumentOrMarkerOwner(string fragment)
+    {
+        long maximumBytes = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets.MaxOutputBytes;
+
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlSanitizer.Sanitize(fragment, [], maximumBytes));
+    }
+
+    [Fact]
+    public void AllowsOwnSvgForwardReferencesWithoutLeakingIntoAnotherDocument()
+    {
+        string fragment = SvgOpen + "<line marker-end=\"url(#first)\" /><defs><marker id=\"first\" /></defs></svg>"
+            + SvgOpen + "<defs><marker id=\"second\" /></defs><line marker-end=\"url(#second)\" /></svg>";
+        long maximumBytes = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets.MaxOutputBytes;
+
+        string output = Encoding.UTF8.GetString(DocumentExportHtmlSanitizer.Sanitize(fragment, [], maximumBytes));
+
+        Assert.Contains("marker-end=\"url(#first)\"", output, StringComparison.Ordinal);
+        Assert.Contains("marker-end=\"url(#second)\"", output, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void RequiresSandboxRuntime()
     {
@@ -329,6 +417,58 @@ public sealed class DocumentExportHtmlProviderTests
             responseDigest: ValidResponse(input).ContentDigest);
         SelfContainedHtmlDocumentExportProvider provider = CreateProvider(fixture);
         DocumentExportProviderResult result = await provider.ExportAsync(task, input);
+        var registry = new DocumentExportProviderRegistry(fixture.CreateSandbox());
+        IDocumentExportJobProvider jobProvider = registry.RequireJobProvider("self-contained-html");
+        Assert.Equal(result.Receipt.ProviderId, jobProvider.ProviderId);
+        Assert.Same(jobProvider, registry.RequireJobProvider("self-contained-html"));
+        await jobProvider.VerifyAsync(result, task, input, CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidDataException>(() => jobProvider.VerifyAsync(
+            result with
+            {
+                Bytes = [.. result.Bytes, 0]
+            },
+            task,
+            input,
+            CancellationToken.None));
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => jobProvider.VerifyAsync(
+            result, task, input, cancelled.Token));
+        Assert.Throws<InvalidOperationException>(() => registry.RequireJobProvider("pdf"));
+        Assert.Throws<InvalidOperationException>(() => registry.RequireJobProvider("docx"));
+        Assert.Throws<InvalidOperationException>(() => registry.RequireJobProvider("epub"));
+
+        string substitutedHost = DocumentExportDigest.ComputeBytes("substituted host"u8);
+        DocumentExportSandboxPlan substitutedPlan = DocumentExportSandboxRuntime.SealPlan(result.SandboxPlan with
+        {
+            HostBuildDigest = substitutedHost
+        });
+        DocumentExportSandboxReceipt substitutedSandbox = result.SandboxReceipt with
+        {
+            HostBuildDigest = substitutedHost,
+            PlanDigest = substitutedPlan.ContentDigest,
+            ContentDigest = string.Empty
+        };
+        substitutedSandbox = substitutedSandbox with
+        {
+            ContentDigest = DocumentExportDigest.Compute(substitutedSandbox)
+        };
+        DocumentExportProviderReceipt substitutedReceipt = DocumentExportContractValidator.Seal(result.Receipt with
+        {
+            SandboxReceiptDigest = substitutedSandbox.ContentDigest
+        });
+        DocumentExportProviderResult substitutedResult = result with
+        {
+            SandboxPlan = substitutedPlan,
+            SandboxReceipt = substitutedSandbox,
+            Receipt = substitutedReceipt
+        };
+        // All changed envelopes are resealed; the registry must still use its
+        // own frozen host identity rather than adopting the result's identity.
+        SelfContainedHtmlDocumentExportProvider.ValidateResult(
+            substitutedResult, task, input, fixture.Tool, substitutedHost);
+        await Assert.ThrowsAsync<InvalidDataException>(() => jobProvider.VerifyAsync(
+            substitutedResult, task, input, CancellationToken.None));
 
         Assert.Throws<InvalidDataException>(() => SelfContainedHtmlDocumentExportProvider.ValidateResult(
             result with

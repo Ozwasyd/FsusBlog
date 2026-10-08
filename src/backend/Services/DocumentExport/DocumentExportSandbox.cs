@@ -141,6 +141,8 @@ public sealed class DocumentExportSandboxRuntime
     private readonly string _hostBuildDigest;
     private readonly IReadOnlyDictionary<string, DocumentExportResourceBudgets> _executionLimits;
 
+    internal string HostBuildDigest => _hostBuildDigest;
+
     public DocumentExportSandboxRuntime(
         string sandboxRoot,
         IReadOnlyList<DocumentExportToolContract> tools,
@@ -247,12 +249,38 @@ public sealed class DocumentExportSandboxRuntime
         DocumentExportToolContract tool,
         Func<Stream, CancellationToken, Task> writeRequestAsync,
         CancellationToken cancellationToken = default)
+        => await ExecuteWithStageAsync(task, input, tool, writeRequestAsync, SandboxStage.Provider, cancellationToken);
+
+    internal async Task<DocumentExportSandboxResult> ExecuteCanonicalRendererAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        Func<Stream, CancellationToken, Task> writeRequestAsync,
+        CancellationToken cancellationToken = default)
+    {
+        _ = RequireCanonicalRendererProvider(task, input);
+        DocumentExportToolContract tool = RequireRegisteredTool("self-contained-html");
+        return await ExecuteWithStageAsync(task, input, tool, writeRequestAsync, SandboxStage.CanonicalRenderer, cancellationToken);
+    }
+
+    private enum SandboxStage
+    {
+        Provider,
+        CanonicalRenderer
+    }
+
+    private async Task<DocumentExportSandboxResult> ExecuteWithStageAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportToolContract tool,
+        Func<Stream, CancellationToken, Task> writeRequestAsync,
+        SandboxStage stage,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(writeRequestAsync);
         await _concurrency.WaitAsync(cancellationToken);
         try
         {
-            return await ExecuteOwnedAsync(task, input, tool, writeRequestAsync, cancellationToken);
+            return await ExecuteOwnedAsync(task, input, tool, writeRequestAsync, stage, cancellationToken);
         }
         finally
         {
@@ -276,18 +304,30 @@ public sealed class DocumentExportSandboxRuntime
         DocumentExportFrozenInput input,
         DocumentExportToolContract tool,
         Func<Stream, CancellationToken, Task> writeRequestAsync,
+        SandboxStage stage,
         CancellationToken cancellationToken)
     {
         DocumentExportContractValidator.Validate(task, input);
         DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        if (!provider.ImplementationAvailable)
+        {
+            throw new InvalidOperationException($"Document export format '{task.FormatId}' has no active provider.");
+        }
+        DocumentExportProviderContract toolProvider = stage == SandboxStage.CanonicalRenderer
+            ? RequireCanonicalRendererProvider(task, input)
+            : provider;
         DocumentExportResourceBudgets budgets = ResolveBudgets(provider);
-        if (!_tools.TryGetValue(provider.ToolchainId, out DocumentExportToolContract? registered)
+        if (stage == SandboxStage.CanonicalRenderer)
+        {
+            budgets = TightenBudgets(budgets, ResolveBudgets(toolProvider));
+        }
+        if (!_tools.TryGetValue(toolProvider.ToolchainId, out DocumentExportToolContract? registered)
             || !SameToolContract(registered, tool))
         {
             throw new InvalidDataException("Document export tool is not the exact registered tool identity.");
         }
         tool = registered;
-        ValidateToolMetadata(provider, tool);
+        ValidateToolMetadata(toolProvider, tool);
         string runId = Guid.NewGuid().ToString("N");
         Dictionary<string, string> environment = MinimalEnvironment();
         DocumentExportSandboxPlan plan = SealPlan(new DocumentExportSandboxPlan(
@@ -324,7 +364,14 @@ public sealed class DocumentExportSandboxRuntime
             budgets,
             DocumentExportDigest.Compute(budgets),
             string.Empty));
-        ValidatePlan(plan, task, input, provider, tool, _hostBuildDigest);
+        if (stage == SandboxStage.CanonicalRenderer)
+        {
+            ValidateCanonicalRendererPlan(plan, task, input, tool, _hostBuildDigest);
+        }
+        else
+        {
+            ValidatePlan(plan, task, input, provider, tool, _hostBuildDigest);
+        }
         string runRoot = ResolveOwnedPath(_sandboxRoot, runId);
         string inputRoot = Path.Combine(runRoot, "input");
         string outputRoot = Path.Combine(runRoot, "output");
@@ -792,8 +839,34 @@ public sealed class DocumentExportSandboxRuntime
         string expectedHostBuildDigest,
         ReadOnlySpan<byte> outputBytes)
     {
+        ValidatePlan(plan, task, input, DocumentExportContractCatalog.RequireProvider(task.FormatId), tool, expectedHostBuildDigest);
+        ValidateReceiptCore(receipt, plan, task, input, tool, outputBytes);
+    }
+
+    internal static void ValidateCanonicalRendererReceipt(
+        DocumentExportSandboxReceipt receipt,
+        DocumentExportSandboxPlan plan,
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportToolContract tool,
+        string expectedHostBuildDigest,
+        ReadOnlySpan<byte> outputBytes)
+    {
+        ValidateCanonicalRendererPlan(plan, task, input, tool, expectedHostBuildDigest);
+        ValidateReceiptCore(receipt, plan, task, input, tool, outputBytes);
+    }
+
+    private static void ValidateReceiptCore(
+        DocumentExportSandboxReceipt receipt,
+        DocumentExportSandboxPlan plan,
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportToolContract tool,
+        ReadOnlySpan<byte> outputBytes)
+    {
         ArgumentNullException.ThrowIfNull(receipt);
         if (receipt.Schema != DocumentExportContractCatalog.AttemptReceiptSchema
+            || receipt.RunId != plan.RunId
             || receipt.PlanDigest != plan.ContentDigest
             || receipt.TaskDigest != task.ContentDigest
             || receipt.InputDigest != input.ContentDigest
@@ -883,13 +956,6 @@ public sealed class DocumentExportSandboxRuntime
         {
             throw new InvalidDataException("Document export sandbox receipt digest mismatch.");
         }
-        ValidatePlan(
-            plan,
-            task,
-            input,
-            DocumentExportContractCatalog.RequireProvider(task.FormatId),
-            tool,
-            expectedHostBuildDigest);
     }
 
     public static void ValidateFailureReceipt(
@@ -902,8 +968,37 @@ public sealed class DocumentExportSandboxRuntime
         string expectedStatus,
         string expectedFailureCode)
     {
+        ValidatePlan(plan, task, input, DocumentExportContractCatalog.RequireProvider(task.FormatId), tool, expectedHostBuildDigest);
+        ValidateFailureReceiptCore(receipt, plan, task, input, tool, expectedHostBuildDigest, expectedStatus, expectedFailureCode);
+    }
+
+    internal static void ValidateCanonicalRendererFailureReceipt(
+        DocumentExportSandboxReceipt receipt,
+        DocumentExportSandboxPlan plan,
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportToolContract tool,
+        string expectedHostBuildDigest,
+        string expectedStatus,
+        string expectedFailureCode)
+    {
+        ValidateCanonicalRendererPlan(plan, task, input, tool, expectedHostBuildDigest);
+        ValidateFailureReceiptCore(receipt, plan, task, input, tool, expectedHostBuildDigest, expectedStatus, expectedFailureCode);
+    }
+
+    private static void ValidateFailureReceiptCore(
+        DocumentExportSandboxReceipt receipt,
+        DocumentExportSandboxPlan plan,
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportToolContract tool,
+        string expectedHostBuildDigest,
+        string expectedStatus,
+        string expectedFailureCode)
+    {
         ArgumentNullException.ThrowIfNull(receipt);
         if (receipt.Schema != DocumentExportContractCatalog.AttemptReceiptSchema
+            || receipt.RunId != plan.RunId
             || receipt.PlanDigest != plan.ContentDigest
             || receipt.TaskDigest != task.ContentDigest
             || receipt.InputDigest != input.ContentDigest
@@ -996,13 +1091,6 @@ public sealed class DocumentExportSandboxRuntime
         {
             throw new InvalidDataException("Document export sandbox failure receipt digest mismatch.");
         }
-        ValidatePlan(
-            plan,
-            task,
-            input,
-            DocumentExportContractCatalog.RequireProvider(task.FormatId),
-            tool,
-            expectedHostBuildDigest);
     }
 
     public static DocumentExportSandboxPlan SealPlan(DocumentExportSandboxPlan plan)
@@ -1025,11 +1113,78 @@ public sealed class DocumentExportSandboxRuntime
         DocumentExportToolContract tool,
         string expectedHostBuildDigest)
     {
+        DocumentExportContractValidator.Validate(task, input);
+        DocumentExportProviderContract expectedProvider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        if (DocumentExportDigest.Compute(provider) != DocumentExportDigest.Compute(expectedProvider))
+        {
+            throw new InvalidDataException("Document export sandbox provider drifted from the closed catalog.");
+        }
+        ValidateToolBinding(expectedProvider, tool);
+        ValidatePlanCore(plan, task, input, expectedProvider, tool, expectedHostBuildDigest);
+    }
+
+    internal static void ValidateCanonicalRendererPlan(
+        DocumentExportSandboxPlan plan,
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportToolContract tool,
+        string expectedHostBuildDigest)
+    {
+        DocumentExportProviderContract renderer = RequireCanonicalRendererProvider(task, input);
+        ValidateToolBinding(renderer, tool);
+        ValidatePlanCore(plan, task, input, DocumentExportContractCatalog.RequireProvider(task.FormatId), tool, expectedHostBuildDigest);
+        ValidateEffectiveBudgets(plan.Budgets, renderer.Budgets);
+    }
+
+    private static DocumentExportProviderContract RequireCanonicalRendererProvider(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input)
+    {
+        DocumentExportContractValidator.Validate(task, input);
+        DocumentExportProviderContract finalProvider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportProviderContract renderer = DocumentExportContractCatalog.RequireProvider("self-contained-html");
+        if (!finalProvider.ImplementationAvailable || !renderer.ImplementationAvailable)
+        {
+            throw new InvalidOperationException($"Document export format '{task.FormatId}' has no active provider.");
+        }
+        if (finalProvider.RendererId != renderer.RendererId
+            || finalProvider.RendererVersion != renderer.RendererVersion)
+        {
+            throw new InvalidDataException("Document export final provider does not use the canonical renderer binding.");
+        }
+        return renderer;
+    }
+
+    private static void ValidateToolBinding(DocumentExportProviderContract provider, DocumentExportToolContract tool)
+    {
+        ArgumentNullException.ThrowIfNull(tool);
+        DocumentExportProviderExecutionBinding binding = DocumentExportContractCatalog.ExecutionBindings.Single(
+            candidate => candidate.ProviderId == provider.ProviderId);
+        if (tool.ToolId != provider.ToolchainId
+            || tool.ToolVersion != provider.ToolchainVersion
+            || tool.ToolId != binding.ToolId
+            || tool.ToolVersion != binding.ToolVersion
+            || !tool.Arguments.SequenceEqual(binding.ExactArguments, StringComparer.Ordinal))
+        {
+            throw new InvalidDataException("Document export sandbox tool drifted from the closed execution binding.");
+        }
+    }
+
+    private static void ValidatePlanCore(
+        DocumentExportSandboxPlan plan,
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportProviderContract provider,
+        DocumentExportToolContract tool,
+        string expectedHostBuildDigest)
+    {
         DocumentExportSandboxPlan unsigned = plan with
         {
             ContentDigest = string.Empty
         };
         if (plan.Schema != DocumentExportContractCatalog.SandboxPlanSchema
+            || !Guid.TryParseExact(plan.RunId, "N", out Guid runId)
+            || plan.RunId != runId.ToString("N")
             || plan.TaskDigest != task.ContentDigest
             || plan.InputDigest != input.ContentDigest
             || plan.SourceDigest != input.SourceDigest
@@ -1075,6 +1230,23 @@ public sealed class DocumentExportSandboxRuntime
         ValidateEffectiveBudgets(budgets, provider.Budgets);
         return budgets;
     }
+
+    private static DocumentExportResourceBudgets TightenBudgets(
+        DocumentExportResourceBudgets final,
+        DocumentExportResourceBudgets renderer)
+        => new(
+            final.WallTime <= renderer.WallTime ? final.WallTime : renderer.WallTime,
+            final.CpuTime <= renderer.CpuTime ? final.CpuTime : renderer.CpuTime,
+            Math.Min(final.MaxWorkingSetBytes, renderer.MaxWorkingSetBytes),
+            Math.Min(final.MaxFileCount, renderer.MaxFileCount),
+            Math.Min(final.MaxFileBytes, renderer.MaxFileBytes),
+            Math.Min(final.MaxInputBytes, renderer.MaxInputBytes),
+            Math.Min(final.MaxOutputBytes, renderer.MaxOutputBytes),
+            Math.Min(final.MaxMessageBytes, renderer.MaxMessageBytes),
+            Math.Min(final.MaxStandardOutputBytes, renderer.MaxStandardOutputBytes),
+            Math.Min(final.MaxStandardErrorBytes, renderer.MaxStandardErrorBytes),
+            Math.Min(final.MaxProcessCount, renderer.MaxProcessCount),
+            Math.Min(final.MaxConcurrency, renderer.MaxConcurrency));
 
     private static void ValidateEffectiveBudgets(
         DocumentExportResourceBudgets actual,
@@ -1132,10 +1304,12 @@ public sealed class DocumentExportSandboxRuntime
             UseShellExecute = false,
             WorkingDirectory = runRoot
         };
+        // Both aliases mount the stable run-owned work root: temporary files
+        // cannot detach a child source directory and are budgeted once with work files.
         AddArguments(startInfo,
             "--unshare-all", "--new-session", "--clearenv",
             "--proc", "/proc", "--dev", "/dev",
-            "--tmpfs", "/tmp",
+            "--bind", workRoot, "/tmp",
             "--dir", "/broker",
             "--ro-bind", brokerExecutablePath, SandboxExecutable,
             "--ro-bind", brokerRuntimeRoot, "/tool",

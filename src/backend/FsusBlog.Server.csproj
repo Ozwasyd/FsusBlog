@@ -82,6 +82,7 @@
 		<PackageReference Include="AngleSharp" />
 		<PackageReference Include="BCrypt.Net-Next" />
 		<PackageReference Include="BouncyCastle.Cryptography" />
+		<PackageReference Include="DocumentFormat.OpenXml" />
 		<PackageReference Include="Fido2" />
 		<PackageReference Include="Jint" />
 		<PackageReference Include="Konscious.Security.Cryptography.Argon2" />

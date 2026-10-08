@@ -1,3 +1,5 @@
+using FsusBlog.Server.Services.DocumentExport.Jobs;
+
 namespace FsusBlog.Server.Services.DocumentExport;
 
 internal sealed record CanonicalDocumentRendererResult(
@@ -70,19 +72,18 @@ internal sealed class SandboxCanonicalDocumentRendererAdapter : ICanonicalDocume
             input.Locale,
             input.Assets);
 
-        DocumentExportSandboxResult sandboxResult = await _sandbox.ExecuteAsync(
+        DocumentExportSandboxResult sandboxResult = await _sandbox.ExecuteCanonicalRendererAsync(
             task,
             input,
-            _tool,
             (output, token) => DocumentExportDigest.SerializeAsync(output, request, token),
             cancellationToken);
-        DocumentExportSandboxRuntime.ValidateReceipt(
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(
             sandboxResult.Receipt,
             sandboxResult.Plan,
             task,
             input,
             _tool,
-            sandboxResult.Plan.HostBuildDigest,
+            _sandbox.HostBuildDigest,
             sandboxResult.OutputBytes);
         DocumentExportRendererResponse response = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(
             sandboxResult.OutputBytes);
@@ -102,6 +103,7 @@ internal sealed class SandboxCanonicalDocumentRendererAdapter : ICanonicalDocume
 public sealed class DocumentExportProviderRegistry
 {
     private readonly SelfContainedHtmlDocumentExportProvider _html;
+    private readonly IDocumentExportJobProvider _htmlJobProvider;
 
     public DocumentExportProviderRegistry(DocumentExportSandboxRuntime sandbox)
     {
@@ -110,6 +112,7 @@ public sealed class DocumentExportProviderRegistry
         DocumentExportToolContract tool = sandbox.RequireRegisteredTool("self-contained-html");
         _html = new SelfContainedHtmlDocumentExportProvider(
             new SandboxCanonicalDocumentRendererAdapter(sandbox, tool));
+        _htmlJobProvider = new RegisteredHtmlJobProvider(_html, tool, sandbox.HostBuildDigest);
     }
 
     public SelfContainedHtmlDocumentExportProvider RequireSelfContainedHtml(string formatId)
@@ -120,6 +123,42 @@ public sealed class DocumentExportProviderRegistry
             throw new InvalidOperationException($"Document export format '{formatId}' has no active provider.");
         }
         return _html;
+    }
+
+    public IDocumentExportJobProvider RequireJobProvider(string formatId)
+    {
+        _ = RequireSelfContainedHtml(formatId);
+        return _htmlJobProvider;
+    }
+
+    private sealed class RegisteredHtmlJobProvider(
+        SelfContainedHtmlDocumentExportProvider html,
+        DocumentExportToolContract tool,
+        string hostBuildDigest) : IDocumentExportJobProvider
+    {
+        public string ProviderId => DocumentExportContractCatalog.RequireProvider("self-contained-html").ProviderId;
+
+        public Task<DocumentExportProviderResult> ExportAsync(
+            DocumentExportTask task,
+            DocumentExportFrozenInput input,
+            CancellationToken cancellationToken)
+            => html.ExportAsync(task, input, cancellationToken);
+
+        public Task VerifyAsync(
+            DocumentExportProviderResult result,
+            DocumentExportTask task,
+            DocumentExportFrozenInput input,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            SelfContainedHtmlDocumentExportProvider.ValidateResult(result, task, input, tool, hostBuildDigest);
+            DocumentExportContractValidator.Validate(
+                result.Receipt,
+                task,
+                input,
+                DocumentExportContractCatalog.RequireProvider("self-contained-html"));
+            return Task.CompletedTask;
+        }
     }
 }
 

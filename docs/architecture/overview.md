@@ -80,7 +80,7 @@ The frontend fast gate runs `check:fsusui-boundary` in strict-by-default mode, s
 
 ## Standalone document export boundary
 
-Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
+Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` is active in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
 
 Task admission binds frozen renderer ID/version to that format's sole catalog provider.
 Result admission binds the supplied provider to the task and reuses complete catalog
@@ -88,9 +88,43 @@ identity validation before accepting its budgets or delivery policy; tool ID/ver
 must also equal that provider's registered toolchain. Recomputed artifact digests do
 not authorize provider, renderer or policy substitutions.
 
+Independent result admission requires each observed warning feature's declared
+preserved-fallback warning and refuses a successful result with an observed
+hard-fail feature. A byte-identical normalization declaration requires equal
+semantic and output digests; normalized formats retain their declared semantic
+identity independently of byte identity.
+
 The provider registry is the sole composition point for the implemented provider. Its replaceable canonical-renderer adapter invokes the exact sandbox-registered renderer with the fixed `render` argument. The HTML provider does not parse Markdown: it accepts the canonical renderer's digest-bound semantic fragment, applies a closed streaming HTML/SVG sanitizer, embeds frozen images and fonts, and independently verifies the completed document and receipt. The artifact carries a hash-bound CSP, has no script or runtime network dependency, and uses private authorized delivery with a 24-hour cleanup TTL; it is not a public static-root artifact.
 
+The internal canonical-renderer stage resolves its tool from that same closed registry
+while retaining the final task, input and provider identity in its sandbox plan.
+It shares the original executor and cleanup, with every resource limit tightened
+to the minimum of the final provider and renderer limits. Dedicated stage validators
+bind the renderer tool and the sandbox's frozen host build identity; final provider
+validators require the final provider's own tool binding. Inactive final formats are
+refused before request writing. A renderer-stage receipt alone does not qualify a
+format conversion performed on the host, and dormant DOCX/EPUB package modules do
+not activate their catalog entries or job providers.
+
+The same registry exposes the implemented provider through the sole durable-job
+provider contract. Its verification adapter retains the sandbox's frozen tool and
+host-build identities and checks the actual artifact and complete receipts;
+resealing a result cannot substitute its expected host identity. Inactive formats
+remain unavailable. This composition does not provide a durable store or a
+default identity/site permission adapter: those authorities must be supplied and
+independently qualified before job delivery is admitted.
+
 Sandbox finalization preserves the first observed budget or execution failure if caller cancellation arrives during cleanup. With no earlier failure, requested cancellation is still recorded. Physical cleanup must independently qualify the empty process tree, removed run directory, transient unit and cgroup; an unqualified cleanup remains fail closed and cannot become a qualified budget or cancellation receipt.
+
+Sandbox plans require the canonical lower-case 32-digit run identity. Both success
+and failure receipt admission bind that identity to the plan, including failures
+before a process starts. Resealing a different run's unit or cgroup identity does
+not authorize the receipt.
+
+The sandbox mounts the same run-owned work root at `/tmp` and `/sandbox/work`.
+Temporary files enter the existing file-count, per-file and aggregate-byte
+observations once and share the original run-root cleanup. No host temporary
+root or separate execution authority is exposed.
 
 Cgroup drain requires both an observed zero business-process count and an unpopulated cgroup. Finalization reobserves a still-positive count within the existing bounded cleanup polling schedule even when population is already empty; authority cleanup refuses either nonempty signal and never substitutes a synthetic zero count.
 
@@ -101,6 +135,12 @@ Prelaunch service, accounting slice and fixed parent identities are inspected in
 This boundary does not register an endpoint, admin workflow, storage implementation, or production renderer deployment. The local test executable is an explicit deterministic simulation of the unavailable canonical renderer boundary and proves sandbox/protocol/package behavior only. Production activation must supply the exact registered canonical tool and must not reinterpret this test fixture as renderer integration evidence.
 
 Sanitization consumes the complete renderer fragment through its wrapper EOF. A renderer-supplied premature closing tag cannot silently hide later markup, text, or comments; the fragment is rejected. Complete legal fragments retain their allowed tail and surrounding whitespace.
+
+Static Mermaid SVG uses a closed per-element attribute allowlist. Local paint,
+ARIA and marker references are verified within their containing SVG; a marker
+reference must resolve to that SVG's own marker. Nested SVG and namespace escapes
+remain rejected. Sanitizer compatibility does not qualify the registered renderer
+tool, font coverage or offline browser behavior.
 
 ## Standard Protocol Exemptions
 
