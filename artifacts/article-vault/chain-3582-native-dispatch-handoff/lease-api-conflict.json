@@ -1,0 +1,14 @@
+{
+    "canonical": "0af011ba0027e0aa3a6ebb033c9e9de649ee146d",
+    "integratedSource": "4d408e71ea9246876fbb5ed7198e2276da473089",
+    "path": "src/shared/Contracts/ArticleVault/ArticleVaultWriterLease.cs",
+    "canonicalSha256": "48e10e6ed406118f357a05376c0c6fa87bbb2ad4227f2e3c78da638ea6400484",
+    "integratedSha256": "8eb6af36acaa6e2ac2e0ead77fdd52bb4b250966ae05846e9cfcd487be0bd53f",
+    "missingAPIs": [
+        "ArticleVaultWriterLeaseCodec",
+        "ArticleVaultWriterLease.VerifyTransition"
+    ],
+    "status": "partial-consumption-closure-gap-proven-same-owner-successor",
+    "request": "No additional source identity request: supplied0af contains admitted canonicalc84cd30ff successor; consume compatible same-owner closure, no second authority.",
+    "runtimeQualified": false
+}

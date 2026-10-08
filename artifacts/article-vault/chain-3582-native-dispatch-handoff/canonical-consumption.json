@@ -1,0 +1,152 @@
+{
+    "canonical": "0af011ba0027e0aa3a6ebb033c9e9de649ee146d",
+    "predecessor": "d2626825a868ac26086cf952f207f372baf57492",
+    "files": [
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentBinding.cs",
+            "canonicalSha256": "b8f7b966043e1460264a6c30e853266a4f4723abeeda919f4e08ca74a2b860cd",
+            "previousSha256": "b8f7b966043e1460264a6c30e853266a4f4723abeeda919f4e08ca74a2b860cd",
+            "consumed": false
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentCommandReceipt.cs",
+            "canonicalSha256": "1470176eaf4dab203bbabaeb5c57a56cd4e3dc7f2f297e1e3bb22bb9f40229a4",
+            "previousSha256": null,
+            "consumed": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentDispatchScope.cs",
+            "canonicalSha256": "c0d9635012c5f3ad4a6546d6f60586e5522923cb9b429550fabd02e453c14110",
+            "previousSha256": null,
+            "consumed": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentLifecycle.cs",
+            "canonicalSha256": "3a9053a1187de72e9d1c656cb74852a213fc9b4aadb491e0939b4abda61621ec",
+            "previousSha256": null,
+            "consumed": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentLifecycleInventory.cs",
+            "canonicalSha256": "2d55f1c59c0ed505c9ec038b260b220709417d466905f4089ab47b7c5ae544c9",
+            "previousSha256": null,
+            "consumed": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentOperationInventory.cs",
+            "canonicalSha256": "26969248a8fba5b932baed3af5efb4e3080795ac56ad7cc49bb7a8bf5990f252",
+            "previousSha256": null,
+            "consumed": true
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentRequest.cs",
+            "canonicalSha256": "977a02f3fb17717c4e981ce7069d7d038074c15b93090e4fba1e4908650922c3",
+            "previousSha256": "977a02f3fb17717c4e981ce7069d7d038074c15b93090e4fba1e4908650922c3",
+            "consumed": false
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultAgentRescanBoundary.cs",
+            "canonicalSha256": "57e93dca56d281c42a7d67fed4702cf53e565e7581f84910b0011121494eda6b",
+            "previousSha256": null,
+            "consumed": true
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultAgentControlSession.cs",
+            "canonicalSha256": "0a8e51c7a859c3ffdaedad9c9225947750cbc66a37d46ab002adffce26736043",
+            "previousSha256": null,
+            "consumed": false,
+            "deferred": "native scope needs unavailable canonical lease codec/transition APIs; existing owner not overwritten"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultAgentGrantLedger.cs",
+            "canonicalSha256": "1375cfff6b37017ccd1d692f5e6bcc71b4bcc9ac2e8fb61c8e5cfb9959b4a5d3",
+            "previousSha256": null,
+            "consumed": false,
+            "deferred": "native scope needs unavailable canonical lease codec/transition APIs; existing owner not overwritten"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultAgentLifecycleJournal.cs",
+            "canonicalSha256": "82b1f966d6f270ac162a7a49ed2e13aef8d6b0e51922637663d57ae173d61c40",
+            "previousSha256": null,
+            "consumed": false,
+            "deferred": "native scope needs unavailable canonical lease codec/transition APIs; existing owner not overwritten"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultLeaseNative.cs",
+            "canonicalSha256": "01dc598a29b9b4670893efd48b7b7c590a4968ab40b0a389fc9408c94111e2b7",
+            "previousSha256": null,
+            "consumed": false,
+            "deferred": "native scope needs unavailable canonical lease codec/transition APIs; existing owner not overwritten"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultLocalIpcEndpoint.cs",
+            "canonicalSha256": "38ae0c76d60b993dc75dedca3c3fc0e7ab47bdbc9ea058650c5bd583015f3ca1",
+            "previousSha256": null,
+            "consumed": false,
+            "deferred": "native scope needs unavailable canonical lease codec/transition APIs; existing owner not overwritten"
+        },
+        {
+            "path": "src/article-vault/linux/LinuxVaultWriterLeaseScope.cs",
+            "canonicalSha256": "18e7a30de8e50b337f6d5a0ec4cf73a41ed029579c2ae44b1da417658b07b3a5",
+            "previousSha256": null,
+            "consumed": false,
+            "deferred": "native scope needs unavailable canonical lease codec/transition APIs; existing owner not overwritten"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultAgentCanonicalOperationAdapter.cs",
+            "canonicalSha256": "2a373b2aa6824aaadc2204c7205a8f9ca8cbddcf0be1cee21bff6d77a490707e",
+            "previousSha256": null,
+            "consumed": true
+        },
+        {
+            "path": "tests/article-vault/linux/ArticleVaultAgentDispatchTests.cs",
+            "canonicalSha256": "e854e9632383995079a7e81c2e55450e00358cbd8dfa038011fa8e88c0fe566c",
+            "previousSha256": null,
+            "consumed": true
+        },
+        {
+            "path": "tests/article-vault/linux/ArticleVaultAgentLifecycleInventoryTests.cs",
+            "canonicalSha256": "fe1018699b2541202e56b06fff9b1316a0f2b93023c31d93d10c24cdbe78ec57",
+            "previousSha256": null,
+            "consumed": true
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultAgentCanonicalOperationAdapterTests.cs",
+            "canonicalSha256": "752abf449462a8ecfca73db1cb985c655c3d6aa64346dd49be39c9d7fabff405",
+            "previousSha256": null,
+            "consumed": true
+        },
+        {
+            "path": "tools/governance/check-article-vault-agent-control.mjs",
+            "canonicalSha256": "3b4ff440bfc2c99caa73ccdfd9ef3b8bc7a3b395f179c3b368ffc38fa7eefd7c",
+            "previousSha256": null,
+            "consumed": false,
+            "deferred": "native scope needs unavailable canonical lease codec/transition APIs; existing owner not overwritten"
+        },
+        {
+            "path": "tests/governance/article-vault-agent-control.test.mjs",
+            "canonicalSha256": "f92a9ac32636e46270e6cf594a3f0ce7d71f1bdef9e8737ff29d96c43d7befa4",
+            "previousSha256": null,
+            "consumed": false,
+            "deferred": "native scope needs unavailable canonical lease codec/transition APIs; existing owner not overwritten"
+        },
+        {
+            "path": "docs/architecture/article-vault-agent-control.md",
+            "canonicalSha256": "3322fa6c45fb0d0adf456206fc3065eb47ebf55dde0d8ff35353d1c675289fe3",
+            "previousSha256": null,
+            "consumed": false,
+            "deferred": "native scope needs unavailable canonical lease codec/transition APIs; existing owner not overwritten"
+        }
+    ],
+    "nativeQualification": false,
+    "preserved": "existing canonical Git/path/journal source and unrelated projects; no supplier whole-tree deletion",
+    "blockedDependency": {
+        "path": "src/shared/Contracts/ArticleVault/ArticleVaultWriterLease.cs",
+        "missing": [
+            "ArticleVaultWriterLeaseCodec",
+            "ArticleVaultWriterLease.VerifyTransition"
+        ],
+        "supplier": "0af011ba0027e0aa3a6ebb033c9e9de649ee146d",
+        "action": "request canonical lease-owner identity/evidence; preserve integrated source and pause native layer"
+    }
+}
