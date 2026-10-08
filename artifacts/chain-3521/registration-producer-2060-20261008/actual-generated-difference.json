@@ -1,0 +1,69 @@
+{
+  "producerCandidate": "f42c8eb6f627bfc5a7de881286efd97f091e561a",
+  "sourceInput": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "masterObserved": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "registrationCount": 1,
+  "unchangedPreviousRegistryEntries": 117,
+  "registrySha256": "cd1c4c0cb4a5a902466a8fee2433900248274b4905f53a046ababceb4dd3ec0f",
+  "generatedLedgerEntryCount": 627,
+  "unapprovedRemovedRows": [
+    {
+      "findingId": "df51325b31930528",
+      "consumerId": "evidence-consumer.artifacts.change-contract.release-authority-bindings-external-naming",
+      "location": "artifacts/change-contract/release-authority-bindings-external-naming.json:60",
+      "oldSelectionRule": "evidence-selection.latest-newest",
+      "classification": "not-evidence",
+      "newAuthorityId": null,
+      "locatorMode": "not-applicable",
+      "action": "close exact location and rule as non-evidence behavior",
+      "owner": "test-evidence-governance",
+      "proofTest": "tests/tools/evidence-location-governance.test.mjs#df51325b31930528"
+    },
+    {
+      "findingId": "0dc14128c2fb694a",
+      "consumerId": "evidence-consumer.artifacts.change-contract.release-authority-bindings-external-naming",
+      "location": "artifacts/change-contract/release-authority-bindings-external-naming.json:60",
+      "oldSelectionRule": "evidence-selection.pointer-without-identity",
+      "classification": "not-evidence",
+      "newAuthorityId": null,
+      "locatorMode": "not-applicable",
+      "action": "close exact location and rule as non-evidence behavior",
+      "owner": "test-evidence-governance",
+      "proofTest": "tests/tools/evidence-location-governance.test.mjs#0dc14128c2fb694a"
+    }
+  ],
+  "unapprovedAddedRows": [
+    {
+      "findingId": "e4792e2e6789cef9",
+      "consumerId": "evidence-consumer.artifacts.change-contract.release-authority-bindings-external-naming",
+      "location": "artifacts/change-contract/release-authority-bindings-external-naming.json:62",
+      "oldSelectionRule": "evidence-selection.latest-newest",
+      "classification": "not-evidence",
+      "newAuthorityId": null,
+      "locatorMode": "not-applicable",
+      "action": "close exact location and rule as non-evidence behavior",
+      "owner": "test-evidence-governance",
+      "proofTest": "tests/tools/evidence-location-governance.test.mjs#e4792e2e6789cef9"
+    },
+    {
+      "findingId": "c4470af966c8f87a",
+      "consumerId": "evidence-consumer.artifacts.change-contract.release-authority-bindings-external-naming",
+      "location": "artifacts/change-contract/release-authority-bindings-external-naming.json:62",
+      "oldSelectionRule": "evidence-selection.pointer-without-identity",
+      "classification": "not-evidence",
+      "newAuthorityId": null,
+      "locatorMode": "not-applicable",
+      "action": "close exact location and rule as non-evidence behavior",
+      "owner": "test-evidence-governance",
+      "proofTest": "tests/tools/evidence-location-governance.test.mjs#c4470af966c8f87a"
+    }
+  ],
+  "classificationPolicyChanged": false,
+  "ledgerPublishedAsAccepted": false,
+  "ledgerProductPreservedAtInput": true,
+  "originalProducerInvocation": "node tools/test/generate-evidence-location-governance.mjs",
+  "originalProducerExit": 0,
+  "heldAudits": "NOT_RUN",
+  "qualification": false,
+  "remainingGate": "Exact current two finding dispositions need independent approval; source and generated registry usable, ledger remains stale and original --check must refuse."
+}

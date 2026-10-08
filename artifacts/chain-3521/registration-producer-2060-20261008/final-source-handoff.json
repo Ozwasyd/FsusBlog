@@ -1,0 +1,65 @@
+{
+  "candidate": "9dd445bb38418e3f918fe18684e95d69492b040a",
+  "base": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "branch": "codex/chain-3521-registration-producer-2060",
+  "remoteVerifiedSha": "9dd445bb38418e3f918fe18684e95d69492b040a",
+  "publisherBlobPreserved": "c5057b34cc3cf794fe135316df75e2435e3cbc4c",
+  "files": [
+    {
+      "path": "config/testing/evidence-locator-registry.json",
+      "baseBlob": "53fd25fcf69ada94ca119bcb38f09d836b9ab226",
+      "blob": "928f97f3663aa5e68ccee2d86adac90f4fc1fea5",
+      "sha256": "cd1c4c0cb4a5a902466a8fee2433900248274b4905f53a046ababceb4dd3ec0f"
+    },
+    {
+      "path": "tests/tools/evidence-location-exported-registration.test.mjs",
+      "baseBlob": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d:tests/tools/evidence-location-exported-registration.test.mjs",
+      "blob": "7bbbd19bf6d488be98f5f1cea8c38c19a1d538d0",
+      "sha256": "0fc5865292b88845e30d9efe2a9bb161ca2b8d41d59a8c8cc665b062996d87bc"
+    },
+    {
+      "path": "tools/test/generate-evidence-location-governance.mjs",
+      "baseBlob": "21e23c8c9df21d1409b10e0403baa72159d73e4d",
+      "blob": "70b5fd78ea14ed0d9c9eda454b573773e3ce21f1",
+      "sha256": "467f39a4fdf057f08a998ea1f528f21e91b1f129d5c3bbec969d2b4b85c6e400"
+    }
+  ],
+  "controls": {
+    "expectedCount": 6,
+    "pass": 6,
+    "fail": 0,
+    "skipped": 0,
+    "allowlist": "positive-test-allowlist.json"
+  },
+  "eslint": {
+    "explicitFiles": 2,
+    "exitCode": 0
+  },
+  "importInspection": {
+    "errors": [],
+    "dependencies": 15,
+    "callbacksExecuted": false
+  },
+  "originalGeneration": {
+    "invocation": "node tools/test/generate-evidence-location-governance.mjs",
+    "exitCode": 0,
+    "registryRows": 118,
+    "previousRowsUnchanged": 117
+  },
+  "originalCheck": {
+    "invocation": "node tools/test/generate-evidence-location-governance.mjs --check",
+    "exitCode": 1,
+    "refusal": "config/testing/evidence-location-migration-ledger.json stale"
+  },
+  "unapprovedFindingIds": [
+    "e4792e2e6789cef9",
+    "c4470af966c8f87a"
+  ],
+  "ledgerProductPreservedAtBase": true,
+  "classificationPolicyChanged": false,
+  "sdkSchedulerCandidateFrozen": "e6efbce8ec875f92053af4ece5c82cc3044d7ed8",
+  "heldAudits": "NOT_RUN",
+  "fullStandardSOURCE": "NOT_RUN",
+  "qualification": false,
+  "nextInput": "Independent owner approval of the exact two current metadata finding dispositions before publishing the generated ledger; master integration differences remain for the coordinator."
+}

@@ -1,0 +1,21 @@
+{
+  "key": "original-allowed-six-after-setup",
+  "sourceCommit": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "--test-reporter=spec",
+    "--test-name-pattern=^(?:exported\\ registration\\ parses\\ actual\\ publisher\\ without\\ executing\\ its\\ module|exported\\ registration\\ rejects\\ unknown\\ source\\ and\\ export\\ identities|exported\\ registration\\ requires\\ one\\ direct\\ exported\\ immutable\\ declaration|exported\\ registration\\ rejects\\ missing\\ unknown\\ and\\ malformed\\ required\\ fields|exported\\ registration\\ rejects\\ source\\ binding\\ and\\ owned\\ root\\ drift|exported\\ registration\\ rejects\\ executable\\ expressions\\ spreads\\ accessors\\ and\\ duplicate\\ fields)$",
+    "tests/tools/evidence-location-exported-registration.test.mjs"
+  ],
+  "startedUtc": "2026-10-08T15:44:47.987009+00:00",
+  "completedUtc": "2026-10-08T15:44:49.159253+00:00",
+  "elapsedSeconds": 1.172,
+  "exitCode": 0,
+  "pid": 702751,
+  "logSha256": "992cf470e0fc425a5117ddfec7088cb6eb2ff42ec38933b5c77336c266f781f6",
+  "logBytes": 674,
+  "rawLogArchive": "original-allowed-six-after-setup.log.gz",
+  "qualification": false
+}

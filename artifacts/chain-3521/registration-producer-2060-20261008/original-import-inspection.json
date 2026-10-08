@@ -1,0 +1,20 @@
+{
+  "key": "original-import-inspection",
+  "sourceCommit": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {inspectReleaseFinalCommandTarget} from \"./tools/test-matrix/release-final-static-boundary.mjs\";import {writeFileSync} from \"node:fs\";const inspections=[\"tests/tools/evidence-location-exported-registration.test.mjs\"].map(target=>inspectReleaseFinalCommandTarget({repositoryRoot:process.cwd(),target}));writeFileSync(\"/workspace/chain-3521-evidence/registration-producer-2060/original-import-output.json\",JSON.stringify({qualification:false,testCallbacksExecuted:false,inspections},null,2)+\"\\n\");console.log(JSON.stringify(inspections.map(x=>({target:x.target,errors:x.errors,dependencyCount:x.dependencyClosure.length}))));process.exitCode=inspections.some(x=>x.errors.length)?1:0;"
+  ],
+  "startedUtc": "2026-10-08T15:42:36.952608+00:00",
+  "completedUtc": "2026-10-08T15:42:37.673503+00:00",
+  "elapsedSeconds": 0.721,
+  "exitCode": 1,
+  "pid": 701573,
+  "logSha256": "035371600abd06046587070333177a1cfaf90456b7289fcc1d5f6ae003ba6f4d",
+  "logBytes": 702,
+  "rawLogArchive": "original-import-inspection.log.gz",
+  "qualification": false
+}

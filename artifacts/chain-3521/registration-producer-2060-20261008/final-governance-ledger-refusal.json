@@ -1,0 +1,19 @@
+{
+  "key": "final-governance-ledger-refusal",
+  "sourceCommit": "9dd445bb38418e3f918fe18684e95d69492b040a",
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test/generate-evidence-location-governance.mjs",
+    "--check"
+  ],
+  "startedUtc": "2026-10-08T15:46:29.460330+00:00",
+  "completedUtc": "2026-10-08T15:46:36.616916+00:00",
+  "elapsedSeconds": 7.157,
+  "exitCode": 1,
+  "pid": 703764,
+  "logSha256": "a240b9910f403f3aa9d4b5790ddc95f6b2a33caf52a2f0d11e1aac4c83e0d811",
+  "logBytes": 714,
+  "rawLogArchive": "final-governance-ledger-refusal.log.gz",
+  "qualification": false
+}

@@ -1,0 +1,22 @@
+{
+  "sourceBase": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "testPath": "tests/tools/evidence-location-exported-registration.test.mjs",
+  "testSha256": "0fc5865292b88845e30d9efe2a9bb161ca2b8d41d59a8c8cc665b062996d87bc",
+  "producerSha256": "467f39a4fdf057f08a998ea1f528f21e91b1f129d5c3bbec969d2b4b85c6e400",
+  "expectedCount": 6,
+  "literalNames": [
+    "exported registration parses actual publisher without executing its module",
+    "exported registration rejects unknown source and export identities",
+    "exported registration requires one direct exported immutable declaration",
+    "exported registration rejects missing unknown and malformed required fields",
+    "exported registration rejects source binding and owned root drift",
+    "exported registration rejects executable expressions spreads accessors and duplicate fields"
+  ],
+  "pattern": "^(?:exported\\ registration\\ parses\\ actual\\ publisher\\ without\\ executing\\ its\\ module|exported\\ registration\\ rejects\\ unknown\\ source\\ and\\ export\\ identities|exported\\ registration\\ requires\\ one\\ direct\\ exported\\ immutable\\ declaration|exported\\ registration\\ rejects\\ missing\\ unknown\\ and\\ malformed\\ required\\ fields|exported\\ registration\\ rejects\\ source\\ binding\\ and\\ owned\\ root\\ drift|exported\\ registration\\ rejects\\ executable\\ expressions\\ spreads\\ accessors\\ and\\ duplicate\\ fields)$",
+  "hooks": "none; top-level reads actual publisher text only; publisher never imported",
+  "scope": "ordinary AST parsing/export identity/schema fields and refusals only",
+  "heldAudits": "NOT_RUN",
+  "qualification": false,
+  "importInspection": "original-fixed-import-output.json errors[] dependencyCount15",
+  "candidate": "9dd445bb38418e3f918fe18684e95d69492b040a"
+}

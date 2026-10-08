@@ -1,0 +1,24 @@
+{
+  "key": "setup-original-schema",
+  "sourceCommit": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+    "ci",
+    "--prefix",
+    "tools/test-matrix/schema-validator",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund"
+  ],
+  "startedUtc": "2026-10-08T15:43:43.859821+00:00",
+  "completedUtc": "2026-10-08T15:43:45.130542+00:00",
+  "elapsedSeconds": 1.271,
+  "exitCode": 0,
+  "pid": 702209,
+  "logSha256": "b56ce165f3a0569fb322251c8418c162942d9f7829706abdb3f21d5f365d5393",
+  "logBytes": 24,
+  "rawLogArchive": "setup-original-schema.log.gz",
+  "qualification": false
+}

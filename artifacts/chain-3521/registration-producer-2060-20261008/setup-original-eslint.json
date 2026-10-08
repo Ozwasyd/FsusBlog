@@ -1,0 +1,24 @@
+{
+  "key": "setup-original-eslint",
+  "sourceCommit": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+    "ci",
+    "--prefix",
+    "tools/frontend/style-toolchain",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund"
+  ],
+  "startedUtc": "2026-10-08T15:43:45.166265+00:00",
+  "completedUtc": "2026-10-08T15:43:48.649871+00:00",
+  "elapsedSeconds": 3.484,
+  "exitCode": 0,
+  "pid": 702229,
+  "logSha256": "6a87a343532233dbb2527a20a412ada89c0ef0fab1d8c51b9ded876334ab4d94",
+  "logBytes": 26,
+  "rawLogArchive": "setup-original-eslint.log.gz",
+  "qualification": false
+}

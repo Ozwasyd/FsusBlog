@@ -1,0 +1,12 @@
+{
+  "timestampUtc": "2026-10-08T15:46:38.314140+00:00",
+  "commandResultExitCode": 0,
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "head": "9dd445bb38418e3f918fe18684e95d69492b040a",
+  "gitStatusPorcelain": "",
+  "unpublishedFiles": [],
+  "blockedTransportCommands": [],
+  "firstResumedAction": "final-allowed-six on exact9dd candidate",
+  "firstResumedActionExitCode": 0,
+  "qualification": false
+}

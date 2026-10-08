@@ -1,0 +1,20 @@
+{
+  "key": "final-two-source-eslint",
+  "sourceCommit": "9dd445bb38418e3f918fe18684e95d69492b040a",
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js",
+    "tools/test/generate-evidence-location-governance.mjs",
+    "tests/tools/evidence-location-exported-registration.test.mjs"
+  ],
+  "startedUtc": "2026-10-08T15:47:00.819524+00:00",
+  "completedUtc": "2026-10-08T15:47:03.912578+00:00",
+  "elapsedSeconds": 3.093,
+  "exitCode": 0,
+  "pid": 704056,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "final-two-source-eslint.log.gz",
+  "qualification": false
+}
