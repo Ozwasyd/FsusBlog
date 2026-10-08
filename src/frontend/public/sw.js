@@ -1,4 +1,5 @@
 importScripts('/generated/release-id-contract.js');
+self.importScripts('/current-release-assets.js');
 
 const BUILD_ID_CANDIDATE = new URL(self.location.href).searchParams.get('build') ?? '';
 const FRONTEND_BUILD_ID = self.FsusReleaseIdContract.isCanonicalReleaseId(BUILD_ID_CANDIDATE)
@@ -22,6 +23,7 @@ const DOTNET_EPOCH_OFFSET_MS = 62135596800000;
 const TEXT_DECODER = new TextDecoder();
 let searchIndexUpdatePromise = null;
 let staticCachePromise = null;
+let currentReleaseAssetConsumer = null;
 let lastSearchManifestCheckAt = 0;
 let currentSearchVersion = null;
 const searchIndexTelemetry = {
@@ -81,8 +83,17 @@ self.addEventListener('install', (event) =>
 {
     event.waitUntil((async () =>
     {
-        await requireCurrentReleaseBrowserAdmission();
-        await self.skipWaiting();
+        try
+        {
+            await requireCurrentReleaseBrowserAdmission();
+            await currentReleaseAssetConsumer.commit();
+            await self.skipWaiting();
+        }
+        catch (error)
+        {
+            await currentReleaseAssetConsumer?.discard();
+            throw error;
+        }
     })());
 });
 
@@ -133,6 +144,14 @@ self.addEventListener('fetch', (event) =>
             ? 'binary-network-unavailable'
             : 'private-network-unavailable';
         event.respondWith(networkOnlyRequest(request, failureKind));
+        return;
+    }
+
+    if (url.pathname.startsWith('/release-assets/') || STATIC_ASSET_PATTERN.test(url.pathname))
+    {
+        event.respondWith(currentReleaseAssetConsumer
+            ? currentReleaseAssetConsumer.fetchAsset(request).catch(() => networkErrorResponse('current-asset-identity-unavailable'))
+            : Promise.resolve(networkErrorResponse('current-asset-admission-unavailable')));
         return;
     }
 
@@ -896,6 +915,10 @@ async function clearNamedCache(cacheName, keys)
     {
         return;
     }
+    if (cacheName.startsWith('fsus-static-current:'))
+    {
+        throw new Error('current_asset_cache_requires_owned_cleanup');
+    }
 
     const cache = await caches.open(cacheName);
     if (!Array.isArray(keys) || keys.length === 0)
@@ -910,10 +933,48 @@ async function clearNamedCache(cacheName, keys)
 
 async function requireCurrentReleaseBrowserAdmission()
 {
-    // The operational manifest contains private DB identities and host paths.
-    // No signed public projection or native exact-candidate health bridge exists.
-    // A build label, message or cached document cannot supply that admission.
-    throw new Error('current_release_browser_admission_unconfigured');
+    // The original activation owner must supply this bootstrap under independently
+    // pinned build trust. Its post-build candidate values cannot be embedded in
+    // the hash-bound worker itself (that would make candidate sealing circular).
+    // Never infer trust from a message, projection response or old cache.
+    const configuration = self.FsusCurrentReleaseBrowserConfiguration;
+    const assets = self.FsusCurrentReleaseAssets;
+    if (!configuration || !assets || !FRONTEND_BUILD_ID)
+    {
+        throw new Error('current_release_browser_admission_unconfigured');
+    }
+    const expectedFields = ['projectionUrl', 'projectionSha256', 'candidateId', 'manifestContentDigest', 'trust'];
+    if (JSON.stringify(Object.keys(configuration).sort()) !== JSON.stringify(expectedFields.sort())
+        || configuration.projectionUrl !== `/release-assets/${FRONTEND_BUILD_ID}/release-browser-projection.json`
+        || ![configuration.projectionSha256, configuration.candidateId, configuration.manifestContentDigest]
+            .every(value => /^sha256:[a-f0-9]{64}$/u.test(value)))
+    {
+        throw new Error('current_release_browser_configuration_invalid');
+    }
+    const response = await fetch(configuration.projectionUrl, { cache: 'no-store', credentials: 'omit', redirect: 'error' });
+    const bytes = await assets.readBoundedResponse(response, 1024 * 1024);
+    if (await assets.hash(bytes) !== configuration.projectionSha256)
+    {
+        throw new Error('current_release_browser_projection_drift');
+    }
+    const projection = await assets.verifyProjection(bytes, { ...configuration.trust,
+        isReleaseId: self.FsusReleaseIdContract.isCanonicalReleaseId });
+    if (projection.releaseId !== FRONTEND_BUILD_ID || projection.candidateId !== configuration.candidateId
+        || projection.manifestContentDigest !== configuration.manifestContentDigest)
+    {
+        throw new Error('current_release_browser_candidate_mismatch');
+    }
+    if (!currentReleaseAssetConsumer)
+    {
+        const inventoryResponse = await fetch(projection.inventory.url, { cache: 'no-store', credentials: 'omit', redirect: 'error' });
+        const files = await assets.loadInventory(await assets.readBoundedResponse(inventoryResponse, 4 * 1024 * 1024), projection);
+        currentReleaseAssetConsumer = assets.createConsumer({ projection, files, origin: self.location.origin,
+            cacheStorage: caches, fetchBytes: fetch, operationId: crypto.randomUUID() });
+        await currentReleaseAssetConsumer.prepare();
+    }
+    // Original native admission is still disconnected. Artifact/cache validity
+    // cannot admit the database or authorize clients.claim/skipWaiting.
+    throw new Error('native_current_schema_admission_bridge_unconfigured');
 }
 
 async function clearPrivateBrowserStateCaches(reason)

@@ -73,3 +73,37 @@ candidate, inventory bytes, contract versions and SW identity, plus the original
 Server native same-candidate admission/readiness bridge. The operational manifest
 and database identities must remain private. Source refusal tests do not replace
 the remaining cold/warm browser, interrupted update and request-byte acceptance.
+
+`tools/storage/release-browser-projection.mjs` derives a signed public credential
+only after the original manifest verifier has read the trusted key/policy,
+operational manifest, current-schema projection and every inventoried asset byte.
+The credential carries the exact candidate/content identity, opaque schema digest,
+current contract versions/hashes, worker identity and the sole inventory URL/hash.
+It carries no database identity or host artifact path. Its signature uses the same
+admitted Ed25519 key; browser verification requires independently configured public
+key bytes, key identity and public-key hash, never trust taken from the response.
+
+`public/current-release-assets.js` verifies that credential with WebCrypto and
+reads only the hash-bound inventory. Install preparation hashes every JS/CSS,
+Wasm/font and entry asset, checks media type, bounded size and privacy directives,
+and rejects index references outside that current inventory. Immutable assets enter
+an operation-owned staging cache; current cache keys bind candidate, build, worker
+version and inventory digest. Warm hits are rehashed; a miss fetches only the exact
+current URL. Unknown/old URLs, corrupt cache hits and copied unverified inventories
+fail closed. Failed preparation and discard remove only the acquired staging cache;
+cache collisions cannot acquire another operation's cleanup authority.
+
+The SW fetch handler routes static asset requests through this consumer. Private
+requests still enter the original credential-preserving network-only path first.
+Generic cache-clear messages and development unregister cleanup cannot delete the
+verified current static namespace; the explicit privacy panic wipe is preserved.
+There is no browser trust bootstrap producer or native readiness bridge wired into
+the production build yet. The original owner must emit the closed
+`FsusCurrentReleaseBrowserConfiguration` through its activation bootstrap with
+explicit public projection URL/hash, candidate/content identity and independent
+build-pinned trust. Post-build candidate values must not be embedded in the sealed
+worker artifact itself: that would make the candidate/SW digest circular. Until that
+and the native admission bridge are implemented and independently accepted, install
+and activate refuse before takeover and discard only owned staging. The focused
+Node/WebCrypto/Cache-adapter controls are source evidence, not browser or release
+qualification. Compatibility/retention tools remain pending replacement acceptance.
