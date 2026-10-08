@@ -151,7 +151,7 @@ The earlier synthetic control mapping is not production coverage evidence.
 The test/evidence-only
 [typed consumer](query-producer-role-intake/QueryProducerRoleIntake.cs) connects
 the actual `ArticleScaleGraphIdentityBindings` from #2542 source
-`c2847aaae1c1230a87435a26c13eae465d6b681c` and
+`21a20129b3127fdcfb6f34bff7f80b1ef8b5f239` and
 `CommentScaleResolvedGraphIntent` from #2545 source
 `8822207ec995f4346eed20f27393b172dd51343a`. It compares article plan digest,
 semantic article role, original native reference schema/digest and the native
@@ -197,7 +197,7 @@ bash tools/data-scale/query-producer-role-intake/check.sh --help
 The [PostgreSQL intake](query-producer-role-intake/QueryPostgresProducerIntake.cs)
 consumes the actual source-level `DataScalePostgresArticleProduction`,
 `ArticleScaleResolvedGraphBatch` and `DataScaleBatchCheckpointIdentity` from
-writer commit `c2847aaae1c1230a87435a26c13eae465d6b681c`. These APIs exist and are
+writer commit `21a20129b3127fdcfb6f34bff7f80b1ef8b5f239`. These APIs exist and are
 used directly; missing runtime artifacts do not erase their source capability.
 The producer and checkpoint types are internal to the native backend, so this
 consumer remains inside test/evidence compilation until the original owner
@@ -217,14 +217,23 @@ validator authenticates the exact independently supplied current identity and
 committed stage; its first failure propagates without retry or normalization.
 No SQL is executed by this consumer.
 
+The current source also binds the original frozen physical batch's digest to
+the authenticated checkpoint. The original v2 digest includes composite
+primary keys, complete owned row scopes and external taxonomy references.
+`DataScaleArticleTaxonomyProjection.Attach` adds current ArticleTag links to
+the canonical physical batch. The original writer persists them, and its
+readback verifies link scopes and referenced categories/tags.
+The intake does not duplicate that reader or turn an authenticated batch into
+complete seed acceptance.
+
 Successful component matching still cannot execute queries. The current
 checkpoint binds run/runtime/source/namespace/provider/database, plan/batch,
 graph/native-binding/physical/key-roster digests. It does not bind query
 business epoch, fixture generation, seed receipt or assignment coverage digest.
 Complete whole-plan assignment coverage also does not prove that every batch
 was physically materialized. Native allocation persistence has a real awaited
-callback but no returned durable admission receipt. Logical taxonomy/audit
-acceptance remains separate, and `CompleteSeedAccepted` remains false.
+callback but no returned durable admission receipt. Signed audit and complete
+seed acceptance remain separate, and `CompleteSeedAccepted` remains false.
 
 `DataScalePublicationRequestBinding.BindAsync` is now a real native API: it
 joins an actual publication result to native factory roles and delegates to
@@ -235,10 +244,21 @@ manufactures those values nor replaces that verifier.
 
 The original runner still must hook both intake boundaries before expected
 mapping/capture and retain its independent query source/run/epoch/seed binding.
-MySQL/SQLite native allocation, final comment coordinates, whole-plan physical
-receipt, complete audit/taxonomy acceptance and scale qualification remain
-unaccepted. These specific artifact gaps do not prevent compiling and consuming
-the current PostgreSQL source components.
+The current native MySQL/SQLite staging API uses existing native-PK tables with
+role-to-actual-ID mapping, exact readback/savepoint rollback, enabled foreign
+keys and trigger/shadow-table refusal. The earlier allocation-owner schema
+incompatibility is an adapter gap, not a product schema migration requirement.
+That staging API excludes PostgreSQL and is not imported by this PostgreSQL
+consumer. Its original provider controls are not this intake's receipt.
+
+Final comment coordinates, whole-plan physical receipt, signed audit/full seed
+acceptance and scale qualification remain unaccepted. These specific artifact
+gaps do not prevent compiling and consuming the current source components.
+The saved development PostgreSQL service is available infrastructure; no
+actual resolved producer bundle, current identity, task authentication key or
+persisted allocation/checkpoint artifacts were found. Consequently the ordinary
+nonempty intake path remains unrun, rather than populated with diagnostic
+factory defaults or test receipt values.
 
 ## Current integration limits
 

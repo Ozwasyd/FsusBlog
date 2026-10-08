@@ -96,6 +96,11 @@ internal static class QueryPostgresProducerIntake
                 && observed.GraphDigest == DataScaleArticleBatchAuthority.ComputeGraphDigest(graphs)
                 && observed.PlanDigest == resolvedBatch.Coverage.PlanDigest,
                 "article_producer_current_checkpoint_identity_mismatch");
+            // The original v2 digest includes native composite keys, complete
+            // owned row scopes and external taxonomy references. Reuse it rather
+            // than hashing a partial first-row projection or inventing a schema.
+            Require(DataScalePhysicalBatchReadback.ExpectedDigest(production.Authority.Batch) == observed.PhysicalDigest,
+                "article_producer_frozen_physical_scope_mismatch");
             Require(production.Execution.Transport.State == DataScaleBulkCommitState.Committed
                 && production.Execution.Checkpoint is not null, "article_producer_committed_checkpoint_missing");
             // Authentication exceptions retain the original first failure. No
@@ -110,7 +115,7 @@ internal static class QueryPostgresProducerIntake
         blockers.Add("article_native_allocation_persistence_receipt_missing");
         blockers.Add("article_query_epoch_fixture_generation_and_seed_receipt_binding_missing");
         blockers.Add("article_whole_plan_materialization_receipt_missing");
-        blockers.Add("article_complete_logical_taxonomy_audit_acceptance_missing");
+        blockers.Add("article_signed_audit_and_complete_seed_acceptance_missing");
         blockers.Add("article_actual_publication_result_and_current_invocation_missing");
         return new QueryPostgresProducerInspection(production, resolvedBatch, currentIdentity, matched, blockers.AsReadOnly());
     }

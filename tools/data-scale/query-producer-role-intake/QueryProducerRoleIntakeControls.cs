@@ -46,7 +46,7 @@ internal static class QueryProducerRoleIntakeControls
                 "article_native_allocation_persistence_receipt_missing",
                 "article_query_epoch_fixture_generation_and_seed_receipt_binding_missing",
                 "article_whole_plan_materialization_receipt_missing",
-                "article_complete_logical_taxonomy_audit_acceptance_missing",
+                "article_signed_audit_and_complete_seed_acceptance_missing",
                 "article_actual_publication_result_and_current_invocation_missing"
             ];
             Require(missingPostgres.Production is null && missingPostgres.ResolvedBatch is null
