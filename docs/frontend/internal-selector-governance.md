@@ -26,7 +26,6 @@ Record this baseline, per-surface reduction, and real-browser evidence status in
 
 No-restart rollback is per static-asset slot: restore the last verified frontend asset. A rollback may temporarily restore an unexpired registry entry, but never PublicShell internals, a wider budget, or a disabled fail-closed gate.
 
-
 For consumer-owned label text, use the public default slot and style that markup
 with a business class. Set wrapping on the public component root through its
 ordinary class fallthrough when the label inherits it; do not reach into the
