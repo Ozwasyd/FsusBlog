@@ -117,6 +117,10 @@ export async function serveSecurityScenarioSession({ session, ipcRoot, evidenceR
                 controller.abort(reason);
                 return;
             }
+            if (closing)
+            {
+                throw new Error('resident IPC is closing; no new scenario may start');
+            }
             requireExactKeys(message, ['schema', 'requestId', 'identity', 'scenarioId', 'attemptNumber'], 'resident request');
             if (request || message.schema !== requestSchema || message.attemptNumber !== 1
                 || !sameIdentity(sourceIdentity(message.identity), identity))
