@@ -7,6 +7,13 @@
                 "src/backend/Infrastructure/Security/BanStateProjection.cs"
             ],
             "reason": "Preserve the registered C# environment-variable surface while correcting only XML documentation of missing authority facts and the concurrent local-state reread. Runtime tokens and signatures are unchanged."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Preserve the package-manager serialized keys and dependency identities while consuming the exact parent-supplied #3568 backend consumer lock blob required by the unchanged original projection test project. No package version or test oracle change."
         }
     ]
 }
