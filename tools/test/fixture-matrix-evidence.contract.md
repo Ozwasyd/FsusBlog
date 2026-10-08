@@ -99,6 +99,37 @@ cannot qualify any backend/provider. They exercise rejection contracts, not the
 listed issues' runtime acceptance. #1686 retains registration of the new tests and
 producer into canonical matrix/inventory. This increment does not edit those files.
 
+## Available runtime port consumers
+
+The owned `fixture-switch-scheduler-adapter.mjs` consumes the canonical checkpoint
+read API and current correctness receipt read API introduced in
+`2eda290cc6098971b685b3fb1465d7193bd3dde2`. Callers must supply exact run, source,
+build, attempt, checkpoint digest and journal sequence references. Reads disable
+projection repair, check unchanged canonical readback and optionally require the
+completed scheduler owner's current terminal receipt. No CAS, finalizer, new
+receipt writer, history lookup or runner is introduced. The source-evidence binding
+recomputes the existing switch materials and links their run/source/build to this
+snapshot. It does not assert that caller-supplied lifecycle events were admitted
+by the scheduler; the missing compiled phase authority stays explicit.
+
+`CommentFixtureTimelineSequenceAdapter` consumes the mutation port from
+`6656a73e5588f09e11f1320c43ca3f8fd153c7e3` and delivery observation port from
+`b570346e5e374ae2f53807e9666cc41c42fa2afd`. It invokes each caller-supplied command
+once, immediately reads its delivery observations once, and requires exact identity,
+references, business time, expected revision/status/timeline head and continuity
+between the previous after-state and next before-state. Plans and their command
+tokens are excluded from returned evidence. A failure retains completed steps,
+the pending successful mutation and its primary exception for scheduler-owned
+cleanup; no cleanup, retry, query implementation or delivery drain is added.
+Public projection and outbox exact revision, native qualification and bounded
+delivery acceptance remain gaps even if all returned queue rows are processed.
+
+These dependency sources are not yet on this partition's source base. Integration
+requires their exact APIs; absence is a dependency failure, never a skipped pass.
+Node controls use real canonical stores/owners/finalizers with controlled domain
+inputs. Backend controls use the actual typed port interface with read models.
+Both are ordinary source verification and cannot establish runtime acceptance.
+
 ## Remaining owner handoffs
 
 - #1720/#2664: exact compiled projection, actual admission/cleanup/empty observation
