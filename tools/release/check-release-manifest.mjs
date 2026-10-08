@@ -2,7 +2,7 @@
 import path from 'node:path';
 import process from 'node:process';
 
-import { readReleaseManifest } from './release-manifest.mjs';
+import { readCurrentSchemaReceiptReleaseBinding, readReleaseManifest } from './release-manifest.mjs';
 
 function parseArgs(argv)
 {
@@ -23,53 +23,89 @@ function parseArgs(argv)
 try
 {
     const options = parseArgs(process.argv.slice(2));
-    if (!options.manifest)
-    {
-        throw new Error('missing --manifest');
-    };
-    const manifestFile = path.resolve(options.manifest);
     if (options['legacy-rollback'] !== undefined)
     {
         throw new Error('--legacy-rollback is unsupported; restore requires a verified matching backup or a forward fix');
     }
-    const readOptions = {
-        requireRegistryDigest: true,
-        requireConcreteRuntimeProfile: true,
-        expectedReleaseId: options['release-id'],
-        expectedImageRef: options['image-ref'],
-        expectedImageDigest: options['image-digest'],
-        expectedCommitSha: options['commit-sha']
-    };
-    const manifest = readReleaseManifest(manifestFile, readOptions);
-    const slot = options.slot ?? 'candidate';
-    if (!/^[a-z][a-z0-9-]{0,31}$/u.test(slot))
+    if (options['receipt-byte-binding'] !== undefined && options['receipt-byte-binding'] !== 'true')
     {
-        throw new Error('slot must be a safe lowercase identifier');
-    };
-    const output = {
-        schema: 'fsusblog.release-deploy-input.v1',
-        status: 'ok',
-        manifest: manifestFile,
-        releaseId: manifest.releaseId,
-        createdAtUtc: manifest.createdAtUtc,
-        commitSha: manifest.commitSha,
-        slot,
-        imageRef: manifest.imageRef,
-        imageTag: manifest.imageTag,
-        imageDigest: manifest.imageDigest,
-        runtimeProfile: manifest.runtimeProfile ?? null,
-        rollbackTarget: manifest.releaseId
-    };
-    if (options.format === 'lines')
+        throw new Error('receipt-byte-binding mode must be explicitly true');
+    }
+    if (options['receipt-byte-binding'] === 'true')
     {
-        for (const field of ['releaseId', 'createdAtUtc', 'commitSha', 'slot', 'imageRef', 'imageTag', 'imageDigest', 'rollbackTarget'])
+        if (options.manifest)
         {
-            console.log(output[field]);
+            throw new Error('receipt byte binding cannot substitute for manifest admission');
         }
+        const currentSchema = readCurrentSchemaReceiptReleaseBinding(
+            options['current-schema-receipt'], options['current-schema-receipt-sha256']);
+        console.log(JSON.stringify({ status: 'byte-bound', qualificationEligible: false, currentSchema }));
     }
     else
     {
-        console.log(JSON.stringify(output));
+        if (!options.manifest)
+        {
+            throw new Error('missing --manifest');
+        };
+        const manifestFile = path.resolve(options.manifest);
+        const readOptions = {
+            requireRegistryDigest: true,
+            requireConcreteRuntimeProfile: true,
+            expectedReleaseId: options['release-id'],
+            expectedImageRef: options['image-ref'],
+            expectedImageDigest: options['image-digest'],
+            expectedCommitSha: options['commit-sha']
+        };
+        const manifest = readReleaseManifest(manifestFile, readOptions);
+        const observedBinding = readCurrentSchemaReceiptReleaseBinding(
+            manifest.currentSchema.receipt.reference, manifest.currentSchema.receipt.sha256);
+        for (const key of ['receiptFormat', 'receiptContentDigest', 'actualSchemaDigest'])
+        {
+            if (observedBinding[key] !== manifest.currentSchema[key])
+            {
+                throw new Error(`currentSchema.${key} differs from explicit receipt bytes`);
+            }
+        }
+        for (const key of ['target', 'database'])
+        {
+            for (const field of Object.keys(observedBinding[key]))
+            {
+                if (observedBinding[key][field] !== manifest.currentSchema[key][field])
+                {
+                    throw new Error(`currentSchema.${key}.${field} differs from explicit receipt bytes`);
+                }
+            }
+        }
+        const slot = options.slot ?? 'candidate';
+        if (!/^[a-z][a-z0-9-]{0,31}$/u.test(slot))
+        {
+            throw new Error('slot must be a safe lowercase identifier');
+        };
+        const output = {
+            schema: 'fsusblog.release-deploy-input.v1',
+            status: 'ok',
+            manifest: manifestFile,
+            releaseId: manifest.releaseId,
+            createdAtUtc: manifest.createdAtUtc,
+            commitSha: manifest.commitSha,
+            slot,
+            imageRef: manifest.imageRef,
+            imageTag: manifest.imageTag,
+            imageDigest: manifest.imageDigest,
+            runtimeProfile: manifest.runtimeProfile ?? null,
+            rollbackTarget: manifest.releaseId
+        };
+        if (options.format === 'lines')
+        {
+            for (const field of ['releaseId', 'createdAtUtc', 'commitSha', 'slot', 'imageRef', 'imageTag', 'imageDigest', 'rollbackTarget'])
+            {
+                console.log(output[field]);
+            }
+        }
+        else
+        {
+            console.log(JSON.stringify(output));
+        }
     }
 }
 catch (error)

@@ -1,7 +1,6 @@
 import { createReleaseIdValueContract } from './release-id-value-contract.mjs';
-import { createSchemaCompatibilityCoordinateValueContract } from './schema-compatibility-coordinate-value-contract.mjs';
 
-export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v2';
+export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v3';
 const SHA256 = /^sha256:[0-9a-f]{64}$/u;
 const ZERO_SHA256 = `sha256:${'0'.repeat(64)}`;
 const COMMIT_SHA = /^[0-9a-f]{40}$/u;
@@ -19,12 +18,16 @@ const TOP_LEVEL_FIELDS = new Set([
     'createdAtUtc',
     'frontendManifestHash',
     'wasmArtifactHash',
-    'schemaCompatibility',
+    'currentSchema',
     'toolchain',
     'runtimeProfile',
     'build'
 ]);
-const SCHEMA_COMPATIBILITY_FIELDS = new Set(['minimumCoordinate', 'maximumCoordinate']);
+const currentSchemaFields = new Set(['receiptFormat', 'receipt', 'receiptContentDigest', 'target', 'database', 'actualSchemaDigest']);
+const receiptReferenceFields = new Set(['reference', 'sha256']);
+const targetFields = new Set(['modelVersion', 'extractorVersion', 'generatorVersion', 'sourceDigest', 'contentDigest']);
+const databaseFields = new Set(['provider', 'instanceId', 'databaseId']);
+const hexDigest = /^[0-9a-f]{64}$/u;
 const TOOLCHAIN_FIELDS = new Set(['dotnetVersion', 'nodeVersion', 'dockerVersion', 'dockerfileDigest']);
 const BUILD_FIELDS = new Set(['dockerfile', 'target']);
 const RUNTIME_PROFILE_FIELDS = new Set([
@@ -49,12 +52,100 @@ const DEFAULT_RUNTIME_PROFILE = Object.freeze({
 });
 
 
-export function createReleaseManifestValueContract({ releaseIdContract, schemaCompatibilityContract })
+function hasControlCharacter(value)
+{
+    return [...value].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127);
+}
+
+/** Validates a release projection of the existing receipt; it does not verify a database or issue a receipt. */
+export function validateCurrentSchemaBinding(binding)
+{
+    const errors = [];
+    function closed(value, fields, label)
+    {
+        if (!value || typeof value !== 'object' || Array.isArray(value)
+            || Object.keys(value).sort().join(',') !== [...fields].sort().join(','))
+        {
+            errors.push(`${label} fields must be closed exact`);
+            return false;
+        }
+        return true;
+    }
+    if (!closed(binding, currentSchemaFields, 'currentSchema'))
+    {
+        return errors;
+    }
+    if (binding.receiptFormat !== 'fsusblog.current-schema-receipt.v1')
+    {
+        errors.push('currentSchema.receiptFormat must reference the canonical current-schema receipt v1');
+    }
+    for (const key of ['receiptContentDigest', 'actualSchemaDigest'])
+    {
+        if (!hexDigest.test(String(binding[key] ?? '')))
+        {
+            errors.push(`currentSchema.${key} must be a lowercase SHA-256`);
+        }
+    }
+    if (closed(binding.receipt, receiptReferenceFields, 'currentSchema.receipt'))
+    {
+        const reference = binding.receipt.reference;
+        if (typeof reference !== 'string' || !/^(?:\/|[A-Za-z]:[\\/])/u.test(reference)
+            || reference !== reference.trim() || hasControlCharacter(reference)
+            || /(?:^|[\\/])(?:latest|previous|stable)(?:[\\/]|$)/u.test(reference))
+        {
+            errors.push('currentSchema.receipt.reference must be an explicit absolute artifact path');
+        }
+        if (!hexDigest.test(String(binding.receipt.sha256 ?? '')))
+        {
+            errors.push('currentSchema.receipt.sha256 must be a lowercase artifact SHA-256');
+        }
+    }
+    if (closed(binding.target, targetFields, 'currentSchema.target'))
+    {
+        for (const key of ['modelVersion', 'extractorVersion', 'generatorVersion'])
+        {
+            if (typeof binding.target[key] !== 'string' || binding.target[key].trim() !== binding.target[key]
+                || !binding.target[key] || hasControlCharacter(binding.target[key]))
+            {
+                errors.push(`currentSchema.target.${key} must be an exact nonempty value`);
+            }
+        }
+        for (const key of ['sourceDigest', 'contentDigest'])
+        {
+            if (!hexDigest.test(String(binding.target[key] ?? '')))
+            {
+                errors.push(`currentSchema.target.${key} must be a lowercase SHA-256`);
+            }
+        }
+    }
+    if (closed(binding.database, databaseFields, 'currentSchema.database'))
+    {
+        if (![0, 1, 2].includes(binding.database.provider))
+        {
+            errors.push('currentSchema.database.provider must be the canonical PostgreSQL/MySQL/SQLite enum value');
+        }
+        for (const key of ['instanceId', 'databaseId'])
+        {
+            if (typeof binding.database[key] !== 'string' || !binding.database[key]
+                || binding.database[key] !== binding.database[key].trim() || hasControlCharacter(binding.database[key]))
+            {
+                errors.push(`currentSchema.database.${key} must be an exact nonempty value`);
+            }
+        }
+    }
+    return errors;
+}
+
+export function createReleaseManifestValueContract({ releaseIdContract })
 {
     const { assertReleaseIdentity } = createReleaseIdValueContract(releaseIdContract);
-    const { assertSchemaCompatibilityWindow } = createSchemaCompatibilityCoordinateValueContract(schemaCompatibilityContract, releaseIdContract);
     function createReleaseManifest(input)
     {
+        if (Object.hasOwn(input, 'schemaMinimumCoordinate') || Object.hasOwn(input, 'schemaMaximumCoordinate')
+            || Object.hasOwn(input, 'schemaCompatibility'))
+        {
+            throw new Error('schema compatibility inputs are unsupported; use the exact current-schema receipt binding');
+        }
         const manifest = {
             schema: RELEASE_MANIFEST_SCHEMA,
             releaseId: input.releaseId,
@@ -67,10 +158,7 @@ export function createReleaseManifestValueContract({ releaseIdContract, schemaCo
             createdAtUtc: input.createdAtUtc,
             frontendManifestHash: input.frontendManifestHash,
             wasmArtifactHash: input.wasmArtifactHash,
-            schemaCompatibility: assertSchemaCompatibilityWindow(
-                input.schemaMinimumCoordinate,
-                input.schemaMaximumCoordinate
-            ),
+            currentSchema: input.currentSchema,
             toolchain: {
                 dotnetVersion: input.dotnetVersion,
                 nodeVersion: input.nodeVersion,
@@ -159,25 +247,7 @@ export function createReleaseManifestValueContract({ releaseIdContract, schemaCo
                 errors.push(`${field} must be sha256:<64 lowercase hex>`);
             };
         }
-        if (!manifest.schemaCompatibility || typeof manifest.schemaCompatibility !== 'object')
-        {
-            errors.push('schemaCompatibility is required');
-        }
-        else
-        {
-            rejectUnknownFields(manifest.schemaCompatibility, SCHEMA_COMPATIBILITY_FIELDS, 'schemaCompatibility', errors);
-            try
-            {
-                assertSchemaCompatibilityWindow(
-                    manifest.schemaCompatibility.minimumCoordinate,
-                    manifest.schemaCompatibility.maximumCoordinate
-                );
-            }
-            catch (error)
-            {
-                errors.push(error instanceof Error ? error.message : String(error));
-            }
-        }
+        errors.push(...validateCurrentSchemaBinding(manifest.currentSchema));
         if (!manifest.toolchain || typeof manifest.toolchain !== 'object')
         {
             errors.push('toolchain is required');

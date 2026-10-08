@@ -16,16 +16,17 @@ AEDS, migration, rollout, evidence and cryptographic schema versions are indepen
 
 ## Immutable manifest
 
-`fsusblog.release-manifest.v2` is the deployable identity authority. One manifest binds:
+`fsusblog.release-manifest.v3` is the deployable identity authority. One manifest binds:
 
 - release ID and creation time;
 - full commit SHA;
 - immutable `repository@sha256:<digest>` image reference;
-- frontend, Wasm, ZK review and toolchain identities.
+- frontend, Wasm, ZK review and toolchain identities;
+- the unique current-schema receipt artifact/ref/digest, exact target and database identity.
 
 `tools/build-final-image.sh` captures this tuple once before build work and writes `build/releases/<release-id>/release-manifest.json` atomically. Explicit environment identity is accepted only as a comparison expectation and cannot replace the manifest.
 
-Deployment validates the manifest, pulls the exact digest, verifies OCI labels and uses Compose with `--no-build`. Compose receives the same release ID, creation time, commit, digest, slot and runtime generation. A disagreement fails before candidate state is persisted or traffic is changed.
+Deployment binds the manifest and its bounded current-schema receipt bytes, then pulls the exact digest, verifies OCI labels and uses Compose with `--no-build`. Compose receives the same release ID, creation time, commit, digest, slot and runtime generation. A disagreement fails before candidate state is persisted or traffic is changed. Byte binding does not validate the receipt semantic seal or observe a database; the canonical C# verifier and live Server admission remain mandatory. Signing and same-candidate atomic activation are additional acceptance gates, not proved by a manifest-shaped file.
 
 ## Propagation and evidence binding
 
