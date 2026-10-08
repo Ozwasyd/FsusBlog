@@ -424,7 +424,7 @@ export function parsePublicShellLocaleSceneOriginalJson(bytes, { kind, matrix, c
         selectors: array(object({ active: primitive, pending: primitive, visible: primitive, expanded: primitive, disabled: domBoolean,
             items: array(object({ code: primitive, selected: primitive, visible: primitive, ariaLabelOrText: primitive,
                 nativeName: domNullableText, englishName: domNullableText, direction: domNullableText, disabled: domBoolean }),
-                originalBrowserRecordLimits.recordBytes) }), originalBrowserRecordLimits.recordBytes),
+            originalBrowserRecordLimits.recordBytes) }), originalBrowserRecordLimits.recordBytes),
         geometry: array(object({ name: primitive, box, visible: primitive, ariaLabelOrText: primitive, fontFamily: primitive }),
             originalBrowserRecordLimits.recordBytes),
         containment: array(array(scalar(originalBrowserRecordLimits.recordBytes, value => typeof value === 'number'), 2, 2), originalBrowserRecordLimits.recordBytes),
