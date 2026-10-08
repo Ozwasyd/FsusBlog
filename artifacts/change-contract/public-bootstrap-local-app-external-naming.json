@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/style-toolchain/eslint.config.mjs"
+            ],
+            "reason": "Preserve the existing local FsusUI process environment names and frontend tooling command/configuration identifiers while consuming the canonical configuration owner source. No environment key or SDK export is renamed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/frontend-style-policy.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing frontend-style policy and independently indexed execution-authority schema keys. Add real canonical resolver source dependencies and regenerated digests without changing parser authority or admission semantics."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/fsusui-typecheck-modes.md"
+            ],
+            "reason": "Preserve existing documented frontend style and public consumer names while describing the canonical full application local source project. No CSS selector or token is renamed."
+        }
+    ]
+}
