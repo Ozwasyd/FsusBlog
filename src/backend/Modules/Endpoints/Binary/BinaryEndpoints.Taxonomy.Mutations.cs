@@ -1,3 +1,5 @@
+using System.Runtime.ExceptionServices;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
@@ -30,6 +32,22 @@ public static partial class BinaryEndpoints
         : InvalidOperationException("category_mutation_committed_dispatch_failed", innerException)
     {
         internal CategoryMutationReceipt CommittedMutation { get; } = committedMutation;
+    }
+
+    internal static async Task<CategoryMutationReceipt> AwaitCategoryMutationForPublicEndpointAsync(
+        Task<CategoryMutationReceipt> mutation)
+    {
+        try
+        {
+            return await mutation;
+        }
+        catch (CategoryMutationDispatchException exception)
+        {
+            // Internal canary callers retain custody; the existing public error
+            // pipeline must still see the original cancellation/error type.
+            ExceptionDispatchInfo.Capture(exception.InnerException!).Throw();
+            throw;
+        }
     }
 
     internal static async Task<CategoryMutationReceipt> CreateCategoryAndDispatchAsync(

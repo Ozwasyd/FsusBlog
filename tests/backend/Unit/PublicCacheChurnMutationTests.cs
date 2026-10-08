@@ -119,6 +119,11 @@ public sealed class PublicCacheChurnMutationTests
         Assert.True(await db.Queryable<Category>().AnyAsync(category => category.Id == committed.CategoryId));
         Assert.Null(await state.GetActiveAsync(CancellationToken.None));
 
+        InvalidOperationException publicFailure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BinaryEndpoints.AwaitCategoryMutationForPublicEndpointAsync(
+                Task.FromException<BinaryEndpoints.CategoryMutationReceipt>(failure)));
+        Assert.Same(failure.InnerException, publicFailure);
+
         var recoveredDispatcher = Substitute.For<ICacheInvalidationDispatcher>();
         BinaryEndpoints.CategoryMutationReceipt cleanup = await BinaryEndpoints.DeleteCategoryAndDispatchAsync(
             db, invalidation, recoveredDispatcher, queue, committed.CategoryId, CancellationToken.None);
@@ -148,6 +153,25 @@ public sealed class PublicCacheChurnMutationTests
         Assert.NotNull(created.Delivery);
         await dispatcher.Received(1).InvalidateCategoryTagAsync(created.MutationId, CancellationToken.None);
         Assert.Equal(created.Delivery.Value.ObligationId, (await state.GetActiveAsync(CancellationToken.None))!.ObligationId);
+    }
+
+    [Fact]
+    public async Task PublicEndpointDispatchCancellation_PreservesOriginalErrorSemantics()
+    {
+        using SqlSugarClient db = CreateDatabase();
+        var invalidation = Substitute.For<ICacheInvalidationStore>();
+        var dispatcher = Substitute.For<ICacheInvalidationDispatcher>();
+        var state = new InMemoryPublicHotArtifactDeliveryStateStore();
+        var original = new OperationCanceledException("canonical-dispatch-stopped");
+        dispatcher.InvalidateCategoryTagAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(original));
+
+        OperationCanceledException observed = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            BinaryEndpoints.AwaitCategoryMutationForPublicEndpointAsync(BinaryEndpoints.CreateCategoryAndDispatchAsync(
+                db, invalidation, dispatcher, CreateQueue(state), "cancelled-dispatch-owned", null, CancellationToken.None)));
+        Assert.Same(original, observed);
+        Assert.Single(await db.Queryable<Category>().ToListAsync());
+        Assert.Null(await state.GetActiveAsync(CancellationToken.None));
     }
 
     private static PublicHotArtifactUpdateQueue CreateQueue(InMemoryPublicHotArtifactDeliveryStateStore state)

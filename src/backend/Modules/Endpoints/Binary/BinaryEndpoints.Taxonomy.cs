@@ -168,9 +168,9 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"分类“{trimmedName}”已存在"), aeds);
             }
 
-            CategoryMutationReceipt mutation = await CreateCategoryAndDispatchAsync(
+            CategoryMutationReceipt mutation = await AwaitCategoryMutationForPublicEndpointAsync(CreateCategoryAndDispatchAsync(
                 db, cacheInvalidation, invalidationDispatcher, publicHotUpdates,
-                trimmedName, normalizedDescription, cancellationToken);
+                trimmedName, normalizedDescription, cancellationToken));
             if (mutation.Outcome == CategoryMutationOutcome.WriteFailed)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "由于数据库写入异常，分类创建失败"), aeds);
@@ -284,8 +284,8 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken,
             IAedsEncoder aeds) =>
         {
-            CategoryMutationReceipt mutation = await DeleteCategoryAndDispatchAsync(
-                db, cacheInvalidation, invalidationDispatcher, publicHotUpdates, id, cancellationToken);
+            CategoryMutationReceipt mutation = await AwaitCategoryMutationForPublicEndpointAsync(DeleteCategoryAndDispatchAsync(
+                db, cacheInvalidation, invalidationDispatcher, publicHotUpdates, id, cancellationToken));
             if (mutation.Outcome == CategoryMutationOutcome.InUse)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "无法删除：该分类下仍有关联文章，请先迁移文章到其他分类"), aeds);
