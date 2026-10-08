@@ -66,6 +66,36 @@ must block dependent consumers through the existing scheduler.
 
 ## Required integration by existing owners
 
+The published framework at `ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c`, including
+behavior correction `653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0`, now supplies the
+canonical declaration/compiler/attempt execution API. The followup consumer
+`prepareFrontendManifestAdmission(compiled, options)` independently matches the
+matrix's manifest entry set, unchanged command argv, explicit hard/settled edges,
+every declared resource field and command environment against that compiled graph.
+It consumes the existing independent authority reference and replay validators
+for current-run/source/environment binding. It creates no topology, retry policy,
+test selection, seed, resource grant or authority receipt.
+
+`executeFrontendManifestAtomicGroup(compiled, options)` calls that preparation
+then dispatches once through `executeCompiledAtomicProducerDag`. The canonical
+runner owns each attempt and evidence root; the canonical execution error/vector
+is returned unchanged, including blocked children and complete settled outcomes.
+Its options are the original framework execution options plus `groupId`; the graph
+must contain only that logical parent. No raw group loop or separate attempt runner
+is used. These checks supplement reference validation; they do not independently
+prove transitive input custody, physical enforcement or runtime qualification.
+
+The current seven runtime entries still lack explicit entry resources/inputs and
+cannot be admitted by this bridge. Composite `localCommands` remain refused.
+An explicit applicability field requires the compiler owner to supply its policy
+admission; it is not discarded or converted to success. The framework currently
+admits correctness static/build/runtime execution classes: the perf benchmark
+and existing diagnostic visual declarations cannot be relabeled to fit that schema.
+Their respective replay/measurement and fixture/browser proof boundaries remain
+open. The separately published scheduler terminal/CAS/journal capabilities at
+`2eda290cc6098971b685b3fb1465d7193bd3dde2` were inspected; this command preparation
+bridge does not seal scheduler terminal authority or adopt that broad source tree.
+
 All three issues remain open until the following consumers are integrated and
 tested on the exact combined candidate:
 
