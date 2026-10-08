@@ -1,0 +1,33 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/fsusui-baseline.json",
+                "config/schemas/article-relation-contract.schema.json"
+            ],
+            "reason": "Preserve serialized public source-pin and relation schema field names while updating the exact public prerequisite and canonical anchor admission grammar."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/overview.md",
+                "docs/api/contracts.md",
+                "docs/architecture/article-asset-reference-lifecycle.md"
+            ],
+            "reason": "Preserve documented public selector, token and contract spellings while updating canonical anchor, attachment lifecycle, relation ownership and the consumed native asset-observation boundary."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "tools/governance/check-article-relations.mjs",
+                "src/backend/Interfaces/IFileService.cs",
+                "src/backend/Interfaces/UploadAssetObservation.cs",
+                "src/backend/Services/FileService.AssetObservation.cs"
+            ],
+            "reason": "Preserve established process environment and external contract spellings on the registered C# surfaces while consuming the exact original-owner native asset observer; no external identifier is renamed."
+        }
+    ]
+}

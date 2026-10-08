@@ -1,5 +1,6 @@
 import { ref } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext'
 import {
   commitArticlePreviewIfCurrent,
   useArticlePreviewGeneration,
@@ -54,6 +55,15 @@ const requestFor = (
   expectedServerRevision: null
 })
 
+const createDocumentContext = () => createArticleDocumentContextAdapter({
+  articleId: 1,
+  draftId: 'article:1',
+  editorSessionId: 'session:preview-test',
+  siteScope: 'site:test',
+  userScope: 'user:test',
+  content: 'content A'
+})
+
 const deferred = <T>() => {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((settle) => {
@@ -75,6 +85,7 @@ describe('admin article preview generation authority', () => {
     const pendingB = deferred<ArticlePreviewResponse>()
     const generation = useArticlePreviewGeneration({
       target,
+      documentContext: createDocumentContext(),
       readRequest: () => requestFor(current),
       readCurrentSnapshot: () => current,
       createIdentity: async request => `identity:${request.title}`,
@@ -123,6 +134,7 @@ describe('admin article preview generation authority', () => {
     const pending = deferred<ArticlePreviewResponse>()
     const generation = useArticlePreviewGeneration({
       target,
+      documentContext: createDocumentContext(),
       readRequest: () => requestFor(current),
       readCurrentSnapshot: () => current,
       createIdentity: async () => 'identity:A',
@@ -153,6 +165,7 @@ describe('admin article preview generation authority', () => {
     }
     const generation = useArticlePreviewGeneration({
       target,
+      documentContext: createDocumentContext(),
       readRequest: () => requestFor(current),
       readCurrentSnapshot: () => current,
       createIdentity: async () => 'identity:A',
@@ -163,6 +176,66 @@ describe('admin article preview generation authority', () => {
       .rejects.toThrow('article_preview_source_identity_mismatch')
     expect(target.value).toBeNull()
   })
+
+  it.each(['abort', 'document-switch', 'source-revision'] as const)(
+    'does not send a preview after %s while hashing the source', async (change) => {
+      const target = ref<ArticlePreviewResponse | null>(null)
+      const documentContext = createDocumentContext()
+      const identity = deferred<string>()
+      const controller = new AbortController()
+      const source = { title: 'A', content: 'content A' }
+      const requestPreview = vi.fn(async () => previewFor(source))
+      const generation = useArticlePreviewGeneration({
+        target,
+        documentContext,
+        readRequest: () => requestFor(source),
+        readCurrentSnapshot: () => source,
+        createIdentity: () => identity.promise,
+        requestPreview
+      })
+      const pending = generation.generate(controller.signal)
+      if (change === 'abort') {
+        controller.abort()
+      } else if (change === 'document-switch') {
+        documentContext.switchDocument({ articleId: 2, draftId: 'article:2', content: source.content })
+      } else {
+        documentContext.updateSource(source.content, 1)
+      }
+      identity.resolve('identity:A')
+      await expect(pending).resolves.toBeNull()
+      expect(requestPreview).not.toHaveBeenCalled()
+      expect(target.value).toBeNull()
+      documentContext.dispose()
+    }
+  )
+
+  it.each(['document-switch', 'source-revision'] as const)(
+    'rejects a late preview after %s even when transport ignores cancellation', async (change) => {
+      const target = ref<ArticlePreviewResponse | null>(null)
+      const documentContext = createDocumentContext()
+      const response = deferred<ArticlePreviewResponse>()
+      const source = { title: 'A', content: 'content A' }
+      const generation = useArticlePreviewGeneration({
+        target,
+        documentContext,
+        readRequest: () => requestFor(source),
+        readCurrentSnapshot: () => source,
+        createIdentity: async () => 'identity:A',
+        requestPreview: () => response.promise
+      })
+      const pending = generation.generate(new AbortController().signal)
+      await Promise.resolve()
+      if (change === 'document-switch') {
+        documentContext.switchDocument({ articleId: 2, draftId: 'article:2', content: source.content })
+      } else {
+        documentContext.updateSource(source.content, 1)
+      }
+      response.resolve(previewFor(source))
+      await expect(pending).resolves.toBeNull()
+      expect(target.value).toBeNull()
+      documentContext.dispose()
+    }
+  )
 
   it('rejects identity mismatch, older generations, and form edits before committing preview state', async () => {
     const target = ref<ArticlePreviewResponse | null>(null)

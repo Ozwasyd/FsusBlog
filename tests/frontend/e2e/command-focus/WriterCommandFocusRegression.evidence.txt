@@ -1,0 +1,978 @@
+Writer composed command focus regression — truthful WIP evidence
+This is a hand-curated QA record with unmodified captured failure/diagnostic excerpts.
+It is not an authenticated runtime/UX acceptance receipt, published-package proof,
+or canonical matrix/conformance artifact. Product repair belongs to original owners.
+
+IDENTITY AND OWNERSHIP
+Exact browser-tested Blog candidate: 7c2784e367fe57aa5a8ecb1c2c0e6705434055af
+Canonical original2246 source consumed verbatim: 0b1c804f9ac82b93246a29e5abc026c630328ba3
+Original bounded product source: 6bac4acccd5120e73e9001db06144a216168a9c8
+Navigation2233 source included in consumed owner history: 21eb0e74b339be8839ab065ca311940b0f912adf
+Real local FsusUI clean source: f2b3bb89ffe5f749da26c388f058efdbb6aee864
+Branch: codex/composed-command-focus-regressions-20261008
+Draft: https://github.com/Ozwasyd/FsusBlog/pull/4006
+First usable source: 28c57116f9b3378e5ec026b7adf65220c77589e2
+Environment: Node v24.19.0; Playwright 1.59.1; Chromium 151.0.7922.173 (Debian13).
+Run start: 2026-10-08T06:12:26.769Z; 3 workers, retries0; 117817.153ms.
+Only own three QA TypeScript files plus this record differ from consumed source.
+The enclosing evidence-only commit is not represented as a separate browser run.
+Source blob identities at the exact tested candidate:
+tests/frontend/e2e/command-focus/WriterCommandFocusRegression.config.ts: git-blob 823eb0ceb7ee140998994522753983bfab66371c; sha256 3021913a1a75a665b6f71c28a7021f479d4915fb84e4c4895c1c28f7e3e7c386
+tests/frontend/e2e/command-focus/WriterCommandFocusRegression.fixture.ts: git-blob 9c96b603d9483aa0747865be9603c094eeefcbf5; sha256 370fce3fcaa76cc440c56f05bfe689b4bbd13b28a113bd51a508679164eb2e0e
+tests/frontend/e2e/command-focus/WriterCommandFocusRegression.spec.ts: git-blob 4008bfe903ed226273b52a6f285665f68e9e0c83; sha256 7f31966dcb1e19f5b6ee4330ae1c16b4e0df646f1be638fd00be0be5739f72a9
+
+REPLAY (from repository root, installed frontend dependencies, actual local FsusUI)
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI COMMAND_FOCUS_EVIDENCE_ROOT=/tmp/command-focus-qa/replay node src/frontend/node_modules/@playwright/test/cli.js test --config tests/frontend/e2e/command-focus/WriterCommandFocusRegression.config.ts
+System Chromium defaults to /usr/bin/chromium; override COMMAND_FOCUS_CHROMIUM if needed.
+Port4317 must be free. Original application Vite config and original local alias resolver
+are imported, not cloned. Source alias is authorized local capability, not published evidence.
+Actual Write.vue is mounted through memory RouterView, real Pinia and FsusUI plugin;
+local synthetic session projection seeds article.write through public store action.
+Only loopback /api/ requests are aborted fail-closed. No successful AEDS/PoW/auth receipt
+is invented; no production backend or credential access. This isolates client composition,
+not full application bootstrap, server authorization or saved/conflict product completion.
+Browser plugin capability was absent; regular system Chromium + Playwright was used.
+The fixture serves HTML through actual Vite; no network-security disabling flag is used.
+
+ACTUAL RESULT: 7 PASS / 3 FAIL / 0 SKIP (no retry)
+1. FAIL: Writer palette command hands focus to the real inspector and Escape restores body selection
+2. PASS: repeated shortcut and pointer entry closes with Escape without replacing the dirty editor
+3. PASS: body composition and repeated keydown cannot open the palette before composition ends
+4. FAIL: composing Enter in palette search cannot launch an inspector command
+5. PASS: revoked permission disables current palette commands without changing the unsaved body
+6. PASS: dirty leave confirmation gates palette entry and cancellation retains the real editor
+7. PASS: source compare transitions retain one editor, backward selection and palette focus restoration
+8. PASS: palette focus trap and active-descendant identity remain valid before inspector handoff
+9. PASS: Escape closes the palette alone while a rail-opened inspector remains active
+10. FAIL: visible palette entry and touch inspector command remain reachable in the modal host
+
+FINDINGS AND PRECISE ORIGINAL-OWNER REQUESTS
+F1: Body backward selection18..30 -> Ctrl+P -> 内容检查 -> inspector focus -> Escape.
+Inspector closes; body value/selection/direction survive, but activeElement is rail 检查
+button rather than body. useArticleWriteInspectorCommands.run opens without editor origin;
+useArticleWriteInspector.open falls back to railTriggers. Owner must carry real editor
+origin through canonical open/close path and restore focus + selection direction.
+https://github.com/Ozwasyd/FsusBlog/pull/3818#issuecomment-6053438228
+F2: Palette combobox compositionstart then Enter/isComposing=true/keyCode229 executes
+active inspector command and closes palette. Markdown editor @keydown.enter.prevent
+calls executeActivePaletteItem without composition guard. FsusUI canonical owner must
+use its existing keyboard consumption contract; do not patch Blog with wrapper workaround.
+https://github.com/Ozwasyd/FsusBlog/pull/3818#issuecomment-6053526700
+This is synthetic DOM event qualification, not native OS IME evidence.
+F3: 375x812 dark touch emulation, noncollapsed backward body selection3..12: visible
+文章检查器 entry cannot be tapped. Floating editor selection toolbar 五级标题/公式
+intercepts the actual hit; offline error toast also intercepts some retries. Original
+FsusUI overlay/chrome owner and Blog rail-composition owner must reconcile actual hit
+regions while retaining selection and using shared geometry/layer contracts. No force tap,
+selection clearing, forced focus or private product override is used. Mobile inspector
+return-focus assertions are UNRUN because this entry fails first.
+Later final path-claim/mobile-update comment delivery hit GitHub secondary content-creation
+rate-limit HTTP403; these exact requests remain reviewable in this record and Draft PR.
+
+SCOPE LIMITS — UNRUN IS NOT SKIP OR PASS
+Actual Writer never consumes bindEditor/events in this tested source, although original2246
+runtime bindEditor(editor, options)->{binding,release} and three-layer
+ArticleWriteEditor.getAuthoringEditorPort()->ArticleEditorContinuityPort|null are delivered.
+Original public-port source 790b3abb4c6de0da2d9fe177c04c05e7ce8695cc is an ancestor
+of consumed0b1 and exact tested7c; git merge reports already up to date. Wrapper
+transaction/selection-change/editor-focus forwarding exists, same public exposed instance. No private substitute binding/adapter is created here.
+Writing-aids original offer b51c3cc824d4f44e3d5ab75d4b62298a86be5e24 (Draft4007) delivers
+createArticleWritingAidRuntimeConsumer(binding, existingArticleDocumentContextAdapter),
+but canonical Writer mounting/production transitions are missing. Product writing-aids
+focus/selection/anchors and stale-transaction gates remain UNRUN.
+QuickSwitcher mounted product API/query-cache transport integration absent in consumed
+source: QuickSwitcher transitions UNRUN. Save/publish/server conflict commands are not
+registered in this inspector-only palette and backend is deliberately unavailable:
+server conflict/version/permission receipts and unsaved persistence gates UNRUN.
+Client revoked-permission palette and dirty leave dialog behavior are actually tested;
+these are not server auth/conflict qualification. Source-compare test qualifies two real
+aria-pressed state transitions and editor/selection survival, not render continuity receipts.
+Native OS IME, physical touch device and real screen reader unavailable: WIP/UNRUN.
+Accessibility DOM assertions (modal, Tab/ShiftTab trap, active descendant, actual handoff),
+reduced-motion matchMedia and aria snapshots run; no full WCAG/UX acceptance claimed.
+Console health FAIL: PoW FACTORY_MISSING plus deliberately unavailable binary requests;
+all console messages captured, not suppressed or asserted as clean.
+
+LOCAL GATES AND REPRODUCIBLE COMMANDS
+PASS range: node tools/governance/check-change-contract.mjs --range 0b1c804f9ac82b93246a29e5abc026c630328ba3..HEAD
+PASS whitespace: git diff --check 0b1c804f9ac82b93246a29e5abc026c630328ba3..HEAD
+Initial live PR metadata FAIL: missing Formatter/linter checked field, and test title cannot
+claim Behavior change. Initial failure preserved below; metadata correction is separate.
+Canonical frontend style executed: node tools/frontend/check-frontend-style.mjs --mode changed --base 0b1c804f9ac82b93246a29e5abc026c630328ba3
+Output ok files=0 eslint=0 stylelint=0. Policy excludes these test TS files: this is NO
+source lint coverage, not proof that regression sources are lint-clean. Locked toolchain
+installed under task worktree; first readonly npm-cache failure preserved outside source.
+Scoped vue-tsc FAIL: node src/frontend/node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p /tmp/command-focus-qa/tsconfig.owned.json
+125 dependency diagnostics, zero diagnostics in these three owned TS files. No blanket
+pass or baseline-equivalence claim. Temp config extends original tsconfig.playwright,
+uses original local alias paths and Playwright index.d.ts; reproduced config below.
+Canonical AST adapter: node tools/test-inventory/ts-ast-adapter/index.mjs /tmp/command-focus-qa/inventory-request.json
+Input {"root":"/workspace/FsusBlog-command-qa","files":[{"path":"tests/frontend/e2e/command-focus/WriterCommandFocusRegression.spec.ts","adapter":"playwright"}]}
+10 real cases / 2 suites / 0 diagnostics / 0 skips. This scoped extraction is not a full
+canonical inventory/matrix receipt. Shared suite/matrix registration requested from owner.
+BLOCKED source plan: node tools/run-test-matrix.mjs ci-pr-smart --base-ref 0b1c804f9ac82b93246a29e5abc026c630328ba3 --stage source-integration --plan-only
+Authority refuses independent release-final Node parser identity drift; no gate weakened.
+BLOCKED quality: node tools/ci/check-test-quality.mjs (conformance artifact missing).
+FAIL hygiene: bash tools/check-test-hygiene.sh stops at 16 existing backend-root files;
+no listed file changed here. It stops before frontend; not a full frontend hygiene pass.
+GitHub: gh pr checks 4006 reports no checks, never represented as CI pass.
+Full fast/release matrix, conformance, build, server/device acceptance UNRUN.
+Independent read-only test reviewer identified fixture gap/wrong mobile label/missing
+compare-state assertion and composition/repeat separation; corrected only owned tests.
+Reviewer feedback is not merge or product acceptance. Independent new reviewer owns merge.
+
+PRESERVED FIRST FAILURES / FINAL ARTIFACT DIGESTS
+/tmp/command-focus-qa/first-run.log: sha256 66b2713c1a141115ac6ddc34d0da44d8a91ee0194d6402c6b16116ee6222779c
+/tmp/command-focus-qa/first-browser.log: sha256 68369d6e104faaeea1bb552fa31bc2f7221249a9b737f68ac8225bfbfb092324
+/tmp/command-focus-qa/server-entry.log: sha256 16a4ed007548510cbfa6ba1d750b8c5972dea4df2ac8a8c2f98973fc0e0431e0
+/tmp/command-focus-qa/mounted-first.log: sha256 d04c828eba9a1e7de8546fc5c23b47d98016bfe452fd5624c96ec219101bf3a6
+/tmp/command-focus-qa/first-composed.log: sha256 d37abfa96433b8d08da2c96f0a069fbfcf19ef165fb4cf12e2367b0a298d8f7b
+/tmp/command-focus-qa/broadened.log: sha256 af2dc8a21c0162b15b2e9bd5659d15b5eaef47d3a9bddf43b3c5bb349008c3f0
+/tmp/command-focus-qa/changed-cases.log: sha256 c827775626a18ff6826f66b91e9cc7897cbe523d4805288b58393637ea4f04b2
+/tmp/command-focus-qa/exact-7c2784e3.log: sha256 543b60ebc0047615cc1ef43a2de847fa4bbea5a4ad1800d4ed3bab562240a5c5
+/tmp/command-focus-qa/owned-types-first.log: sha256 87b35c3530cb1cc8bfa36d2209cf765cac8c4162a11624a450c5cd25f7411e8c
+/tmp/command-focus-qa/owned-types-corrected.log: sha256 d4e8896e74d40d32d6287e3615d635d0d9dabc2b403a1d279c2bd8f25bd3fe78
+/tmp/command-focus-qa/owned-style-first.log: sha256 2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0
+/tmp/command-focus-qa/owned-style-after-install.log: sha256 e821ccb5b6ffe24e8dbb65a14f9381f9507805e4c41ca38c4ec99a3b0ae2df39
+/tmp/command-focus-qa/style-toolchain-install.log: sha256 c023b9682b37456301a638738440ad4296ea41221c316ed9340ccdff77262074
+/tmp/command-focus-qa/style-toolchain-install-workspace.log: sha256 e00315066e49d36fdf4fd0adc02975c3c23ca8cf730172a87452263fd3d6283d
+/tmp/command-focus-qa/hygiene-first.log: sha256 1a2ee706d9120554b97f765e08e891438dd6026cdd8327698b2cdbacfd31e40c
+/tmp/command-focus-qa/quality-first.log: sha256 3a00650a4b922611bd6c73478b04cde80c40e4ad29a96b48ea082c3672808bb3
+/tmp/command-focus-qa/source-plan.log: sha256 48907b9a55f11ab2054c1e3bae80e36c0bf6fe9912fc97978553d0e0500990ce
+/tmp/command-focus-qa/pr-contract-first.log: sha256 b3efd2dc311894fdd2030fc6d7d4c1d503177e1dabfbd50ade219cdb09483016
+/tmp/command-focus-qa/remote-checks.log: sha256 aeaad378d5160210ea70adb4ed6d2459f470a4dcfb878d3bd27423f97bbe9cd2
+/tmp/command-focus-qa/first-composed/results.json: sha256 a18b659743ee3e4df6c5b97e738816cc53e6b22c4a62bccfc7dde69d4f410d00
+/tmp/command-focus-qa/exact-7c2784e3/results.json: sha256 da0ec56b992631f2d5ce106c3271ae2774f146656ae34ea6d316cd89bf784449
+
+FINAL FAILURE: Writer palette command hands focus to the real inspector and Escape restores body selection
+Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeFocused[2m([22m[2m)[22m failed
+
+Locator:  getByRole('region', { name: '正文', exact: true }).getByRole('textbox')
+Expected: focused
+Received: inactive
+Timeout:  10000ms
+
+Call log:
+[2m  - Expect "soft toBeFocused" with timeout 10000ms[22m
+[2m  - waiting for getByRole('region', { name: '正文', exact: true }).getByRole('textbox')[22m
+[2m    13 × locator resolved to <textarea lang="" rows="12" autocorrect="on" spellcheck="true" autocomplete="off" id="article-content" aria-disabled="false" name="articleContent" placeholder="从这里开始写正文。" writingsuggestions="true" autocapitalize="sentences" aria-label="Markdown 源码编辑区" class="el-markdown-editor__textarea" value="# Integration↵↵Unsaved body selection remains here."></textarea>[22m
+[2m       - unexpected value "inactive"[22m
+
+
+  81 |     await page.keyboard.press('Escape');
+  82 |     await expect(inspector).toBeHidden();
+> 83 |     await expect.soft(body).toBeFocused();
+     |                             ^
+  84 |     expect(await body.evaluate((element: HTMLTextAreaElement) => ({
+  85 |         start: element.selectionStart, end: element.selectionEnd, direction: element.selectionDirection
+  86 |     }))).toEqual({ start: 18, end: 30, direction: 'backward' });
+    at /workspace/FsusBlog-command-qa/tests/frontend/e2e/command-focus/WriterCommandFocusRegression.spec.ts:83:29
+screenshot: /tmp/command-focus-qa/exact-7c2784e3/artifacts/WriterCommandFocusRegressi-fa4c4-ape-restores-body-selection/test-failed-1.png; sha256 95b8a85ec7c103b09e5a92e29c943f76f0c1a425ca33a2395048f3ce8780f205
+
+console-and-runtime.txt (verbatim decoded attachment):
+requestfailed: http://127.0.0.1:4317/api/binary/category.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/tag.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/seo net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/compliance net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+error: [Write Init Error] BinaryTransportError: Failed to fetch
+    at executeBinaryRequest (http://127.0.0.1:4317/src/services/binaryTransport.ts:520:16)
+    at async requestBinaryOnlyWithDecoder (http://127.0.0.1:4317/src/services/binaryTransport.ts:484:17)
+    at async requestBinaryOnly (http://127.0.0.1:4317/src/services/binaryTransport.ts:588:49)
+    at async Promise.all (index 0)
+    at async refreshTaxonomy (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1294:28)
+    at async Promise.all (index 0)
+    at async http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1749:5
+    at async Object.run (http://127.0.0.1:4317/src/composables/useAbortableTask.ts:29:19)
+    at async initData (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1748:4)
+error: Failed to load resource: the server responded with a status of 404 (Not Found)
+requestfailed: http://127.0.0.1:4317/wasm/image_codec_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_threads.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_relaxed.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_basic.js net::ERR_ABORTED
+error: [Worker] Initialization Error: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+error: [Worker] PING Failed: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+
+accessibility-tree.txt (verbatim decoded attachment):
+- main "新建文章":
+  - heading "返回 新建文章 待发布" [level=1]:
+    - button "返回"
+    - text: 新建文章 待发布
+  - button "服务端草稿暂不可用；当前页面仍保留更改，请勿关闭"
+  - button "保存草稿"
+  - button "发布文章"
+  - region "文章文档":
+    - textbox "文章标题":
+      - /placeholder: 写下文章标题
+    - text: 0 / 100
+    - heading "正文" [level=2]
+    - button "打开文章大纲"
+    - region "正文":
+      - region "Markdown 编辑器":
+        - button "heading"
+        - button "bold"
+        - button "italic"
+        - button "link"
+        - button "quote"
+        - button "code"
+        - button "更多命令 (15)": 更多命令 15
+        - textbox "Markdown 源码编辑区":
+          - /placeholder: 从这里开始写正文。
+          - text: "# Integration Unsaved body selection remains here."
+        - text: 已完成
+        - toolbar "选区工具":
+          - button "bold"
+          - button "italic"
+          - button "heading"
+          - button "quote"
+          - button "code"
+          - button "link"
+          - button "插入图片"
+          - button "小节"
+          - button "四级标题"
+          - button "五级标题"
+          - button "六级标题"
+          - button "无序列表"
+          - button "有序列表"
+          - button "任务列表"
+          - button "表格"
+          - button "分割线"
+          - button "代码块"
+          - button "公式"
+          - button "流程图"
+      - status: 正文含 1 个一级标题（第 1 行）。文章标题已是页面唯一 H1；现有正文不会被改写，请将一级标题改为章节（##）。
+    - group "编辑表面与对照工具":
+      - group "编辑表面":
+        - button "实时"
+        - button "源码" [pressed]
+      - button "源码对照"
+      - button "文章检查器"
+  - navigation "文章检查器":
+    - button "发布"
+    - button "版权"
+    - button "检查"
+    - button "预览"
+    - button "版本"
+    - button "资源"
+
+focus-and-selection.json (verbatim decoded attachment):
+{
+  "url": "http://127.0.0.1:4317/__writer-command-focus-regression",
+  "focused": {
+    "tag": "BUTTON",
+    "id": "",
+    "role": null,
+    "label": "检查",
+    "text": "检查"
+  },
+  "body": {
+    "value": "# Integration\n\nUnsaved body selection remains here.",
+    "start": 18,
+    "end": 30,
+    "direction": "backward",
+    "focused": false
+  }
+}
+error-context: /tmp/command-focus-qa/exact-7c2784e3/artifacts/WriterCommandFocusRegressi-fa4c4-ape-restores-body-selection/error-context.md; sha256 cd9396829752ff5a650584a01e99bd95eee569efd827c94a45c6e02f7582bea9
+trace: /tmp/command-focus-qa/exact-7c2784e3/artifacts/WriterCommandFocusRegressi-fa4c4-ape-restores-body-selection/trace.zip; sha256 53b86953be64e7bcaff0a124af34e0352539f682209b5b523bd1f850fc68b841
+
+FINAL FAILURE: composing Enter in palette search cannot launch an inspector command
+Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+Locator: getByRole('dialog', { name: '命令面板' })
+Expected: visible
+Timeout: 10000ms
+Error: element(s) not found
+
+Call log:
+[2m  - Expect "soft toBeVisible" with timeout 10000ms[22m
+[2m  - waiting for getByRole('dialog', { name: '命令面板' })[22m
+
+
+  165 |         key: 'Enter', code: 'Enter', keyCode: 229, isComposing: true, bubbles: true, cancelable: true
+  166 |     });
+> 167 |     await expect.soft(palette).toBeVisible();
+      |                                ^
+  168 |     await expect.soft(page.locator('[data-inspector-view="check"][aria-hidden="false"]')).toHaveCount(0);
+  169 |     await expect(body).toHaveValue('IME command boundary');
+  170 | });
+    at /workspace/FsusBlog-command-qa/tests/frontend/e2e/command-focus/WriterCommandFocusRegression.spec.ts:167:32
+Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+Locator:  locator('[data-inspector-view="check"][aria-hidden="false"]')
+Expected: [32m0[39m
+Received: [31m1[39m
+Timeout:  10000ms
+
+Call log:
+[2m  - Expect "soft toHaveCount" with timeout 10000ms[22m
+[2m  - waiting for locator('[data-inspector-view="check"][aria-hidden="false"]')[22m
+[2m    13 × locator resolved to 1 element[22m
+[2m       - unexpected value "1"[22m
+
+
+  166 |     });
+  167 |     await expect.soft(palette).toBeVisible();
+> 168 |     await expect.soft(page.locator('[data-inspector-view="check"][aria-hidden="false"]')).toHaveCount(0);
+      |                                                                                           ^
+  169 |     await expect(body).toHaveValue('IME command boundary');
+  170 | });
+  171 |
+    at /workspace/FsusBlog-command-qa/tests/frontend/e2e/command-focus/WriterCommandFocusRegression.spec.ts:168:91
+screenshot: /tmp/command-focus-qa/exact-7c2784e3/artifacts/WriterCommandFocusRegressi-cdaa1-launch-an-inspector-command/test-failed-1.png; sha256 48873a972087a6d6eb6c3f19fbbfc5bf37433d5851b24005175888e323af6b66
+
+console-and-runtime.txt (verbatim decoded attachment):
+requestfailed: http://127.0.0.1:4317/api/binary/category.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/tag.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/seo net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/compliance net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+error: [Write Init Error] BinaryTransportError: Failed to fetch
+    at executeBinaryRequest (http://127.0.0.1:4317/src/services/binaryTransport.ts:520:16)
+    at async requestBinaryOnlyWithDecoder (http://127.0.0.1:4317/src/services/binaryTransport.ts:484:17)
+    at async requestBinaryOnly (http://127.0.0.1:4317/src/services/binaryTransport.ts:588:49)
+    at async Promise.all (index 0)
+    at async refreshTaxonomy (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1294:28)
+    at async Promise.all (index 0)
+    at async http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1749:5
+    at async Object.run (http://127.0.0.1:4317/src/composables/useAbortableTask.ts:29:19)
+    at async initData (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1748:4)
+error: Failed to load resource: the server responded with a status of 404 (Not Found)
+requestfailed: http://127.0.0.1:4317/wasm/image_codec_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_threads.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_relaxed.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_basic.js net::ERR_ABORTED
+error: [Worker] Initialization Error: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+error: [Worker] PING Failed: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+
+accessibility-tree.txt (verbatim decoded attachment):
+- main "新建文章":
+  - heading "返回 新建文章 待发布" [level=1]:
+    - button "返回"
+    - text: 新建文章 待发布
+  - button "服务端草稿暂不可用；当前页面仍保留更改，请勿关闭"
+  - button "保存草稿"
+  - button "发布文章"
+  - region "文章文档":
+    - textbox "文章标题":
+      - /placeholder: 写下文章标题
+    - text: 0 / 100
+    - heading "正文" [level=2]
+    - button "打开文章大纲"
+    - region "正文":
+      - region "Markdown 编辑器":
+        - button "heading"
+        - button "bold"
+        - button "italic"
+        - button "link"
+        - button "quote"
+        - button "code"
+        - button "更多命令 (15)": 更多命令 15
+        - textbox "Markdown 源码编辑区":
+          - /placeholder: 从这里开始写正文。
+          - text: IME command boundary
+        - text: 已完成
+    - group "编辑表面与对照工具":
+      - group "编辑表面":
+        - button "实时"
+        - button "源码" [pressed]
+      - button "源码对照"
+      - button "文章检查器"
+  - navigation "文章检查器":
+    - button "发布"
+    - button "版权"
+    - button "检查" [expanded] [pressed]
+    - button "预览"
+    - button "版本"
+    - button "资源"
+  - complementary "检查":
+    - heading "检查" [level=2]
+    - button "关闭文章检查器"
+    - region "检查":
+      - region "SEO 与发布前检查":
+        - text: SEO 与发布前检查
+        - paragraph: 站点 SEO 配置暂不可用，canonical 使用当前访问域名
+        - button "刷新 SEO 检查":
+          - img
+        - text: http://127.0.0.1:4317/article/draft-preview 未命名文章
+        - paragraph: IME command boundary
+        - text: 未命名文章
+        - paragraph: IME command boundary
+        - term: 地址片段
+        - definition: /article/draft-preview
+        - term: 标题长度
+        - definition: 5/60
+        - term: 摘要长度
+        - definition: 20/180
+      - region "内容检查":
+        - text: 内容检查
+        - paragraph: 生成可选摘要建议、标题备选和标签匹配。建议仅供参考，应用前可继续编辑。
+        - button "生成摘要建议"
+        - button "检查内容"
+
+focus-and-selection.json (verbatim decoded attachment):
+{
+  "url": "http://127.0.0.1:4317/__writer-command-focus-regression",
+  "focused": {
+    "tag": "SECTION",
+    "id": "article-write-inspector-view-check",
+    "role": null,
+    "label": "检查",
+    "text": "SEO 与发布前检查站点 SEO 配置暂不可用，canonical 使用当前访问域名http://127.0.0.1:4317/article/draft-preview未命名文章IME command boundary未命名文章IME command boundary地址片段/article/draft-preview标题长度5/60摘要长度20/180内容检查生成可选摘要建议、标题备选和标签匹配。建议仅供参考，应用前可继续编辑。 生成摘要建议  检查内容"
+  },
+  "body": {
+    "value": "IME command boundary",
+    "start": 20,
+    "end": 20,
+    "direction": "forward",
+    "focused": false
+  }
+}
+error-context: /tmp/command-focus-qa/exact-7c2784e3/artifacts/WriterCommandFocusRegressi-cdaa1-launch-an-inspector-command/error-context.md; sha256 ccadf9c837739a4334cb775c4094999603da5262db1eab5d621bd63a0c72ec32
+trace: /tmp/command-focus-qa/exact-7c2784e3/artifacts/WriterCommandFocusRegressi-cdaa1-launch-an-inspector-command/trace.zip; sha256 685abe556fee18ca6549ecd767959c4582a8ae314218df2b70977124bef079d0
+
+FINAL FAILURE: visible palette entry and touch inspector command remain reachable in the modal host
+TimeoutError: locator.tap: Timeout 10000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: '文章检查器', exact: true })[22m
+[2m    - locator resolved to <button type="button" data-v-89e3ccd9="" aria-disabled="false" aria-haspopup="dialog" class="el-button is-text" aria-keyshortcuts="Control+P Meta+P">…</button>[22m
+[2m  - attempting tap action[22m
+[2m    - waiting for element to be visible, enabled and stable[22m
+[2m    - element is visible, enabled and stable[22m
+[2m    - scrolling into view if needed[22m
+[2m    - done scrolling[22m
+[2m    - <button title="五级标题" type="button" aria-label="五级标题" class="el-markdown-editor__command">五级标题</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m  - retrying tap action[22m
+[2m    - waiting for element to be visible, enabled and stable[22m
+[2m    - element is visible, enabled and stable[22m
+[2m    - scrolling into view if needed[22m
+[2m    - done scrolling[22m
+[2m    - <div role="alert" id="message_1" data-fsus-motion-preset="sheet-settle" class="el-message el-message--error fsusblog-motion-toast fsusblog-motion-toast--slide-up fsusblog-motion-toast--viewport-bottom">…</div> intercepts pointer events[22m
+[2m  - retrying tap action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <button title="五级标题" type="button" aria-label="五级标题" class="el-markdown-editor__command">五级标题</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m    - retrying tap action[22m
+[2m      - waiting 100ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <button title="五级标题" type="button" aria-label="五级标题" class="el-markdown-editor__command">五级标题</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m    - retrying tap action[22m
+[2m      - waiting 500ms[22m
+[2m      - waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <div role="alert" id="message_1" data-fsus-motion-preset="sheet-settle" class="el-message el-message--error fsusblog-motion-toast fsusblog-motion-toast--slide-up fsusblog-motion-toast--viewport-bottom">…</div> intercepts pointer events[22m
+[2m    - retrying tap action[22m
+[2m      - waiting 500ms[22m
+[2m      - waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <button title="五级标题" type="button" aria-label="五级标题" class="el-markdown-editor__command">五级标题</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m    - retrying tap action[22m
+[2m      - waiting 500ms[22m
+[2m      - waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <button title="五级标题" type="button" aria-label="五级标题" class="el-markdown-editor__command">五级标题</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m    - retrying tap action[22m
+[2m      - waiting 500ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <button title="五级标题" type="button" aria-label="五级标题" class="el-markdown-editor__command">五级标题</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m    - retrying tap action[22m
+[2m      - waiting 500ms[22m
+[2m      - waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <button title="公式" type="button" aria-label="公式" class="el-markdown-editor__command">公式</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m    - retrying tap action[22m
+[2m      - waiting 500ms[22m
+[2m      - waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <button title="五级标题" type="button" aria-label="五级标题" class="el-markdown-editor__command">五级标题</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m    - retrying tap action[22m
+[2m      - waiting 500ms[22m
+[2m      - waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <button title="五级标题" type="button" aria-label="五级标题" class="el-markdown-editor__command">五级标题</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m    - retrying tap action[22m
+[2m      - waiting 500ms[22m
+[2m    - waiting for element to be visible, enabled and stable[22m
+[2m    - element is visible, enabled and stable[22m
+[2m    - scrolling into view if needed[22m
+[2m    - done scrolling[22m
+[2m    - <button title="五级标题" type="button" aria-label="五级标题" class="el-markdown-editor__command">五级标题</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m  - retrying tap action[22m
+[2m    - waiting 500ms[22m
+[2m    - waiting for element to be visible, enabled and stable[22m
+[2m    - element is visible, enabled and stable[22m
+[2m    - scrolling into view if needed[22m
+[2m    - done scrolling[22m
+[2m    - <button title="公式" type="button" aria-label="公式" class="el-markdown-editor__command">公式</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m  - retrying tap action[22m
+[2m    - waiting 500ms[22m
+[2m    - waiting for element to be visible, enabled and stable[22m
+[2m    - element is visible, enabled and stable[22m
+[2m    - scrolling into view if needed[22m
+[2m    - done scrolling[22m
+[2m    - <button title="五级标题" type="button" aria-label="五级标题" class="el-markdown-editor__command">五级标题</button> from <div role="region" data-v-5ce59a75="" data-v-c959bd6d="" class="editor-shell-minimal" data-status-density="minimal" data-markdown-chrome="embedded" aria-labelledby="article-body-heading">…</div> subtree intercepts pointer events[22m
+[2m  - retrying tap action[22m
+[2m    - waiting 500ms[22m
+
+
+  299 |         await body.fill('Touch unsaved editor body');
+  300 |         await body.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(3, 12, 'backward'));
+> 301 |         await page.getByRole('button', { name: '文章检查器', exact: true }).tap({ timeout: 10_000 });
+      |                                                                        ^
+  302 |         const palette = page.getByRole('dialog', { name: '命令面板' });
+  303 |         await palette.getByRole('combobox').fill('检查');
+  304 |         await palette.getByRole('option').tap();
+    at /workspace/FsusBlog-command-qa/tests/frontend/e2e/command-focus/WriterCommandFocusRegression.spec.ts:301:72
+screenshot: /tmp/command-focus-qa/exact-7c2784e3/artifacts/WriterCommandFocusRegressi-2beef-reachable-in-the-modal-host/test-failed-1.png; sha256 f767f2c96f4e29a6d4eb276c14ff3396e8793b80eb23e00471355903d5b15173
+
+console-and-runtime.txt (verbatim decoded attachment):
+requestfailed: http://127.0.0.1:4317/api/binary/category.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/tag.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/seo net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/compliance net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+error: [Write Init Error] BinaryTransportError: Failed to fetch
+    at executeBinaryRequest (http://127.0.0.1:4317/src/services/binaryTransport.ts:520:16)
+    at async requestBinaryOnlyWithDecoder (http://127.0.0.1:4317/src/services/binaryTransport.ts:484:17)
+    at async requestBinaryOnly (http://127.0.0.1:4317/src/services/binaryTransport.ts:588:49)
+    at async Promise.all (index 0)
+    at async refreshTaxonomy (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1294:28)
+    at async Promise.all (index 0)
+    at async http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1749:5
+    at async Object.run (http://127.0.0.1:4317/src/composables/useAbortableTask.ts:29:19)
+    at async initData (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1748:4)
+error: Failed to load resource: the server responded with a status of 404 (Not Found)
+requestfailed: http://127.0.0.1:4317/wasm/image_codec_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_threads.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_relaxed.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_basic.js net::ERR_ABORTED
+error: [Worker] Initialization Error: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+error: [Worker] PING Failed: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+
+accessibility-tree.txt (verbatim decoded attachment):
+- main "新建文章":
+  - heading "返回 新建文章 待发布" [level=1]:
+    - button "返回"
+    - text: 新建文章 待发布
+  - button "服务端草稿暂不可用；当前页面仍保留更改，请勿关闭"
+  - button "保存草稿"
+  - button "发布文章"
+  - region "文章文档":
+    - textbox "文章标题":
+      - /placeholder: 写下文章标题
+    - heading "正文" [level=2]
+    - button "打开文章大纲"
+    - region "正文":
+      - region "Markdown 编辑器":
+        - button "heading"
+        - button "bold"
+        - button "italic"
+        - button "link"
+        - button "quote"
+        - button "code"
+        - button "更多命令 (15)": 更多命令 15
+        - textbox "Markdown 源码编辑区":
+          - /placeholder: 从这里开始写正文。
+          - text: Touch unsaved editor body
+        - toolbar "选区工具":
+          - button "bold"
+          - button "italic"
+          - button "heading"
+          - button "quote"
+          - button "code"
+          - button "link"
+          - button "插入图片"
+          - button "小节"
+          - button "四级标题"
+          - button "五级标题"
+          - button "六级标题"
+          - button "无序列表"
+          - button "有序列表"
+          - button "任务列表"
+          - button "表格"
+          - button "分割线"
+          - button "代码块"
+          - button "公式"
+          - button "流程图"
+    - group "编辑表面与对照工具":
+      - group "编辑表面":
+        - button "实时"
+        - button "源码" [pressed]
+      - button "源码对照"
+      - button "文章检查器"
+  - button "打开文章检查器"
+
+focus-and-selection.json (verbatim decoded attachment):
+{
+  "url": "http://127.0.0.1:4317/__writer-command-focus-regression",
+  "focused": {
+    "tag": "TEXTAREA",
+    "id": "article-content",
+    "role": null,
+    "label": "Markdown 源码编辑区",
+    "text": ""
+  },
+  "body": {
+    "value": "Touch unsaved editor body",
+    "start": 3,
+    "end": 12,
+    "direction": "backward",
+    "focused": true
+  }
+}
+error-context: /tmp/command-focus-qa/exact-7c2784e3/artifacts/WriterCommandFocusRegressi-2beef-reachable-in-the-modal-host/error-context.md; sha256 bf76388dbc616b243384ba39bdc8ce5d00d0c748280e93f4870695c37d77a221
+trace: /tmp/command-focus-qa/exact-7c2784e3/artifacts/WriterCommandFocusRegressi-2beef-reachable-in-the-modal-host/trace.zip; sha256 8fbce49b895e22d2657857714f53ade7094d22877cc6f98434b8598fae93d0f1
+
+FIRST GENUINE COMPOSED PRODUCT FAILURE (verbatim ANSI-stripped first-composed.log):
+[WebServer] (node:5923) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:5989) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:5989) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 5:59:10 AM [vite] (client) [console.error] [Write Init Error] BinaryTransportError: Failed to fetch
+[WebServer]     at executeBinaryRequest (http://127.0.0.1:4317/src/services/binaryTransport.ts:520:16)
+[WebServer]     at async requestBinaryOnlyWithDecoder (http://127.0.0.1:4317/src/services/binaryTransport.ts:484:17)
+[WebServer]     at async requestBinaryOnly (http://127.0.0.1:4317/src/services/binaryTransport.ts:588:49)
+[WebServer]     at async Promise.all (index 0)
+[WebServer]     at async refreshTaxonomy (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1295:28)
+[WebServer]     at async Promise.all (index 0)
+[WebServer]     at async http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1750:5
+[WebServer]     at async Object.run (http://127.0.0.1:4317/src/composables/useAbortableTask.ts:29:19)
+[WebServer]     at async initData (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1749:4)
+[WebServer] 5:59:11 AM [vite] (client) [console.error] [Worker] Initialization Error: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+[WebServer]     at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+[WebServer]     at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+[WebServer]     at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+[WebServer] 5:59:11 AM [vite] (client) [console.error] [Worker] PING Failed: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+[WebServer]     at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+[WebServer]     at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+[WebServer]     at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+  ✘  1 tests/frontend/integration/command-focus/WriterCommandFocusRegression.spec.ts:40:1 › Writer palette command hands focus to the real inspector and Escape restores body selection (22.6s)
+
+
+  1) tests/frontend/integration/command-focus/WriterCommandFocusRegression.spec.ts:40:1 › Writer palette command hands focus to the real inspector and Escape restores body selection
+
+    Error: expect(locator).toBeFocused() failed
+
+    Locator:  getByRole('region', { name: '正文', exact: true }).getByRole('textbox')
+    Expected: focused
+    Received: inactive
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toBeFocused" with timeout 10000ms
+      - waiting for getByRole('region', { name: '正文', exact: true }).getByRole('textbox')
+        14 × locator resolved to <textarea lang="" rows="12" autocorrect="on" spellcheck="true" autocomplete="off" id="article-content" aria-disabled="false" name="articleContent" placeholder="从这里开始写正文。" writingsuggestions="true" autocapitalize="sentences" aria-label="Markdown 源码编辑区" class="el-markdown-editor__textarea" value="# Integration↵↵Unsaved body selection remains here."></textarea>
+           - unexpected value "inactive"
+
+
+      58 |     await page.keyboard.press('Escape');
+      59 |     await expect(inspector).toBeHidden();
+    > 60 |     await expect(body).toBeFocused();
+         |                        ^
+      61 |     expect(await body.evaluate((element: HTMLTextAreaElement) => ({
+      62 |         start: element.selectionStart, end: element.selectionEnd, direction: element.selectionDirection
+      63 |     }))).toEqual({ start: 18, end: 30, direction: 'backward' });
+        at /workspace/FsusBlog-command-qa/tests/frontend/integration/command-focus/WriterCommandFocusRegression.spec.ts:60:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../tmp/command-focus-qa/first-composed/artifacts/WriterCommandFocusRegressi-fa4c4-ape-restores-body-selection/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: console-and-runtime.txt (text/plain) ────────────────────────────────────────────
+    requestfailed: http://127.0.0.1:4317/api/binary/category.aeds net::ERR_FAILED
+    error: Failed to load resource: net::ERR_FAILED
+    requestfailed: http://127.0.0.1:4317/api/binary/tag.aeds net::ERR_FAILED
+    error: Failed to load resource: net::ERR_FAILED
+    requestfailed: http://127.0.0.1:4317/api/binary/syste...
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: accessibility-tree.txt (text/plain) ─────────────────────────────────────────────
+    - main "新建文章":
+      - heading "返回 新建文章 待发布" [level=1]:
+        - button "返回"
+        - text: 新建文章 待发布
+      - button "服务端草稿暂不可用；当前页面仍保留更改，请勿关闭"
+      - button "保存草稿"
+      - button "发布文章"
+      - region "文章文档":
+        - textbox "文章标题":
+          - /placeholder: 写下文章标题
+        - text: 0 / 100
+        - heading "正文" [level=2]
+        - button "打开...
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../tmp/command-focus-qa/first-composed/artifacts/WriterCommandFocusRegressi-fa4c4-ape-restores-body-selection/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../tmp/command-focus-qa/first-composed/artifacts/WriterCommandFocusRegressi-fa4c4-ape-restores-body-selection/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../tmp/command-focus-qa/first-composed/artifacts/WriterCommandFocusRegressi-fa4c4-ape-restores-body-selection/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/frontend/integration/command-focus/WriterCommandFocusRegression.spec.ts:40:1 › Writer palette command hands focus to the real inspector and Escape restores body selection
+
+pr-contract-first.log (verbatim):
+[change-contract] PR body requires checked checklist field: Formatter/linter run
+[change-contract] test title cannot claim Behavior change
+
+hygiene-first.log (verbatim):
+[test-hygiene] checking root layout
+[test-hygiene] unexpected files in tests/backend root:
+/workspace/FsusBlog-command-qa/tests/backend/GlobalUsings.Migration.cs
+/workspace/FsusBlog-command-qa/tests/backend/auth-cookie-expiry-evidence.json
+/workspace/FsusBlog-command-qa/tests/backend/auth-cookie-expiry-governance-handoff.json
+/workspace/FsusBlog-command-qa/tests/backend/cleanup-worker-human-read-behavior.md
+/workspace/FsusBlog-command-qa/tests/backend/endpoint-security-evidence.json
+/workspace/FsusBlog-command-qa/tests/backend/endpoint-security-governance-handoff.json
+/workspace/FsusBlog-command-qa/tests/backend/legacy-identity-retirement-evidence.json
+/workspace/FsusBlog-command-qa/tests/backend/online-schema-migration-evidence.json
+/workspace/FsusBlog-command-qa/tests/backend/rate-limiter-rejection-sampler-evidence.json
+/workspace/FsusBlog-command-qa/tests/backend/recovery-passkey-completion-evidence.json
+/workspace/FsusBlog-command-qa/tests/backend/runtime-fallback-evidence.json
+/workspace/FsusBlog-command-qa/tests/backend/runtime-fallback-milestones.json
+/workspace/FsusBlog-command-qa/tests/backend/security-hardening-evidence.json
+/workspace/FsusBlog-command-qa/tests/backend/security-hardening-governance-handoff.json
+/workspace/FsusBlog-command-qa/tests/backend/storage-lifecycle-evidence.json
+/workspace/FsusBlog-command-qa/tests/backend/user-session-revocation-evidence.json
+
+quality-first.log (verbatim):
+[test-quality] canonical conformance artifact is missing; conformance must run before repository facts
+
+source-plan.log (verbatim):
+[matrix] applicable PR execution authority rejected:
+execution target authority: independent release-final Node parser identity drifted
+applicable execution authority schema, source index or parser identity drifted
+
+owned-style-after-install.log (verbatim):
+[frontend-style] ok files=0 eslint=0 stylelint=0 violations=0 new=0
+
+remote-checks.log (verbatim):
+no checks reported on the 'codex/composed-command-focus-regressions-20261008' branch
+
+Scoped compiler config actually used (absolute paths are this saved environment):
+{
+  "extends": "/workspace/FsusBlog-command-qa/src/frontend/tsconfig.playwright.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "/workspace/FsusBlog-command-qa/src/frontend/src/*"
+      ],
+      "@wasm/*": [
+        "/workspace/FsusBlog-command-qa/src/frontend/wasm/web/*"
+      ],
+      "vue": [
+        "/workspace/FsusBlog-command-qa/src/frontend/node_modules/vue"
+      ],
+      "@vue/*": [
+        "/workspace/FsusBlog-command-qa/src/frontend/node_modules/@vue/*"
+      ],
+      "@ozwasyd/element-plus": [
+        "/workspace/FsusUI/vue/packages/element-plus/index.ts"
+      ],
+      "element-plus": [
+        "/workspace/FsusUI/vue/packages/element-plus/index.ts"
+      ],
+      "@ozwasyd/element-plus/icons-vue": [
+        "/workspace/FsusUI/vue/packages/element-plus/icons-vue.ts"
+      ],
+      "@ozwasyd/element-plus/markdown-runtime": [
+        "/workspace/FsusUI/vue/packages/element-plus/markdown-runtime.ts"
+      ],
+      "@ozwasyd/element-plus/motion": [
+        "/workspace/FsusUI/vue/packages/element-plus/motion.ts"
+      ],
+      "@ozwasyd/element-plus/perception-challenge": [
+        "/workspace/FsusUI/vue/packages/element-plus/perception-challenge.ts"
+      ],
+      "@ozwasyd/element-plus/render-pipeline": [
+        "/workspace/FsusUI/vue/packages/element-plus/render-pipeline.ts"
+      ],
+      "@ozwasyd/element-plus/result": [
+        "/workspace/FsusUI/vue/packages/element-plus/result.ts"
+      ],
+      "@ozwasyd/element-plus/theme": [
+        "/workspace/FsusUI/vue/packages/element-plus/theme.ts"
+      ],
+      "@ozwasyd/element-plus/wasm": [
+        "/workspace/FsusUI/vue/packages/element-plus/wasm.ts"
+      ],
+      "@element-plus/icons-vue": [
+        "/workspace/FsusUI/vue/packages/icons-vue/src/index.ts"
+      ],
+      "@element-plus/icons-vue/*": [
+        "/workspace/FsusUI/vue/packages/icons-vue/src/*"
+      ],
+      "@element-plus/theme-chalk/src": [
+        "/workspace/FsusUI/vue/packages/theme-chalk/src"
+      ],
+      "@element-plus/theme-chalk/src/*": [
+        "/workspace/FsusUI/vue/packages/theme-chalk/src/*"
+      ],
+      "@element-plus/wasm": [
+        "/workspace/FsusUI/vue/packages/wasm/index.ts"
+      ],
+      "@element-plus/wasm/*": [
+        "/workspace/FsusUI/vue/packages/wasm/*"
+      ],
+      "@element-plus/*": [
+        "/workspace/FsusUI/vue/packages/*"
+      ],
+      "@playwright/test": [
+        "/workspace/FsusBlog-command-qa/src/frontend/node_modules/@playwright/test/index.d.ts"
+      ],
+      "@playwright/test/*": [
+        "/workspace/FsusBlog-command-qa/src/frontend/node_modules/@playwright/test/*"
+      ]
+    },
+    "baseUrl": "/workspace/FsusBlog-command-qa/src/frontend",
+    "jsx": "preserve",
+    "jsxImportSource": "vue",
+    "erasableSyntaxOnly": false,
+    "typeRoots": [
+      "/workspace/FsusBlog-command-qa/src/frontend/node_modules/@types"
+    ],
+    "types": [
+      "node"
+    ],
+    "skipLibCheck": true
+  },
+  "include": [
+    "/workspace/FsusBlog-command-qa/tests/frontend/e2e/command-focus/*.ts",
+    "/workspace/FsusBlog-command-qa/src/frontend/src/vite-env.d.ts",
+    "/workspace/FsusUI/vue/global.d.ts",
+    "/workspace/FsusUI/vue/typings/components.d.ts",
+    "/workspace/FsusUI/vue/typings/env.d.ts"
+  ]
+}

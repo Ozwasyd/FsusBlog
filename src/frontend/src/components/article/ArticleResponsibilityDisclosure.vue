@@ -3,6 +3,7 @@
         class="article-responsibility"
         data-article-responsibility
         :data-manifest-state="state"
+        :data-responsibility-authority="isDraft ? 'draft' : 'published'"
         aria-label="作者、来源与修订说明"
     >
         <div class="article-responsibility__people">
@@ -69,6 +70,7 @@
         </details>
         <div class="article-responsibility__verification">
             <a
+                v-if="!isDraft"
                 :href="verificationHref"
                 data-article-verification-link
             >核验本次修订</a>
@@ -78,8 +80,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
+import {
+    admitArticleDraftResponsibilitySnapshot,
+    type ArticleDraftResponsibilityDisclosure
+} from '@/view-contracts/articleDraftResponsibility';
 import {
     normalizeArticleResponsibilityPublicView,
     type ArticleResponsiblePersonView,
@@ -87,47 +93,69 @@ import {
 } from '@/view-contracts/articleResponsibility';
 
 const props = defineProps<{
-    articleId: number;
+    articleId: number | null;
     fallbackAuthor: string;
     initialAuthors?: readonly ArticleResponsiblePersonView[];
     initialManifest?: ArticleResponsibilityPublicView | null;
+    draftResponsibility?: ArticleDraftResponsibilityDisclosure | null;
 }>();
 
-const manifest = ref<ArticleResponsibilityPublicView | null>(props.initialManifest ?? null);
-const state = ref<'fallback' | 'ready' | 'unavailable'>(manifest.value ? 'ready' : 'fallback');
+const publishedManifest = ref<ArticleResponsibilityPublicView | null>(props.initialManifest ?? null);
+const publishedState = ref<'fallback' | 'ready' | 'unavailable'>(publishedManifest.value ? 'ready' : 'fallback');
+const isDraft = computed(() => props.draftResponsibility !== undefined);
+const draftSnapshot = computed(() => (
+    props.draftResponsibility && admitArticleDraftResponsibilitySnapshot(props.draftResponsibility)
+        ? props.draftResponsibility.snapshot : null
+));
+const manifest = computed(() => isDraft.value ? draftSnapshot.value : publishedManifest.value);
+const state = computed(() => isDraft.value ? draftSnapshot.value?.status ?? 'invalid' : publishedState.value);
 const safeFallbackAuthor = computed(() => props.fallbackAuthor.trim() || 'Fsu');
 const authors = computed<readonly ArticleResponsiblePersonView[]>(() => (
-    manifest.value?.authors.length
-        ? manifest.value.authors
-        : props.initialAuthors?.length
-            ? props.initialAuthors
-            : [{ name: safeFallbackAuthor.value, profileUrl: null }]
+    isDraft.value
+        ? draftSnapshot.value?.authors ?? []
+        : manifest.value?.authors.length
+            ? manifest.value.authors
+            : props.initialAuthors?.length
+                ? props.initialAuthors
+                : [{ name: safeFallbackAuthor.value, profileUrl: null }]
 ));
+const nonEmpty = (value: string | undefined, fallback: string): string => value?.length ? value : fallback;
 const verificationHref = computed(() => (
-    manifest.value?.verification.url || `/integrity/article/${props.articleId}/responsibility`
+    nonEmpty(publishedManifest.value?.verification.url, `/integrity/article/${props.articleId}/responsibility`)
 ));
-const proofStatus = computed(() => manifest.value?.verification.proofStatus || 'unavailable');
-const proofStatusLabel = computed(() => ({
+const proofStatus = computed(() => isDraft.value ? 'not-published'
+    : nonEmpty(publishedManifest.value?.verification.proofStatus, 'unavailable'));
+const proofStatusLabel = computed(() => isDraft.value ? ({
+    ready: '草稿预览，尚无发布核验材料',
+    missing: '草稿责任信息缺失，尚无发布核验材料',
+    incomplete: '草稿责任信息尚不完整，尚无发布核验材料',
+    invalid: '草稿责任信息已失效，尚无发布核验材料'
+}[draftSnapshot.value?.status ?? 'invalid'] ?? '草稿责任信息已失效，尚无发布核验材料') : ({
     ready: '核验材料可用',
     failed: '核验失败',
     unavailable: '核验状态暂不可用'
-}[proofStatus.value] || '核验状态暂不可用'));
+}[proofStatus.value] ?? '核验状态暂不可用'));
 const conclusionImpactLabel = computed(() => ({
     none: '未改变',
     clarified: '说明更清晰',
     changed: '结论已改变'
-}[manifest.value?.update?.conclusionImpact || ''] || '未说明'));
+}[manifest.value?.update?.conclusionImpact ?? ''] ?? '未说明'));
 
-onMounted(async () =>
+onMounted(() => watch(() => [props.articleId, props.draftResponsibility, props.initialManifest] as const, async ([articleId], _, onCleanup) =>
 {
-    if (!Number.isInteger(props.articleId) || props.articleId <= 0)
+    publishedManifest.value = props.initialManifest ?? null;
+    publishedState.value = publishedManifest.value ? 'ready' : 'fallback';
+    if (isDraft.value || articleId === null || !Number.isInteger(articleId) || articleId <= 0)
     {
         return;
     }
+    const controller = new AbortController();
+    onCleanup(() => controller.abort());
     try
     {
-        const response = await fetch(`/integrity/article/${props.articleId}/responsibility`, {
+        const response = await fetch(`/integrity/article/${articleId}/responsibility`, {
             credentials: 'omit',
+            signal: controller.signal,
             headers: { Accept: 'application/json' }
         });
         if (!response.ok)
@@ -135,18 +163,25 @@ onMounted(async () =>
             throw new Error('article_responsibility_unavailable');
         }
         const payload = normalizeArticleResponsibilityPublicView(await response.json());
-        if (!payload || payload.articleId !== props.articleId)
+        if (controller.signal.aborted || isDraft.value || props.articleId !== articleId)
+        {
+            return;
+        }
+        if (payload?.articleId !== articleId)
         {
             throw new Error('article_responsibility_invalid');
         }
-        manifest.value = payload;
-        state.value = 'ready';
+        publishedManifest.value = payload;
+        publishedState.value = 'ready';
     }
     catch
     {
-        state.value = 'unavailable';
+        if (!controller.signal.aborted && !isDraft.value && props.articleId === articleId)
+        {
+            publishedState.value = 'unavailable';
+        }
     }
-});
+}, { immediate: true }));
 </script>
 
 <style scoped>
