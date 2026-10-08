@@ -1,3 +1,6 @@
+/* eslint-disable import-x/no-relative-parent-imports -- Candidate sealing uses the repository's canonical pure semantic digest owner. */
+import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs';
+
 import { createReleaseIdValueContract } from './release-id-value-contract.mjs';
 
 export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v3';
@@ -8,6 +11,8 @@ const IMAGE_REPOSITORY = /^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[0-9]+(?:\/[a-z0-9]+
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const TOP_LEVEL_FIELDS = new Set([
     'schema',
+    'candidateId',
+    'contentDigest',
     'releaseId',
     'commitSha',
     'imageRepository',
@@ -136,11 +141,46 @@ export function validateCurrentSchemaBinding(binding)
     return errors;
 }
 
+/** A candidate is identified by artifact and contract content, never by a deployment label or artifact location. */
+export function deriveReleaseCandidateId(manifest)
+{
+    const binding = manifest.currentSchema;
+    return `sha256:${digestValue(stable({
+        schema: RELEASE_MANIFEST_SCHEMA,
+        commitSha: manifest.commitSha,
+        imageDigest: manifest.imageDigest,
+        frontendManifestHash: manifest.frontendManifestHash,
+        wasmArtifactHash: manifest.wasmArtifactHash,
+        currentSchema: binding ? {
+            receiptFormat: binding.receiptFormat,
+            receiptArtifactSha256: binding.receipt?.sha256,
+            receiptContentDigest: binding.receiptContentDigest,
+            target: binding.target,
+            database: binding.database,
+            actualSchemaDigest: binding.actualSchemaDigest
+        } : null,
+        toolchain: manifest.toolchain,
+        runtimeProfile: manifest.runtimeProfile,
+        build: manifest.build
+    }))}`;
+}
+
+export function deriveReleaseManifestContentDigest(manifest)
+{
+    const unsigned = { ...manifest };
+    delete unsigned.contentDigest;
+    return `sha256:${digestValue(stable(unsigned))}`;
+}
+
 export function createReleaseManifestValueContract({ releaseIdContract })
 {
     const { assertReleaseIdentity } = createReleaseIdValueContract(releaseIdContract);
     function createReleaseManifest(input)
     {
+        if (Object.hasOwn(input, 'candidateId') || Object.hasOwn(input, 'contentDigest'))
+        {
+            throw new Error('candidateId and contentDigest must be computed from the current manifest');
+        }
         if (Object.hasOwn(input, 'schemaMinimumCoordinate') || Object.hasOwn(input, 'schemaMaximumCoordinate')
             || Object.hasOwn(input, 'schemaCompatibility'))
         {
@@ -171,6 +211,8 @@ export function createReleaseManifestValueContract({ releaseIdContract })
                 target: input.target ?? 'final'
             }
         };
+        manifest.candidateId = deriveReleaseCandidateId(manifest);
+        manifest.contentDigest = deriveReleaseManifestContentDigest(manifest);
         const errors = validateReleaseManifest(manifest, {
             requireRegistryDigest: true,
             requireConcreteRuntimeProfile: true
@@ -307,6 +349,14 @@ export function createReleaseManifestValueContract({ releaseIdContract })
         if (options.expectedCommitSha && manifest.commitSha !== options.expectedCommitSha)
         {
             errors.push('commitSha does not match requested commit');
+        }
+        if (!SHA256.test(String(manifest.candidateId ?? '')) || manifest.candidateId !== deriveReleaseCandidateId(manifest))
+        {
+            errors.push('candidateId must equal the current manifest content identity');
+        }
+        if (!SHA256.test(String(manifest.contentDigest ?? '')) || manifest.contentDigest !== deriveReleaseManifestContentDigest(manifest))
+        {
+            errors.push('contentDigest must equal the sealed manifest bytes projection');
         }
         if (containsSensitiveField(manifest))
         {

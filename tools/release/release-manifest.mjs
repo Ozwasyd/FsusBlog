@@ -3,11 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { RELEASE_ID_CONTRACT } from './release-id.mjs';
-import { createReleaseManifestValueContract, RELEASE_MANIFEST_SCHEMA, validateCurrentSchemaBinding } from './release-manifest-value-contract.mjs';
+import { createReleaseManifestValueContract, RELEASE_MANIFEST_SCHEMA, validateCurrentSchemaBinding, deriveReleaseCandidateId, deriveReleaseManifestContentDigest } from './release-manifest-value-contract.mjs';
 
 const { createReleaseManifest, validateReleaseManifest } = createReleaseManifestValueContract({ releaseIdContract: RELEASE_ID_CONTRACT });
 
-export { createReleaseManifest, RELEASE_MANIFEST_SCHEMA, validateReleaseManifest };
+export { createReleaseManifest, RELEASE_MANIFEST_SCHEMA, validateReleaseManifest, deriveReleaseCandidateId, deriveReleaseManifestContentDigest };
 
 export function sha256File(file)
 {

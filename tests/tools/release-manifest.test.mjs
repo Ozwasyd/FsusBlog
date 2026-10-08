@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 
 import {
     createReleaseManifest,
+    deriveReleaseCandidateId,
+    deriveReleaseManifestContentDigest,
     readCurrentSchemaReceiptReleaseBinding,
     readReleaseManifest,
     RELEASE_MANIFEST_SCHEMA,
@@ -638,7 +640,10 @@ test('current schema projection drift and removed window arguments fail before d
         { ...valid.currentSchema, database: { ...valid.currentSchema.database, databaseId: 'another-database' } }
     ])
     {
-        fs.writeFileSync(file, JSON.stringify({ ...valid, currentSchema: mutation }));
+        const resealed = { ...valid, currentSchema: mutation };
+        resealed.candidateId = deriveReleaseCandidateId(resealed);
+        resealed.contentDigest = deriveReleaseManifestContentDigest(resealed);
+        fs.writeFileSync(file, JSON.stringify(resealed));
         const result = spawnSync(process.execPath, [path.join(root, 'tools/release/check-release-manifest.mjs'),
             '--manifest', file], { encoding: 'utf8' });
         assert.notEqual(result.status, 0);
@@ -651,4 +656,71 @@ test('current schema projection drift and removed window arguments fail before d
     assert.equal(receiptOnly.status, 0, receiptOnly.stderr);
     assert.equal(JSON.parse(receiptOnly.stdout).qualificationEligible, false);
     assert.equal(JSON.parse(receiptOnly.stdout).status, 'byte-bound');
+});
+
+
+test('candidate identity follows content while manifest sealing binds deployment labels and artifact references', () =>
+{
+    const input = createInput();
+    const manifest = createReleaseManifest(input);
+    const relocated = createReleaseManifest({ ...input,
+        currentSchema: { ...input.currentSchema, receipt: { ...input.currentSchema.receipt,
+            reference: '/isolated-other-location/current-schema.json' } },
+        createdAtUtc: '2026-07-11T01:01:02.000Z',
+        releaseId: '20260711010102-0123456789ab',
+        imageTag: 'ghcr.io/fsusblog/app:20260711010102-0123456789ab' });
+    assert.equal(relocated.candidateId, manifest.candidateId);
+    assert.notEqual(relocated.contentDigest, manifest.contentDigest);
+    assert.throws(() => createReleaseManifest({ ...input, candidateId: manifest.candidateId }), /computed/u);
+    assert.throws(() => createReleaseManifest({ ...input, contentDigest: manifest.contentDigest }), /computed/u);
+    for (const change of [
+        value =>
+        {
+            value.imageDigest = `sha256:${'1'.repeat(64)}`;
+            value.imageRef = `${value.imageRepository}@${value.imageDigest}`;
+        },
+        value =>
+        {
+            value.frontendManifestHash = `sha256:${'2'.repeat(64)}`;
+        },
+        value =>
+        {
+            value.wasmArtifactHash = `sha256:${'3'.repeat(64)}`;
+        },
+        value =>
+        {
+            value.currentSchema.target.contentDigest = '4'.repeat(64);
+        },
+        value =>
+        {
+            value.currentSchema.receipt.sha256 = '5'.repeat(64);
+        },
+        value =>
+        {
+            value.currentSchema.database.databaseId = 'other-database';
+        },
+        value =>
+        {
+            value.runtimeProfile.profileDigest = `sha256:${'6'.repeat(64)}`;
+        },
+        value =>
+        {
+            value.toolchain.dotnetVersion = 'different-build-toolchain';
+        },
+        value =>
+        {
+            value.releaseId = '20260711010102-0123456789ab';
+            value.createdAtUtc = '2026-07-11T01:01:02.000Z';
+            value.imageTag = `${value.imageRepository}:${value.releaseId}`;
+        }
+    ])
+    {
+        const mutated = structuredClone(manifest);
+        change(mutated);
+        assert.ok(validateReleaseManifest(mutated).some(error => /contentDigest/u.test(error)));
+    }
+    for (const alias of ['slot', 'directory', 'timestamp', 'releaseAlias', 'previous', 'minimum', 'maximum', 'range'])
+    {
+        assert.ok(validateReleaseManifest({ ...manifest, [alias]: 'green' }).some(error => /not allowed/u.test(error)));
+    }
 });
