@@ -20,12 +20,11 @@ export type PrivateStorageCleanupStatus = 'retained' | 'not-present' | 'removed'
 
 type WebStorageEntry = Readonly<{
     id: string;
-    medium: 'local-storage' | 'session-storage';
     dataScope: PrivateStorageDataScope;
     dataClass: string;
     clearOn: readonly PrivateStateCleanupTrigger[];
     matcher: Readonly<{ type: 'exact' | 'prefix'; value: string; }>;
-}>;
+}> & Readonly<{ medium: 'local-storage'; } | { medium: 'session-storage'; }>;
 
 type CacheStorageEntry = Readonly<{
     id: string;
