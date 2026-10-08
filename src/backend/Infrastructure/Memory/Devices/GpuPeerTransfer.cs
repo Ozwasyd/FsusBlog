@@ -222,9 +222,11 @@ public sealed class GpuPeerTransfer : IDisposable
 
     private void ReleaseHolds()
     {
+        // Completion or pre-submit rejection proves slot release is safe. Release the vector
+        // before the final allocation holds can finish either device owner's drain task.
+        _operationResources.Dispose();
         _source.Dispose();
         _destination.Dispose();
-        _operationResources.Dispose();
         _released = true;
     }
 }

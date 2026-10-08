@@ -30,10 +30,12 @@ public sealed class GpuMemoryDevice : IDisposable
     private readonly HashSet<GpuTransferOperation> _operations = [];
     private readonly HashSet<GpuPeerDeviceOperation> _peerOperations = [];
     private readonly List<IMemoryReservation> _uncertainReservations = [];
+    private readonly TaskCompletionSource _drained = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private DeviceEpoch _epoch;
     private bool _accepting = true;
     private bool _faulted;
     private bool _disposed;
+    private bool _disposeRequested;
     private int _externalHolds;
 
     public GpuMemoryDevice(IGpuDriverSession driver, MemoryReservationCoordinator ledger,
@@ -74,6 +76,15 @@ public sealed class GpuMemoryDevice : IDisposable
     }
 
     public GpuDeviceIdentity Identity => _driver.Identity;
+
+    /// <summary>
+    /// Completes after Dispose stops admission, all submitted work and retained consumers drain,
+    /// and native allocations, staging and the driver session are released. PollCompletions still
+    /// requires the common scheduler. Unreleased holds remain pending; unproven faulted teardown
+    /// faults this task without releasing uncertain custody or authorizing a restart/reset.
+    /// Cancelling a caller's wait does not cancel this device-owned task or resource cleanup.
+    /// </summary>
+    public Task Drained => _drained.Task;
     internal IGpuDriverSession Driver => _driver;
     internal MemoryReservationCoordinator Ledger => _ledger;
     internal ResourceDomainId TransferDomain => _domains.TransferSlots;
@@ -263,6 +274,7 @@ public sealed class GpuMemoryDevice : IDisposable
                 {
                     _peerOperations.Remove(operation);
                     destination.UploadSubmitted = false;
+                    DrainLocked();
                 }
                 throw;
             }
@@ -537,6 +549,16 @@ public sealed class GpuMemoryDevice : IDisposable
             _faulted = true;
             _accepting = false;
         }
+        FailDrainLocked();
+    }
+
+    private void FailDrainLocked()
+    {
+        if (_disposeRequested && _faulted && !_drained.Task.IsCompleted)
+        {
+            _drained.TrySetException(new InvalidOperationException(
+                "GPU resource drain is unproven after an ownership or driver fault; uncertain custody remains retained."));
+        }
     }
 
     internal void Retire(GpuAllocation allocation)
@@ -649,6 +671,7 @@ public sealed class GpuMemoryDevice : IDisposable
 
     private void DrainLocked()
     {
+        FailDrainLocked();
         foreach (GpuAllocation allocation in _allocations.Where(value => value.Retiring && value.Holds == 0).ToArray())
         {
             // A faulted context has no proof that driver resources are safe to free.
@@ -685,12 +708,14 @@ public sealed class GpuMemoryDevice : IDisposable
                     break;
                 }
             }
-            if (!_faulted && _operations.Count == 0 && _peerOperations.Count == 0 && _allocations.Count == 0 && _staging.Count == 0 && !_disposed)
+            if (!_faulted && _operations.Count == 0 && _peerOperations.Count == 0 && _externalHolds == 0
+                && _allocations.Count == 0 && _staging.Count == 0 && _uncertainReservations.Count == 0 && !_disposed)
             {
                 try
                 {
                     _driver.Dispose();
                     _disposed = true;
+                    _drained.TrySetResult();
                 }
                 catch
                 {
@@ -706,6 +731,7 @@ public sealed class GpuMemoryDevice : IDisposable
     {
         lock (_gate)
         {
+            _disposeRequested = true;
             _accepting = false;
             foreach (GpuAllocation allocation in _allocations)
             {
