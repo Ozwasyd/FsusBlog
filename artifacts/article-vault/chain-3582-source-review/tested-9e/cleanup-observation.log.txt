@@ -1,0 +1,4 @@
+fsusblog-dev-redis Up 4 hours (healthy)
+fsusblog-dev-postgres Up 4 hours (healthy)
+
+No original unit PostgreSQL fixture containers remain; pre-existing setup dev resources listed above were retained. No production resource was used.

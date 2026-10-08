@@ -1,0 +1,5 @@
+
+> fsusblog-client@0.0.0 typecheck:local-fsusui
+> node ./scripts/run-local-fsusui-typecheck.mjs
+
+[fsusui-typecheck] local root: /workspace/FsusUI

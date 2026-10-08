@@ -1,0 +1,177 @@
+✔ three canonical conflict owners retain exact twelve types and source-only qualification limits (2.552406ms)
+✔ unknown, removed and duplicate types or wildcard authority cannot enter the registry (3.679045ms)
+✔ lifecycle automatic action or metadata authority field drift is rejected (2.235303ms)
+✔ direct filesystem, Git, network and writer code fails the conflict-only ownership boundary (9.372234ms)
+✔ mtime, size, AI, two-way, generic winner and caller verification shortcuts are denied (4.13869ms)
+✔ missing original-plan, overlap, current-fact, digest and actual-reader gates are detected (6.637988ms)
+✔ source-only eligibility cannot become green through a valid-result fallback (0.564842ms)
+✔ duplicate conflict owners and missing canonical files are rejected (0.693765ms)
+✔ schema opening, type/version drift and missing bound identity cannot change the contract (4.79515ms)
+✔ compiled immutable registry and schema enumerate the same closed taxonomy and dispositions (16960.374306ms)
+✔ source-disjoint: exact-one positive, negative and authority registry fixture through compiled owner (0.239948ms)
+✔ source-disjoint: actual verifier preserves structure checks and unavailable reader failures (0.183333ms)
+✔ source-overlap: exact-one positive, negative and authority registry fixture through compiled owner (0.072878ms)
+✔ source-overlap: actual verifier preserves structure checks and unavailable reader failures (0.085558ms)
+✔ metadata-disjoint: exact-one positive, negative and authority registry fixture through compiled owner (0.055973ms)
+✔ metadata-disjoint: actual verifier preserves structure checks and unavailable reader failures (0.048752ms)
+✔ metadata-overlap: exact-one positive, negative and authority registry fixture through compiled owner (0.076925ms)
+✔ metadata-overlap: actual verifier preserves structure checks and unavailable reader failures (0.072909ms)
+✔ rename-vs-edit: exact-one positive, negative and authority registry fixture through compiled owner (0.071146ms)
+✔ rename-vs-edit: actual verifier preserves structure checks and unavailable reader failures (0.058868ms)
+✔ delete-vs-edit: exact-one positive, negative and authority registry fixture through compiled owner (0.067811ms)
+✔ delete-vs-edit: actual verifier preserves structure checks and unavailable reader failures (0.029264ms)
+✔ create-create: exact-one positive, negative and authority registry fixture through compiled owner (0.025859ms)
+✔ create-create: actual verifier preserves structure checks and unavailable reader failures (0.022593ms)
+✔ lifecycle-conflict: exact-one positive, negative and authority registry fixture through compiled owner (0.023425ms)
+✔ lifecycle-conflict: actual verifier preserves structure checks and unavailable reader failures (0.021953ms)
+✔ permission-conflict: exact-one positive, negative and authority registry fixture through compiled owner (0.031897ms)
+✔ permission-conflict: actual verifier preserves structure checks and unavailable reader failures (0.023345ms)
+✔ schema-conflict: exact-one positive, negative and authority registry fixture through compiled owner (0.054161ms)
+✔ schema-conflict: actual verifier preserves structure checks and unavailable reader failures (0.031737ms)
+✔ dependency-conflict: exact-one positive, negative and authority registry fixture through compiled owner (0.026099ms)
+✔ dependency-conflict: actual verifier preserves structure checks and unavailable reader failures (0.023345ms)
+✔ git-marker-present: exact-one positive, negative and authority registry fixture through compiled owner (0.023074ms)
+✔ git-marker-present: actual verifier preserves structure checks and unavailable reader failures (0.021041ms)
+✔ real Shared plan/journal prerequisite: scalar-build (17254.917674ms)
+✔ real Shared plan/journal prerequisite: current-plan (0.432685ms)
+✔ real Shared plan/journal prerequisite: execution-unavailable (0.06049ms)
+✔ real Shared plan/journal prerequisite: original-blocked-preserved (0.155973ms)
+✔ real Shared plan/journal prerequisite: plan-round-trip (0.064747ms)
+✔ real Shared plan/journal prerequisite: proposal-binds-real-candidate (0.085638ms)
+✔ real Shared plan/journal prerequisite: proposal-no-body (0.044947ms)
+✔ real Shared plan/journal prerequisite: confirmation-idempotent (0.060831ms)
+✔ real Shared plan/journal prerequisite: new-confirmation-append-only (0.076675ms)
+✔ real Shared plan/journal prerequisite: missing-decision (0.06734ms)
+✔ real Shared plan/journal prerequisite: duplicate-decision (0.04025ms)
+✔ real Shared plan/journal prerequisite: unknown-action (0.057195ms)
+✔ real Shared plan/journal prerequisite: wrong-provenance (0.025398ms)
+✔ real Shared plan/journal prerequisite: candidate-ref-tamper (0.022704ms)
+✔ real Shared plan/journal prerequisite: confirmation-in-future (0.019699ms)
+✔ real Shared plan/journal prerequisite: expired-plan (0.018547ms)
+✔ real Shared plan/journal prerequisite: manual-reader-unavailable (0.018948ms)
+✔ real Shared plan/journal prerequisite: missing-base-bytes (0.018277ms)
+✔ real Shared plan/journal prerequisite: cancellation-is-descriptor (0.019479ms)
+✔ real Shared plan/journal prerequisite: cancelled-execution-denied (0.024676ms)
+✔ real Shared plan/journal prerequisite: cancel-with-result-denied (0.019219ms)
+✔ real Shared plan/journal prerequisite: stale-git-ref (0.075051ms)
+✔ real Shared plan/journal prerequisite: stale-conflict-ref (0.023855ms)
+✔ real Shared plan/journal prerequisite: stale-root-ref (0.022133ms)
+✔ real Shared plan/journal prerequisite: stale-decisions (0.957226ms)
+✔ real Shared plan/journal prerequisite: stale-server-coordinate (0.051316ms)
+✔ real Shared plan/journal prerequisite: stale-local-byte-snapshot (0.139458ms)
+✔ real Shared plan/journal prerequisite: stale-server-lifecycle (0.032649ms)
+✔ real Shared plan/journal prerequisite: stale-server-permission (0.019659ms)
+✔ real Shared plan/journal prerequisite: stale-server-dependency (0.02009ms)
+✔ real Shared plan/journal prerequisite: markers-block-new-plan (0.014792ms)
+✔ real Shared plan/journal prerequisite: markers-stale-old-plan (0.015973ms)
+✔ real Shared plan/journal prerequisite: plan-digest-tamper (0.014963ms)
+✔ real Shared plan/journal prerequisite: plan-extra-executable-field (0.015683ms)
+✔ real Shared plan/journal prerequisite: plan-size-bound (0.016274ms)
+✔ real Shared plan/journal prerequisite: history-exact (0.016314ms)
+✔ real Shared plan/journal prerequisite: roll-forward-descriptor (0.017175ms)
+✔ real Shared plan/journal prerequisite: cancel-history (0.014692ms)
+✔ real Shared plan/journal prerequisite: server-failure-history (0.015403ms)
+✔ real Shared plan/journal prerequisite: recovery-unavailable (0.028342ms)
+✔ real Shared plan/journal prerequisite: complete-ref-not-physical-proof (0.015193ms)
+✔ real Shared plan/journal prerequisite: partial-cannot-be-complete (0.014301ms)
+✔ real Shared plan/journal prerequisite: server-only-not-local-base (0.02023ms)
+✔ real Shared plan/journal prerequisite: old-checkpoint-not-latest (0.017997ms)
+✔ real Shared plan/journal prerequisite: checkpoint-identity-tamper (0.172848ms)
+✔ real Shared plan/journal prerequisite: checkpoint-digest-tamper (0.023395ms)
+✔ real Shared plan/journal prerequisite: history-deletion (0.018838ms)
+✔ real Shared plan/journal prerequisite: history-reordered (0.016234ms)
+✔ real Shared plan/journal prerequisite: server-history-overwrite (0.014862ms)
+✔ real Shared plan/journal prerequisite: server-history-delete (0.365955ms)
+✔ real Shared plan/journal prerequisite: backup-ref-swap (0.037556ms)
+✔ real Shared plan/journal prerequisite: journal-plan-binding-drift (0.440848ms)
+✔ real Shared plan/journal prerequisite: recovery-current-ref-drift (0.030325ms)
+✔ real Shared plan/journal prerequisite: journal-round-trip (0.015183ms)
+✔ real Shared plan/journal prerequisite: journal-no-body (0.014692ms)
+✔ real Shared plan/journal prerequisite: journal-extra-token-field (0.014502ms)
+✔ real Shared plan/journal prerequisite: journal-size-bound (0.014732ms)
+✔ real Shared plan/journal prerequisite: journal-digest-tamper (0.014101ms)
+✔ all ten actual journal enum states have valid descriptor fixtures without granting recovery (0.097735ms)
+✔ backup capacity, TTL, encryption, privacy and cleanup policy mutations fail closed (0.278685ms)
+✔ actual Vue script, render AST and presentation retain the read-only authority boundary (381.893473ms)
+✔ plan/checkpoint presentation owners cannot acquire recovery writers or mutate canonical truth (151.878364ms)
+✔ checkpoint render expressions cannot write, choose latest recovery or expose raw backup HTML (85.373803ms)
+✔ comments and ordinary display strings do not become executable authority (25.019831ms)
+✔ writer imports, aliases, re-exports and dynamic imports cannot enter the presentation owners (105.645386ms)
+✔ network, storage and computed global aliases are rejected without executing fixtures (187.452063ms)
+✔ machine status, decision and verification mutations do not become UI authority (113.657659ms)
+✔ AI, mtime, two-way, accept-all and latest-receipt authority references are rejected (392.141288ms)
+✔ reflection writers and console evidence leaks are rejected even through aliases (81.54689ms)
+✔ Vue template expressions and raw HTML do not bypass script analysis (87.451651ms)
+✔ missing owners and malformed executable syntax fail closed (24.609669ms)
+✔ actual observer source retains its read-only native boundary (1.599895ms)
+✔ native observer rejects prohibited source mutation: write (0.472825ms)
+✔ native observer rejects prohibited source mutation: unlink (0.289351ms)
+✔ native observer rejects prohibited source mutation: printf (1.376291ms)
+✔ native observer rejects prohibited source mutation: read (0.264264ms)
+✔ native observer rejects prohibited source mutation: open (0.238145ms)
+✔ native observer rejects missing teardown: FSEventStreamStop( (0.320678ms)
+✔ native observer rejects missing teardown: FSEventStreamInvalidate( (0.286487ms)
+✔ native observer rejects missing teardown: dispatch_sync_f( (0.240819ms)
+✔ native observer rejects missing teardown: FSEventStreamRelease( (0.343391ms)
+✔ native observer rejects missing teardown: dispatch_release( (0.243724ms)
+✔ native observer rejects missing teardown: close(vault->descriptor) (0.215992ms)
+✔ native observer rejects missing teardown: free(vault) (0.260739ms)
+✔ raw facts cannot acquire a direct save or polling consumer (0.532634ms)
+✔ removing queue capacity or hiding overflow fails the source obligation (0.500847ms)
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+✔ #2348 canonical MFA retirement retains before identities without post-baseline self-admission (176.549915ms)
+✔ matrix is the single current command and retention governance authority (168.55281ms)
+✔ backend source-locking owner accepts runtime artifacts and rejects production docs and test source (1.561358ms)
+✔ backend source-locking owner does not mistake a temporary JSON artifact for repository source (0.206628ms)
+✔ backend source-locking owner reconstructs segmented repository paths (0.184335ms)
+✔ replacement merge accepts identical declarations and reports conflicting owners (0.30909ms)
+✔ replacement chains remain acyclic without a fixed historical edge count (0.272265ms)
+✔ issue-local replacement manifest count is exact (0.130624ms)
+✔ retention audit reports every undeclared deletion and missing replacement target in one pass (0.269843ms)
+✔ retention audit accepts a declared deletion whose replacement exists after convergence (0.186698ms)
+✔ compact retention audit resolves hashed deletions, replacement targets, and path bindings (1.297214ms)
+✔ retention audit inherits pre-baseline declarations but rejects a wrong baseline path (0.112558ms)
+✔ final after snapshot must be independently run-bound and source-bound (0.223223ms)
+✔ final evidence contracts report every invalid status field (0.154851ms)
+✔ child issue evidence requires the exact closed #1032 through #1050 set (0.38911ms)
+✔ path migration expansion emits every exact baseline test ID (0.169723ms)
+✔ convergence plan enforces all child issues exactly once and only earlier dependencies (0.497181ms)
+ℹ tests 137
+ℹ suites 0
+ℹ pass 137
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17376.478308

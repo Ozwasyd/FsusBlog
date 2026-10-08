@@ -1,0 +1,1 @@
+[native-tooling-style] ok operation=lint domain=all mode=changed selected=6 checked=6 baseline=0 violations=0
