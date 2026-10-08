@@ -97,13 +97,19 @@ test('backend DATA_ONLY profile rejects unknown fields and overlapping terminal 
         candidate.outcome.membership.passedTestIds = ['test'];
         candidate.outcome.membership.failedTestIds = ['test'];
     });
-    assert.throws(() => validate(overlap), /executed tests is not exact/);
+    assert.throws(() => validate(overlap), /planned tests is not exact/);
 });
 
 test('frontend profile preserves dynamic suite maps and refuses newly invented nested assertion fields', () =>
 {
     const f = fixture('frontend');
-    reseal(f, (candidate) => candidate.outcome.membership.suiteTestIds = { 'suite:one': ['test:one'] });
+    reseal(f, (candidate) => candidate.outcome.membership.suiteTestIds = { 'suite:one': [] });
+    assert.throws(() => validate(f), /frontend suite map is not exact/);
+    reseal(f, (candidate) =>
+    {
+        candidate.outcome.membership.plannedSuiteIds = ['suite:one'];
+        candidate.outcome.membership.passedSuiteIds = ['suite:one'];
+    });
     assert.equal(validate(f).normalizationStatus, 'data-only-schema');
     reseal(f, (candidate) => candidate.outcome.membership.assertions = [{ id: 'assertion', testId: 'test',
         status: 'passed', failureClass: null, failureKind: null, failureIdentity: null, newField: 'unknown' }]);
@@ -123,6 +129,10 @@ test('browser compatible v2 profile retains member-level semantics and rejects d
     {
         const membership = candidate.outcome.membership;
         membership.plannedMemberIds = ['member'];
+        membership.plannedProjectIds = ['project'];
+        membership.plannedBrowserIds = ['browser'];
+        membership.plannedTestIds = ['test'];
+        membership.plannedAssertionIds = ['assertion'];
         membership.executedMemberIds = ['member'];
         membership.blockedMemberIds = ['member'];
         membership.members = [{ id: 'member', projectId: 'project', browserId: 'browser', testId: 'test',
@@ -170,4 +180,39 @@ test('domain admission refuses omitted limits nonencoded objects and oversized i
     assert.throws(() => validateOutcomeAdapterCandidateData('{}', '{}'), /explicit host byte budget/);
     assert.throws(() => validateOutcomeAdapterCandidateData({}, '{}', 100), /encoded input/);
     assert.throws(() => validateOutcomeAdapterCandidateData('a'.repeat(101), '{}', 100), /host budget/);
+});
+
+
+test('frontend contract preserves partially executed blocked tests and suite terminal priority from the exact source', () =>
+{
+    const f = fixture('frontend');
+    reseal(f, (candidate) =>
+    {
+        candidate.outcome.status = 'failed';
+        candidate.outcome.requiredMembershipVerified = false;
+        candidate.outcome.reasons = [{ kind: 'infra.process-signal', producerId: candidate.producerId,
+            identity: { producerId: candidate.producerId, attemptNumber: 1 } }];
+        const membership = candidate.outcome.membership;
+        membership.plannedTestIds = ['test'];
+        membership.executedTestIds = ['test'];
+        membership.blockedTestIds = ['test'];
+        membership.plannedSuiteIds = ['suite'];
+        membership.executedSuiteIds = ['suite'];
+        membership.blockedSuiteIds = ['suite'];
+        membership.suiteTestIds = { suite: ['test'] };
+    });
+    assert.equal(validate(f).producerVerificationPending, true);
+    reseal(f, (candidate) => candidate.outcome.membership.passedSuiteIds = ['suite']);
+    assert.throws(() => validate(f), /frontend suite status is not exact/);
+});
+
+test('domain contracts refuse assertions and browser identity axes outside planned membership', () =>
+{
+    const f = fixture('backend');
+    reseal(f, (candidate) => candidate.outcome.membership.assertions = [{ testId: 'unplanned', caseId: 'case',
+        assertionId: 'assertion', status: 'passed', evidenceId: 'evidence' }]);
+    assert.throws(() => validate(f), /assertion refers to an unplanned test/);
+    const browser = fixture('browser');
+    reseal(browser, (candidate) => candidate.outcome.membership.plannedProjectIds = ['extra']);
+    assert.throws(() => validate(browser), /browser planned identity axes is not exact/);
 });

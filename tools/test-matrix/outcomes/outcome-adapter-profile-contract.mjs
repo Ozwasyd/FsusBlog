@@ -72,13 +72,60 @@ export function validateOutcomeAdapterCandidateData(encodedCandidate, encodedExp
     const membership = candidate.outcome.membership;
     if (['backend', 'frontend'].includes(entry.family))
     {
+        exactSet(membership.plannedTestIds, [...membership.passedTestIds, ...membership.failedTestIds,
+            ...membership.skippedTestIds, ...membership.blockedTestIds], 'planned tests');
+        require(candidate.outcome.status !== 'success' || membership.plannedTestIds.length === membership.passedTestIds.length,
+            'successful tests conceal an unpassed member');
+        for (const assertion of membership.assertions)
+        {
+            require(membership.plannedTestIds.includes(assertion.testId), 'assertion refers to an unplanned test');
+        }
+    }
+    if (entry.family === 'backend')
+    {
         exactSet(membership.executedTestIds, [...membership.passedTestIds, ...membership.failedTestIds], 'executed tests');
-        exactSet(membership.plannedTestIds, [...membership.executedTestIds, ...membership.skippedTestIds,
-            ...membership.blockedTestIds], 'planned tests');
+        const cases = membership.caseIdentities.map((item) => JSON.stringify([item.testId, item.caseId]));
+        require(new Set(cases).size === cases.length, 'duplicate backend case identity');
+        exactSet([...new Set(membership.caseIdentities.map((item) => item.testId))], membership.executedTestIds,
+            'backend executed case roster');
+        const assertions = membership.assertions.map((item) => JSON.stringify([item.testId, item.caseId, item.assertionId]));
+        require(new Set(assertions).size === assertions.length && membership.assertions.every((item) =>
+            cases.includes(JSON.stringify([item.testId, item.caseId]))), 'backend assertion/case identity mismatch');
+    }
+    if (entry.family === 'frontend')
+    {
+        // The exact native adapter permits an aborted blocked test to have begun
+        // execution. Preserve that distinction instead of rewriting it as failed.
+        require([...membership.passedTestIds, ...membership.failedTestIds].every((id) => membership.executedTestIds.includes(id))
+            && membership.executedTestIds.every((id) => [...membership.passedTestIds, ...membership.failedTestIds,
+                ...membership.blockedTestIds].includes(id)), 'frontend executed membership mismatch');
+        exactSet(membership.plannedSuiteIds, Object.keys(membership.suiteTestIds), 'frontend suite map');
+        exactSet(membership.plannedTestIds, Object.values(membership.suiteTestIds).flat(), 'frontend suite test roster');
+        require(membership.parameterizedTestIds.every((id) => membership.plannedTestIds.includes(id)),
+            'unplanned parameterized test');
+        for (const status of ['planned', 'executed', 'passed', 'failed', 'skipped', 'blocked'])
+        {
+            exactSet(membership[`${status}ParameterizedTestIds`], membership[`${status}TestIds`]
+                .filter((id) => membership.parameterizedTestIds.includes(id)), 'frontend parameterized status');
+        }
+        for (const status of ['executed', 'passed', 'failed', 'skipped', 'blocked'])
+        {
+            const suites = Object.entries(membership.suiteTestIds).filter(([, members]) => status === 'executed'
+                ? members.some((id) => membership.executedTestIds.includes(id))
+                : (['failed', 'blocked', 'skipped'].find((terminal) => members.some((id) =>
+                    membership[`${terminal}TestIds`].includes(id))) ?? 'passed') === status).map(([id]) => id);
+            exactSet(membership[`${status}SuiteIds`], suites, 'frontend suite status');
+        }
     }
     if (entry.family === 'browser')
     {
         exactSet(membership.plannedMemberIds, membership.members.map((member) => member.id), 'browser member records');
+        for (const axis of ['Project', 'Browser', 'Test', 'Assertion'])
+        {
+            const field = `${axis[0].toLowerCase()}${axis.slice(1)}Id`;
+            exactSet(membership[`planned${axis}Ids`], [...new Set(membership.members.map((member) => member[field]))],
+                'browser planned identity axes');
+        }
         exactSet(membership.executedMemberIds, membership.members.filter((member) => member.executed).map((member) => member.id),
             'browser executed members');
         for (const status of ['passed', 'failed', 'skipped', 'blocked'])
