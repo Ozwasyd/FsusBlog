@@ -14,9 +14,10 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/docs/generated-fact-sections/renderers.mjs"
             ],
-            "reason": "Preserve the existing canonical execution owner and environment interface spellings in the exact supplied migration verifier. This ordinary naming declaration does not alter the supplied source or admit generated-history, physical execution or qualification evidence."
+            "reason": "Preserve the existing canonical execution owner, environment interface spellings and supplied generated-document renderer source while consuming the exact coordinator-supplied acceptance prerequisites. This ordinary naming declaration does not alter either supplied source or admit generated-history, physical execution or qualification evidence."
         }
     ]
 }
