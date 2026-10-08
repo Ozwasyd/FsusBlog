@@ -1,0 +1,11 @@
+[
+  "src/migration/FsusBlog.Migration.csproj",
+  "tests/backend/FsusBlog.Server.Tests.csproj",
+  "tests/migration/FsusBlog.Migration.Tests.csproj",
+  "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+  "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+  "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+  "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+  "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+  "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj"
+]

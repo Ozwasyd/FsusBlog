@@ -1,0 +1,65 @@
+[
+  {
+    "path": "src/migration/packages.lock.json",
+    "currentSha256": "4643301ba0ae2057048f90c1090f81083bb319ab7cce8279854b6b517713f149",
+    "currentBlob": "66b2f8d186be94903befd67b63ec6eb23d76ed52",
+    "independentlyRegeneratedCurrentBytesEqualOldApproved3904Source": true,
+    "semanticGraphEqualOldApprovedSource": true
+  },
+  {
+    "path": "benchmarks/core/packages.lock.json",
+    "currentSha256": "ba5c059240d7151a2187925c627061d93e6872cd7dcd2f0c8b3694e5829422fc",
+    "currentBlob": "2fd0bc8ff2ac8ae9b4c828422d87abac16006d4a",
+    "independentlyRegeneratedCurrentBytesEqualOldApproved3904Source": true,
+    "semanticGraphEqualOldApprovedSource": true
+  },
+  {
+    "path": "tests/backend/packages.lock.json",
+    "currentSha256": "2465993cffcaad9b54974cb68c8f98aa0a9d7446fd697c6be698b08b3b10b2d5",
+    "currentBlob": "10376ad517bbd800ec096ff2e9a4dcce4dc48898",
+    "independentlyRegeneratedCurrentBytesEqualOldApproved3904Source": true,
+    "semanticGraphEqualOldApprovedSource": true
+  },
+  {
+    "path": "tests/migration/packages.lock.json",
+    "currentSha256": "6c58a2d7f9a55f7e26c5523a07e0068ae7f2c6c4da39a56792265f8e25bcb809",
+    "currentBlob": "383f088188899fc78973b17bed8c025561ff48a4",
+    "independentlyRegeneratedCurrentBytesEqualOldApproved3904Source": true,
+    "semanticGraphEqualOldApprovedSource": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+    "currentSha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+    "currentBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+    "independentlyRegeneratedCurrentBytesEqualOldApproved3904Source": true,
+    "semanticGraphEqualOldApprovedSource": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+    "currentSha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+    "currentBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+    "independentlyRegeneratedCurrentBytesEqualOldApproved3904Source": true,
+    "semanticGraphEqualOldApprovedSource": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+    "currentSha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+    "currentBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+    "independentlyRegeneratedCurrentBytesEqualOldApproved3904Source": true,
+    "semanticGraphEqualOldApprovedSource": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+    "currentSha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+    "currentBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+    "independentlyRegeneratedCurrentBytesEqualOldApproved3904Source": true,
+    "semanticGraphEqualOldApprovedSource": true
+  },
+  {
+    "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+    "currentSha256": "ec36f39505f044cde4942591a17146e22d35cba9d7c68e432801baae2568f1ac",
+    "currentBlob": "0591c7b47fa2ef538235a408701beb96dd409cc3",
+    "independentlyRegeneratedCurrentBytesEqualOldApproved3904Source": true,
+    "semanticGraphEqualOldApprovedSource": true
+  }
+]

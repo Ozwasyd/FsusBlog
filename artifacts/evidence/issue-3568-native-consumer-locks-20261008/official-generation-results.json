@@ -1,0 +1,137 @@
+[
+  {
+    "sourceCandidate": "5a6323c825c4f1183d788f70ce555a350977cdb7",
+    "command": [
+      "dotnet",
+      "restore",
+      "src/migration/FsusBlog.Migration.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T10:12:21.930210+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-native-consumer-locks-current-20261008/official-generation-0.log",
+    "sha256": "db8367ea8085c48cae67d86d4eb4e71c071de2943f01da15c455aa4daa0b48a4"
+  },
+  {
+    "sourceCandidate": "5a6323c825c4f1183d788f70ce555a350977cdb7",
+    "command": [
+      "dotnet",
+      "restore",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T10:12:22.993305+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-native-consumer-locks-current-20261008/official-generation-1.log",
+    "sha256": "351e64734364d57e50d0f358e81139a0268e4a081b4df4d4d417e94f64897c33"
+  },
+  {
+    "sourceCandidate": "5a6323c825c4f1183d788f70ce555a350977cdb7",
+    "command": [
+      "dotnet",
+      "restore",
+      "tests/migration/FsusBlog.Migration.Tests.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T10:12:24.662649+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-native-consumer-locks-current-20261008/official-generation-2.log",
+    "sha256": "787d5d77da0115ce17ab53ac2d6de7b9c53412dfca6bc445bb703a50a62fe236"
+  },
+  {
+    "sourceCandidate": "5a6323c825c4f1183d788f70ce555a350977cdb7",
+    "command": [
+      "dotnet",
+      "restore",
+      "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T10:12:25.996127+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-native-consumer-locks-current-20261008/official-generation-3.log",
+    "sha256": "7eadb352e67df27d225bf3c047268458dbad1be37bdd72cedbced413c90061be"
+  },
+  {
+    "sourceCandidate": "5a6323c825c4f1183d788f70ce555a350977cdb7",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T10:12:27.568313+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-native-consumer-locks-current-20261008/official-generation-4.log",
+    "sha256": "210333170831cb101e05ce054e68ffb75b762402475940bc1bdb579968bf9411"
+  },
+  {
+    "sourceCandidate": "5a6323c825c4f1183d788f70ce555a350977cdb7",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T10:12:29.503172+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-native-consumer-locks-current-20261008/official-generation-5.log",
+    "sha256": "71b9324343297e1c23192190e0d87cd77fe4c4d750257e32612562336ee6b118"
+  },
+  {
+    "sourceCandidate": "5a6323c825c4f1183d788f70ce555a350977cdb7",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T10:12:31.075986+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-native-consumer-locks-current-20261008/official-generation-6.log",
+    "sha256": "769dde47dff6d30068d7856124b7d4c11d121ebadb818cde53dc3a27be76ca14"
+  },
+  {
+    "sourceCandidate": "5a6323c825c4f1183d788f70ce555a350977cdb7",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T10:12:32.479592+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-native-consumer-locks-current-20261008/official-generation-7.log",
+    "sha256": "80c8e00fb9cc05263ad86da339a711902434c7497802c72f703a552320e5ef27"
+  },
+  {
+    "sourceCandidate": "5a6323c825c4f1183d788f70ce555a350977cdb7",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+      "--force-evaluate",
+      "--use-lock-file",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-08T10:12:33.911221+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-native-consumer-locks-current-20261008/official-generation-8.log",
+    "sha256": "997115f9b99909ef01209428438e9b601f8f863ca8778657c34ab4d6c6da24a1"
+  }
+]

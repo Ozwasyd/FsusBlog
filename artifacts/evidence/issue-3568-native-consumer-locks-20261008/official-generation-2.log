@@ -1,0 +1,4 @@
+  Determining projects to restore...
+  Restored /workspace/.task-worktrees/issue-3568-canonical-native-consumer-locks/src/shared/FsusBlog.Shared.csproj (in 98 ms).
+  Restored /workspace/.task-worktrees/issue-3568-canonical-native-consumer-locks/src/migration/FsusBlog.Migration.csproj (in 249 ms).
+  Restored /workspace/.task-worktrees/issue-3568-canonical-native-consumer-locks/tests/migration/FsusBlog.Migration.Tests.csproj (in 249 ms).

@@ -1,0 +1,57 @@
+{
+  "recordedAtUTC": "2026-10-08T10:31:18.701239+00:00",
+  "scope": "Current canonical package capability source delivery; not runtime acceptance",
+  "base": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "publishedBranch": "codex/issue-3568-canonical-native-consumer-locks-20261008",
+  "publishedHead": "e4ac73dad845c71cc0f12027e3fc65ed0d5923cb",
+  "testedRestoreCandidate": "a5e29012c8f798209f3ab86a7f8a3ab102846a61",
+  "finalInputBinding": "49 package inputs byte-identical; final difference is naming-evidence manifest only. Original restore receipts retain actual tested SHA.",
+  "supersededMetadataHead": "9b83342feb604f2030b4cd0ae61ba062ed8b458d",
+  "metadataCorrection": "Same source tree as superseded metadata head; Refs footer corrected on own metadata commit with exact lease. Original retained at local refs/task-evidence/issue-3568-naming-footer-preimage.",
+  "canonicalAngleSharpSource": "53075182a4cccf400e1a389d5dfc7dca5ab4d09d",
+  "canonicalNativeSource": "4a2124d449f45e0cf653a76f0c01adcdca6109de",
+  "officialGeneration": {
+    "count": 9,
+    "allExitZero": true,
+    "results": "official-generation-results.json"
+  },
+  "auditOnLockedRestore": {
+    "count": 9,
+    "allExitZero": true,
+    "auditWarnings": 0,
+    "results": "audit-on-locked-restore-results.json"
+  },
+  "finalSourceStage": {
+    "exitCode": 1,
+    "result": "source-result-final.json",
+    "soleUnsupportedPath": "src/migration/FsusBlog.Migration.csproj",
+    "qualification": "unrun"
+  },
+  "trustedCommitRange": {
+    "exitCode": 0,
+    "log": "trusted-range-final.log"
+  },
+  "localProjectedPullRequest": {
+    "exitCode": 0,
+    "log": "local-projected-contract-final.log",
+    "liveEvent": false
+  },
+  "rootAssignment": [
+    {
+      "issue": 3568,
+      "state": "BLOCKED",
+      "candidate": "23cc1d07e73a3ca149fb312920b3d3a4cb90d732",
+      "draftPR": "https://github.com/Ozwasyd/FsusBlog/pull/3848",
+      "remaining": "Original retained build-owner channel/cache and original authority candidate binding; compiled oracle exits1 before native fixture execution. Full root runtime acceptance unrun."
+    }
+  ],
+  "trackingAssignments": [],
+  "publicationHold": "No new PR/comment/metadata content API writes without coordinator queue grant. Isolated source/evidence git pushes performed.",
+  "notRun": [
+    "Native SQL runtime probe",
+    "Compiler/full fixture discovery on native lock increment",
+    "Full original #3568 retained-runtime acceptance"
+  ],
+  "minimalAngleSharpHead": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+  "minimalEvidenceHead": "11bd638ccf28ddc981bacf642498a56699342f1d"
+}

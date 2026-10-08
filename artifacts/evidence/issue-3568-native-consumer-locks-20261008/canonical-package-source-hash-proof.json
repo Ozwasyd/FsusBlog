@@ -1,0 +1,121 @@
+{
+  "head": "a5e29012c8f798209f3ab86a7f8a3ab102846a61",
+  "base": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "sourcePrerequisite": "4a2124d449f45e0cf653a76f0c01adcdca6109de",
+  "formalMigrationCsprojBlobMatchesSource": true,
+  "centralVersionAndPropsUnchanged": true,
+  "locks": [
+    {
+      "path": "src/migration/packages.lock.json",
+      "blob": "66b2f8d186be94903befd67b63ec6eb23d76ed52",
+      "sha256": "4643301ba0ae2057048f90c1090f81083bb319ab7cce8279854b6b517713f149",
+      "managedProvidersUnchanged": true,
+      "approvedNativeChange": [
+        {
+          "name": "SQLitePCLRaw.lib.e_sqlite3",
+          "before": {
+            "type": "CentralTransitive",
+            "requested": "[3.53.3, )",
+            "resolved": "2.1.11",
+            "contentHash": "Ev2ytaXiOlWZ4b3R67GZBsemTINslLD1DCJr2xiacpn4tbapu0Q4dHEzSvZSMnVWeE5nlObU3VZN2p81q3XOYQ=="
+          },
+          "after": {
+            "type": "Direct",
+            "requested": "[3.53.3, )",
+            "resolved": "3.53.3",
+            "contentHash": "ZXiSbBkrlw2Of/dBqny/qtQol7dlThrUD8zH/jkQicCFm2yn2BbhKsQW0+YHAzhANWz4ZJCz7gvo88BwluVhkA=="
+          }
+        }
+      ]
+    },
+    {
+      "path": "benchmarks/core/packages.lock.json",
+      "blob": "2fd0bc8ff2ac8ae9b4c828422d87abac16006d4a",
+      "sha256": "ba5c059240d7151a2187925c627061d93e6872cd7dcd2f0c8b3694e5829422fc",
+      "managedProvidersUnchanged": true,
+      "approvedNativeChange": []
+    },
+    {
+      "path": "tests/backend/packages.lock.json",
+      "blob": "10376ad517bbd800ec096ff2e9a4dcce4dc48898",
+      "sha256": "2465993cffcaad9b54974cb68c8f98aa0a9d7446fd697c6be698b08b3b10b2d5",
+      "managedProvidersUnchanged": true,
+      "approvedNativeChange": [
+        {
+          "name": "SQLitePCLRaw.lib.e_sqlite3",
+          "before": {
+            "type": "CentralTransitive",
+            "requested": "[3.53.3, )",
+            "resolved": "2.1.11",
+            "contentHash": "Ev2ytaXiOlWZ4b3R67GZBsemTINslLD1DCJr2xiacpn4tbapu0Q4dHEzSvZSMnVWeE5nlObU3VZN2p81q3XOYQ=="
+          },
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[3.53.3, )",
+            "resolved": "3.53.3",
+            "contentHash": "ZXiSbBkrlw2Of/dBqny/qtQol7dlThrUD8zH/jkQicCFm2yn2BbhKsQW0+YHAzhANWz4ZJCz7gvo88BwluVhkA=="
+          }
+        }
+      ]
+    },
+    {
+      "path": "tests/migration/packages.lock.json",
+      "blob": "383f088188899fc78973b17bed8c025561ff48a4",
+      "sha256": "6c58a2d7f9a55f7e26c5523a07e0068ae7f2c6c4da39a56792265f8e25bcb809",
+      "managedProvidersUnchanged": true,
+      "approvedNativeChange": [
+        {
+          "name": "SQLitePCLRaw.lib.e_sqlite3",
+          "before": {
+            "type": "CentralTransitive",
+            "requested": "[3.53.3, )",
+            "resolved": "2.1.11",
+            "contentHash": "Ev2ytaXiOlWZ4b3R67GZBsemTINslLD1DCJr2xiacpn4tbapu0Q4dHEzSvZSMnVWeE5nlObU3VZN2p81q3XOYQ=="
+          },
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[3.53.3, )",
+            "resolved": "3.53.3",
+            "contentHash": "ZXiSbBkrlw2Of/dBqny/qtQol7dlThrUD8zH/jkQicCFm2yn2BbhKsQW0+YHAzhANWz4ZJCz7gvo88BwluVhkA=="
+          }
+        }
+      ]
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "managedProvidersUnchanged": true,
+      "approvedNativeChange": []
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "managedProvidersUnchanged": true,
+      "approvedNativeChange": []
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "managedProvidersUnchanged": true,
+      "approvedNativeChange": []
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "managedProvidersUnchanged": true,
+      "approvedNativeChange": []
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "blob": "0591c7b47fa2ef538235a408701beb96dd409cc3",
+      "sha256": "ec36f39505f044cde4942591a17146e22d35cba9d7c68e432801baae2568f1ac",
+      "managedProvidersUnchanged": true,
+      "approvedNativeChange": []
+    }
+  ],
+  "managedVersionsAndExistingContentHashesUnchangedExceptApprovedNative": true
+}
