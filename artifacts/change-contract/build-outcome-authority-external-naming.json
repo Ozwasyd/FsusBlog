@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release/semantic-outcome-clean-attempt-consumers.mjs",
+                "tools/test-matrix/outcomes/adapter-support.mjs",
+                "tools/test-matrix/outcomes/immutable-build-adapter.mjs",
+                "tools/test-matrix/outcomes/release-finalizer-adapter.mjs",
+                "tools/test-matrix/outcomes/release-projection-adapter.mjs"
+            ],
+            "reason": "preserve the registered external process authority spellings in the existing outcome adapter and consumer owners; no new external names or exception policy"
+        }
+    ]
+}
