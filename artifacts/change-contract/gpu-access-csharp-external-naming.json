@@ -5,9 +5,10 @@
             "id": "json-wire-key",
             "paths": [
                 "config/development/csharp-style-baseline.json",
-                "config/development/csharp-style-policy.json"
+                "config/development/csharp-style-policy.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve the original policy/baseline JSON fields while adding only the singular Access directory entry and rebinding its policy digest through the pinned original owner operation."
+            "reason": "Preserve the original policy/baseline JSON fields while adding only the singular Access directory entry and rebinding its policy digest through the pinned original owner operation. Bind the exact owned checker in the shared execution authority using its unchanged canonical producer."
         },
         {
             "id": "css-like-contract",
