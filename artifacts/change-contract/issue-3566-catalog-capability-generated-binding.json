@@ -9,7 +9,14 @@
         "tools/test/attempt-runner.mjs",
         "tools/test/temporal-context.mjs",
         "tools/test/temporal-context-contract.mjs",
-        "tools/test/correctness-attempt-migration.mjs"
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/test-matrix/blame-ignore-source.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs",
+        "config/testing/release-final-execution-authority-index.json",
+        "tests/tools/blame-ignore-source.test.mjs",
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs"
     ],
     "outputs": [
         {
@@ -18,7 +25,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "fdb76ed44cc10c1151ce700e89057d23363bea9971c0c66370c8ef91efd88e16"
+            "sha256": "0173b99f931a2a9380c13165ca86a86b437654e6f1b3faec5747d04f490d72fe"
         }
     ]
 }
