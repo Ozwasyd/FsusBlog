@@ -424,6 +424,15 @@ test('real loopback reset preserves native code before the unchanged route oracl
     assert.equal(row.failureFacts.event, 'native-error');
     assert.equal(row.failureFacts.error.code, 'ECONNRESET');
     assert.equal(row.failureFacts.cancellation.origin, 'none');
+    assert.equal(row.responseFacts.httpStatus.status, 'unavailable');
+    assert.equal(row.responseFacts.httpStatus.value, null);
+    assert.equal(row.responseFacts.contentType.status, 'unavailable');
+    assert.equal(row.responseFacts.contentType.reason, 'response-headers-not-received');
+    assert.equal(row.responseFacts.bytesReceived.status, 'ok');
+    assert.equal(row.responseFacts.bytesReceived.value, 0);
+    assert.equal(row.responseFacts.bodyState, 'not-started');
+    assert.equal(observations.filter((event) => event.type === 'response-headers').length, 0);
+    assert.deepEqual(observations.find((event) => event.type === 'request-completed').responseFacts, row.responseFacts);
     assert.deepEqual(classifyLoadTransportFailure(row.failureFacts), {
         outcome: 'network-error', errorKind: 'reset', errorCode: 'ECONNRESET',
         errorDigest: classifyLoadTransportFailure(row.failureFacts).errorDigest
@@ -450,6 +459,89 @@ test('real partial-body reset preserves IncomingMessage ECONNRESET after its abo
     assert.equal(rows[0].failureFacts.stage, 'body');
     assert.equal(rows[0].failureFacts.error.code, 'ECONNRESET');
     assert.equal(classifyLoadTransportFailure(rows[0].failureFacts).outcome, 'network-error');
+    const headers = observations.find((row) => row.type === 'response-headers');
+    assert.equal(headers.responseFacts.httpStatus.status, 'ok');
+    assert.equal(headers.responseFacts.httpStatus.value, 200);
+    assert.equal(headers.responseFacts.contentType.value, 'text/html');
+    assert.equal(headers.responseFacts.bytesReceived.value, 0);
+    assert.equal(headers.responseFacts.bodyState, 'partial');
+    const terminal = rows[0].responseFacts;
+    assert.equal(terminal.httpStatus.value, 200);
+    assert.equal(terminal.contentType.status, 'ok');
+    assert.equal(terminal.contentType.value, 'text/html');
+    assert.equal(terminal.bytesReceived.value, Buffer.byteLength('<!doctype html>'));
+    assert.equal(terminal.bodyState, 'partial');
+    assert.equal(sample.status, 0);
+    assert.equal(sample.bodyBytes, 0);
+    assert.deepEqual(observations.find((row) => row.type === 'request-completed').responseFacts, terminal);
+    assert.ok(Object.isFrozen(terminal) && Object.isFrozen(terminal.bytesReceived));
+});
+
+test('real headers followed by zero-byte reset differ from failure before response headers', async (t) =>
+{
+    const fixture = await serverFixture(t, (request, response) =>
+    {
+        response.writeHead(503, { 'content-type': 'Text/Plain; charset=UTF-8', 'content-length': '1000' });
+        response.flushHeaders();
+        const timer = setTimeout(() => request.socket.destroy(), 20);
+        response.once('close', () => clearTimeout(timer));
+    });
+    const observations = [];
+    const transport = await transportFixture(t, fixture, {}, { onObservation: (row) => observations.push(row) });
+    const sample = await transport.request(arrival, requestOptions);
+    assertRouteSampleShape(sample);
+    assert.equal(sample.ok, false);
+    const failure = failureRows(observations)[0];
+    assert.equal(classifyLoadTransportFailure(failure.failureFacts).errorCode, 'ECONNRESET');
+    assert.equal(failure.responseFacts.httpStatus.status, 'ok');
+    assert.equal(failure.responseFacts.httpStatus.value, 503);
+    assert.equal(failure.responseFacts.contentType.status, 'ok');
+    assert.equal(failure.responseFacts.contentType.value, 'text/plain');
+    assert.equal(failure.responseFacts.bytesReceived.value, 0);
+    assert.equal(failure.responseFacts.bodyState, 'partial');
+    assert.equal(observations.filter((row) => row.type === 'response-headers').length, 1);
+});
+
+test('real complete empty response is distinct from an interrupted zero-byte body', async (t) =>
+{
+    const fixture = await serverFixture(t, (_request, response) =>
+    {
+        response.writeHead(204);
+        response.end();
+    });
+    const observations = [];
+    const transport = await transportFixture(t, fixture, {}, { onObservation: (row) => observations.push(row) });
+    const sample = await transport.request(arrival, requestOptions);
+    assertRouteSampleShape(sample);
+    assert.equal(sample.ok, false);
+    assert.equal(sample.failureKind, 'unexpected-status');
+    const terminal = observations.find((row) => row.type === 'request-completed').responseFacts;
+    assert.equal(terminal.httpStatus.status, 'ok');
+    assert.equal(terminal.httpStatus.value, 204);
+    assert.equal(terminal.contentType.status, 'unavailable');
+    assert.equal(terminal.contentType.reason, 'content-type-header-absent');
+    assert.equal(terminal.bytesReceived.value, 0);
+    assert.equal(terminal.bodyState, 'complete');
+    assert.equal(failureRows(observations).length, 0);
+});
+
+test('real complete body terminal retains its delivered bytes without changing route sample', async (t) =>
+{
+    const fixture = await serverFixture(t);
+    const observations = [];
+    const transport = await transportFixture(t, fixture, {}, { onObservation: (row) => observations.push(row) });
+    const sample = await transport.request(arrival, requestOptions);
+    assertRouteSampleShape(sample);
+    assert.ok(sample.ok);
+    const headers = observations.find((row) => row.type === 'response-headers').responseFacts;
+    const terminal = observations.find((row) => row.type === 'request-completed').responseFacts;
+    assert.equal(headers.bytesReceived.value, 0);
+    assert.equal(headers.bodyState, 'partial');
+    assert.equal(terminal.httpStatus.value, sample.status);
+    assert.equal(terminal.contentType.value, sample.contentType);
+    assert.equal(terminal.bytesReceived.value, Buffer.byteLength(documentBody));
+    assert.equal(terminal.bytesReceived.value, sample.bodyBytes);
+    assert.equal(terminal.bodyState, 'complete');
 });
 
 test('real task-owned closed listener preserves ECONNREFUSED at TCP connect', async (t) =>
