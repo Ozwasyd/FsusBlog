@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "18ce5e8db6d450bbeb0e742a0c29d8c9b4b6334b985dac781a6e2f20884b3801",
+    "contentDigest": "e910c320efb2f9a086fd2f74473978c1d0a092c85c8a01f097ed40bc248feac5",
     "operations": [
         {
             "method": "DELETE",
@@ -1938,9 +1938,9 @@
             "method": "POST",
             "path": "/api/binary/auth/mfa/disable",
             "operationId": "binary_post_auth_mfa_disable",
-            "requestFrame": "MfaPasswordProofRequest",
-            "requestType": "FsusBlog.Core.Mapping.Models.MfaPasswordProofRequestCoreModel",
-            "requestEncoding": "binary-layout",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
             "responseFrame": "EmptySuccess",
             "errorFrame": "ApiError",
             "successStatus": 200
@@ -1949,9 +1949,9 @@
             "method": "POST",
             "path": "/api/binary/auth/mfa/recovery/regenerate",
             "operationId": "binary_post_auth_mfa_recovery_regenerate",
-            "requestFrame": "MfaPasswordProofRequest",
-            "requestType": "FsusBlog.Core.Mapping.Models.MfaPasswordProofRequestCoreModel",
-            "requestEncoding": "binary-layout",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
             "responseFrame": "MfaSetupVerify",
             "errorFrame": "ApiError",
             "successStatus": 200
@@ -1960,9 +1960,9 @@
             "method": "POST",
             "path": "/api/binary/auth/mfa/setup/start",
             "operationId": "binary_post_auth_mfa_setup_start",
-            "requestFrame": "MfaPasswordProofRequest",
-            "requestType": "FsusBlog.Core.Mapping.Models.MfaPasswordProofRequestCoreModel",
-            "requestEncoding": "binary-layout",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
             "responseFrame": "MfaSetupStart",
             "errorFrame": "ApiError",
             "successStatus": 200
