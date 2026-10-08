@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+const { validateRuntimeRoleCurrentSchemaContract } = await import(new URL('../contracts/lib/runtime-role-current-schema-contract.mjs', import.meta.url));
+
 const {
     buildIdentitySchema,
     computeConsumedInputDigests,
@@ -105,11 +107,16 @@ function removeCanonicalBuildDirectory(repositoryRoot, relative)
 export function reproduceRuntimeRoleAssembly({
     repositoryRoot,
     buildKey,
+    sourceCommit,
     verification = false,
     spawn = spawnSync,
     timeoutMs = 15 * 60_000
 })
 {
+    if (!/^[a-f0-9]{40}$/u.test(sourceCommit ?? '') || sourceCommit === '0'.repeat(40))
+    {
+        throw new Error('runtime-role reproducible build requires the exact source commit');
+    }
     if (!/^[a-f0-9]{64}$/u.test(buildKey))
     {
         throw new Error('runtime-role reproducible build requires an exact build key');
@@ -133,6 +140,7 @@ export function reproduceRuntimeRoleAssembly({
         '/p:Deterministic=true',
         '/p:ContinuousIntegrationBuild=true',
         physicalPathMapArgument,
+        `/p:FsusBlogCommitSha=${sourceCommit}`,
         '/p:NuGetAudit=false',
         '/m:1'
     ];
@@ -514,6 +522,7 @@ export function runMinimalContractBuild({
             const runtimeReproducibleBuild = reproduceRuntimeRoleAssembly({
                 repositoryRoot,
                 buildKey,
+                sourceCommit: sourceIdentity.sourceCommit,
                 spawn,
                 timeoutMs: hostTimeoutMs
             });
@@ -581,7 +590,7 @@ export function runMinimalContractBuild({
                 const artifactBytes = fs.readFileSync(stagedOutput, 'utf8');
                 const artifactObservation = JSON.parse(artifactBytes);
                 if (artifactId === 'runtime-role-observation'
-          && (artifactObservation.schema !== 'fsusblog.runtime-role-observation.v2'
+          && (!validateRuntimeRoleCurrentSchemaContract(artifactObservation, { sourceCommit: sourceIdentity.sourceCommit })
             || artifactObservation.deploymentAuthority?.authoritySchema
               !== deploymentObservation.authoritySchema
             || artifactObservation.deploymentAuthority?.authorityContentDigest

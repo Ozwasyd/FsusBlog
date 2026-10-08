@@ -114,6 +114,7 @@ export function createRuntimeRoleMinimalV3Fixture(runId, source)
                                     runtimeBuildRoot,
                                     '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
                                     runtimeReproduciblePathMapArgument,
+                                    `/p:FsusBlogCommitSha=${source.sourceCommit}`,
                                     '/p:NuGetAudit=false', '/m:1'
                                 ],
                                 outputRoot: runtimeBuildRoot,

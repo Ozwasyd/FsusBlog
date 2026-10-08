@@ -7,6 +7,8 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { currentSchemaContractFixture, sealRuntimeRoleFixture } from './support/runtime-role-current-schema-fixture.mjs';
+
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
 const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
 const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
@@ -148,6 +150,7 @@ function fakeMinimalReceipt(runId, source)
                                     runtimeBuildRoot,
                                     '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
                                     runtimeReproduciblePathMapArgument,
+                                    `/p:FsusBlogCommitSha=${source.sourceCommit}`,
                                     '/p:NuGetAudit=false', '/m:1'
                                 ],
                                 outputRoot: runtimeBuildRoot,
@@ -662,15 +665,17 @@ test('minimal contract build uses only a content-addressed root and never ambien
             ? JSON.parse(fs.readFileSync(args[deploymentIndex + 1], 'utf8'))
             : null;
         fs.writeFileSync(args[outputIndex + 1], runtime
-            ? `${JSON.stringify({
-                schema: 'fsusblog.runtime-role-observation.v2',
+            ? `${JSON.stringify(sealRuntimeRoleFixture({
+                schema: 'fsusblog.runtime-role-observation.v3',
+                modes: [], staticRoleCapabilities: {}, unsupportedCombinations: [], ownership: {},
                 deploymentAuthority: {
                     authoritySchema: deployment.authoritySchema,
                     authorityContentDigest: deployment.authorityContentDigest,
                     observationDigest: deployment.observationDigest,
                     effectiveCompose: deployment.effectiveCompose
-                }
-            })}\n`
+                },
+                currentSchemaContract: currentSchemaContractFixture()
+            }))}\n`
             : '{"schema":"fixture"}\n');
         if (args.includes(hostDeclarations['openapi-aeds-observation'].project))
         {
@@ -800,16 +805,19 @@ mkdir -p "$(dirname "$output")"
 if [[ "$runtime" == "1" ]]; then
   node --input-type=module --eval '
     import fs from "node:fs";
+    import { currentSchemaContractFixture, sealRuntimeRoleFixture } from "${pathToFileURL(path.join(root, 'tests/tools/support/runtime-role-current-schema-fixture.mjs')).href}";
     const deployment = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-    fs.writeFileSync(process.argv[2], JSON.stringify({
-      schema: "fsusblog.runtime-role-observation.v2",
+    fs.writeFileSync(process.argv[2], JSON.stringify(sealRuntimeRoleFixture({
+      schema: "fsusblog.runtime-role-observation.v3",
+      modes: [], staticRoleCapabilities: {}, unsupportedCombinations: [], ownership: {},
       deploymentAuthority: {
         authoritySchema: deployment.authoritySchema,
         authorityContentDigest: deployment.authorityContentDigest,
         observationDigest: deployment.observationDigest,
         effectiveCompose: deployment.effectiveCompose
-      }
-    }) + "\\n");
+      },
+      currentSchemaContract: currentSchemaContractFixture()
+    })) + "\\n");
   ' "$deployment" "$output"
 else
   printf '{"schema":"fixture"}\\n' > "$output"

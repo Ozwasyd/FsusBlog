@@ -262,6 +262,7 @@ export function validateMinimalContractBuildReceipt(receipt, {
               artifact.buildReceipt.reproducibleBuild.outputRoot,
               '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
               runtimeReproduciblePathMapArgument,
+              `/p:FsusBlogCommitSha=${receipt.sourceCommit}`,
               '/p:NuGetAudit=false', '/m:1'
           ])
         || artifact.buildReceipt.deploymentArtifactPath !== artifact.deploymentArtifactPath

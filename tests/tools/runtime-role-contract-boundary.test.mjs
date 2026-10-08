@@ -41,7 +41,7 @@ test('runtime-role schemas are independent strict contracts', () => {
     path.join(root, 'config/schemas/runtime-role-deployment-observation.schema.json'),
     'utf8'
   ))
-  assert.equal(observation.$id, 'fsusblog.runtime-role-observation.v2')
+  assert.equal(observation.$id, 'fsusblog.runtime-role-observation.v3')
   assert.equal(deployment.$id, 'fsusblog.runtime-role-deployment-observation.v1')
   assert.equal(observation.additionalProperties, false)
   assert.equal(deployment.additionalProperties, false)
@@ -50,7 +50,7 @@ test('runtime-role schemas are independent strict contracts', () => {
   assert.ok(deployment.properties.ownership)
   assert.match(validateJsonSchema({}, observation).join('\n'), /must have required property/u)
   assert.match(validateJsonSchema({}, deployment).join('\n'), /must have required property/u)
-  assert.match(validateJsonSchema({ schema: 'fsusblog.runtime-role-observation.v2', extra: true }, observation).join('\n'), /must NOT have additional properties/u)
+  assert.match(validateJsonSchema({ schema: 'fsusblog.runtime-role-observation.v3', extra: true }, observation).join('\n'), /must NOT have additional properties/u)
 })
 
 test('runtime-role CLI validates both output paths against the repository root', () => {
@@ -63,4 +63,40 @@ test('runtime-role CLI validates both output paths against the repository root',
   assert.match(program, /runtime_role_output_path_not_canonical/u)
   assert.match(program, /runtime_role_output_path_escape/u)
   assert.match(program, /runtime_role_output_path_symlink/u)
+})
+
+
+test('compiled current-schema observation refuses retired windows, early native claims and changed bindings', async () => {
+  const { validateRuntimeRoleCurrentSchemaContract } = await import('../../tools/contracts/lib/runtime-role-current-schema-contract.mjs')
+  const { currentSchemaContractFixture, sealRuntimeRoleFixture } = await import('./support/runtime-role-current-schema-fixture.mjs')
+  const make = () => sealRuntimeRoleFixture({ schema: 'fsusblog.runtime-role-observation.v3', modes: [],
+    staticRoleCapabilities: {}, unsupportedCombinations: [], ownership: {}, deploymentAuthority: {},
+    currentSchemaContract: currentSchemaContractFixture() })
+  const original = make()
+  assert.equal(validateRuntimeRoleCurrentSchemaContract(original, { sourceCommit: 'a'.repeat(40) }), true)
+  const mutations = [
+    ['old observation', (value) => { value.schema = 'fsusblog.runtime-role-observation.v2' }],
+    ['retired window', (value) => { value.schemaOverlap = { sourceReadiness: 'ready' } }],
+    ['missing contract', (value) => { delete value.currentSchemaContract }],
+    ['early native stage', (value) => { value.currentSchemaContract.stage = 'native-current' }],
+    ['database self report', (value) => { value.currentSchemaContract.actualDatabaseObserved = true }],
+    ['native eligibility', (value) => { value.currentSchemaContract.nativeClaimEligible = true }],
+    ['second receipt', (value) => { value.currentSchemaContract.receiptFormat = 'fsusblog.other-receipt.v1' }],
+    ['retired field', (value) => { value.currentSchemaContract.sourceReadiness = 'ready' }],
+    ['missing recipe', (value) => { value.currentSchemaContract.requiredRecipeCount = 0 }],
+    ['zero source', (value) => { value.currentSchemaContract.producer.sourceCommit = '0'.repeat(40) }],
+    ['different source', (value) => { value.currentSchemaContract.producer.sourceCommit = 'b'.repeat(40) }],
+    ['artifact/content confusion', (value) => { value.currentSchemaContract.target.contentDigest = 'sha256:' + 'c'.repeat(64) }],
+    ['owner substitution', (value) => { value.currentSchemaContract.nativeVerifier = 'fixture-verifier' }]
+  ]
+  for (const [label, mutate] of mutations) {
+    const value = make()
+    mutate(value)
+    // A resealed object still cannot acquire a stage or ownership capability.
+    const resealed = { ...value, observationDigest: sealRuntimeRoleFixture(value).observationDigest }
+    assert.equal(validateRuntimeRoleCurrentSchemaContract(resealed, { sourceCommit: 'a'.repeat(40) }), false, label)
+  }
+  const changed = make()
+  changed.currentSchemaContract.target.contentDigest = 'd'.repeat(64)
+  assert.equal(validateRuntimeRoleCurrentSchemaContract(changed), false, 'unsealed target drift')
 })
