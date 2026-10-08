@@ -2,12 +2,21 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "tools/test/generate-evidence-location-governance.mjs",
-        "config/testing/required-evidence-authority-ledger.json"
+        "config/testing/required-evidence-authority-ledger.json",
+        "tools/release/register-required-evidence-verifier-imports.mjs",
+        "tools/release/required-evidence-verifier-registry.mjs",
+        "tools/test-matrix/required-evidence-dependencies.mjs",
+        "tools/test-matrix/release-final-evidence-contract.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/ci/check-job-summaries.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test/lanes/static-governance.sh",
+        "tests/tools/required-evidence-dependencies.test.mjs"
     ],
     "outputs": [
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "9f54d2a783a17f53f861fe79f3d6eab7177932560a82cb4db8e37c1e894a7c40"
+            "sha256": "f746fc4795c68e336c4cd663107099c5731c127385d8c9fe295d577d9515b40e"
         },
         {
             "path": "config/testing/evidence-locator-registry.json",
@@ -15,7 +24,19 @@
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "348a97511e71426a088ab4fa63e102fc8c8d379df9d101f0d376eb69edfebcfc"
+            "sha256": "c5126d00e736fd18022195be429745e7edd885ba638c00ab20dc88f9b0c1af30"
+        },
+        {
+            "path": "config/testing/release-final-execution-authority-index.json",
+            "sha256": "99a620b87c44a3ecc0b60cc4ac39ce3697060a33786f6ff0f3d5ed0d0df2290f"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "00ffd3aa2c466c2ac224a35565ace808c1b5ca75f07f814161bf7172754de0ed"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
         }
     ]
 }
