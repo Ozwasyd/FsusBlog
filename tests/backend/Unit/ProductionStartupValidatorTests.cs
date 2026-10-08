@@ -341,7 +341,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "api-error-transport-mapping-defined-error-code")]
     public void ApiErrorSemanticMapper_CatalogValidation_RejectsUndefinedErrorCode()
     {
         ApiErrorSemanticMapper.TransportMapping[] canonical = [.. ApiErrorSemanticMapper.TransportMappings];
@@ -367,7 +367,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
-    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "api-error-transport-mapping-defined-kind")]
     public void ApiErrorSemanticMapper_CatalogValidation_RejectsUndefinedMappingKind()
     {
         ApiErrorSemanticMapper.TransportMapping[] canonical = [.. ApiErrorSemanticMapper.TransportMappings];
