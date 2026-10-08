@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/check-test-matrix.mjs"
+            ],
+            "reason": "Preserve the existing public process-environment spellings in the sole changed registered checker surface. The change repairs only its owned negative workflow fixture mutation, with validation, workflow, matrix and qualification authority unchanged."
+        }
+    ]
+}
