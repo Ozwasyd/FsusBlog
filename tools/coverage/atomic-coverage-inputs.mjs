@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { URL } from 'node:url';
 
 const {digestCanonical, sha256, validateAttemptReceipt} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 const {validateReplayPlan} = await import(new URL('../test/execution-replay-contract.mjs', import.meta.url));
@@ -20,7 +21,7 @@ function requireIdentity(actual, expected)
     }
 }
 
-function validateSummary(document, domain, identity)
+export function validateCoverageSummary(document, domain, identity)
 {
     requireIdentity(document.producer, identity);
     requireCoverage(document.summary && document.totals, 'missing coverage summary/totals');
@@ -69,8 +70,25 @@ export function readCoverageMaterial({ root, plan, producerId, material, verifyA
     requireCoverage(attempt.producerId === producerId && attempt.attemptNumber === 1 && attempt.maxAttempts === 1
         && attempt.retryPolicyId === producer.retryPolicyId, 'wrong producer or repeated/retried attempt');
     requireIdentity({ runId: attempt.schedulerRunId, sourceCommit: attempt.sourceCommit, sourceFingerprint: attempt.worktreeFingerprint }, plan.identity);
-    requireCoverage(digestCanonical(attempt.command) === digestCanonical(producer.command), 'attempt command differs from bound producer');
+    if (digestCanonical(attempt.command) !== digestCanonical(producer.command))
+    {
+        requireCoverage(attempt.command.length === 3 && attempt.command[0] === 'node'
+            && attempt.command[1] === 'tools/coverage/atomic-coverage-command.mjs', 'attempt command differs from bound producer');
+        const requestBytes = readCoverageBytes(root, `${attemptDirectory}/coverage-request.json`);
+        requireCoverage(sha256(requestBytes) === attempt.artifactDigests['coverage-request.json'], 'attempt request snapshot tamper');
+        const request = JSON.parse(requestBytes);
+        const { contentDigest, ...unsigned } = request;
+        requireCoverage(digestCanonical(unsigned) === contentDigest && request.schema === 'fsusblog.atomic-coverage-action-request.v1'
+            && request.producerId === producerId && request.requestPath === attempt.command[2]
+            && digestCanonical(request.plan) === digestCanonical(plan)
+            && request.sourceDigests?.['tools/coverage/atomic-coverage-command.mjs']
+                === sha256(readCoverageBytes(root, 'tools/coverage/atomic-coverage-command.mjs')), 'wrapper request/source/plan identity mismatch');
+    }
     const replayReference = attempt.authorityReferences.find((reference) => reference.kind === 'replay-plan');
+    if (attempt.artifactDigests['coverage-request.json'])
+    {
+        requireCoverage(attempt.artifactDigests['coverage-replay.json'] === replayReference.artifactDigest, 'captured replay differs from canonical attempt authority');
+    }
     const replay = validateReplayPlan(JSON.parse(readReference(root, {
         path: replayReference.artifactPath, digest: replayReference.artifactDigest
     })));
@@ -103,7 +121,7 @@ export function readCoverageMaterial({ root, plan, producerId, material, verifyA
         {
             const domain = producerId.slice('coverage-'.length);
             const summary = JSON.parse(artifacts.summary.bytes);
-            validateSummary(summary, domain, plan.identity);
+            validateCoverageSummary(summary, domain, plan.identity);
             if (domain === 'backend')
             {
                 requireCoverage(summary.authoritativeRaw === artifacts.raw.path
