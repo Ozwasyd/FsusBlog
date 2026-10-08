@@ -98,3 +98,65 @@ test('domain execution refuses network skip and environment substitution before 
     await assert.rejects(executeStaticAtomicCompilation(fixture.compilation, options), /environment/u);
     assert.equal(fs.existsSync(fixture.evidenceRoot), false);
 });
+
+test('required input admission passes through once before the original single attempt', async t =>
+{
+    const fixture = staticAtomicCanonicalFixture(t);
+    const id = 'security-sbom';
+    const target = fixture.compilation.compiled.steps.find(entry => entry.id === id);
+    const required = path.join(fixture.root, 'ordinary-required-sbom-input.json');
+    fs.writeFileSync(required, '{"required":true}');
+    let checks = 0;
+    fixture.options.producerContexts[id].requiredInputAdmission = {
+        inputClosureRef: target.inputClosureRef,
+        validate: async ready =>
+        {
+            checks += 1;
+            assert.ok(Object.isFrozen(ready));
+            assert.deepEqual(ready.inputClosureRef, target.inputClosureRef);
+            assert.deepEqual(ready.command, target.command);
+            assert.equal(fs.existsSync(path.join(fixture.evidenceRoot, fixture.identity.schedulerRunId, id)), false);
+            await fs.promises.access(required, fs.constants.R_OK);
+            return { command: ['node', '-e', 'process.exit(0)'], retryPolicyId: 'diagnostic' };
+        }
+    };
+    const vector = await executeStaticAtomicCompilation(fixture.compilation, fixture.options);
+    assert.equal(checks, 1);
+    const child = vector.receipts.find(entry => entry.producerId === id);
+    const receipt = JSON.parse(fs.readFileSync(child.attemptRef.path, 'utf8'));
+    assert.equal(child.terminalState, 'success');
+    assert.deepEqual(receipt.command, target.command);
+    assert.equal(receipt.attemptNumber, 1);
+    assert.equal(receipt.maxAttempts, 1);
+    assert.equal(receipt.retryPolicyId, 'correctness-first-attempt');
+});
+
+test('first-cause framework errors cross the domain bridge unchanged when terminal publication also fails', async t =>
+{
+    const fixture = staticAtomicCanonicalFixture(t);
+    const id = 'security-sbom';
+    const target = fixture.compilation.compiled.steps.find(entry => entry.id === id);
+    const original = new Error('ordinary required SBOM input refused');
+    fixture.options.producerContexts[id].requiredInputAdmission = { inputClosureRef: target.inputClosureRef,
+        validate: () =>
+        {
+            throw original;
+        } };
+    const publication = new Error('ordinary terminal vector output write failed');
+    const write = fs.writeFileSync;
+    t.mock.method(fs, 'writeFileSync', (file, ...args) =>
+    {
+        if (typeof file === 'string' && path.basename(file) === 'terminal-vector.json')
+        {
+            throw publication;
+        }
+        return write(file, ...args);
+    });
+    const caught = await executeStaticAtomicCompilation(fixture.compilation, fixture.options).then(() => null, error => error);
+    assert.equal(caught.name, 'AtomicProducerExecutionError');
+    assert.equal(caught.cause.cause, original);
+    assert.equal(caught.publicationError, publication);
+    assert.equal(caught.terminalVector.status, 'failed');
+    assert.equal(caught.terminalVector.receipts.find(entry => entry.producerId === id).attemptRef, null);
+    assert.equal(caught.terminalVector.receipts.find(entry => entry.producerId === 'security-pow-parity').terminalState, 'success');
+});

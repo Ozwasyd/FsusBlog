@@ -70,6 +70,10 @@ The canonical framework is now available: original execution capability
 `ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c`, and canonical scheduler terminal
 capability `2eda290cc6098971b685b3fb1465d7193bd3dde2`. This branch consumes their
 actual ancestry and preserves the upstream compiler, executor and scheduler bytes.
+The successor also consumes `5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f`
+(first-cause preservation) and `39466f9a3a4714b5b58cd4c75a8baa69588e9c9e`
+(required-input admission). Their generated binding/fixture source is consumed
+only by ancestry, without editing or independently promoting shared authority.
 Open upstream issue status does not imply these usable source APIs are absent.
 
 `validateStaticAssertionMembership(producer, membership, replayPlan)` preserves
@@ -92,6 +96,13 @@ once after verifying the domain envelope bindings and explicit environment. It
 preserves `AtomicProducerExecutionError` and its complete terminal vector; callers
 must consume that vector without flattening failure into success. No child runner,
 scheduler, replay compiler or finalizer implementation is duplicated.
+The original producer context's optional `requiredInputAdmission` is passed through
+unchanged to the canonical executor. It must contain exactly `inputClosureRef`
+and `validate`, bound to the compiled closure. The real domain input reader runs
+under the existing dependency/resource grant before attempt allocation; its result
+cannot replace the original command or policy. No domain reader is invented here.
+The bridge does not catch or replace `cause` or `publicationError`, including an
+ordinary input refusal followed by terminal vector publication failure.
 
 `projectCompiledStaticAtomicSummary({ compilation, compilationOptions, vector,
 expectedVector, context, producerContexts, lane })` verifies the pinned complete
@@ -99,7 +110,13 @@ canonical vector, exact current source/run identity, all executed first attempts
 aggregate/log/artifact digests and canonical settled projection evidence. Blocked
 children require actual unsuccessful declared hard predecessors, no attempt and
 no execution artifacts. Cancellation/internal errors without verified attempts
-remain non-success. Original assertions and canonical membership remain attached.
+remain non-success. A canonical `required-input-admission-failed` child may carry
+no attempt only with its original closure-bound admission capability and the exact
+sealed `required-input-admission-refused-before-attempt` observation. Its identity,
+compiled closure, original error reason, zero attempt allocation, zero physical
+spawn, empty execution artifacts and absent producer attempt directory are checked.
+The status remains failed, never a synthetic success or executed attempt.
+Original assertions and canonical membership remain attached.
 
 `readCurrentStaticAtomicSummary({ checkpointFile, expectedCheckpointDigest,
 evidenceContext, expectedVectorDigest, consumerId, authorityId, ...projectionOptions })`

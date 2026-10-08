@@ -178,11 +178,48 @@ export function projectCompiledStaticAtomicSummary({ compilation, compilationOpt
                     : receipt.failureKind === 'runner-cancelled' ? 'cancelled' : 'failed';
             same(terminal.terminalState, actualState, 'attempt outcome');
         }
+        else if (terminal.terminalState === 'failed' && terminal.reasonCode === 'required-input-admission-failed')
+        {
+            const admission = producerContexts[id]?.requiredInputAdmission;
+            if (!admission || typeof admission.validate !== 'function')
+            {
+                throw new Error('static atomic terminal input refusal requires the original admission capability');
+            }
+            same(admission.inputClosureRef, bound.inputClosureRef, 'refused input admission closure');
+            same(terminal.primaryFailureRefs, [id], 'refused input primary failure');
+            const file = path.join(context.evidenceRoot, context.schedulerRunId, 'atomic-dag',
+                compilation.compiled.contentDigest.slice(7), `${id}.json`);
+            same(terminal.evidenceRefs.length, 1, 'sole input refusal observation');
+            same(terminal.evidenceRefs[0].path, file, 'current input refusal observation path');
+            const observation = readOwned(context.evidenceRoot, file);
+            const body = { ...observation };
+            delete body.contentDigest;
+            same(observation.contentDigest, digestCanonical(body), 'input refusal observation seal');
+            same(observation.contentDigest, terminal.evidenceRefs[0].contentDigest, 'input refusal observation digest');
+            same(Object.keys(body).sort(), ['producerId', 'compiledDagDigest', 'receiptKind', 'terminalState',
+                'reasonCode', 'inputClosureRef', 'attemptAllocationCount', 'physicalSpawnCount', 'reason'].sort(),
+            'input refusal observation fields');
+            same(observation.producerId, id, 'input refusal producer');
+            same(observation.compiledDagDigest, compilation.compiled.contentDigest, 'input refusal compiled DAG');
+            same(observation.inputClosureRef, bound.inputClosureRef, 'input refusal held closure');
+            same(observation.receiptKind, 'required-input-admission-refused-before-attempt', 'input refusal observation kind');
+            same(observation.terminalState, 'failed', 'input refusal state');
+            same(observation.reasonCode, terminal.reasonCode, 'input refusal reason');
+            same([observation.attemptAllocationCount, observation.physicalSpawnCount], [0, 0], 'input refusal zero allocation');
+            if (typeof observation.reason !== 'string' || !observation.reason)
+            {
+                throw new Error('static atomic terminal input refusal lacks its original error reason');
+            }
+            if (fs.existsSync(path.join(context.evidenceRoot, context.schedulerRunId, id)))
+            {
+                throw new Error('static atomic terminal input refusal cannot conceal an allocated attempt');
+            }
+        }
         else if (!['blocked', 'cancelled', 'internal-error'].includes(terminal.terminalState))
         {
             throw new Error('static atomic terminal executed child requires its verified first attempt');
         }
-        else if (terminal.aggregateAttemptRef !== null || terminal.artifactRefs.length !== 0)
+        if (!terminal.attemptRef && (terminal.aggregateAttemptRef !== null || terminal.artifactRefs.length !== 0))
         {
             throw new Error('static atomic terminal unspawned child cannot carry executed attempt artifacts');
         }

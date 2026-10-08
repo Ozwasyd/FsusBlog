@@ -104,6 +104,65 @@ test('modified canonical settled projection evidence cannot survive a pinned vec
     assert.throws(() => projectCompiledStaticAtomicSummary(projectionOptions(fixture, vector)), /projection evidence outcomes/u);
 });
 
+test('required input refusal projects the canonical zero-attempt failure and refuses resealed allocation claims', async t =>
+{
+    const fixture = staticAtomicCanonicalFixture(t);
+    const id = 'security-sbom';
+    const target = fixture.compilation.compiled.steps.find(entry => entry.id === id);
+    let original;
+    let checks = 0;
+    fixture.options.producerContexts[id].requiredInputAdmission = {
+        inputClosureRef: target.inputClosureRef,
+        validate: ready =>
+        {
+            checks += 1;
+            assert.deepEqual(ready.command, target.command);
+            assert.ok(ready.runtimeCapacity.cpuUnits > 0);
+            assert.equal(fs.existsSync(path.join(fixture.evidenceRoot, fixture.identity.schedulerRunId, id)), false);
+            try
+            {
+                fs.readFileSync(path.join(fixture.root, 'ordinary-required-sbom-input.json'));
+            }
+            catch (error)
+            {
+                original = error;
+                throw error;
+            }
+        }
+    };
+    const vector = await fixture.execute();
+    assert.equal(checks, 1);
+    assert.equal(original.code, 'ENOENT');
+    const summary = projectCompiledStaticAtomicSummary(projectionOptions(fixture, vector));
+    const child = summary.children.find(entry => entry.producerId === id);
+    assert.equal(child.terminalState, 'failed');
+    assert.equal(child.reasonCode, 'required-input-admission-failed');
+    assert.equal(child.attemptRef, null);
+    assert.equal(summary.status, 'failure');
+    assert.equal(summary.qualificationEligible, false);
+    assert.equal(summary.children.find(entry => entry.producerId === 'security-pow-parity').terminalState, 'success');
+    const file = child.evidenceRefs[0].path;
+    const observation = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.equal(observation.attemptAllocationCount, 0);
+    assert.equal(observation.physicalSpawnCount, 0);
+    assert.deepEqual(observation.inputClosureRef, target.inputClosureRef);
+    const body = { ...observation, physicalSpawnCount: 1 };
+    delete body.contentDigest;
+    const forged = sealContentDigest(body);
+    fs.chmodSync(file, 0o644);
+    fs.writeFileSync(file, JSON.stringify(forged));
+    const changed = alterVector(vector, id, receipt => receipt.evidenceRefs[0].contentDigest = forged.contentDigest);
+    assert.throws(() => projectCompiledStaticAtomicSummary(projectionOptions(fixture, changed)), /zero allocation/u);
+    fs.writeFileSync(file, JSON.stringify(observation));
+    const foreign = projectionOptions(fixture, vector);
+    foreign.producerContexts = { ...foreign.producerContexts, [id]: { ...foreign.producerContexts[id],
+        requiredInputAdmission: { inputClosureRef: { ...target.inputClosureRef, contentDigest: digestCanonical('foreign-closure') }, validate: () =>
+        {} } } };
+    assert.throws(() => projectCompiledStaticAtomicSummary(foreign), /refused input admission closure/u);
+    fs.mkdirSync(path.join(fixture.evidenceRoot, fixture.identity.schedulerRunId, id));
+    assert.throws(() => projectCompiledStaticAtomicSummary(projectionOptions(fixture, vector)), /conceal an allocated attempt/u);
+});
+
 async function checkpointControl(t)
 {
     const fixture = staticAtomicCanonicalFixture(t);
