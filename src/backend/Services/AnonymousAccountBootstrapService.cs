@@ -69,11 +69,6 @@ public sealed partial class AnonymousAccountBootstrapService(
 
     public async Task<(bool Success, string Message, User? User, string? EnrollmentToken, DateTime? EnrollmentExpiresAt)> BootstrapAnonymousAccountAsync(string? publicHandle)
     {
-        if (!AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
-        {
-            return (false, "匿名账号初始化仅在匿名身份模式下可用", null, null, null);
-        }
-
         var handle = NormalizePublicHandle(publicHandle);
         if (!handle.Success)
         {
@@ -92,8 +87,8 @@ public sealed partial class AnonymousAccountBootstrapService(
             var newUser = new User
             {
                 PublicHandle = handle.PublicHandle,
-                IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
-                RegistrationState = AccountRegistrationStates.Provisional,
+                IdentityKind = AnonymousIdentityRuntime.ToWireValue(CurrentIdentityKind.AnonymousAccount),
+                RegistrationState = AccountRegistrationStates.ToWireValue(AccountRegistrationState.Provisional),
                 PasskeyEnabled = false,
                 RecoveryEnabled = false,
                 PrivacyInitializedAt = now,

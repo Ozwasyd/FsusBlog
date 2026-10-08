@@ -291,21 +291,6 @@
                     }
                 ],
                 "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-            },
-            {
-                "path": "src/backend/Services/UserService.cs",
-                "declarations": [
-                    {
-                        "name": "UserService",
-                        "parameters": [
-                            "_db",
-                            "_logger",
-                            "_cacheCounters",
-                            "_totpService"
-                        ]
-                    }
-                ],
-                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
             }
         ],
         "externalContractAttributes": [

@@ -44,6 +44,15 @@ public sealed class UserBootstrapLoginMfaBoundaryTests
         Assert.Contains(typeof(IUserMfaCommandService), typeof(UserService).GetInterfaces());
         Assert.Contains(typeof(IUserMfaVerificationService), typeof(UserService).GetInterfaces());
         Assert.Null(typeof(UserService).Assembly.GetType("FsusBlog.Server.Services.UserMfaCommandService"));
+        foreach (string method in new[] { "StartMfaSetupAsync", "DisableMfaAsync", "RegenerateMfaRecoveryCodesAsync" })
+        {
+            var parameters = typeof(IUserMfaCommandService).GetMethod(method)!.GetParameters();
+            Assert.Equal(typeof(UserMfaStepUpContext), parameters[^1].ParameterType);
+            Assert.False(parameters[^1].IsOptional);
+        }
+        Assert.Equal(
+            ["db", "logger", "accountStates", "totpService", "timeProvider"],
+            Assert.Single(typeof(UserService).GetConstructors()).GetParameters().Select(static parameter => parameter.Name).ToArray());
     }
 
     [Fact]

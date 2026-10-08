@@ -3,6 +3,7 @@ using System.Reflection;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.Fixtures;
 
 using SqlSugar;
 namespace FsusBlog.Server.Tests;
@@ -12,6 +13,7 @@ namespace FsusBlog.Server.Tests;
 /// metadata, credential ownership, and entity mapping. PostgreSQL concurrency
 /// behavior lives in <c>PasskeySignCountConcurrencyTests</c>.
 /// </summary>
+[Collection(nameof(EnvironmentVariableCollection))]
 public sealed class PasskeyServiceTests
 {
     [Theory]
@@ -104,7 +106,7 @@ public sealed class PasskeyServiceTests
     {
         { null, true, "fsus-anonymous-account", "Anonymous account", 0x42 },
         { "  Alice Public  ", true, "fsus-anonymous-account", "Alice Public", 0x24 },
-        { "Alice Public", false, "Alice Public", "Alice Public", 0x11 }
+        { "Alice Public", false, "fsus-anonymous-account", "Alice Public", 0x11 }
     };
 
     [Theory]
@@ -112,22 +114,30 @@ public sealed class PasskeyServiceTests
     [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void BuildAnonymousSafeMetadata_MapsAccountLabelsAndPreservesStoredRandomHandle(
         string? publicHandle,
-        bool anonymousIdentityModeEnabled,
+        bool removedModeValue,
         string expectedName,
         string expectedDisplayName,
         int handleSeed)
     {
         byte[] storedHandle = StableHandle((byte)handleSeed);
+        const string RemovedModeVariable = "FSUSBLOG_ANONYMOUS_IDENTITY_MODE";
+        string? previous = Environment.GetEnvironmentVariable(RemovedModeVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(RemovedModeVariable, removedModeValue ? "true" : "false");
+            PasskeyAccountMetadata metadata = PasskeyService.BuildAnonymousSafeMetadataForTests(
+                publicHandle,
+                storedHandle);
 
-        PasskeyAccountMetadata metadata = PasskeyService.BuildAnonymousSafeMetadataForTests(
-            publicHandle,
-            anonymousIdentityModeEnabled,
-            storedHandle);
-
-        Assert.Equal(expectedName, metadata.Name);
-        Assert.Equal(expectedDisplayName, metadata.DisplayName);
-        Assert.Equal(storedHandle, metadata.UserHandle);
-        Assert.NotSame(storedHandle, metadata.UserHandle);
+            Assert.Equal(expectedName, metadata.Name);
+            Assert.Equal(expectedDisplayName, metadata.DisplayName);
+            Assert.Equal(storedHandle, metadata.UserHandle);
+            Assert.NotSame(storedHandle, metadata.UserHandle);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(RemovedModeVariable, previous);
+        }
     }
 
     [Fact]

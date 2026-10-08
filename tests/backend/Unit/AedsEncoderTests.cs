@@ -243,6 +243,7 @@ public sealed class AedsEncoderTests
     [InlineData(44)]
     [InlineData(45)]
     [InlineData(46)]
+    [InlineData(53)]
     [InlineData(180)]
     [InlineData(181)]
     [InlineData(186)]

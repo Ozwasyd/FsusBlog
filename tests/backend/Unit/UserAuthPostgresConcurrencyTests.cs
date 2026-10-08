@@ -597,10 +597,10 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string?>(), Arg.Any<UserSessionAuthenticationContext>())
             .Returns(new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         return new UserService(
-            _db: db,
-            _logger: NullLogger<UserService>.Instance,
-            _accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
-            _totpService: totp ?? Substitute.For<ITotpService>());
+            db: db,
+            logger: NullLogger<UserService>.Instance,
+            accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
+            totpService: totp ?? Substitute.For<ITotpService>());
     }
 
     private static UserSessionCommandService CreateSessionService(

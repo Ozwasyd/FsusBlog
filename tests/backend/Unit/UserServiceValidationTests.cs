@@ -52,10 +52,10 @@ public class UserServiceValidationTests
         IUserSessionValidationCache? sessionValidationCache = null)
     {
         return new UserService(
-            _db: db,
-            _logger: NullLogger<UserService>.Instance,
-            _accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
-            _totpService: totpService);
+            db: db,
+            logger: NullLogger<UserService>.Instance,
+            accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
+            totpService: totpService);
     }
 
     private static AnonymousAccountBootstrapService BuildBootstrapService(ISqlSugarClient db)
@@ -144,10 +144,13 @@ public class UserServiceValidationTests
         return (sessionInsert, userUpdate);
     }
 
-    [Fact]
-    public async Task BootstrapAnonymousAccountAsync_AnonymousIdentityMode_CreatesPasswordlessAnonymousContainer()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("false")]
+    [InlineData("1")]
+    public async Task BootstrapAnonymousAccountAsync_AnonymousIdentityMode_CreatesPasswordlessAnonymousContainer(string? retiredMode)
     {
-        using var _ = SetAnonymousIdentityMode("1");
+        using var _ = SetAnonymousIdentityMode(retiredMode);
         var db = Substitute.For<ISqlSugarClient>();
         var ado = Substitute.For<IAdo>();
         db.Ado.Returns(ado);
@@ -183,7 +186,7 @@ public class UserServiceValidationTests
     [Fact]
     public async Task BootstrapAnonymousAccountAsync_WithoutHandlePersistsIdBasedPhysicalSubjectInTransaction()
     {
-        using var _ = SetAnonymousIdentityMode("1");
+        using var _ = SetAnonymousIdentityMode("false");
         var db = Substitute.For<ISqlSugarClient>();
         var ado = Substitute.For<IAdo>();
         db.Ado.Returns(ado);
@@ -490,10 +493,13 @@ public class UserServiceValidationTests
             Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task StartMfaSetupAsync_AnonymousIdentityMode_UsesStableAccountLabelWithoutUsername()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("false")]
+    [InlineData("1")]
+    public async Task StartMfaSetupAsync_AnonymousIdentityMode_UsesStableAccountLabelWithoutUsername(string? retiredMode)
     {
-        using var _ = SetAnonymousIdentityMode("1");
+        using var _ = SetAnonymousIdentityMode(retiredMode);
         var db = Substitute.For<ISqlSugarClient>();
         var queryable = Substitute.For<ISugarQueryable<User>>();
         db.Queryable<User>().Returns(queryable);
@@ -514,7 +520,8 @@ public class UserServiceValidationTests
         totp.BuildOtpAuthUri("FsusBlog", "FsusBlog:account:42", "SECRET").Returns("otpauth://totp/FsusBlog:account:42");
         var svc = BuildService(db, Substitute.For<IJwtHelper>(), totp);
 
-        var (success, setup, message) = await svc.StartMfaSetupAsync(42, "FsusBlog");
+        UserMfaStepUpContext context = await CreateMfaContextAsync(42, UserMfaManagementAction.Setup);
+        var (success, setup, message) = await svc.StartMfaSetupAsync(42, "FsusBlog", context);
 
         Assert.True(success, message);
         Assert.NotNull(setup);
@@ -527,7 +534,7 @@ public class UserServiceValidationTests
     [Fact]
     public async Task StartMfaSetupAsync_UsesAtomicMfaProfileUpsert()
     {
-        using var _ = SetAnonymousIdentityMode("1");
+        using var _ = SetAnonymousIdentityMode("false");
         var db = Substitute.For<ISqlSugarClient>();
         var userQueryable = Substitute.For<ISugarQueryable<User>>();
         db.Queryable<User>().Returns(userQueryable);
@@ -548,7 +555,8 @@ public class UserServiceValidationTests
         totp.BuildOtpAuthUri("FsusBlog", "FsusBlog:account:42", "SECRET").Returns("otpauth://totp/FsusBlog:account:42");
         var svc = BuildService(db, Substitute.For<IJwtHelper>(), totp);
 
-        var (success, _, message) = await svc.StartMfaSetupAsync(42, "FsusBlog");
+        UserMfaStepUpContext context = await CreateMfaContextAsync(42, UserMfaManagementAction.Setup);
+        var (success, _, message) = await svc.StartMfaSetupAsync(42, "FsusBlog", context);
 
         Assert.True(success, message);
         await db.Ado.Received(1).ExecuteCommandAsync(
@@ -559,6 +567,193 @@ public class UserServiceValidationTests
             Arg.Is<SugarParameter[]>(parameters => parameters.Any(parameter => parameter.ParameterName == "@UserId" && Equals(parameter.Value, 42))));
         db.DidNotReceive().Updateable<UserMfaProfile>();
         db.DidNotReceive().Insertable(Arg.Any<UserMfaProfile>());
+    }
+
+    [Theory]
+    [InlineData(UserMfaManagementAction.Setup, "mfa_setup")]
+    [InlineData(UserMfaManagementAction.SetupRebind, "mfa_setup_rebind")]
+    [InlineData(UserMfaManagementAction.Disable, "mfa_disable")]
+    [InlineData(UserMfaManagementAction.RecoveryCodesRegenerate, "mfa_recovery_regenerate")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
+    public async Task UserMfaStepUpContext_ConsumesOnlyTheExactAccountSessionAndActionProof(
+        UserMfaManagementAction action, string proofAction)
+    {
+        var mfaChallenges = Substitute.For<IMfaChallengeService>();
+        string subject = new string('a', 64);
+        var account = new UserAccountSnapshot(42, 0, null, false, null, AccountSubjectHash: subject);
+        mfaChallenges.ValidateAndConsumeProofTokenAsync(42, subject, "current-session", proofAction, "current-proof")
+            .Returns(Task.FromResult(true));
+
+        UserMfaStepUpContext? accepted = await UserMfaStepUpContext.VerifyAsync(
+            account, "current-session", action, "current-proof", mfaChallenges);
+        UserMfaStepUpContext? wrongSession = await UserMfaStepUpContext.VerifyAsync(
+            account, "other-session", action, "current-proof", mfaChallenges);
+
+        UserMfaStepUpContext context = Assert.IsType<UserMfaStepUpContext>(accepted);
+        Assert.Equal(42, context.AccountId);
+        Assert.Equal("current-session", context.SessionId);
+        Assert.Equal(action, context.Action);
+        Assert.True(context.IsValidFor(42, action));
+        Assert.False(context.IsValidFor(43, action));
+        Assert.False(context.IsValidFor(42, (UserMfaManagementAction)int.MaxValue));
+        Assert.Null(wrongSession);
+        await mfaChallenges.Received(1).ValidateAndConsumeProofTokenAsync(
+            42, subject, "current-session", proofAction, "current-proof");
+        await mfaChallenges.Received(1).ValidateAndConsumeProofTokenAsync(
+            42, subject, "other-session", proofAction, "current-proof");
+    }
+
+    [Theory]
+    [InlineData("account")]
+    [InlineData("deleted")]
+    [InlineData("status")]
+    [InlineData("identity")]
+    [InlineData("subject")]
+    [InlineData("session")]
+    [InlineData("proof")]
+    [InlineData("action")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "mfa-management-context-current-principal-required")]
+    public async Task UserMfaStepUpContext_InvalidPrincipalOrProofInputNeverConsumesProof(string scenario)
+    {
+        var mfaChallenges = Substitute.For<IMfaChallengeService>();
+        var account = new UserAccountSnapshot(42, 0, null, false, null, AccountSubjectHash: new string('a', 64));
+        string sessionId = "current-session";
+        string proof = "current-proof";
+        UserMfaManagementAction action = UserMfaManagementAction.Setup;
+        switch (scenario)
+        {
+            case "account":
+                account = account with { Id = 0 };
+                break;
+            case "deleted":
+                account = account with { DeletedAt = DateTime.UnixEpoch };
+                break;
+            case "status":
+                account = account with { Status = 2 };
+                break;
+            case "identity":
+                account = account with { IdentityKind = AnonymousIdentityRuntime.AdminPrincipalKind };
+                break;
+            case "subject":
+                account = account with { AccountSubjectHash = null };
+                break;
+            case "session":
+                sessionId = " ";
+                break;
+            case "proof":
+                proof = " ";
+                break;
+            case "action":
+                action = (UserMfaManagementAction)int.MaxValue;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(scenario));
+        }
+
+        UserMfaStepUpContext? context = await UserMfaStepUpContext.VerifyAsync(
+            account, sessionId, action, proof, mfaChallenges);
+
+        Assert.Null(context);
+        await mfaChallenges.DidNotReceiveWithAnyArgs().ValidateAndConsumeProofTokenAsync(0, "", "", "", "");
+    }
+
+    [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "mfa-management-context-proof-owner-refusal")]
+    public async Task UserMfaStepUpContext_ConsumedProofCannotIssueASecondContext()
+    {
+        var mfaChallenges = Substitute.For<IMfaChallengeService>();
+        string subject = new string('a', 64);
+        var account = new UserAccountSnapshot(42, 0, null, false, null, AccountSubjectHash: subject);
+        mfaChallenges.ValidateAndConsumeProofTokenAsync(42, subject, "current-session", "mfa_setup", "current-proof")
+            .Returns(Task.FromResult(true), Task.FromResult(false));
+
+        UserMfaStepUpContext? first = await UserMfaStepUpContext.VerifyAsync(
+            account, "current-session", UserMfaManagementAction.Setup, "current-proof", mfaChallenges);
+        UserMfaStepUpContext? repeated = await UserMfaStepUpContext.VerifyAsync(
+            account, "current-session", UserMfaManagementAction.Setup, "current-proof", mfaChallenges);
+
+        Assert.NotNull(first);
+        Assert.Null(repeated);
+        await mfaChallenges.Received(2).ValidateAndConsumeProofTokenAsync(
+            42, subject, "current-session", "mfa_setup", "current-proof");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "mfa-management-context-account-bound-before-effects")]
+    public async Task MfaManagement_MissingOrForeignContextRejectsBeforeAnyDatabaseOrCryptographicWork(bool foreignAccount)
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var totp = Substitute.For<ITotpService>();
+        var service = BuildService(db, Substitute.For<IJwtHelper>(), totp);
+        UserMfaStepUpContext context = foreignAccount
+            ? await CreateMfaContextAsync(43, UserMfaManagementAction.Setup) : null!;
+
+        var setup = await service.StartMfaSetupAsync(42, "FsusBlog", context);
+        var disable = await service.DisableMfaAsync(42, context);
+        var regenerate = await service.RegenerateMfaRecoveryCodesAsync(42, context);
+
+        Assert.False(setup.Success);
+        Assert.Null(setup.Data);
+        Assert.Equal("MFA_STEP_UP_REQUIRED", setup.Message);
+        Assert.False(disable.Success);
+        Assert.Equal("MFA_STEP_UP_REQUIRED", disable.Message);
+        Assert.False(regenerate.Success);
+        Assert.Null(regenerate.Data);
+        Assert.Equal("MFA_STEP_UP_REQUIRED", regenerate.Message);
+        Assert.Empty(db.ReceivedCalls());
+        Assert.Empty(totp.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData(nameof(UserService.StartMfaSetupAsync), UserMfaManagementAction.Disable)]
+    [InlineData(nameof(UserService.DisableMfaAsync), UserMfaManagementAction.Setup)]
+    [InlineData(nameof(UserService.RegenerateMfaRecoveryCodesAsync), UserMfaManagementAction.Setup)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "mfa-management-context-action-bound-before-effects")]
+    public async Task MfaManagement_ContextForAnotherActionRejectsBeforeDatabaseWork(string command, UserMfaManagementAction action)
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var totp = Substitute.For<ITotpService>();
+        var service = BuildService(db, Substitute.For<IJwtHelper>(), totp);
+        UserMfaStepUpContext context = await CreateMfaContextAsync(42, action);
+
+        bool success = command switch
+        {
+            nameof(UserService.StartMfaSetupAsync) => (await service.StartMfaSetupAsync(42, "FsusBlog", context)).Success,
+            nameof(UserService.DisableMfaAsync) => (await service.DisableMfaAsync(42, context)).Success,
+            nameof(UserService.RegenerateMfaRecoveryCodesAsync) => (await service.RegenerateMfaRecoveryCodesAsync(42, context)).Success,
+            _ => throw new ArgumentOutOfRangeException(nameof(command))
+        };
+
+        Assert.False(success);
+        Assert.Empty(db.ReceivedCalls());
+        Assert.Empty(totp.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData(true, UserMfaManagementAction.Setup)]
+    [InlineData(false, UserMfaManagementAction.SetupRebind)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "mfa-setup-context-matches-current-enabled-state")]
+    public async Task StartMfaSetupAsync_StaleSetupActionRejectsBeforeProfileReadOrSecretGeneration(
+        bool mfaEnabled, UserMfaManagementAction action)
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var query = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(query);
+        query.InSingleAsync(42).Returns(Task.FromResult(new User { Id = 42, MfaEnabled = mfaEnabled }));
+        var totp = Substitute.For<ITotpService>();
+        var service = BuildService(db, Substitute.For<IJwtHelper>(), totp);
+        UserMfaStepUpContext context = await CreateMfaContextAsync(42, action);
+
+        var result = await service.StartMfaSetupAsync(42, "FsusBlog", context);
+
+        Assert.False(result.Success);
+        Assert.Null(result.Data);
+        Assert.Equal("MFA_REBIND_STEP_UP_REQUIRED", result.Message);
+        await query.Received(1).InSingleAsync(42);
+        db.DidNotReceive().Queryable<UserMfaProfile>();
+        Assert.Empty(totp.ReceivedCalls());
     }
 
     [Fact]
@@ -1769,7 +1964,20 @@ public class UserServiceValidationTests
     }
 
     private static IDisposable SetAnonymousIdentityMode(string? value)
-        => new EnvironmentVariableScope(AnonymousIdentityRuntime.ModeEnvironmentVariable, value);
+        => new EnvironmentVariableScope("FSUSBLOG_ANONYMOUS_IDENTITY_MODE", value);
+
+    private static async Task<UserMfaStepUpContext> CreateMfaContextAsync(int accountId, UserMfaManagementAction action)
+    {
+        var mfaChallenges = Substitute.For<IMfaChallengeService>();
+        string accountSubjectHash = new string('a', 64);
+        Assert.True(UserMfaManagementActions.TryGetProofAction(action, out string proofAction));
+        mfaChallenges.ValidateAndConsumeProofTokenAsync(accountId, accountSubjectHash, "current-session", proofAction, "current-proof")
+            .Returns(Task.FromResult(true));
+        UserMfaStepUpContext? context = await UserMfaStepUpContext.VerifyAsync(
+            new UserAccountSnapshot(accountId, 0, null, false, null, AccountSubjectHash: accountSubjectHash),
+            "current-session", action, "current-proof", mfaChallenges);
+        return Assert.IsType<UserMfaStepUpContext>(context);
+    }
 
     private sealed class EnvironmentVariableScope : IDisposable
     {

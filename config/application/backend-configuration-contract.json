@@ -2291,34 +2291,6 @@
       "deprecation": null
     },
     {
-      "key": "FSUSBLOG_ANONYMOUS_IDENTITY_MODE",
-      "owner": "anonymous-identity",
-      "purpose": "Anonymous identity and credentials setting: FSUSBLOG_ANONYMOUS_IDENTITY_MODE",
-      "valueType": "integer",
-      "environments": [
-        "Production"
-      ],
-      "allowedSources": [
-        "environment"
-      ],
-      "environmentVariables": [
-        "FSUSBLOG_ANONYMOUS_IDENTITY_MODE"
-      ],
-      "secret": false,
-      "requiredStatus": "required",
-      "requiredWhen": "Production",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": false,
-      "validation": {
-        "kind": "startup",
-        "owner": "ProductionStartupValidator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Services/Security",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
       "key": "FSUSBLOG_COMMIT_SHA",
       "owner": "release-lifecycle",
       "purpose": "Release and deployment lifecycle setting: FSUSBLOG_COMMIT_SHA",
@@ -7544,20 +7516,6 @@
       ],
       "sources": [
         "config/examples/.env.example",
-        "config/examples/.env.production.example",
-        "ops/docker/docker-compose.production.yml"
-      ],
-      "deprecation": null
-    },
-    {
-      "name": "FSUSBLOG_ANONYMOUS_IDENTITY_MODE",
-      "category": "application-configuration",
-      "owner": "anonymous-identity",
-      "secret": false,
-      "mapsTo": [
-        "FSUSBLOG_ANONYMOUS_IDENTITY_MODE"
-      ],
-      "sources": [
         "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],

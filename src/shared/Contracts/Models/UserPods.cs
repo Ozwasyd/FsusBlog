@@ -219,17 +219,6 @@ public readonly struct MfaChallengeResultPod
 }
 
 /// <summary>
-/// Defines the fixed-layout binary representation used by the <c>MfaPasswordProofRequest</c> wire contract.
-/// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct MfaPasswordProofRequestPod
-{
-    public readonly Utf8SliceRef Password;
-    public readonly Utf8SliceRef Code;
-    public readonly Utf8SliceRef RecoveryCode;
-}
-
-/// <summary>
 /// Defines the fixed-layout binary representation used by the <c>MfaChallengeVerifyRequest</c> wire contract.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

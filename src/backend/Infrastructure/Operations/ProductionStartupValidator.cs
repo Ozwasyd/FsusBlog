@@ -63,7 +63,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 21;
+    private const int SchemaVersion = 22;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan s_coreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object s_coreValidationCacheLock = new();
@@ -189,7 +189,6 @@ public static class ProductionStartupValidator
         Value("AnonymousCredentialRoot:AttestationKey"),
         Value(DataProtectionKeyProtection.ModeKey),
         Value(DataProtectionKeyProtection.CurrentCertificatePathKey),
-        Value(AnonymousIdentityRuntime.ModeEnvironmentVariable),
         Value(ActiveReleaseFenceAvailabilityPolicy.RefreshIntervalKey),
         Value(ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey)
     ];
@@ -304,7 +303,6 @@ public static class ProductionStartupValidator
         string? messageAdminSessionAuditReferenceKey = values[MessageAdminSessionAuditReference.KeyName];
         string? anonymousNullifierPepper = values["AnonymousIdentity:NullifierPepper"];
         string? anonymousRootAttestationKey = values["AnonymousCredentialRoot:AttestationKey"];
-        string? anonymousIdentityMode = values[AnonymousIdentityRuntime.ModeEnvironmentVariable];
 
         if (!string.IsNullOrWhiteSpace(jwtSecret))
         {
@@ -389,7 +387,6 @@ public static class ProductionStartupValidator
         ValidateStepUpSettings(configuration, errors);
         ValidateAccountEnrollmentSettings(configuration, errors);
         errors.AddRange(DataProtectionKeyProtection.ValidateConfiguration(configuration, enforceProductionRules));
-        ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
         ValidatePerceptionSealedTokenSettings(configuration, enforceProductionRules, errors);
         errors.AddRange(SecurityRiskPseudonymizer.ValidateConfiguration(
             configuration,
@@ -1136,24 +1133,6 @@ public static class ProductionStartupValidator
         }
 
     }
-
-    private static void ValidateAnonymousIdentityMode(string? value, bool enforceProductionRules, List<string> errors)
-    {
-        if (!enforceProductionRules)
-        {
-            return;
-        }
-
-        if (!AnonymousIdentityModeEnabled(value))
-        {
-            errors.Add($"{AnonymousIdentityRuntime.ModeEnvironmentVariable} must be enabled in production so legacy sys_user admin roles cannot grant backend authority.");
-        }
-    }
-
-    private static bool AnonymousIdentityModeEnabled(string? value)
-        => string.Equals(value, "1", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "enabled", StringComparison.OrdinalIgnoreCase);
 
     private static void ValidateZkProdSettings(
         IConfiguration configuration,

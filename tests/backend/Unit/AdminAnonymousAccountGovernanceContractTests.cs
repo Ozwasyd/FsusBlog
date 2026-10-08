@@ -7,8 +7,8 @@ using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
@@ -243,10 +243,10 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
 
     private static UserService CreateUserService(ISqlSugarClient db)
         => new(
-            _db: db,
-            _logger: NullLogger<UserService>.Instance,
-            _accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
-            _totpService: Substitute.For<ITotpService>());
+            db: db,
+            logger: NullLogger<UserService>.Instance,
+            accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
+            totpService: Substitute.For<ITotpService>());
 
     private static UserAdminModerationService CreateAdminService(ISqlSugarClient db)
         => new(

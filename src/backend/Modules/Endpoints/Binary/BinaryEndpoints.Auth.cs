@@ -42,7 +42,9 @@ public static partial class BinaryEndpoints
     private static readonly TimeSpan s_authRiskSignalTtl = TimeSpan.FromMinutes(10);
 
     private static string ResolveBinaryIdentityKind(string? identityKind)
-        => string.IsNullOrWhiteSpace(identityKind) ? AnonymousIdentityRuntime.AnonymousAccountKind : identityKind.Trim();
+        => AnonymousIdentityRuntime.TryParse(identityKind, out CurrentIdentityKind kind)
+            ? AnonymousIdentityRuntime.ToWireValue(kind)
+            : throw new InvalidOperationException("Current identity kind is invalid.");
 
     private static bool TryResolveAccountSubjectHash(
         UserAccountSnapshot account,
@@ -836,55 +838,23 @@ public static partial class BinaryEndpoints
             ISystemService systemService,
             IAedsEncoder aeds) =>
         {
-            EndpointUserContext endpointUser = EndpointUserContext.From(httpContext);
-            int userId = endpointUser.AccountId;
-            string? password = null;
-            string? code = null;
-            string? recoveryCode = null;
-            bool stepUpVerified = false;
-            UserAccountSnapshot? account = await users.GetAccountByIdAsync(userId);
-            if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
+            if (HasUnexpectedMfaRequestBody(httpContext.Request))
             {
-                string setupAction = account?.MfaEnabled == true ? "mfa_setup_rebind" : "mfa_setup";
-                if (account is null ||
-                    !TryReadMfaProof(httpContext, out string proofToken) ||
-                    !TryResolveAccountSubjectHash(account.Value, out string accountSubjectHash) ||
-                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
-                        userId,
-                        accountSubjectHash,
-                        endpointUser.SessionId ?? string.Empty,
-                        setupAction,
-                        proofToken))
-                {
-                    return BinaryResults.FromError(
-                        ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
-                        aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
-                }
-
-                stepUpVerified = true;
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA_REQUEST_BODY_NOT_SUPPORTED"), aeds);
             }
-            else if (account?.MfaEnabled == true)
+
+            UserMfaStepUpContext? stepUp = await VerifyMfaManagementStepUpAsync(
+                httpContext, users, mfaChallengeService);
+            if (stepUp is null)
             {
-                var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, httpContext.RequestAborted);
-                if (!payload.IsSuccess)
-                {
-                    return BinaryResults.FromError(payload.Error, aeds);
-                }
-
-                if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var proof) ||
-                    string.IsNullOrWhiteSpace(proof.Password))
-                {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 重新绑定需要当前密码和验证码"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Validation));
-                }
-
-                password = proof.Password;
-                code = proof.Code;
-                recoveryCode = proof.RecoveryCode;
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
             }
 
             var site = await systemService.GetSeoConfigAsync();
             string issuer = string.IsNullOrWhiteSpace(site.Title) ? "FsusBlog" : site.Title;
-            var result = await mfaCommands.StartMfaSetupAsync(userId, issuer, password, code, recoveryCode, stepUpVerified);
+            var result = await mfaCommands.StartMfaSetupAsync(stepUp.AccountId, issuer, stepUp);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupStart, writer => PodBinaryCodec.WriteMfaSetupStart(result.Data.Value, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Validation));
@@ -940,51 +910,22 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            EndpointUserContext endpointUser = EndpointUserContext.From(httpContext);
-            int userId = endpointUser.AccountId;
-            string password = string.Empty;
-            string? code = null;
-            string? recoveryCode = null;
-            bool stepUpVerified = false;
-            if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
+            cancellationToken.ThrowIfCancellationRequested();
+            if (HasUnexpectedMfaRequestBody(httpContext.Request))
             {
-                UserAccountSnapshot? account = await users.GetAccountByIdAsync(userId);
-                if (account is null ||
-                    !TryReadMfaProof(httpContext, out string proofToken) ||
-                    !TryResolveAccountSubjectHash(account.Value, out string accountSubjectHash) ||
-                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
-                        userId,
-                        accountSubjectHash,
-                        endpointUser.SessionId ?? string.Empty,
-                        "mfa_disable",
-                        proofToken))
-                {
-                    return BinaryResults.FromError(
-                        ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
-                        aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
-                }
-
-                stepUpVerified = true;
-            }
-            else
-            {
-                var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, cancellationToken);
-                if (!payload.IsSuccess)
-                {
-                    return BinaryResults.FromError(payload.Error, aeds);
-                }
-
-                if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var request))
-                {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 禁用请求体非法"), aeds);
-                }
-
-                password = request.Password;
-                code = request.Code;
-                recoveryCode = request.RecoveryCode;
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA_REQUEST_BODY_NOT_SUPPORTED"), aeds);
             }
 
-            var result = await mfaCommands.DisableMfaAsync(userId, password, code, recoveryCode, stepUpVerified);
+            UserMfaStepUpContext? stepUp = await VerifyMfaManagementStepUpAsync(
+                httpContext, users, mfaChallengeService, UserMfaManagementAction.Disable);
+            if (stepUp is null)
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
+            }
+
+            var result = await mfaCommands.DisableMfaAsync(stepUp.AccountId, stepUp);
             return result.Success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status422UnprocessableEntity, ErrorCode.Validation));
@@ -999,51 +940,22 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            EndpointUserContext endpointUser = EndpointUserContext.From(httpContext);
-            int userId = endpointUser.AccountId;
-            string password = string.Empty;
-            string? code = null;
-            string? recoveryCode = null;
-            bool stepUpVerified = false;
-            if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
+            cancellationToken.ThrowIfCancellationRequested();
+            if (HasUnexpectedMfaRequestBody(httpContext.Request))
             {
-                UserAccountSnapshot? account = await users.GetAccountByIdAsync(userId);
-                if (account is null ||
-                    !TryReadMfaProof(httpContext, out string proofToken) ||
-                    !TryResolveAccountSubjectHash(account.Value, out string accountSubjectHash) ||
-                    !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
-                        userId,
-                        accountSubjectHash,
-                        endpointUser.SessionId ?? string.Empty,
-                        "mfa_recovery_regenerate",
-                        proofToken))
-                {
-                    return BinaryResults.FromError(
-                        ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
-                        aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
-                }
-
-                stepUpVerified = true;
-            }
-            else
-            {
-                var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, cancellationToken);
-                if (!payload.IsSuccess)
-                {
-                    return BinaryResults.FromError(payload.Error, aeds);
-                }
-
-                if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var request))
-                {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 恢复码请求体非法"), aeds);
-                }
-
-                password = request.Password;
-                code = request.Code;
-                recoveryCode = request.RecoveryCode;
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA_REQUEST_BODY_NOT_SUPPORTED"), aeds);
             }
 
-            var result = await mfaCommands.RegenerateMfaRecoveryCodesAsync(userId, password, code, recoveryCode, stepUpVerified);
+            UserMfaStepUpContext? stepUp = await VerifyMfaManagementStepUpAsync(
+                httpContext, users, mfaChallengeService, UserMfaManagementAction.RecoveryCodesRegenerate);
+            if (stepUp is null)
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
+            }
+
+            var result = await mfaCommands.RegenerateMfaRecoveryCodesAsync(stepUp.AccountId, stepUp);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupVerify, writer => PodBinaryCodec.WriteMfaSetupVerify(result.Data, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status422UnprocessableEntity, ErrorCode.Validation));
@@ -2100,6 +2012,36 @@ public static partial class BinaryEndpoints
         }
 
         return BinaryResults.FromError(error, aeds);
+    }
+
+    internal static bool HasUnexpectedMfaRequestBody(HttpRequest request)
+        => request.ContentLength is > 0
+            || request.Headers.ContainsKey(Microsoft.Net.Http.Headers.HeaderNames.TransferEncoding)
+            || request.HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpRequestBodyDetectionFeature>()?.CanHaveBody == true
+            || (request.Body.CanSeek && request.Body.Length > request.Body.Position);
+
+    private static async Task<UserMfaStepUpContext?> VerifyMfaManagementStepUpAsync(
+        HttpContext httpContext,
+        IUserAccountReader users,
+        IMfaChallengeService mfaChallenges,
+        UserMfaManagementAction? action = null)
+    {
+        if (!TryReadMfaProof(httpContext, out string proofToken))
+        {
+            return null;
+        }
+
+        EndpointUserContext principal = EndpointUserContext.From(httpContext);
+        UserAccountSnapshot? account = await users.GetAccountByIdAsync(principal.AccountId);
+        if (account is null)
+        {
+            return null;
+        }
+
+        UserMfaManagementAction currentAction = action
+            ?? (account.Value.MfaEnabled ? UserMfaManagementAction.SetupRebind : UserMfaManagementAction.Setup);
+        return await UserMfaStepUpContext.VerifyAsync(
+            account.Value, principal.SessionId ?? string.Empty, currentAction, proofToken, mfaChallenges);
     }
 
     private static async Task<(ErrorDetail Error, int StatusCode)?> RequireUserSecurityStepUpAsync(

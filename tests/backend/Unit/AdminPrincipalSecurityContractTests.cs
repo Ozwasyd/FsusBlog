@@ -1,4 +1,7 @@
+using System.Security.Claims;
+
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -52,12 +55,22 @@ public sealed class AdminPrincipalSecurityContractTests
     [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-anonymous-identity-runtime-does-not-grant-admin-from-legacy-user-role")]
     public void AnonymousIdentityRuntime_DoesNotGrantAdminFromLegacyUserRole()
     {
-        string resolved = AnonymousIdentityRuntime.ResolveBackendRole(
-            "admin",
-            AnonymousIdentityRuntime.AnonymousAccountKind,
-            anonymousIdentityModeEnabled: true);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.NameIdentifier, "42"),
+            new Claim(ClaimTypes.Role, "admin"),
+            new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
+            new Claim("sid", "ordinary-session")
+        ], "test"));
 
-        Assert.Equal(AnonymousIdentityRuntime.AuthenticatedRole, resolved);
+        EndpointUserContext context = EndpointUserContext.From(principal);
+
+        Assert.True(principal.IsInRole("admin"));
+        Assert.True(context.IsAuthenticated);
+        Assert.True(context.IsAnonymousAccount);
+        Assert.False(context.IsAdminPrincipal);
+        Assert.False(principal.IsAdminPrincipal());
+        Assert.False(principal.TryGetAdminPrincipalId(out _));
     }
 
     [Fact]

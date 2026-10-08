@@ -14,6 +14,9 @@ public readonly struct AedsFrameHeader
     public const byte CurrentVersion = VersionValue;
     public const byte CurrentHeaderLength = Size;
 
+    public static bool IsRetiredFrameType(ushort frameType)
+        => frameType is 40 or 43 or 44 or 45 or 46 or 53 or 180 or 181 or 186 or 187;
+
     public AedsFrameHeader(
         uint magic,
         byte version,
@@ -89,7 +92,6 @@ public enum AedsFrameType : ushort
     MfaProfile = 50,
     MfaChallengeResult = 51,
     MfaSetupVerifyRequest = 52,
-    MfaPasswordProofRequest = 53,
     MfaChallengeStartRequest = 54,
     MfaChallengeVerifyRequest = 55,
     ConversationList = 56,

@@ -7,17 +7,16 @@ import {
   loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
-import { encodeAedsFrame, encodeMfaPasswordProofRequest } from '../../support/aeds-envelope.mjs';
+import { encodeAedsFrame } from '../../support/aeds-envelope.mjs';
 import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
 const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'auth-mfa-smoke-node';
 const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || baseUrl;
-const anonymousMfaMutationBody = encodeAedsFrame(
-  53,
-  encodeMfaPasswordProofRequest({ password: '', code: '', recoveryCode: '' })
-);
+// This deliberately retired frame is a negative control, never a current request encoder.
+const retiredMfaPasswordProofBody = encodeAedsFrame(53, new Uint8Array(28));
+const retiredPasswordTextBody = new TextEncoder().encode(JSON.stringify({ password: 'retired-password-proof' }));
 
 function assert(condition, message) {
   if (!condition) {
@@ -81,12 +80,22 @@ export async function runAuthMfaSmoke() {
     action: 'mfa_setup',
     cookieHeader: session.cookieHeader
   });
+  for (const [body, label] of [[retiredMfaPasswordProofBody, 'retired frame 53'], [retiredPasswordTextBody, 'password body']]) {
+    const rejected = await authBinary('/api/Auth/mfa/setup/start', {
+      method: 'POST',
+      cookieHeader: session.cookieHeader,
+      deviceFingerprint,
+      headers: { Origin: trustedOrigin, 'Content-Type': 'application/octet-stream', 'X-Fsus-Mfa-Proof': setupProofToken },
+      body
+    });
+    assert(rejected.response.status === 400, `mfa setup must reject ${label}: ${rejected.response.status}`);
+    assert(describePayload(rejected.payload).includes('MFA_REQUEST_BODY_NOT_SUPPORTED'), `mfa setup ${label} rejection diagnostic missing`);
+  }
   let startSetup = await authBinary('/api/Auth/mfa/setup/start', {
     method: 'POST',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
-    headers: { Origin: trustedOrigin, 'Content-Type': 'application/octet-stream', 'X-Fsus-Mfa-Proof': setupProofToken },
-    body: anonymousMfaMutationBody
+    headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': setupProofToken }
   });
   if (!startSetup.response.ok) {
     const rebindProofToken = await mintMfaProof({
@@ -97,8 +106,7 @@ export async function runAuthMfaSmoke() {
       method: 'POST',
       cookieHeader: session.cookieHeader,
       deviceFingerprint,
-      headers: { Origin: trustedOrigin, 'Content-Type': 'application/octet-stream', 'X-Fsus-Mfa-Proof': rebindProofToken },
-      body: anonymousMfaMutationBody
+      headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': rebindProofToken }
     });
   }
   assertOk(startSetup, 'mfa setup start failed');
@@ -171,8 +179,7 @@ export async function runAuthMfaSmoke() {
     method: 'POST',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
-    headers: { Origin: trustedOrigin, 'Content-Type': 'application/octet-stream', 'X-Fsus-Mfa-Proof': regenerateProofToken },
-    body: anonymousMfaMutationBody
+    headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': regenerateProofToken }
   });
   assertOk(regenRecovery, 'mfa recovery regenerate failed');
   const recoveryData = regenRecovery.payload?.data ?? regenRecovery.payload;
@@ -188,8 +195,7 @@ export async function runAuthMfaSmoke() {
     method: 'POST',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
-    headers: { Origin: trustedOrigin, 'Content-Type': 'application/octet-stream', 'X-Fsus-Mfa-Proof': disableProofToken },
-    body: anonymousMfaMutationBody
+    headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': disableProofToken }
   });
   assertOk(disableMfa, 'mfa disable failed');
 

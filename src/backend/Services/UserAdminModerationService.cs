@@ -6,8 +6,8 @@ using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Distributed;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Security;
@@ -187,10 +187,9 @@ public sealed class UserAdminModerationService(
             return AdminAccountSearchPlan.AccountId(accountId);
         }
 
-        if (string.Equals(normalized, AnonymousIdentityRuntime.AnonymousAccountKind, StringComparison.Ordinal)
-            || string.Equals(normalized, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal))
+        if (AnonymousIdentityRuntime.TryParse(normalized, out CurrentIdentityKind identityKind))
         {
-            return AdminAccountSearchPlan.IdentityKind(normalized);
+            return AdminAccountSearchPlan.IdentityKind(AnonymousIdentityRuntime.ToWireValue(identityKind));
         }
 
         string handlePrefix = NormalizePublicHandleToken(normalized);

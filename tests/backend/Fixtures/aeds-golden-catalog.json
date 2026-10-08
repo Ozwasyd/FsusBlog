@@ -12,6 +12,7 @@
     { "value": 44, "reason": "legacy-password-register" },
     { "value": 45, "reason": "legacy-username-mutation" },
     { "value": 46, "reason": "legacy-password-mutation" },
+    { "value": 53, "reason": "legacy-mfa-password-proof-request" },
     { "value": 180, "reason": "precise-anonymous-credential-ticket-request" },
     { "value": 181, "reason": "precise-anonymous-credential-ticket-response" }
   ],
@@ -62,7 +63,6 @@
     { "name": "MfaProfile", "value": 50, "family": "mfa-response" },
     { "name": "MfaChallengeResult", "value": 51, "family": "mfa-response" },
     { "name": "MfaSetupVerifyRequest", "value": 52, "family": "mfa-request" },
-    { "name": "MfaPasswordProofRequest", "value": 53, "family": "mfa-request" },
     { "name": "MfaChallengeStartRequest", "value": 54, "family": "mfa-request" },
     { "name": "MfaChallengeVerifyRequest", "value": 55, "family": "mfa-request" },
     { "name": "ConversationList", "value": 56, "family": "message-response" },

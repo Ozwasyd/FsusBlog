@@ -763,8 +763,8 @@ public sealed class AccountStateProjection : IAccountStateProjection
         }
 
         if (!TryNormalizeSubjectHash(snapshot.AccountSubjectHash, out string subjectHash)
-            || string.IsNullOrWhiteSpace(snapshot.IdentityKind)
-            || string.IsNullOrWhiteSpace(snapshot.RegistrationState)
+            || !AnonymousIdentityRuntime.TryParse(snapshot.IdentityKind, out CurrentIdentityKind identityKind)
+            || !AccountRegistrationStates.TryParse(snapshot.RegistrationState, out AccountRegistrationState registrationState)
             || (snapshot.Knowledge == AccountStateKnowledge.Present && snapshot.DeletedAt.HasValue)
             || (snapshot.Knowledge == AccountStateKnowledge.Deleted && !snapshot.DeletedAt.HasValue))
         {
@@ -774,8 +774,8 @@ public sealed class AccountStateProjection : IAccountStateProjection
         normalized = snapshot with
         {
             AccountSubjectHash = subjectHash,
-            IdentityKind = snapshot.IdentityKind.Trim(),
-            RegistrationState = snapshot.RegistrationState.Trim(),
+            IdentityKind = AnonymousIdentityRuntime.ToWireValue(identityKind),
+            RegistrationState = AccountRegistrationStates.ToWireValue(registrationState),
             PublicHandle = NormalizeOptional(snapshot.PublicHandle),
             AnonymousCredentialStatus = NormalizeOptional(snapshot.AnonymousCredentialStatus),
             AnonymousCredentialLevel = NormalizeOptional(snapshot.AnonymousCredentialLevel)

@@ -51,7 +51,6 @@ public enum AedsFrameType : ushort
     MfaProfile = 50,
     MfaChallengeResult = 51,
     MfaSetupVerifyRequest = 52,
-    MfaPasswordProofRequest = 53,
     MfaChallengeStartRequest = 54,
     MfaChallengeVerifyRequest = 55,
     ConversationList = 56,

@@ -133,7 +133,6 @@ public static class PodContractValidation
             && IsReferenceFree<MfaRecoveryCodePod>()
             && IsReferenceFree<MfaProfilePod>()
             && IsReferenceFree<MfaChallengeResultPod>()
-            && IsReferenceFree<MfaPasswordProofRequestPod>()
             && IsReferenceFree<MfaChallengeVerifyRequestPod>()
             && IsReferenceFree<RecoveryKeyCreateResponsePod>()
             && IsReferenceFree<RecoveryKeyVerifyRequestPod>()

@@ -319,7 +319,7 @@ Checklist:
 - [ ] JWT deployment secret is non-default, non-placeholder, and not short.
 - [ ] Messages:AdminSessionAuditReferenceKey is an independent deployment secret of at least 32 characters.
 - [ ] Redis password is non-empty.
-- [ ] FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1; legacy sys_user.role=admin does not grant admin.
+- [ ] Ordinary accounts use current anonymous-account identity; legacy sys_user.role=admin does not grant admin.
 - [ ] SITE_BASEURL starts with https://.
 - [ ] AllowedHosts explicitly lists production domains and is not *.
 - [ ] ReverseProxy:KnownProxies/ReverseProxy:KnownNetworks contains only real gateway IPs/private CIDRs.

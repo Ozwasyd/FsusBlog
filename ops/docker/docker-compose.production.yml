@@ -75,7 +75,6 @@ services:
             - Fido2__ServerName=${FIDO2_SERVER_NAME:-FsusBlog}
             - Fido2__Origins__0=${SITE_BASEURL}
             # 生产默认启用匿名身份/admin principal 平面，避免 legacy sys_user.role=admin 授权兜底。
-            - FSUSBLOG_ANONYMOUS_IDENTITY_MODE=${FSUSBLOG_ANONYMOUS_IDENTITY_MODE:-1}
             # ZK-Prod 默认开启；缺少真实 trusted setup、VK、issuer key 或 root snapshot 时由 readiness fail-closed。
             - AnonymousIdentity__ZkProd__Enabled=${FSUSBLOG_ZK_PROD_ENABLED:-true}
             - AnonymousIdentity__ZkProd__RequireNativeVerifier=true
