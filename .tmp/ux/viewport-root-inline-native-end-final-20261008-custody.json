@@ -1,0 +1,26 @@
+{
+  "observedAt": "2026-10-08T16:01:16.406487+00:00",
+  "uiEvidenceHead": "16e98a88d50b66ed3615eb906538394972d6825b",
+  "uiTestedCandidate": "e30778563d2271acd924f65ded814bfb0c972076",
+  "uiProductSource": "20e4a21b398fb8450b9c948c39e2760450fa4477",
+  "uiManifestSHA256": "1410af971aa8fded9e0b5cda92349ab402518f42044f859ed0bae461e856d520",
+  "verifiedFiles": 53,
+  "verifiedRawZIPEntries": 2279,
+  "fetchedBlogMaster": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "canonicalCheckExitCode": 0,
+  "recoveryActualUTC": "2026-10-08 15:49:48 UTC",
+  "recoveryShellExitCode": 0,
+  "qualificationEligible": false,
+  "files": [
+    {
+      "path": ".tmp/ux/viewport-root-inline-native-end-final-20261008.md",
+      "bytes": 8177,
+      "sha256": "0fa3414179dafdd41c070ea2639e39300dcac1391bc85d38b49a2adda2315b93"
+    },
+    {
+      "path": ".tmp/ux/viewport-root-inline-native-end-final-20261008-prepared-draft-pr-body.md",
+      "bytes": 977,
+      "sha256": "29f5bbcb72bb5a75e13d03f550956a21b52193df29aba0ea5564368dc70db2e5"
+    }
+  ]
+}
