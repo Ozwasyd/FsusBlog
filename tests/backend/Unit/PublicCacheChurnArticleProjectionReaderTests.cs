@@ -32,7 +32,7 @@ public sealed class PublicCacheChurnArticleProjectionReaderTests
         CanonicalArticleProjectionVerifier verifier = CreateVerifier(db);
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             RuntimeCacheChurnArticleProjectionReader.ReadAsync(
-                verifier, runId, testNamespace, articleId, Receipt(), Invocation(), CancellationToken.None));
+                verifier, Scope(), runId, testNamespace, articleId, Receipt(), Invocation(), CancellationToken.None));
         Assert.Equal("cache_churn_article_producer_identity_mismatch", error.Message);
         Assert.Empty(db.ReceivedCalls());
     }
@@ -51,7 +51,7 @@ public sealed class PublicCacheChurnArticleProjectionReaderTests
         CanonicalArticleProjectionVerificationException error =
             await Assert.ThrowsAsync<CanonicalArticleProjectionVerificationException>(() =>
                 RuntimeCacheChurnArticleProjectionReader.ReadAsync(
-                    CreateVerifier(db), RunId, Namespace, 7, Receipt(), substituted, CancellationToken.None));
+                    CreateVerifier(db), Scope(), RunId, Namespace, 7, Receipt(), substituted, CancellationToken.None));
         Assert.Contains("publication_current_invocation_binding_mismatch", error.Violations);
         Assert.Empty(db.ReceivedCalls());
     }
@@ -61,8 +61,28 @@ public sealed class PublicCacheChurnArticleProjectionReaderTests
     {
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         await Assert.ThrowsAsync<ArgumentNullException>(() => RuntimeCacheChurnArticleProjectionReader.ReadAsync(
-            CreateVerifier(db), RunId, Namespace, 7, Receipt(), null!, CancellationToken.None));
+            CreateVerifier(db), Scope(), RunId, Namespace, 7, Receipt(), null!, CancellationToken.None));
         Assert.Empty(db.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task WrongActualRuntimeScope_RefusesEvenWhenAllReceiptLabelsMatch()
+    {
+        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        IRuntimeKeyScope scope = Scope();
+        scope.ScopeToken.Returns("other-runtime-scope");
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            RuntimeCacheChurnArticleProjectionReader.ReadAsync(
+                CreateVerifier(db), scope, RunId, Namespace, 7, Receipt(), Invocation(), CancellationToken.None));
+        Assert.Equal("cache_churn_article_producer_identity_mismatch", error.Message);
+        Assert.Empty(db.ReceivedCalls());
+    }
+
+    private static IRuntimeKeyScope Scope()
+    {
+        IRuntimeKeyScope scope = Substitute.For<IRuntimeKeyScope>();
+        scope.ScopeToken.Returns(Namespace);
+        return scope;
     }
 
     private static CanonicalArticlePublicationRequest Invocation()
