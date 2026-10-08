@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Services.Authoring;
@@ -173,6 +174,90 @@ public sealed class AuthoringPropertyContributionTests
         string json = JsonSerializer.Serialize(f.Type);
         Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<AuthoringPropertyTypeContribution>(json[..^1] + ",\"ComponentName\":\"arbitrary\"}"));
         Assert.Throws<ArgumentNullException>(() => new AuthoringPropertyTypeAdapter(f.Values, f.Registry, null!));
+    }
+
+    [Theory]
+    [InlineData(ArticlePropertyValueReconciliationStatus.ValueRejected)]
+    [InlineData(ArticlePropertyValueReconciliationStatus.ReferenceAuthorityUnavailable)]
+    public async Task Read_RejectedCanonicalValueDoesNotExposePrivatePayload(ArticlePropertyValueReconciliationStatus status)
+    {
+        Fixture f = Create();
+        f.Values.Result = _ => Task.FromResult(f.Read with { Reconciliation = [new(s_definitionId, status, "canonical-refusal")] });
+        AuthoringPropertyReadProjection result = await f.Adapter.ReadAsync(f.Binding);
+        Assert.Null(result.Value);
+        Assert.Equal(status, result.Status);
+        Assert.False(result.CoreValueCurrent);
+        Assert.Equal(0, f.Values.Writes);
+    }
+
+    [Theory]
+    [InlineData("SchemaVersion")]
+    [InlineData("TypeId")]
+    [InlineData("ExtensionId")]
+    [InlineData("ExtensionVersion")]
+    [InlineData("PackageSha256")]
+    [InlineData("ContributionId")]
+    [InlineData("DefinitionId")]
+    [InlineData("DefinitionSchemaRevision")]
+    [InlineData("DefinitionDigest")]
+    [InlineData("StorageKind")]
+    [InlineData("EditorRole")]
+    [InlineData("NormalizationVersion")]
+    [InlineData("MigrationPolicy")]
+    public void Schema_RejectsEveryMissingFieldBeforeRegistry(string field)
+    {
+        Fixture f = Create();
+        JsonObject json = JsonNode.Parse(JsonSerializer.Serialize(f.Type))!.AsObject();
+        json.Remove(field);
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<AuthoringPropertyTypeContribution>(json.ToJsonString()));
+    }
+
+    [Theory]
+    [InlineData("SchemaVersion")]
+    [InlineData("TypeId")]
+    [InlineData("ExtensionId")]
+    [InlineData("ExtensionVersion")]
+    [InlineData("PackageSha256")]
+    [InlineData("ContributionId")]
+    [InlineData("DefinitionId")]
+    [InlineData("DefinitionSchemaRevision")]
+    [InlineData("DefinitionDigest")]
+    [InlineData("StorageKind")]
+    [InlineData("EditorRole")]
+    [InlineData("NormalizationVersion")]
+    [InlineData("MigrationPolicy")]
+    public void Schema_RejectsRepeatedFieldEvenWhenValuesMatch(string field)
+    {
+        Fixture f = Create();
+        string json = JsonSerializer.Serialize(f.Type);
+        string value = JsonNode.Parse(json)![field]!.ToJsonString();
+        string duplicate = "{\"" + field + "\":" + value + "," + json[1..];
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<AuthoringPropertyTypeContribution>(duplicate));
+    }
+
+    [Theory]
+    [InlineData("StorageKind")]
+    [InlineData("EditorRole")]
+    [InlineData("MigrationPolicy")]
+    public void Schema_RejectsConflictingFirstFieldInsteadOfAcceptingLastValidValue(string field)
+    {
+        Fixture f = Create();
+        string json = JsonSerializer.Serialize(f.Type);
+        string duplicate = "{\"" + field + "\":255," + json[1..];
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<AuthoringPropertyTypeContribution>(duplicate));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Schema_ExplicitFieldsRoundTripWithSupportedNamingPolicy(bool camelCase)
+    {
+        Fixture f = Create();
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = camelCase ? JsonNamingPolicy.CamelCase : null };
+        string json = JsonSerializer.Serialize(f.Type, options);
+        var type = JsonSerializer.Deserialize<AuthoringPropertyTypeContribution>(json, options);
+        Assert.Equal(f.Type, type);
+        Assert.Equal(type, new AuthoringPropertyTypeRegistry(Extensions([]), [type!]).Get(f.Type.TypeId));
     }
 
     private static Fixture Create(ArticlePropertyValuePresence presence = ArticlePropertyValuePresence.Present, bool inactive = false)

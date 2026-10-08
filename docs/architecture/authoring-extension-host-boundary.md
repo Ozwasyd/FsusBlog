@@ -478,7 +478,9 @@ runtime or restore any permission.
 canonical definition ID/schema revision/digest and the existing eight storage
 kinds. The verified extension declaration must be a property contribution using
 Worker/Wasm. Core conflicts, duplicate definitions, unsupported normalization,
-migration/presentation tags and unknown JSON fields are refused. Presentation
+migration/presentation tags and unknown JSON fields are refused. All contribution
+fields are required explicitly; the JSON decoder rejects repeated fields before
+record construction, including conflicting or identical duplicates. Presentation
 roles are closed data, not component names or an activated editor.
 
 `AuthoringPropertyTypeAdapter.ReadAsync` calls the existing
@@ -487,6 +489,9 @@ actor and article. The owner is never inferred from the actor. It checks current
 article/property coordinates, canonical definition/snapshot/value integrity and
 persisted snapshot/factset/audit references before returning only the registered
 property. Missing/null and inactive typed values retain their canonical types.
+`ValueRejected` and `ReferenceAuthorityUnavailable` reconciliation suppress the
+value entry entirely while retaining the canonical status and snapshot references;
+a false `CoreValueCurrent` flag alone never makes a refused private payload safe.
 `CoreValueCurrent` reports core reconciliation facts, not a plugin validation
 verdict, permission, editor admission or persisted acceptance receipt.
 

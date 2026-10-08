@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using FsusBlog.Server.Services.Authoring;
@@ -20,7 +21,7 @@ public enum AuthoringPropertyEditorRole
 }
 
 /// <summary>One extension type maps to one exact canonical definition and its existing typed storage.</summary>
-[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+[JsonConverter(typeof(AuthoringPropertyTypeContributionJsonConverter))]
 public sealed record AuthoringPropertyTypeContribution(
     int SchemaVersion,
     string TypeId,
@@ -35,6 +36,109 @@ public sealed record AuthoringPropertyTypeContribution(
     AuthoringPropertyEditorRole EditorRole,
     int NormalizationVersion,
     AuthoringMigrationPolicy MigrationPolicy);
+
+/// <summary>Rejects missing, unknown and duplicate fields before record defaults or last-value parsing can erase them.</summary>
+internal sealed class AuthoringPropertyTypeContributionJsonConverter : JsonConverter<AuthoringPropertyTypeContribution>
+{
+    private static readonly string[] s_fields =
+    [
+        nameof(AuthoringPropertyTypeContribution.SchemaVersion),
+        nameof(AuthoringPropertyTypeContribution.TypeId),
+        nameof(AuthoringPropertyTypeContribution.ExtensionId),
+        nameof(AuthoringPropertyTypeContribution.ExtensionVersion),
+        nameof(AuthoringPropertyTypeContribution.PackageSha256),
+        nameof(AuthoringPropertyTypeContribution.ContributionId),
+        nameof(AuthoringPropertyTypeContribution.DefinitionId),
+        nameof(AuthoringPropertyTypeContribution.DefinitionSchemaRevision),
+        nameof(AuthoringPropertyTypeContribution.DefinitionDigest),
+        nameof(AuthoringPropertyTypeContribution.StorageKind),
+        nameof(AuthoringPropertyTypeContribution.EditorRole),
+        nameof(AuthoringPropertyTypeContribution.NormalizationVersion),
+        nameof(AuthoringPropertyTypeContribution.MigrationPolicy),
+    ];
+
+    public override bool HandleNull => true;
+
+    public override AuthoringPropertyTypeContribution Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        using JsonDocument document = JsonDocument.ParseValue(ref reader);
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+        {
+            throw new JsonException("Property contribution must be an explicit object.");
+        }
+        var names = new Dictionary<string, string>(options.PropertyNameCaseInsensitive ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        foreach (string field in s_fields)
+        {
+            if (!names.TryAdd(Name(field, options), field))
+            {
+                throw new JsonException("Property contribution naming policy is ambiguous.");
+            }
+        }
+        var values = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        foreach (JsonProperty property in document.RootElement.EnumerateObject())
+        {
+            if (!names.TryGetValue(property.Name, out string? field) || !values.TryAdd(field, property.Value))
+            {
+                throw new JsonException("Property contribution contains an unknown or duplicate field.");
+            }
+        }
+        if (values.Count != s_fields.Length)
+        {
+            throw new JsonException("Property contribution requires every field explicitly.");
+        }
+        return new(
+            Value<int>(values, nameof(AuthoringPropertyTypeContribution.SchemaVersion), options),
+            Value<string>(values, nameof(AuthoringPropertyTypeContribution.TypeId), options),
+            Value<string>(values, nameof(AuthoringPropertyTypeContribution.ExtensionId), options),
+            Value<string>(values, nameof(AuthoringPropertyTypeContribution.ExtensionVersion), options),
+            Value<string>(values, nameof(AuthoringPropertyTypeContribution.PackageSha256), options),
+            Value<string>(values, nameof(AuthoringPropertyTypeContribution.ContributionId), options),
+            Value<Guid>(values, nameof(AuthoringPropertyTypeContribution.DefinitionId), options),
+            Value<long>(values, nameof(AuthoringPropertyTypeContribution.DefinitionSchemaRevision), options),
+            Value<string>(values, nameof(AuthoringPropertyTypeContribution.DefinitionDigest), options),
+            Value<ArticlePropertyValueType>(values, nameof(AuthoringPropertyTypeContribution.StorageKind), options),
+            Value<AuthoringPropertyEditorRole>(values, nameof(AuthoringPropertyTypeContribution.EditorRole), options),
+            Value<int>(values, nameof(AuthoringPropertyTypeContribution.NormalizationVersion), options),
+            Value<AuthoringMigrationPolicy>(values, nameof(AuthoringPropertyTypeContribution.MigrationPolicy), options));
+    }
+
+    public override void Write(Utf8JsonWriter writer, AuthoringPropertyTypeContribution value, JsonSerializerOptions options)
+    {
+        if (value is null)
+        {
+            throw new JsonException("Property contribution cannot be null.");
+        }
+        writer.WriteStartObject();
+        Field(writer, nameof(AuthoringPropertyTypeContribution.SchemaVersion), value.SchemaVersion, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.TypeId), value.TypeId, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.ExtensionId), value.ExtensionId, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.ExtensionVersion), value.ExtensionVersion, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.PackageSha256), value.PackageSha256, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.ContributionId), value.ContributionId, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.DefinitionId), value.DefinitionId, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.DefinitionSchemaRevision), value.DefinitionSchemaRevision, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.DefinitionDigest), value.DefinitionDigest, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.StorageKind), value.StorageKind, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.EditorRole), value.EditorRole, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.NormalizationVersion), value.NormalizationVersion, options);
+        Field(writer, nameof(AuthoringPropertyTypeContribution.MigrationPolicy), value.MigrationPolicy, options);
+        writer.WriteEndObject();
+    }
+
+    private static T Value<T>(Dictionary<string, JsonElement> values, string name, JsonSerializerOptions options)
+    {
+        T? value = values[name].Deserialize<T>(options);
+        return value is null ? throw new JsonException("Property contribution fields cannot be null.") : value;
+    }
+
+    private static void Field<T>(Utf8JsonWriter writer, string name, T value, JsonSerializerOptions options)
+    {
+        writer.WritePropertyName(Name(name, options));
+        JsonSerializer.Serialize(writer, value, options);
+    }
+
+    private static string Name(string field, JsonSerializerOptions options) => options.PropertyNamingPolicy?.ConvertName(field) ?? field;
+}
 
 public sealed class AuthoringPropertyTypeRegistry
 {
@@ -212,6 +316,11 @@ public sealed class AuthoringPropertyTypeAdapter
             }
         }
         ArticlePropertyValueReconciliationStatus status = reconciliation?.Status ?? ArticlePropertyValueReconciliationStatus.Current;
+        // Canonical refusal does not become a readable private value merely by disabling the editor.
+        if (status is ArticlePropertyValueReconciliationStatus.ValueRejected or ArticlePropertyValueReconciliationStatus.ReferenceAuthorityUnavailable)
+        {
+            entry = null;
+        }
         var projection = new AuthoringPropertyReadProjection(binding, type, entry, status,
             current?.SnapshotId, current?.FactsetId, current?.Snapshot.ContentDigest, current?.AuditReference,
             definition.Status == ArticlePropertyDefinitionStatus.Active && status == ArticlePropertyValueReconciliationStatus.Current);
