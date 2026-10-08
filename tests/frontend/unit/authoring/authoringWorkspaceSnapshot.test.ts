@@ -377,6 +377,25 @@ describe('bounded CAS sync, multi-tab and offline current-session state', () => 
         await vi.advanceTimersByTimeAsync(60000);
         expect(server.writes).toHaveLength(1);
     });
+    it('Web Locks denial retains unsynced memory without an uncoordinated fallback or timer rejection', async () => {
+        const server = new Server();
+        const storage = new CacheStorage();
+        const api = new AuthoringWorkspaceSnapshotApi(server, scope, sourceDigest, () => now);
+        const cache = new AuthoringWorkspaceSnapshotCache(storage, scope, sourceDigest, () => now);
+        const lease = { run: vi.fn(async () => { throw new Error('web_locks_denied'); }) };
+        const sync = new AuthoringWorkspaceSnapshotSync(api, cache, null, 'browser:denied', lease);
+        active.push(sync);
+        await sync.start();
+        sync.onInteraction('tabs', layout(20));
+        await vi.advanceTimersByTimeAsync(250);
+        expect(sync.getState()).toMatchObject({ status: 'failed', dirty: true, reason: 'flush_coordination_failed' });
+        expect(sync.getCurrentSessionLayout().tabs).toHaveLength(20);
+        expect(server.writes).toHaveLength(0);
+        expect(storage.replacements).toBe(1);
+        await vi.advanceTimersByTimeAsync(30000);
+        expect(lease.run).toHaveBeenCalledTimes(1);
+        expect(server.writes).toHaveLength(0);
+    });
     it('new input during in-flight flush remains dirty and caches only server-returned candidate', async () => {
         const { sync, server, cache } = setup();
         await sync.start();
@@ -406,6 +425,33 @@ describe('bounded CAS sync, multi-tab and offline current-session state', () => 
         await sync.reset(true, 2, api.resetConfirmation(2));
         expect(server.current!.layout.tabs).toHaveLength(0);
         expect(server.current!.revision).toBe(3);
+    });
+    it('layout changes during a confirmed reset survive in memory and wait for the reset CAS result', async () => {
+        const { sync, server, api, cache } = setup();
+        await sync.start();
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const original = server.reset.bind(server);
+        vi.spyOn(server, 'reset').mockImplementation(async command => {
+            const result = await original(command);
+            await gate;
+            return result;
+        });
+        const resetting = sync.reset(true, 1, api.resetConfirmation(1));
+        expect(authoringWorkspaceSnapshotStatusModel(sync).canReset).toBe(false);
+        sync.onInteraction('tabs', layout(20));
+        await vi.advanceTimersByTimeAsync(250);
+        expect(server.writes).toHaveLength(0);
+        await expect(sync.reset(true, 1, api.resetConfirmation(1))).rejects.toThrow('reset_requires_current_server');
+        release();
+        await resetting;
+        expect(sync.getState()).toMatchObject({ resetting: false, dirty: true, serverRevision: 2 });
+        expect(sync.getCurrentSessionLayout().tabs).toHaveLength(20);
+        const cached = await cache.read();
+        expect(cached.status === 'cached-placeholder' && cached.snapshot.layout.tabs.length).toBe(0);
+        await sync.flush();
+        expect(server.current!.revision).toBe(3);
+        expect(server.current!.layout.tabs).toHaveLength(20);
     });
 });
 describe('server-only immutable restore planning and permission reconciliation', () => {
@@ -570,6 +616,21 @@ describe('server-only immutable restore planning and permission reconciliation',
     });
 });
 describe('finite legacy migration and machine-backed status/reset projection', () => {
+    it('stale or forged restore summaries cannot break the current status or retain partial authority', async () => {
+        const { sync } = setup();
+        await sync.start();
+        const observed = sync.getServerObservation()!;
+        const facts = resolution(observed);
+        facts.facts[0] = { tabId: facts.facts[0].tabId, state: 'denied', currentIdentity: null, documentContext: null, permissionRef: null };
+        const { contentDigest: _, ...unsigned } = facts;
+        facts.contentDigest = workspaceSnapshotDigest(unsigned);
+        const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, { resolveBatch: async () => facts }, 0, new AbortController().signal);
+        expect(authoringWorkspaceSnapshotStatusModel(sync, plan).state).toBe('partial');
+        expect(authoringWorkspaceSnapshotStatusModel(sync, structuredClone(plan)).state).toBe('current');
+        await sync.setOnline(false);
+        expect(authoringWorkspaceSnapshotStatusModel(sync, plan).state).not.toBe('partial');
+        expect(authoringWorkspaceSnapshotStatusModel(sync, plan).reasonCounts).toEqual({});
+    });
     it('explicit missing bootstrap discards unscoped layout, uses CAS, cleans only inventoried key and is idempotent', async () => {
         const { api, server } = setup();
         server.current = null;

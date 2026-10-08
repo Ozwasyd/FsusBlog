@@ -20,6 +20,7 @@ export interface WorkspaceSnapshotSyncState {
     status: WorkspaceSnapshotSyncStatus;
     serverRevision: number | null;
     dirty: boolean;
+    resetting: boolean;
     online: boolean;
     cacheStatus: string;
     reason: string | null;
@@ -66,6 +67,7 @@ export class AuthoringWorkspaceSnapshotSync
     private reason: string | null = null;
     private online = true;
     private dirty = false;
+    private resetting = false;
     private generation = 0;
     private dirtySince = 0;
     private stopped = false;
@@ -111,7 +113,7 @@ export class AuthoringWorkspaceSnapshotSync
         const unsigned = {
             schema: workspaceSnapshotSyncPolicy.schema, scopeDigest: this.scopeDigest, sourceDigest: this.api.sourceDigest,
             status: this.status, serverRevision: this.observation?.revision ?? null, dirty: this.dirty,
-            online: this.online, cacheStatus: this.cacheStatus, reason: this.reason
+            resetting: this.resetting, online: this.online, cacheStatus: this.cacheStatus, reason: this.reason
         };
         return freezeWorkspaceSnapshot({ ...unsigned, contentDigest: workspaceSnapshotDigest(unsigned) });
     }
@@ -303,6 +305,16 @@ export class AuthoringWorkspaceSnapshotSync
         {
             await this.flushTask;
         }
+        catch
+        {
+            if (!this.stopped)
+            {
+                // A denied coordination mechanism never grants a competing local writer.
+                this.status = this.online ? 'failed' : 'offline-unsynced';
+                this.reason = 'flush_coordination_failed';
+                this.record('flush-coordination-failed');
+            }
+        }
         finally
         {
             this.flushTask = null;
@@ -332,27 +344,49 @@ export class AuthoringWorkspaceSnapshotSync
             return;
         }
         this.clearDebounce();
-        if (!this.online || this.dirty || this.flushTask
+        if (!this.online || this.dirty || this.flushTask || this.resetting
             || expectedRevision !== this.observation?.revision || this.status === 'conflict')
         {
             throw new AuthoringWorkspaceSnapshotError('reset_requires_current_server');
         }
-        const result = await this.api.reset(expectedRevision, confirmationDigest, this.abort.signal);
-        if (this.stopped)
+        const generation = this.generation;
+        this.resetting = true;
+        this.record('reset-start');
+        try
         {
-            return;
+            const result = await this.api.reset(expectedRevision, confirmationDigest, this.abort.signal);
+            if (this.stopped)
+            {
+                return;
+            }
+            if (result.status === 'conflict')
+            {
+                this.status = 'conflict';
+                this.reason = 'stale_revision';
+                await this.readServer('conflict');
+                return;
+            }
+            if (this.generation === generation)
+            {
+                this.adopt(result);
+            }
+            else
+            {
+                // Layout changes after confirmation remain current-session unsynced state.
+                this.observation = result;
+                this.status = 'current';
+                this.reason = null;
+            }
+            this.cacheStatus = await this.cache.verifyAndReplace(result);
+            this.send('invalidated', result.revision);
+            this.record('server-reset');
         }
-        if (result.status === 'conflict')
+        finally
         {
-            this.status = 'conflict';
-            this.reason = 'stale_revision';
-            await this.readServer('conflict');
-            return;
+            this.resetting = false;
+            this.record('reset-end');
+            this.scheduleFlush();
         }
-        this.adopt(result);
-        this.cacheStatus = await this.cache.verifyAndReplace(result);
-        this.send('invalidated', result.revision);
-        this.record('server-reset');
     }
     public async stop(clearScope = true): Promise<void>
     {
@@ -461,7 +495,7 @@ export class AuthoringWorkspaceSnapshotSync
     }
     private canFlush(): boolean
     {
-        return !this.stopped && this.online && this.dirty && this.observation !== null
+        return !this.stopped && !this.resetting && this.online && this.dirty && this.observation !== null
             && (this.status === 'current' || this.status === 'defaulted');
     }
     private scheduleFlush(): void
