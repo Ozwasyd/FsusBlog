@@ -4,7 +4,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { copyFile, cp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -83,6 +83,7 @@ const ensureWasmScript = fileURLToPath(new URL('./ensure-wasm.mjs', import.meta.
 const generatePublicPageManifestScript = fileURLToPath(new URL('./generate-public-page-manifest.mjs', import.meta.url));
 const generatePublicShellEmergencyScript = fileURLToPath(new URL('./generate-public-shell-emergency.mjs', import.meta.url));
 const buildPublicSsrBundleScript = fileURLToPath(new URL('./build-public-ssr-bundle.mjs', import.meta.url));
+const releaseBrowserArtifactsScript = fileURLToPath(new URL('../storage/create-release-browser-artifacts.mjs', import.meta.url));
 const binExtension = process.platform === 'win32' ? '.cmd' : '';
 const distRoot = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || join(clientRoot, 'dist'));
 const distAssetsDir = join(distRoot, 'assets');
@@ -91,7 +92,7 @@ const frontendWasmRoot = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT || join
 const backendWebRoot = resolve(process.env.FSUSBLOG_BACKEND_WEBROOT || join(clientRoot, '..', 'backend', 'wwwroot'));
 const stableSpaEntryName = 'fsus-spa-entry.js';
 const stablePublicBootKernelName = 'fsus-public-boot-kernel.js';
-const managedDistEntries = ['.vite', 'assets', 'dist', 'favicon.svg', 'generated', 'index.html', 'server', 'sw.js', 'vite.svg', 'wasm'];
+const managedDistEntries = ['.vite', 'assets', 'current-release-assets.js', 'dist', 'favicon.svg', 'generated', 'index.html', 'server', 'sw.js', 'vite.svg', 'wasm'];
 // Static `public/` entries the release preview serves itself (vite.config.ts
 // proxy exclusions). The run-bound build disables Vite's publicDir copy, so
 // sync-run-bound-public-assets must re-assemble them into the shared dist root.
@@ -508,7 +509,10 @@ async function syncRunBoundPublicAssets()
         return;
     }
     await mkdir(distRoot, { recursive: true });
-    for (const entryName of runBoundPublicAssets)
+    const publicAssets = resolveReleaseBrowserBuildTrust()
+        ? [...runBoundPublicAssets, 'current-release-assets.js']
+        : runBoundPublicAssets;
+    for (const entryName of publicAssets)
     {
         const sourcePath = join(publicRoot, entryName);
         if (!(await pathExists(sourcePath)))
@@ -566,6 +570,26 @@ function buildStageResources(cpuWeight, memoryWeight, minMemoryGiB, exclusiveRes
     return { cpuWeight, memoryWeight, minCpuUnits: 1, minMemoryGiB, exclusiveResources };
 }
 
+export function resolveReleaseBrowserBuildTrust(env = process.env)
+{
+    const names = ['FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY', 'FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY_SHA256',
+        'FSUSBLOG_RELEASE_BROWSER_KEY_ID'];
+    const values = names.map((name) => String(env[name] ?? ''));
+    if (values.every((value) => value === ''))
+    {
+        return null;
+    }
+    const [publicKey, publicKeySha256, keyId] = values;
+    if (values.some((value) => !value || value !== value.trim())
+        || !isAbsolute(publicKey) || resolve(publicKey) !== publicKey
+        || !/^(?:sha256:)?[a-f0-9]{64}$/u.test(publicKeySha256)
+        || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(keyId))
+    {
+        throw new Error('release browser build trust requires all three explicit canonical pinned public inputs');
+    }
+    return { publicKey, publicKeySha256, keyId };
+}
+
 export function createFrontendBuildStages(generatedArgs, generatedAction, {
     frontendRoot,
     env = process.env
@@ -590,7 +614,23 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
     });
     const runBound = Boolean(env.FSUSBLOG_FRONTEND_DIST_ROOT);
     const syncBackend = env.FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC !== '1';
+    const browserTrust = resolveReleaseBrowserBuildTrust(env);
+    const browserTrustOutput = join(stagePublicRoot, 'generated', 'current-release-trust.js');
+    const stagePublicAssets = browserTrust ? [...runBoundPublicAssets, 'current-release-assets.js'] : runBoundPublicAssets;
     return [
+        ...(browserTrust ? [{
+            id: 'prepare-current-release-browser-trust',
+            command: [process.execPath, releaseBrowserArtifactsScript, '--mode', 'trust',
+                '--public-key', browserTrust.publicKey, '--public-key-sha256', browserTrust.publicKeySha256,
+                '--key-id', browserTrust.keyId, '--out', browserTrustOutput],
+            dependsOn: [],
+            consumedInputs: [browserTrust.publicKey],
+            producedArtifacts: [browserTrustOutput],
+            ownedOutputs: [browserTrustOutput],
+            resources: buildStageResources(1, 1, 0.05, ['release-browser-build-trust']),
+            estimatedDurationMs: 2_000,
+            toolchain: { executable: process.execPath }
+        }] : []),
         {
             id: `${generatedAction}-public-page-manifest`,
             command: [process.execPath, generatePublicPageManifestScript, ...generatedArgs],
@@ -661,6 +701,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             dependsOn: [
                 `${generatedAction}-public-page-manifest`,
                 `${generatedAction}-public-shell-emergency`,
+                ...(browserTrust ? ['prepare-current-release-browser-trust'] : []),
                 ...(!runBound ? ['ensure-wasm'] : [])
             ],
             consumedInputs: ['src', 'public'],
@@ -705,10 +746,10 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             dependsOn: ['ensure-wasm', 'vite-build'],
             consumedInputs: [stageFrontendWasmRoot, stagePublicRoot, join(stageDistRoot, 'index.html')],
             producedArtifacts: runBound
-                ? [...runBoundPublicAssets.map((entryName) => join(stageDistRoot, entryName)), join(stageDistRoot, 'wasm')]
+                ? [...stagePublicAssets.map((entryName) => join(stageDistRoot, entryName)), join(stageDistRoot, 'wasm')]
                 : [],
             ownedOutputs: runBound
-                ? [...runBoundPublicAssets.map((entryName) => join(stageDistRoot, entryName)), join(stageDistRoot, 'wasm')]
+                ? [...stagePublicAssets.map((entryName) => join(stageDistRoot, entryName)), join(stageDistRoot, 'wasm')]
                 : [],
             resources: buildStageResources(1, 1, 0.05, ['frontend-dist-wasm']),
             estimatedDurationMs: 5_000,

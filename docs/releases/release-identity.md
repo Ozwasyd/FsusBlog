@@ -36,6 +36,28 @@ The existing `rollout-state create-current-activation-plan --state <explicit-pat
 
 Deployment binds the manifest and its bounded current-schema receipt bytes, then pulls the exact digest, verifies OCI labels and uses Compose with `--no-build`. Compose receives the same release ID, creation time, commit, digest, slot and runtime generation. A disagreement fails before candidate state is persisted or traffic is changed. Byte binding does not validate the receipt semantic seal or observe a database; the canonical C# verifier and live Server admission remain mandatory. Signing and same-candidate atomic activation are additional acceptance gates, not proved by a manifest-shaped file.
 
+## Browser build and worker serving
+
+The existing frontend build DAG accepts `FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY`,
+`FSUSBLOG_RELEASE_BROWSER_PUBLIC_KEY_SHA256` and `FSUSBLOG_RELEASE_BROWSER_KEY_ID`
+as one explicit public input group. Partial, relative-path or malformed inputs
+refuse. When supplied, `prepare-current-release-browser-trust` invokes the original
+browser artifact producer before Vite reads `public/`; its sole output is
+`public/generated/current-release-trust.js`. The producer must be present from the
+original asset-owner handoff and independently verify the pinned key bytes.
+Candidate/content digests belong to the detached postseal projection and are never
+inputs to this prebuild stage. The run-bound assembly includes the current asset
+consumer, and backend wwwroot synchronization preserves it. These registrations do
+not constitute a signed projection, a successful full build or native admission.
+
+The existing release asset middleware grants `Service-Worker-Allowed: /` only for
+`/release-assets/<canonical-release-id>/sw.js?build=<same-id>` with exactly one build
+query value and no additional fields. Nested scripts, aliases, invalid calendar
+IDs and mismatched/duplicate queries receive no root-scope grant. Existing cache
+and `nosniff` response policies remain in force. A serving header does not authorize
+worker takeover: the original exact-candidate native schema/readiness bridge is
+still required before activation.
+
 ## Propagation and evidence binding
 
 The frontend build ID, Service Worker cache identity, release-derived storage root, Wasm asset identity, runtime labels, readiness detail and release evidence namespace all derive from the same manifest. Public verification exposes only release ID and slot; full identity remains protected operational detail.
