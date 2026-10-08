@@ -6,7 +6,9 @@
             "paths": [
                 "tools/test/security-atomic/barriers.mjs",
                 "tools/test/security-atomic/contract.mjs",
+                "tools/test/security-atomic/execution.mjs",
                 "tools/test/security-atomic/external-boundaries.mjs",
+                "tools/test/security-atomic/fixture-lifecycle.mjs",
                 "tools/test/security-atomic/scenarios.mjs",
                 "tools/test/security-atomic/weighted-projection.mjs"
             ],

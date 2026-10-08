@@ -1,4 +1,6 @@
-const { readCatalog, validateRuntimeScenarioCatalog } = await import(new URL('../runtime-scenario-host.mjs', import.meta.url));
+import { URL } from 'node:url';
+
+const { createRuntimeScenarioDispatchSession, readCatalog, validateRuntimeScenarioCatalog } = await import(new URL('../runtime-scenario-host.mjs', import.meta.url));
 const { digestCanonical } = await import(new URL('../../test-fixtures/receipt/canonical.mjs', import.meta.url));
 
 import { admitSecurityPrerequisites } from './barriers.mjs';
@@ -7,7 +9,8 @@ import {
     requireExactKeys,
     sealProjection,
     validateContext,
-    validateReference
+    validateReference,
+    verifyProjection
 } from './contract.mjs';
 
 export function projectSecurityScenarios({ catalog = readCatalog(), bindings, mode } = {})
@@ -60,7 +63,7 @@ export function projectSecurityScenarios({ catalog = readCatalog(), bindings, mo
             dependsOn.push('security-reset-pre-attack');
         }
         return {
-            producerId: `security-scenario:${scenario.id}`,
+            producerId: `security-scenario-${scenario.id.replaceAll('.', '-')}`,
             testId: scenario.id,
             kind: 'atomic-correctness',
             allowedRetries: 0,
@@ -71,6 +74,10 @@ export function projectSecurityScenarios({ catalog = readCatalog(), bindings, mo
             binding
         };
     });
+    if (new Set(producers.map((producer) => producer.producerId)).size !== producers.length)
+    {
+        throw new Error('catalog scenarios collide under canonical attempt producer identity');
+    }
     return sealProjection({
         schema: 'fsusblog.security-atomic-scenario-projection.v1',
         catalogDigest: digestCanonical(catalog),
@@ -133,5 +140,43 @@ export async function admitSecurityScenario({ producer, context, references, own
         prerequisites,
         hostFailureRefs,
         references
+    });
+}
+
+/** Connect per-scenario admission to the original resident host's dispatch seam. */
+export function createSecurityScenarioDispatchSession({ projection, catalog = readCatalog(), context,
+    identity, resolveReferences, ownerVerifiers, loadRunner, initializeRuntime })
+{
+    verifyProjection(projection);
+    const binding = validateContext(context);
+    if (projection.catalogDigest !== digestCanonical(catalog)
+        || identity?.commit !== binding.sourceRevision || identity?.runId !== binding.runId
+        || projection.producers.some((producer) => producer.invocation.mode !== 'resident')
+        || typeof resolveReferences !== 'function')
+    {
+        throw new Error('security dispatch requires exact catalog/source/run and fresh owner references');
+    }
+    return createRuntimeScenarioDispatchSession({ catalog, identity, loadRunner, initializeRuntime,
+        async admitScenario({ scenario, previousAttempts, signal })
+        {
+            const producer = projection.producers.find((item) => item.testId === scenario.id);
+            if (!producer || digestCanonical(producer.scenario) !== digestCanonical(scenario))
+            {
+                throw new Error('security dispatch scenario differs from its original catalog projection');
+            }
+            const hostFailureRefs = [];
+            for (const attempt of previousAttempts.filter((item) => ['failed', 'cancelled'].includes(item.status)))
+            {
+                if (typeof ownerVerifiers?.hostAttemptReference !== 'function')
+                {
+                    throw new Error('failed host attempts require canonical journal reference read capability');
+                }
+                const reference = await ownerVerifiers.hostAttemptReference(attempt, binding);
+                hostFailureRefs.push(await consumeOwnerReference('terminal', reference, binding, ownerVerifiers));
+            }
+            const references = await resolveReferences({ producer, context: binding, hostFailureRefs, signal });
+            await admitSecurityScenario({ producer, context: binding, references, ownerVerifiers, hostFailureRefs });
+            return scenario.id;
+        }
     });
 }

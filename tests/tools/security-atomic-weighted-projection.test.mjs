@@ -142,3 +142,41 @@ test('weighted adapter refuses missing ownership context drift and resource tamp
     ownership[0].resources.coordinationOnly = false;
     await assert.rejects(materializeSecurityWeightedSteps({ ...fixture, ownership }), /canonical physical ownership/u);
 });
+
+test('security weighted projection runs its pending cleanup after global abort and retains the first cause', async () =>
+{
+    const fixture = await weightedFixture();
+    const plan = await materializeSecurityWeightedSteps(fixture);
+    const controller = new AbortController();
+    const originalFailure = new Error('security owned global interruption');
+    let cleanupCount = 0;
+    let startedCount = 0;
+    await assert.rejects(executeWeightedStepDag(plan.steps, {
+        maxParallel: 1, cpuUnits: 1, memoryGiB: 1, signal: controller.signal
+    }, async (step) =>
+    {
+        if (step.alwaysRunFinalizer)
+        {
+            cleanupCount += 1;
+            return { terminalState: 'success' };
+        }
+        if (step.runAfterSettled)
+        {
+            const { evidence } = buildSettledPhaseJoinEvidence({ stepId: step.id,
+                dependencyIds: step.settledDependsOn, dependencyOutcomes: step.dependencyOutcomes,
+                dependencyResults: new Map() });
+            return { terminalState: evidence.terminalState, evidence };
+        }
+        startedCount += 1;
+        controller.abort(originalFailure);
+        throw originalFailure;
+    }), (error) =>
+    {
+        assert.equal(error.primaryFailure, originalFailure);
+        assert.equal(error.terminalReceipts['security-reset-post-gate'].terminalState, 'success');
+        assert.equal(Object.keys(error.terminalReceipts).length, plan.steps.length);
+        return true;
+    });
+    assert.ok(startedCount > 0);
+    assert.equal(cleanupCount, 1);
+});
