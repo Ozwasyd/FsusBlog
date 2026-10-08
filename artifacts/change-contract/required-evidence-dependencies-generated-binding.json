@@ -1,0 +1,33 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/schemas/test-execution-envelope-applicability.schema.json",
+        "tools/test/run-matrix-governance-once.sh",
+        "tests/tools/execution-envelope-policy.test.mjs",
+        "package.json",
+        "tests/frontend/checks/static/check-views-constraints.mjs",
+        "tests/frontend/package-lock.json",
+        "tests/frontend/package.json",
+        "tests/tools/package.json",
+        "tools/test/correctness-attempt-migration.mjs",
+        "tests/tools/correctness-attempt-migration.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "17961d2c1af29500ab10f7e27bec15576cbc8e8d606c534a54a607d3d54a9497"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+        },
+        {
+            "path": "config/testing/test-execution-envelope-applicability.json",
+            "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
+        }
+    ]
+}

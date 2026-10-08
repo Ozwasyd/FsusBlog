@@ -165,6 +165,13 @@ test('synthetic canonical runtime fixture cannot become terminal CLI evidence', 
 test('two parallel local-simulated producer invocations preserve exact model contracts but cannot qualify runtime', async () =>
 {
     const runtimeEvidence = await collectSimulatedCommentFixtureRuntimeEvidence();
+    for (const run of runtimeEvidence.runs)
+    {
+        assert.equal(run.preparedResult.temporalObservation.businessEpochUtc, '2042-05-17T09:30:00.000Z');
+        assert.equal(run.preparedResult.temporalObservation.backendCulture, 'Invariant');
+        assert.equal(run.preparedResult.temporalObservation.postgresTimezone, 'UTC');
+        assert.equal(run.preparedResult.temporalObservation.authorityClass, 'local-simulated');
+    }
     const cleanupContract = normalizeCommentCleanupContract({
         kind: 'comment-exact-receipt',
         receipt: runtimeEvidence.runs[0].cleanupReceipt
