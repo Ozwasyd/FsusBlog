@@ -48,6 +48,17 @@ explicit acceptance gates. Source integration alone does not complete #2306.
 integer splitter permille from 200 to 800. Snapshot numbers stay within JavaScript
 safe integers. A shared fixture verifies C#/TypeScript canonical digest parity.
 Inspector views follow the existing inspector registry, including `rights`.
+#1805 requires collapsed outline navigation (`outlineOpen: false`) when no
+explicit user/site preference exists, for fresh bootstrap and confirmed reset.
+The exact default-alignment source commit has not been consumed here: the current
+Shared and TypeScript defaults still use `true`, so reset remains refused as
+`default_layout_unqualified`. The ordinary asynchronous lifecycle repair does not
+change this default or authorize a signed layout rewrite. Existing valid snapshots
+retain their recorded boolean and digest, including previously saved open
+preferences; reads, cache verification, restore and migration do not rewrite them.
+The same saved boolean applies to mobile Drawer and desktop rail. The original
+shell owner must distinguish a transient reveal-related close from an explicit
+preference change when projecting shell commands into the snapshot.
 
 `AuthoringWorkspaceSnapshotStore` reads without writes and requires expected
 revision CAS for create, update and confirmed layout reset. Its PostgreSQL adapter
@@ -75,6 +86,13 @@ Web Locks rejection retains dirty memory and reports coordination failure withou
 starting an uncoordinated writer. Layout changes made while a confirmed reset is
 in flight wait for its CAS result and retain their new current-session projection.
 Stale restore summaries are dropped when observation authority expires.
+Read requests carry a process-local sequence: superseded requests are rejected
+before receipt verification can revoke a newer observation at the same server
+revision. Startup, read, flush and reset check their lifecycle epoch and current
+server provenance after asynchronous cache completion. Cache outcomes are assigned
+only while the operation is still current; stop clears reset activity and prevents
+late completion from changing closed state. No wire field or second authority is
+introduced by these guards.
 
 Restore planning uses one bounded current permission/lifecycle/draft batch. It
 removes invalid refs deterministically and exposes reason counts without titles
