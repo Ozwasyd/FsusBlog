@@ -159,7 +159,7 @@ function validateSamplingRequest(kernel, options)
     assertIdentifier(options.stream, 'distribution_sampling_stream');
     assertOrdinal(options.startOrdinal);
     if (!Number.isSafeInteger(options.count) || options.count < 1 || options.count > samplingLimit
-        || !Number.isSafeInteger(options.startOrdinal + options.count - 1))
+        || options.count - 1 > Number.MAX_SAFE_INTEGER - options.startOrdinal)
     {
         throw new Error('distribution_sampling_count_invalid');
     }
