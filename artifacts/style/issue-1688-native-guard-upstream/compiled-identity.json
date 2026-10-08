@@ -1,0 +1,842 @@
+{
+  "BeforeAssemblySha256": "2ccd77853d7b8e5ac8ab0954fecbc57b94f5bd31292aca2416217ad2a7b76c14",
+  "AfterAssemblySha256": "80df7cc6e9a24dba383f9c46d727f374293debd06860c97acce347d7b4f1f18a",
+  "NativeGuardAndNestedTypesEquivalent": true,
+  "FullMethodILAndNativeImportsEqual": true,
+  "PrivateFieldNamesExcludedAsExplicitMechanicalRename": true,
+  "TargetAssemblyLoaded": false,
+  "PInvokeExecuted": false,
+  "Metadata": [
+    {
+      "Name": "NativeRegularFileGuard",
+      "Attributes": "Public, Abstract, Sealed, BeforeFieldInit",
+      "LayoutSize": 0,
+      "LayoutPacking": 0,
+      "Fields": [],
+      "Methods": [
+        {
+          "Name": "OpenOriginalRegularFile",
+          "Signature": "00021281510E118155",
+          "Attributes": "Public, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "0203120028160600062A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "CaptureOriginalRegularFileIdentity",
+          "Signature": "0003128EE00E128151118155",
+          "Attributes": "Public, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "020304280A3000062A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "ValidateOriginalRegularFileUnchanged",
+          "Signature": "0004010E128151128EE0118155",
+          "Attributes": "Public, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "04724E6A0070282E01000A040203056F0B3000062A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "CaptureOriginalHeldRegularFileIdentity",
+          "Signature": "0003128EE40E128151118155",
+          "Attributes": "Public, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "02030428103000062A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "ValidateOriginalHeldRegularFileUnchanged",
+          "Signature": "0004010E128151128EE4118155",
+          "Attributes": "Public, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "04724E6A0070282E01000A040203056F113000062A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "OpenOriginalRegularFileCore",
+          "Signature": "00031281510E118155101D118EE8",
+          "Attributes": "Private, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "73263000060A06037D6C17000402067B6C17000406FE062730000673B902000A04284C00002B2A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "WithOriginalParentDirectory",
+          "Signature": "1001041E000E11815515128159031281510E1E00101D118EE8",
+          "Attributes": "Private, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "05284D00002B510F0128BA02000A02284701000A2D390228BB02000A2C31020228BC02000A282F01000A2D23027E6B170004252D132614FE064901000A733D01000A25806B170004280400002B2C0B725E6A0070732101000A7A28BD02000A16FE010C082D1C28BE02000A0D09172E04091933051713042B03161304110416FE010C082C0B72BC6A0070732101000A7A021F2F176FBF02000A0A068E2D0B72166B0070732101000A7A1F9C72686B00702000002B00281E06000628180600060B171307110773C002000A251107284E00002B25284F00002B130812081628C302000A07281B06000681BA030002130506171773C402000A28C502000A285000002B13091613072B48110911079A130A0F0128BA02000A076FC702000A130B120B28C802000A110A2000002B00281E0600062818060006076FC902000A0B110507281B0600066FCA02000A110717581307110711098E6932B00F0128BA02000A11056FCB02000A1306040706258E6917599A6FCC02000A05110651130CDE07076FC902000ADC110C2A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "Own",
+          "Signature": "000112815108",
+          "Attributes": "Private, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "02162F0B726C6B0070732101000A7A02D31773CD02000A2A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "Observe",
+          "Signature": "0003118EEC080E08",
+          "Attributes": "Private, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "02030420DF0700001200281F0600062D13067B5E17000420DF0700005F20DF0700002E0B72C46B0070732101000A7A062A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "ObserveHandle",
+          "Signature": "0001118EEC128151",
+          "Attributes": "Private, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "02722C6C0070282E01000A160A0212006FCE02000A026FCF02000A2C0B723A6C0070732101000A7A026FC702000A0B120128C802000A728C6C0070200010000028190600060CDE0A062C06026FD002000ADC082A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "ObserveDirectory",
+          "Signature": "0001118EE8128151",
+          "Attributes": "Private, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "02281A0600060A067B69170004067B6A170004067B63170004067B6217000473153000062A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "SameFileIdentity",
+          "Signature": "000202118EEC118EEC",
+          "Attributes": "Private, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "027B69170004037B69170004409E000000027B6A170004037B6A170004408D000000027B63170004037B63170004337F027B62170004037B621700043371027B5F170004037B5F1700043363027B64170004037B641700043355027B60170004037B601700043347027B61170004037B611700043339027B65170004037B65170004332B027B66170004037B66170004331D027B67170004037B67170004330F027B68170004037B68170004FE012A162A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "RequireRegular",
+          "Signature": "000101118EEC",
+          "Attributes": "Private, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "027B621700042000F000005F20008000002E0B72166B0070732101000A7A2A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "OpenAt",
+          "Signature": "000308080E08",
+          "Attributes": "Private, Static, HideBySig, PinvokeImpl",
+          "ImplAttributes": "PreserveSig",
+          "IL": "",
+          "Import": "libc!openat:SetLastError, CallingConventionWinApi",
+          "ParameterMarshalling": [
+            "",
+            "30",
+            ""
+          ]
+        },
+        {
+          "Name": "Statx",
+          "Signature": "000508080E080910118EEC",
+          "Attributes": "Private, Static, HideBySig, PinvokeImpl",
+          "ImplAttributes": "PreserveSig",
+          "IL": "",
+          "Import": "libc!statx:SetLastError, CallingConventionWinApi",
+          "ParameterMarshalling": [
+            "",
+            "30",
+            "",
+            "",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "OriginalRegularFileIdentity",
+      "Attributes": "NestedPublic, Sealed, BeforeFieldInit",
+      "LayoutSize": 0,
+      "LayoutPacking": 0,
+      "Fields": [
+        {
+          "Offset": -1,
+          "Signature": "060E",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "06128151",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "06118EEC",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "061D118EE8",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        }
+      ],
+      "Methods": [
+        {
+          "Name": ".ctor",
+          "Signature": "2004010E128151118EEC1D118EE8",
+          "Attributes": "Private, HideBySig, SpecialName, RTSpecialName",
+          "ImplAttributes": "IL",
+          "IL": "02285200000A02037D5017000402047D5117000402057D52170004020E047D531700042A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "Capture",
+          "Signature": "0003128EE00E128151118155",
+          "Attributes": "Assembly, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "0F0228BA02000A03722C6C0070282E01000A0204120128160600060A03281A0600060C08281D0600060806281A060006281C0600062C0E0803281A060006281C0600062D0B723A6C0070732101000A7A0F0228BA02000A0203080773093000060DDE0A062C06066F3600000ADC092A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "Validate",
+          "Signature": "2003010E128151118155",
+          "Attributes": "Assembly, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "0F0328BA02000A03027B50170004282F01000A2D1C04027B511700043313027B5217000404281A060006281C0600062D0B723A6C0070732101000A7A0305120128160600060A027B5317000428B10A000A0728B10A000A283403002B2C26027B5217000406281A060006281C0600062C13027B5217000404281A060006281C0600062D0B723A6C0070732101000A7A0F0328BA02000ADE0A062C06066F3600000ADC2A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "OriginalHeldRegularFileIdentity",
+      "Attributes": "NestedPublic, Sealed, BeforeFieldInit",
+      "LayoutSize": 0,
+      "LayoutPacking": 0,
+      "Fields": [
+        {
+          "Offset": -1,
+          "Signature": "060E",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "06128151",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "061D118EE8",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "0609",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "0609",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "060B",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        }
+      ],
+      "Methods": [
+        {
+          "Name": "get_DeviceMajor",
+          "Signature": "200009",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "027B571700042A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": "get_DeviceMinor",
+          "Signature": "200009",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "027B581700042A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": "get_Inode",
+          "Signature": "20000B",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "027B591700042A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": ".ctor",
+          "Signature": "2004010E128151118EEC1D118EE8",
+          "Attributes": "Private, HideBySig, SpecialName, RTSpecialName",
+          "ImplAttributes": "IL",
+          "IL": "02285200000A02037D5417000402047D55170004020E047D5617000402057B691700047D5717000402057B6A1700047D5817000402057B631700047D591700042A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "Capture",
+          "Signature": "0003128EE40E128151118155",
+          "Attributes": "Assembly, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "0F0228BA02000A0204120128143000060A03281A0600060C08281D060006080628133000062C0E0803281A06000628133000062D0B727CBB0270732101000A7A0F0228BA02000A02030807730F3000062A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "Validate",
+          "Signature": "2003010E128151118155",
+          "Attributes": "Assembly, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "0F0328BA02000A03027B54170004282F01000A2D1704027B55170004330E0204281A06000628123000062D0B727CBB0270732101000A7A0305120128143000060A027B5617000428B10A000A0728B10A000A283403002B2C17020628123000062C0E0204281A06000628123000062D0B727CBB0270732101000A7A0F0328BA02000A2A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "Matches",
+          "Signature": "200102118EEC",
+          "Attributes": "Private, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "037B621700042000F000005F2000800000332B037B6917000402280C300006331D037B6A17000402280D300006330F037B6317000402280E300006FE012A162A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "SameIncarnation",
+          "Signature": "000202118EEC118EEC",
+          "Attributes": "Private, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "037B621700042000F000005F2000800000332B027B69170004037B69170004331D027B6A170004037B6A170004330F027B63170004037B63170004FE012A162A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "ObserveHeldPath",
+          "Signature": "0003118EEC0E118155101D118EE8",
+          "Attributes": "Private, Static, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "02037E281A0004252D17267E271A0004FE061334000673B20A000A2580281A000404283503002B2A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "NativeDirectoryIdentity",
+      "Attributes": "NestedPrivate, SequentialLayout, Sealed, BeforeFieldInit",
+      "LayoutSize": 0,
+      "LayoutPacking": 0,
+      "Fields": [
+        {
+          "Offset": -1,
+          "Signature": "0609",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "0609",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "060B",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "0607",
+          "Attributes": "Private, InitOnly",
+          "Marshal": ""
+        }
+      ],
+      "Methods": [
+        {
+          "Name": ".ctor",
+          "Signature": "20040109090B07",
+          "Attributes": "Public, HideBySig, SpecialName, RTSpecialName",
+          "ImplAttributes": "IL",
+          "IL": "02037D5A17000402047D5B17000402057D5C170004020E047D5D1700042A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "get_DeviceMajor",
+          "Signature": "200009",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "027B5A1700042A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": "set_DeviceMajor",
+          "Signature": "20011F809D0109",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "02037D5A1700042A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "get_DeviceMinor",
+          "Signature": "200009",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "027B5B1700042A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": "set_DeviceMinor",
+          "Signature": "20011F809D0109",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "02037D5B1700042A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "get_Inode",
+          "Signature": "20000B",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "027B5C1700042A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": "set_Inode",
+          "Signature": "20011F809D010B",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "02037D5C1700042A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "get_Mode",
+          "Signature": "200007",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "027B5D1700042A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": "set_Mode",
+          "Signature": "20011F809D0107",
+          "Attributes": "Public, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "02037D5D1700042A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "ToString",
+          "Signature": "20000E",
+          "Attributes": "Public, Virtual, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "73FD00000A0A0672D0BB02706FFE00000A260672C21200706FFE00000A260206281F3000062C09061F206FFF00000A26061F7D6FFF00000A26066F5C00000A2A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": "PrintMembers",
+          "Signature": "2001021280A1",
+          "Attributes": "Private, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "037200BC02706FFE00000A26030228163000060A1200FE16E30000016F5C00000A6FFE00000A2603721EBC02706FFE00000A26030228183000060A1200FE16E30000016F5C00000A6FFE00000A26037240BC02706FFE00000A260302281A3000060B1201FE16D90000016F5C00000A6FFE00000A26037296A400706FFE00000A260302281C3000060C1202FE16D40000016F5C00000A6FFE00000A26172A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "op_Inequality",
+          "Signature": "000202118EE8118EE8",
+          "Attributes": "Public, Static, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "0203282130000616FE012A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "op_Equality",
+          "Signature": "000202118EE8118EE8",
+          "Attributes": "Public, Static, HideBySig, SpecialName",
+          "ImplAttributes": "IL",
+          "IL": "0F000328243000062A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            ""
+          ]
+        },
+        {
+          "Name": "GetHashCode",
+          "Signature": "200008",
+          "Attributes": "Public, Virtual, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "282104000A027B5A1700046F2204000A20295555A55A282104000A027B5B1700046F2204000A5820295555A55A28E902000A027B5C1700046FEA02000A5820295555A55A28F302000A027B5D1700046FF402000A582A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": "Equals",
+          "Signature": "2001021C",
+          "Attributes": "Public, Virtual, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "0375BA0300022C0D0203A5BA03000228243000062A162A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "Equals",
+          "Signature": "200102118EE8",
+          "Attributes": "Public, Final, Virtual, HideBySig, VtableLayoutMask",
+          "ImplAttributes": "IL",
+          "IL": "282104000A027B5A170004037B5A1700046F2304000A2C47282104000A027B5B170004037B5B1700046F2304000A2C2F28E902000A027B5C170004037B5C1700046FED02000A2C1728F302000A027B5D170004037B5D1700046FF702000A2A162A",
+          "Import": "",
+          "ParameterMarshalling": [
+            ""
+          ]
+        },
+        {
+          "Name": "Deconstruct",
+          "Signature": "20040110091009100B1007",
+          "Attributes": "Public, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "030228163000065404022818300006540502281A300006550E0402281C300006532A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "NativeFileIdentity",
+      "Attributes": "NestedPrivate, ExplicitLayout, Sealed, BeforeFieldInit",
+      "LayoutSize": 256,
+      "LayoutPacking": 0,
+      "Fields": [
+        {
+          "Offset": 0,
+          "Signature": "0609",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 16,
+          "Signature": "0609",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 20,
+          "Signature": "0609",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 24,
+          "Signature": "0609",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 28,
+          "Signature": "0607",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 32,
+          "Signature": "060B",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 40,
+          "Signature": "060B",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 96,
+          "Signature": "060A",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 104,
+          "Signature": "0609",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 112,
+          "Signature": "060A",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 120,
+          "Signature": "0609",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 136,
+          "Signature": "0609",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        },
+        {
+          "Offset": 140,
+          "Signature": "0609",
+          "Attributes": "Assembly",
+          "Marshal": ""
+        }
+      ],
+      "Methods": []
+    },
+    {
+      "Name": "\u003C\u003EO",
+      "Attributes": "NestedPrivate, Abstract, Sealed, BeforeFieldInit",
+      "LayoutSize": 0,
+      "LayoutPacking": 0,
+      "Fields": [
+        {
+          "Offset": -1,
+          "Signature": "06151280E9020302",
+          "Attributes": "Public, Static",
+          "Marshal": ""
+        }
+      ],
+      "Methods": []
+    },
+    {
+      "Name": "\u003C\u003Ec__DisplayClass5_0",
+      "Attributes": "NestedPrivate, Sealed, BeforeFieldInit",
+      "LayoutSize": 0,
+      "LayoutPacking": 0,
+      "Fields": [
+        {
+          "Offset": -1,
+          "Signature": "06118155",
+          "Attributes": "Public",
+          "Marshal": ""
+        }
+      ],
+      "Methods": [
+        {
+          "Name": ".ctor",
+          "Signature": "200001",
+          "Attributes": "Public, HideBySig, SpecialName, RTSpecialName",
+          "ImplAttributes": "IL",
+          "IL": "02285200000A2A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": "\u003COpenOriginalRegularFileCore\u003Eb__0",
+          "Signature": "20021281511281510E",
+          "Attributes": "Assembly, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "036FC702000A0C120228C802000A04200001000028190600060A06281D060006036FC702000A0C120228C802000A042000080A00281E06000628180600060B076FC702000A0C120228C802000A728C6C0070200010000028190600060D09281D0600060609281C0600062D0B723A6C0070732101000A7A027C6C17000428BA02000A071304DE0926076FC902000AFE1A11042A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            "",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "\u003C\u003Ec",
+      "Attributes": "NestedPrivate, Sealed, Serializable, BeforeFieldInit",
+      "LayoutSize": 0,
+      "LayoutPacking": 0,
+      "Fields": [
+        {
+          "Offset": -1,
+          "Signature": "061291F0",
+          "Attributes": "Public, Static, InitOnly",
+          "Marshal": ""
+        },
+        {
+          "Offset": -1,
+          "Signature": "0615128159031281510E118EEC",
+          "Attributes": "Public, Static",
+          "Marshal": ""
+        }
+      ],
+      "Methods": [
+        {
+          "Name": ".cctor",
+          "Signature": "000001",
+          "Attributes": "Private, Static, HideBySig, SpecialName, RTSpecialName",
+          "ImplAttributes": "IL",
+          "IL": "731234000680271A00042A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": ".ctor",
+          "Signature": "200001",
+          "Attributes": "Public, HideBySig, SpecialName, RTSpecialName",
+          "ImplAttributes": "IL",
+          "IL": "02285200000A2A",
+          "Import": "",
+          "ParameterMarshalling": []
+        },
+        {
+          "Name": "\u003CObserveHeldPath\u003Eb__17_0",
+          "Signature": "2002118EEC1281510E",
+          "Attributes": "Assembly, HideBySig",
+          "ImplAttributes": "IL",
+          "IL": "036FC702000A0A120028C802000A042000010000281906000625281D0600062A",
+          "Import": "",
+          "ParameterMarshalling": [
+            "",
+            ""
+          ]
+        }
+      ]
+    }
+  ]
+}

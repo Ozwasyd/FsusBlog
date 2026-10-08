@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "56f49e4b49e2c10c86900bfdfefc3ffbec87342a",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.302-servicing.26329.109+35b593bebfcba58f8e78298cef14c2761f5d86c6",
+        "command": "dotnet format whitespace /workspace/FsusBlog --folder --include src/shared/Algorithms/IO/NativeRegularFileGuard.cs --verbosity quiet"
+    },
+    "paths": [
+        "src/shared/Algorithms/IO/NativeRegularFileGuard.cs"
+    ],
+    "firstPassTreeSha256": "5a70e29796c5d8b17556742b62db82254803aac6bcb032ef7325c95a82d901bc",
+    "secondPassTreeSha256": "5a70e29796c5d8b17556742b62db82254803aac6bcb032ef7325c95a82d901bc",
+    "idempotent": true
+}

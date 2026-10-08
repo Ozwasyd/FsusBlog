@@ -1,0 +1,49 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "20556cdd0bd59c5d4c83d6e7375a33e600a69e92",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.302-servicing.26329.109+35b593bebfcba58f8e78298cef14c2761f5d86c6",
+        "command": "dotnet format whitespace /workspace/FsusBlog --folder --include src/shared/Algorithms/IO/NativeRegularFileGuard.cs --verbosity quiet"
+    },
+    "paths": [
+        "src/shared/Algorithms/IO/NativeRegularFileGuard.cs"
+    ],
+    "firstPassTreeSha256": "5a70e29796c5d8b17556742b62db82254803aac6bcb032ef7325c95a82d901bc",
+    "secondPassTreeSha256": "5a70e29796c5d8b17556742b62db82254803aac6bcb032ef7325c95a82d901bc",
+    "idempotent": true,
+    "executionEvidenceSourceRevision": "318436fa293a1ecae3c920c54c15ee18023af96a",
+    "originalDeclaredFormatRevision": "56f49e4b49e2c10c86900bfdfefc3ffbec87342a",
+    "executionEvidenceMetadataHead": "e7f8c738fc3552441b95f4b150381be7400eadb9",
+    "originalEvidence": "artifacts/style/issue-1688-native-guard-upstream/idempotence.json",
+    "originalFormatStageEvidence": "artifacts/style/issue-1688-native-guard-upstream/format-stage-idempotence.json",
+    "originalEvidenceSha256": "23c9a5db475b938ac88eb8c972e6ffbc1626e784d2ca7ec137d77eab3c390444",
+    "formatterExecutedInConsumer": false,
+    "sourceConsumerFinalByteEqualityVerified": true,
+    "namingConsumer": "07fa158b8cee9af4e6c42f05e3380f963dc554cd",
+    "actualConsumerFormatStageRoslynEquivalence": {
+        "schema": "fsusblog.roslyn-format-equivalence.v1",
+        "parserAssemblyVersion": "5.9.0.0",
+        "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
+        "paths": [
+            {
+                "path": "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+                "tokenCount": 1973,
+                "beforeTokenSha256": "57a6f051a93d38caf8ce9c0025667adb6976af30b4e568df13d4ddd986cbade1",
+                "afterTokenSha256": "57a6f051a93d38caf8ce9c0025667adb6976af30b4e568df13d4ddd986cbade1",
+                "beforeAnchoredTriviaSha256": "0112dc39fd1ba50fbb7e0cb7b7b4df70139f114325160c9dbac08c88861dfc77",
+                "afterAnchoredTriviaSha256": "0112dc39fd1ba50fbb7e0cb7b7b4df70139f114325160c9dbac08c88861dfc77",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            }
+        ],
+        "equivalent": true
+    },
+    "producerCompiledIdentityEvidence": "artifacts/style/issue-1688-native-guard-upstream/compiled-identity.json",
+    "producerCompiledIdentityReexecutedInConsumer": false,
+    "producerAsset42TestsAcceptanceCredit": 0,
+    "backendTestsExecutedInConsumer": 0,
+    "nativeOrRuntimeQualified": false,
+    "qualificationEligible": false
+}
