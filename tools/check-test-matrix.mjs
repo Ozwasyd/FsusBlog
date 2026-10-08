@@ -358,7 +358,19 @@ function appendWorkflowNeed(workflowText, jobId, need)
         if (flowMatch)
         {
             const separator = flowMatch[2].replace(/#[^\n]*/gu, '').trim() ? ', ' : '';
-            return source.replace(flowPattern, (_match, prefix, entries, suffix) => `${prefix}${need}${separator}${entries}${suffix}`);
+            return source.replace(flowPattern, (_match, prefix, entries, suffix) =>
+            {
+                if (prefix.includes('\n'))
+                {
+                    const closingIndent = prefix.match(/\n([ \t]*)\[$/u)[1];
+                    const entryIndent = entries.match(/\n([ \t]+)\S/u)?.[1]
+                        ?? `${closingIndent}${' '.repeat(job.fieldIndent - job.jobIndent)}`;
+                    const leadingBreak = !entries || entries.startsWith('\n') ? '' : `\n${entryIndent}`;
+                    const closingBreak = /\n[ \t]*$/u.test(entries) ? '' : `\n${closingIndent}`;
+                    return `${prefix}\n${entryIndent}${need}${separator ? ',' : ''}${leadingBreak}${entries}${closingBreak}${suffix}`;
+                }
+                return `${prefix}${need}${separator}${entries}${suffix}`;
+            });
         }
         const lines = source.split('\n');
         const pattern = new RegExp(`^\\s{${job.fieldIndent}}needs:\\s*$`, 'u');
