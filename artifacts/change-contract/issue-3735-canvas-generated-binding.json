@@ -129,7 +129,7 @@
         },
         {
             "path": "src/core/Cache/PodBinaryCodec.WritingAidPreferenceReceipt.Generated.cs",
-            "sha256": "1ef59d4bb73775b119bafd684fe1997aba8961301b0a71b805596e5e5dc35b0e"
+            "sha256": "e44ec25019a7c31d11674b1a2a0a722351134e96bee02d358b686f43cd3416a9"
         },
         {
             "path": "src/frontend/src/codecs/binary/articleCanvasLinkWire.generated.ts",

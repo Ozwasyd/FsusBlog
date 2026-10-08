@@ -19,6 +19,7 @@ import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
 import { decodeArticleCanvasLinkReceipt, decodeArticleCanvasLinkHistoryResponse } from '@/codecs/binary/articleCanvasLinkWire.generated';
 import { decodeArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadWire.generated';
 import { decodeAuthoringWorkspaceSnapshotResponse } from '@/codecs/binary/authoringWorkspaceSnapshotWire.generated';
+import { decodeWritingAidPreferenceReceipt, decodeWritingAidPreferenceSnapshot } from '@/codecs/binary/writingAidPreferenceWire.generated';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
@@ -38,10 +39,6 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.ArticleSearch,
     FrameType.ArticleFeatured,
     FrameType.ArticleRelatedReading,
-    FrameType.ArticleCanvasLinkReceipt,
-    FrameType.ArticleCanvasLinkHistoryResponse,
-    FrameType.ArticlePropertyValueReadResponse,
-    FrameType.AuthoringWorkspaceSnapshotResponse,
     FrameType.HumanReadChallengeResponse,
     FrameType.HumanReadSubmitResponse,
     FrameType.TrashClearResponse,
@@ -179,7 +176,13 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.SiteSubscriptionResponse,
     FrameType.AdminPrincipalSnapshot,
     FrameType.EmptySuccess,
-    FrameType.MutationId
+    FrameType.MutationId,
+    FrameType.ArticleCanvasLinkReceipt,
+    FrameType.ArticleCanvasLinkHistoryResponse,
+    FrameType.ArticlePropertyValueReadResponse,
+    FrameType.AuthoringWorkspaceSnapshotResponse,
+    FrameType.WritingAidPreferenceSnapshotResponse,
+    FrameType.WritingAidPreferenceReceiptResponse
 ] as const satisfies readonly FrameType[]);
 
 export function createBinaryFrameDecoderRegistry(
@@ -385,7 +388,9 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.ArticleCanvasLinkReceipt, decodeArticleCanvasLinkReceipt],
     [FrameType.ArticleCanvasLinkHistoryResponse, decodeArticleCanvasLinkHistoryResponse],
     [FrameType.ArticlePropertyValueReadResponse, decodeArticlePropertyValueReadResponse],
-    [FrameType.AuthoringWorkspaceSnapshotResponse, decodeAuthoringWorkspaceSnapshotResponse]
+    [FrameType.AuthoringWorkspaceSnapshotResponse, decodeAuthoringWorkspaceSnapshotResponse],
+    [FrameType.WritingAidPreferenceSnapshotResponse, decodeWritingAidPreferenceSnapshot],
+    [FrameType.WritingAidPreferenceReceiptResponse, decodeWritingAidPreferenceReceipt]
 ] as const satisfies readonly BinaryFrameDecoderRegistration[]);
 
 export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(
