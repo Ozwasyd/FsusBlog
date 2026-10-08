@@ -25,6 +25,7 @@ function exactKeys(value, keys, label)
 function validateIdentity(identity)
 {
     exactKeys(identity, identityKeys, 'runtime identity');
+    requireCondition(identityKeys.every((key) => typeof identity[key] === 'string'), 'runtime identity fields must be strings');
     requireCondition(/^[a-zA-Z0-9_-]+$/u.test(identity.runId), 'invalid runId');
     requireCondition(/^[a-f0-9]{40}$/u.test(identity.sourceCommit), 'invalid sourceCommit');
     for (const field of identityKeys.filter((key) => key.endsWith('Digest') || key === 'sourceFingerprint'))
@@ -119,7 +120,9 @@ function validateMaterial(input, node, declarations, identity)
     {
         requireCondition(material.postconditionRef === null, 'unexpected successful postcondition ref');
     }
-    if (node.execution?.measurementWindowId && executed)
+    const measurementRequired = node.execution?.measurementWindowId && executed
+        && (receipt.terminalState === 'success' || material.failureKind === 'product');
+    if (node.execution?.measurementWindowId && executed && material.measurement !== null)
     {
         const measurement = material.measurement;
         exactKeys(measurement, ['windowId', 'runtimeIdentityDigest', 'fixtureRef', 'admissionRef', 'noiseRef',
@@ -131,12 +134,13 @@ function validateMaterial(input, node, declarations, identity)
         {
             validateRef(measurement[field], identity.runId, field);
         }
-        requireCondition(/^\d+$/u.test(measurement.startedNs) && /^\d+$/u.test(measurement.finishedNs)
+        requireCondition(typeof measurement.startedNs === 'string' && typeof measurement.finishedNs === 'string'
+            && /^\d+$/u.test(measurement.startedNs) && /^\d+$/u.test(measurement.finishedNs)
             && BigInt(measurement.finishedNs) >= BigInt(measurement.startedNs), 'invalid measurement interval');
     }
     else
     {
-        requireCondition(material.measurement === null, 'unexpected measurement material');
+        requireCondition(!measurementRequired && material.measurement === null, 'missing or unexpected measurement material');
     }
     return material;
 }
@@ -227,7 +231,7 @@ export function projectPublicRuntimeOutcomes({ declarations, identity, inputs },
         terminalState: join.terminalState,
         reasonCode: join.reasonCode,
         primaryFailureRefs: join.primaryFailureRefs,
-        outcomes
+        outcomes: structuredClone(outcomes)
     });
 }
 

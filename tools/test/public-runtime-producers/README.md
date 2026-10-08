@@ -58,6 +58,9 @@ an individual attempt ref. Blocked children have no correctness attempt. Reset
 success requires an explicit postcondition ref. Measurement material separately
 binds each window's admission/noise refs, runtime, fixture and quiescence refs, and
 monotonic interval. Overlap and cross-window admission/noise reuse are rejected.
+Infrastructure failures or cancellation before measurement retain explicit absent
+measurement material; success and product outcomes require window evidence.
+Projection outputs snapshot the supplied materials without retaining mutable aliases.
 
 The projection preserves every child outcome and separates product, reset,
 infrastructure, state-corruption, blocked and cancelled outcomes. Overall status

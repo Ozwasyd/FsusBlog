@@ -214,3 +214,39 @@ test('terminal and summary tamper cannot pass held-input verification', () =>
     changed.outcomes[0].artifactRefs = [];
     assert.throws(() => verifyPublicRuntimeProjection(changed, held), /tamper/u);
 });
+
+test('pre-measurement infrastructure failure and cancellation retain absent measurement evidence', () =>
+{
+    for (const state of ['failed', 'timed-out', 'cancelled', 'internal-error'])
+    {
+        const held = fixture('load');
+        edit(held, 'load-public-api', (document) =>
+        {
+            failure(document, 'infrastructure', state);
+            document.measurement = null;
+        });
+        const projection = projectPublicRuntimeOutcomes(held);
+        assert.equal(projection.outcomes[0].measurement, null);
+        assert.equal(projection.outcomes[0].terminalState, state);
+        assert.notEqual(projection.terminalState, 'success');
+    }
+    const success = fixture('load');
+    edit(success, 'load-public-api', (document) =>
+    {
+        document.measurement = null;
+    });
+    assert.throws(() => projectPublicRuntimeOutcomes(success), /missing.*measurement/u);
+});
+
+test('projection snapshots held materials and rejects non-string runtime identity fields', () =>
+{
+    const held = fixture('load');
+    const projection = projectPublicRuntimeOutcomes(held);
+    assert.equal(projection.terminalState, 'success');
+    const original = structuredClone(projection);
+    held.inputs[0].document.artifactRefs[0].ref = 'runs/unit-current/changed.json';
+    assert.deepEqual(projection, original);
+    const invalid = fixture('load');
+    invalid.identity.runId = undefined;
+    assert.throws(() => projectPublicRuntimeOutcomes(invalid), /must be strings/u);
+});
