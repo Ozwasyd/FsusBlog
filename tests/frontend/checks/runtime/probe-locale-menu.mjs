@@ -318,7 +318,7 @@ try
     {
         await trigger.click();
         await expect(menu).toBeVisible();
-        await menu.evaluate(async () => Promise.allSettled(globalThis.document.getAnimations().map((animation) => animation.finished)));
+        await menu.evaluate(async () => Promise.allSettled(globalThis.document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished)));
         await consumer('outside').click();
         await expect(menu).not.toBeAttached();
         await expect(consumer('outside')).toBeFocused();
@@ -391,7 +391,7 @@ try
     await expect(touchPage.locator('[data-locale-selector-menu]')).toBeVisible();
     await expect(touchPage.locator('[data-locale-code="zh-CN"]')).toHaveAttribute('aria-checked', 'true');
     await expect(touchPage.locator('[data-locale-selector-item-pending]')).toBeVisible();
-    await touchPage.locator('[data-locale-selector-menu]').evaluate(async () => Promise.allSettled(globalThis.document.getAnimations().map((animation) => animation.finished)));
+    await touchPage.locator('[data-locale-selector-menu]').evaluate(async () => Promise.allSettled(globalThis.document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished)));
     await touchPage.locator('[data-consumer="outside"]').tap();
     await expect(touchPage.locator('[data-locale-selector-menu]')).not.toBeAttached();
     report.observations.consumerTouchPendingOutside = true;
