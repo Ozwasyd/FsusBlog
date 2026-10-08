@@ -5,9 +5,12 @@
             "id": "json-wire-key",
             "paths": [
                 "config/development/csharp-style-baseline.json",
-                "config/development/csharp-style-policy.json"
+                "config/development/csharp-style-policy.json",
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/test-retention-replacements.json"
             ],
-            "reason": "Preserve the existing external JSON schema and policy/baseline field names; only the singular suffix directory and its exact policy digest binding change."
+            "reason": "Preserve the existing external JSON schemas, lock dependency identities and retained governance identifiers; the owned suffix/digest repair and supplied graph/duplicate consolidation change only their bounded payloads."
         },
         {
             "id": "css-like-contract",
