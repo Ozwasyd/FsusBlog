@@ -3195,8 +3195,8 @@
         },
         {
             "path": "tools/frontend/check-frontend-style-source-base.test.mjs",
-            "contentDigest": "sha256:38d38ff09d3f6510352b08958706d8b8b245b466429faf2a02fa0e9021b167dd",
-            "indexDigest": "sha256:38d38ff09d3f6510352b08958706d8b8b245b466429faf2a02fa0e9021b167dd"
+            "contentDigest": "sha256:a541fd65591fec804b4bfe488be869befa99354b7ac94842fd6351d4c786ca10",
+            "indexDigest": "sha256:a541fd65591fec804b4bfe488be869befa99354b7ac94842fd6351d4c786ca10"
         },
         {
             "path": "tools/frontend/check-frontend-style.mjs",

@@ -7,7 +7,8 @@
         "tools/frontend/check-frontend-style.mjs",
         "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
         "tools/frontend/style-toolchain/eslint.config.mjs",
-        "tools/governance/change-contract-registry.mjs"
+        "tools/governance/change-contract-registry.mjs",
+        "tools/frontend/check-frontend-style-source-base.test.mjs"
     ],
     "outputs": [
         {
@@ -24,7 +25,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "64e8b78a62c1165ccde66033455d602e5fd82b0efdc2f8f022e443c5cabffb6f"
+            "sha256": "2f2a77205cbcbc808f3066a518c56affafd340e0f313b475cf5d53632991479a"
         }
     ]
 }
