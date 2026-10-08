@@ -4900,8 +4900,8 @@
         },
         {
             "path": "tools/test/correctness-attempt-migration.mjs",
-            "contentDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
-            "indexDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+            "contentDigest": "sha256:f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+            "indexDigest": "sha256:f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e"
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",
