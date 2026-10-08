@@ -735,6 +735,9 @@ async function runActionProcess({
     const finishedAtMs = Date.now();
     const finalCancellation = controller.signal.reason
         ?.releaseReliabilityCancellation ?? cancellation;
+    const producerSpawned = evidence?.processInventory?.some(entry => entry.role === 'direct-child') === true
+        || evidence !== null && evidence !== undefined && (error === null
+            || Number.isInteger(error?.exitCode) || Boolean(error?.signal));
     return {
         startedAtMs,
         finishedAtMs,
@@ -750,7 +753,9 @@ async function runActionProcess({
             ? error.message
             : null,
         error,
-        physicalExecution: evidence
+        failureClassification: error?.classification ?? null,
+        physicalExecution: evidence,
+        producerSpawned
     };
 }
 
@@ -922,7 +927,24 @@ export async function executeRegisteredLifecycleAction({
             failure = error instanceof Error ? error.message : String(error);
         }
     }
-    if (failure !== null)
+    let failureEvidence = null;
+    if (failure !== null && action.phase === 'measurement' && outcome.producerSpawned
+        && !outcome.timedOut && !outcome.cancelled && !outcome.signal
+        && processTreeReceipt.postObservation === 'zero-members' && processTreeReceipt.logComplete)
+    {
+        try
+        {
+            const { verifyFailedMeasurementReceipt } = await import('./verify-release-reliability-lifecycle-action.mjs');
+            failureEvidence = verifyFailedMeasurementReceipt({
+                repositoryRoot, action, scenario, invocationId, runId, identity
+            });
+        }
+        catch
+        {
+            // Unverifiable payloads cannot become authoritative product failures.
+        }
+    }
+    if (failure !== null && failureEvidence === null)
     {
         fs.rmSync(expectedReceiptPath, { force: true, recursive: true });
     }
@@ -932,7 +954,7 @@ export async function executeRegisteredLifecycleAction({
     return {
         actionId: action.actionId,
         phase: action.phase,
-        producerSpawned: true,
+        producerSpawned: outcome.producerSpawned,
         status: recordStatus,
         startedAt: new Date(outcome.startedAtMs).toISOString(),
         finishedAt: new Date(outcome.finishedAtMs).toISOString(),
@@ -943,6 +965,10 @@ export async function executeRegisteredLifecycleAction({
         stdoutLog: repositoryRelative(repositoryRoot, stdoutLog),
         stderrLog: repositoryRelative(repositoryRoot, stderrLog),
         receipt,
+        ...(failureEvidence === null ? {} : { failureEvidence }),
+        ...(outcome.failureClassification === null ? {} : {
+            failureClassification: outcome.failureClassification
+        }),
         processTreeReceipt,
         terminalFence,
         finalObservation: receipt?.finalObservation ?? null,
@@ -963,7 +989,7 @@ function failureRecord(record)
         actionId: record.actionId,
         phase: record.phase,
         kind,
-        classification: kind,
+        classification: record.failureClassification ?? kind,
         message: record.failure
     });
 }

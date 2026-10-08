@@ -742,6 +742,7 @@ function scenarioResults(identity = completeIdentity())
             return {
                 actionId,
                 phase,
+                producerSpawned: true,
                 status: 'passed',
                 startedAt: `2026-07-26T00:00:0${index * 2}.000Z`,
                 finishedAt: `2026-07-26T00:00:0${index * 2 + 1}.000Z`,
@@ -781,6 +782,7 @@ function scenarioResults(identity = completeIdentity())
             resourceClass: 'fixture',
             evidenceClass: 'correctness',
             qualificationEligible: true,
+            producerSpawned: true,
             status: 'passed',
             identity: reference,
             startedAt: '2026-07-26T00:00:00.000Z',
@@ -861,7 +863,7 @@ behaviorTest('release-final-aggregate-contract', 'positive', 'aggregate stores o
     }
 });
 
-test('identity precondition failures still produce sealed partial timeline and failed receipt', () =>
+test('identity precondition failures preserve complete terminal timeline and failed receipt', () =>
 {
     const identity = sealDocument({
         ...completeIdentity(),
@@ -877,6 +879,7 @@ test('identity precondition failures still produce sealed partial timeline and f
             exitCode: null
         },
         lifecycle: null,
+        producerSpawned: false,
         authoritativeEvidence: null,
         outputs: [],
         failure: 'run identity is incomplete; producer was not executed'
@@ -906,7 +909,8 @@ test('identity precondition failures still produce sealed partial timeline and f
         catalog: fixtureCatalog(),
         createdAt
     });
-    assert.equal(timeline.status, 'partial');
+    assert.equal(timeline.status, 'complete');
+    assert.equal(timeline.terminalEvents.length, 7);
     assert.equal(timeline.scenarioResults.length, 7);
     assert.ok(timeline.scenarioResults.every((entry) => (
         entry.evidencePath === null && entry.evidenceDigest === null
@@ -948,8 +952,18 @@ behaviorTest('release-final-aggregate-contract', 'negative', {
     ];
     for (const results of cases)
     {
-        const { receipt } = qualifiedReceipt(identity, results, catalog);
-        assert.equal(receipt.status, 'failed');
+        if (results.length !== 7 || new Set(results.map(result => result.scenarioId)).size !== 7
+            || results.some(result => !scenarioIds.includes(result.scenarioId)
+                || result.status === 'partial' || result.invocationId !== identity.invocationId
+                || result.runId !== identity.runId))
+        {
+            assert.throws(() => qualifiedReceipt(identity, results, catalog), /exactly seven|explicit producer state|identity|digest/u);
+        }
+        else
+        {
+            const { receipt } = qualifiedReceipt(identity, results, catalog);
+            assert.equal(receipt.status, 'failed');
+        }
     }
 });
 
@@ -971,7 +985,7 @@ test('tampered sealed result and fake lifecycle reference fail qualification', (
     const identity = completeIdentity();
     const tampered = scenarioResults(identity);
     tampered[0].authoritativeEvidence.path = '.tmp/evidence/reused.json';
-    assert.equal(qualifiedReceipt(identity, tampered).receipt.status, 'failed');
+    assert.throws(() => qualifiedReceipt(identity, tampered), /sealed result digest mismatch/u);
 
     const fakeLifecycle = scenarioResults(identity);
     fakeLifecycle[0].lifecycle.verifiedActionReceipts[1].status = 'unverified';
@@ -2201,6 +2215,7 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
             lifecycleActions.push({
                 actionId: action.actionId,
                 phase: action.phase,
+                producerSpawned: true,
                 status: 'passed',
                 startedAt: `2026-07-26T00:00:0${index * 2}.000Z`,
                 finishedAt: `2026-07-26T00:00:0${index * 2 + 1}.000Z`,
@@ -2236,6 +2251,7 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
             resourceClass: scenario.resourceClass,
             evidenceClass: 'correctness',
             qualificationEligible: true,
+            producerSpawned: true,
             status: 'passed',
             identity: identityRef,
             startedAt: '2026-07-26T00:00:00.000Z',
@@ -2957,4 +2973,38 @@ test('retained mutation fixture bytes remain bound after attestation and finaliz
     const rejected = verifyTerminalCli(fixture);
     assert.notEqual(rejected.status, 0);
     assert.match(rejected.stderr, /release artifact digest binding mismatch/u);
+});
+
+test('independent verifier rejects resealed partial, reordered and group-substituted terminal timelines', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    verifyCliPreflight(fixture);
+    const originalTimeline = JSON.parse(fs.readFileSync(fixture.timelineFile, 'utf8'));
+    const originalCandidate = JSON.parse(fs.readFileSync(fixture.receiptFile, 'utf8'));
+    for (const mutate of [
+        timeline =>
+        {
+            timeline.status = 'partial';
+        },
+        timeline =>
+        {
+            timeline.terminalEvents.reverse();
+        },
+        timeline =>
+        {
+            timeline.terminalEvents[2].terminalClassification = 'product-failure';
+        }
+    ])
+    {
+        const timeline = structuredClone(originalTimeline);
+        mutate(timeline);
+        const sealed = sealDocument(timeline);
+        writeJson(fixture.timelineFile, sealed);
+        const candidate = structuredClone(originalCandidate);
+        candidate.timeline.contentDigest = sealed.contentDigest;
+        writeJson(fixture.receiptFile, sealDocument(candidate));
+        const rejected = verifyCli(fixture);
+        assert.notEqual(rejected.status, 0);
+        assert.match(rejected.stderr, /timeline sealed references|terminal classifications/u);
+    }
 });

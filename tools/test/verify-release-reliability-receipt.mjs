@@ -22,6 +22,7 @@ import {
     projectQualifiedContainerEnvironment,
     releaseReliabilityAuditedContainerOverrides
 } from './release-reliability-runtime-environment.mjs';
+import { verifyTerminalEvents } from './release-reliability-terminal.mjs';
 import {
     verifyLifecycleActionReceipt
 } from './verify-release-reliability-lifecycle-action.mjs';
@@ -1833,6 +1834,7 @@ function verifyLifecycle(
         exactKeys(record, [
             'actionId',
             'phase',
+            'producerSpawned',
             'status',
             'startedAt',
             'finishedAt',
@@ -1852,6 +1854,7 @@ function verifyLifecycle(
             || action.phase !== declaration.phase
             || record.actionId !== action.actionId
             || record.phase !== action.phase
+            || record.producerSpawned !== true
             || record.status !== 'passed'
             || record.exitCode !== 0
             || record.signal !== null
@@ -1967,6 +1970,7 @@ async function verifyResult(
         'startedAt',
         'finishedAt',
         'producer',
+        'producerSpawned',
         'lifecycle',
         'authoritativeEvidence',
         'outputs',
@@ -1979,6 +1983,7 @@ async function verifyResult(
         'contentDigest'
     ], `scenario ${scenario.id} result`);
     if (result.schema !== 'fsusblog.release-reliability-scenario-result.v3' || result.status !== 'passed'
+        || result.producerSpawned !== true
         || result.evidenceClass !== 'correctness' || result.qualificationEligible !== true
         || result.scenarioId !== scenario.id || result.runId !== identity.runId
         || result.invocationId !== identity.invocationId || result.resultPath !== expectedPath
@@ -2568,6 +2573,7 @@ async function main()
         'identity',
         'createdAt',
         'scenarioResults',
+        'terminalEvents',
         'contentDigest'
     ], 'timeline');
     if (timeline.schema !== 'fsusblog.release-reliability-timeline.v3' || timeline.status !== 'complete'
@@ -2584,6 +2590,7 @@ async function main()
     {
         throw new Error('timeline sealed references do not match the qualified receipt');
     }
+    verifyTerminalEvents(timeline.terminalEvents, verifiedResults);
     isoTime(timeline.createdAt, 'timeline.createdAt');
     const attestation = createVerifiedAttestation(options.repositoryRoot, initial, receipt);
     const attestationOutput = safePath(
