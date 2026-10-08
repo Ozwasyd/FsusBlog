@@ -326,4 +326,31 @@ describe('search reveal consumes the production Writer search lifecycle', () =>
         expect(state.status.text()).toContain('Exact source range');
         expect(lease.isCurrent()).toBe(true);
     });
+
+    it.each([true, false])('does not turn a Current=%s selected-ID observation into a reveal command', async current =>
+    {
+        const state = await openWriter();
+        const { lease } = await state.ready();
+        // Untrusted original C# record-shaped samples from d36532bc, not decoded
+        // responses or server revalidation receipts. This port supplies no range.
+        const observation = {
+            Current: current,
+            Owner: { AdminPrincipalId: 7, SiteScope: 'PRIVATE_SELECTION_SCOPE_2319' },
+            ArticleId: 1, ServerRevision: 10, RequestId: '019a6211-6f00-7000-8000-000000002319',
+            PermissionToken: current ? 'b'.repeat(64) : null
+        };
+        expect(state.session.search.projectCommand(observation, lease)).toMatchObject({
+            status: 'rejected', precision: null, reason: 'search-reveal-command-invalid'
+        });
+        await nextTick();
+        expect(state.status.text()).toBe('Source reveal: Unavailable');
+        for (const secret of [observation.Owner.SiteScope, observation.RequestId, 'b'.repeat(64),
+            'search-reveal-command-invalid', 'Exact source range'])
+        {
+            expect(state.status.html()).not.toContain(secret);
+        }
+        expect(lease.isCurrent()).toBe(true);
+        expect(state.session.search.currentTask).toBe(lease);
+        expect(boot.push).not.toHaveBeenCalled();
+    });
 });

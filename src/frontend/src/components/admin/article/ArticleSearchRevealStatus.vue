@@ -40,7 +40,10 @@ onMounted(() => watch(() => props.search, (search, _previous, onCleanup) =>
     runtimePresentation.value = null;
     if (search)
     {
-        onCleanup(search.subscribe(presentation => { runtimePresentation.value = presentation; }));
+        onCleanup(search.subscribe(presentation =>
+        {
+            runtimePresentation.value = presentation;
+        }));
     }
 }, { immediate: true }));
 
