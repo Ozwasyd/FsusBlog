@@ -12,14 +12,19 @@ namespace FsusBlog.ArticleVault.Linux;
 /// authenticated command references, never article bodies, file paths, shell or network operations.
 /// </summary>
 [SupportedOSPlatform("linux")]
-public sealed class LinuxVaultLocalIpcEndpoint : IDisposable
+public sealed class LinuxVaultLocalIpcEndpoint : IDisposable, IAsyncDisposable
 {
+    private readonly object _gate = new();
+    private readonly CancellationTokenSource _lifetime = new();
     private readonly LinuxVaultWriterLeaseScope _lease;
     private readonly LinuxVaultAgentGrantLedger _grants;
     private readonly Socket _listener;
     private readonly string _path;
     private readonly LinuxVaultLeaseNative.FileIdentity _socketIdentity;
     private bool _disposed;
+    private int _activeRequests;
+    private TaskCompletionSource? _drained;
+    private Task? _closing;
 
     private LinuxVaultLocalIpcEndpoint(
         LinuxVaultWriterLeaseScope lease,
@@ -84,50 +89,91 @@ public sealed class LinuxVaultLocalIpcEndpoint : IDisposable
     /// </summary>
     public async Task<ArticleVaultAgentRequest> ReadRequestAsync(CancellationToken cancellationToken)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _lease.RequireCurrent(cancellationToken);
-        VerifyEndpoint();
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(30));
-        using Socket peer = await _listener.AcceptAsync(timeout.Token).ConfigureAwait(false);
-        LinuxVaultLeaseNative.RequireCurrentUserPeer(peer);
-        byte[] secret = new byte[32];
-        try
+        lock (_gate)
         {
-            using var stream = new NetworkStream(peer, ownsSocket: false);
-            await stream.ReadExactlyAsync(secret, timeout.Token).ConfigureAwait(false);
-            byte[] prefix = new byte[4];
-            await stream.ReadExactlyAsync(prefix, timeout.Token).ConfigureAwait(false);
-            int length = BinaryPrimitives.ReadInt32BigEndian(prefix);
-            if (length is < 1 or > ArticleVaultAgentProtocol.MaximumFrameBytes)
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_activeRequests >= 8)
             {
-                throw new InvalidDataException("agent_frame_size_invalid");
+                throw new InvalidDataException("agent_ipc_pending_request_budget_exceeded");
             }
 
-            byte[] bytes = new byte[length];
-            await stream.ReadExactlyAsync(bytes, timeout.Token).ConfigureAwait(false);
-            ArticleVaultAgentRequest request = ArticleVaultAgentRequestCodec.Decode(bytes);
-            LinuxVaultLeaseNative.RequireCurrentUserPeer(peer);
+            if (_activeRequests++ == 0)
+            {
+                _drained = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+
+        try
+        {
+            _lease.RequireCurrent(cancellationToken);
             VerifyEndpoint();
-            _grants.Admit(request, secret, timeout.Token);
-            return request;
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+            timeout.CancelAfter(TimeSpan.FromSeconds(30));
+            using Socket peer = await _listener.AcceptAsync(timeout.Token).ConfigureAwait(false);
+            LinuxVaultLeaseNative.RequireCurrentUserPeer(peer);
+            byte[] secret = new byte[32];
+            try
+            {
+                using var stream = new NetworkStream(peer, ownsSocket: false);
+                await stream.ReadExactlyAsync(secret, timeout.Token).ConfigureAwait(false);
+                byte[] prefix = new byte[4];
+                await stream.ReadExactlyAsync(prefix, timeout.Token).ConfigureAwait(false);
+                int length = BinaryPrimitives.ReadInt32BigEndian(prefix);
+                if (length is < 1 or > ArticleVaultAgentProtocol.MaximumFrameBytes)
+                {
+                    throw new InvalidDataException("agent_frame_size_invalid");
+                }
+
+                byte[] bytes = new byte[length];
+                await stream.ReadExactlyAsync(bytes, timeout.Token).ConfigureAwait(false);
+                ArticleVaultAgentRequest request = ArticleVaultAgentRequestCodec.Decode(bytes);
+                LinuxVaultLeaseNative.RequireCurrentUserPeer(peer);
+                VerifyEndpoint();
+                _grants.Admit(request, secret, timeout.Token);
+                return request;
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(secret);
+            }
         }
         finally
         {
-            CryptographicOperations.ZeroMemory(secret);
+            lock (_gate)
+            {
+                if (--_activeRequests == 0)
+                {
+                    _drained!.TrySetResult();
+                }
+            }
         }
     }
 
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
-        _disposed = true;
-        _listener.Dispose();
-        DeleteOwned(_path, _socketIdentity);
+    public ValueTask DisposeAsync()
+    {
+        lock (_gate)
+        {
+            _disposed = true;
+            _closing ??= CloseAsync(_activeRequests == 0 ? Task.CompletedTask : _drained!.Task);
+            return new(_closing);
+        }
+    }
+
+    private async Task CloseAsync(Task drained)
+    {
+        try
+        {
+            _lifetime.Cancel();
+            _listener.Dispose();
+            await drained.ConfigureAwait(false);
+            DeleteOwned(_path, _socketIdentity);
+        }
+        finally
+        {
+            _lifetime.Dispose();
+        }
     }
 
     private void VerifyEndpoint()

@@ -1,5 +1,14 @@
 namespace FsusBlog.Shared.Contracts.ArticleVault;
 
+/// <summary>Defines local authority shutdown intents without generic operations or destructive deletion.</summary>
+public enum ArticleVaultAgentShutdownIntent
+{
+    Stop,
+    Logout,
+    SiteSwitch,
+    Unlink
+}
+
 /// <summary>Enumerates all lifecycle states, including retained audit/control state.</summary>
 public enum ArticleVaultAgentLifecycleState
 {

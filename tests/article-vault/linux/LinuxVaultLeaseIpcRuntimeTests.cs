@@ -16,6 +16,43 @@ namespace FsusBlog.ArticleVault.Linux.Tests;
 public sealed class LinuxVaultLeaseIpcRuntimeTests
 {
     [Fact]
+    public async Task RealControlSession_UnlinkDrainsPendingReadAndRetainsUserMarkdown()
+    {
+        using LinuxVaultTestRoot root = LinuxVaultTestRoot.Create();
+        ArticleVaultRootManifest manifest = root.Manifest with
+        {
+            VaultIdentity = "vault-control-session-test",
+            ContentSha256 = string.Empty
+        };
+        manifest = manifest with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(manifest)
+        };
+        File.WriteAllBytes(Path.Combine(root.Path, ".fsus", "vault.json"), ArticleVaultManifestCodec.Serialize(manifest));
+        string control = Path.Combine(LinuxVaultWriterLeaseScope.ControlDirectory, LinuxVaultWriterLeaseScope.ControlFileName(manifest));
+        Assert.True(File.Exists(control), "Runtime gate: owned current-user control state must be provisioned externally; no permission installation or fake lifecycle success.");
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        LinuxVaultWriterLeaseScope lease = LinuxVaultWriterLeaseScope.Open(root.Path, manifest,
+            "agent-control-runtime", "session-control-runtime", "1.0.0", new string('b', 64), cancellation.Token);
+        await using LinuxVaultAgentControlSession session = LinuxVaultAgentControlSession.Open(lease, cancellation.Token);
+        Assert.Equal(ArticleVaultAgentLifecycleState.Starting, session.InspectStatus().NewState);
+        Assert.True(session.InspectStatus().RescanRequired);
+        using LinuxVaultAgentGrant grant = session.CreateStatusGrant(cancellation.Token);
+        string source = Path.Combine(root.Path, "retained.md");
+        byte[] bytes = "# user Markdown\n"u8.ToArray();
+        File.WriteAllBytes(source, bytes);
+        Task<ArticleVaultAgentRequest> pending = session.ReadStatusRequestAsync(cancellation.Token);
+        ArticleVaultAgentLifecycleReceipt terminal = await session.ShutdownAsync(ArticleVaultAgentShutdownIntent.Unlink);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await pending);
+        Assert.Equal(ArticleVaultAgentLifecycleState.RetainedControlState, terminal.NewState);
+        Assert.Equal(bytes, File.ReadAllBytes(source));
+        Assert.True(File.Exists(control));
+        Assert.Equal(ArticleVaultWriterLeaseState.Revoked, lease.Receipt.State);
+        Assert.Throws<ObjectDisposedException>(() => session.CreateStatusGrant(cancellation.Token));
+        Assert.Equal(terminal, await session.ShutdownAsync(ArticleVaultAgentShutdownIntent.Unlink));
+    }
+
+    [Fact]
     public async Task RealKernelLeaseAndSocket_RejectSecondAgentReplayRotationAndRevocation()
     {
         using LinuxVaultTestRoot root = LinuxVaultTestRoot.Create();
