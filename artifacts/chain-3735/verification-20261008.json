@@ -1,7 +1,7 @@
 {
   "schema": "fsusblog.task-progress-evidence.v1",
   "kind": "Executable component evidence index; not formal schema/admission/HTTP/UX/full-CI qualification",
-  "capturedAtUtc": "2026-10-08T14:02:03.544679+00:00",
+  "capturedAtUtc": "2026-10-08T15:08:55.268799+00:00",
   "compiledSourceCommit": "6e58c2197552769695549ba278d989336d8314c4",
   "runId": "chain3735-selection-6e58c219-20261008",
   "assemblyBinding": {
@@ -27568,7 +27568,7 @@
       },
       "durableReview": "artifacts/chain-3735/embed-source-adapter-review.json"
     },
-    "export2436ProtocolQueue": {
+    "historicalExport2436QueueBeforeExactAa": {
       "queue": {
         "path": "artifacts/chain-3735/export-2436-registration-queue.json",
         "sha256": "337b4e40a528209eb11486f2f7ee41029f5c991311b4c542fb80778c805dabf8"
@@ -27593,7 +27593,8 @@
       "blockedBy": "original proposal exact family labels/native error and response complete-frame limit not supplied; source/run-bound83 execution receipt pending",
       "wireActivationReady": false,
       "accepted": false
-    }
+    },
+    "export2436CurrentWire": "Exact aa proposal active at1cf2163 with44managed/64Node/940native; consumer endpoint/facade and product gates OPEN."
   },
   "historicalBeforeCurrentSourceFrontier": {
     "compiledSourceCommit": "54f1c0ab4d3adfd6caf0b92a6d7d2b5309732a38",
@@ -40411,5 +40412,501 @@
   "historicalFrontierReferenceBefore6e": {
     "path": "artifacts/chain-3735/source-frontier-20261008.json",
     "sha256": "efebd0ec86cd5ff1b9ec327b1ab53a1a3700b023e7700c4a5788b38f493d51df"
-  }
+  },
+  "documentExportActiveWire": {
+    "kind": "Ordinary source/compiler/native/codec/transport evidence, not qualification or admission",
+    "testedSourceCommit": "8464d9667f6de4fd159718bc65c32868df022d5d",
+    "branch": "codex/chain-3735-20261008",
+    "draftPR": "https://github.com/Ozwasyd/FsusBlog/pull/3839",
+    "proposal": {
+      "commit": "aa1e3d24318651a5208083bc956a817098a6ecc6",
+      "sha256": "c8044059b105e951ed9a0d3142224754da8e07fc14ecccfca7199c1054edac1c"
+    },
+    "ids": [
+      278,
+      279,
+      280,
+      281
+    ],
+    "nativeError": {
+      "value": 18,
+      "reason": "document_export_payload_invalid"
+    },
+    "nativeAndNode": {
+      "sourceSha": "8464d9667f6de4fd159718bc65c32868df022d5d",
+      "steps": [
+        {
+          "stage": "export-generator-check",
+          "argv": [
+            "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "tools/contracts/generate-document-export-wire.mjs",
+            "--check"
+          ],
+          "cwd": "/workspace/FsusBlog",
+          "sourceSha": "8464d9667f6de4fd159718bc65c32868df022d5d",
+          "startedAt": "2026-10-08T15:07:31.288448+00:00",
+          "exit": 0
+        },
+        {
+          "stage": "original-protocol-generator-check",
+          "argv": [
+            "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "tools/frontend/generate-aeds-protocol.mjs",
+            "--check"
+          ],
+          "cwd": "/workspace/FsusBlog",
+          "sourceSha": "8464d9667f6de4fd159718bc65c32868df022d5d",
+          "startedAt": "2026-10-08T15:07:42.405633+00:00",
+          "exit": 0
+        },
+        {
+          "stage": "node-current",
+          "argv": [
+            "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "--test",
+            "tests/tools/document-export-wire.test.mjs",
+            "tests/tools/aeds-protocol-generation.test.mjs"
+          ],
+          "cwd": "/workspace/FsusBlog",
+          "sourceSha": "8464d9667f6de4fd159718bc65c32868df022d5d",
+          "startedAt": "2026-10-08T15:07:42.614046+00:00",
+          "exit": 0
+        },
+        {
+          "stage": "export-types",
+          "argv": [
+            "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "src/frontend/node_modules/typescript/bin/tsc",
+            "-p",
+            ".tmp/chain-3735/export-wire-verification-r2/tsconfig.json"
+          ],
+          "cwd": "/workspace/FsusBlog",
+          "sourceSha": "8464d9667f6de4fd159718bc65c32868df022d5d",
+          "startedAt": "2026-10-08T15:07:48.939202+00:00",
+          "exit": 0
+        },
+        {
+          "stage": "url-helper-types",
+          "argv": [
+            "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+            ".tmp/chain-3735/url-base-correction/types.mjs"
+          ],
+          "cwd": "/workspace/FsusBlog",
+          "sourceSha": "8464d9667f6de4fd159718bc65c32868df022d5d",
+          "startedAt": "2026-10-08T15:07:49.887729+00:00",
+          "exit": 0
+        },
+        {
+          "stage": "original-url-control",
+          "argv": [
+            "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "--test",
+            "--test-name-pattern",
+            "^R10CI01 binary transport resolves relative routes in browser and Node test runtimes$",
+            "tests/tools/ci-baseline-contract.test.mjs"
+          ],
+          "cwd": "/workspace/FsusBlog",
+          "sourceSha": "8464d9667f6de4fd159718bc65c32868df022d5d",
+          "startedAt": "2026-10-08T15:07:51.006620+00:00",
+          "exit": 0
+        },
+        {
+          "stage": "url-transport-current",
+          "argv": [
+            "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "node_modules/vitest/vitest.mjs",
+            "run",
+            "../../tests/frontend/unit/api/binaryApiClient.test.ts",
+            "--reporter=json",
+            "--outputFile=/workspace/FsusBlog/.tmp/chain-3735/url-base-correction/current-tests-r2.json"
+          ],
+          "cwd": "/workspace/FsusBlog/src/frontend",
+          "sourceSha": "8464d9667f6de4fd159718bc65c32868df022d5d",
+          "startedAt": "2026-10-08T15:07:51.274700+00:00",
+          "exit": 0
+        }
+      ],
+      "rootInputs": 1341,
+      "fsusuiSourceSha": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "fsusuiInputs": 2741,
+      "inputsStable": true,
+      "nodeExpectedExecuted": 64,
+      "nativeExplicitRows": 940,
+      "urlTransportExpectedExecuted": 27,
+      "originalUrlControlExecuted": 1,
+      "limits": "Scoped actual wire/native/codec/compiler and mocked ordinary transport controls only. Full frontend types, real HTTP/session/Postgres/provider/rendered UX and formal admission remain OPEN. Explicit other ci-baseline tests were not selected; no held audit launched."
+    },
+    "managed": {
+      "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+      "expectedCount": 44,
+      "actualCount": 44,
+      "passed": 44,
+      "failed": 0,
+      "skipped": 0,
+      "boundInputs": 473,
+      "inputsStable": true,
+      "dlls": {
+        ".tmp/chain-3735/export-wire-verification/managed/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "520f992624584d4b1ab7015e7be690e7731502ea17e1e123cbd26295d309d968",
+        ".tmp/chain-3735/export-wire-verification/managed/bin/Release/net10.0/FsusBlog.Shared.dll": "ba671825e9c79e70899d70c8d9cbdc2543d81be2875b92cb4e9274c6ae9b39c4",
+        ".tmp/chain-3735/export-wire-verification/managed/bin/Release/net10.0/FsusBlog.Core.dll": "bf1b195afc48575138eba3902d9df9cb26e2434e69d1baa160c4411f04334f01"
+      },
+      "commands": [
+        {
+          "stage": "restore",
+          "exit": 0,
+          "argv": {
+            "argv": [
+              "/tmp/chain-3735-tooling/dotnet/dotnet",
+              "restore",
+              ".tmp/chain-3735/export-wire-verification/managed/Focused.csproj",
+              "--nologo"
+            ],
+            "startedAt": "2026-10-08T15:00:08.511734+00:00",
+            "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb"
+          }
+        },
+        {
+          "stage": "build",
+          "exit": 0,
+          "argv": {
+            "argv": [
+              "/tmp/chain-3735-tooling/dotnet/dotnet",
+              "build",
+              ".tmp/chain-3735/export-wire-verification/managed/Focused.csproj",
+              "--no-restore",
+              "-c",
+              "Release",
+              "--nologo",
+              "-p:FsusBlogCommitSha=1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+              "-p:UseSharedCompilation=false",
+              "-m:1",
+              "-nr:false"
+            ],
+            "startedAt": "2026-10-08T15:00:10.437500+00:00",
+            "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb"
+          }
+        },
+        {
+          "stage": "discovery",
+          "exit": 0,
+          "argv": [
+            "/tmp/chain-3735-tooling/dotnet/dotnet",
+            "test",
+            ".tmp/chain-3735/export-wire-verification/managed/Focused.csproj",
+            "--no-build",
+            "--no-restore",
+            "-c",
+            "Release",
+            "--filter",
+            "FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.PayloadGoldens_BindAllFourRootsWithoutAllocatingFrames|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Request_PreservesExactCoordinateAndUnicode|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Request_PreservesClosedFormatWithoutChoosingAProvider|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.AllRoots_RejectEveryTruncationTrailingFieldsAndFutureVersion|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Request_RejectsHostileStringLengthsBeforeReadingOrAllocating|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Request_RejectsInvalidUtf8UnknownCoordinateAndExtraOwnerFields|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.RequestWriter_RejectsMalformedIntentBeforeWritingAnyByte|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Page_IsBoundedAndPreservesEachActualProjection|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Page_RejectsUnknownBooleanAndUnboundedCount|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.PageWriter_RejectsDuplicateTasksAndUnprovenMoreBeforeWriting|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Job_PreservesCleanupRequiredAndDiagnosticWithoutSuccessfulDelivery|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.JobWriter_RejectsUnknownStatusVersionDigestAndOversizeAttemptHistory|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportPayloadBoundsTests.MaximumValidGrammar_FitsExactPayloadAndCompleteFrameBudget|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportPayloadBoundsTests.EveryRoot_RefusesItsOwnOversizeBudget|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportPayloadBoundsTests.TextLimit_CountsUtf16UnitsRatherThanUtf8BytesOrCodePoints|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportPayloadBoundsTests.Text_RefusesUnicodeWhitespaceOnlyAndControlsWithoutNormalizing|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportPayloadBoundsTests.JobReader_RefusesAnAlteredDigestPrefixWithoutRepairingIt",
+            "--list-tests"
+          ]
+        },
+        {
+          "stage": "test",
+          "exit": 0,
+          "argv": [
+            "/tmp/chain-3735-tooling/dotnet/dotnet",
+            "test",
+            ".tmp/chain-3735/export-wire-verification/managed/Focused.csproj",
+            "--no-build",
+            "--no-restore",
+            "-c",
+            "Release",
+            "--filter",
+            "FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.PayloadGoldens_BindAllFourRootsWithoutAllocatingFrames|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Request_PreservesExactCoordinateAndUnicode|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Request_PreservesClosedFormatWithoutChoosingAProvider|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.AllRoots_RejectEveryTruncationTrailingFieldsAndFutureVersion|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Request_RejectsHostileStringLengthsBeforeReadingOrAllocating|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Request_RejectsInvalidUtf8UnknownCoordinateAndExtraOwnerFields|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.RequestWriter_RejectsMalformedIntentBeforeWritingAnyByte|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Page_IsBoundedAndPreservesEachActualProjection|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Page_RejectsUnknownBooleanAndUnboundedCount|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.PageWriter_RejectsDuplicateTasksAndUnprovenMoreBeforeWriting|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.Job_PreservesCleanupRequiredAndDiagnosticWithoutSuccessfulDelivery|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportBinaryCodecTests.JobWriter_RejectsUnknownStatusVersionDigestAndOversizeAttemptHistory|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportPayloadBoundsTests.MaximumValidGrammar_FitsExactPayloadAndCompleteFrameBudget|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportPayloadBoundsTests.EveryRoot_RefusesItsOwnOversizeBudget|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportPayloadBoundsTests.TextLimit_CountsUtf16UnitsRatherThanUtf8BytesOrCodePoints|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportPayloadBoundsTests.Text_RefusesUnicodeWhitespaceOnlyAndControlsWithoutNormalizing|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportPayloadBoundsTests.JobReader_RefusesAnAlteredDigestPrefixWithoutRepairingIt",
+            "--logger",
+            "trx;LogFileName=focused.trx",
+            "--results-directory",
+            "/workspace/FsusBlog/.tmp/chain-3735/export-wire-verification/managed/results"
+          ]
+        }
+      ],
+      "collectorInitialExit": 1,
+      "collectorCorrection": "Initial Python splitlines split the original U+0085 InlineData display. No tests or input changed. Raw console now split only on LF; all original case names including the sole NEL match original TRX byte-for-byte. Original raw logs retained. All44 actually executed/pass before accounting failed.",
+      "limits": "Actual isolated Core/Shared compiler and original owner31+13 pure payload/bounds controls. No server/HTTP/session/Postgres/provider/UX or held audit acceptance."
+    },
+    "url": {
+      "sourceDelta": "ad453a42187f91dc00f79fac5c393ecd870905fa",
+      "testsDelta": "3bfa7548a3d77081fe8040809cfbf165cbe5f537",
+      "testCases": [
+        {
+          "name": "binaryApiClient credentials handling strips auth-bearing headers when credentials are omitted",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient credentials handling adds csrf token from document metadata for credentialed mutations",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient credentials handling exposes a cloned response-header snapshot to contract-aware callers",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient credentials handling does not merge requests whose callers each require response metadata",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient pow abort handling buildBinaryPowHeaders passes signal to pow challenge fetch",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient pow abort handling buildBinaryPowHeaders gives browser pow enough time for release acceptance difficulty",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient pow abort handling buildBinaryPowHeaders aborts before calculate when signal is aborted after challenge",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient pow abort handling aborted pow header construction rejects as AbortError",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient pow abort handling binary request does not send business request after pow abort",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient one-time pow headers uses fresh one-time pow headers for concurrent builds with same scope",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient one-time pow headers builds independent pow headers for different pow scopes",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient one-time pow headers single abort only cancels its own pow build",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient one-time pow headers builds a fresh pow header after success",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient one-time pow headers builds a fresh pow header after failure",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient binary request in-flight dedupe dedupes concurrent identical binary GET requests",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient binary request in-flight dedupe does not dedupe different binary request bodies",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient risk challenge proof transport attaches the three typed proof headers and commits an accepted response",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient risk challenge proof transport restores a reservation when cancellation happens before fetch",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient risk challenge proof transport marks an in-flight network failure terminal instead of restoring it",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient risk challenge proof transport settles server proof outcome expired as expired",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient risk challenge proof transport settles server proof outcome replayed_or_missing as replayed",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient risk challenge proof transport settles server proof outcome binding_mismatch as binding_mismatch",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient risk challenge proof transport settles server proof outcome revoked as revoked",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient risk challenge proof transport settles server proof outcome rejected as rejected",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient URL base handling resolves browser root-relative and path-relative routes using the real location href",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient URL base handling preserves absolute URLs in browser and without a location",
+          "status": "passed"
+        },
+        {
+          "name": "binaryApiClient URL base handling retains the existing SSR localhost base when location is unavailable",
+          "status": "passed"
+        }
+      ],
+      "helperTypeCheck": {
+        "actualPath": "src/frontend/src/api/binaryApiClient.ts",
+        "actualSha256": "41b6d4a762666a8851f4404a9d2c7945c91774e3aff3c2152658e64d0a81777f",
+        "actualBlobPreimage": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+        "extractedStart": 2458,
+        "extractedEnd": 2711,
+        "statementByteExact": true,
+        "diagnostics": [],
+        "limitation": "Actual exported URL helper checked with strict TypeScript and real DOM Location type; imports, full consumer/application types and other baseline diagnostics not tested or rewritten."
+      }
+    },
+    "propertyCorrection": {
+      "sourceDelta": "92859e5bc8fb900c5e472ccfceae6103e1333b0a",
+      "evidenceCommit": "b3e31c1e164fd1156911940d49ec71fa7ad69f6c",
+      "mainDelta": "1dc022b0c05dc7011c33d5fec314b37bf325fa51",
+      "tests": 4,
+      "accepted": false,
+      "remaining": "Revised full14-file closure to SAME independent reviewer; original148 controls remain unchanged and not rerun here."
+    },
+    "heldAudits": "Not selected or executed; only originalURL control selected from ci-baseline file. Existing negative historical results retained unchanged.",
+    "remaining": [
+      "Endpoint/facade consumer integration remains with #2436/#3653; parent must supply exact consumer identity/evidence, not a whole branch merge.",
+      "Full frontend typecheck remains unaccepted; scoped Export codec and actual URL helper strict checks do not remove other application diagnostics.",
+      "Formal current-schema issuer/extractor, strictPostgres, real HTTP/admin-session/PoW/provider and rendered UX remain OPEN.",
+      "No merge, deployment, issue closure or GitHub content API write."
+    ],
+    "rawEvidenceRoot": "/workspace/FsusBlog/.tmp/chain-3735/export-wire-verification",
+    "acceptedIssues": 0,
+    "historyBeforeFormatting": {
+      "testedSourceCommit": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+      "nativeAndNode": {
+        "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+        "steps": [
+          {
+            "stage": "export-generator-check",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/generate-document-export-wire.mjs",
+              "--check"
+            ],
+            "cwd": "/workspace/FsusBlog",
+            "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+            "startedAt": "2026-10-08T15:00:59.529422+00:00",
+            "exit": 0
+          },
+          {
+            "stage": "original-protocol-generator-check",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/frontend/generate-aeds-protocol.mjs",
+              "--check"
+            ],
+            "cwd": "/workspace/FsusBlog",
+            "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+            "startedAt": "2026-10-08T15:01:09.264577+00:00",
+            "exit": 0
+          },
+          {
+            "stage": "node-current",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "--test",
+              "tests/tools/document-export-wire.test.mjs",
+              "tests/tools/aeds-protocol-generation.test.mjs"
+            ],
+            "cwd": "/workspace/FsusBlog",
+            "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+            "startedAt": "2026-10-08T15:01:09.430597+00:00",
+            "exit": 0
+          },
+          {
+            "stage": "export-types",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "src/frontend/node_modules/typescript/bin/tsc",
+              "-p",
+              ".tmp/chain-3735/export-wire-verification/tsconfig.json"
+            ],
+            "cwd": "/workspace/FsusBlog",
+            "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+            "startedAt": "2026-10-08T15:01:14.758112+00:00",
+            "exit": 0
+          },
+          {
+            "stage": "url-helper-types",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              ".tmp/chain-3735/url-base-correction/types.mjs"
+            ],
+            "cwd": "/workspace/FsusBlog",
+            "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+            "startedAt": "2026-10-08T15:01:15.726999+00:00",
+            "exit": 0
+          },
+          {
+            "stage": "original-url-control",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "--test",
+              "--test-name-pattern",
+              "^R10CI01 binary transport resolves relative routes in browser and Node test runtimes$",
+              "tests/tools/ci-baseline-contract.test.mjs"
+            ],
+            "cwd": "/workspace/FsusBlog",
+            "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+            "startedAt": "2026-10-08T15:01:17.178216+00:00",
+            "exit": 0
+          },
+          {
+            "stage": "url-transport-current",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "node_modules/vitest/vitest.mjs",
+              "run",
+              "../../tests/frontend/unit/api/binaryApiClient.test.ts",
+              "--reporter=json",
+              "--outputFile=/workspace/FsusBlog/.tmp/chain-3735/url-base-correction/current-tests.json"
+            ],
+            "cwd": "/workspace/FsusBlog/src/frontend",
+            "sourceSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+            "startedAt": "2026-10-08T15:01:17.453519+00:00",
+            "exit": 0
+          }
+        ],
+        "rootInputs": 1341,
+        "fsusuiSourceSha": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "fsusuiInputs": 2741,
+        "inputsStable": true,
+        "nodeExpectedExecuted": 64,
+        "nativeExplicitRows": 940,
+        "urlTransportExpectedExecuted": 27,
+        "originalUrlControlExecuted": 1,
+        "limits": "Scoped actual wire/native/codec/compiler and mocked ordinary transport controls only. Full frontend types, real HTTP/session/Postgres/provider/rendered UX and formal admission remain OPEN. Explicit other ci-baseline tests were not selected; no held audit launched."
+      }
+    },
+    "compiledManagedSourceCommit": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+    "postCompileSourceChanges": "408413dd8 registry import order;8464d9667 producer/test AST formatting. No C#/Shared contracts or generated wire bytes changed after the44 managed run. Compiled44 remains bound to1cf, not restamped.",
+    "style": {
+      "currentOwnedFrontend": {
+        "sourceCommit": "8464d9667f6de4fd159718bc65c32868df022d5d",
+        "exit": 0,
+        "files": 4,
+        "violations": 0,
+        "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/contracts/generate-document-export-wire.mjs --file tests/tools/document-export-wire.test.mjs --file src/frontend/src/codecs/binary/documentExportWire.generated.ts --file src/frontend/src/composition/binaryDecoderRegistry.ts"
+      },
+      "propertyCSharp": {
+        "sourceCommit": "408413dd8a4f373935a271eec60b6cd1edde06f6",
+        "exit": 0,
+        "files": 3,
+        "violations": 0
+      },
+      "preservedFailures": [
+        "Initial frontend style1:2 pre-existing API diagnostics and2 registry import order diagnostics; registry now corrected, API unchanged diagnostics remain.",
+        "Initial C# changed-mode invocation1:undefined trim; explicit full/file retry0.",
+        "Source-diff invocation1:unit test TS outside configured source set; retry1:TS comparison unsupported by original source-diff owner.",
+        "Native script selector selected0/checked0; zero exit not asserted as source coverage.",
+        "Initial ordinary JS fixer style1:remaining statement layout violations; original AST formatter repaired them, final strict style4files0."
+      ],
+      "apiRemaining": [
+        "binaryApiClient.ts281 prefer-promise-reject-errors",
+        "binaryApiClient.ts421 unused _riskChallengeProof"
+      ],
+      "qualification": false
+    },
+    "currentMasterRefVerified": "8a95130ab5e391729d5606275d483edc678e9b5d",
+    "masterConsumed": false
+  },
+  "headAtAccounting": "8464d9667f6de4fd159718bc65c32868df022d5d",
+  "latestFetchedMaster": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "currentMasterConsumption": "Latest fetched master8a reference verified; not incorporated. No sibling branch guessed, merged or cross-chain conflict resolved."
 }

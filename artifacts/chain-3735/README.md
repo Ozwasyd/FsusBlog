@@ -2,7 +2,7 @@
 
 Original closure **123 issues**. Retained root **70 = 62 execution + 8 tracking**; transferred sole ownership **53**; fully accepted **0**. The complete table below preserves every owned issue and its outstanding gate. Tracking is evidence aggregation only.
 
-Published source `11527d8162113d0a46a0e7ca549803815407b636`, branch `codex/chain-3735-20261008`, [draft PR #3839](https://github.com/Ozwasyd/FsusBlog/pull/3839). Initial verified master `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`; latest fetched master `1cd4e060acedfd7838a477842685e0052d8e4107`. No master push, merge, auto-merge, closure or deployment occurred.
+Published source `8464d9667f6de4fd159718bc65c32868df022d5d`, branch `codex/chain-3735-20261008`, [draft PR #3839](https://github.com/Ozwasyd/FsusBlog/pull/3839). Initial verified master `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`; latest fetched master `8a95130ab5e391729d5606275d483edc678e9b5d`. No master push, merge, auto-merge, closure or deployment occurred.
 
 | Actual tested source | Result | Limit |
 |---|---|---|
@@ -34,7 +34,7 @@ Remaining formal gates: root3657 schema/native issuer; root2246/roots3560/3663 p
 
 The diagnostic Emsdk6.0.0 basic/speed compile succeeded, but CMake3.28.3 differs from repository4.3.3 pin and no contemporaneous source binding was captured. Retrospective hashes cannot prove a frozen build or formal Wasm receipt. This limit is preserved explicitly.
 
-- [Export2436 protocol queue](export-2436-registration-handoff.md): exact four roots reviewed; family/error proposal pending, no ID allocated or endpoint consumed
+- [Export active wire handoff](document-export-active-wire-handoff.md): exact aa proposal activates278–281/error18; current44 managed,64 Node and940 native controls pass. Endpoint/facade consumers remain with #2436/#3653; real runtime/product acceptance open.
 - [Minimal property3665 source and exact edit ownership](property-3665-minimal-handoff.md)
 - [Selected revalidation source handoff](navigation-revalidation-handoff.md)
 - [Raw current evidence archive manifest](current-evidence-archive.json)
@@ -123,3 +123,9 @@ The diagnostic Emsdk6.0.0 basic/speed compile succeeded, but CMake3.28.3 differs
 All53 transferred rows retain sole-owner/thread identity; peer consumption never accepts their issues. No closure, merge, deployment, production migration, QA clearance or final conflict resolution occurred.
 
 Raw ordinary evidence archive: `/tmp/chain-3735-current-v5-navigation-evidence.tar.gz`, 393 verified entries, SHA256 `e53f443112fb5ba4db00a4b2a8af0775a9fa78713a3c351736ca1efe78aa5dd8`. This is a transportable raw-log bundle for separately bound source runs, not a runtime/QA acceptance receipt.
+
+Current ordinary Export/URL increment tested at `1cf2163da72853847d8ad7cee9a3d0220a775ecb`: exact Core/Shared compile and original44 codec/bounds cases pass; original52 protocol controls plus12 Export wire cases pass, with940 real native dispatcher inputs. Export standalone strict types, actual URL helper strict types, two original generator checks, original URL source control1 and actual transport27 all pass. Root1341/FsusUI2741 Node/transport inputs and473 managed inputs/three DLLs remain stable. Managed accounting initially failed because Python splitlines split U+0085; original44 raw results were already passed and final LF-only parsing proves exact IDs without changing tests. See [current source evidence](document-export-current-evidence-20261008.json). Full application types and product qualification remain OPEN.
+
+Property single-select correction is separately published at `92859e5bc8fb900c5e472ccfceae6103e1333b0a` (evidence `b3e31c1e164fd1156911940d49ec71fa7ad69f6c`) on `codex/prerequisite-3665-current-master-20261008`: four ordinary direct storage/read cases pass; valid nonempty historical identities and default origin remain intact. The revised complete14-file closure must return to the SAME reviewer; original148 controls are retained unchanged and their prior result is not rebound here. URL source is the one-file delta `ad453a42187f91dc00f79fac5c393ecd870905fa`; tests are the separate `3bfa7548a` delta. No held audit or content API write was performed.
+
+Formatting follow-ups `408413dd8` (registry import order) and `8464d9667f6de4fd159718bc65c32868df022d5d` (original AST formatting for producer/test) leave C#/Shared and generated wire bytes unchanged. Fresh exact8464 Node64/native940/transport27/originalURL1/two generator checks/scoped types pass;4 owned frontend/script strict style files and3 property C# style files pass. Managed44 remains explicitly bound to compiled1cf. The original style failures and unsupported TS source-diff attempts are retained; two inherited API diagnostics remain unmodified. No full style or application type gate is reported green.

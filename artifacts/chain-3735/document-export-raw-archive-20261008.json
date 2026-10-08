@@ -1,0 +1,19 @@
+{
+  "kind": "raw scoped ordinary evidence archive, not admission",
+  "path": "/tmp/chain-3735-export-url-property-evidence-20261008-r2.tar.gz",
+  "bytes": 1084453,
+  "sha256": "fc97db3bde1acc72d68c36931bec3783325b12a5f2fee526e6adb159a838189c",
+  "entries": 95,
+  "nodeNativeUrlSource": "8464d9667f6de4fd159718bc65c32868df022d5d",
+  "compiledManagedSource": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+  "testedPropertySource": "92859e5bc8fb900c5e472ccfceae6103e1333b0a",
+  "historicalArchivePreserved": {
+    "kind": "raw scoped ordinary evidence archive, not admission",
+    "path": "/tmp/chain-3735-export-url-property-evidence-20261008.tar.gz",
+    "bytes": 649167,
+    "sha256": "18f571775987d97ed86d94a02df2d19f9b8781f1e32cc1ac8779e9824bea5af0",
+    "entries": 64,
+    "testedExportUrlSource": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+    "testedPropertySource": "92859e5bc8fb900c5e472ccfceae6103e1333b0a"
+  }
+}
