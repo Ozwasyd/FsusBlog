@@ -112,13 +112,17 @@ internal sealed class GpuCudaNativeApi : GpuNativeApi
     }
     public override GpuDeviceAddress AllocateDevice(long bytes)
     {
-        Check(_allocate(out ulong address, checked((nuint)bytes)), "cuMemAlloc_v2");
+        int status = _allocate(out ulong address, checked((nuint)bytes));
+        RejectOutOfMemory(status);
+        Check(status, "cuMemAlloc_v2");
         return new(address);
     }
     public override void FreeDevice(GpuDeviceAddress address) => Check(_free(address.Value), "cuMemFree_v2");
     public override GpuHostAddress AllocateHost(long bytes, bool readback)
     {
-        Check(_hostAllocate(out nint address, checked((nuint)bytes), readback ? 0u : 4u), "cuMemHostAlloc");
+        int status = _hostAllocate(out nint address, checked((nuint)bytes), readback ? 0u : 4u);
+        RejectOutOfMemory(status);
+        Check(status, "cuMemHostAlloc");
         return new(address);
     }
     public override void FreeHost(GpuHostAddress address) => Check(_hostFree(address.Value), "cuMemFreeHost");

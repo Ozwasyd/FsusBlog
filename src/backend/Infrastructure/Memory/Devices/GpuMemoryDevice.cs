@@ -119,6 +119,11 @@ public sealed class GpuMemoryDevice : IDisposable
             {
                 address = _driver.AllocateDevice(length);
             }
+            catch (GpuAllocationRejectedException)
+            {
+                reservation.Dispose();
+                return MemoryOperationResult<GpuAllocation>.Reject(MemoryFailure.BudgetRejected);
+            }
             catch
             {
                 // A native call can allocate successfully and then fail context restoration.
@@ -322,6 +327,11 @@ public sealed class GpuMemoryDevice : IDisposable
                 {
                     staging = new GpuStagingBuffer(_driver.AllocateHost(capacity, readback), capacity, readback);
                     _staging.Add(staging);
+                }
+                catch (GpuAllocationRejectedException)
+                {
+                    reservation.Dispose();
+                    return MemoryOperationResult<GpuTransferOperation>.Reject(MemoryFailure.BudgetRejected);
                 }
                 catch
                 {
