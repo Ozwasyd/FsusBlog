@@ -12,6 +12,8 @@ import {
 } from '@ozwasyd/element-plus';
 import '@ozwasyd/element-plus/dist/index.css';
 import '@ozwasyd/element-plus/dist/el-fsus-theme.css';
+import Consumer from './Consumer.vue';
+const consumerMode = new URLSearchParams(globalThis.location.search).has('consumer');
 
 const dropdown = ref<InstanceType<typeof ElDropdown>>();
 const visible = ref(false);
@@ -41,7 +43,8 @@ function visibilityChanged(value: boolean): void {
 </script>
 
 <template>
-    <main>
+    <Consumer v-if="consumerMode" />
+    <main v-else>
         <h1>Locale menu public API probe</h1>
         <ElButton data-probe="outside">Outside target</ElButton>
         <ElButton data-probe="manual-open" @click="dropdown?.handleOpen()">Public open</ElButton>
