@@ -7,6 +7,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
+import { recoverReleaseContainerPublisher, reserveContainerPublisher, validateContainerReservationOptions } from './production-fresh-container-reservation.mjs';
+
 export const portLeaseReservationEngine = 'python-bind-without-listen';
 
 const reservationPythonScript = String.raw`
@@ -739,7 +741,7 @@ function readSealedManifest(manifestPath)
     return verifySealedPortLeaseManifest(readJsonFile(manifestPath));
 }
 
-export function createPortLeaseAllocator({ runId, namespace, roles = defaultRoleCatalog(), now = () => new Date().toISOString(), random = Math.random, owner = null, reservationToken = null, pins = {}, continuousHandoff = false })
+export function createPortLeaseAllocator({ runId, namespace, roles = defaultRoleCatalog(), now = () => new Date().toISOString(), random = Math.random, owner = null, reservationToken = null, pins = {}, continuousHandoff = false, containerReservations = {} })
 {
     const instanceId = randomUUID();
     const reservationOwnerIdentity = owner ?? {
@@ -754,6 +756,18 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
     const reservations = new Map();
     const tokens = new Map();
     const roleOperations = new Map();
+    let allocationStarted = false;
+    let allocationCompleted = false;
+    if (continuousHandoff)
+    {
+        for (const role of roles.filter((entry) => entry.containerPort !== null))
+        {
+            validateContainerReservationOptions({
+                ...containerReservations[role.role], role: role.role, runId, namespace,
+                port: role.minPort, containerPort: role.containerPort
+            });
+        }
+    }
     function serializeRole(role, operation)
     {
         const previous = roleOperations.get(role) ?? Promise.resolve();
@@ -795,6 +809,38 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
         return roles.find((candidate) => candidate.role === role);
     }
 
+    async function reserveRoleSockets(definition, port, held)
+    {
+        if (continuousHandoff && definition.containerPort !== null)
+        {
+            // Check and retain the other address family before Docker becomes
+            // the real IPv4 reservation owner. A publish failure aborts this
+            // allocation; it is never retried on another port.
+            held.push(await bindReservationServer({ host: '::1', port, ipv6Only: true }));
+            const publisher = await reserveContainerPublisher({
+                ...containerReservations[definition.role], role: definition.role, runId, namespace,
+                port, containerPort: definition.containerPort
+            });
+            held.push({ host: '127.0.0.1', port, publisher, close: () => publisher.close() });
+        }
+        else
+        {
+            held.push(await bindReservationServer({ host: '127.0.0.1', port }));
+            held.push(await bindReservationServer({ host: '::1', port, ipv6Only: true }));
+        }
+    }
+
+    function reservationBinding(held)
+    {
+        const publisher = held.find((entry) => entry.publisher)?.publisher;
+        return {
+            reservationKind: continuousHandoff ? publisher ? 'final-docker-publisher' : 'inherited-native-socket' : 'legacy-bind-reservation',
+            ...(publisher ? { containerReservation: {
+                ownerIdentity: publisher.ownerIdentity, gateDirectory: publisher.gateDirectory
+            } } : {})
+        };
+    }
+
     async function allocateRole(role)
     {
         const definition = roleByName(role);
@@ -818,8 +864,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
             const held = [];
             try
             {
-                held.push(await bindReservationServer({ host: '127.0.0.1', port: pinned }));
-                held.push(await bindReservationServer({ host: '::1', port: pinned, ipv6Only: true }));
+                await reserveRoleSockets(definition, pinned, held);
             }
             catch (error)
             {
@@ -843,6 +888,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
                 containerPort: definition.containerPort ?? null,
                 outputBindingKey: definition.outputBindingKey,
                 reservationOwnerIdentity,
+                ...reservationBinding(held),
                 reservationTokenDigest: digest(sharedToken),
                 createdAt,
                 handoffState: 'reserved',
@@ -860,13 +906,12 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
             const held = [];
             try
             {
-                held.push(await bindReservationServer({ host: '127.0.0.1', port }));
-                held.push(await bindReservationServer({ host: '::1', port, ipv6Only: true }));
+                await reserveRoleSockets(definition, port, held);
             }
             catch (error)
             {
                 await Promise.all(held.map((reservation) => reservation.close()));
-                if (isAddressInUse(error))
+                if (isAddressInUse(error) && !(continuousHandoff && definition.containerPort !== null && held.length > 0))
                 {
                     continue;
                 }
@@ -885,6 +930,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
                 containerPort: definition.containerPort ?? null,
                 outputBindingKey: definition.outputBindingKey,
                 reservationOwnerIdentity,
+                ...reservationBinding(held),
                 reservationTokenDigest: digest(sharedToken),
                 createdAt,
                 handoffState: 'reserved',
@@ -905,6 +951,8 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
 
     async function allocate()
     {
+        if (allocationStarted) throw new Error('port lease allocation is single-attempt');
+        allocationStarted = true;
         const allocated = [];
         try
         {
@@ -912,6 +960,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
             {
                 allocated.push(await allocateRole(role.role));
             }
+            allocationCompleted = true;
             return snapshot();
         }
         catch (error)
@@ -921,9 +970,10 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
         }
     }
 
-    async function closeRoleReservations(role)
+    async function closeRoleReservations(role, { preserveRuntime = false } = {})
     {
-        await Promise.all((reservations.get(role) ?? []).map((reservation) => reservation.close()));
+        await Promise.all((reservations.get(role) ?? []).map((reservation) =>
+            preserveRuntime && reservation.publisher ? Promise.resolve() : reservation.close()));
         reservations.delete(role);
     }
 
@@ -965,7 +1015,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
     async function launchNative(role, specification)
     {
         const lease = leases.get(role);
-        if (!continuousHandoff || !lease || lease.containerPort !== null || lease.handoffState !== 'reserved')
+        if (!allocationCompleted || !continuousHandoff || !lease || lease.containerPort !== null || lease.handoffState !== 'reserved')
         {
             throw new Error(`port lease ${role} cannot launch an inherited native socket`);
         }
@@ -1030,6 +1080,21 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
         }
         if (continuousHandoff)
         {
+            if (lease.containerPort !== null)
+            {
+                const publisher = reservations.get(role)?.find((entry) => entry.publisher)?.publisher;
+                const expected = lease.containerReservation?.ownerIdentity;
+                if (lease.handoffState !== 'handing-off' || !publisher || !expected ||
+                    listenerIdentityRef !== `container:${expected.containerId}` ||
+                    JSON.stringify(canonicalize(await publisher.observe())) !== JSON.stringify(canonicalize(expected)))
+                {
+                    throw new Error(`port lease ${role} listener is not its authorized continuous publisher`);
+                }
+                await publisher.transferToRuntime();
+                return updateLease(role, {
+                    handoffState: 'bound', boundListenerIdentityRef: listenerIdentityRef, handedOffAt: now()
+                });
+            }
             const expected = lease.handoffOwnerIdentity;
             if (!expected || listenerIdentityRef !== `pid:${expected.pid}` ||
                 !nativeSocketOwnerMatches(expected, lease.port))
@@ -1055,6 +1120,32 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
             boundListenerIdentityRef: listenerIdentityRef,
             handedOffAt: now()
         });
+    }
+
+    async function activateContainer(role)
+    {
+        const lease = leases.get(role);
+        const publisher = reservations.get(role)?.find((entry) => entry.publisher)?.publisher;
+        if (!allocationCompleted || !continuousHandoff || !lease || !publisher ||
+            lease.handoffState !== 'reserved' || lease.containerPort === null)
+        {
+            throw new Error(`port lease ${role} cannot activate a final publisher`);
+        }
+        updateLease(role, { handoffState: 'handing-off', handedOffAt: now() });
+        try
+        {
+            const observed = await publisher.activate();
+            if (JSON.stringify(canonicalize(observed)) !== JSON.stringify(canonicalize(lease.containerReservation.ownerIdentity)))
+            {
+                throw new Error(`port lease ${role} publisher drifted during activation`);
+            }
+            return leases.get(role);
+        }
+        catch (error)
+        {
+            await failHandoff(role, 'container-activation-failed');
+            throw error;
+        }
     }
 
     async function failHandoff(role, reason)
@@ -1091,7 +1182,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
                 {
                     await reservations.get(role)?.find((entry) => entry.host === '127.0.0.1')?.cancelNative?.();
                 }
-                await closeRoleReservations(role);
+                await closeRoleReservations(role, { preserveRuntime: lease.handoffState === 'bound' && !cancelBound });
                 if ((lease.handoffState === 'bound' && !cancelBound) || lease.handoffState === 'released' || lease.handoffState === 'failed')
                 {
                     released.push(lease);
@@ -1130,6 +1221,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
         snapshot,
         beginHandoff: (role) => serializeRole(role, () => beginHandoff(role)),
         launchNative: (role, specification) => serializeRole(role, () => launchNative(role, specification)),
+        activateContainer: (role) => serializeRole(role, () => activateContainer(role)),
         completeHandoff: (role, identity) => serializeRole(role, () => completeHandoff(role, identity)),
         failHandoff: (role, reason) => serializeRole(role, () => failHandoff(role, reason)),
         releaseAll,
@@ -1139,7 +1231,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
     };
 }
 
-export function writePortLeaseTerminalReceipt({ terminalReceiptPath, runId, namespace, reservationOwnerIdentity, terminalState, reason, manifestDigest, leases = [], now = () => new Date().toISOString() })
+export function writePortLeaseTerminalReceipt({ terminalReceiptPath, runId, namespace, reservationOwnerIdentity, terminalState, reason, manifestDigest, leases = [], cleanupObservations = [], now = () => new Date().toISOString() })
 {
     if (!['released', 'failed'].includes(terminalState))
     {
@@ -1155,6 +1247,7 @@ export function writePortLeaseTerminalReceipt({ terminalReceiptPath, runId, name
         reason,
         manifestDigest,
         leases,
+        cleanupObservations,
         terminalAt: now()
     };
     atomicWriteJson(terminalReceiptPath, { ...payload, contentDigest: digest(JSON.stringify(canonicalize(payload))) });
@@ -1332,6 +1425,16 @@ async function handleControlRequest({ request, allocator, token, persist, onRele
                     {
                         persist?.();
                     }
+                }
+            case 'activate-container':
+                if (typeof request.role !== 'string') return { ok: false, error: 'role is required' };
+                {
+                    try
+                    {
+                        const lease = await allocator.activateContainer(request.role);
+                        return { ok: true, lease };
+                    }
+                    finally { persist?.(); }
                 }
             case 'complete-handoff':
                 if (typeof request.role !== 'string' || typeof request.listenerIdentityRef !== 'string')
@@ -1630,7 +1733,9 @@ async function runServe(options)
     const token = randomBytes(32).toString('hex');
     const allocator = createPortLeaseAllocator({
         runId, namespace, roles, reservationToken: token, pins,
-        continuousHandoff: options['continuous-handoff'] === '1'
+        continuousHandoff: options['continuous-handoff'] === '1',
+        containerReservations: options['container-reservations'] ?
+            JSON.parse(readPrivateFile(path.resolve(options['container-reservations']))) : {}
     });
     const leases = await allocator.allocate();
 
@@ -1762,7 +1867,7 @@ async function runControlCommand(commandName, options)
     const manifest = readSealedManifest(path.resolve(options.manifest));
     const token = readTokenFile(path.resolve(options['token-file']));
     const request = { command: commandName, token };
-    if (['release-before-bind', 'complete-handoff', 'fail-handoff', 'launch-native'].includes(commandName))
+    if (['release-before-bind', 'complete-handoff', 'fail-handoff', 'launch-native', 'activate-container'].includes(commandName))
     {
         if (!options.role)
         {
@@ -1809,7 +1914,7 @@ async function runControlCommand(commandName, options)
     }
 }
 
-function runRecover(manifestPath)
+async function runRecover(manifestPath)
 {
     const resolved = path.resolve(manifestPath);
     let manifest;
@@ -1847,21 +1952,53 @@ function runRecover(manifestPath)
     {
         throw new Error(`port lease reservation owner is still alive; refusing recovery: ${manifest.reservationOwnerIdentity.instanceId}`);
     }
+    const cleanupObservations = [];
+    const recoveredLeases = [];
+    const cleanupFailures = [];
+    for (const lease of manifest.leases)
+    {
+        if (lease.handoffState === 'bound' || lease.handoffState === 'released')
+        {
+            recoveredLeases.push(lease);
+            continue;
+        }
+        try
+        {
+            if (lease.containerReservation)
+            {
+                cleanupObservations.push({ role: lease.role, observation: await recoverReleaseContainerPublisher(lease.containerReservation) });
+            }
+            else if (lease.handoffOwnerIdentity)
+            {
+                // A dead reservation owner does not prove its application or
+                // descendants are gone. Do not manufacture a released receipt.
+                throw new Error(`native reservation recovery requires verified process-group cleanup: ${lease.role}`);
+            }
+            recoveredLeases.push({ ...lease, handoffState: 'released',
+                handedOffAt: new Date().toISOString(), failedReason: 'owner-crashed' });
+        }
+        catch (error)
+        {
+            cleanupFailures.push(`${lease.role}: ${error.message}`);
+            cleanupObservations.push({ role: lease.role, verified: false, error: error.message });
+            recoveredLeases.push(lease);
+        }
+    }
     writePortLeaseTerminalReceipt({
         terminalReceiptPath: manifest.terminalReceiptPath,
         runId: manifest.runId,
         namespace: manifest.namespace,
         reservationOwnerIdentity: manifest.reservationOwnerIdentity,
-        terminalState: 'released',
-        reason: 'owner-crashed',
+        terminalState: cleanupFailures.length > 0 ? 'failed' : 'released',
+        reason: cleanupFailures.length > 0 ? 'owner-crashed-cleanup-unverified' : 'owner-crashed',
         manifestDigest: manifest.contentDigest,
-        leases: manifest.leases.map((lease) => ({
-            ...lease,
-            handoffState: 'released',
-            handedOffAt: lease.handedOffAt ?? new Date().toISOString(),
-            failedReason: 'owner-crashed'
-        }))
+        leases: recoveredLeases,
+        cleanupObservations
     });
+    if (cleanupFailures.length > 0)
+    {
+        throw new Error(`port lease recovery cleanup was not verified: ${cleanupFailures.join('; ')}`);
+    }
     process.stdout.write(`[port-lease] recovered stale manifest ${resolved}\n`);
 }
 
@@ -1915,10 +2052,10 @@ async function main()
     }
     if (command === 'recover')
     {
-        runRecover(options.manifest);
+        await runRecover(options.manifest);
         return;
     }
-    if (['status', 'release-before-bind', 'complete-handoff', 'fail-handoff', 'release-all', 'ping', 'launch-native'].includes(command))
+    if (['status', 'release-before-bind', 'complete-handoff', 'fail-handoff', 'release-all', 'ping', 'launch-native', 'activate-container'].includes(command))
     {
         await runControlCommand(command, options);
         return;

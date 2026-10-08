@@ -169,6 +169,25 @@ authorization. Failed or canceled pending attempts drain their own child before
 releasing reservations; successful completion retains the application's socket
 when the reservation duplicates are closed.
 
+In the same opt-in mode, PostgreSQL and Redis use their admitted, digest-pinned
+final container as the IPv4 reservation owner. The allocator first holds the
+IPv6 guard, starts the final Docker publisher with explicit CPU, memory and PID
+limits, and seals its exact container, publisher process and socket identities.
+The image's business entrypoint waits on a task-private activation gate. All
+requested roles must finish allocation before any native launch or container
+activation is permitted. Activation and completion reobserve the sealed owner;
+they do not recreate the container or retry a failed publication on another port.
+The CLI receives these admitted settings through a private
+`--container-reservations` JSON file with `--continuous-handoff 1`.
+
+Normal release preserves successfully transferred runtimes. Abort uses
+`releaseAll(reason, {cancelBound: true})` to stop the owned runtimes as well.
+Crash recovery skips bound runtimes, records individual verified container
+cleanup observations, and writes a failed terminal receipt for unverified
+cleanup. Native owner SIGKILL recovery remains unsupported and fails closed
+when a launched application's process-group cleanup cannot be proven. This
+source capability does not supply a readiness or qualification receipt.
+
 Focused checks are `node --test tests/tools/production-fresh-continuous-handoff.test.mjs`.
 These checks exercise real subprocesses and sockets. They do not establish a
 five-role bootstrap, business AEDS canary, sealed readiness receipt, current-run

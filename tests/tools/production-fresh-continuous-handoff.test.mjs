@@ -17,6 +17,19 @@ http.createServer((request, response) => response.end(process.env.FSUSBLOG_RUNTI
     .listen({fd});
 `;
 
+test('continuous container allocation requires pinned images and explicit resource admission before mutation', () =>
+{
+    const roles = defaultRoleCatalog();
+    assert.throws(() => createPortLeaseAllocator({
+        runId: 'admission-negative', namespace: 'admission-negative', continuousHandoff: true, roles
+    }), /container reservation requires/u);
+    assert.throws(() => createPortLeaseAllocator({
+        runId: 'admission-negative', namespace: 'admission-negative', continuousHandoff: true, roles,
+        containerReservations: {postgres: {taskId: 'probe', name: 'fsusblog-test-admission', gateRoot: '/tmp',
+            imageReference: 'postgres:latest', resourceArgs: []}}
+    }), /pinned image reference/u);
+});
+
 async function competitor(port, host)
 {
     const server = net.createServer();
