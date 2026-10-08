@@ -4,6 +4,10 @@
         {
             "id": "environment-variable",
             "paths": [
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/control-legality/admission.mjs",
+                "tools/frontend/control-legality/source.mjs",
+                "tools/frontend/style-toolchain/eslint.config.mjs",
                 "tools/test/correctness-attempt-migration.mjs",
                 "tools/test/run-comment-fixture-simulated-runtime.mjs"
             ],
@@ -50,6 +54,7 @@
         {
             "id": "css-like-contract",
             "paths": [
+                "docs/frontend/fsusui-typecheck-modes.md",
                 "docs/frontend/layout-visual-governance.md"
             ],
             "reason": "Preserve documented public DOM, surface-role and token spellings shared by the layout consumer contracts and canonical producer owners."
