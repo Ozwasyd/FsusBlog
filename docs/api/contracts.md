@@ -2362,6 +2362,15 @@ caller-facing verifier 只有在当前权限快照有效且所有 history entry 
 terminal projection 仅在同一当前权限快照有效且全部 entry 可投影时保留授权 metadata；否则保留原 status/reason，
 但使用 canonical empty projection，不返回 collection facts 或无权摘要。正常读取仍按服务端权限过滤可见 entry。
 
+`SqlAuthorRecentArticleHistoryPermissionAuthority` 的 worker 查询口
+`IAuthorRecentArticleHistoryWorkerPermissionProjectionProvider.ResolveForSessionAsync` 接受由已认证服务端边界
+捕获的 `ownerAdminPrincipalId`、精确配置 `siteScope` 与 `adminSessionId`，复用原参数化 SQL 和权限/文章可见性
+检查；不构造 `HttpContext`、claims 或原 JWT。session 必须属于该管理员，且仍未撤销、未超过 idle/absolute
+期限；管理员必须 active 且具有当前数据库 `article.write` 权限或 root 身份。该口不证明冻结 revision、正文、
+资产或输出 custody，调用方仍须验证这些绑定，也不得把 body 中的身份作为已认证输入。原 HTTP `ResolveAsync`
+继续要求真实 authenticated admin context、匹配 owner、`article.write` claim 与 `admin_sid`，普通 account `sid`
+不能替代管理员 session。worker 口本身不新增路由、默认 authorizer 或 DI 生产绑定。
+
 ### Admin Author Workbench
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：

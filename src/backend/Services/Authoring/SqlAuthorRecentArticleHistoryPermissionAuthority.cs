@@ -20,7 +20,8 @@ public sealed class SqlAuthorRecentArticleHistoryPermissionAuthority(
     IConfiguration configuration,
     TimeProvider timeProvider) :
     IAuthorRecentArticleHistoryMutationAuthorizer,
-    IAuthorRecentArticleHistoryPermissionProjectionProvider
+    IAuthorRecentArticleHistoryPermissionProjectionProvider,
+    IAuthorRecentArticleHistoryWorkerPermissionProjectionProvider
 {
     public async Task AuthorizeAsync(
         AuthorRecentArticleHistoryOwner owner,
@@ -46,13 +47,8 @@ public sealed class SqlAuthorRecentArticleHistoryPermissionAuthority(
         AuthorRecentArticleHistoryPermissionRequest request,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        AuthorRecentArticleHistoryContract.ValidateOwner(request.Owner);
-        AuthorRecentArticleHistoryContract.ValidateRequestId(request.RequestId);
-        int[] articleIds = [.. request.ArticleIds];
-        if (articleIds.Any(static articleId => articleId <= 0)
-            || articleIds.Distinct().Count() != articleIds.Length
-            || articleIds.Length > AuthorRecentArticleHistoryContract.MaxEntriesPerOwner)
+        int[]? articleIds = ValidateRequest(request);
+        if (articleIds is null)
         {
             return Unavailable(request.Owner, "author_recent_history_permission_request_invalid");
         }
@@ -72,6 +68,57 @@ public sealed class SqlAuthorRecentArticleHistoryPermissionAuthority(
             return Unavailable(request.Owner, "author_recent_history_permission_context_denied");
         }
 
+        return await ResolveBoundSessionAsync(request, sessionId, articleIds, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Rechecks a server-captured owner/session against the same live database authority.
+    /// This is a worker port, not an HTTP authentication or frozen-revision proof.
+    /// </summary>
+    public async Task<AuthorRecentArticleHistoryPermissionSnapshot> ResolveForSessionAsync(
+        AuthorRecentArticleHistoryPermissionRequest request,
+        string adminSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        int[]? articleIds = ValidateRequest(request);
+        if (articleIds is null)
+        {
+            return Unavailable(request.Owner, "author_recent_history_permission_request_invalid");
+        }
+        if (string.IsNullOrWhiteSpace(adminSessionId)
+            || !string.Equals(adminSessionId, adminSessionId.Trim(), StringComparison.Ordinal)
+            || adminSessionId.Any(char.IsControl)
+            || !string.Equals(request.Owner.SiteScope, ResolveSiteScope(configuration), StringComparison.Ordinal))
+        {
+            return Unavailable(request.Owner, "author_recent_history_permission_context_denied");
+        }
+
+        return await ResolveBoundSessionAsync(request, adminSessionId, articleIds, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static int[]? ValidateRequest(AuthorRecentArticleHistoryPermissionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        AuthorRecentArticleHistoryContract.ValidateOwner(request.Owner);
+        AuthorRecentArticleHistoryContract.ValidateRequestId(request.RequestId);
+        int[] articleIds = [.. request.ArticleIds];
+        return articleIds.Any(static articleId => articleId <= 0)
+            || articleIds.Distinct().Count() != articleIds.Length
+            || articleIds.Length > AuthorRecentArticleHistoryContract.MaxEntriesPerOwner
+                ? null
+                : articleIds;
+    }
+
+    private async Task<AuthorRecentArticleHistoryPermissionSnapshot> ResolveBoundSessionAsync(
+        AuthorRecentArticleHistoryPermissionRequest request,
+        string sessionId,
+        IReadOnlyList<int> articleIds,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        long adminPrincipalId = request.Owner.AdminPrincipalId;
         PermissionState? state = await ReadPermissionStateAsync(
             adminPrincipalId,
             sessionId,
@@ -96,7 +143,7 @@ public sealed class SqlAuthorRecentArticleHistoryPermissionAuthority(
             $"site:{request.Owner.SiteScope}");
         string sessionRevision = AuthorRecentArticleHistoryContract.HashText(
             $"session:{sessionId}:{state.SessionRowVersion}:{state.IdleExpiresAtUtc:O}:{state.AbsoluteExpiresAtUtc:O}");
-        var decisions = new List<AuthorRecentArticleHistoryPermissionDecision>(articleIds.Length);
+        var decisions = new List<AuthorRecentArticleHistoryPermissionDecision>(articleIds.Count);
         foreach (int articleId in articleIds)
         {
             bool visible = articles.TryGetValue(articleId, out ArticleAccessState? article)
@@ -236,5 +283,17 @@ public interface IAuthorRecentArticleHistoryPermissionProjectionProvider
 {
     Task<AuthorRecentArticleHistoryPermissionSnapshot> ResolveAsync(
         AuthorRecentArticleHistoryPermissionRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Accepts only owner/session identities captured by an authenticated server boundary.
+/// Consumers must separately prove frozen coordinates and content/resource custody.
+/// </summary>
+public interface IAuthorRecentArticleHistoryWorkerPermissionProjectionProvider
+{
+    Task<AuthorRecentArticleHistoryPermissionSnapshot> ResolveForSessionAsync(
+        AuthorRecentArticleHistoryPermissionRequest request,
+        string adminSessionId,
         CancellationToken cancellationToken = default);
 }
