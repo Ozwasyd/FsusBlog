@@ -11,6 +11,7 @@ public static class DocumentExportJobPolicy
     public const string OutputSchema = "fsusblog.document-export-output.v1";
     public const int MaximumJobs = 128;
     public const int MaximumOwnerJobs = 16;
+    public const int MaximumSiteJobs = 64;
     public const int MaximumGrants = 128;
     public const int MaximumOwnerGrants = 8;
     public const int MaximumAttempts = 3;
