@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { buildLandlockHelper } from './execution-envelope-network.mjs';
+import { currentProcessIdentity, processIdentityStatus } from './process-identity.mjs';
 
 const { verifyProductionBuildReceipt } = await import(new URL('../ci/production-build-artifacts.mjs', import.meta.url));
 const { snapshotGitWorktree } = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
@@ -161,7 +162,7 @@ export async function createMutationAttemptRoot({
         directoryIdentities: Object.fromEntries(Object.entries(paths).map(([name, directory]) =>
             [name, directoryIdentity(directory)])),
         forbiddenRoots: [fs.realpathSync(repositoryRoot), os.homedir(), path.dirname(buildFile), ...forbiddenRoots],
-        owner: { pid: process.pid, uid: process.getuid() },
+        owner: { pid: process.pid, uid: process.getuid(), processIdentity: currentProcessIdentity() },
         createdAt: new Date().toISOString(), cleanupPolicy: 'retain-on-failure',
         writeDomain: [root], producerSpawned: false, authoritativeEvidence: null
     };
@@ -187,6 +188,11 @@ export function verifyMutationAttemptRoot(receipt, expected)
         || JSON.stringify(directoryIdentity(receipt.root)) !== JSON.stringify(receipt.filesystemIdentity))
     {
         throw new Error('mutation root filesystem identity drift');
+    }
+    if (receipt.owner.uid !== process.getuid() || receipt.owner.pid !== receipt.owner.processIdentity?.pid
+        || processIdentityStatus(receipt.owner.processIdentity).status !== 'live')
+    {
+        throw new Error('mutation attempt root owner is stale or unverifiable');
     }
     for (const [name, directory] of Object.entries(receipt.paths))
     {

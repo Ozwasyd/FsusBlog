@@ -148,6 +148,20 @@ test('modified immutable payload or a removed read-only seal cannot admit an att
     assert.equal(fs.existsSync(options.outputRoot), false);
 });
 
+test('a retained root whose exact allocating owner exited cannot admit producer writes', async (t) =>
+{
+    const { options } = await fixture(t);
+    const moduleUrl = new URL('../../tools/test/release-mutation-attempt-root.mjs', import.meta.url).href;
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e',
+        'const { createMutationAttemptRoot } = await import(process.argv[1]); process.stdout.write(JSON.stringify(await createMutationAttemptRoot(JSON.parse(process.argv[2]))));',
+        moduleUrl, JSON.stringify(options)], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const receipt = JSON.parse(result.stdout);
+    assert.throws(() => verifyMutationAttemptRoot(receipt, options), /owner is stale/u);
+    assert.equal(fs.existsSync(path.join(receipt.root, 'root-receipt.json')), true);
+    assert.equal(receipt.authoritativeEvidence, null);
+});
+
 test('unavailable enforcement fails before producer admission and cannot create authoritative evidence', async (t) =>
 {
     const { options } = await fixture(t);
