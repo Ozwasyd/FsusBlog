@@ -10,7 +10,9 @@ import { fileURLToPath } from 'node:url';
 
 
 
-import { canonicalize } from '../../tools/fact-extractors/lib/canonicalize.mjs';
+import { createCurrentActivationPlan, validateCurrentActivationPlan, verifyCurrentActivationArtifacts,
+    beginCurrentActivationSwitch, failCurrentActivation, discardUnactivatedCandidate } from '../../tools/deployment/release-rollout-lib.mjs';
+import { canonicalize, digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs';
 import { RELEASE_ID_CONTRACT } from '../../tools/release/release-id.mjs';
 import { releaseIdentityRosterArtifacts } from '../../tools/release/release-manifest-identity-contract.mjs';
 import { signReleaseManifest, verifyReleaseManifestArtifacts } from '../../tools/release/release-manifest-signature-contract.mjs';
@@ -884,6 +886,12 @@ test('real ephemeral Ed25519 signatures bind current artifacts and independent t
     other.candidateId = deriveReleaseCandidateId(other);
     other.contentDigest = deriveReleaseManifestContentDigest(other);
     assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, manifest: other }), /signature verification/u);
+    const wrongReceipt = structuredClone(fixture.unsigned);
+    wrongReceipt.currentSchema.receiptContentDigest = '9'.repeat(64);
+    wrongReceipt.candidateId = deriveReleaseCandidateId(wrongReceipt);
+    wrongReceipt.contentDigest = deriveReleaseManifestContentDigest(wrongReceipt);
+    assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options,
+        manifest: signReleaseManifest(wrongReceipt, fixture.privateKey) }), /receipt byte projection mismatch/u);
     const policyFile = fixture.options.trustPolicyReference;
     const before = fs.readFileSync(policyFile);
     fs.writeFileSync(policyFile, 'not the admitted policy');
@@ -929,4 +937,105 @@ test('signature authority rejects coherent resealing of unadmitted duplicate and
         assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, manifest: signed,
             trustPolicySha256: sha256 }), /trust/u);
     }
+    const duplicateBytes = Buffer.from(`{"version":"shadow",${canonicalize(originalPolicy).slice(1)}`);
+    fs.writeFileSync(fixture.options.trustPolicyReference, duplicateBytes);
+    const duplicate = structuredClone(fixture.unsigned);
+    const duplicateSha = `sha256:${crypto.createHash('sha256').update(duplicateBytes).digest('hex')}`;
+    duplicate.identity.signing.trustPolicy.artifact.sha256 = duplicateSha;
+    duplicate.candidateId = deriveReleaseCandidateId(duplicate);
+    duplicate.contentDigest = deriveReleaseManifestContentDigest(duplicate);
+    assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options,
+        manifest: signReleaseManifest(duplicate, fixture.privateKey), trustPolicySha256: duplicateSha }), /canonical JSON/u);
+});
+
+
+test('atomic candidate plan verifies exact signed bytes and preserves active identity when native admission is unavailable', context =>
+{
+    const fixture = signingFixture(context);
+    const manifestFile = path.join(fixture.directory, 'activation-manifest.json');
+    writeReleaseManifestAtomic(manifestFile, fixture.manifest);
+    const activeBefore = { candidateId: `sha256:${'8'.repeat(64)}`, manifestContentDigest: `sha256:${'9'.repeat(64)}` };
+    const prepared = createCurrentActivationPlan({ manifest: fixture.manifest, manifestReference: manifestFile,
+        manifestSha256: `sha256:${crypto.createHash('sha256').update(fs.readFileSync(manifestFile)).digest('hex')}`,
+        activeBefore, releaseIdContract: RELEASE_ID_CONTRACT });
+    const verified = verifyCurrentActivationArtifacts(prepared, fixture.options);
+    assert.equal(verified.plan.phase, 'verified');
+    assert.equal(verified.evidence.nativeClaimEligible, false);
+    assert.deepEqual(verified.plan.currentActive, activeBefore);
+    assert.deepEqual(verifyCurrentActivationArtifacts(verified.plan, fixture.options), verified);
+    assert.throws(() => beginCurrentActivationSwitch(verified.plan, fixture.options), /native_current_schema_admission_bridge_unconfigured/u);
+    assert.deepEqual(verified.plan.currentActive, activeBefore);
+    const failed = failCurrentActivation(verified.plan, fixture.manifest, 'native_admission_unconfigured');
+    assert.equal(failed.phase, 'failed-before-switch');
+    const discarded = discardUnactivatedCandidate(failed, fixture.manifest);
+    assert.equal(discarded.phase, 'rollback-to-unactivated-candidate');
+    assert.deepEqual(discarded.currentActive, activeBefore);
+    assert.throws(() => verifyCurrentActivationArtifacts(discarded, fixture.options), /failed or activated/u);
+    for (const mutate of [
+        plan =>
+        {
+            plan.phase = 'http-healthy';
+        },
+        plan =>
+        {
+            plan.nativeAdmission.claimEligible = true;
+        },
+        plan =>
+        {
+            plan.currentActive.candidateId = fixture.manifest.candidateId;
+        },
+        plan =>
+        {
+            plan.closure.frontendManifestHash = `sha256:${'7'.repeat(64)}`;
+        },
+        plan =>
+        {
+            plan.closure.identity.contracts.wasmAbi.version = 'other-abi';
+        },
+        plan =>
+        {
+            plan.manifest.reference = '/artifacts/latest/manifest.json';
+        },
+        plan =>
+        {
+            plan.previousFrontend = 'old';
+        },
+        plan =>
+        {
+            plan.failurePolicy.afterSwitch = 'keep-old-backend';
+        }
+    ])
+    {
+        const changed = structuredClone(prepared);
+        mutate(changed);
+        assert.throws(() => validateCurrentActivationPlan(changed, fixture.manifest), /current activation/u);
+    }
+    // Value-model recovery only: no native grant or real gateway switch occurred.
+    const modelOnlyActive = structuredClone(prepared);
+    modelOnlyActive.phase = 'active';
+    modelOnlyActive.currentActive = { candidateId: fixture.manifest.candidateId, manifestContentDigest: fixture.manifest.contentDigest };
+    delete modelOnlyActive.contentDigest;
+    modelOnlyActive.contentDigest = `sha256:${digestValue(modelOnlyActive)}`;
+    const requiresRestore = failCurrentActivation(modelOnlyActive, fixture.manifest, 'health_failed');
+    assert.equal(requiresRestore.phase, 'restore-required');
+    assert.throws(() => discardUnactivatedCandidate(requiresRestore, fixture.manifest), /unactivated failed/u);
+    assert.throws(() => beginCurrentActivationSwitch(modelOnlyActive, fixture.options), /failed or activated/u);
+    assert.throws(() => failCurrentActivation(failed, fixture.manifest, 'repeated_failure'), /already terminal/u);
+    const planFile = path.join(fixture.directory, 'activation-plan.json');
+    const createPlan = spawnSync(process.execPath, [path.join(root, 'tools/deployment/rollout-state.mjs'),
+        'create-current-activation-plan', '--state', planFile, '--manifest', manifestFile,
+        '--manifest-sha256', prepared.manifest.sha256, '--active-candidate', activeBefore.candidateId,
+        '--active-manifest-digest', activeBefore.manifestContentDigest], { encoding: 'utf8' });
+    assert.equal(createPlan.status, 0, createPlan.stderr);
+    assert.deepEqual(JSON.parse(fs.readFileSync(planFile)), prepared);
+    const planSha = `sha256:${crypto.createHash('sha256').update(fs.readFileSync(planFile)).digest('hex')}`;
+    const checker = spawnSync(process.execPath, [path.join(root, 'tools/release/check-release-manifest.mjs'),
+        '--manifest', manifestFile, '--verify-artifacts', 'true', '--activation-preflight', 'true',
+        '--activation-plan', planFile, '--activation-plan-sha256', planSha,
+        '--trust-policy', fixture.options.trustPolicyReference, '--trust-policy-sha256', fixture.options.trustPolicySha256], { encoding: 'utf8' });
+    assert.notEqual(checker.status, 0);
+    assert.match(checker.stderr, /native_current_schema_admission_bridge_unconfigured/u);
+    const rolloutSource = fs.readFileSync(path.join(root, 'tools/deployment/release-rollout.sh'), 'utf8');
+    const switchBody = rolloutSource.slice(rolloutSource.indexOf('StageGatewaySwitch()'), rolloutSource.indexOf('MarkGatewaySwitch()'));
+    assert.ok(switchBody.indexOf('--activation-preflight true') < switchBody.indexOf('gateway-switch.sh'));
 });

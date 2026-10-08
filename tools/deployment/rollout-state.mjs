@@ -6,6 +6,8 @@ import {
   completeRolloutRecovery,
   completeRolloutStage,
   createRolloutState,
+  createCurrentActivationPlan,
+  writeCurrentActivationPlanAtomic,
     failRolloutStage,
     failRolloutRecovery,
     markCandidateOnly,
@@ -18,6 +20,9 @@ import {
     startRolloutStage,
     writeRolloutStateAtomic
 } from './release-rollout-lib.mjs';
+import { readExplicitReleaseArtifact } from '../release/release-manifest.mjs';
+import { RELEASE_ID_CONTRACT } from '../release/release-id.mjs';
+
 import { readSlotState } from './slot-lib.mjs';
 import { readDeploymentReleaseIdentity } from '../release/deployment-release-identity.mjs';
 
@@ -45,6 +50,21 @@ function identity(options, prefix) {
 
 try {
   const { command, options } = parse(process.argv.slice(2))
+    if (command === 'create-current-activation-plan')
+    {
+        const required = ['state', 'manifest', 'manifest-sha256', 'active-candidate', 'active-manifest-digest'];
+        if (required.some(key => !options[key]) || Object.keys(options).some(key => !required.includes(key)))
+            throw new Error('current activation creation requires exact explicit state, manifest/digest and active identity inputs');
+        const manifestReference = options.manifest;
+        const manifest = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(
+            readExplicitReleaseArtifact(manifestReference, options['manifest-sha256'].replace(/^sha256:/u, ''))));
+        const plan = createCurrentActivationPlan({ manifest, manifestReference, manifestSha256: options['manifest-sha256'],
+            activeBefore: { candidateId: options['active-candidate'], manifestContentDigest: options['active-manifest-digest'] },
+            releaseIdContract: RELEASE_ID_CONTRACT });
+        writeCurrentActivationPlanAtomic(path.resolve(options.state), plan, manifest);
+        process.stdout.write(`${JSON.stringify(plan)}\n`);
+        process.exit(0);
+    }
     const file = path.resolve(options.state ?? process.env.FSUSBLOG_ROLLOUT_STATE_FILE ?? '/var/lib/fsusblog/deployment/rollout.json');
     let state;
     if (command === 'create')

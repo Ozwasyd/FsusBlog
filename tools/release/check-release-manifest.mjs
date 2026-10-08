@@ -2,6 +2,9 @@
 import path from 'node:path';
 import process from 'node:process';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Activation delegates to the existing rollout owner's pure contract.
+import { beginCurrentActivationSwitch } from '../deployment/current-activation-contract.mjs';
+
 import { RELEASE_ID_CONTRACT } from './release-id.mjs';
 import { verifyReleaseManifestArtifacts } from './release-manifest-signature-contract.mjs';
 import { readExplicitReleaseArtifact, readCurrentSchemaReceiptReleaseBinding, readReleaseManifest } from './release-manifest.mjs';
@@ -88,17 +91,41 @@ try
                 }
             }
         }
+        if (options['activation-preflight'] !== undefined
+            && (options['activation-preflight'] !== 'true' || options['verify-artifacts'] !== 'true'))
+        {
+            throw new Error('activation preflight requires explicit artifact/signature verification');
+        }
         if (options['verify-artifacts'] !== undefined)
         {
             if (options['verify-artifacts'] !== 'true')
             {
                 throw new Error('artifact verification must be explicitly true');
             }
-            verifyReleaseManifestArtifacts({ manifest, releaseIdContract: RELEASE_ID_CONTRACT,
+            let plan;
+            if (options['activation-preflight'] === 'true')
+            {
+                if (!options['activation-plan'] || !options['activation-plan-sha256'])
+                {
+                    throw new Error('activation requires an explicit plan artifact reference and SHA-256');
+                }
+                plan = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(readExplicitReleaseArtifact(
+                    options['activation-plan'], options['activation-plan-sha256'].replace(/^sha256:/u, ''))));
+            }
+            const verification = { manifest, releaseIdContract: RELEASE_ID_CONTRACT,
                 trustPolicyReference: options['trust-policy'], trustPolicySha256: options['trust-policy-sha256'],
                 readBytes: reference => readExplicitReleaseArtifact(reference,
-                    reference === manifest.currentSchema.receipt.reference ? manifest.currentSchema.receipt.sha256
-                        : findArtifactDigest(manifest.identity, reference), 64 * 1024 * 1024) });
+                    reference === plan?.manifest.reference ? plan.manifest.sha256.replace(/^sha256:/u, '')
+                        : reference === manifest.currentSchema.receipt.reference ? manifest.currentSchema.receipt.sha256
+                            : findArtifactDigest(manifest.identity, reference), 64 * 1024 * 1024) };
+            if (plan)
+            {
+                beginCurrentActivationSwitch(plan, verification);
+            }
+            else
+            {
+                verifyReleaseManifestArtifacts(verification);
+            }
         }
         const slot = options.slot ?? 'candidate';
         if (!/^[a-z][a-z0-9-]{0,31}$/u.test(slot))
