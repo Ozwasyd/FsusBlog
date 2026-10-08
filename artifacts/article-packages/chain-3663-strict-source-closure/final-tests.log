@@ -1,0 +1,5 @@
+Test run for /workspace/chain-3663-evidence/strict-source-closure/harness/bin/Debug/net10.0/PropertyCodec.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/chain-3663-evidence/strict-source-closure/final-trx/_1c6b98fee6cc_2026-10-08_15_12_07_net10.0.trx
+
+Passed!  - Failed:     0, Passed:   571, Skipped:     0, Total:   571, Duration: 7 s - PropertyCodec.Tests.dll (net10.0)
