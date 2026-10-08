@@ -1165,7 +1165,8 @@ export function scanControlLegality({ repositoryRoot, resolver, registry, testCa
         parsedSourceBindings: bindings.files, registryDigest: controlDigest(registry), controls, errors, warnings: [],
         counts: {
             discovered: controls.length,
-            unresolvedSource: errors.filter((item) => ['source', 'component', 'dynamic-component', 'render-component', 'dom-factory'].includes(item.controlKind)).length,
+            unresolvedSource: errors.filter((item) => !item.resolvedSource
+                && ['source', 'component', 'dynamic-component', 'render-component', 'dom-factory'].includes(item.controlKind)).length,
             unregistered: controls.filter((control) => control.classification === 'unregistered').length,
             invalidRegistrations: new Set(registryErrors.map((item) => item.registryRef ?? '<schema>')).size,
             expiredCapabilityGaps: registryErrors.filter((item) => item.reason === 'expired-capability-gap').length,
