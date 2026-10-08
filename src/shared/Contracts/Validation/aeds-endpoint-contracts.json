@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "130356ad37ebe410a7d612c662c51c941b1cba9dcda1f7c334bf0f9c8ed22008",
+    "contentDigest": "ba3160e1c83d1f9d3f5ad64fd18f3a477548252e0e8513e2e410924b5dbd35ec",
     "operations": [
         {
             "method": "DELETE",
@@ -3185,6 +3185,17 @@
             "requestType": "FsusBlog.Shared.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotRequest",
             "requestEncoding": "binary-layout",
             "responseFrame": "AuthoringWorkspaceSnapshotResponse",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/articles/revalidate-selection",
+            "operationId": "binary_author_article_selection_revalidate",
+            "requestFrame": "AuthorArticleSelectionRevalidateRequest",
+            "requestType": "FsusBlog.Contracts.AuthoringNavigation.AuthorArticleSelectionRevalidationRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "AuthorArticleSelectionRevalidateResponse",
             "errorFrame": "ApiError",
             "successStatus": 200
         }
