@@ -2970,9 +2970,10 @@ The frontend computation deliberately has no plan DTO or coordinate-admission re
 
 The shared `Contracts/ArticlePackages` owner supplies the foundation used by the
 single article-package schema required by #2398 and #2408. This increment exposes
-portable identities, a bounded canonical entry inventory, and raw UTF-8 byte
-metadata. It does not yet define or validate the complete manifest, property
-snapshots, version migrations, or canonical syntax/dependency projections.
+portable identities, a bounded canonical entry inventory, raw UTF-8 byte
+metadata, and a finite checksum component. It does not yet define or validate the
+complete manifest, property snapshots, version migrations, or canonical
+syntax/dependency projections.
 
 Article identities follow the existing article-embed portable identity codec.
 Asset, definition, and option identities are explicit typed portable references;
@@ -2989,6 +2990,36 @@ LF/CRLF/bare-CR counts, exact final newline, and trailing ASCII space/tab counts
 Metadata verification recomputes every field without trimming, replacing invalid
 bytes, normalizing Unicode, or rewriting newlines. The 32 MiB Markdown byte budget
 is enforced before decoding. These checks do not parse anchors, embeds, or captions.
+
+`ArticlePackageChecksums` reads the actual `checksums.json` bytes with the closed
+`fsusblog.article-package.checksums.v1` schema, version `1`, and algorithm
+`sha256-framed-v1`. Its only document fields are `schema`, `version`, `algorithm`,
+`componentDigest`, and `files`; each file has only `path`, `byteLength`, and
+`sha256`. Unknown or duplicate fields, unsupported versions, incomplete or
+duplicate file sets, and noncanonical lowercase SHA-256 digests fail closed.
+The rows cover the manifest, Markdown, and assets exactly once. The checksum
+document has no row for itself, avoiding a circular digest; its actual bytes
+must still match the bounded inventory and pass the closed decoder.
+
+The checksum-component digest uses SHA-256 over big-endian framing: a UInt32
+byte-length-prefixed UTF-8 domain `fsusblog.article-package.checksum-component.v1`,
+UInt32 version, length-prefixed algorithm, and UInt32 row count. Rows sort by
+ordinal canonical path; each contributes a length-prefixed UTF-8 path, UInt64
+uncompressed byte length, and length-prefixed 32-byte SHA-256. ZIP order,
+compression metadata, and checksum-document formatting do not affect this
+component digest. Verification recomputes the hash of every covered file from
+caller-owned immutable bytes and validates Markdown UTF-8 without rewriting it.
+This component does not establish the complete manifest's semantics, privacy,
+provenance, canonical syntax mappings, or archive safety. It is not the full
+package semantic digest or an import receipt.
+
+The canonical `ArticlePropertyValueValidator.ValidateInputsAsync` supplies
+definition-bound, read-only primitive validation before an article ID exists.
+Nonempty article references, including defaults, fail closed without a real
+source identity. `BindSnapshot` and `ValidateSnapshotCandidate` only construct
+and validate immutable candidates; they do not prove observed coordinates,
+current authorization, persistence, or a transaction receipt. Portable package
+mappings must keep local definition, option, and article coordinates separate.
 
 Foundation verification is not complete package validation or permission to
 import. Complete schema work must consume the canonical typed-value and immutable
