@@ -1,9 +1,7 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "tools/check-test-matrix.mjs",
-        "tools/test/correctness-attempt-migration.mjs",
-        "tests/tools/correctness-attempt-migration.test.mjs"
+        "tools/test/correctness-attempt-migration.mjs"
     ],
     "outputs": [
         {
