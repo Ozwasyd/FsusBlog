@@ -3,14 +3,31 @@ import { fileURLToPath } from 'node:url'
 import type {} from '../fixtures/articleCommentComposer'
 
 const fixtureModule = `/@fs/${fileURLToPath(new URL('../fixtures/articleCommentComposer.ts', import.meta.url)).replaceAll('\\', '/')}`
+const runtimeFindings = new Map<Page, string[]>()
+
+test.beforeEach(() => runtimeFindings.clear())
+test.afterEach(() => {
+    for (const findings of runtimeFindings.values()) expect(findings).toEqual([])
+})
 
 async function openComposer(page: Page, theme = 'light', fixtureParams = ''): Promise<void> {
+    const findings: string[] = []
+    runtimeFindings.set(page, findings)
+    page.on('pageerror', error => findings.push(error.message))
+    page.on('console', message => {
+        if (message.type() === 'error' || (message.type() === 'warning' && message.text().includes('[Vue warn]'))) {
+            findings.push(message.text())
+        }
+    })
     await page.route('**/__article-comment-composer-fixture**', route => route.fulfill({
         contentType: 'text/html',
         body: `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Comment composer fixture</title></head><body><main id="article-comment-composer-fixture"></main><script type="module" src="${fixtureModule}"></script></body></html>`
     }))
     await page.goto(`/__article-comment-composer-fixture?theme=${theme}${fixtureParams}`, { waitUntil: 'domcontentloaded' })
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.commentComposerFixtureReady)).toBe('true')
+    await expect(page).toHaveTitle('Comment composer fixture')
+    await expect(page.locator('vite-error-overlay')).toHaveCount(0)
+    await expect(page.getByRole('checkbox', { name: /公开显示我的名称/ })).toHaveCount(1)
 }
 
 const normalEditor = (page: Page) => page.locator('.comment-composer-editor').getByRole('textbox', { name: '发表评论' })
@@ -134,7 +151,7 @@ test('composition commits before expansion and cannot trigger an early submit', 
     await openComposer(page)
     const editor = normalEditor(page)
     await editor.focus()
-    await editor.dispatchEvent('compositionstart', { data: '' })
+    await editor.evaluate(element => element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: '' })))
     await editor.evaluate(element => {
         (element as HTMLTextAreaElement).value = '输入中的中文'
         element.dispatchEvent(new InputEvent('input', { bubbles: true, data: '中文', isComposing: true }))
@@ -143,11 +160,22 @@ test('composition commits before expansion and cannot trigger an early submit', 
     expect(await page.evaluate(() => window.articleCommentComposerFixture.submissions)).toEqual([])
     await page.getByRole('button', { name: '扩展编辑', exact: true }).dispatchEvent('click')
     await expect(expandedDialog(page)).not.toBeVisible()
-    await editor.dispatchEvent('compositionend', { data: '中文' })
+    await editor.evaluate(element => element.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '中文' })))
     const expanded = expandedDialog(page).getByRole('textbox', { name: '发表评论' })
     await expect(expanded).toHaveValue('输入中的中文')
     await expanded.press('Control+Enter')
     expect(await page.evaluate(() => window.articleCommentComposerFixture.submissions)).toHaveLength(1)
+})
+
+test('strict CSP Input contract keeps both textareas non-resizable', async ({ page }) => {
+    await openComposer(page)
+    const editor = normalEditor(page)
+    await expect(editor).not.toHaveAttribute('style')
+    await expect(editor).toHaveCSS('resize', 'none')
+    await page.getByRole('button', { name: '扩展编辑', exact: true }).click()
+    const expanded = expandedDialog(page).getByRole('textbox', { name: '发表评论' })
+    await expect(expanded).not.toHaveAttribute('style')
+    await expect(expanded).toHaveCSS('resize', 'none')
 })
 
 test('disabled reasons remain in the accessible checkbox label at 200% zoom', async ({ page }) => {

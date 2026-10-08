@@ -768,7 +768,7 @@ const commentEditorProps = computed(() => ({
     type: 'textarea' as const,
     cspSafe: true,
     resize: 'none' as const,
-    'aria-label': '发表评论',
+    label: '发表评论',
     placeholder: placeholderText.value,
     disabled: composerInputDisabled.value,
     onFocus: notifyPrivacyIntent,

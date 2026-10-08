@@ -31,7 +31,7 @@ const ElInputStub = defineComponent({
   props: {
     modelValue: { type: String, default: '' },
     disabled: { type: Boolean, default: false },
-    ariaLabel: { type: String, default: '' },
+    label: { type: String, default: '' },
     type: { type: String, default: 'text' },
     resize: { type: String, default: '' }
   },
@@ -44,7 +44,7 @@ const ElInputStub = defineComponent({
       ref: textarea,
       value: props.modelValue,
       disabled: props.disabled,
-      'aria-label': props.ariaLabel,
+      'aria-label': props.label,
       onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
       onFocus: (event: FocusEvent) => emit('focus', event),
       onKeydown: (event: KeyboardEvent) => emit('keydown', event),
@@ -507,7 +507,7 @@ describe('ArticleCommentComposer public primitive delegation', () => {
     for (const editor of editors) {
       expect(editor.props('modelValue')).toBe('共享正文')
       expect(editor.props('disabled')).toBe(true)
-      expect(editor.props('ariaLabel')).toBe('发表评论')
+      expect(editor.props('label')).toBe('发表评论')
       expect(editor.get('textarea').attributes('aria-label')).toBe('发表评论')
       expect(editor.props('type')).toBe('textarea')
       expect(editor.props('resize')).toBe('none')
