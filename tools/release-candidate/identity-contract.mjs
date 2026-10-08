@@ -1,4 +1,6 @@
-import { canonicalJson, digestCanonical } from '../test/attempt-provenance.mjs';
+import { URL } from 'node:url';
+
+const { canonicalJson, digestCanonical } = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 
 export const candidateIdentitySchema = 'fsusblog.release-candidate-identity.v1';
 export const candidateIdentityVersion = 1;

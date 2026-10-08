@@ -1,5 +1,7 @@
-import { candidateIdentityFields, candidateIdentitySchema, candidateIdentityVersion, candidateSchemaDigest,
-    candidatePolicyDigest, createCandidateIdentity } from '../../tools/release-candidate/identity-contract.mjs';
+import { URL } from 'node:url';
+
+const { candidateIdentityFields, candidateIdentitySchema, candidateIdentityVersion, candidateSchemaDigest,
+    candidatePolicyDigest, createCandidateIdentity } = await import(new URL('../../tools/release-candidate/identity-contract.mjs', import.meta.url));
 
 export const testDigest = `sha256:${'1'.repeat(64)}`;
 export const otherDigest = `sha256:${'2'.repeat(64)}`;
