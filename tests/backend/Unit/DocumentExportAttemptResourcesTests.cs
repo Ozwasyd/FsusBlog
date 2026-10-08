@@ -164,6 +164,110 @@ public sealed class DocumentExportAttemptResourcesTests
     }
 
     [Fact]
+    public void IndependentVerification_ConsumesTheSameRemainingEnvelope()
+    {
+        var fixture = new Fixture();
+        using (DocumentExportAttemptResources.Stage renderer = fixture.Begin(canonicalRenderer: true))
+        {
+            renderer.Observe(1_000_000, 1, 100, 100, 100, 10, 10);
+            Assert.Null(renderer.Complete(qualified: true));
+        }
+        using (DocumentExportAttemptResources.Stage provider = fixture.Begin(canonicalRenderer: false))
+        {
+            provider.Observe(500_000, 1, 100, 100, 100, 10, 10);
+            Assert.Null(provider.Complete(qualified: true));
+        }
+        fixture.Clock.Advance(TimeSpan.FromSeconds(4));
+        using DocumentExportAttemptResources.Stage verification = fixture.Resources.BeginVerificationStage(
+            fixture.Task, fixture.Input, fixture.Maximum);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(2500), verification.Budgets.CpuTime);
+        Assert.Equal(TimeSpan.FromSeconds(16), verification.Budgets.WallTime);
+        Assert.Equal(6, verification.Budgets.MaxFileCount);
+        Assert.Equal(1000, verification.FileBytesBudget);
+        Assert.Equal(800, verification.Budgets.MaxInputBytes);
+        Assert.Equal(800, verification.Budgets.MaxOutputBytes);
+        Assert.Equal(80, verification.Budgets.MaxStandardOutputBytes);
+        Assert.Equal(80, verification.Budgets.MaxStandardErrorBytes);
+        verification.Observe(500_000, 1, 100, 100, 100, 10, 10);
+        Assert.Null(verification.Complete(qualified: true));
+        fixture.Resources.RequireCompleted(fixture.Task, fixture.Input);
+    }
+
+    [Theory]
+    [InlineData("early")]
+    [InlineData("overlap")]
+    [InlineData("failed")]
+    [InlineData("duplicate")]
+    [InlineData("sealed")]
+    public void IndependentVerification_RefusesEarlyRepeatedOrUnqualifiedStages(string condition)
+    {
+        var fixture = new Fixture();
+        if (condition != "early")
+        {
+            using DocumentExportAttemptResources.Stage provider = fixture.Begin(canonicalRenderer: false);
+            if (condition == "overlap")
+            {
+                Assert.Throws<InvalidOperationException>(() => fixture.Resources.BeginVerificationStage(
+                    fixture.Task, fixture.Input, fixture.Maximum));
+            }
+            Assert.Null(provider.Complete(qualified: condition != "failed"));
+        }
+        if (condition == "duplicate")
+        {
+            using DocumentExportAttemptResources.Stage first = fixture.Resources.BeginVerificationStage(
+                fixture.Task, fixture.Input, fixture.Maximum);
+            Assert.Null(first.Complete(qualified: true));
+        }
+        if (condition == "sealed")
+        {
+            fixture.Resources.RequireCompleted(fixture.Task, fixture.Input);
+        }
+        Assert.Throws<InvalidOperationException>(() => fixture.Resources.BeginVerificationStage(
+            fixture.Task, fixture.Input, fixture.Maximum));
+        Assert.Throws<InvalidDataException>(() => fixture.Resources.RequireCompleted(fixture.Task, fixture.Input));
+    }
+
+    [Fact]
+    public void IndependentVerification_CannotResetSpentCpuBudget()
+    {
+        var fixture = new Fixture();
+        using (DocumentExportAttemptResources.Stage provider = fixture.Begin(canonicalRenderer: false))
+        {
+            provider.Observe(3_000_000, 1, 1, 1, 1, 1, 1);
+            Assert.Null(provider.Complete(qualified: true));
+        }
+        using (DocumentExportAttemptResources.Stage verification = fixture.Resources.BeginVerificationStage(
+            fixture.Task, fixture.Input, fixture.Maximum))
+        {
+            Assert.Equal(TimeSpan.FromSeconds(1), verification.Budgets.CpuTime);
+            verification.Observe(1_000_001, 1, 1, 1, 1, 1, 1);
+            DocumentExportBudgetExceededException failure = Assert.IsType<DocumentExportBudgetExceededException>(
+                verification.Complete(qualified: true));
+            Assert.Equal("task-cpu-time-budget", failure.FailureCode);
+        }
+        Assert.Throws<InvalidDataException>(() => fixture.Resources.RequireCompleted(fixture.Task, fixture.Input));
+    }
+
+    [Fact]
+    public void Completion_RefusesACompletedOwnerForAnotherFrozenTask()
+    {
+        var fixture = new Fixture();
+        using (DocumentExportAttemptResources.Stage renderer = fixture.Begin(canonicalRenderer: true))
+        {
+            Assert.Null(renderer.Complete(qualified: true));
+        }
+        DocumentExportFrozenInput otherInput = DocumentExportContractValidator.Seal(fixture.Input with
+        {
+            SiteScope = "https://other.test"
+        });
+        DocumentExportTask otherTask = DocumentExportContractTests.ValidTask(otherInput);
+
+        Assert.Throws<InvalidDataException>(() => fixture.Resources.RequireCompleted(otherTask, otherInput));
+        Assert.Throws<InvalidDataException>(() => fixture.Resources.RequireCompleted(fixture.Task, fixture.Input));
+    }
+
+    [Fact]
     public void Stage_CannotBeAccountedTwice()
     {
         var fixture = new Fixture();

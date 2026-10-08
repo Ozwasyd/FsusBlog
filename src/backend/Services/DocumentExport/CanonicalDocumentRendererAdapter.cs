@@ -180,7 +180,7 @@ public sealed class DocumentExportProviderRegistry
             DocumentExportAttemptResources resources, CancellationToken cancellationToken)
         {
             await VerifyAsync(result, task, input, cancellationToken);
-            resources.RequireCompleted();
+            resources.RequireCompleted(task, input);
         }
 
         public Task VerifyAsync(

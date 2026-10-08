@@ -60,15 +60,23 @@ alone cannot qualify a job or a download.
 `IDocumentExportAttemptJobProvider` is the explicit resource consumer port. After
 claiming the worker, the job owner calls `CreateAttemptResources` once with the
 same execution task/input and its `TimeProvider`, then passes that exact instance
-to `ExportAsync` and `VerifyAsync`. Check `RequireCompleted` again at publication
+to `ExportAsync` and `VerifyAsync`. Check `RequireCompleted(executionTask, input)` again at publication
 boundaries alongside the existing deadline/cancellation checks. An adapter without
 this port must be refused for aggregate qualification, not silently delegated to
 the old per-stage methods. The original job owner must wire this additional port;
 its SiteScope source migration alone does not provide aggregate accounting.
 
 The canonical renderer and the final sandbox stage use the resource-aware
-overloads with that same instance. Stages cannot overlap, repeat the same role,
-reset after failure, or start after publication sealing. The sole sandbox tightens
+overloads with that same instance. If independent verification needs a second
+native invocation, use `ExecuteVerificationAsync` with the same registered tool
+and attempt resource owner, after the provider stage has qualified. This is one
+distinct verification role, not a retry of the provider role. Exactly one renderer,
+one provider and one independent-verification stage may be recorded. Verification
+cannot start early, overlap, repeat, reset after failure, or start after publication
+sealing. Every later role consumes the same remaining cumulative envelope.
+Use the original execution task/input at completion, rather than a transitioned
+job-status snapshot. The parameterless completion method is retained for existing
+single-stage controls; it does not establish consumer task/input binding. The sole sandbox tightens
 CPU, wall, file count, input/output and log budgets to the remaining allowance,
 using its real cgroup observations and mutable-file snapshots. HTML also charges
 its actual composed output length. First failures and physical cleanup refusal

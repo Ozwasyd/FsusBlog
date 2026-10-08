@@ -297,8 +297,24 @@ public sealed class DocumentExportSandboxRuntime
     private enum SandboxStage
     {
         Provider,
-        CanonicalRenderer
+        CanonicalRenderer,
+        IndependentVerification
     }
+
+    /// <summary>
+    /// Executes one independent verification stage after the provider stage,
+    /// retaining the same frozen attempt and cumulative resource owner. The
+    /// original registry, native authority, builder and cleanup gates apply.
+    /// </summary>
+    public async Task<DocumentExportSandboxResult> ExecuteVerificationAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportToolContract tool,
+        Func<Stream, CancellationToken, Task> writeRequestAsync,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken = default)
+        => await ExecuteWithStageAsync(task, input, tool, writeRequestAsync, SandboxStage.IndependentVerification,
+            resources, cancellationToken);
 
     private async Task<DocumentExportSandboxResult> ExecuteWithStageAsync(
         DocumentExportTask task,
@@ -363,8 +379,9 @@ public sealed class DocumentExportSandboxRuntime
         }
         tool = registered;
         ValidateToolMetadata(toolProvider, tool);
-        using DocumentExportAttemptResources.Stage resourceStage = resources.BeginStage(
-            task, input, budgets, stage == SandboxStage.CanonicalRenderer);
+        using DocumentExportAttemptResources.Stage resourceStage = stage == SandboxStage.IndependentVerification
+            ? resources.BeginVerificationStage(task, input, budgets)
+            : resources.BeginStage(task, input, budgets, stage == SandboxStage.CanonicalRenderer);
         budgets = resourceStage.Budgets;
         string runId = Guid.NewGuid().ToString("N");
         Dictionary<string, string> environment = MinimalEnvironment();
