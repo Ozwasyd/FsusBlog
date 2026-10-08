@@ -25,6 +25,7 @@ const temporal = await import(new URL("../../tools/test/temporal-context.mjs", i
 const { readGitChangedPaths } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
 const { appendWorkflowNeedToJob } = await import(new URL('../../tools/test-matrix/workflow-fixture-needs.mjs', import.meta.url));
 const { parseWorkflowJobNeeds } = await import(new URL('../../tools/yaml/workflow-structure.mjs', import.meta.url));
+const { sealMatrixFixtureProfile } = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 
 import { runActiveJsonProbe } from './support/active-json-probe.mjs';
 import {
@@ -170,7 +171,7 @@ function createCanonicalCliFixture(temp, payloads, configureTier = () =>
     const runner = materializeTestMatrixRunner(root, temp);
     const matrix = parseMatrix(fs.readFileSync(path.join(temp, 'tests/matrix.yml'), 'utf8'));
     const scripts = typeof payloads === 'string'
-        ? { 'frontend-static-governance': payloads }
+        ? { 'frontend-unit-shard': payloads }
         : payloads;
     const tierIds = Object.keys(scripts);
     assert.ok(tierIds.length >= 1 && tierIds.length <= 2);
@@ -191,12 +192,13 @@ function createCanonicalCliFixture(temp, payloads, configureTier = () =>
                 `exec node --input-type=module -e '${payload.replaceAll("'", "'\"'\"'")}'`].join('\n') + '\n';
         fs.writeFileSync(path.join(temp, commandPath), source);
         Object.assign(selected, {
-            executionDependsOn: [], requiresEvidenceFrom: [], services: [],
+            executionDependsOn: [], services: [],
             parallelizable: true, exclusiveResources: [], resourceClass: 'cpu',
-            maxParallel: 1, cpuUnits: 1, memoryGiB: 0.1, cacheInputs: [],
+            cpuWeight: 1, memoryWeight: 0.1, minCpuUnits: 1, cacheInputs: [],
             cacheProfile: 'none', requiresPlaywright: 'none', requiresBootstrap: 'none',
             artifacts: [], evidence: []
         });
+        delete selected.maxParallel;
         configureTier(selected, tierId);
     }
     if (options.prSmartSelectedOnly === true)
@@ -4098,8 +4100,8 @@ test('matrix job summaries explicitly separate browser diagnostics from correctn
     const temp = createTempDir('diagnostic-job-summary');
     try
     {
-        const diagnosticTierId = 'ux-viewport-smoke';
-        const correctnessTierId = 'frontend-static-governance';
+        const diagnosticTierId = 'cross-browser-smoke';
+        const correctnessTierId = 'frontend-unit-shard';
         const fixture = createCanonicalCliFixture(temp, {
             [diagnosticTierId]: 'process.exit(0)\n',
             [correctnessTierId]: 'process.exit(0)\n'
@@ -4250,8 +4252,8 @@ test('fresh CI steps accumulate within one workflow job but reset on the next wo
 {
     const temp = createTempDir('scheduler-summary-ci');
     t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
-    const firstTierId = 'frontend-static-governance';
-    const secondTierId = 'static-governance';
+    const firstTierId = 'frontend-unit-shard';
+    const secondTierId = 'frontend-runtime-contracts';
     const fixture = createCanonicalCliFixture(temp, {
         [firstTierId]: 'process.exit(0)\n',
         [secondTierId]: 'process.exit(0)\n'
@@ -4319,8 +4321,8 @@ test('ci-job keeps its CLI contract while using one scheduler checkpoint for all
     const temp = createTempDir('scheduler-ci-job');
     t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
     const marker = path.join(temp, '.tmp/marker.txt');
-    const firstTierId = 'frontend-static-governance';
-    const secondTierId = 'static-governance';
+    const firstTierId = 'frontend-unit-shard';
+    const secondTierId = 'frontend-runtime-contracts';
     const fixture = createCanonicalCliFixture(temp, {
         [firstTierId]: `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'a')\n`,
         [secondTierId]: `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'b')\n`
@@ -4733,8 +4735,8 @@ test('canonical PR scheduler fixture seals committed source and refuses post-sea
     const temp = createTempDir('scheduler-pr-candidate-binding');
     t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
     const fixture = createCanonicalCliFixture(temp, {
-        'frontend-static-governance': "process.exit('ready' === 'ready' ? 0 : 1)\n",
-        'static-governance': 'process.exit(0)\n'
+        'frontend-unit-shard': "process.exit('ready' === 'ready' ? 0 : 1)\n",
+        'frontend-runtime-contracts': 'process.exit(0)\n'
     }, () =>
     {
     }, { prSmartSelectedOnly: true });
@@ -4744,8 +4746,9 @@ test('canonical PR scheduler fixture seals committed source and refuses post-sea
     for (const id of fixture.tierIds)
     {
         const selected = matrix.tiers.find((entry) => entry.id === id);
-        assert.equal(selected.executionClass, 'static-governance');
+        assert.equal(selected.executionClass, 'runtime');
         assert.equal(selected.fixtureProfile, 'none');
+        assert.equal(sealMatrixFixtureProfile(selected).executionClass, 'runtime');
         const result = spawnSync('bash', [path.join(temp, selected.command)], {
             cwd: temp, encoding: 'utf8'
         });
@@ -4801,8 +4804,8 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', (t)
             'waitForPeer()'
         ].join('\n');
     };
-    const firstTierId = 'frontend-static-governance';
-    const secondTierId = 'static-governance';
+    const firstTierId = 'frontend-unit-shard';
+    const secondTierId = 'frontend-runtime-contracts';
     const fixture = createCanonicalCliFixture(temp, {
         [firstTierId]: scriptFor(firstTierId),
         [secondTierId]: scriptFor(secondTierId)

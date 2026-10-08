@@ -2290,8 +2290,8 @@
         },
         {
             "path": "tests/tools/test-matrix-scheduler.test.mjs",
-            "contentDigest": "sha256:49ffc7e7f82ebd9cb5ff814d15f6febd10339a6cb83f36d4bb4f040cdd0e9eb5",
-            "indexDigest": "sha256:49ffc7e7f82ebd9cb5ff814d15f6febd10339a6cb83f36d4bb4f040cdd0e9eb5"
+            "contentDigest": "sha256:48e368ce3086e53dbbf9716eb532078f89510132b4eba9931cd9d25a77e3802c",
+            "indexDigest": "sha256:48e368ce3086e53dbbf9716eb532078f89510132b4eba9931cd9d25a77e3802c"
         },
         {
             "path": "tests/tools/test-matrix-topology.test.mjs",
