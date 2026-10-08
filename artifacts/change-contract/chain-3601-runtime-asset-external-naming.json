@@ -7,6 +7,13 @@
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "Preserve canonical execution authority JSON wire keys while the original producer binds scheduler runtime-asset and locked dependency controls to their current source closure."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json"
+            ],
+            "reason": "Preserve the canonical catalog JSON authority and digest field names while consuming its exact owner-supplied current roster source; this declaration does not promote historical catalog or QPS acceptance."
         }
     ]
 }
