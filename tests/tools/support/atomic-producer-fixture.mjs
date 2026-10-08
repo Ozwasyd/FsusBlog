@@ -1,9 +1,10 @@
 import path from 'node:path';
 
 import { digestCanonical, sealContentDigest } from '../../../tools/test/attempt-provenance.mjs';
+import { canonicalTestId, planExactShards, REPLAY_PLAN_SCHEMA, sealReplayPlan } from '../../../tools/test/execution-replay-contract.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../../..');
-const commandFixture = path.join(repositoryRoot, 'tests/tools/fixtures/attempt-runner-command.mjs');
+const commandFixture = path.join(repositoryRoot, 'tests/tools/support/atomic-producer-command.mjs');
 
 export function atomicReference(material)
 {
@@ -38,7 +39,8 @@ export function atomicFixture({ alphaScenario = 'success', betaScenario = 'succe
         ['dependent-check', 'success', ['alpha-check']]
     ].map(([id, scenario, dependsOn]) =>
     {
-        const command = [process.execPath, commandFixture, scenario];
+        const testId = canonicalTestId({ framework: 'node-test', source: 'tests/tools/atomic-producer-compiler.test.mjs', name: ['isolated-fixture', id] });
+        const command = [process.execPath, commandFixture, scenario, testId];
         const closure = sealContentDigest({
             id: `${id}-inputs`,
             commandSourceId: `${id}-command`,
@@ -51,15 +53,27 @@ export function atomicFixture({ alphaScenario = 'success', betaScenario = 'succe
             executableAuthorityCount: 1,
             inputClosureRef: atomicReference(closure)
         });
-        const replay = sealContentDigest({
+        const plan = sealReplayPlan({
+            schema: REPLAY_PLAN_SCHEMA,
+            source: { commit: '1'.repeat(40), worktreeFingerprint: `sha256:${'2'.repeat(64)}` },
+            producer: { id, framework: 'node-test' },
+            run: { id: 'isolated-atomic-run', mode: 'diagnostic' },
+            rootSeed: `seed256:${'ab'.repeat(32)}`,
+            entropySources: [{ id: 'root-seed', kind: 'root-seed', source: 'cli' }],
+            randomStreams: [],
+            ...planExactShards({ testIds: [testId], shardCount: 1 }),
+            workers: { ids: ['isolated-worker'], assignmentPolicy: 'framework-owned-after-seal' },
+            frameworkModes: [{ name: 'retry', value: 'disabled' }],
+            schedulerReadyPolicy: { kind: 'sealed-shard-order', dynamicReassignment: false },
+            schedulerShuffleSeed: 'fixed-fixture-scheduler-seed',
+            command: { executable: command[0], args: command.slice(1), environmentDigest: digestCanonical({ PATH: process.env.PATH }) }
+        });
+        const replay = {
             id: `${id}-replay`,
-            producerId: id,
             replayOwner: 'isolated-replay-owner',
             fixtureProfileDigest: profile.contentDigest,
-            selectedTestIds: ['fixture:attempt-runner'],
-            workerOrder: ['isolated-worker'],
-            seeds: ['fixed-fixture-seed']
-        });
+            plan
+        };
         const node = {
             kind: 'atomic-producer',
             producerId: id,
@@ -79,7 +93,7 @@ export function atomicFixture({ alphaScenario = 'success', betaScenario = 'succe
             evidence: ['attempt-receipt'],
             replayOwner: 'isolated-replay-owner',
             projectionOwner: 'isolated-projection-owner',
-            replayPlanRef: atomicReference(replay)
+            replayPlanRef: { id: replay.id, contentDigest: plan.planDigest }
         };
         authorities.commandSources.push(source);
         authorities.inputClosures.push(closure);
@@ -138,7 +152,7 @@ export function atomicExecutionOptions(fixture, evidenceRoot, { signalByProducer
     {
         const references = [
             ['execution-envelope', `sha256:${'3'.repeat(64)}`],
-            ['replay-plan', replay.contentDigest],
+            ['replay-plan', replay.plan.planDigest],
             ['temporal-context', `sha256:${'5'.repeat(64)}`]
         ].map(([kind, artifactDigest]) => ({
             kind,
@@ -147,12 +161,11 @@ export function atomicExecutionOptions(fixture, evidenceRoot, { signalByProducer
             verificationReceiptPath: `${kind}.verification.json`,
             verificationReceiptDigest: `sha256:${'6'.repeat(64)}`
         }));
-        return [replay.producerId, {
+        return [replay.plan.producer.id, {
             cwd: repositoryRoot,
             env: { PATH: process.env.PATH },
             timeoutMs: 5000,
-            expectedTestIds: replay.selectedTestIds,
-            signal: signalByProducer[replay.producerId],
+            signal: signalByProducer[replay.plan.producer.id],
             authorityReferences: references,
             verifyAuthority: (reference) => ({
                 verified: true,
@@ -162,7 +175,7 @@ export function atomicExecutionOptions(fixture, evidenceRoot, { signalByProducer
                     sourceCommit: context.sourceCommit,
                     worktreeFingerprint: context.worktreeFingerprint,
                     schedulerRunId: context.schedulerRunId,
-                    producerId: replay.producerId
+                    producerId: replay.plan.producer.id
                 }
             })
         }];

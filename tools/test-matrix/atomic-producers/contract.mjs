@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 
 import { digestCanonical, readRetryPolicyRegistry, retryPolicyById } from '../../test/attempt-provenance.mjs';
+import { validateReplayPlan } from '../../test/execution-replay-contract.mjs';
 import { validateJsonSchema } from '../schema-validator/validate.mjs';
 
 const schema = JSON.parse(fs.readFileSync(new URL('./contract.schema.json', import.meta.url), 'utf8'));
@@ -28,6 +29,17 @@ export function resolveAtomicReference(items, reference, label)
     if (contentDigest !== reference.contentDigest || digestCanonical(body) !== contentDigest)
     {
         throw new Error(`${label} content digest mismatch: ${reference.id}`);
+    }
+    return material;
+}
+
+export function resolveAtomicReplayPlan(items, reference)
+{
+    const material = exactAtomicItem(items, reference.id, 'replay plan');
+    const plan = validateReplayPlan(material.plan);
+    if (plan.planDigest !== reference.contentDigest)
+    {
+        throw new Error('canonical replay plan digest mismatch');
     }
     return material;
 }
@@ -102,9 +114,10 @@ function checkExecutable(node, authorities)
         throw new Error('command source/input closure mismatch or unresolved dynamic reads');
     }
     const fixture = resolveAtomicReference(authorities.fixtureProfiles, node.fixtureProfile, 'fixture profile');
-    const replay = resolveAtomicReference(authorities.replayPlans, node.replayPlanRef, 'replay plan');
-    if (replay.producerId !== node.producerId || replay.replayOwner !== node.replayOwner
-        || replay.fixtureProfileDigest !== fixture.contentDigest)
+    const replay = resolveAtomicReplayPlan(authorities.replayPlans, node.replayPlanRef);
+    if (replay.plan.producer.id !== node.producerId || replay.replayOwner !== node.replayOwner
+        || replay.fixtureProfileDigest !== fixture.contentDigest
+        || digestCanonical([replay.plan.command.executable, ...replay.plan.command.args]) !== digestCanonical(source.command))
     {
         throw new Error('replay plan is not bound to producer, replay owner and fixture');
     }
