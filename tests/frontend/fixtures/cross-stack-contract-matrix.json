@@ -2978,6 +2978,27 @@
           "operationId": "binary_author_workspace_snapshot_mutate"
         }
       ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticleSelectionRoutes.cs",
+      "frontendWrapper": "src/frontend/src/api/authorArticleSelection.ts",
+      "frontendAdapter": "src/frontend/src/codecs/binary/authorArticleSelectionWire.generated.ts",
+      "id": "author-article-selection",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/author/articles/revalidate-selection",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "AuthorArticleSelectionRevalidateResponse",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "requestFrame": "AuthorArticleSelectionRevalidateRequest",
+          "operationId": "binary_author_article_selection_revalidate"
+        }
+      ]
     }
   ],
   "coherenceProfiles": [
