@@ -10,6 +10,46 @@ const { validateCorrectnessProvisionalReceipt } = await import(new URL('../relea
 const { createCorrectnessTerminalReceipt, verifyCorrectnessTerminalReceipt } = await import(new URL('../release/correctness-terminal-receipt.mjs', import.meta.url));
 const { CorrectnessTerminalSealJournal } = await import(new URL('../release/correctness-terminal-seal-journal.mjs', import.meta.url));
 
+const sealRejectionErrors = new WeakMap();
+
+/** Retain secondary diagnostics without replacing or mutating an unsupported primary error. */
+export function retainCorrectnessSealRejectionError(error, rejectionError)
+{
+    if (error !== null && (typeof error === 'object' || typeof error === 'function'))
+    {
+        sealRejectionErrors.set(error, rejectionError);
+        try
+        {
+            if (error instanceof Error && Object.isExtensible(error))
+            {
+                const descriptor = Object.getOwnPropertyDescriptor(error, 'correctnessSealRejectionError');
+                if (!descriptor)
+                {
+                    Object.defineProperty(error, 'correctnessSealRejectionError', {
+                        value: rejectionError, enumerable: true, configurable: true, writable: true
+                    });
+                }
+                else if (Object.hasOwn(descriptor, 'value') && descriptor.writable)
+                {
+                    Object.defineProperty(error, 'correctnessSealRejectionError', { value: rejectionError });
+                }
+            }
+        }
+        catch
+        {
+            // Diagnostic presentation is best-effort; the WeakMap retains the original secondary.
+        }
+    }
+    return error;
+}
+
+/** Read retained diagnostics for immutable/nonextensible errors without invoking property getters. */
+export function readCorrectnessSealRejectionError(error)
+{
+    return error !== null && (typeof error === 'object' || typeof error === 'function')
+        ? sealRejectionErrors.get(error) : undefined;
+}
+
 function loadPacket(file)
 {
     const stat = fs.lstatSync(file);
@@ -208,10 +248,7 @@ export async function finalizeSchedulerCorrectness({ checkpointFile, owner, read
         }
         catch (rejectionError)
         {
-            if (error instanceof Error && !Object.isFrozen(error))
-            {
-                error.correctnessSealRejectionError = rejectionError;
-            }
+            retainCorrectnessSealRejectionError(error, rejectionError);
         }
         throw error;
     }
