@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/expected-query-case-catalog.schema.json"
+            ],
+            "reason": "Preserve JSON Schema keywords and the closed test/evidence contract's serialized field names. Canonical query IDs remain owned by the existing registry; internal validator identifiers use repository camelCase. This schema introduces no production wire, database or security configuration changes."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/data-scale/expected-query-case-catalog.mjs"
+            ],
+            "reason": "The trusted naming registry covers tools/**/*.mjs under environment-variable. Preserve the existing uppercase expected-query environment spelling only as a forbidden production-reference scan token; the validator neither reads that environment variable nor creates a production expected-artifact input. Internal fields and functions retain camelCase."
+        }
+    ]
+}
