@@ -1,0 +1,187 @@
+{
+  "kind": "new source composition; not execution receipt",
+  "base": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "firstPublishedCandidate": "24fdb3fa2fe451d34f6b35d2e19b705a92529815",
+  "originalReviewedModule": "11eb86ddf707a631578dccd792d95e804e79da34",
+  "allTenOwnedCsAndManifestUnchanged": true,
+  "commonEightUnchanged": true,
+  "paths": [
+    {
+      "path": "artifacts/change-contract/mem-3463-external-naming.json",
+      "blob": "7c461c1c268a33da6e4cf8cc79cd30b3c6a31384",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+      "blob": "e96a5080cde2d94e2d1a60aee25759e9a5719e52",
+      "owner": "original3444",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+      "blob": "7947a604ddfa427e95e991a35b7d4af919e81312",
+      "owner": "original3444",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+      "blob": "bb78e6dd58df6a199d511b2e60e3786172c146a7",
+      "owner": "original3444",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+      "blob": "63477bad24069ef0ae0e549af558d368e4e6aa6a",
+      "owner": "original3444",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+      "blob": "b0af8166af5ea20a29a308a98e73e40ef760815c",
+      "owner": "original3444",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+      "blob": "a0c4d9c403400a2a9cb152e159752a1b50844add",
+      "owner": "original3444",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+      "blob": "cabde5a50c397d321824b95eb1e224ebdb73ab06",
+      "owner": "original3444",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+      "blob": "f566ba7bb272f529abe4c0137a17e54103e2d512",
+      "owner": "original3444",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Transient/DatabaseMaterializationScope.cs",
+      "blob": "57d923033c9e5cfc82fffd0c75e269518a8a8117",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Transient/NotificationPayloadLease.cs",
+      "blob": "f4518f042df52276a686e08da01236ba9d19399d",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Transient/TransientBufferLease.cs",
+      "blob": "bce179f7f10d3491b1de932934a604a404991805",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Transient/TransientBufferPool.cs",
+      "blob": "bedecf4ad01cfd3c629ef80503c9938e90519555",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Transient/TransientWorkload.cs",
+      "blob": "d2befb813c54664e740369073307c4e8818a7270",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    },
+    {
+      "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs",
+      "blob": "bbfb5bc4f33f381a79819d8a9676542574eba750",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    },
+    {
+      "path": "tests/backend/Helpers/TransientMemoryTestLedger.cs",
+      "blob": "ae78da779c279da6ff08a5d4761399df9e924b20",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    },
+    {
+      "path": "tests/backend/Unit/DatabaseMaterializationScopeTests.cs",
+      "blob": "40f6fb3f153ab560a99d6a0489765b167aaa6a01",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    },
+    {
+      "path": "tests/backend/Unit/NotificationPayloadLeaseTests.cs",
+      "blob": "fac0df615651f489e3df234221965456b49f689b",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    },
+    {
+      "path": "tests/backend/Unit/TransientBufferPoolTests.cs",
+      "blob": "8d527daac486472f47e9f40a4ecd35213f88ed9d",
+      "owner": "transient",
+      "source": "11eb86ddf707a631578dccd792d95e804e79da34"
+    }
+  ],
+  "notificationBaseDependencies": {
+    "src/backend/Infrastructure/NotificationStream/NotificationStreamConnection.cs": "552b5e4665a5d18e0f2661945c7293d1ff221ee6",
+    "src/backend/Infrastructure/NotificationStream/NotificationStreamDeliveryAccounting.cs": "20190b8342a6841e1d3dcabf74bffabc429a9296",
+    "src/backend/Infrastructure/NotificationStream/NotificationStreamConnectionManager.cs": "247aecbd24f7ac91942bcceb9c52d4987d54a438"
+  },
+  "compilerPrerequisites": "already in actual current master; no overlay",
+  "plannedChecks": [
+    "fresh BehaviorDoc admission",
+    "original locked owning project restore/build",
+    "original 14 owned plus one control ordinary diagnostic",
+    "source C# and whitespace checks",
+    "commit-range/diff checks"
+  ],
+  "notGranted": [
+    "production",
+    "performance",
+    "transport/publication",
+    "native",
+    "held receipt/cohort/Vault/TOCTOU audits"
+  ],
+  "publishedCandidateWithToolPrerequisites": "d9c56e881c1d8c6e8865c9c3660611dd3e4d6340",
+  "additionalPrerequisites": [
+    {
+      "path": "tests/tools/generated-fact-sections.test.mjs",
+      "blob": "a4ab97bf90ceb3948be9b5c620668d6052b3acb4",
+      "source": "12d25ae0bcdb0f2847a1f89a46a9a87f70408843"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "blob": "a342034a78b4270de17ebeea7ab20cef2da66dfe",
+      "source": "089d95e466c23a7fc781d30b80157cb4dd199c10"
+    },
+    {
+      "path": "tools/docs/generated-fact-sections/renderers.mjs",
+      "blob": "2bc76708a827aa5bd176ecd33c01524c107c1d84",
+      "source": "12d25ae0bcdb0f2847a1f89a46a9a87f70408843"
+    }
+  ],
+  "candidate": "a4e68aead16531c3522756bb59fd35018adff058",
+  "supportingPrerequisiteCommit": "d9c56e881c1d8c6e8865c9c3660611dd3e4d6340",
+  "generatedOutputCommit": "a4e68aead16531c3522756bb59fd35018adff058",
+  "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48",
+  "finalSourceAllOriginalModuleAndCommonBlobsVerified": true
+}

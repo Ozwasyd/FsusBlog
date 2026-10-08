@@ -1,0 +1,127 @@
+{
+  "kind": "actual ordinary execution record; no acceptance authority",
+  "candidate": "a4e68aead16531c3522756bb59fd35018adff058",
+  "base": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "worktree": "/workspace/scratch/mem-3463/current-source",
+  "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48",
+  "toolchain": {
+    "node": "v24.19.0",
+    "dotnet": "10.0.401",
+    "platform": "linux",
+    "architecture": "x64",
+    "directoryBuildPropsDigest": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4"
+  },
+  "configuration": "Debug",
+  "backend": "managed CLR; no claimed native backend",
+  "platform": {
+    "system": "Linux",
+    "release": "6.18.44",
+    "architecture": "x86_64",
+    "driverDevice": "not used; no native support claim"
+  },
+  "commonEnvironment": {
+    "PATH_PREFIX": "/workspace/.setup/dotnet",
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+    "DOTNET_GENERATE_ASPNET_CERTIFICATE": "false",
+    "FSUSBLOG_REPO_ROOT": "/workspace/scratch/mem-3463/current-source",
+    "FSUSBLOG_DATA_ROOT": "/workspace/scratch/mem-3463/current-source/.tmp/ordinary-data-root",
+    "FSUSBLOG_DOTNET_DEPENDENCY_CACHE_ROOT": "/workspace/scratch/mem-3463/current-source/.tmp/ordinary-dependency-cache"
+  },
+  "commands": [
+    {
+      "id": "locked-restore-audit-on",
+      "argv": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode",
+        "--configfile",
+        ".tmp/ordinary-dependency-cache/NuGet.ordinary-isolated.config",
+        "-p:NuGetAudit=true",
+        "-p:NuGetAuditMode=all",
+        "-p:NuGetAuditLevel=low"
+      ],
+      "exitCode": 0,
+      "log": "restore.log",
+      "result": "restore succeeded; audit emitted unsuppressed NU1903 (not audit-clean)"
+    },
+    {
+      "id": "original-owning-project-build",
+      "argv": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "-c",
+        "Debug",
+        "--no-restore",
+        "-v",
+        "minimal"
+      ],
+      "exitCode": 0,
+      "log": "build.log",
+      "result": "0 errors; 1510 warnings, no warning in the 18 module/common C# files"
+    },
+    {
+      "id": "owned-diagnostic",
+      "argv": [
+        "./tools/dotnet-affected-tests.sh"
+      ],
+      "environment": {
+        "FSUSBLOG_BASE_REF": "origin/master",
+        "FSUSBLOG_BACKEND_TEST_CONFIGURATION": "Debug",
+        "FSUSBLOG_TEST_RUN_ID": "mem3463-current-reproducible-diagnostic",
+        "FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER": "Category!=Integration&Fixture!=LocalRedis&(FullyQualifiedName~TransientBufferPoolTests|FullyQualifiedName~DatabaseMaterializationScopeTests|FullyQualifiedName~NotificationPayloadLeaseTests|FullyQualifiedName~RealConcurrencyHarnessTests.RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny)"
+      },
+      "exitCode": 0,
+      "log": "owned-diagnostic.log",
+      "diagnosticOnly": true
+    },
+    {
+      "id": "original-notification-controls",
+      "argv": [
+        "./tools/dotnet-affected-tests.sh"
+      ],
+      "environment": {
+        "FSUSBLOG_BASE_REF": "origin/master",
+        "FSUSBLOG_BACKEND_TEST_CONFIGURATION": "Debug",
+        "FSUSBLOG_TEST_RUN_ID": "mem3463-current-original-notification-controls",
+        "FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER": "Category!=Integration&Fixture!=LocalRedis&(FullyQualifiedName~SharedNotificationStreamFrameExtendedTests|FullyQualifiedName~NotificationStreamBackpressurePolicyTests.Connection_ByteOverflowClosesWithExplicitReplayInstruction|FullyQualifiedName~NotificationStreamBackpressurePolicyTests.Connection_PolicyCanRequireFullResyncOnOverflow|FullyQualifiedName~NotificationStreamDeliveryAccountingTests.InFlightFrame_StillConsumesTheConnectionBudget)"
+      },
+      "exitCode": 0,
+      "log": "original-notification-controls.log",
+      "diagnosticOnly": true
+    }
+  ],
+  "gate": {
+    "rawReceipt": "admission.json",
+    "contentDigest": "be71698b5840c0ed3ad2693fede8070882e9757ac34ea720e95b8f963187ce28",
+    "freshRunId": "mem3463-current-reproducible-candidate",
+    "durationMs": 342218,
+    "status": "ok",
+    "verifyLog": "admission-verify.log",
+    "fixedPointLog": "generation-fixedpoint.log"
+  },
+  "packagePreparation": {
+    "packageSources": "local pinned SDK cache + already-existing exact test feed only",
+    "implementationDependencyNetworkDownloads": false,
+    "vulnerabilityData": "separate read-only public data.nuget.org audit source",
+    "advisory": "SQLitePCLRaw.lib.e_sqlite3 2.1.11, GHSA-2m69-gcr7-jv3q, NU1903 high",
+    "suppressed": false
+  },
+  "testTotal": 25,
+  "ownedTests": 14,
+  "originalControlTests": 11,
+  "rendererTests": 26,
+  "notRun": [
+    "Docker-related tests (original static admission used read-only docker compose config oracle only; no Docker runtime tests)",
+    "full backend suite/full DAG matrix",
+    "native or GPU/platform acceptance",
+    "production/transport/publication activation",
+    "frozen burst/slow-client/simultaneous-rebuild performance acceptance",
+    "held ProjectXML/semantic-adapter/cohort-pointer/Vault/TOCTOU receipt audits"
+  ],
+  "independentReview": "previous reviewer independently ran original 11 pool/DB controls only on 11eb86d; new a4e68ae results here are delivery-agent executions and await the same independent reviewer",
+  "prWrites": "none; parent holds GitHub secondary content-creation API writes"
+}

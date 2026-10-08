@@ -1,0 +1,21 @@
+
+Welcome to .NET 10.0!
+---------------------
+SDK Version: 10.0.401
+
+----------------
+Write your first app: https://aka.ms/dotnet-hello-world
+Find out what's new: https://aka.ms/dotnet-whats-new
+Explore documentation: https://aka.ms/dotnet-docs
+Report issues and find source on GitHub: https://github.com/dotnet/core
+Use 'dotnet --help' to see available commands or visit: https://aka.ms/dotnet-cli
+--------------------------------------------------------------------------------------
+  Determining projects to restore...
+  Restored /workspace/scratch/mem-3463/current-source/src/shared/FsusBlog.Shared.csproj (in 129 ms).
+/workspace/scratch/mem-3463/current-source/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  Restored /workspace/scratch/mem-3463/current-source/src/core/FsusBlog.Core.csproj (in 7.76 sec).
+  Restored /workspace/scratch/mem-3463/current-source/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 7.77 sec).
+/workspace/scratch/mem-3463/current-source/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/scratch/mem-3463/current-source/tests/backend/FsusBlog.Server.Tests.csproj]
+  Restored /workspace/scratch/mem-3463/current-source/src/backend/FsusBlog.Server.csproj (in 7.79 sec).
+  Restored /workspace/scratch/mem-3463/current-source/src/migration/FsusBlog.Migration.csproj (in 25 ms).
+  Restored /workspace/scratch/mem-3463/current-source/tests/backend/FsusBlog.Server.Tests.csproj (in 7.62 sec).

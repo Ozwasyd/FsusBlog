@@ -1,0 +1,2830 @@
+{
+  "schema": "fsusblog.doc-claim-parse-receipt.v1",
+  "digestAlgorithm": "sha256",
+  "canonicalSerialization": "json-utf8-v1",
+  "behaviorCatalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+  "claims": [
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.appeal-source-states",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.comment.appeal-source-states"
+      },
+      "location": {
+        "documentPath": "docs/moderation.md",
+        "claimStartLine": 154,
+        "claimEndLine": 160,
+        "documentStatus": "current",
+        "headingPath": [
+          "Moderation Runtime",
+          "Current comment moderation states"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.article-admin-visibility",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.article.admin-visibility"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+        "claimStartLine": 80,
+        "claimEndLine": 86,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article permanent-deletion lifecycle",
+          "Current deletion semantics"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.article-forbidden-transitions",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "transition-table",
+        "generatedSectionId": "content.article.forbidden-transitions"
+      },
+      "location": {
+        "documentPath": "docs/api/contracts.md",
+        "claimStartLine": 2721,
+        "claimEndLine": 2727,
+        "documentStatus": "current",
+        "headingPath": [
+          "API Contract Reference",
+          "Current cache policy catalog",
+          "Current article transitions"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.article-public-visibility",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.article.public-visibility"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+        "claimStartLine": 63,
+        "claimEndLine": 69,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article permanent-deletion lifecycle",
+          "Current deletion semantics"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.article-states",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.article.states"
+      },
+      "location": {
+        "documentPath": "docs/api/design.md",
+        "claimStartLine": 822,
+        "claimEndLine": 828,
+        "documentStatus": "current",
+        "headingPath": [
+          "API Design Philosophy",
+          "Current article lifecycle states"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.article-transitions",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "transition-table",
+        "generatedSectionId": "content.article.allowed-transitions"
+      },
+      "location": {
+        "documentPath": "docs/api/contracts.md",
+        "claimStartLine": 2673,
+        "claimEndLine": 2679,
+        "documentStatus": "current",
+        "headingPath": [
+          "API Contract Reference",
+          "Current cache policy catalog",
+          "Current article transitions"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.child-limit",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.comment.child-limit"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-command-boundary.md",
+        "claimStartLine": 70,
+        "claimEndLine": 76,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment command boundary",
+          "Current thread invariants"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.comment-admin-visibility",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.comment.admin-visibility"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+        "claimStartLine": 44,
+        "claimEndLine": 50,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment moderation and visibility boundary",
+          "Current public visibility mapping"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.comment-allowed-transitions",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "transition-table",
+        "generatedSectionId": "content.comment.allowed-transitions"
+      },
+      "location": {
+        "documentPath": "docs/moderation.md",
+        "claimStartLine": 114,
+        "claimEndLine": 120,
+        "documentStatus": "current",
+        "headingPath": [
+          "Moderation Runtime",
+          "Current comment moderation states"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.comment-forbidden-transitions",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "transition-table",
+        "generatedSectionId": "content.comment.forbidden-transitions"
+      },
+      "location": {
+        "documentPath": "docs/moderation.md",
+        "claimStartLine": 135,
+        "claimEndLine": 141,
+        "documentStatus": "current",
+        "headingPath": [
+          "Moderation Runtime",
+          "Current comment moderation states"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.comment-outbox",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.comment.required-outbox-edges"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-mutation-outbox.md",
+        "claimStartLine": 57,
+        "claimEndLine": 63,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment mutation outbox",
+          "Current comment outbox edges"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.comment-outbox-consumers",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.comment.outbox-consumers"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-mutation-outbox.md",
+        "claimStartLine": 76,
+        "claimEndLine": 82,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment mutation outbox",
+          "Current comment outbox edges"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.comment-outbox-terminal-states",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.comment.outbox-terminal-states"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-mutation-outbox.md",
+        "claimStartLine": 91,
+        "claimEndLine": 97,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment mutation outbox",
+          "Current comment outbox edges"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.comment-states",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.comment.states"
+      },
+      "location": {
+        "documentPath": "docs/moderation.md",
+        "claimStartLine": 99,
+        "claimEndLine": 105,
+        "documentStatus": "current",
+        "headingPath": [
+          "Moderation Runtime",
+          "Current comment moderation states"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.delete-causal",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.article.delete.causal"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+        "claimStartLine": 95,
+        "claimEndLine": 101,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article permanent-deletion lifecycle",
+          "Current deletion semantics"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 102,
+        "bodyEndLine": 102,
+        "bodyText": "soft delete preserves current revision publication pointer and immutable history without creating revision publication or tombstone when the current non-deleted row wins the row-version guarded dedicated delete flow。"
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.delete-semantics",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.article.delete-semantics"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+        "claimStartLine": 38,
+        "claimEndLine": 44,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article permanent-deletion lifecycle",
+          "Current deletion semantics"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.deleted-root-admin",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.comment.deletedRoot.adminDescendants"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+        "claimStartLine": 82,
+        "claimEndLine": 88,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment moderation and visibility boundary",
+          "Current public visibility mapping"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 89,
+        "bodyEndLine": 89,
+        "bodyText": "deleted root does-not-hide direct or recursive descendant entities from the admin and attributable projections when the projection is authorized for administrative or author attribution access。"
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.deleted-root-public",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.comment.deletedRoot.publicDescendants"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+        "claimStartLine": 73,
+        "claimEndLine": 79,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment moderation and visibility boundary",
+          "Current public visibility mapping"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 80,
+        "bodyEndLine": 80,
+        "bodyText": "deleted root does-not-hide independently visible direct and recursive descendants while the root is a deleted placeholder when each descendant remains Approved region-visible and belongs to the same published article。"
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.edit-delete-version",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.comment.edit-delete-version"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-command-boundary.md",
+        "claimStartLine": 89,
+        "claimEndLine": 95,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment command boundary",
+          "Current thread invariants"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.event-types",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.article.outbox-events"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-mutation-outbox-versioning.md",
+        "claimStartLine": 38,
+        "claimEndLine": 44,
+        "documentStatus": "current",
+        "headingPath": [
+          "Versioned article mutation outbox",
+          "Current outbox event types"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.forbidden-fields",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.comment.forbidden-fields"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-attribution-privacy-boundary.md",
+        "claimStartLine": 52,
+        "claimEndLine": 58,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment attribution and privacy boundary",
+          "Current persisted comment fields"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.max-depth",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.comment.max-depth"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-query-boundary.md",
+        "claimStartLine": 24,
+        "claimEndLine": 30,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment query boundary",
+          "Current thread depth boundary"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.notification",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.comment.notification"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-notification-boundary.md",
+        "claimStartLine": 22,
+        "claimEndLine": 28,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment notification boundary",
+          "Current notification conditions"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.optional-edges",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.article.optional-outbox-edges"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-mutation-side-effect-boundaries.md",
+        "claimStartLine": 51,
+        "claimEndLine": 57,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article mutation side-effect boundaries",
+          "Current optional outbox edges"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.outbox-terminal-states",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.article.outbox-terminal-states"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-mutation-outbox-versioning.md",
+        "claimStartLine": 60,
+        "claimEndLine": 66,
+        "documentStatus": "current",
+        "headingPath": [
+          "Versioned article mutation outbox",
+          "Current outbox event types"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.persisted-fields",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.comment.persisted-fields"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-attribution-privacy-boundary.md",
+        "claimStartLine": 28,
+        "claimEndLine": 34,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment attribution and privacy boundary",
+          "Current persisted comment fields"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.public-visibility",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.comment.public-visibility"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+        "claimStartLine": 27,
+        "claimEndLine": 33,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment moderation and visibility boundary",
+          "Current public visibility mapping"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.publication-coordinates",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.article.publication-coordinates"
+      },
+      "location": {
+        "documentPath": "docs/api/article-publication-revisions.md",
+        "claimStartLine": 56,
+        "claimEndLine": 62,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article Revisions and Publication Coordinates",
+          "Current publication coordinates"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.region-visibility",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.comment.region-visibility"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+        "claimStartLine": 58,
+        "claimEndLine": 64,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment moderation and visibility boundary",
+          "Current public visibility mapping"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.required-edges",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.article.required-outbox-edges"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-mutation-outbox-claim-lease.md",
+        "claimStartLine": 98,
+        "claimEndLine": 104,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article mutation outbox claim lease",
+          "Current required outbox edges"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.responsibility",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.article.responsibility"
+      },
+      "location": {
+        "documentPath": "docs/api/article-publication-revisions.md",
+        "claimStartLine": 110,
+        "claimEndLine": 116,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article Revisions and Publication Coordinates",
+          "Controlled publication causality facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.restore-causal",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.article.restore.causal"
+      },
+      "location": {
+        "documentPath": "docs/api/article-publication-revisions.md",
+        "claimStartLine": 153,
+        "claimEndLine": 159,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article Revisions and Publication Coordinates",
+          "Controlled publication causality facts"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 160,
+        "bodyEndLine": 160,
+        "bodyText": "Restore creates a new publication coordinate without reviving the old publication or creating a new revision when a soft-deleted article is restored from its existing current revision."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.restore-semantics",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.article.restore-semantics"
+      },
+      "location": {
+        "documentPath": "docs/api/article-publication-revisions.md",
+        "claimStartLine": 93,
+        "claimEndLine": 99,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article Revisions and Publication Coordinates",
+          "Controlled publication causality facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.rights-fields",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "content.article.rights-fields"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-asset-reference-lifecycle.md",
+        "claimStartLine": 47,
+        "claimEndLine": 53,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article asset reference lifecycle",
+          "Current rights fields"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.rollback",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.article.rollback-semantics"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-revision-concurrency.md",
+        "claimStartLine": 28,
+        "claimEndLine": 34,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article revision concurrency",
+          "Current rollback semantics"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.rollback-causal",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.article.rollback.causal"
+      },
+      "location": {
+        "documentPath": "docs/architecture/article-revision-concurrency.md",
+        "claimStartLine": 46,
+        "claimEndLine": 52,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article revision concurrency",
+          "Current rollback semantics"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 53,
+        "bodyEndLine": 53,
+        "bodyText": "rollback creates new revision and new publication coordinates from a historical revision while preserving immutable history when the requested historical revision is accepted as the rollback source。"
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.scheduled-boundary",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.article.scheduled-boundary"
+      },
+      "location": {
+        "documentPath": "docs/api/article-publication-revisions.md",
+        "claimStartLine": 78,
+        "claimEndLine": 84,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article Revisions and Publication Coordinates",
+          "Controlled publication causality facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.scheduled-due",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.article.scheduled.dueTransition"
+      },
+      "location": {
+        "documentPath": "docs/api/article-publication-revisions.md",
+        "claimStartLine": 135,
+        "claimEndLine": 141,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article Revisions and Publication Coordinates",
+          "Controlled publication causality facts"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 142,
+        "bodyEndLine": 142,
+        "bodyText": "A scheduled due transition creates new publication coordinate and switches current pointer without creating another revision when scheduledPublishAt or pendingPublicationAt is at or before the worker current time."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.scheduled-pre-due",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.article.scheduled.preDueCurrent"
+      },
+      "location": {
+        "documentPath": "docs/api/article-publication-revisions.md",
+        "claimStartLine": 126,
+        "claimEndLine": 132,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article Revisions and Publication Coordinates",
+          "Controlled publication causality facts"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 133,
+        "bodyEndLine": 133,
+        "bodyText": "A scheduled transition before due preserves the old current publication coordinate when an article already has a current publication and pendingPublicationAt is still in the future."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.scheduled-stale",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.article.scheduled.replaceCancelStale"
+      },
+      "location": {
+        "documentPath": "docs/api/article-publication-revisions.md",
+        "claimStartLine": 144,
+        "claimEndLine": 150,
+        "documentStatus": "current",
+        "headingPath": [
+          "Article Revisions and Publication Coordinates",
+          "Controlled publication causality facts"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 151,
+        "bodyEndLine": 151,
+        "bodyText": "Replacement cancellation or stale schedule does-not-switch the current publication pointer before a due row is successfully claimed when the due predicate no longer matches or the row loses the FOR UPDATE SKIP LOCKED claim."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "article-comment-lifecycle-outbox.thread-invariants",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "content.comment.thread-invariants"
+      },
+      "location": {
+        "documentPath": "docs/architecture/comment-command-boundary.md",
+        "claimStartLine": 51,
+        "claimEndLine": 57,
+        "documentStatus": "current",
+        "headingPath": [
+          "Comment command boundary",
+          "Current thread invariants"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.absolute-expiry-policy",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "auth.session.absolute-expiry-policy"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 82,
+        "claimEndLine": 88,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Generated session, credential, MFA and step-up facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.admin-permissions",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "auth.admin.permissions"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 372,
+        "claimEndLine": 378,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.admin-permissions-partial-policy",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "auth.admin.permissions-partial-policy"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 427,
+        "claimEndLine": 433,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.admin-permissions-read-only",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "auth.admin.permissions-read-only"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 415,
+        "claimEndLine": 421,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.credential-session-revocation",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "auth.credential-session-revocation"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 191,
+        "claimEndLine": 197,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Generated session, credential, MFA and step-up facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.duration-modes",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "auth.session.duration-modes"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 51,
+        "claimEndLine": 57,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.idle-expiry-policy",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "auth.session.idle-expiry-policy"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 66,
+        "claimEndLine": 72,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Generated session, credential, MFA and step-up facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.methods",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "auth.methods.active"
+      },
+      "location": {
+        "documentPath": "docs/anonymous-identity-smoke-flow.md",
+        "claimStartLine": 97,
+        "claimEndLine": 103,
+        "documentStatus": "current",
+        "headingPath": [
+          "Anonymous Identity Smoke Flow",
+          "Current authentication methods"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.mfa-states",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "auth.mfa.states"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 163,
+        "claimEndLine": 169,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Generated session, credential, MFA and step-up facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.passkey-states",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "auth.passkey.states"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 148,
+        "claimEndLine": 154,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Generated session, credential, MFA and step-up facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.recovery-states",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "auth.recovery.states"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 177,
+        "claimEndLine": 183,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Generated session, credential, MFA and step-up facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.refresh-context-table",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "auth.session.refresh-context"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 98,
+        "claimEndLine": 104,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Generated session, credential, MFA and step-up facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.mfa-enabled-step-up-method",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.mfaEnabledStepUpMethod"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 208,
+        "claimEndLine": 214,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 216,
+        "bodyEndLine": 216,
+        "bodyText": "`auth.relation.mfa-enabled-step-up-method`: `auth.mfa.state.enabled` conditionally `permits-proof-method` `auth.step-up.mfa-proof` when `account is active and the requested credential mutation accepts the MFA proof method`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.passkey-auth-strength",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.passkeyAuthStrength"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 218,
+        "claimEndLine": 224,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 226,
+        "bodyEndLine": 226,
+        "bodyText": "`auth.relation.passkey-auth-strength`: `auth.method.passkey` `results-in` `webauthn_uv` when `successful user-verifying Passkey assertion`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.passkey-delete-does-not-revoke-unbound-sessions",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.passkeyDeleteDoesNotRevokeUnboundSessions"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 308,
+        "claimEndLine": 314,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 316,
+        "bodyEndLine": 316,
+        "bodyText": "`auth.relation.passkey-delete-does-not-revoke-unbound-sessions`: `auth.passkey.credential-delete` does not `revokes` `all-account-sessions` when `credential row is deleted successfully`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.passkey-delete-revokes-bound-sessions",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.passkeyDeleteRevokesBoundSessions"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 298,
+        "claimEndLine": 304,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 306,
+        "bodyEndLine": 306,
+        "bodyText": "`auth.relation.passkey-delete-revokes-bound-sessions`: `auth.passkey.credential-delete` `revokes` `sessions-bound-to-deleted-credential` when `credential row is deleted successfully`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.passkey-is-not-totp",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.passkeyIsNotTotp"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 228,
+        "claimEndLine": 234,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 236,
+        "bodyEndLine": 236,
+        "bodyText": "`auth.relation.passkey-is-not-totp`: `auth.method.passkey` does not `is-equivalent-to` `auth.method.totp` for `all authentication and step-up scopes`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.recovery-auth-strength",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.recoveryAuthStrength"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 238,
+        "claimEndLine": 244,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 246,
+        "bodyEndLine": 246,
+        "bodyText": "`auth.relation.recovery-auth-strength`: `auth.method.recovery_key` `results-in` `auth.strength.recovery` after `successful Recovery Key login completion`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.recovery-does-not-mint-step-up",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.recoveryDoesNotMintStepUp"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 248,
+        "claimEndLine": 254,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 256,
+        "bodyEndLine": 256,
+        "bodyText": "`auth.relation.recovery-does-not-mint-step-up`: `auth.recovery.completion` does not `mints` `auth.step-up.proof` for `successful Recovery Key login completion without a separate step-up flow`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.refresh-does-not-rebuild-step-up",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.refreshDoesNotRebuildStepUp"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 288,
+        "claimEndLine": 294,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 296,
+        "bodyEndLine": 296,
+        "bodyText": "`auth.relation.refresh-does-not-rebuild-step-up`: `auth.refresh.rotation` does not `rebuilds-or-extends` `auth.step-up.proof` for `all refresh rotations`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.refresh-preserves-auth-context",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.refreshPreservesAuthContext"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 278,
+        "claimEndLine": 284,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 286,
+        "bodyEndLine": 286,
+        "bodyText": "`auth.relation.refresh-preserves-auth-context`: `auth.refresh.rotation` `preserves` `auth_method+auth_strength+auth_time+duration_policy+authenticated_credential_row_id` when `active session context passes fail-closed validation`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.step-up-binding",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.stepUpBinding"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 258,
+        "claimEndLine": 264,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 266,
+        "bodyEndLine": 266,
+        "bodyText": "`auth.relation.step-up-binding`: `auth.step-up.proof` `is-bound-to` `account+session+action+token+expiry` during `proof validation and consumption`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.relation.step-up-consume-once",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.authRelationClaims.stepUpConsumeOnce"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 268,
+        "claimEndLine": 274,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Verified directional authentication relations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 276,
+        "bodyEndLine": 276,
+        "bodyText": "`auth.relation.step-up-consume-once`: `auth.step-up.proof` `may-be-consumed` `exactly-once` when `matching account, session, action, token, and unexpired proof`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.step-up-binding-table",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "auth.step-up.binding"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 131,
+        "claimEndLine": 137,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Generated session, credential, MFA and step-up facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.step-up-freshness",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "auth.step-up.freshness"
+      },
+      "location": {
+        "documentPath": "docs/security/user-session-authentication-context.md",
+        "claimStartLine": 114,
+        "claimEndLine": 120,
+        "documentStatus": "current",
+        "headingPath": [
+          "Ordinary-account session authentication context",
+          "Current session duration modes",
+          "Generated session, credential, MFA and step-up facts"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "authentication-session-permission.strengths",
+        "behaviorId": "authentication-session-permission",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "auth.strengths.active"
+      },
+      "location": {
+        "documentPath": "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
+        "claimStartLine": 95,
+        "claimEndLine": 101,
+        "documentStatus": "current",
+        "headingPath": [
+          "ADR: anonymous credentials use RFC 9474 blind issuance",
+          "Current authentication strengths"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.aeds-only",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "boolean",
+        "render": "boolean-affirmed",
+        "factPath": "protocolStates.aedsOnly"
+      },
+      "location": {
+        "documentPath": "docs/api/aeds-only-policy.md",
+        "claimStartLine": 159,
+        "claimEndLine": 165,
+        "documentStatus": "current",
+        "headingPath": [
+          "Internal Application API AEDS-only Policy",
+          "Current public protocol",
+          "Current protocol state partitions"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 167,
+        "bodyEndLine": 167,
+        "bodyText": "The current public protocol sets `aedsOnly` to `true`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.aeds-version",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "generated-section",
+        "render": "scalar",
+        "generatedSectionId": "api.aeds-version"
+      },
+      "location": {
+        "documentPath": "docs/api/contracts.md",
+        "claimStartLine": 2659,
+        "claimEndLine": 2665,
+        "documentStatus": "current",
+        "headingPath": [
+          "API Contract Reference",
+          "Current cache policy catalog",
+          "Current AEDS version"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.error-authority-reference",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "api.error-authority-reference"
+      },
+      "location": {
+        "documentPath": "docs/api/schemas-and-errors.md",
+        "claimStartLine": 781,
+        "claimEndLine": 787,
+        "documentStatus": "current",
+        "headingPath": [
+          "Error Codes, Binary Frame Format, and POD Size Catalog",
+          "Current public error categories",
+          "Public error authority reference"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.migration-only-state",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "failure-mode",
+        "render": "failure-mode-code",
+        "factPath": "protocolStates.migrationOnlyState"
+      },
+      "location": {
+        "documentPath": "docs/api/aeds-only-policy.md",
+        "claimStartLine": 169,
+        "claimEndLine": 175,
+        "documentStatus": "current",
+        "headingPath": [
+          "Internal Application API AEDS-only Policy",
+          "Current public protocol",
+          "Current protocol state partitions"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 177,
+        "bodyEndLine": 177,
+        "bodyText": "The migration-only partition state is `present`; its IDs remain separate from active frame identities and retired numeric values."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.observation-digest",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "generated-section",
+        "render": "scalar",
+        "generatedSectionId": "api.observation-digest"
+      },
+      "location": {
+        "documentPath": "docs/api/stability.md",
+        "claimStartLine": 56,
+        "claimEndLine": 62,
+        "documentStatus": "current",
+        "headingPath": [
+          "API Stability",
+          "Current contract observation identity"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.operation-active-state",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "failure-mode",
+        "render": "failure-mode-code",
+        "factPath": "operations",
+        "projection": "binary_post_security_challenge.protocolState"
+      },
+      "location": {
+        "documentPath": "docs/api.md",
+        "claimStartLine": 201,
+        "claimEndLine": 208,
+        "documentStatus": "current",
+        "headingPath": [
+          "API overview / selected quick reference",
+          "Current binary operations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 210,
+        "bodyEndLine": 210,
+        "bodyText": "`binary_post_security_challenge` is classified as `active-aeds-only`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.operation-count",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "generated-section",
+        "render": "scalar",
+        "generatedSectionId": "api.operation-count"
+      },
+      "location": {
+        "documentPath": "docs/api/schemas-and-errors.md",
+        "claimStartLine": 744,
+        "claimEndLine": 750,
+        "documentStatus": "current",
+        "headingPath": [
+          "Error Codes, Binary Frame Format, and POD Size Catalog",
+          "Current public error categories",
+          "Current operation count"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.operation-keys",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "api.operation-keys"
+      },
+      "location": {
+        "documentPath": "docs/api/quick-reference.md",
+        "claimStartLine": 353,
+        "claimEndLine": 359,
+        "documentStatus": "current",
+        "headingPath": [
+          "Route Quick Reference",
+          "Current operation identities"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.operations",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "api.operations"
+      },
+      "location": {
+        "documentPath": "docs/api.md",
+        "claimStartLine": 267,
+        "claimEndLine": 273,
+        "documentStatus": "current",
+        "headingPath": [
+          "API overview / selected quick reference",
+          "Current binary operations"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.protocol",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "generated-section",
+        "render": "scalar",
+        "generatedSectionId": "api.protocol"
+      },
+      "location": {
+        "documentPath": "docs/api/aeds-only-policy.md",
+        "claimStartLine": 143,
+        "claimEndLine": 149,
+        "documentStatus": "current",
+        "headingPath": [
+          "Internal Application API AEDS-only Policy",
+          "Current public protocol"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.protocol-states",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "api.protocol-states"
+      },
+      "location": {
+        "documentPath": "docs/api/aeds-only-policy.md",
+        "claimStartLine": 179,
+        "claimEndLine": 185,
+        "documentStatus": "current",
+        "headingPath": [
+          "Internal Application API AEDS-only Policy",
+          "Current public protocol",
+          "Current protocol state partitions"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.public-error-authority-owner",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "failure-mode",
+        "render": "failure-mode-code",
+        "factPath": "errorAuthority.behaviorId"
+      },
+      "location": {
+        "documentPath": "docs/api/schemas-and-errors.md",
+        "claimStartLine": 771,
+        "claimEndLine": 777,
+        "documentStatus": "current",
+        "headingPath": [
+          "Error Codes, Binary Frame Format, and POD Size Catalog",
+          "Current public error categories",
+          "Public error authority reference"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 779,
+        "bodyEndLine": 779,
+        "bodyText": "The referenced public error authority owner is `configuration-error-security-policy`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.public-error-reference-state",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "failure-mode",
+        "render": "failure-mode-code",
+        "factPath": "operations",
+        "projection": "binary_post_security_challenge.publicErrorRefState"
+      },
+      "location": {
+        "documentPath": "docs/api/schemas-and-errors.md",
+        "claimStartLine": 760,
+        "claimEndLine": 767,
+        "documentStatus": "current",
+        "headingPath": [
+          "Error Codes, Binary Frame Format, and POD Size Catalog",
+          "Current public error categories",
+          "Public error authority reference"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 769,
+        "bodyEndLine": 769,
+        "bodyText": "The operation-level public error reference state is `operation-status-authority-bound`: each observed error status links to its matching transport mapping in the shared error authority."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.request-non-nullable",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "boolean",
+        "render": "boolean-negated",
+        "factPath": "operations",
+        "projection": "binary_post_security_challenge.request.nullable"
+      },
+      "location": {
+        "documentPath": "docs/api.md",
+        "claimStartLine": 234,
+        "claimEndLine": 241,
+        "documentStatus": "current",
+        "headingPath": [
+          "API overview / selected quick reference",
+          "Current binary operations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 243,
+        "bodyEndLine": 243,
+        "bodyText": "For `binary_post_security_challenge`, request nullable is `false`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.request-required",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "boolean",
+        "render": "boolean-affirmed",
+        "factPath": "operations",
+        "projection": "binary_post_security_challenge.request.required"
+      },
+      "location": {
+        "documentPath": "docs/api.md",
+        "claimStartLine": 223,
+        "claimEndLine": 230,
+        "documentStatus": "current",
+        "headingPath": [
+          "API overview / selected quick reference",
+          "Current binary operations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 232,
+        "bodyEndLine": 232,
+        "bodyText": "For `binary_post_security_challenge`, request required is `true`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.request-source",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "failure-mode",
+        "render": "failure-mode-code",
+        "factPath": "operations",
+        "projection": "binary_post_security_challenge.request.source"
+      },
+      "location": {
+        "documentPath": "docs/api.md",
+        "claimStartLine": 212,
+        "claimEndLine": 219,
+        "documentStatus": "current",
+        "headingPath": [
+          "API overview / selected quick reference",
+          "Current binary operations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 221,
+        "bodyEndLine": 221,
+        "bodyText": "The `binary_post_security_challenge` request enters through `aeds-frame-body` before response decoding."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.response-non-nullable",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "boolean",
+        "render": "boolean-negated",
+        "factPath": "operations",
+        "projection": "binary_post_security_challenge.responses.status-200-0.nullable"
+      },
+      "location": {
+        "documentPath": "docs/api.md",
+        "claimStartLine": 256,
+        "claimEndLine": 263,
+        "documentStatus": "current",
+        "headingPath": [
+          "API overview / selected quick reference",
+          "Current binary operations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 265,
+        "bodyEndLine": 265,
+        "bodyText": "For the successful `binary_post_security_challenge` response, nullable is `false`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "binary-api-aeds-contract.response-result-placement",
+        "behaviorId": "binary-api-aeds-contract",
+        "claimType": "failure-mode",
+        "render": "failure-mode-code",
+        "factPath": "operations",
+        "projection": "binary_post_security_challenge.responses.status-200-0.resultPlacement"
+      },
+      "location": {
+        "documentPath": "docs/api.md",
+        "claimStartLine": 245,
+        "claimEndLine": 252,
+        "documentStatus": "current",
+        "headingPath": [
+          "API overview / selected quick reference",
+          "Current binary operations"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 254,
+        "bodyEndLine": 254,
+        "bodyText": "The successful `binary_post_security_challenge` response places its result at `aeds.frame.payload`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "browserless-production-correctness.bundle-order",
+        "behaviorId": "browserless-production-correctness",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "release.production-bundle-order"
+      },
+      "location": {
+        "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+        "claimStartLine": 12,
+        "claimEndLine": 18,
+        "documentStatus": "current",
+        "headingPath": [
+          "Blue/Green deployment runbook",
+          "Current production bundle ordering"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "browserless-production-correctness.dependency-edges",
+        "behaviorId": "browserless-production-correctness",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "testing.dependency-edges"
+      },
+      "location": {
+        "documentPath": "docs/architecture/overview.md",
+        "claimStartLine": 132,
+        "claimEndLine": 138,
+        "documentStatus": "current",
+        "headingPath": [
+          "FsusBlog Architecture Overview",
+          "Current test dependency edges"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "browserless-production-correctness.execution-classes",
+        "behaviorId": "browserless-production-correctness",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "testing.execution-classes"
+      },
+      "location": {
+        "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+        "claimStartLine": 66,
+        "claimEndLine": 72,
+        "documentStatus": "current",
+        "headingPath": [
+          "Monolithic distributed architecture boundary",
+          "Current execution classes"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "browserless-production-correctness.final-inputs",
+        "behaviorId": "browserless-production-correctness",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "release.final-input-schemas"
+      },
+      "location": {
+        "documentPath": "docs/releases/release-identity.md",
+        "claimStartLine": 53,
+        "claimEndLine": 59,
+        "documentStatus": "current",
+        "headingPath": [
+          "Immutable release identity",
+          "Current release-final inputs"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "browserless-production-correctness.predecessors",
+        "behaviorId": "browserless-production-correctness",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "testing.candidate-predecessors"
+      },
+      "location": {
+        "documentPath": "docs/architecture.md",
+        "claimStartLine": 987,
+        "claimEndLine": 993,
+        "documentStatus": "current",
+        "headingPath": [
+          "System architecture",
+          "Current candidate admission predecessors"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "browserless-production-correctness.tiers",
+        "behaviorId": "browserless-production-correctness",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "testing.tiers"
+      },
+      "location": {
+        "documentPath": "docs/testing.md",
+        "claimStartLine": 1542,
+        "claimEndLine": 1548,
+        "documentStatus": "current",
+        "headingPath": [
+          "Test strategy",
+          "Current test tiers"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "code-intent-governance.intent-entry-count",
+        "behaviorId": "code-intent-governance",
+        "claimType": "generated-section",
+        "render": "scalar",
+        "generatedSectionId": "governance.intent-entry-count"
+      },
+      "location": {
+        "documentPath": "docs/development/code-intent-governance.md",
+        "claimStartLine": 69,
+        "claimEndLine": 75,
+        "documentStatus": "current",
+        "headingPath": [
+          "Code intent governance",
+          "Registry and checker"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.allowed-values",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "configuration.allowed-values"
+      },
+      "location": {
+        "documentPath": "docs/configuration/appsettings-authority.md",
+        "claimStartLine": 58,
+        "claimEndLine": 64,
+        "documentStatus": "current",
+        "headingPath": [
+          "Appsettings and production input authority",
+          "Current allowed configuration values"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.cache-policies",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "api.security-cache-policies"
+      },
+      "location": {
+        "documentPath": "docs/api/contracts.md",
+        "claimStartLine": 2823,
+        "claimEndLine": 2829,
+        "documentStatus": "current",
+        "headingPath": [
+          "API Contract Reference",
+          "Current cache policy catalog",
+          "Current article transitions"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.challenge-fail-modes",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "security.challenge.fail-modes"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 512,
+        "claimEndLine": 518,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.challenge-kinds",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "security.challenge.kinds"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 393,
+        "claimEndLine": 399,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.challenge-numeric-boundaries",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "security.challenge.numeric-boundaries"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 532,
+        "claimEndLine": 538,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.challenge-rate-policies",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "security.challenge.rate-policies"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 494,
+        "claimEndLine": 500,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.challenge-retired-kinds",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "security.challenge.retired-kinds"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 446,
+        "claimEndLine": 452,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.challenge-verification-window",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "security.challenge.verification-window"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 458,
+        "claimEndLine": 464,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.challenge-verify-fail-policy",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "failure-mode",
+        "render": "failure-policy",
+        "factPath": "facts.securityPolicyClaims.challengeVerifyFailMode"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 563,
+        "claimEndLine": 569,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 571,
+        "bodyEndLine": 571,
+        "bodyText": "`security-challenge-verify` uses `fail-closed`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.challenge-window-cache-relation",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "binary-relation",
+        "render": "relation-subject-predicate-object",
+        "factPath": "facts.securityPolicyClaims.windowCacheRelation"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 553,
+        "claimEndLine": 559,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 561,
+        "bodyEndLine": 561,
+        "bodyText": "`security.challenge.verify-window-distinct-from-cache-expiry`: `security.challenge.verify-attempt-window` `is-distinct-from` `security.challenge.verify-attempt-cache-expiry`, condition: `current sliding-expiry-counter policy`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.defaults",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "configuration.defaults"
+      },
+      "location": {
+        "documentPath": "docs/configuration-layout.md",
+        "claimStartLine": 322,
+        "claimEndLine": 328,
+        "documentStatus": "current",
+        "headingPath": [
+          "Configuration Ownership and Canonical Paths",
+          "Current generated defaults and production requirements"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.domain-errors-active",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "api.domain-errors-active"
+      },
+      "location": {
+        "documentPath": "docs/api/schemas-and-errors.md",
+        "claimStartLine": 608,
+        "claimEndLine": 614,
+        "documentStatus": "current",
+        "headingPath": [
+          "Error Codes, Binary Frame Format, and POD Size Catalog",
+          "Current generated domain errors and transport mappings"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.domain-errors-migration-only",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "api.domain-errors-migration-only"
+      },
+      "location": {
+        "documentPath": "docs/api/schemas-and-errors.md",
+        "claimStartLine": 654,
+        "claimEndLine": 660,
+        "documentStatus": "current",
+        "headingPath": [
+          "Error Codes, Binary Frame Format, and POD Size Catalog",
+          "Current generated domain errors and transport mappings"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.domain-errors-retired",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "api.domain-errors-retired"
+      },
+      "location": {
+        "documentPath": "docs/api/schemas-and-errors.md",
+        "claimStartLine": 640,
+        "claimEndLine": 646,
+        "documentStatus": "current",
+        "headingPath": [
+          "Error Codes, Binary Frame Format, and POD Size Catalog",
+          "Current generated domain errors and transport mappings"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.error-transport-mappings",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "api.error-transport-mappings"
+      },
+      "location": {
+        "documentPath": "docs/api/schemas-and-errors.md",
+        "claimStartLine": 668,
+        "claimEndLine": 674,
+        "documentStatus": "current",
+        "headingPath": [
+          "Error Codes, Binary Frame Format, and POD Size Catalog",
+          "Current generated domain errors and transport mappings"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.keys",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "configuration.keys"
+      },
+      "location": {
+        "documentPath": "docs/configuration-layout.md",
+        "claimStartLine": 79,
+        "claimEndLine": 85,
+        "documentStatus": "current",
+        "headingPath": [
+          "Configuration Ownership and Canonical Paths",
+          "Current configuration keys"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.public-errors",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "enum-set",
+        "generatedSectionId": "api.public-error-codes"
+      },
+      "location": {
+        "documentPath": "docs/api/schemas-and-errors.md",
+        "claimStartLine": 798,
+        "claimEndLine": 804,
+        "documentStatus": "current",
+        "headingPath": [
+          "Error Codes, Binary Frame Format, and POD Size Catalog",
+          "Current public error categories",
+          "Public error authority reference"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.rate-limiter-fail-policy",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "failure-mode",
+        "render": "failure-policy",
+        "factPath": "facts.securityPolicyClaims.rateLimiterFailMode"
+      },
+      "location": {
+        "documentPath": "docs/security.md",
+        "claimStartLine": 573,
+        "claimEndLine": 579,
+        "documentStatus": "current",
+        "headingPath": [
+          "Security model",
+          "Current generated security catalogs"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 581,
+        "bodyEndLine": 581,
+        "bodyText": "`rate-limiter-rejection` uses `fail-closed`."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "configuration-error-security-policy.required-production-values",
+        "behaviorId": "configuration-error-security-policy",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "configuration.required-production-values"
+      },
+      "location": {
+        "documentPath": "docs/configuration-layout.md",
+        "claimStartLine": 517,
+        "claimEndLine": 523,
+        "documentStatus": "current",
+        "headingPath": [
+          "Configuration Ownership and Canonical Paths",
+          "Current generated defaults and production requirements"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "deployment-blue-green-runtime-role.blue-green-contract",
+        "behaviorId": "deployment-blue-green-runtime-role",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "deployment.blue-green-contract"
+      },
+      "location": {
+        "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+        "claimStartLine": 42,
+        "claimEndLine": 48,
+        "documentStatus": "current",
+        "headingPath": [
+          "Blue/Green deployment runbook",
+          "Observed blue/green authority"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "deployment-blue-green-runtime-role.claims-blocked-until-authority-verified",
+        "behaviorId": "deployment-blue-green-runtime-role",
+        "claimType": "boolean",
+        "render": "boolean-negated",
+        "factPath": "deploymentBlueGreen.claimEligible"
+      },
+      "location": {
+        "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+        "claimStartLine": 32,
+        "claimEndLine": 38,
+        "documentStatus": "current",
+        "headingPath": [
+          "Blue/Green deployment runbook",
+          "Observed blue/green authority"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 40,
+        "bodyEndLine": 40,
+        "bodyText": "`claimEligible` is `false` because the active-resource checks below are synthetic library proofs, not production-current observations. Schema overlap, exact volume topology and runtime ownership remain source-bound, while production volume/schema cleanup and any unknown active identity stay explicitly unsupported and fail closed."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "deployment-blue-green-runtime-role.distributed-issue-rationale",
+        "behaviorId": "deployment-blue-green-runtime-role",
+        "claimType": "rationale",
+        "render": "rationale-prose",
+        "factPath": "deploymentBlueGreen.claimEligible"
+      },
+      "location": {
+        "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+        "claimStartLine": 49,
+        "claimEndLine": 55,
+        "documentStatus": "current",
+        "headingPath": [
+          "Monolithic distributed architecture boundary",
+          "Distributed Runtime issue boundary"
+        ],
+        "bodyKind": "list",
+        "bodyStartLine": 57,
+        "bodyEndLine": 62,
+        "bodyText": "- #110 单体分布式支持：同构全能力节点与动态职责调度\n- #111 节点能力注册与集群成员治理\n- #112 动态职责调度与自适应负载均衡\n- #113 分布式状态控制\n- #114 本地 / 远程调用透明切换与模块边界约束\n- #115 多节点部署、观测与故障治理"
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "deployment-blue-green-runtime-role.monolithic-distributed-rationale",
+        "behaviorId": "deployment-blue-green-runtime-role",
+        "claimType": "rationale",
+        "render": "rationale-prose",
+        "factPath": "topologyDigest"
+      },
+      "location": {
+        "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+        "claimStartLine": 3,
+        "claimEndLine": 9,
+        "documentStatus": "current",
+        "headingPath": [
+          "Monolithic distributed architecture boundary"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 11,
+        "bodyEndLine": 11,
+        "bodyText": "单体分布式（Homogeneous Binary, Heterogeneous Runtime）描述同一套 FsusBlog 程序和唯一业务入口；`single`、`static-role`、`adaptive` 运行形态的跨节点能力继续经过 remote invocation 的 port / adapter 边界。"
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "deployment-blue-green-runtime-role.runtime-roles",
+        "behaviorId": "deployment-blue-green-runtime-role",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "deployment.runtime-roles"
+      },
+      "location": {
+        "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+        "claimStartLine": 17,
+        "claimEndLine": 23,
+        "documentStatus": "current",
+        "headingPath": [
+          "Monolithic distributed architecture boundary",
+          "Runtime modes"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "release-final-aggregate-contract.aggregate-artifact-only",
+        "behaviorId": "release-final-aggregate-contract",
+        "claimType": "boolean",
+        "render": "boolean-affirmed",
+        "factPath": "releaseFinalAggregate.artifactOnly"
+      },
+      "location": {
+        "documentPath": "docs/releases/release-identity.md",
+        "claimStartLine": 77,
+        "claimEndLine": 83,
+        "documentStatus": "current",
+        "headingPath": [
+          "Immutable release identity",
+          "Aggregate release-final contract"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 85,
+        "bodyEndLine": 85,
+        "bodyText": "The aggregate contract sets `artifactOnly` to `true`: it consumes artifact-bound evidence inputs only; absent evidence stays absent."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "release-final-aggregate-contract.aggregate-contract",
+        "behaviorId": "release-final-aggregate-contract",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "release.aggregate-contract"
+      },
+      "location": {
+        "documentPath": "docs/releases/release-identity.md",
+        "claimStartLine": 87,
+        "claimEndLine": 93,
+        "documentStatus": "current",
+        "headingPath": [
+          "Immutable release identity",
+          "Aggregate release-final contract"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "release-final-aggregate-contract.aggregate-only",
+        "behaviorId": "release-final-aggregate-contract",
+        "claimType": "boolean",
+        "render": "boolean-negated",
+        "factPath": "releaseFinalAggregate.executesTestCommands"
+      },
+      "location": {
+        "documentPath": "docs/releases/release-identity.md",
+        "claimStartLine": 67,
+        "claimEndLine": 73,
+        "documentStatus": "current",
+        "headingPath": [
+          "Immutable release identity",
+          "Aggregate release-final contract"
+        ],
+        "bodyKind": "paragraph",
+        "bodyStartLine": 75,
+        "bodyEndLine": 75,
+        "bodyText": "Release closeout is aggregate-only: the contract sets `executesTestCommands` to `false` and never spawns producers to manufacture a passing result."
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "release-final-aggregate-contract.finalizer-authority",
+        "behaviorId": "release-final-aggregate-contract",
+        "claimType": "generated-section",
+        "render": "key-value-table",
+        "generatedSectionId": "release.finalizer-authority"
+      },
+      "location": {
+        "documentPath": "docs/testing.md",
+        "claimStartLine": 1523,
+        "claimEndLine": 1529,
+        "documentStatus": "current",
+        "headingPath": [
+          "Test strategy",
+          "Release-final finalizer authority"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    },
+    {
+      "declaration": {
+        "claimId": "test-asset-audit-reconciliation.coverage-entry-count",
+        "behaviorId": "test-asset-audit-reconciliation",
+        "claimType": "generated-section",
+        "render": "scalar",
+        "generatedSectionId": "testing.coverage-entry-count"
+      },
+      "location": {
+        "documentPath": "docs/testing.md",
+        "claimStartLine": 260,
+        "claimEndLine": 266,
+        "documentStatus": "current",
+        "headingPath": [
+          "Test strategy",
+          "Executable data test governance"
+        ],
+        "bodyKind": "none",
+        "bodyStartLine": null,
+        "bodyEndLine": null,
+        "bodyText": ""
+      }
+    }
+  ],
+  "contentDigest": "a97e9e75531bb00a2f407944c54b554f91cdac8ff11c06b482ecc2932ee47fa4"
+}

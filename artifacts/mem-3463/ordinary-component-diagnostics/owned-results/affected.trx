@@ -1,0 +1,118 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="ee4542ba-3ae9-491d-a0e6-68de03e9dd51" name="@69bb40a957bf 2026-10-08 13:14:52" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-08T13:14:52.2562228+00:00" queuing="2026-10-08T13:14:52.2562228+00:00" start="2026-10-08T13:14:49.4818585+00:00" finish="2026-10-08T13:14:52.3163991+00:00" />
+  <TestSettings name="default" id="9b9e92fd-5bc4-4aa5-9f7c-edc42431a1d7">
+    <Deployment runDeploymentRoot="_69bb40a957bf_2026-10-08_13_14_52" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="de86ffbb-d058-4d08-abf0-3c8fe85e46ba" testId="d95b7905-fe90-87d5-5158-8030d5f51c0e" testName="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.T11_CanceledOuterWaitDoesNotReturnTheStillRunningConsumer" computerName="69bb40a957bf" duration="00:00:00.0065800" startTime="2026-10-08T13:14:52.1840664+00:00" endTime="2026-10-08T13:14:52.1915152+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="de86ffbb-d058-4d08-abf0-3c8fe85e46ba" />
+    <UnitTestResult executionId="540f489e-1a1d-4754-ab5d-697762b767fd" testId="60149280-b901-fa57-c02c-b1a3a2ee1f69" testName="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.T01_IndependentPoolsCompeteForTheSameFinalHostBudget" computerName="69bb40a957bf" duration="00:00:00.0004120" startTime="2026-10-08T13:14:52.2448038+00:00" endTime="2026-10-08T13:14:52.2448634+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="540f489e-1a1d-4754-ab5d-697762b767fd" />
+    <UnitTestResult executionId="b77c1ff6-1f52-4b20-baf1-ed2b684dbee5" testId="b4c2840f-ff91-1fbf-9e17-4b6113a0867e" testName="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.AdmissionRejectedBeforeTheQueryCallbackOrMaterialization" computerName="69bb40a957bf" duration="00:00:00.0224133" startTime="2026-10-08T13:14:52.1663540+00:00" endTime="2026-10-08T13:14:52.1665848+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b77c1ff6-1f52-4b20-baf1-ed2b684dbee5" />
+    <UnitTestResult executionId="a54942bf-39d2-486a-bcc6-e857cdf66dbe" testId="5322e4a6-e884-d019-3a41-5889c10948bf" testName="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.CancellationOfOuterWaitRetainsWorkspaceUntilUnderlyingQueryEnds" computerName="69bb40a957bf" duration="00:00:00.0122811" startTime="2026-10-08T13:14:52.1675266+00:00" endTime="2026-10-08T13:14:52.1768992+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a54942bf-39d2-486a-bcc6-e857cdf66dbe" />
+    <UnitTestResult executionId="8fa9016d-8001-4cba-bc06-94574fa7688f" testId="39c333d9-b140-1afd-a679-726c2707ed20" testName="FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests.RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny" computerName="69bb40a957bf" duration="00:00:00.0143632" startTime="2026-10-08T13:14:52.1484180+00:00" endTime="2026-10-08T13:14:52.1503486+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8fa9016d-8001-4cba-bc06-94574fa7688f" />
+    <UnitTestResult executionId="05c6f284-3ab1-4254-ad50-e96cf6dcc93f" testId="910cff95-1547-277b-c310-e42b8058cfe2" testName="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.StringLengthIsProbedBeforeAllocatingOrReadingOversizeCharacters" computerName="69bb40a957bf" duration="00:00:00.0080389" startTime="2026-10-08T13:14:52.1797558+00:00" endTime="2026-10-08T13:14:52.1880241+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="05c6f284-3ab1-4254-ad50-e96cf6dcc93f" />
+    <UnitTestResult executionId="08a50bfb-394c-46f8-a1cc-10ce9821e164" testId="c1d4cef1-1f11-7aba-0d0e-cf84acbdab42" testName="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.PinCopiesKeepBackingChargedThroughCloseAndReturnOnlyOnce" computerName="69bb40a957bf" duration="00:00:00.0516059" startTime="2026-10-08T13:14:52.1466896+00:00" endTime="2026-10-08T13:14:52.1676195+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="08a50bfb-394c-46f8-a1cc-10ce9821e164" />
+    <UnitTestResult executionId="8204cce7-e1d2-4e83-ba6c-d505911038f8" testId="757fcf1b-264d-ea3f-0b73-0a8533244f34" testName="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.AutoRetention_DisableDrainsIdleCapacityAndPreservesMandatoryAdmission" computerName="69bb40a957bf" duration="00:00:00.0006828" startTime="2026-10-08T13:14:52.2442961+00:00" endTime="2026-10-08T13:14:52.2443803+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8204cce7-e1d2-4e83-ba6c-d505911038f8" />
+    <UnitTestResult executionId="f7fa2d37-063f-434c-8c92-aabccf0b6c65" testId="4f2cb5a8-34cd-c42b-22c2-3da9f4613dde" testName="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.T08_ReturnRetainsActualBucketCharge_TrimRefundsExactlyOnce" computerName="69bb40a957bf" duration="00:00:00.0088144" startTime="2026-10-08T13:14:52.1755931+00:00" endTime="2026-10-08T13:14:52.1838918+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f7fa2d37-063f-434c-8c92-aabccf0b6c65" />
+    <UnitTestResult executionId="b64bab4d-5a21-4ab2-b810-43cd630bc41e" testId="83a2dcbd-1066-fb75-6bd2-e15391f7cb9c" testName="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.DisposedPinCopyDoesNotKeepARefundedArrayAlive" computerName="69bb40a957bf" duration="00:00:00.0436617" startTime="2026-10-08T13:14:52.2450366+00:00" endTime="2026-10-08T13:14:52.2458177+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b64bab4d-5a21-4ab2-b810-43cd630bc41e" />
+    <UnitTestResult executionId="3d487deb-0d80-49f4-970a-8ebc23dd8275" testId="01e7065f-9de8-ce4d-8f8d-05f08ad506d1" testName="FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests.T41_ShutdownDisposesQueuedHoldsButKeepsInFlightOwnerAndReplayObligation" computerName="69bb40a957bf" duration="00:00:00.0507589" startTime="2026-10-08T13:14:52.2457489+00:00" endTime="2026-10-08T13:14:52.2459799+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3d487deb-0d80-49f4-970a-8ebc23dd8275" />
+    <UnitTestResult executionId="884fda77-82de-422b-a9c2-16008d5c9986" testId="4acf9d7a-ac90-e984-439c-383dc5aea96d" testName="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.RowFrameAndWorkspaceBoundsFailBeforeTheNextAllocation" computerName="69bb40a957bf" duration="00:00:00.0020066" startTime="2026-10-08T13:14:52.1882042+00:00" endTime="2026-10-08T13:14:52.1913059+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="884fda77-82de-422b-a9c2-16008d5c9986" />
+    <UnitTestResult executionId="50e73539-bbdc-4e8e-8970-a1a2c42b59d3" testId="8c5117c2-ee17-4b04-b0d7-a6ff5085d9bd" testName="FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests.T40_ByteLimitIsIndependentOfFrameCount" computerName="69bb40a957bf" duration="00:00:00.0006029" startTime="2026-10-08T13:14:52.2452602+00:00" endTime="2026-10-08T13:14:52.2454044+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="50e73539-bbdc-4e8e-8970-a1a2c42b59d3" />
+    <UnitTestResult executionId="99c48bb6-ca41-4df1-a690-15ccc0c7e4f4" testId="5dec4675-71bd-f044-688b-81dfbe6f9784" testName="FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests.T40_OnePayloadRemainsChargedThroughFastAndSlowRecipientCompletion" computerName="69bb40a957bf" duration="00:00:00.0775441" startTime="2026-10-08T13:14:52.1482369+00:00" endTime="2026-10-08T13:14:52.2450967+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="99c48bb6-ca41-4df1-a690-15ccc0c7e4f4" />
+    <UnitTestResult executionId="0a991ccf-71ab-42b2-82c0-8b05f51c377a" testId="28b46fae-043d-1022-0759-bdf79f926396" testName="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.RepeatedParallelBurstsNeverExceedCapacityOrRetentionLimits" computerName="69bb40a957bf" duration="00:00:00.0081537" startTime="2026-10-08T13:14:52.1677893+00:00" endTime="2026-10-08T13:14:52.1753951+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0a991ccf-71ab-42b2-82c0-8b05f51c377a" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.DisposedPinCopyDoesNotKeepARefundedArrayAlive" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="83a2dcbd-1066-fb75-6bd2-e15391f7cb9c">
+      <Execution id="b64bab4d-5a21-4ab2-b810-43cd630bc41e" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests" name="DisposedPinCopyDoesNotKeepARefundedArrayAlive" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.PinCopiesKeepBackingChargedThroughCloseAndReturnOnlyOnce" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="c1d4cef1-1f11-7aba-0d0e-cf84acbdab42">
+      <Execution id="08a50bfb-394c-46f8-a1cc-10ce9821e164" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests" name="PinCopiesKeepBackingChargedThroughCloseAndReturnOnlyOnce" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.AutoRetention_DisableDrainsIdleCapacityAndPreservesMandatoryAdmission" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="757fcf1b-264d-ea3f-0b73-0a8533244f34">
+      <Execution id="8204cce7-e1d2-4e83-ba6c-d505911038f8" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests" name="AutoRetention_DisableDrainsIdleCapacityAndPreservesMandatoryAdmission" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.T11_CanceledOuterWaitDoesNotReturnTheStillRunningConsumer" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="d95b7905-fe90-87d5-5158-8030d5f51c0e">
+      <Execution id="de86ffbb-d058-4d08-abf0-3c8fe85e46ba" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests" name="T11_CanceledOuterWaitDoesNotReturnTheStillRunningConsumer" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.RowFrameAndWorkspaceBoundsFailBeforeTheNextAllocation" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="4acf9d7a-ac90-e984-439c-383dc5aea96d">
+      <Execution id="884fda77-82de-422b-a9c2-16008d5c9986" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests" name="RowFrameAndWorkspaceBoundsFailBeforeTheNextAllocation" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests.RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="39c333d9-b140-1afd-a679-726c2707ed20">
+      <Execution id="8fa9016d-8001-4cba-bc06-94574fa7688f" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests" name="RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests.T40_OnePayloadRemainsChargedThroughFastAndSlowRecipientCompletion" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="5dec4675-71bd-f044-688b-81dfbe6f9784">
+      <Execution id="99c48bb6-ca41-4df1-a690-15ccc0c7e4f4" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests" name="T40_OnePayloadRemainsChargedThroughFastAndSlowRecipientCompletion" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests.T41_ShutdownDisposesQueuedHoldsButKeepsInFlightOwnerAndReplayObligation" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="01e7065f-9de8-ce4d-8f8d-05f08ad506d1">
+      <Execution id="3d487deb-0d80-49f4-970a-8ebc23dd8275" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests" name="T41_ShutdownDisposesQueuedHoldsButKeepsInFlightOwnerAndReplayObligation" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.AdmissionRejectedBeforeTheQueryCallbackOrMaterialization" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="b4c2840f-ff91-1fbf-9e17-4b6113a0867e">
+      <Execution id="b77c1ff6-1f52-4b20-baf1-ed2b684dbee5" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests" name="AdmissionRejectedBeforeTheQueryCallbackOrMaterialization" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.StringLengthIsProbedBeforeAllocatingOrReadingOversizeCharacters" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="910cff95-1547-277b-c310-e42b8058cfe2">
+      <Execution id="05c6f284-3ab1-4254-ad50-e96cf6dcc93f" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests" name="StringLengthIsProbedBeforeAllocatingOrReadingOversizeCharacters" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.T01_IndependentPoolsCompeteForTheSameFinalHostBudget" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="60149280-b901-fa57-c02c-b1a3a2ee1f69">
+      <Execution id="540f489e-1a1d-4754-ab5d-697762b767fd" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests" name="T01_IndependentPoolsCompeteForTheSameFinalHostBudget" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests.T40_ByteLimitIsIndependentOfFrameCount" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="8c5117c2-ee17-4b04-b0d7-a6ff5085d9bd">
+      <Execution id="50e73539-bbdc-4e8e-8970-a1a2c42b59d3" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.NotificationPayloadLeaseTests" name="T40_ByteLimitIsIndependentOfFrameCount" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests.CancellationOfOuterWaitRetainsWorkspaceUntilUnderlyingQueryEnds" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="5322e4a6-e884-d019-3a41-5889c10948bf">
+      <Execution id="a54942bf-39d2-486a-bcc6-e857cdf66dbe" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DatabaseMaterializationScopeTests" name="CancellationOfOuterWaitRetainsWorkspaceUntilUnderlyingQueryEnds" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.T08_ReturnRetainsActualBucketCharge_TrimRefundsExactlyOnce" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="4f2cb5a8-34cd-c42b-22c2-3da9f4613dde">
+      <Execution id="f7fa2d37-063f-434c-8c92-aabccf0b6c65" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests" name="T08_ReturnRetainsActualBucketCharge_TrimRefundsExactlyOnce" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests.RepeatedParallelBurstsNeverExceedCapacityOrRetentionLimits" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="28b46fae-043d-1022-0759-bdf79f926396">
+      <Execution id="0a991ccf-71ab-42b2-82c0-8b05f51c377a" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.TransientBufferPoolTests" name="RepeatedParallelBurstsNeverExceedCapacityOrRetentionLimits" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="d95b7905-fe90-87d5-5158-8030d5f51c0e" executionId="de86ffbb-d058-4d08-abf0-3c8fe85e46ba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="60149280-b901-fa57-c02c-b1a3a2ee1f69" executionId="540f489e-1a1d-4754-ab5d-697762b767fd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b4c2840f-ff91-1fbf-9e17-4b6113a0867e" executionId="b77c1ff6-1f52-4b20-baf1-ed2b684dbee5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5322e4a6-e884-d019-3a41-5889c10948bf" executionId="a54942bf-39d2-486a-bcc6-e857cdf66dbe" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="39c333d9-b140-1afd-a679-726c2707ed20" executionId="8fa9016d-8001-4cba-bc06-94574fa7688f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="910cff95-1547-277b-c310-e42b8058cfe2" executionId="05c6f284-3ab1-4254-ad50-e96cf6dcc93f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c1d4cef1-1f11-7aba-0d0e-cf84acbdab42" executionId="08a50bfb-394c-46f8-a1cc-10ce9821e164" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="757fcf1b-264d-ea3f-0b73-0a8533244f34" executionId="8204cce7-e1d2-4e83-ba6c-d505911038f8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4f2cb5a8-34cd-c42b-22c2-3da9f4613dde" executionId="f7fa2d37-063f-434c-8c92-aabccf0b6c65" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="83a2dcbd-1066-fb75-6bd2-e15391f7cb9c" executionId="b64bab4d-5a21-4ab2-b810-43cd630bc41e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="01e7065f-9de8-ce4d-8f8d-05f08ad506d1" executionId="3d487deb-0d80-49f4-970a-8ebc23dd8275" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4acf9d7a-ac90-e984-439c-383dc5aea96d" executionId="884fda77-82de-422b-a9c2-16008d5c9986" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8c5117c2-ee17-4b04-b0d7-a6ff5085d9bd" executionId="50e73539-bbdc-4e8e-8970-a1a2c42b59d3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5dec4675-71bd-f044-688b-81dfbe6f9784" executionId="99c48bb6-ca41-4df1-a690-15ccc0c7e4f4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="28b46fae-043d-1022-0759-bdf79f926396" executionId="0a991ccf-71ab-42b2-82c0-8b05f51c377a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="15" executed="15" passed="15" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.42]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:02.06]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:02.14]   Starting:    FsusBlog.Server.Tests
+[xUnit.net 00:00:02.32]   Finished:    FsusBlog.Server.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

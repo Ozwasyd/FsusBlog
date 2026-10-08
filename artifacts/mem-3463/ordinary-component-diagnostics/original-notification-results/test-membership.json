@@ -1,0 +1,20 @@
+{
+  "kind": "original ordinary direct notification component controls; not deployment/security/drain or runtime acceptance",
+  "source": "a4e68aead16531c3522756bb59fd35018adff058",
+  "runId": "mem3463-current-original-notification-controls",
+  "passed": 10,
+  "failed": 0,
+  "skipped": 0,
+  "tests": {
+    "FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_PublicFactoryBindsSharedPool": "Passed",
+    "FsusBlog.Server.Tests.Unit.NotificationStreamBackpressurePolicyTests.Connection_ByteOverflowClosesWithExplicitReplayInstruction": "Passed",
+    "FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_HasCorrectLength": "Passed",
+    "FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease": "Passed",
+    "FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromArray_StoresPayload": "Passed",
+    "FsusBlog.Server.Tests.Unit.NotificationStreamDeliveryAccountingTests.InFlightFrame_StillConsumesTheConnectionBudget": "Passed",
+    "FsusBlog.Server.Tests.Unit.NotificationStreamBackpressurePolicyTests.Connection_PolicyCanRequireFullResyncOnOverflow": "Passed",
+    "FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromArray_MemoryMatchesPayload": "Passed",
+    "FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.Retain_AfterRelease_Throws": "Passed",
+    "FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.Release_WhenCalledMoreThanRetain_Throws": "Passed"
+  }
+}

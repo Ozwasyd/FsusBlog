@@ -1,0 +1,20 @@
+{
+  "kind": "new ordinary check configuration; not result/qualification",
+  "packageDownloadSources": [
+    "/workspace/.setup/nuget",
+    "/workspace/scratch/mem-3463/pinned-test-feed"
+  ],
+  "packageNetworkDownloadSources": [],
+  "auditMetadataSource": "https://data.nuget.org/v3/index.json",
+  "auditProperties": {
+    "NuGetAudit": true,
+    "NuGetAuditMode": "all",
+    "NuGetAuditLevel": "low"
+  },
+  "configuration": "task-owned ignored .tmp/ordinary-dependency-cache/NuGet.ordinary-isolated.config",
+  "implementationDependencyDownloads": "none permitted; exact missing package/version will block restore",
+  "toolSdk": "10.0.401",
+  "schemaValidator": "five existing pinned lock dependencies installed without scripts",
+  "noOldEvidenceReused": true,
+  "officialAuditSourceDocumentation": "https://learn.microsoft.com/en-us/nuget/concepts/auditing-packages#Audit-Sources"
+}

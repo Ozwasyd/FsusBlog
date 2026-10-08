@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="d162c43b-7f61-48c9-8f65-b7552c9ab80b" name="@69bb40a957bf 2026-10-08 13:15:39" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-08T13:15:39.3018415+00:00" queuing="2026-10-08T13:15:39.3018416+00:00" start="2026-10-08T13:15:36.6974967+00:00" finish="2026-10-08T13:15:39.3579700+00:00" />
+  <TestSettings name="default" id="0f1b7830-85e0-455c-924b-95eebc89beb8">
+    <Deployment runDeploymentRoot="_69bb40a957bf_2026-10-08_13_15_39" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="29e9d535-cb84-464e-b601-f40016cb6721" testId="5507c8cd-0394-0e91-c944-ce90f69a4a35" testName="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_PublicFactoryBindsSharedPool" computerName="69bb40a957bf" duration="00:00:00.0035301" startTime="2026-10-08T13:15:39.2910913+00:00" endTime="2026-10-08T13:15:39.2918712+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="29e9d535-cb84-464e-b601-f40016cb6721" />
+    <UnitTestResult executionId="ff9eb4e2-ac11-4af5-8eb6-62034df2837c" testId="10c53bee-ac56-caff-3f4d-756e507471b2" testName="FsusBlog.Server.Tests.Unit.NotificationStreamBackpressurePolicyTests.Connection_ByteOverflowClosesWithExplicitReplayInstruction" computerName="69bb40a957bf" duration="00:00:00.0011823" startTime="2026-10-08T13:15:39.2817305+00:00" endTime="2026-10-08T13:15:39.2827666+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ff9eb4e2-ac11-4af5-8eb6-62034df2837c" />
+    <UnitTestResult executionId="365d5fcc-319b-42e8-a581-02e924e70dc1" testId="acc5956c-f0e6-c6c4-f453-bc11dc8f083a" testName="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_HasCorrectLength" computerName="69bb40a957bf" duration="00:00:00.0002412" startTime="2026-10-08T13:15:39.2827085+00:00" endTime="2026-10-08T13:15:39.2828800+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="365d5fcc-319b-42e8-a581-02e924e70dc1" />
+    <UnitTestResult executionId="10b41eda-ca61-44be-a97b-af6ad98c73e7" testId="e5330ba5-97ae-843a-eb98-d4ff0e223704" testName="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease" computerName="69bb40a957bf" duration="00:00:00.0288298" startTime="2026-10-08T13:15:39.2692416+00:00" endTime="2026-10-08T13:15:39.2740269+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="10b41eda-ca61-44be-a97b-af6ad98c73e7" />
+    <UnitTestResult executionId="f3f73dbc-6d95-4204-9708-8daab4a97776" testId="3d76f587-ca29-d2ad-02f5-ecb6f94a0df8" testName="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromArray_StoresPayload" computerName="69bb40a957bf" duration="00:00:00.0001962" startTime="2026-10-08T13:15:39.2824247+00:00" endTime="2026-10-08T13:15:39.2824921+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f3f73dbc-6d95-4204-9708-8daab4a97776" />
+    <UnitTestResult executionId="04ae29f2-3902-4ca6-90fd-1d8a08751f52" testId="7ed4c259-976c-3393-f51f-dcc1d79c85c4" testName="FsusBlog.Server.Tests.Unit.NotificationStreamDeliveryAccountingTests.InFlightFrame_StillConsumesTheConnectionBudget" computerName="69bb40a957bf" duration="00:00:00.0322346" startTime="2026-10-08T13:15:39.2691835+00:00" endTime="2026-10-08T13:15:39.2804240+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="04ae29f2-3902-4ca6-90fd-1d8a08751f52" />
+    <UnitTestResult executionId="a3896f4d-2741-4c69-85d4-939283859929" testId="49503e92-d443-db85-5653-69cf99060824" testName="FsusBlog.Server.Tests.Unit.NotificationStreamBackpressurePolicyTests.Connection_PolicyCanRequireFullResyncOnOverflow" computerName="69bb40a957bf" duration="00:00:00.0294326" startTime="2026-10-08T13:15:39.2674638+00:00" endTime="2026-10-08T13:15:39.2705184+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a3896f4d-2741-4c69-85d4-939283859929" />
+    <UnitTestResult executionId="526a19c9-c728-4d64-b279-7dbe541c0199" testId="82be6b74-0cb0-33e7-3cfb-e72c99db332f" testName="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromArray_MemoryMatchesPayload" computerName="69bb40a957bf" duration="00:00:00.0002579" startTime="2026-10-08T13:15:39.2816701+00:00" endTime="2026-10-08T13:15:39.2818141+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="526a19c9-c728-4d64-b279-7dbe541c0199" />
+    <UnitTestResult executionId="18518113-5149-42f5-98f3-ab27f4965437" testId="13fcdc6e-c1aa-2a68-30a8-f43bd19bcc1e" testName="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.Retain_AfterRelease_Throws" computerName="69bb40a957bf" duration="00:00:00.0003262" startTime="2026-10-08T13:15:39.2830910+00:00" endTime="2026-10-08T13:15:39.2840163+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="18518113-5149-42f5-98f3-ab27f4965437" />
+    <UnitTestResult executionId="1a6e02e8-ca0b-4134-905b-dc5226156ac5" testId="dff2c334-bfc0-e032-7fd5-9a66fa803dcc" testName="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.Release_WhenCalledMoreThanRetain_Throws" computerName="69bb40a957bf" duration="00:00:00.0004498" startTime="2026-10-08T13:15:39.2822000+00:00" endTime="2026-10-08T13:15:39.2822641+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1a6e02e8-ca0b-4134-905b-dc5226156ac5" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.NotificationStreamDeliveryAccountingTests.InFlightFrame_StillConsumesTheConnectionBudget" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="7ed4c259-976c-3393-f51f-dcc1d79c85c4">
+      <Execution id="04ae29f2-3902-4ca6-90fd-1d8a08751f52" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.NotificationStreamDeliveryAccountingTests" name="InFlightFrame_StillConsumesTheConnectionBudget" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.Release_WhenCalledMoreThanRetain_Throws" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="dff2c334-bfc0-e032-7fd5-9a66fa803dcc">
+      <Execution id="1a6e02e8-ca0b-4134-905b-dc5226156ac5" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests" name="Release_WhenCalledMoreThanRetain_Throws" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_PublicFactoryBindsSharedPool" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="5507c8cd-0394-0e91-c944-ce90f69a4a35">
+      <Execution id="29e9d535-cb84-464e-b601-f40016cb6721" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests" name="FromOwnedBuffer_PublicFactoryBindsSharedPool" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromArray_MemoryMatchesPayload" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="82be6b74-0cb0-33e7-3cfb-e72c99db332f">
+      <Execution id="526a19c9-c728-4d64-b279-7dbe541c0199" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests" name="FromArray_MemoryMatchesPayload" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.NotificationStreamBackpressurePolicyTests.Connection_ByteOverflowClosesWithExplicitReplayInstruction" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="10c53bee-ac56-caff-3f4d-756e507471b2">
+      <Execution id="ff9eb4e2-ac11-4af5-8eb6-62034df2837c" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.NotificationStreamBackpressurePolicyTests" name="Connection_ByteOverflowClosesWithExplicitReplayInstruction" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromArray_StoresPayload" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="3d76f587-ca29-d2ad-02f5-ecb6f94a0df8">
+      <Execution id="f3f73dbc-6d95-4204-9708-8daab4a97776" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests" name="FromArray_StoresPayload" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.Retain_AfterRelease_Throws" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="13fcdc6e-c1aa-2a68-30a8-f43bd19bcc1e">
+      <Execution id="18518113-5149-42f5-98f3-ab27f4965437" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests" name="Retain_AfterRelease_Throws" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.NotificationStreamBackpressurePolicyTests.Connection_PolicyCanRequireFullResyncOnOverflow" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="49503e92-d443-db85-5653-69cf99060824">
+      <Execution id="a3896f4d-2741-4c69-85d4-939283859929" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.NotificationStreamBackpressurePolicyTests" name="Connection_PolicyCanRequireFullResyncOnOverflow" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="e5330ba5-97ae-843a-eb98-d4ff0e223704">
+      <Execution id="10b41eda-ca61-44be-a97b-af6ad98c73e7" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests" name="FromOwnedBuffer_RetainDefersPoolReturnUntilFinalRelease" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests.FromOwnedBuffer_HasCorrectLength" storage="/workspace/scratch/mem-3463/current-source/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="acc5956c-f0e6-c6c4-f453-bc11dc8f083a">
+      <Execution id="365d5fcc-319b-42e8-a581-02e924e70dc1" />
+      <TestMethod codeBase="/workspace/scratch/mem-3463/current-source/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.SharedNotificationStreamFrameExtendedTests" name="FromOwnedBuffer_HasCorrectLength" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="5507c8cd-0394-0e91-c944-ce90f69a4a35" executionId="29e9d535-cb84-464e-b601-f40016cb6721" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="10c53bee-ac56-caff-3f4d-756e507471b2" executionId="ff9eb4e2-ac11-4af5-8eb6-62034df2837c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="acc5956c-f0e6-c6c4-f453-bc11dc8f083a" executionId="365d5fcc-319b-42e8-a581-02e924e70dc1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e5330ba5-97ae-843a-eb98-d4ff0e223704" executionId="10b41eda-ca61-44be-a97b-af6ad98c73e7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3d76f587-ca29-d2ad-02f5-ecb6f94a0df8" executionId="f3f73dbc-6d95-4204-9708-8daab4a97776" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7ed4c259-976c-3393-f51f-dcc1d79c85c4" executionId="04ae29f2-3902-4ca6-90fd-1d8a08751f52" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="49503e92-d443-db85-5653-69cf99060824" executionId="a3896f4d-2741-4c69-85d4-939283859929" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="82be6b74-0cb0-33e7-3cfb-e72c99db332f" executionId="526a19c9-c728-4d64-b279-7dbe541c0199" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="13fcdc6e-c1aa-2a68-30a8-f43bd19bcc1e" executionId="18518113-5149-42f5-98f3-ab27f4965437" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dff2c334-bfc0-e032-7fd5-9a66fa803dcc" executionId="1a6e02e8-ca0b-4134-905b-dc5226156ac5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="10" executed="10" passed="10" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.41]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:01.99]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:02.08]   Starting:    FsusBlog.Server.Tests
+[xUnit.net 00:00:02.18]   Finished:    FsusBlog.Server.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>
