@@ -4,11 +4,12 @@
         {
             "id": "environment-variable",
             "paths": [
+                "tools/fact-extractors/test-matrix/extract.mjs",
                 "tools/governance/generated-output-digest-repair-repository.mjs",
                 "tools/test-inventory/discovery.mjs",
                 "tools/test/correctness-attempt-migration.mjs"
             ],
-            "reason": "preserve the existing Git and sparse runtime environment spellings while retaining exact filesystem identities in the canonical replay adapter; preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster; preserve canonical SDK and execution environment spellings while interpreting observed MSBuild intermediate path separators at the original projection boundary"
+            "reason": "preserve the existing Git and sparse runtime environment spellings while retaining exact filesystem identities in the canonical replay adapter; preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster; preserve canonical SDK and execution environment spellings while interpreting observed MSBuild intermediate path separators at the original projection boundary; preserve canonical producer and process spellings while using the registered caller-owned replay directory"
         },
         {
             "id": "css-like-contract",
