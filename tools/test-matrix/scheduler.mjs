@@ -14,6 +14,7 @@ import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler fingerprints use the canonical source-identity owner.
 import { sealSourceIdentity } from '../fact-extractors/identity.mjs';
 import {
+    CHECKPOINT_EVIDENCE_REFERENCES_SCHEMA,
     attachCurrentRunEvidenceHandoff,
     parseCurrentRunEvidenceHandoffs,
     resumeCurrentRunEvidenceCheckpoint
@@ -21,6 +22,11 @@ import {
 } from '../test/current-run-evidence-checkpoint.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Finalizer admission consumes exact current-run bindings.
 import { locateCurrentRunEvidence } from '../test/current-run-evidence-locator.mjs';
+import {
+    EVIDENCE_REFERENCE_SCHEMA,
+    resolveEvidenceReferencePayload
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Readback uses the existing wrapper and payload contract without another producer authority.
+} from '../test/current-run-evidence-publication.mjs';
 import {
     loadPhysicalExecutionProcessPolicy,
     residentServiceTransferSchema,
@@ -105,7 +111,7 @@ export {
     schedulerRunLockIsActive
 } from './scheduler-run-owner.mjs';
 
-const { validateCurrentRunEvidenceContext, validateEvidenceLocatorRegistry } = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
+const { governanceContentDigest, validateCurrentRunEvidenceContext, validateEvidenceLocatorRegistry } = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1';
 const schedulerResourceRecoveries = new WeakMap();
@@ -2673,6 +2679,178 @@ function prepareProjectionResumeTransaction(checkpointFile, checkpoint, successf
     fs.renameSync(temporary, file);
     return { file, transaction, baseline: checkpoint, expectedSuccess };
 }
+
+function checkpointContentDigest(checkpoint)
+{
+    const payload = { ...checkpoint };
+    delete payload.contentDigest;
+    return `sha256:${fingerprint(payload)}`;
+}
+
+function checkpointProjection(checkpoint, compact, lastSequence)
+{
+    const projection = {
+        ...checkpoint,
+        storeCheckpointRef: compact?.checkpoint.stateReference.digest ?? null,
+        storeCheckpointDigest: compact?.checkpoint.contentDigest ?? null,
+        lastSequence
+    };
+    projection.projectionDigest = `sha256:${fingerprint(projection)}`;
+    return projection;
+}
+
+/** Read only the explicit run's immutable objects and validated journal. JSON is a disposable projection. */
+export function readCanonicalSchedulerCheckpoint(checkpointFileValue)
+{
+    const checkpointFile = path.resolve(checkpointFileValue);
+    const runId = safeRunId(path.basename(path.dirname(checkpointFile)));
+    const storeRoot = path.join(path.dirname(checkpointFile), 'evidence-store');
+    if (!fs.existsSync(storeRoot))
+    {
+        if (fs.existsSync(checkpointFile))
+        {
+            throw new Error('contract.missing-canonical-checkpoint: compatibility JSON is not authority');
+        }
+        return null;
+    }
+    const compactFile = path.join(storeRoot, 'checkpoints', `${runId}.json`);
+    const journalFile = path.join(storeRoot, 'journals', `${runId}.jsonl`);
+    const identityFile = fs.existsSync(compactFile) ? compactFile : journalFile;
+    if (!fs.existsSync(identityFile))
+    {
+        throw new Error('contract.missing-canonical-checkpoint: no compact or journal identity');
+    }
+    const identityStat = fs.lstatSync(identityFile);
+    if (identityStat.isSymbolicLink() || !identityStat.isFile())
+    {
+        throw new Error('canonical checkpoint identity must be a regular file');
+    }
+    const source = identityFile === compactFile
+        ? JSON.parse(fs.readFileSync(compactFile, 'utf8'))
+        : JSON.parse(fs.readFileSync(journalFile, 'utf8').split('\n')[0] || '{}');
+    if (source.runId !== runId)
+    {
+        throw new Error('contract.checkpoint-identity-mismatch: runId');
+    }
+    const store = new RunEvidenceObjectStore({ root: storeRoot, runId,
+        sourceState: source.sourceState, readOnly: true });
+    const recovered = store.recover((state, _event, payload) => applyCheckpointPatch(state, payload));
+    let checkpoint = recovered.state;
+    const transaction = fs.existsSync(projectionResumeTransactionFile(checkpointFile))
+        ? projectionResumeTransactionState(checkpointFile) : null;
+    if (transaction?.state === 'prepared')
+    {
+        // A prepared projection transaction may have durable success bytes but no commit witness.
+        // Its immutable baseline remains the admitted view until the original transaction commits.
+        checkpoint = store.readObject(transaction.transaction.baselineObjectRef).value;
+    }
+    if (checkpoint?.schema !== checkpointSchema || checkpoint.runId !== runId
+        || !sameCheckpointSource(checkpoint.sourceState, source.sourceState))
+    {
+        throw new Error('contract.checkpoint-identity-mismatch: recovered run/source/schema');
+    }
+    if (checkpoint.contentDigest && checkpoint.contentDigest !== checkpointContentDigest(checkpoint))
+    {
+        throw new Error('canonical checkpoint content digest mismatch');
+    }
+    const compact = store.readCompactCheckpoint();
+    const projection = checkpointProjection(checkpoint, compact, recovered.lastSequence);
+    let projectionStatus = 'missing';
+    if (fs.existsSync(checkpointFile))
+    {
+        const stat = fs.lstatSync(checkpointFile);
+        if (stat.isSymbolicLink() || !stat.isFile())
+        {
+            throw new Error('compatibility checkpoint must be a regular file');
+        }
+        try
+        {
+            projectionStatus = fingerprint(JSON.parse(fs.readFileSync(checkpointFile, 'utf8')))
+                === fingerprint(projection) ? 'current' : 'drift';
+        }
+        catch
+        {
+            projectionStatus = 'invalid';
+        }
+    }
+    return { checkpoint, compactStateRef: compact?.checkpoint.stateReference.digest ?? null,
+        compactDigest: compact?.checkpoint.contentDigest ?? null, lastSequence: recovered.lastSequence,
+        checkpointDigest: checkpointContentDigest(checkpoint), projectionStatus };
+}
+
+export const schedulerCommittedEvidenceReadbackVersion = 1;
+
+/** Read a committed current-run wrapper reference. This grants no terminal/domain qualification. */
+export function verifyCommittedSchedulerEvidence({ checkpointFile, expectedCommittedRevision, context,
+    registry, registryEntry, repositoryRoot, expectedPayloadSchema } = {})
+{
+    if (typeof checkpointFile !== 'string' || !checkpointFile.trim()
+        || typeof repositoryRoot !== 'string' || !repositoryRoot.trim()
+        || typeof expectedPayloadSchema !== 'string' || !expectedPayloadSchema.trim())
+    {
+        throw new Error('committed evidence readback requires explicit checkpointFile, repositoryRoot and expectedPayloadSchema');
+    }
+    if (!Number.isSafeInteger(expectedCommittedRevision) || expectedCommittedRevision <= 0)
+    {
+        throw new Error('committed evidence readback requires an independently expected committed revision');
+    }
+    validateCurrentRunEvidenceContext(context);
+    validateEvidenceLocatorRegistry(registry);
+    if (!registryEntry || registryEntry.receiptSchema !== EVIDENCE_REFERENCE_SCHEMA)
+    {
+        throw new Error('committed evidence readback requires an explicit current-run wrapper registry entry');
+    }
+    const canonical = readCanonicalSchedulerCheckpoint(path.resolve(repositoryRoot, checkpointFile));
+    const checkpoint = canonical?.checkpoint;
+    if (!checkpoint || checkpoint.revision !== expectedCommittedRevision)
+    {
+        throw new Error('committed evidence readback revision is missing or mismatched');
+    }
+    if (checkpoint.runId !== context.schedulerRunId
+        || checkpoint.sourceState?.commit !== context.sourceCommit
+        || checkpoint.sourceState?.worktreeFingerprint !== context.worktreeFingerprint)
+    {
+        throw new Error('committed evidence readback checkpoint identity mismatch');
+    }
+    const block = checkpoint.currentRunEvidenceReferences;
+    if (block?.schema !== CHECKPOINT_EVIDENCE_REFERENCES_SCHEMA
+        || block.contentDigest !== governanceContentDigest(block) || !Array.isArray(block.references))
+    {
+        throw new Error('committed evidence readback current-run reference block is missing or invalid');
+    }
+    for (const field of ['schedulerRunId', 'attemptId', 'sourceCommit', 'worktreeFingerprint',
+        'candidateIdentity', 'buildIdentity'])
+    {
+        if (!isDeepStrictEqual(block[field], context[field]))
+        {
+            throw new Error(`committed evidence readback current identity mismatch: ${field}`);
+        }
+    }
+    const references = block.references.filter((reference) => reference.authorityId === registryEntry.authorityId);
+    if (references.length !== 1 || references[0].producerId !== registryEntry.producerId
+        || references[0].consumerId !== registryEntry.consumerId)
+    {
+        throw new Error('committed evidence readback requires one committed reference for the explicit producer authority');
+    }
+    const [reference] = references;
+    const input = registryEntry.locatorMode === 'content-addressed-reference'
+        ? { reference: { path: reference.path, objectDigest: reference.inputDigest } }
+        : { explicitInputs: [reference.path] };
+    const located = locateCurrentRunEvidence({ context, registry, registryEntry, repositoryRoot, ...input });
+    if (reference.inputDigest !== located.bindingReceipt.inputDigest
+        || reference.contentDigest !== located.receipt.contentDigest
+        || reference.producerReceiptDigest !== located.receipt.producerReceiptDigest
+        || located.receipt.payload?.schema !== expectedPayloadSchema)
+    {
+        throw new Error('committed evidence readback wrapper or payload binding mismatch');
+    }
+    resolveEvidenceReferencePayload(located.receipt, { repositoryRoot, ownedRoots: context.ownedRoots });
+    // inputDigest binds serialized wrapper bytes; payload.digest is a separate
+    // layer verified above. Return retained facts, not a resealed success receipt.
+    return { committedRevision: checkpoint.revision, finalOutputRef: structuredClone(reference),
+        finalOutputDigest: reference.inputDigest };
+}
+
 
 function readCheckpoint(checkpointFile, { journalAuthority = false, requireCompleteJournal = false } = {})
 {
