@@ -41,6 +41,33 @@ the article anchor consumer. FsusUI owns node identities, ranges, affinity and
 position mapping; the Blog consumer owns document binding and scroll intent.
 Source aliases and a changed test pin do not establish npm package publication.
 
+`services/authoring/articleEditorContinuity.ts` consumes these public types with
+the existing document, anchor and render-cache owners. Its versioned context
+contains observations from the same exposed editor instance and registered task
+leases. The writer must commit an accepted public transaction to the document
+owner before calling `observeTransaction`; FsusUI emits `transaction` before
+`update:modelValue`. Selection and history must come from public events/results,
+and focus observations must come from the writer's own focus event boundary.
+
+Surface transitions accept only `live | source`; tool hooks accept exactly
+`publish-preview-open/close` and `source-compare-open/close`. They produce anchor
+plans using the existing origin, generation and manual-scroll arbitration. A
+selection-only public transaction with `history: 'skip'` preserves the existing
+history. Its acceptance leaves restoration `awaiting-ack` until the controlled
+surface, focus and viewport owners acknowledge the current document, selection,
+history, session and anchor generation. Public editor exports provide neither
+selection capture nor explicit focus/viewport restoration; the adapter does not
+invent these APIs or inspect private DOM. Host acknowledgements are observations,
+not independent browser or accessibility qualification.
+
+Refresh/cancellation and last-valid content remain owned by `ArticleRenderCache`.
+Tool-result inspection reports admission (`eligible | stale | invalid`) for a
+real document task lease; it does not verify renderer output or complete the
+task. The adapter provides no tool renderer, stale banner, persisted preference,
+replacement history, editor remount or cache. Product owners must separately wire
+the status surface, outline/search reveal lifecycle and accessible transitions,
+and verify browser rendering, layout, mobile input and reduced-motion behavior.
+
 ## Blog Shells
 
 `components/ui/` contains Blog-owned shells and composition primitives, for example dialog wrappers, markdown editor wrappers, MFA/passkey setup modals, `SemanticTime` and `ThemeModeToggle`.

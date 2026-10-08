@@ -34,6 +34,8 @@ import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistr
 
 
 export const articleAttachmentIntentSchema = 'fsusblog.article-attachment-intent.v1' as const;
+/** One bounded 100-image writer batch, shared by created and pending intents. */
+export const articleAttachmentIntentCapacity = 100;
 
 /** Created-stage metadata. Signals stay in the runtime handle, not the digest. */
 export interface ArticleAttachmentIntent {
@@ -313,7 +315,7 @@ export class ArticleAttachmentContextAdapter
         {
             return { status: 'rejected', reason: 'file-candidate-invalid' };
         }
-        if (captured.batch.items.length + this.leases.size + this.pending.size > 64)
+        if (captured.batch.items.length + this.leases.size + this.pending.size > articleAttachmentIntentCapacity)
         {
             return { status: 'rejected', reason: 'created-intent-capacity' };
         }
@@ -352,6 +354,11 @@ export class ArticleAttachmentContextAdapter
     public get lifecycleReceipts(): readonly ArticleAttachmentLifecycleSnapshot[]
     {
         return this.lifecycleLog.map(value => structuredClone(value));
+    }
+
+    public get currentTaskLeases(): readonly ArticleDocumentTaskLease[]
+    {
+        return Object.freeze([...this.pending.values()].filter(entry => !entry.awaitingMap && entry.lease.isCurrent()).map(entry => entry.lease));
     }
 
     /** Admission consumes the exact local capture capability and a real public dispatch. */

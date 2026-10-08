@@ -67,7 +67,9 @@ as its identity and revision authority. Snapshots and receipts bind source range
 semantic nodes, affinity, direction, viewport offset, surface/tool identity, and
 user intent. Restore orders exact, rebased, semantic-neighbor, then explicitly
 approximate percentage outcomes. A revision transition without a contiguous
-public transaction chain fails closed.
+public transaction chain fails closed. Disposing the canonical owner makes
+`isCurrentContext` reject every snapshot, including its last historical context,
+so surviving runtime handles cannot capture new semantic anchors after teardown.
 
 Manual wheel, trackpad, touch, drag, or selection pauses automatic positioning.
 Input and explicit navigation resume immediately; idle resumes after 1200 ms.
@@ -83,7 +85,9 @@ created-stage handles seal file metadata, ordered public item identity, provider
 version, the shared anchor context and the canonical task envelope; runtime
 signals cancel on document/source changes or disposal. Pending insertion plans
 come from FsusUI and carry the current expected revision and document identity.
-Created handles are bounded to 64 and never execute upload IO.
+Created and provider-pending handles share a bounded capacity of 100, allowing
+one 100-image writer batch while rejecting further captures atomically. They
+never execute upload IO; the lifecycle receipt log remains separately bounded.
 
 Created-stage handles are not provider completion admission. Insertion cancels
 the created lease and establishes a new anchored provider request. The adapter
@@ -102,6 +106,39 @@ map factory, and cancels requests when the bound editor is released. This data
 boundary does not upload files, parse captions, or migrate legacy placeholders.
 Native product input composition, redo successor admission and independent
 full attachment acceptance remain outstanding.
+
+`useAdminArticleWrite.authoringEditorRuntime.bindEditor` composes the existing
+anchor, attachment, render-cache and continuity owners on one actual public editor
+port. The returned `binding` keeps live canonical context, render-state and pending
+attachment-lease getters. Transactions enter the document owner before model
+updates; selection and focus enter the existing continuity adapter. Automatic
+refresh uses the sole render-refresh policy and the actual FsusUI render producer.
+Preview and compare tasks use canonical document leases; release cancels the
+owned tool, continuity, cache and attachment work without releasing borrowed
+owners. Tool-result admission still requires the current live binding context.
+
+Initialization uses a public selection-only transaction with the current document
+identity and expected revision. A fresh FsusUI editor at revision zero cannot bind
+a retained advanced document owner and fails closed. This composition neither
+resets the canonical epoch nor synthesizes revision/history initialization,
+viewport observations or focus acknowledgements. Those public runtime gaps and
+product event wiring remain acceptance limits; successful restore admission alone
+is not completed focus or viewport restoration.
+
+The three production wrappers expose `getAuthoringEditorPort()`, returning the
+same actual FsusUI exposed instance or null while unavailable. The writer wrapper
+forwards admitted transaction and identity-bound selection events and native host
+focus events. Consumers can bind these to `authoringEditorRuntime.bindEditor`
+without reaching into child DOM or constructing another editor. These hooks do
+not manufacture viewport observations, revision seeds or restore completion.
+
+The writer mounts `useArticleAuthorCommandPalette` once on the editor panel.
+Its scoped Mod+P listener and `ArticleAuthorCommandEntry` secondary action both
+call the existing `ArticleWriteEditor.openCommandPalette` public method. Loading,
+saving and the existing modal predicate suspend entry; command availability and
+execution remain in the unchanged inspector registry and handlers. The visible
+label uses the current locale owner. Delegation is not a business-completion or
+palette-visibility receipt, and this entry provides no search query authority.
 
 ## Security, Moderation, And Anti-Crawler
 
