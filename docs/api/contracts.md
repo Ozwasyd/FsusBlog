@@ -2947,6 +2947,58 @@ and validate immutable candidates; they do not prove observed coordinates,
 current authorization, persistence, or a transaction receipt. Portable package
 mappings must keep local definition, option, and article coordinates separate.
 
+`ArticlePackagePropertyMapper.TryMapCandidate` provides the bounded property
+subset for shared package consumers. It uses the existing eight typed values and
+`ValidateSnapshotCandidate`; it does not register another type catalog. The
+caller supplies immutable `ArticlePackagePropertyMappingBindings` with the exact
+source snapshot coordinates and digest, explicit definition source ID/schema
+revision/digest to portable-definition pairs, definition-scoped option pairs,
+and article-reference pairs carrying canonical `ArticleRelationTargetFacts`.
+The mapper never generates portable IDs or derives them from local GUIDs,
+labels, routes, filenames, or array positions. Exact binding closure is required:
+missing, duplicate, aliased, unused, wrong-epoch, or wrong-snapshot bindings fail.
+Reference target facts must match the explicit portable article identity, pass
+the canonical relation validator, have allowed permission, and carry neither
+deleted nor archived lifecycle. These are shape-checked caller assertions;
+they do not replace the canonical reference authority's actual observation.
+
+The immutable candidate preserves source definition/value digests, presence,
+`DefaultApplied`, and unchanged primitive values. Option/reference sets sort by
+ordinal portable identity; properties sort by ordinal portable definition.
+Missing, null, false, zero, empty text, and empty sets remain distinct. Source
+IDs and source digests are retained separately from the portable projection.
+Limits are 1,000 properties, 1,000 IDs per value, 20,000 option bindings and total
+projected identities, and 10,000 article bindings. The canonical text/URL length
+bounds also apply before source digest recomputation; exceeded limits fail
+without truncation. Projection hashing rejects malformed UTF-16 through strict
+UTF-8 encoding and performs no Unicode or content normalization.
+
+Portable value and mapping digests use separate SHA-256 domains
+`fsusblog.article-package.portable-property-value.v1` and
+`fsusblog.article-package.property-mapping-candidate.v1`. Framing uses little-endian
+Int32 counts and UTF-8 byte lengths, little-endian Int64 coordinates/ticks, and
+an Int32 presence flag before optional Int64 coordinates. Strings contain exact
+strict UTF-8 bytes. The portable value digest binds portable definition,
+presence, default provenance and a tagged projection. Primitive tags are the
+canonical type names; decimal spelling uses the canonical invariant exact
+decimal format, booleans use Int32 zero/one, and dates use UTC ticks. Option and
+article sets bind their tag, count and sorted portable IDs; absent payloads bind
+`absent-payload`. The mapping digest additionally binds version, exact source
+coordinates/snapshot digest, sorted option/source pairs, sorted reference/source
+pairs and frozen revision/lifecycle/permission facts, then sorted property rows
+including every source field, portable value digest and actual projection.
+`ValidateCandidate` recomputes that content, rejecting altered rows even when
+the claimed mapping digest was copied. Neither digest is the full package
+semantic digest or an import/authorization receipt.
+
+The remaining canonical upstream requirement is an actor/site-bound read of an
+actually persisted snapshot at exact draft/revision/publication coordinates,
+with stale/denied/unavailable failures and command/audit provenance, plus a real
+implementation of `IArticlePropertyReferenceValueAuthority.RequireAllowedAsync`
+and observed frozen relation facts. Pure self-consistent candidates cannot
+satisfy those gates. Title, summary, taxonomy, rights/responsibility and complete
+manifest/privacy/version-migration policy remain outside this property subset.
+
 Foundation verification is not complete package validation or permission to
 import. Complete schema work must consume the canonical typed-value and immutable
 snapshot contracts. Export/validation must consume actual canonical syntax and
