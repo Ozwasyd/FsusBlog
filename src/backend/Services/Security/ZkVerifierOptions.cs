@@ -86,7 +86,8 @@ public sealed class ZkVerifierReadiness : IZkVerifierReadiness
             using FileStream stream = File.OpenRead(resolvedPath);
             using JsonDocument document = JsonDocument.Parse(stream);
             JsonElement root = document.RootElement;
-            return TryGetBoolean(root, "production_usable", out bool productionUsable) &&
+            return root.ValueKind == JsonValueKind.Object &&
+                TryGetBoolean(root, "production_usable", out bool productionUsable) &&
                 productionUsable &&
                 TryGetString(root, "verifying_key_hash", out string? manifestHash) &&
                 string.Equals(manifestHash, verifyingKeyHash, StringComparison.OrdinalIgnoreCase);
