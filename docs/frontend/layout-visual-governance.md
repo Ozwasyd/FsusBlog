@@ -76,6 +76,48 @@ publish blocker, or high-severity check remains discoverable as one low-noise ac
 existing command/status surface and opens its owning view; the rail and command
 surface do not expose a persistent per-view count wall.
 
+## Structured visual adjudication contract
+
+`config/schemas/layout-visual-adjudication.schema.json` owns the exact ten visual
+rubric fields. `tests/frontend/support/layout/visualAdjudication.mjs` independently
+checks their states, evidence references, source and scene bindings, content
+digests, and the sole visual ledger. It consumes the composition identity from
+`compositionContracts.mjs`; it does not define another matrix, contract map,
+rubric, score, or baseline approval list.
+
+A field marked `pass` requires screenshot, static, rendered DOM, and geometry
+evidence for the same source/worktree, FsusUI baseline, contract, fixture, state,
+theme, viewport, and current run. A machine failure cannot be overridden by a
+visual pass. `fail` requires a canonical reason, an exact rubric field, a field
+from the applicable composition contract, and an atomic production issue
+reference. `not-observed` keeps the receipt incomplete. Baseline creation or
+movement requires the existing ledger's exact entry digest/classification and
+the explicitly supplied old/new screenshot digests. Schema, rubric, and verifier
+identities invalidate receipts when their consumed bytes change.
+
+The current implementation is a contract-only increment. Canonical static/DOM
+and geometry producer adapters have not been handed off, so their receipts are
+opaque artifact bytes and every production `rendered` verification fails with
+`layout-visual-producer-adapter-unavailable`. Callers cannot supply an alternate
+verification callback or replace that authority with a status bit. Current-run
+state/viewport fixture admission and production-positive verification remain
+pending with those producers. Public issue existence and atomic scope also need
+independent evidence before a production visual failure can be qualified.
+
+Run the contract self-tests with:
+
+```bash
+node --test tests/tools/layout-visual-adjudication.test.mjs
+```
+
+Every test artifact is explicitly synthetic. Test-only success returns
+`qualificationEligible: false`; it does not adjudicate a real page, qualify local
+or published FsusUI, approve a baseline movement, or provide release acceptance.
+Local/published parity checks preserve the same rubric/contract/fixture and
+verify receipt seals, but never substitute for independent verification of both
+actual source modes. Real adjudication and complete evidence aggregation remain
+separate owners.
+
 ## Composition contract definitions and identity
 
 Every existing representative in `layout-archetype-matrix.json` owns one

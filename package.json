@@ -5,6 +5,7 @@
     "exports": {
         "./fsusui-source-resolver": "./src/frontend/scripts/fsusui-root.mjs",
         "./schema-validator": "./tools/test-matrix/schema-validator/validate.mjs",
-        "./composition-contracts": "./tests/frontend/support/layout/compositionContracts.mjs"
+        "./composition-contracts": "./tests/frontend/support/layout/compositionContracts.mjs",
+        "./visual-adjudication": "./tests/frontend/support/layout/visualAdjudication.mjs"
     }
 }
