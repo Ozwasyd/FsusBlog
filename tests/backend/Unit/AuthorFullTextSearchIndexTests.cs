@@ -182,9 +182,45 @@ public sealed class AuthorFullTextSearchIndexTests
         source.Sequence = 2;
         await index.ApplyAsync(1, 2, AuthorSearchIndexLifecycleEvent.Edit);
         Assert.Equal(1, snapshot.Articles[1].SourceSequence);
-        Assert.Equal(2, (await index.ReadSnapshotAsync(42, "primary", 1)).Articles[1].SourceSequence);
+        Assert.Equal(2, index.RequireCurrentGeneration());
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", 1));
+        Assert.Equal(2, (await index.ReadSnapshotAsync(42, "primary", 2)).Articles[1].SourceSequence);
         await Rebuild(index);
         await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", 1));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Incremental_Replacement_Invalidates_Old_Generation_And_Rebinds_Untouched_Documents(bool deleted)
+    {
+        var source = new SourceFixture(2);
+        using var index = new AuthorFullTextSearchIndex(source, 42, "primary");
+        await Rebuild(index);
+        AuthorSearchIndexReadSnapshot before = await index.ReadSnapshotAsync(42, "primary", 1);
+        source.Sequence = 2;
+        source.Generation = 2;
+        source.Deleted = deleted;
+        source.ArticleOverrides[2] = (1, false);
+        int reads = source.ReadCount;
+        await index.ApplyAsync(1, 2, deleted ? AuthorSearchIndexLifecycleEvent.Delete : AuthorSearchIndexLifecycleEvent.Edit);
+        Assert.Equal(reads + 1, source.ReadCount);
+        Assert.Equal(2, index.RequireCurrentGeneration());
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", 1));
+        AuthorSearchIndexReadSnapshot after = await index.ReadSnapshotAsync(42, "primary", 2);
+        Assert.Equal(1, before.Articles[1].SourceSequence);
+        Assert.Equal(1, before.Articles[2].Documents[0].Document.Identity.IndexGeneration);
+        Assert.Equal(2, after.Articles[1].SourceSequence);
+        Assert.Equal(deleted, after.Articles[1].Deleted);
+        Assert.Equal(1, after.Articles[2].SourceSequence);
+        Assert.Equal(2, after.Articles[2].Documents[0].Document.Identity.IndexGeneration);
+        Assert.Equal(before.Articles[2].Documents[0].Tokens, after.Articles[2].Documents[0].Tokens);
+        Assert.NotEqual(before.Articles[2].Documents[0].ContentDigest, after.Articles[2].Documents[0].ContentDigest);
+        await AuthorFullTextSearchIndexVerifier.VerifyAsync(after, source);
+        int readsAfterVerification = source.ReadCount;
+        await index.ApplyAsync(1, 2, AuthorSearchIndexLifecycleEvent.Edit);
+        Assert.Equal(2, index.RequireCurrentGeneration());
+        Assert.Equal(readsAfterVerification, source.ReadCount);
     }
 
     [Fact]
@@ -218,6 +254,7 @@ public sealed class AuthorFullTextSearchIndexTests
 
     private sealed class SourceFixture(int count) : IAuthorFullTextSearchIndexSource
     {
+        public Dictionary<int, (long Sequence, bool Deleted)> ArticleOverrides { get; } = [];
         public int Count { get; set; } = count;
         public long Sequence { get; set; } = 1;
         public long Generation { get; set; } = 1;
@@ -254,19 +291,21 @@ public sealed class AuthorFullTextSearchIndexTests
             var articles = ImmutableArray.CreateBuilder<AuthorSearchIndexArticleSource>();
             for (int id = afterArticleId + 1; id <= Count && articles.Count < pageSize; id++)
             {
+                (long sequence, bool deleted) = ArticleOverrides.TryGetValue(id, out var articleState)
+                    ? articleState : (Sequence, Deleted);
                 string raw = Text;
                 string digest = AuthorFullTextSearchContract.Digest(raw);
                 AuthorSearchDocument document = AuthorFullTextSearchContract.SealDocument(new(
                     AuthorFullTextSearchContract.SchemaVersion, AuthorFullTextSearchContract.DocumentSchema,
                     AuthorFullTextSearchContract.TokenizerVersion, AuthorFullTextSearchContract.IndexOwner,
-                    new(id, userId, siteScope, Sequence, Sequence, Sequence, 1, "en", ArticleStatus.Draft,
+                    new(id, userId, siteScope, sequence, sequence, sequence, 1, "en", ArticleStatus.Draft,
                         AuthorSearchScope.CurrentArticle, Permission, AuthorSearchVisibilityScope.AuthorOnly,
                         AuthorFullTextSearchContract.Digest("permission-policy")),
                     new(AuthorSearchFieldKind.MarkdownBody, digest, null, null, null),
                     new(AuthorFullTextSearchContract.SourceCoordinateAuthority, "algorithm-fixture-parser",
-                        "document:1", Sequence, digest, 0, raw.Length, 0, Encoding.UTF8.GetByteCount(raw)), string.Empty));
-                articles.Add(new(id, Sequence, Deleted,
-                    Deleted ? [] : [new(document, raw, "algorithm-fixture-parser", "document:1")],
+                        "document:1", sequence, digest, 0, raw.Length, 0, Encoding.UTF8.GetByteCount(raw)), string.Empty));
+                articles.Add(new(id, sequence, deleted,
+                    deleted ? [] : [new(document, raw, "algorithm-fixture-parser", "document:1")],
                     new Dictionary<Guid, ArticlePropertyDefinition>()));
             }
             LargestPage = Math.Max(LargestPage, articles.Count);
