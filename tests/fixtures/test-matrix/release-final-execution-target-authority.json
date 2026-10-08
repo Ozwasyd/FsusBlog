@@ -2245,8 +2245,8 @@
         },
         {
             "path": "tests/tools/support/esm-fixture-materializer.mjs",
-            "contentDigest": "sha256:265919bc8ec1a79bd84f2f9776f85e548083592c0eb4379573cfd4c7dac79d2b",
-            "indexDigest": "sha256:265919bc8ec1a79bd84f2f9776f85e548083592c0eb4379573cfd4c7dac79d2b"
+            "contentDigest": "sha256:a0a14ce33012f5fe6264e39f2f7557c23a495ea06cd1d717467e9cc5991d45ea",
+            "indexDigest": "sha256:a0a14ce33012f5fe6264e39f2f7557c23a495ea06cd1d717467e9cc5991d45ea"
         },
         {
             "path": "tests/tools/support/posix-cancellation-fixture.mjs",
