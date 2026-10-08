@@ -8,7 +8,7 @@ vi.mock('@/workers/wasmDecode.worker.ts?worker&url', () => ({
 }))
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 import { AppErrorCode } from '@/utils/appError'
-import { ARTICLE_LIST_ACCESS } from '@/generated/aedsAccessProfiles'
+import { ARTICLE_LIST_WIRE } from '@/generated/aedsArticleListWire'
 import { encodeAedsFrame } from '@/api/binaryFrame'
 
 const { mockBinaryRequest } = vi.hoisted(() => {
@@ -1547,10 +1547,10 @@ function currentArticleListFrame(): ArrayBuffer {
       title: addText('Hydration Fixes'), summary: addText(''), tagStart: 2, tagCount: 1, revisionId: 102n }
   ]
   const tags = [{ id: 9, name: addText('binary') }, { id: 10, name: addText('contract') }, { id: 11, name: addText('vue') }]
-  const payload = new Uint8Array(29 + blobLength + items.length * 100 + tags.length * 12)
+  const payload = new Uint8Array(29 + blobLength + items.length * ARTICLE_LIST_WIRE.recordBytes + tags.length * ARTICLE_LIST_WIRE.tagRecordBytes)
   const view = new DataView(payload.buffer)
-  view.setInt32(0, ARTICLE_LIST_ACCESS.cursorMagic, true)
-  view.setInt32(4, 2, true)
+  view.setInt32(0, ARTICLE_LIST_WIRE.cursorMagic, true)
+  view.setInt32(4, ARTICLE_LIST_WIRE.cursorVersion, true)
   view.setInt32(9, 17, true)
   view.setInt32(13, 0, true)
   view.setInt32(17, items.length, true)
@@ -1570,9 +1570,9 @@ function currentArticleListFrame(): ArrayBuffer {
     payload[offset + 53] = 1
     view.setInt32(offset + 56, 2, true)
     view.setBigInt64(offset + 76, item.revisionId, true); view.setInt32(offset + 84, 1, true)
-    offset += 100
+    offset += ARTICLE_LIST_WIRE.recordBytes
   }
-  for (const tag of tags) { view.setInt32(offset, tag.id, true); writeSlice(offset + 4, tag.name); offset += 12 }
+  for (const tag of tags) { view.setInt32(offset, tag.id, true); writeSlice(offset + 4, tag.name); offset += ARTICLE_LIST_WIRE.tagRecordBytes }
   return encodeAedsFrame(FrameType.ArticleList, payload)
 }
 
