@@ -288,9 +288,17 @@ test('actual worker source prepares verified assets but disconnected native admi
         } };
     sandbox.self = sandbox;
     const realm = vm.createContext(sandbox);
-    sandbox.importScripts = url => vm.runInContext(fs.readFileSync(path.resolve(import.meta.dirname,
-        '../../src/frontend/public', url.slice(1)), 'utf8'), realm);
+    const imported = [];
+    sandbox.importScripts = url =>
+    {
+        assert.ok(url.startsWith(`/release-assets/${releaseId}/`), 'bootstrap must stay in the exact immutable release');
+        imported.push(url);
+        vm.runInContext(fs.readFileSync(path.resolve(import.meta.dirname,
+            '../../src/frontend/public', url.slice(`/release-assets/${releaseId}/`.length)), 'utf8'), realm);
+    };
     vm.runInContext(fs.readFileSync(path.resolve(import.meta.dirname, '../../src/frontend/public/sw.js'), 'utf8'), realm);
+    assert.deepEqual(imported, [`/release-assets/${releaseId}/generated/release-id-contract.js`,
+        `/release-assets/${releaseId}/current-release-assets.js`]);
     let completion;
     events.get('install')({ waitUntil: promise =>
     {

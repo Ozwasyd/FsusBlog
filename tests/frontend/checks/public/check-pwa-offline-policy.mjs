@@ -195,9 +195,11 @@ function createServiceWorkerContext(initialPaths = [])
     const sandbox = vm.createContext(context);
     context.self.importScripts = scriptPath =>
     {
-        assert(scriptPath === '/current-release-assets.js', 'worker import must use the exact current asset consumer');
-        vm.runInContext(read(resolve(root, 'public/current-release-assets.js')), sandbox, { filename: 'current-release-assets.js' });
-        context.self.FsusCurrentReleaseAssets = context.FsusCurrentReleaseAssets;
+        const releasePrefix = '/release-assets/test-build/';
+        assert(scriptPath.startsWith(releasePrefix), 'worker import must use the requested immutable release');
+        const relativePath = scriptPath.slice(releasePrefix.length);
+        assert(relativePath === 'generated/release-id-contract.js', 'noncanonical build must never import the current asset consumer');
+        vm.runInContext(read(resolve(root, 'public', relativePath)), sandbox, { filename: relativePath });
     };
     vm.runInContext(releaseIdContract, sandbox, { filename: 'generated/release-id-contract.js' });
     vm.runInContext(sw, sandbox, { filename: 'sw.js' });

@@ -108,6 +108,12 @@ and activate refuse before takeover and discard only owned staging. The focused
 Node/WebCrypto/Cache-adapter controls are source evidence, not browser or release
 qualification. Compatibility/retention tools remain pending replacement acceptance.
 
+Worker bootstrap imports the release-ID contract and current asset verifier from
+the same `/release-assets/<build>/` immutable namespace. A safe URL-segment check
+only bounds the first import; the original release-ID contract still owns
+canonical identity validation. Noncanonical build IDs cannot import the verifier
+or acquire current admission. Root aliases are not bootstrap asset fallbacks.
+
 ## Current storage ownership planning
 
 The existing `release-gc.mjs` owns the current registry/plan version as well as the

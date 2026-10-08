@@ -172,7 +172,9 @@ test('service worker derives cache namespace and search URLs from immutable buil
     assert.match(serviceWorker, /new URL\(self\.location\.href\)\.searchParams\.get\('build'\)/u);
     assert.match(serviceWorker, /fsus-static-v5\$\{CACHE_NAMESPACE\}/u);
     assert.match(serviceWorker, /\/release-derived\/\$\{FRONTEND_BUILD_ID\}\/search/u);
-    assert.match(serviceWorker, /importScripts\('\/generated\/release-id-contract\.js'\)/u);
+    assert.match(serviceWorker, /self\.importScripts\(`\/release-assets\/\$\{BUILD_ID_CANDIDATE\}\/generated\/release-id-contract\.js`\)/u);
+    assert.match(serviceWorker, /self\.importScripts\(`\/release-assets\/\$\{FRONTEND_BUILD_ID\}\/current-release-assets\.js`\)/u);
+    assert.doesNotMatch(serviceWorker, /importScripts\(['"]\/(?:generated\/release-id-contract|current-release-assets)\.js['"]\)/u);
     assert.match(serviceWorker, /FsusReleaseIdContract\.isCanonicalReleaseId\(BUILD_ID_CANDIDATE\)/u);
     assert.match(serviceWorkerRuntime, /serviceWorker\.register\(toTrustedServiceWorkerScriptUrl\(/u);
     assert.doesNotMatch(

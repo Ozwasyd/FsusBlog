@@ -1,10 +1,17 @@
-importScripts('/generated/release-id-contract.js');
-self.importScripts('/current-release-assets.js');
-
 const BUILD_ID_CANDIDATE = new URL(self.location.href).searchParams.get('build') ?? '';
-const FRONTEND_BUILD_ID = self.FsusReleaseIdContract.isCanonicalReleaseId(BUILD_ID_CANDIDATE)
+// This is only a safe URL segment gate. The imported release contract remains
+// the sole canonical release-ID validator; neither bootstrap script uses aliases.
+if (/^[A-Za-z0-9-]{1,128}$/u.test(BUILD_ID_CANDIDATE))
+{
+    self.importScripts(`/release-assets/${BUILD_ID_CANDIDATE}/generated/release-id-contract.js`);
+}
+const FRONTEND_BUILD_ID = self.FsusReleaseIdContract && self.FsusReleaseIdContract.isCanonicalReleaseId(BUILD_ID_CANDIDATE)
     ? BUILD_ID_CANDIDATE
     : '';
+if (FRONTEND_BUILD_ID)
+{
+    self.importScripts(`/release-assets/${FRONTEND_BUILD_ID}/current-release-assets.js`);
+}
 const CACHE_NAMESPACE = FRONTEND_BUILD_ID ? `:${FRONTEND_BUILD_ID}` : '';
 const STATIC_CACHE = `fsus-static-v5${CACHE_NAMESPACE}`;
 const SHELL_CACHE = `fsus-shell-v6${CACHE_NAMESPACE}`;
