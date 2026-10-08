@@ -851,6 +851,58 @@ function originalWriterStageModel(issue)
     return value;
 }
 
+function originalWriterSelectorModel()
+{
+    const value = originalWriterStageModel(2084);
+    const document = value.documents[0];
+    const selector = { active: document.scene.locale, pending: null, visible: true, expanded: false, disabled: false,
+        items: document.scene.selectorItems.map(item => ({ code: item.code, selected: item.code === document.scene.locale,
+            visible: false, ariaLabelOrText: item.nativeName, nativeName: item.nativeName,
+            englishName: item.englishName !== item.nativeName ? item.englishName : null, direction: item.direction, disabled: false })) };
+    document.evidence.browser.recorder.frames = [{ observedAt: 1, dom: { ...originalWriterDomModel(), selectors: [selector] } }];
+    for (const observation of document.evidence.driverObservations)
+    {
+        const dom = observation.dom ?? observation.observation.dom;
+        dom.selectors = [structuredClone(selector)];
+    }
+    return value;
+}
+
+test('scene original selector grammar retains captured projection fields (Node model only)', async () =>
+{
+    const { parsePublicShellLocaleSceneOriginalJson: parse } = await import(new URL('../../tools/test-matrix/verify-public-shell-locale.mjs', import.meta.url));
+    const value = originalWriterSelectorModel();
+    const document = value.documents[0];
+    assert.deepEqual(parse(Buffer.from(JSON.stringify(document)), { kind: 'scene', matrix: value.matrix,
+        caller: value.caller, runtime: value.runtime }), document);
+    assert.throws(() => requirePublicShellLocaleCausalVerification(), error => error.code === 'native-causal-not-observed');
+});
+
+for (const [name, mutate] of [
+    ['unknown selector field', selector => selector.unobserved = {}],
+    ['unknown item field', selector => selector.items[0].unobserved = {}],
+    ['missing selector disabled', selector => delete selector.disabled],
+    ['missing item disabled', selector => delete selector.items[0].disabled],
+    ['missing native label', selector => delete selector.items[0].nativeName],
+    ['missing English label', selector => delete selector.items[0].englishName],
+    ['missing direction', selector => delete selector.items[0].direction],
+    ['string selector disabled', selector => selector.disabled = 'false'],
+    ['numeric item disabled', selector => selector.items[0].disabled = 0],
+    ['numeric native label', selector => selector.items[0].nativeName = 7],
+    ['boolean English label', selector => selector.items[0].englishName = false],
+    ['nested direction', selector => selector.items[0].direction = []]
+])
+{
+    test(`scene original selector grammar rejects ${name} (Node model only)`, async () =>
+    {
+        const { parsePublicShellLocaleSceneOriginalJson: parse } = await import(new URL('../../tools/test-matrix/verify-public-shell-locale.mjs', import.meta.url));
+        const value = originalWriterSelectorModel();
+        mutate(value.documents[0].evidence.browser.recorder.frames[0].dom.selectors[0]);
+        assert.throws(() => parse(Buffer.from(JSON.stringify(value.documents[0])), { kind: 'scene', matrix: value.matrix,
+            caller: value.caller, runtime: value.runtime }), /JSON/u);
+    });
+}
+
 for (const issue of [2084, 2085, 2086])
 {
     test(`scene original writer shape admits actual finite ${issue} stage captures on normal and disposal (Node model)`, async () =>

@@ -416,11 +416,14 @@ export function parsePublicShellLocaleSceneOriginalJson(bytes, { kind, matrix, c
     originalCaptureLimits.headerBytes, derivedResponseFields);
     // DOM array members are the existing readPublicShellLocaleDom returns, not arbitrary recursive JSON.
     const box = object({ x: primitive, y: primitive, width: primitive, height: primitive });
+    const domBoolean = scalar(undefined, value => typeof value === 'boolean');
+    const domNullableText = nullable(scalar(undefined, value => typeof value === 'string'));
     const dom = object({ language: primitive, direction: primitive, hydrationKind: primitive, hydrated: primitive,
         metadata: object({ title: primitive, description: primitive, openGraphLocale: primitive }),
         copyNodes: array(object({ key: primitive, text: primitive, visible: primitive }), originalBrowserRecordLimits.recordBytes),
-        selectors: array(object({ active: primitive, pending: primitive, visible: primitive, expanded: primitive,
-            items: array(object({ code: primitive, selected: primitive, visible: primitive, ariaLabelOrText: primitive }),
+        selectors: array(object({ active: primitive, pending: primitive, visible: primitive, expanded: primitive, disabled: domBoolean,
+            items: array(object({ code: primitive, selected: primitive, visible: primitive, ariaLabelOrText: primitive,
+                nativeName: domNullableText, englishName: domNullableText, direction: domNullableText, disabled: domBoolean }),
                 originalBrowserRecordLimits.recordBytes) }), originalBrowserRecordLimits.recordBytes),
         geometry: array(object({ name: primitive, box, visible: primitive, ariaLabelOrText: primitive, fontFamily: primitive }),
             originalBrowserRecordLimits.recordBytes),
