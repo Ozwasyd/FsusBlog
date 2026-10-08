@@ -260,7 +260,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     wrapper.unmount()
   })
 
-  it.each(['policy-42', 'policy-old'])('requires review and a new public choice for a restored draft with %s', async policyHash => {
+  it('restores a matching public draft after a new mount', async () => {
     useDraftFakeTimers()
     const preparation = prepareCommentPublicDraftStorage(localStorage)
     const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
@@ -268,7 +268,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
       version: 3,
       content: '跨刷新公开草稿',
       savedAt: 123,
-      policyHash,
+      policyHash: 'policy-42',
       clientMutationId: '018ff003-1234-7abc-8def-0123456789ab'
     })
 
@@ -311,8 +311,65 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     })
     await submit.trigger('click')
     const mutationId = wrapper.emitted('submit')![0]![0]
-    if (policyHash === 'policy-42') expect(mutationId).toBe('018ff003-1234-7abc-8def-0123456789ab')
-    else expect(mutationId).not.toBe('018ff003-1234-7abc-8def-0123456789ab')
+    expect(mutationId).toBe('018ff003-1234-7abc-8def-0123456789ab')
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')![1]![0]).toBe(mutationId)
+
+    wrapper.unmount()
+  })
+
+  it('requires review and a new public choice for a changed-policy restored draft', async () => {
+    useDraftFakeTimers()
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3,
+      content: '跨刷新公开草稿',
+      savedAt: 123,
+      policyHash: 'policy-old',
+      clientMutationId: '018ff003-1234-7abc-8def-0123456789ab'
+    })
+
+    const stored = localStorage.getItem(key)
+    const wrapper = mountComposer({ articleId: 42, accountId: 7, authorMode: 'public', publicSendConfirmed: true })
+    await nextTick()
+
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    expect(wrapper.emitted('update:authorMode')).toEqual([['zk_anonymous']])
+    expect(wrapper.emitted('update:publicSendConfirmed')).toEqual([[false]])
+    expect(wrapper.text()).toContain('请先审查草稿，本次发布身份需重新确认')
+    const identity = wrapper.get<HTMLInputElement>('input[type=checkbox]')
+    expect(identity.element.checked).toBe(false)
+    expect(identity.element.disabled).toBe(true)
+    expect(wrapper.text()).toContain('请先审查恢复的草稿，再确认本次公开署名')
+    await wrapper.setProps({ authorMode: 'zk_anonymous', publicSendConfirmed: false })
+    await vi.advanceTimersByTimeAsync(1000)
+    window.dispatchEvent(new Event('pagehide'))
+    expect(localStorage.getItem(key)).toBe(stored)
+    const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))!
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')).toBeUndefined()
+
+    await wrapper.get('.comment-composer-draft__actions button').trigger('click')
+    expect(wrapper.emitted('update:modelValue')).toContainEqual(['跨刷新公开草稿'])
+    expect(wrapper.emitted('update:authorMode')).not.toContainEqual(['public'])
+    expect(wrapper.emitted('update:publicSendConfirmed')).not.toContainEqual([true])
+    expect(localStorage.getItem(key)).toBeNull()
+    await wrapper.setProps({ modelValue: '跨刷新公开草稿' })
+    expect(identity.element.checked).toBe(false)
+    expect(identity.element.disabled).toBe(false)
+    await identity.setValue(true)
+    expect(wrapper.emitted('update:authorMode')).toContainEqual(['public'])
+    expect(wrapper.emitted('update:publicSendConfirmed')).toContainEqual([true])
+
+    await wrapper.setProps({
+      modelValue: '跨刷新公开草稿',
+      authorMode: 'public',
+      publicSendConfirmed: true
+    })
+    await submit.trigger('click')
+    const mutationId = wrapper.emitted('submit')![0]![0]
+    expect(mutationId).not.toBe('018ff003-1234-7abc-8def-0123456789ab')
     await submit.trigger('click')
     expect(wrapper.emitted('submit')![1]![0]).toBe(mutationId)
 
@@ -529,16 +586,47 @@ describe('ArticleCommentComposer public primitive delegation', () => {
     wrapper.unmount()
   })
 
-  it.each([
-    [{ isBanned: true }, '当前账号已被禁言'],
-    [{ isPowCalculating: true }, '正在准备发送'],
-    [{ isSubmitting: true }, '正在发送评论'],
-    [{ publicCommentsEnabled: false }, '不允许公开署名评论']
-  ] as const)('keeps a reason in the disabled checkbox label and refuses updates: %s', async (props, reason) => {
-    const wrapper = mountComposer(props)
+  it('keeps a disabled reason and refuses public identity updates when isBanned blocks the choice', async () => {
+    const wrapper = mountComposer({ isBanned: true })
     const checkbox = wrapper.getComponent(FsusUiCheckbox)
     expect(checkbox.props('disabled')).toBe(true)
-    expect(checkbox.text()).toContain(reason)
+    expect(checkbox.text()).toContain('当前账号已被禁言')
+    checkbox.vm.$emit('update:modelValue', true)
+    await nextTick()
+    expect(wrapper.emitted('update:authorMode')).toBeUndefined()
+    expect(wrapper.emitted('update:publicSendConfirmed')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('keeps a disabled reason and refuses public identity updates when isPowCalculating blocks the choice', async () => {
+    const wrapper = mountComposer({ isPowCalculating: true })
+    const checkbox = wrapper.getComponent(FsusUiCheckbox)
+    expect(checkbox.props('disabled')).toBe(true)
+    expect(checkbox.text()).toContain('正在准备发送')
+    checkbox.vm.$emit('update:modelValue', true)
+    await nextTick()
+    expect(wrapper.emitted('update:authorMode')).toBeUndefined()
+    expect(wrapper.emitted('update:publicSendConfirmed')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('keeps a disabled reason and refuses public identity updates when isSubmitting blocks the choice', async () => {
+    const wrapper = mountComposer({ isSubmitting: true })
+    const checkbox = wrapper.getComponent(FsusUiCheckbox)
+    expect(checkbox.props('disabled')).toBe(true)
+    expect(checkbox.text()).toContain('正在发送评论')
+    checkbox.vm.$emit('update:modelValue', true)
+    await nextTick()
+    expect(wrapper.emitted('update:authorMode')).toBeUndefined()
+    expect(wrapper.emitted('update:publicSendConfirmed')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('keeps a disabled reason and refuses public identity updates when publicCommentsEnabled blocks the choice', async () => {
+    const wrapper = mountComposer({ publicCommentsEnabled: false })
+    const checkbox = wrapper.getComponent(FsusUiCheckbox)
+    expect(checkbox.props('disabled')).toBe(true)
+    expect(checkbox.text()).toContain('不允许公开署名评论')
     checkbox.vm.$emit('update:modelValue', true)
     await nextTick()
     expect(wrapper.emitted('update:authorMode')).toBeUndefined()
