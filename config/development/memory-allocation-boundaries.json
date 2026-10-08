@@ -3736,7 +3736,6 @@
         {
             "id": "memory-governor-control-metadata",
             "sourcePaths": [
-                "src/backend/Infrastructure/Memory/Control/MemoryGovernor.cs",
                 "src/backend/Infrastructure/Memory/Control/MemoryGovernorPolicy.cs"
             ],
             "pathStatus": "baseline-reported",
@@ -3771,7 +3770,6 @@
         {
             "id": "memory-capability-controller-metadata",
             "sourcePaths": [
-                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityControlPolicy.cs",
                 "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityController.cs"
             ],
             "pathStatus": "baseline-reported",
@@ -3800,6 +3798,10 @@
                 {
                     "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityController.cs",
                     "anchor": "public sealed class MemoryCapabilityController"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityControlPolicy.cs",
+                    "anchor": "public sealed class MemoryCapabilityOwner"
                 }
             ]
         }
