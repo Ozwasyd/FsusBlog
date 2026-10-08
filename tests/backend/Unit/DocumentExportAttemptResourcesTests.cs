@@ -279,7 +279,10 @@ public sealed class DocumentExportAttemptResourcesTests
     private sealed class Fixture
     {
         public DocumentExportFrozenInput Input { get; } = DocumentExportContractTests.ValidInput();
-        public DocumentExportTask Task { get; }
+        public DocumentExportTask Task
+        {
+            get;
+        }
         public Clock Clock { get; } = new();
         public DocumentExportResourceBudgets Maximum
         {
@@ -296,7 +299,10 @@ public sealed class DocumentExportAttemptResourcesTests
                 MaxStandardOutputBytes = 100,
                 MaxStandardErrorBytes = 100
             };
-        public DocumentExportAttemptResources Resources { get; }
+        public DocumentExportAttemptResources Resources
+        {
+            get;
+        }
 
         public Fixture()
         {
