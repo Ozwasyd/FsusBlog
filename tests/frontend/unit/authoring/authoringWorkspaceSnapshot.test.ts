@@ -626,6 +626,8 @@ describe('finite legacy migration and machine-backed status/reset projection', (
         facts.contentDigest = workspaceSnapshotDigest(unsigned);
         const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, { resolveBatch: async () => facts }, 0, new AbortController().signal);
         expect(authoringWorkspaceSnapshotStatusModel(sync, plan).state).toBe('partial');
+        expect(authoringWorkspaceSnapshotStatusModel(sync, plan).message).toContain('可恢复标签');
+        expect(authoringWorkspaceSnapshotStatusModel(sync, plan).message).not.toContain('已恢复');
         expect(authoringWorkspaceSnapshotStatusModel(sync, structuredClone(plan)).state).toBe('current');
         await sync.setOnline(false);
         expect(authoringWorkspaceSnapshotStatusModel(sync, plan).state).not.toBe('partial');
