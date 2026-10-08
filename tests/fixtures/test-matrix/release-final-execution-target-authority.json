@@ -800,8 +800,8 @@
         },
         {
             "path": "tests/browser-contract/fixture-lifecycle.test.mjs",
-            "contentDigest": "sha256:8032164a3506cf6eac7a66255ba9afab9cdd17bb8900e235e91f5e6be5431c8b",
-            "indexDigest": "sha256:8032164a3506cf6eac7a66255ba9afab9cdd17bb8900e235e91f5e6be5431c8b"
+            "contentDigest": "sha256:e5db016fe36b9e3c351dd1c36dc6f11f8e2cefcc5c6ad3d29d438fbc80cc7731",
+            "indexDigest": "sha256:e5db016fe36b9e3c351dd1c36dc6f11f8e2cefcc5c6ad3d29d438fbc80cc7731"
         },
         {
             "path": "tests/browser-contract/fixture.mjs",
