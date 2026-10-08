@@ -1,3 +1,4 @@
+using FsusBlog.Shared.Contracts.ArticleEmbeds;
 using FsusBlog.Shared.Contracts.ArticleRelations;
 
 namespace FsusBlog.Shared.Contracts.BlockLinks;
@@ -149,6 +150,100 @@ public static class BlockTargetQueryValidator
             ? BlockTargetQueryValidationResult.Valid()
             : BlockTargetQueryValidationResult.Invalid("block_target_page_digest_mismatch");
     }
+
+    public static BlockTargetQueryValidationResult Validate(
+        BlockTargetArticleQueryPage? page,
+        BlockTargetQueryRequest? currentRequest)
+    {
+        if (!Validate(currentRequest).IsValid
+            || currentRequest!.Layer != BlockTargetQueryLayer.Articles
+            || page is null
+            || page.Schema != BlockTargetQuerySchemas.ArticlePage
+            || page.SchemaVersion != BlockTargetQuerySchemas.Version
+            || !Enum.IsDefined(page.Status)
+            || page.Status == BlockTargetQueryPageStatus.Blocked
+            || page.Items is null
+            || page.Items.Count > currentRequest.Limit
+            || page.RequestDigest != currentRequest.RequestDigest
+            || !BlockAnchorContractDigest.IsSha256(page.PageDigest)
+            || !IsPageContentShape(page.Status, page.Items.Count, page.Next, currentRequest))
+        {
+            return BlockTargetQueryValidationResult.Invalid("article_target_page_invalid");
+        }
+
+        var articles = new HashSet<string>(StringComparer.Ordinal);
+        foreach (BlockTargetArticleQueryItem item in page.Items)
+        {
+            if (item is null
+                || !IsArticle(item.Article, currentRequest.Scope)
+                || !IsSelectableArticle(item.Article, currentRequest.Scope)
+                || !IsText(item.Title, 256, false)
+                || item.UpdatedAtUnixMilliseconds < 0
+                || !articles.Add(item.Article.ArticleIdentity))
+            {
+                return BlockTargetQueryValidationResult.Invalid("article_target_page_item_invalid");
+            }
+        }
+
+        return page.PageDigest == BlockTargetQueryDigest.ComputePage(page)
+            ? BlockTargetQueryValidationResult.Valid()
+            : BlockTargetQueryValidationResult.Invalid("article_target_page_digest_mismatch");
+    }
+
+    public static BlockTargetQueryValidationResult Validate(
+        BlockTargetHeadingQueryPage? page,
+        BlockTargetQueryRequest? currentRequest)
+    {
+        if (!Validate(currentRequest).IsValid
+            || currentRequest!.Layer != BlockTargetQueryLayer.Headings
+            || page is null
+            || page.Schema != BlockTargetQuerySchemas.HeadingPage
+            || page.SchemaVersion != BlockTargetQuerySchemas.Version
+            || !Enum.IsDefined(page.Status)
+            || !Enum.IsDefined(page.Diagnostic)
+            || page.Items is null
+            || page.Items.Count > currentRequest.Limit
+            || page.RequestDigest != currentRequest.RequestDigest
+            || !BlockAnchorContractDigest.IsSha256(page.PageDigest)
+            || !IsPageContentShape(page.Status, page.Items.Count, page.Next, currentRequest)
+            || (page.Status == BlockTargetQueryPageStatus.Blocked
+                ? page.Diagnostic == BlockTargetInventoryDiagnostic.None
+                : page.Diagnostic != BlockTargetInventoryDiagnostic.None)
+            || page.Status is BlockTargetQueryPageStatus.Ready or BlockTargetQueryPageStatus.Blocked
+                && !IsSelectableArticle(currentRequest.Article!, currentRequest.Scope))
+        {
+            return BlockTargetQueryValidationResult.Invalid("heading_target_page_invalid");
+        }
+
+        var headings = new HashSet<string>(StringComparer.Ordinal);
+        foreach (BlockTargetHeadingQueryItem item in page.Items)
+        {
+            if (item is null
+                || item.Article != currentRequest.Article
+                || !ArticleEmbedTargetCodec.IsCanonicalHeadingIdentity(item.HeadingIdentity)
+                || !IsText(item.SourceNodeIdentity, 256, false)
+                || item.SourceStart < 0
+                || item.SourceEnd <= item.SourceStart
+                || !IsText(item.DisplayText, 256, false)
+                || !headings.Add(item.HeadingIdentity))
+            {
+                return BlockTargetQueryValidationResult.Invalid("heading_target_page_item_invalid");
+            }
+        }
+
+        return page.PageDigest == BlockTargetQueryDigest.ComputePage(page)
+            ? BlockTargetQueryValidationResult.Valid()
+            : BlockTargetQueryValidationResult.Invalid("heading_target_page_digest_mismatch");
+    }
+
+    private static bool IsPageContentShape(
+        BlockTargetQueryPageStatus status,
+        int itemCount,
+        BlockTargetQueryCursor? next,
+        BlockTargetQueryRequest request)
+        => status == BlockTargetQueryPageStatus.Ready
+            ? next is null || itemCount > 0 && Validate(next, request).IsValid
+            : itemCount == 0 && next is null;
 
     private static bool IsCoordinate(BlockTargetQueryCoordinate? coordinate)
         => coordinate is not null

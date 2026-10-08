@@ -13,6 +13,8 @@ public static class BlockTargetQuerySchemas
     public const string Cursor = "fsusblog.block-target-cursor.v1";
     public const string Token = "fsusblog.block-target-token.v1";
     public const string Page = "fsusblog.block-target-page.v1";
+    public const string ArticlePage = "fsusblog.article-target-page.v1";
+    public const string HeadingPage = "fsusblog.heading-target-page.v1";
 }
 
 /// <summary>Each query page has exactly one layer; block inventories are never global.</summary>
@@ -123,6 +125,42 @@ public sealed record BlockTargetQueryPage(
     BlockTargetQueryPageStatus Status,
     BlockTargetInventoryDiagnostic Diagnostic,
     IReadOnlyList<BlockTargetQueryToken> Items,
+    BlockTargetQueryCursor? Next,
+    string PageDigest);
+
+/// <summary>One authorized article projection; it contains no heading/block inventory.</summary>
+public sealed record BlockTargetArticleQueryItem(
+    BlockTargetArticleCoordinate Article,
+    string Title,
+    long UpdatedAtUnixMilliseconds);
+
+/// <summary>Canonical heading projection within one exact selected article revision.</summary>
+public sealed record BlockTargetHeadingQueryItem(
+    BlockTargetArticleCoordinate Article,
+    string HeadingIdentity,
+    string SourceNodeIdentity,
+    int SourceStart,
+    int SourceEnd,
+    string DisplayText);
+
+/// <summary>Permission-filtered article-page contract with no global corpus counts.</summary>
+public sealed record BlockTargetArticleQueryPage(
+    string Schema,
+    int SchemaVersion,
+    string RequestDigest,
+    BlockTargetQueryPageStatus Status,
+    IReadOnlyList<BlockTargetArticleQueryItem> Items,
+    BlockTargetQueryCursor? Next,
+    string PageDigest);
+
+/// <summary>Heading drill-in page; inventory diagnostics block every selectable item.</summary>
+public sealed record BlockTargetHeadingQueryPage(
+    string Schema,
+    int SchemaVersion,
+    string RequestDigest,
+    BlockTargetQueryPageStatus Status,
+    BlockTargetInventoryDiagnostic Diagnostic,
+    IReadOnlyList<BlockTargetHeadingQueryItem> Items,
     BlockTargetQueryCursor? Next,
     string PageDigest);
 

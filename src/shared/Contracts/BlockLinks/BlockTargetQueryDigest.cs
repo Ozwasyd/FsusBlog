@@ -68,6 +68,46 @@ public static class BlockTargetQueryDigest
             writer.Add(page.Next is null ? null : ComputeCursor(page.Next));
         });
 
+    public static string ComputePage(BlockTargetArticleQueryPage page)
+        => BlockAnchorContractDigest.Compute(writer =>
+        {
+            writer.Add(page.Schema);
+            writer.Add(page.SchemaVersion);
+            writer.Add(page.RequestDigest);
+            writer.Add((int)page.Status);
+            writer.Add(page.Items.Count);
+            foreach (BlockTargetArticleQueryItem item in page.Items)
+            {
+                AddArticle(writer, item.Article);
+                writer.Add(item.Title);
+                AddLong(writer, item.UpdatedAtUnixMilliseconds);
+            }
+
+            writer.Add(page.Next is null ? null : ComputeCursor(page.Next));
+        });
+
+    public static string ComputePage(BlockTargetHeadingQueryPage page)
+        => BlockAnchorContractDigest.Compute(writer =>
+        {
+            writer.Add(page.Schema);
+            writer.Add(page.SchemaVersion);
+            writer.Add(page.RequestDigest);
+            writer.Add((int)page.Status);
+            writer.Add((int)page.Diagnostic);
+            writer.Add(page.Items.Count);
+            foreach (BlockTargetHeadingQueryItem item in page.Items)
+            {
+                AddArticle(writer, item.Article);
+                writer.Add(item.HeadingIdentity);
+                writer.Add(item.SourceNodeIdentity);
+                writer.Add(item.SourceStart);
+                writer.Add(item.SourceEnd);
+                writer.Add(item.DisplayText);
+            }
+
+            writer.Add(page.Next is null ? null : ComputeCursor(page.Next));
+        });
+
     private static void AddArticle(
         BlockAnchorContractDigest.CanonicalWriter writer,
         BlockTargetArticleCoordinate? article)

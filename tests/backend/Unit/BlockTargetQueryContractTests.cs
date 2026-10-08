@@ -379,6 +379,184 @@ public sealed class BlockTargetQueryContractTests
         }).RequestDigest);
     }
 
+    [Fact]
+    public void ArticleAndHeadingPages_AreLayeredAndDoNotExposeBlockInventories()
+    {
+        BlockTargetQueryRequest articles = ArticleRequest();
+        BlockTargetArticleQueryPage articlePage = ArticlePage(articles);
+        Assert.True(BlockTargetQueryValidator.Validate(articlePage, articles).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(articlePage, Request()).IsValid);
+        BlockTargetQueryRequest headings = Seal(Request() with
+        {
+            Layer = BlockTargetQueryLayer.Headings
+        });
+        BlockTargetHeadingQueryPage headingPage = HeadingPage(headings);
+        Assert.True(BlockTargetQueryValidator.Validate(headingPage, headings).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(headingPage, articles).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(headingPage, Request()).IsValid);
+    }
+
+    [Fact]
+    public void ArticlePage_RejectsDeniedDuplicateHistoricalAndOverBudgetItems()
+    {
+        BlockTargetQueryRequest request = ArticleRequest();
+        BlockTargetArticleQueryPage page = ArticlePage(request);
+        BlockTargetArticleQueryItem item = page.Items[0];
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Items = [item, item]
+        }), request).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Items = [item with { Article = item.Article with { Permission = ArticleRelationPermissionState.Denied } }]
+        }), request).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Items = [item with
+            {
+                Article = item.Article with
+                {
+                    RevisionKind = ArticleRelationRevisionKind.Published,
+                    Lifecycle = ArticleRelationLifecycleState.Published
+                }
+            }]
+        }), request).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Items = Enumerable.Repeat(item, 101).ToArray()
+        }), request).IsValid);
+        Assert.True(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Items = []
+        }), request).IsValid);
+    }
+
+    [Theory]
+    [InlineData(BlockTargetQueryPageStatus.Unavailable)]
+    [InlineData(BlockTargetQueryPageStatus.Cancelled)]
+    public void ArticleAndHeadingUnavailablePages_CannotCarryContentOrContinuations(BlockTargetQueryPageStatus status)
+    {
+        BlockTargetQueryRequest articles = ArticleRequest();
+        BlockTargetArticleQueryPage articlePage = Seal(ArticlePage(articles) with
+        {
+            Status = status,
+            Items = []
+        });
+        Assert.True(BlockTargetQueryValidator.Validate(articlePage, articles).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(articlePage with
+        {
+            Items = ArticlePage(articles).Items
+        }), articles).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(articlePage with
+        {
+            Next = Cursor(articles)
+        }), articles).IsValid);
+        BlockTargetQueryRequest headings = Seal(Request() with
+        {
+            Layer = BlockTargetQueryLayer.Headings
+        });
+        BlockTargetHeadingQueryPage headingPage = Seal(HeadingPage(headings) with
+        {
+            Status = status,
+            Items = []
+        });
+        Assert.True(BlockTargetQueryValidator.Validate(headingPage, headings).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(headingPage with
+        {
+            Items = HeadingPage(headings).Items
+        }), headings).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(headingPage with
+        {
+            Next = Cursor(headings)
+        }), headings).IsValid);
+    }
+
+    [Fact]
+    public void HeadingPage_RejectsFirstMatchIdentityAliasesAndOtherSelectedRevision()
+    {
+        BlockTargetQueryRequest request = Seal(Request() with
+        {
+            Layer = BlockTargetQueryLayer.Headings
+        });
+        BlockTargetHeadingQueryPage page = HeadingPage(request);
+        BlockTargetHeadingQueryItem item = page.Items[0];
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Items = [item, item]
+        }), request).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Items = [item with { HeadingIdentity = "heading:title" }]
+        }), request).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Items = [item with { Article = item.Article with { RevisionNumber = 2 } }]
+        }), request).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Items = [item with { Article = item.Article with { CanonicalSlug = "other" } }]
+        }), request).IsValid);
+    }
+
+    [Theory]
+    [InlineData(BlockTargetInventoryDiagnostic.Duplicate)]
+    [InlineData(BlockTargetInventoryDiagnostic.Invalid)]
+    [InlineData(BlockTargetInventoryDiagnostic.Malformed)]
+    [InlineData(BlockTargetInventoryDiagnostic.Orphan)]
+    public void HeadingDiagnostics_BlockAllSelectableItems(BlockTargetInventoryDiagnostic diagnostic)
+    {
+        BlockTargetQueryRequest request = Seal(Request() with
+        {
+            Layer = BlockTargetQueryLayer.Headings
+        });
+        BlockTargetHeadingQueryPage page = Seal(HeadingPage(request) with
+        {
+            Status = BlockTargetQueryPageStatus.Blocked,
+            Diagnostic = diagnostic,
+            Items = []
+        });
+        Assert.True(BlockTargetQueryValidator.Validate(page, request).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Items = HeadingPage(request).Items
+        }), request).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Seal(page with
+        {
+            Next = Cursor(request)
+        }), request).IsValid);
+    }
+
+    [Fact]
+    public void ArticleAndHeadingPage_RejectTamperAndOutOfOrderResponse()
+    {
+        BlockTargetQueryRequest articles = ArticleRequest();
+        BlockTargetArticleQueryPage articlePage = ArticlePage(articles);
+        Assert.False(BlockTargetQueryValidator.Validate(articlePage with
+        {
+            Items = []
+        }, articles).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(articlePage, Seal(articles with
+        {
+            RequestSequence = 2
+        })).IsValid);
+        BlockTargetQueryRequest headings = Seal(Request() with
+        {
+            Layer = BlockTargetQueryLayer.Headings
+        });
+        BlockTargetHeadingQueryPage headingPage = HeadingPage(headings);
+        Assert.False(BlockTargetQueryValidator.Validate(headingPage with
+        {
+            Items = []
+        }, headings).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(headingPage, Seal(headings with
+        {
+            Coordinate = headings.Coordinate with
+            {
+                PermissionRevision = 2
+            }
+        })).IsValid);
+    }
+
     private static BlockTargetQueryRequest Request()
         => Seal(new BlockTargetQueryRequest(
             BlockTargetQuerySchemas.Request,
@@ -426,6 +604,38 @@ public sealed class BlockTargetQueryContractTests
         };
 
     private static BlockTargetQueryPage Seal(BlockTargetQueryPage page)
+        => page with
+        {
+            PageDigest = BlockTargetQueryDigest.ComputePage(page)
+        };
+
+    private static BlockTargetQueryRequest ArticleRequest()
+        => Seal(Request() with
+        {
+            Layer = BlockTargetQueryLayer.Articles,
+            Article = null
+        });
+
+    private static BlockTargetArticleQueryPage ArticlePage(BlockTargetQueryRequest request)
+        => Seal(new BlockTargetArticleQueryPage(
+            BlockTargetQuerySchemas.ArticlePage, BlockTargetQuerySchemas.Version, request.RequestDigest,
+            BlockTargetQueryPageStatus.Ready, [new BlockTargetArticleQueryItem(Request().Article!, "章节 العربية", 0)],
+            null, string.Empty));
+
+    private static BlockTargetHeadingQueryPage HeadingPage(BlockTargetQueryRequest request)
+        => Seal(new BlockTargetHeadingQueryPage(
+            BlockTargetQuerySchemas.HeadingPage, BlockTargetQuerySchemas.Version, request.RequestDigest,
+            BlockTargetQueryPageStatus.Ready, BlockTargetInventoryDiagnostic.None,
+            [new BlockTargetHeadingQueryItem(request.Article!, "heading:01991e72-9a2c-7b60-8f47-b339f58e4a13",
+                "node:heading", 0, 10, "章节 العربية")], null, string.Empty));
+
+    private static BlockTargetArticleQueryPage Seal(BlockTargetArticleQueryPage page)
+        => page with
+        {
+            PageDigest = BlockTargetQueryDigest.ComputePage(page)
+        };
+
+    private static BlockTargetHeadingQueryPage Seal(BlockTargetHeadingQueryPage page)
         => page with
         {
             PageDigest = BlockTargetQueryDigest.ComputePage(page)

@@ -80,6 +80,15 @@ contract version/digest. A changed coordinate invalidates cursors and tokens.
 The selected article coordinate includes its authoritative current canonical slug;
 even a resealed token with another slug is rejected against that coordinate.
 
+`BlockTargetArticleQueryPage` carries only bounded authorized article projections,
+with unique stable identities, title, revision/lifecycle/permission/route coordinates
+and update timestamp. It contains no heading or block inventory. The separate
+`BlockTargetHeadingQueryPage` binds every heading to the exact selected article
+coordinate and reuses the existing canonical portable heading identity validator.
+Duplicate identities, diagnostics with selectable items, mismatched layers and
+stale/out-of-order response bindings are rejected. These result schemas do not
+build heading URLs or acquire inventory; both remain upstream producer duties.
+
 `BlockTargetQueryToken` carries the existing `ArticleBlockTarget`, selected source
 revision, canonical source node/range, block kind, bounded snippet and current slug.
 The source coordinate, content digest and slug are evidence/projections. They never
