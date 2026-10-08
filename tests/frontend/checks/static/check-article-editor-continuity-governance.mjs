@@ -56,9 +56,43 @@ for (const [name, mutated] of controls)
         failures.push(`negative control survived: ${name}`);
     }
 }
+const runtimePath = 'src/frontend/src/services/authoring/articleEditorRuntimeBinding.ts';
+const runtime = readFileSync(resolve(root, runtimePath), 'utf8');
+const runtimeForbidden = [
+    /\b(?:querySelector|getSelection|selectionStart|selectionEnd|scrollIntoView)\b/u,
+    /\b(?:localStorage|sessionStorage|indexedDB|new\s+Map)\b/u,
+    /\b(?:ArticleDocumentContextAuthority|createArticleDocumentContextAdapter|createMarkdownAnchorMap|createMarkdownEditorProjection)\b/u,
+    /\b(?:renderMarkdownResultWithRuntime|remount|recreateEditor|editorKey)\b/u,
+    /(?:\.focus\s*\(|\.innerHTML\s*=|setTimeout\s*\()/u,
+    /(?:from\s+['"]@ozwasyd\/element-plus\/[^'"]+\/src|packages\/components\/)/u
+];
+const runtimeControls = [
+    ['private-viewport', 'document.querySelector("textarea");'],
+    ['private-focus', 'editor.focus();'],
+    ['remount', 'const editorKey = epoch;'],
+    ['persist-context', 'localStorage.setItem("context", context);'],
+    ['second-cache', 'const otherCache = new Map();'],
+    ['second-document', 'createArticleDocumentContextAdapter(input);'],
+    ['second-map', 'createMarkdownAnchorMap(source);'],
+    ['second-renderer', 'renderMarkdownResultWithRuntime(source);']
+];
+for (const pattern of runtimeForbidden)
+{
+    if (pattern.test(runtime))
+    {
+        failures.push(`${runtimePath}: forbidden independent authority: ${pattern}`);
+    }
+}
+for (const [name, mutation] of runtimeControls)
+{
+    if (!runtimeForbidden.some(pattern => pattern.test(`${runtime}\n${mutation}`)))
+    {
+        failures.push(`runtime negative control survived: ${name}`);
+    }
+}
 if (failures.length > 0)
 {
     console.error(failures.join('\n'));
     process.exit(1);
 }
-console.log(`article editor continuity governance passed; negative controls=${controls.length}; data/commands stage only`);
+console.log(`article editor continuity governance passed; negative controls=${controls.length + runtimeControls.length}; data/commands stage only`);

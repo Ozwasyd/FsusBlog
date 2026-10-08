@@ -354,6 +354,11 @@ export class ArticleAttachmentContextAdapter
         return this.lifecycleLog.map(value => structuredClone(value));
     }
 
+    public get currentTaskLeases(): readonly ArticleDocumentTaskLease[]
+    {
+        return Object.freeze([...this.pending.values()].filter(entry => !entry.awaitingMap && entry.lease.isCurrent()).map(entry => entry.lease));
+    }
+
     /** Admission consumes the exact local capture capability and a real public dispatch. */
     public commitCreated(capture: ArticleAttachmentCapture, port: ArticleAttachmentTransactionPort): readonly ArticleAttachmentPendingHandle[]
     {
