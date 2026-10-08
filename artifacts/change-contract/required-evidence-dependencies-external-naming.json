@@ -26,6 +26,8 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "config/development/frontend-style-policy.json",
+                "config/frontend/control-legality.json",
                 "config/schemas/layout-aggregation-request.schema.json",
                 "config/schemas/layout-composition-contract.schema.json",
                 "config/schemas/layout-visual-adjudication.schema.json",
@@ -41,7 +43,10 @@
                 "tests/frontend/package.json",
                 "tests/governance/test-lifecycle-registry.json",
                 "tests/tools/package-lock.json",
-                "tests/tools/package.json"
+                "tests/tools/package.json",
+                "tools/frontend/control-legality/package-lock.json",
+                "tools/frontend/control-legality/package.json",
+                "tools/package.json"
             ],
             "reason": "Preserve exact schema, contract, fixture, package and lockfile wire keys across the complete coordinated PR source and canonical generated output set."
         },

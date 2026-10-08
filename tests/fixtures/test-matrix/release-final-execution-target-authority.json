@@ -35,8 +35,8 @@
         },
         {
             "path": "config/development/frontend-style-policy.json",
-            "contentDigest": "sha256:68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
-            "indexDigest": "sha256:68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+            "contentDigest": "sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+            "indexDigest": "sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d"
         },
         {
             "path": "config/development/frontend-style-rule-registry.json",
@@ -65,8 +65,8 @@
         },
         {
             "path": "package.json",
-            "contentDigest": "sha256:ac26e11f60ec2be49d717660dc975d70ea69c402756a57903c838e5383642fb0",
-            "indexDigest": "sha256:ac26e11f60ec2be49d717660dc975d70ea69c402756a57903c838e5383642fb0"
+            "contentDigest": "sha256:b9cb2a086ebc8f69bdc48a56acfbae4746798e64955ebd7af85edb827505acd2",
+            "indexDigest": "sha256:b9cb2a086ebc8f69bdc48a56acfbae4746798e64955ebd7af85edb827505acd2"
         },
         {
             "path": "src/backend/FsusBlog.Server.csproj",
@@ -110,8 +110,8 @@
         },
         {
             "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
-            "contentDigest": "sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634",
-            "indexDigest": "sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634"
+            "contentDigest": "sha256:d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8",
+            "indexDigest": "sha256:d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8"
         },
         {
             "path": "src/frontend/scripts/vite-watch-policy.mjs",
@@ -1414,6 +1414,11 @@
             "indexDigest": "sha256:86635187a9e3a4e5c2385da2733ad2adda4ba0fce86d8224a5dde09ce5fd52f3"
         },
         {
+            "path": "tests/frontend/checks/static/check-layout-composition.mjs",
+            "contentDigest": "sha256:7dfc46355d6803c461f597ce67e1a2f48d05aed82f5c05ae29af4e278750ee8f",
+            "indexDigest": "sha256:7dfc46355d6803c461f597ce67e1a2f48d05aed82f5c05ae29af4e278750ee8f"
+        },
+        {
             "path": "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
             "contentDigest": "sha256:f31b2f7e52b9a38854b2cf60ed97d92cc848504272281a73c7bc5537a4010fa7",
             "indexDigest": "sha256:f31b2f7e52b9a38854b2cf60ed97d92cc848504272281a73c7bc5537a4010fa7"
@@ -1660,8 +1665,8 @@
         },
         {
             "path": "tests/frontend/checks/static/check-views-constraints.mjs",
-            "contentDigest": "sha256:737c21d98bdb84aa58c4ee24f2af826e85532ff5a2d8380219d63c58cc47a971",
-            "indexDigest": "sha256:737c21d98bdb84aa58c4ee24f2af826e85532ff5a2d8380219d63c58cc47a971"
+            "contentDigest": "sha256:724517e27b6154cbd05efff13bb31e1e8272d2a9ec4ffdc6402dbfd4d82cb5b0",
+            "indexDigest": "sha256:724517e27b6154cbd05efff13bb31e1e8272d2a9ec4ffdc6402dbfd4d82cb5b0"
         },
         {
             "path": "tests/frontend/checks/static/check-visual-density-governance.mjs",
@@ -1800,13 +1805,13 @@
         },
         {
             "path": "tests/frontend/package-lock.json",
-            "contentDigest": "sha256:0883161637e4b30d7116d5d84366999ed4ec27ac9e23384b8ca8c0ee0fb0af49",
-            "indexDigest": "sha256:0883161637e4b30d7116d5d84366999ed4ec27ac9e23384b8ca8c0ee0fb0af49"
+            "contentDigest": "sha256:89fbc5a53220878bac707c9e8b7a30cf4a5acf78ac813d7dd72f8c7ff16a0f8f",
+            "indexDigest": "sha256:89fbc5a53220878bac707c9e8b7a30cf4a5acf78ac813d7dd72f8c7ff16a0f8f"
         },
         {
             "path": "tests/frontend/package.json",
-            "contentDigest": "sha256:2b9ed4fbd68ffcee63b200d3e2e9b23d4f43da2832eb473b6c3a4a4c6a03a3e1",
-            "indexDigest": "sha256:2b9ed4fbd68ffcee63b200d3e2e9b23d4f43da2832eb473b6c3a4a4c6a03a3e1"
+            "contentDigest": "sha256:5a541fc8e0cbaaeec27057374f765f3b713e4692c1304f3f9e0492170d1a8450",
+            "indexDigest": "sha256:5a541fc8e0cbaaeec27057374f765f3b713e4692c1304f3f9e0492170d1a8450"
         },
         {
             "path": "tests/frontend/support/aeds-envelope.mjs",
@@ -2145,8 +2150,8 @@
         },
         {
             "path": "tests/tools/package.json",
-            "contentDigest": "sha256:c3977a067d620eeacf8a4d898f44d6be8e8d8045bcd20740bf21cba77174f14c",
-            "indexDigest": "sha256:c3977a067d620eeacf8a4d898f44d6be8e8d8045bcd20740bf21cba77174f14c"
+            "contentDigest": "sha256:b5fdb7546097b64f863be6acfa07bfe187c5b1a933fe34ea20e748712b61ed6e",
+            "indexDigest": "sha256:b5fdb7546097b64f863be6acfa07bfe187c5b1a933fe34ea20e748712b61ed6e"
         },
         {
             "path": "tests/tools/physical-execution-process-tree.test.mjs",
@@ -3210,8 +3215,8 @@
         },
         {
             "path": "tools/frontend/check-frontend-style.mjs",
-            "contentDigest": "sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
-            "indexDigest": "sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75"
+            "contentDigest": "sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
+            "indexDigest": "sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2"
         },
         {
             "path": "tools/frontend/check-locale-domain-bundles.mjs",
@@ -3310,8 +3315,8 @@
         },
         {
             "path": "tools/frontend/style-toolchain/eslint.config.mjs",
-            "contentDigest": "sha256:5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
-            "indexDigest": "sha256:5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+            "contentDigest": "sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
+            "indexDigest": "sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a"
         },
         {
             "path": "tools/frontend/style-toolchain/package-lock.json",
@@ -3625,8 +3630,8 @@
         },
         {
             "path": "tools/package.json",
-            "contentDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd",
-            "indexDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd"
+            "contentDigest": "sha256:9a54957f6481adf8a2e20c00f631cc90fe43d1ea4ec84ab114374529bacf2fae",
+            "indexDigest": "sha256:9a54957f6481adf8a2e20c00f631cc90fe43d1ea4ec84ab114374529bacf2fae"
         },
         {
             "path": "tools/perf/app-config-catalog.mjs",
@@ -4220,8 +4225,8 @@
         },
         {
             "path": "tools/test-inventory/discovery.mjs",
-            "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
-            "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+            "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+            "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
         },
         {
             "path": "tools/test-inventory/package.json",
@@ -6067,6 +6072,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -6957,6 +6963,8 @@
                 "package.json",
                 "src/frontend/eslint.config.mjs",
                 "src/frontend/package.json",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
                 "src/frontend/stylelint.config.mjs",
                 "stylelint.config.mjs",
                 "tests/tools/native-tooling-style.test.mjs",
@@ -7785,6 +7793,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -8940,6 +8949,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -9754,6 +9764,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -10568,6 +10579,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -11536,6 +11548,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -12350,6 +12363,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -13164,6 +13178,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -13978,6 +13993,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -14958,6 +14974,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -15795,6 +15812,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -16609,6 +16627,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -17423,6 +17442,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -18428,6 +18448,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -19889,6 +19910,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -20772,6 +20794,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -21588,6 +21611,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -22402,6 +22426,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -23454,6 +23479,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -24297,6 +24323,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -25118,6 +25145,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -25932,6 +25960,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -26771,6 +26800,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -27585,6 +27615,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -28399,6 +28430,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -29213,6 +29245,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -30087,6 +30120,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -30988,6 +31022,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -31803,6 +31838,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -32794,6 +32830,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -33814,6 +33851,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -34628,6 +34666,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -35537,6 +35576,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -36587,6 +36627,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -37401,6 +37442,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -38363,6 +38405,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -39204,6 +39247,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -40208,6 +40252,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -41270,6 +41315,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -42084,6 +42130,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -42898,6 +42945,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -43712,6 +43760,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
@@ -44526,6 +44575,7 @@
                 "tests/frontend/checks/static/check-internal-selector-governance.mjs",
                 "tests/frontend/checks/static/check-json-long-id-governance.mjs",
                 "tests/frontend/checks/static/check-layout-archetype-governance.mjs",
+                "tests/frontend/checks/static/check-layout-composition.mjs",
                 "tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs",
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/frontend/checks/static/check-locale-api-erasure.mjs",
