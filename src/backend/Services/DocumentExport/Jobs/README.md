@@ -29,7 +29,8 @@ No production state is read, migrated or deleted by this change.
 
 | Surface | Next version | Consumer / canonical owner work |
 | --- | --- | --- |
-| Frozen input / task / provider result | v3 | #2423 shared validator and fixture updated; format owners consume exact types |
+| Frozen input | v4 | #2423 retains the canonical frozen embed plan/dependencies and complete projection bytes; materializer qualification remains blocked |
+| Task / provider result | v3 | Bind the v4 input content digest; no additional task/result fields or compatibility aliases |
 | Renderer request / response | v3 | #2427 renderer/tool wrapper must bind the new frozen identity without parsing Markdown twice |
 | Sandbox plan / attempt receipt | v2 | #2425 shared producer/validators use exact scope; original budgets and cleanup facts stay unchanged |
 | Job snapshot / output / protected state | v2 | #2434 migrates its service/repository guards and tests to string scope, preserving custody and quotas |
@@ -54,6 +55,48 @@ server's captured administrator/session and exact site scope without constructin
 an HTTP context. The job owner must still supply its authorization adapter and
 prove frozen coordinates, revisions and resource custody; this permission port
 alone cannot qualify a job or a download.
+
+## Frozen embed input handoff
+
+The separate frozen-input v4 handoff adds the required `FrozenEmbeds` member.
+A null member represents the canonical producer's no-embed case; an omitted
+member or v3 input is rejected. The frozen-input builder must use the existing
+FsusUI parser to establish completeness. This contract does not parse Markdown
+or establish that a null slot is authoritative.
+
+A non-null slot persists `ExpectedPlanDigest` from the authorized stored plan,
+the original publication plan and relation derivation, and one complete retained
+projection per original `ArticleEmbedDependencyReceipt`, in the original order.
+`ArticleEmbedFrozenDependencyProjection.Project` is consumed byte-for-byte from
+the supplied upstream source at `1194ee45037862aa30803650ec2a622700631224`.
+The slot keeps the existing bare lowercase embed digests and receipt schemas.
+It creates no second dependency receipt or publication authority. All four formats
+share this same frozen input; task input/content digests seal the full slot.
+
+The validator refuses partial/reference-only retention, different plans,
+coordinates, projection identities, content digests and byte seals. Sealing owns
+all plan/derivation lists and retained byte arrays, so later caller mutation or
+current-target changes cannot replace stored content. Markdown plus retained
+projection bytes share the 32 MiB input ceiling. The separate `ByteDigest` covers
+opaque retained bytes using the existing document-export byte digest; it does not
+redefine the renderer-owned projection `ContentDigest` or prove codec authority.
+
+The actual retained-payload API/codec, independent projection verification and
+numeric article-coordinate to portable host identity binding are still required
+from the canonical owners. Until that materializer is connected, task validation
+refuses a non-null embed slot with
+`document-export-frozen-embed-materializer-unavailable`, before provider execution.
+Structural input validation therefore does not qualify rendering, retention,
+publication permission or target access. No fallback or format activation exists.
+Imports must re-resolve targets through the existing authoring pipeline and current
+permission authority; export receipts cannot be reused as import permission. The
+import owner must prove that behavior at its own actual import boundary.
+
+The earlier SiteScope v3 consumer handoff remains on its published branch. This
+v4 source increment requires an explicit consumer handoff; no protected state is
+migrated and no old payload is silently upgraded. Removing this increment before
+activation is the rollback condition; retained v4 payloads require their exact
+v4 consumer and must never be rewritten into v3.
 
 ## Shared attempt resources
 
@@ -122,8 +165,9 @@ late result even when a provider ignores cancellation. The deadline's cancellati
 is distinguished from caller and durable stop requests; an observed sandbox
 budget/execution failure and its original receipt remain unchanged. Expiration
 does not synthesize a cleanup receipt or authorize interrupted-worker recovery.
-CPU, file and I/O totals still require aggregate multi-stage accounting; individual
-stage receipts and this wall deadline do not establish that remaining acceptance.
+The explicit shared attempt-resource port adds cumulative observed CPU/file/I/O
+accounting, but its job/format wiring and physical qualification remain required;
+individual stage receipts and this wall deadline do not establish that acceptance.
 
 Objects use the existing `PrivateAssetAnchoredFileSystem` under
 `ReleaseStorageLayout.Paths.PrivateAssetRoot/document-export/objects`; staging

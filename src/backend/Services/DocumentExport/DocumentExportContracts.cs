@@ -88,6 +88,7 @@ public sealed record DocumentExportFrozenInput(
     string Locale,
     ImmutableArray<DocumentExportAsset> Assets,
     string ReadingStyleAuthorityDigest,
+    DocumentExportFrozenEmbeds? FrozenEmbeds,
     string ContentDigest);
 
 public sealed record DocumentExportTask(
@@ -221,7 +222,7 @@ public sealed record DocumentExportProviderReceipt(
 /// </summary>
 public static class DocumentExportContractCatalog
 {
-    public const string InputSchema = "fsusblog.document-export-frozen-input.v3";
+    public const string InputSchema = "fsusblog.document-export-frozen-input.v4";
     public const string TaskSchema = "fsusblog.document-export-task.v3";
     public const string ResultSchema = "fsusblog.document-export-provider-result.v3";
     public const string AttemptReceiptSchema = "fsusblog.document-export-attempt-receipt.v2";
