@@ -1454,12 +1454,27 @@ export function extract(context)
   {
     return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
   }
-    const replayDirectory = mkdtempSync(path.join(
-        os.tmpdir(),
-        'runtime-role-replay-'
-    ));
+  let replayDirectory;
   try
   {
+    const replayParentRelative = path.dirname(runtimeBinding.artifactPath).replaceAll(path.sep, '/');
+    const segments = replayParentRelative.split('/');
+    for (let count = 1; count <= segments.length; count += 1)
+    {
+        const relative = segments.slice(0, count).join('/');
+        const absolute = path.join(context.repositoryRoot, relative);
+        if (!existsSync(absolute))
+        {
+            mkdirSync(absolute, { mode: 0o700 });
+        }
+        resolveContainedPath(context.repositoryRoot, relative, 'directory');
+    }
+    const replayParent = resolveContainedPath(
+        context.repositoryRoot,
+        replayParentRelative,
+        'directory'
+    );
+    replayDirectory = mkdtempSync(path.join(replayParent, 'replay-'));
     const replayOutput = path.join(replayDirectory, 'runtime-role-observation.json')
     const replay = spawnSync('dotnet', [
       assemblyAbsolute,
@@ -1479,9 +1494,18 @@ export function extract(context)
       ])
     }
   }
+  catch (error)
+  {
+    return failResult([
+      `runtime-role compiled producer replay mismatch: ${error instanceof Error ? error.message : String(error)}`
+    ]);
+  }
   finally
   {
-    rmSync(replayDirectory, { recursive: true, force: true })
+    if (replayDirectory)
+    {
+        rmSync(replayDirectory, { recursive: true, force: true });
+    }
   }
   const expectedDeploymentSources = {
     policy: 'tests/governance/monolithic-distributed-architecture.json',
