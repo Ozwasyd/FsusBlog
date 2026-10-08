@@ -54,6 +54,7 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
         FsusBlog.Server.Services.ArticleVault.ArticleVaultCurrentUploadAssetObservation bound;
         string root;
         string nativeSha256;
+        string inputSha256;
         await using (var upload = await CreateAsync(size == 68 ? null : CreateOriginalPng(size)))
         {
             root = upload.Root;
@@ -69,7 +70,23 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
             }).ExecuteCommandAsync();
             // Bytes/session/ledger are real; plan/article authority fixtures grant no Vault operation.
             var setup = ArticleVaultUploadAssetBindingTests.Create(upload.Service, upload.Access, upload.Sha256);
-            bound = await setup.ReadAsync();
+            var input = await setup.ReadInputAsync();
+            bound = input.Observation;
+            Assert.Equal(upload.Bytes, input.Bytes.ToArray());
+            inputSha256 = Convert.ToHexStringLower(SHA256.HashData(input.Bytes.Span));
+            Assert.Equal(upload.Sha256, inputSha256);
+            var wrongToken = await upload.Service.ReadCommittedUploadInputAsync(upload.Access with
+            {
+                UploadToken = "wrong-token"
+            }, upload.Sha256);
+            Assert.False(wrongToken.IsSuccess);
+            Assert.Equal(ErrorCode.NotFound, wrongToken.Error.Code);
+            var wrongOwner = await upload.Service.ReadCommittedUploadInputAsync(upload.Access with
+            {
+                OwnerAdminPrincipalId = 8
+            }, upload.Sha256);
+            Assert.False(wrongOwner.IsSuccess);
+            Assert.Equal(ErrorCode.NotFound, wrongOwner.Error.Code);
             Assert.Equal(assetId, bound.Asset.Id.Value);
             Assert.Equal(upload.Bytes.Length, bound.Asset.SizeBytes);
             Assert.Equal(upload.Sha256, bound.Asset.Sha256);
@@ -82,12 +99,15 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
                 bound.Asset.StorageKey.Value.Replace('/', Path.DirectorySeparatorChar));
             nativeSha256 = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(path)));
             Assert.Equal(bound.Asset.Sha256, nativeSha256);
-            var repeated = await setup.ReadAsync();
-            Assert.Equal(bound.ContentSha256, repeated.ContentSha256);
+            var repeated = await setup.ReadInputAsync();
+            Assert.Equal(bound.ContentSha256, repeated.Observation.ContentSha256);
+            Assert.Equal(inputSha256, Convert.ToHexStringLower(SHA256.HashData(repeated.Bytes.Span)));
+            var observed = await setup.ReadAsync();
+            Assert.Equal(bound.ContentSha256, observed.ContentSha256);
             Assert.Equal(1, await upload.Db.Queryable<ContentAsset>().CountAsync());
             Assert.Equal(1, await upload.Db.Queryable<ContentAssetReference>().CountAsync());
             await upload.Db.Deleteable<ContentAssetReference>().Where(row => row.AssetId == assetId).ExecuteCommandAsync();
-            var refusal = await Assert.ThrowsAsync<FsusBlog.Server.Services.ArticleVault.ArticleVaultExecutionRejectedException>(setup.ReadAsync);
+            var refusal = await Assert.ThrowsAsync<FsusBlog.Server.Services.ArticleVault.ArticleVaultExecutionRejectedException>(setup.ReadInputAsync);
             Assert.Equal("article_vault_upload_asset_upload_or_revision_reference_unavailable", refusal.ReasonCode);
             Assert.Equal(1, await upload.Db.Queryable<ContentAsset>().CountAsync());
         }
@@ -103,6 +123,10 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
                 TestedAtUtc = DateTimeOffset.UtcNow,
                 BoundObservation = bound,
                 NativeSha256 = nativeSha256,
+                InputByteSha256 = inputSha256,
+                InputBytesMatchOriginalUpload = true,
+                WrongSessionTokenRefused = true,
+                WrongOwnerRefused = true,
                 RepeatAssetRows = 1,
                 RepeatReferenceRows = 1,
                 MissingRevisionReferenceRefused = true,
@@ -289,6 +313,11 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
         Result<UploadAssetPreview> preview = await context.Service.ReadCommittedUploadPreviewAsync(access, digest);
         Assert.False(preview.IsSuccess);
         Assert.Null(preview.Value);
+        Result<UploadAssetPreview> input = await context.Service.ReadCommittedUploadInputAsync(access, digest);
+        Assert.False(input.IsSuccess);
+        Assert.Null(input.Value);
+        Assert.Equal(result.Error.Code, input.Error.Code);
+        Assert.Equal(result.Error.Message, input.Error.Message);
     }
 
     [Fact]
@@ -299,6 +328,9 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
         Result<UploadAssetObservation> result = await service.ObserveCommittedUploadAsync(context.Access, context.Sha256);
         Assert.False(result.IsSuccess);
         Assert.Equal("upload_asset_ledger_unavailable", result.Error.Message);
+        var input = await service.ReadCommittedUploadInputAsync(context.Access, context.Sha256);
+        Assert.False(input.IsSuccess);
+        Assert.Equal(result.Error.Message, input.Error.Message);
     }
 
     [Fact]
@@ -310,6 +342,8 @@ public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture f
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => context.Service.ObserveCommittedUploadAsync(
             default, "invalid", cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => context.Service.ReadCommittedUploadPreviewAsync(
+            default, "invalid", cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => context.Service.ReadCommittedUploadInputAsync(
             default, "invalid", cancellation.Token));
     }
 

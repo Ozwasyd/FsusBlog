@@ -3022,12 +3022,16 @@ no upload token, bytes or display URL. This is a read-only supplier observation:
 `CanExecute`, `CanMaterialize`, `CanUpload` and `CanCommitBase` are always false.
 The root must revalidate it against current authorities before admitting any use.
 
-The closed original Vault article plan/manifest still has no AssetId membership
-or resource-operation grant. Existing current-revision upload references cannot
-supply that missing selected-resource authority, authorize private asset export,
-or admit an unreferenced new upload. Canonical resource plan/rights/reuse admission
-and actual private-purpose policy binding remain with the original resource
-owners; this consumer does not create a permission receipt or activate cutover.
+The original article plan/manifest carries article coordinates. The canonical
+resource owner's separate dependency plan supplies selected AssetId membership;
+its `ArticleVaultAssetInputVerifier.VerifyCurrent` at
+`2900bbc18b074859f3c7555a10ade8c567a9a21f` checks operation/bundle/dependency
+currentness, selected content item and record/bytes consistency. It performs no
+IO and issues no read, upload/reuse, materialization or base receipt. Existing
+current-revision upload references do not grant private asset export or admit an
+unreferenced new upload. Fresh resource rights, explicit reuse/initialization and
+accepted reference admission remain with their original owners; this supplier
+creates no permission receipt and does not activate cutover.
 
 The current source/upload/reference read algorithm lives once in
 `CurrentArticleUploadAssetBindingReader.ObserveCurrentRevisionAsync`.
@@ -3048,3 +3052,26 @@ cleanup facts. A public digest validator or cloned lifecycle log is insufficient
 the original attachment adapter's owned maps remain private. Current rights,
 responsibility and site-author authority are separate from historical revision
 package snapshots. Missing bindings keep recovery-required and grant nothing.
+
+`IFileService.ReadCommittedUploadInputAsync(UploadSessionAccess, sha256, ct)`
+returns the existing `UploadAssetPreview` pair of original observation and actual
+bytes through the same native/session/ledger validator as the observation method,
+with the original20MiB upload bound. This is server-only: the public275 preview
+remains bounded at8,387,832 bytes, and no route, frame or private ticket purpose is
+added. Wrong owner/token, absent or expired session, native byte/metadata drift
+and reference observation failure retain their original refusals.
+
+`CurrentArticleUploadAssetBindingReader.ReadCurrentRevisionInputAsync` returns
+`(CurrentArticleUploadAssetObservation Observation, ReadOnlyMemory<byte> Bytes)`;
+`ArticleVaultUploadAssetBindingReader.ReadCurrentRevisionUploadInputAsync` returns
+`(ArticleVaultCurrentUploadAssetObservation Observation, ReadOnlyMemory<byte> Bytes)`.
+Both use their existing observation algorithm, acquiring the original bytes on
+the first upload read and re-observing original upload metadata/version/ledger
+and current article permission/source afterward. Vault also retains complete-group
+and lifetime checks. The tuple adds no receipt schema, authorization flag, store
+or public transport. It can supply its actual `Observation.Asset` and `Bytes.Span`
+to the sole canonical consistency verifier, alongside the root's genuine operation,
+bundle, dependency plan/request and fresh dependency inputs. Those root inputs
+are not minted here. A matching existing revision reference is current ledger
+fact, not an explicit resource reuse decision. All observation `Can*` flags remain
+false; no production Vault consumer is activated by these methods.

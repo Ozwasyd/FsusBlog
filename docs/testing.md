@@ -1809,3 +1809,16 @@ without a Vault observer: it returns current source/reference facts, invokes no
 Vault authority and refuses the missing canonical revision edge. The Vault
 consumer uses this same implementation and retains all operation/group/rights
 refusals. These controls do not implement or qualify the frontend authority ports.
+
+The server input-read controls exercise the same shared binding algorithm with
+actual original bytes, plus owner/reference/source mismatch, ledger drift, late
+principal change and cancellation. The two real PostgreSQL/native cases compare
+returned bytes byte-for-byte to the committed original upload and independently
+hash the native file, repeat without another asset/reference row and refuse a
+removed revision edge. Direct original input reads refuse wrong token and owner.
+Run the full `UploadAssetObservationTests` alongside these controls to retain
+native tamper, media, metadata, session and public-preview budget negative controls.
+The20MiB server input does not enlarge the public275 frame. Plan/current resource
+rights remain controlled fixtures, and the canonical2900 consistency verifier is
+not replayed or replaced in this supplier suite. Its original root must supply
+fresh selected dependency inputs and grant admission separately.

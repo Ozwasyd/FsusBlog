@@ -226,6 +226,87 @@ public sealed class ArticleVaultUploadAssetBindingTests
         }
     }
 
+    [Theory]
+    [InlineData("none")]
+    [InlineData("owner")]
+    [InlineData("revision-reference")]
+    [InlineData("source")]
+    [InlineData("ledger")]
+    [InlineData("principal-late")]
+    [InlineData("cancel")]
+    public async Task InputRead_UsesSameOriginalFactsAndRefusals(string mutation)
+    {
+        var setup = Create();
+        if (mutation == "owner")
+        {
+            setup.Upload = setup.Upload with
+            {
+                Asset = setup.Upload.Asset with
+                {
+                    OwnerAdminPrincipalId = 8
+                }
+            };
+        }
+        if (mutation == "revision-reference")
+        {
+            setup.Upload = setup.Upload with
+            {
+                References = []
+            };
+        }
+        if (mutation == "source")
+        {
+            setup.Package = Package("changed\n");
+        }
+        int reads = 0;
+        setup.BeforeUpload = () =>
+        {
+            if (++reads != 2)
+            {
+                return;
+            }
+            if (mutation == "ledger")
+            {
+                setup.Upload = setup.Upload with
+                {
+                    ReferenceLedgerSha256 = new('f', 64)
+                };
+            }
+            if (mutation == "principal-late")
+            {
+                var identity = (ClaimsIdentity)setup.Principal.Identity!;
+                identity.RemoveClaim(identity.FindFirst("admin_id")!);
+                identity.AddClaim(new("admin_id", "8"));
+            }
+            if (mutation == "cancel")
+            {
+                setup.Cancellation.Cancel();
+            }
+        };
+        if (mutation == "none")
+        {
+            var input = await setup.ReadInputAsync();
+            Assert.Equal(setup.Upload.Asset, input.Observation.Asset);
+            Assert.Equal(setup.InputBytes, input.Bytes.ToArray());
+            Assert.False(input.Observation.CanExecute);
+            Assert.False(input.Observation.CanCommitBase);
+            Assert.Equal(2, setup.Files.ReceivedCalls().Count());
+            return;
+        }
+        if (mutation == "cancel")
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(setup.ReadInputAsync);
+            return;
+        }
+        var refusal = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(setup.ReadInputAsync);
+        Assert.Equal("article_vault_upload_asset_" + (mutation switch
+        {
+            "source" => "source_unavailable_or_changed",
+            "ledger" or "principal-late" => "current_facts_changed",
+            _ => "upload_or_revision_reference_unavailable"
+        }), refusal.ReasonCode);
+    }
+
     internal static Setup Create(IFileService? actualFiles = null, UploadSessionAccess? actualSession = null, string? actualSha256 = null)
         => new(actualFiles, actualSession, actualSha256);
 
@@ -250,6 +331,12 @@ public sealed class ArticleVaultUploadAssetBindingTests
             Files = actualFiles ?? Substitute.For<IFileService>();
             if (actualFiles is null)
             {
+                Files.ReadCommittedUploadInputAsync(Session, Sha256, Arg.Any<CancellationToken>()).Returns(_ =>
+                {
+                    BeforeUpload?.Invoke();
+                    return UploadFailure ? Result<UploadAssetPreview>.Failure(ErrorCode.NotFound, "UPLOAD_SESSION_NOT_FOUND")
+                        : Result<UploadAssetPreview>.Success(new(Upload, InputBytes));
+                });
                 Files.ObserveCommittedUploadAsync(Session, Sha256, Arg.Any<CancellationToken>()).Returns(_ =>
                 {
                     BeforeUpload?.Invoke();
@@ -320,6 +407,7 @@ public sealed class ArticleVaultUploadAssetBindingTests
         {
             get; set;
         }
+        internal byte[] InputBytes { get; } = new byte[67];
         internal bool UploadFailure
         {
             get; set;
@@ -336,6 +424,8 @@ public sealed class ArticleVaultUploadAssetBindingTests
         }
         internal Task<ArticleVaultCurrentUploadAssetObservation> ReadAsync()
             => Reader.ObserveCurrentRevisionUploadAsync(Reference, Principal, Session, Sha256, Cancellation.Token);
+        internal Task<(ArticleVaultCurrentUploadAssetObservation Observation, ReadOnlyMemory<byte> Bytes)> ReadInputAsync()
+            => Reader.ReadCurrentRevisionUploadInputAsync(Reference, Principal, Session, Sha256, Cancellation.Token);
     }
 
     internal sealed class MutableClock : TimeProvider

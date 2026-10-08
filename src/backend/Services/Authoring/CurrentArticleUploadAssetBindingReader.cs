@@ -59,6 +59,30 @@ public sealed class CurrentArticleUploadAssetBindingReader(
         string sha256,
         CancellationToken cancellationToken = default,
         Action? requireCurrent = null)
+        => (await ReadCurrentRevisionAsync(reference, principal, session, sha256, false,
+            cancellationToken, requireCurrent).ConfigureAwait(false)).Observation;
+
+    /// <summary>
+    /// Supplies original session-authorized bytes with current source/ledger facts. Bytes are
+    /// for the original consumer's consistency check; no resource-operation or reuse grant follows.
+    /// </summary>
+    public Task<(CurrentArticleUploadAssetObservation Observation, ReadOnlyMemory<byte> Bytes)> ReadCurrentRevisionInputAsync(
+        CurrentArticleUploadAssetReference reference,
+        ClaimsPrincipal principal,
+        UploadSessionAccess session,
+        string sha256,
+        CancellationToken cancellationToken = default,
+        Action? requireCurrent = null)
+        => ReadCurrentRevisionAsync(reference, principal, session, sha256, true, cancellationToken, requireCurrent);
+
+    private async Task<(CurrentArticleUploadAssetObservation Observation, ReadOnlyMemory<byte> Bytes)> ReadCurrentRevisionAsync(
+        CurrentArticleUploadAssetReference reference,
+        ClaimsPrincipal principal,
+        UploadSessionAccess session,
+        string sha256,
+        bool includeBytes,
+        CancellationToken cancellationToken,
+        Action? requireCurrent)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(principal);
@@ -73,7 +97,24 @@ public sealed class CurrentArticleUploadAssetBindingReader(
         var owner = new AuthoringCanvasOwner(adminId, "primary-site");
         Guid requestId = Guid.CreateVersion7();
         AuthoringArticleCurrentSource sourceBefore = await ReadSourceAsync().ConfigureAwait(false);
-        UploadAssetObservation uploadBefore = await ReadUploadAsync().ConfigureAwait(false);
+        ReadOnlyMemory<byte> bytes = default;
+        UploadAssetObservation uploadBefore;
+        if (includeBytes)
+        {
+            RequireCurrent();
+            var input = await files.ReadCommittedUploadInputAsync(session, sha256, cancellationToken).ConfigureAwait(false);
+            RequireCurrent();
+            if (!input.IsSuccess || input.Value is not { } value)
+            {
+                throw Rejected("upload_or_revision_reference_unavailable");
+            }
+            uploadBefore = ValidateUpload(value.Observation);
+            bytes = value.Bytes;
+        }
+        else
+        {
+            uploadBefore = await ReadUploadAsync().ConfigureAwait(false);
+        }
         UploadAssetObservation uploadAfter = await ReadUploadAsync().ConfigureAwait(false);
         AuthoringArticleCurrentSource sourceAfter = await ReadSourceAsync().ConfigureAwait(false);
         RequireCurrent();
@@ -86,10 +127,10 @@ public sealed class CurrentArticleUploadAssetBindingReader(
         {
             throw Rejected("current_facts_changed");
         }
-        return new("fsusblog.current-article-upload-asset-observation.v1", reference, ArticleVaultManifestCodec.CaptureSourceBytes(sourceAfter.Package.RawMarkdown.AsSpan()), adminId, owner.SiteScope,
+        return (new("fsusblog.current-article-upload-asset-observation.v1", reference, ArticleVaultManifestCodec.CaptureSourceBytes(sourceAfter.Package.RawMarkdown.AsSpan()), adminId, owner.SiteScope,
             sourceAfter.Authority.PermissionFingerprint, sourceAfter.Package.PackageDigest,
             uploadAfter.Asset, uploadAfter.UploadId, uploadAfter.AssetVersionSha256, uploadAfter.ReferenceLedgerSha256,
-            reference.SourceRevision.ToString(CultureInfo.InvariantCulture));
+            reference.SourceRevision.ToString(CultureInfo.InvariantCulture)), bytes);
 
         async Task<AuthoringArticleCurrentSource> ReadSourceAsync()
         {
@@ -115,7 +156,16 @@ public sealed class CurrentArticleUploadAssetBindingReader(
             RequireCurrent();
             var read = await files.ObserveCommittedUploadAsync(session, sha256, cancellationToken).ConfigureAwait(false);
             RequireCurrent();
-            if (!read.IsSuccess || read.Value is not { } upload || upload.Schema != "fsusblog.upload-asset-observation.v1"
+            if (!read.IsSuccess || read.Value is not { } upload)
+            {
+                throw Rejected("upload_or_revision_reference_unavailable");
+            }
+            return ValidateUpload(upload);
+        }
+
+        UploadAssetObservation ValidateUpload(UploadAssetObservation upload)
+        {
+            if (upload.Schema != "fsusblog.upload-asset-observation.v1"
                 || upload.UploadId != session.UploadId || upload.Asset.Id != reference.AssetId
                 || upload.Asset.OwnerAdminPrincipalId != adminId || upload.Asset.State != ContentAssetState.Active
                 || upload.Asset.Sha256 != sha256 || !Digest(upload.AssetVersionSha256) || !Digest(upload.ReferenceLedgerSha256)

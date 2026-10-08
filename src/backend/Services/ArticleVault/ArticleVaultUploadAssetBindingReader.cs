@@ -74,6 +74,28 @@ public sealed class ArticleVaultUploadAssetBindingReader(
         UploadSessionAccess session,
         string sha256,
         CancellationToken cancellationToken = default)
+        => (await ReadCurrentRevisionUploadAsync(reference, principal, session, sha256, false,
+            cancellationToken).ConfigureAwait(false)).Observation;
+
+    /// <summary>
+    /// Returns the original owned upload bytes for the canonical asset input verifier. Selected
+    /// dependency membership and current resource rights remain the original root's admission.
+    /// </summary>
+    public Task<(ArticleVaultCurrentUploadAssetObservation Observation, ReadOnlyMemory<byte> Bytes)> ReadCurrentRevisionUploadInputAsync(
+        ArticleVaultUploadAssetReference reference,
+        ClaimsPrincipal principal,
+        UploadSessionAccess session,
+        string sha256,
+        CancellationToken cancellationToken = default)
+        => ReadCurrentRevisionUploadAsync(reference, principal, session, sha256, true, cancellationToken);
+
+    private async Task<(ArticleVaultCurrentUploadAssetObservation Observation, ReadOnlyMemory<byte> Bytes)> ReadCurrentRevisionUploadAsync(
+        ArticleVaultUploadAssetReference reference,
+        ClaimsPrincipal principal,
+        UploadSessionAccess session,
+        string sha256,
+        bool includeBytes,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(principal);
@@ -113,11 +135,21 @@ public sealed class ArticleVaultUploadAssetBindingReader(
             bundle, group, cancellationToken).ConfigureAwait(false)).ToArray();
         ArticleVaultSyncPlanExecutor.ValidateCurrentObservations(group, before);
         CurrentArticleUploadAssetObservation asset;
+        ReadOnlyMemory<byte> bytes = default;
         try
         {
-            asset = await _assets.ObserveCurrentRevisionAsync(new(articleId, item.Server.ServerRevision.Value,
-                item.Server.Source.Sha256, reference.AssetId), principal, session, sha256,
-                cancellationToken, () => RequireLifetime(bundle, cancellationToken)).ConfigureAwait(false);
+            var source = new CurrentArticleUploadAssetReference(articleId, item.Server.ServerRevision.Value,
+                item.Server.Source.Sha256, reference.AssetId);
+            if (includeBytes)
+            {
+                (asset, bytes) = await _assets.ReadCurrentRevisionInputAsync(source, principal, session, sha256,
+                    cancellationToken, () => RequireLifetime(bundle, cancellationToken)).ConfigureAwait(false);
+            }
+            else
+            {
+                asset = await _assets.ObserveCurrentRevisionAsync(source, principal, session, sha256,
+                    cancellationToken, () => RequireLifetime(bundle, cancellationToken)).ConfigureAwait(false);
+            }
         }
         catch (CurrentArticleUploadAssetObservationRejectedException exception)
         {
@@ -146,10 +178,10 @@ public sealed class ArticleVaultUploadAssetBindingReader(
             current.RightsBoundarySha256, current.PublicationBoundarySha256, asset.Asset,
             asset.UploadId, asset.AssetVersionSha256, asset.ReferenceLedgerSha256,
             item.Server.ServerRevision.Value.ToString(CultureInfo.InvariantCulture), string.Empty);
-        return unsigned with
+        return (unsigned with
         {
             ContentSha256 = ArticleVaultExecutionIntegrity.Digest(unsigned)
-        };
+        }, bytes);
 
     }
 

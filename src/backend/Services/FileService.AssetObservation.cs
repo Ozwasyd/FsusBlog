@@ -33,6 +33,12 @@ public sealed partial class FileService
         CancellationToken cancellationToken = default)
         => ReadCommittedUploadObservationAsync(access, sha256, UploadAssetPreviewDto.MaxPreviewBytes, cancellationToken);
 
+    public Task<Result<UploadAssetPreview>> ReadCommittedUploadInputAsync(
+        UploadSessionAccess access,
+        string sha256,
+        CancellationToken cancellationToken = default)
+        => ReadCommittedUploadObservationAsync(access, sha256, MaxUploadBytes, cancellationToken);
+
     private async Task<Result<UploadAssetPreview>> ReadCommittedUploadObservationAsync(
         UploadSessionAccess access,
         string sha256,
