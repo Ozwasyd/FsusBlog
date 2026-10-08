@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/cpu-calibration-contract.mjs",
+                "tools/test/machine-cpu-topology.mjs",
+                "tools/test/effective-cpu-fallback.mjs",
+                "tools/test/cpu-calibration-cohort.mjs",
+                "tools/test/cpu-calibration-selection.mjs",
+                "tools/test/cpu-calibration-loader.mjs"
+            ],
+            "reason": "Preserve external Node process and operating-system CPU observation interfaces within the trusted registry tools/**/*.mjs scope; calibration option identifiers remain camelCase and no environment setting is changed."
+        }
+    ]
+}
