@@ -50,3 +50,20 @@ cross-consumer governance also remain with their canonical owners.
 Downstream candidate aggregation requires verified alias/policy/build/fixture/
 execution identities. Missing receipts cannot be filled with SHA-only or manual
 defaults, and this source contract does not create a qualified candidate.
+
+`collect-source-aliases.mjs` currently exposes the independently testable
+`collectSubmoduleCheckoutIdentities` and `verifySubmoduleCheckoutIdentities`
+portion. Inputs are an explicit current parent source snapshot and an exact
+checkout-path map of target source policies. It derives declarations from tracked
+`.gitmodules` and requires exact Git index pointer closure. Each checkout must be
+a physical initialized Git root whose HEAD equals its parent pointer. Content
+snapshots bind target repository/worktree/policy identity and observed dirty state;
+verification recollects current inputs. Missing, escaped, duplicate, conflicted,
+cross-source or nested checkout closure fails without fetching or updating.
+
+This submodule receipt is not one of the six admitted aggregate fragments.
+Complete alias/package/lock/resolution provenance still needs the actual Vite,
+workspace and file-dependency resolver owner's machine inventory, including
+declaration ranges and readiness-dependent resolved targets. No fixed FsusUI
+inventory or sibling search is provided. The direct source-alias CLI exits with
+the missing capability until full domain closure is implemented.
