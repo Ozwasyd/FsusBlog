@@ -270,6 +270,8 @@ public sealed class ArticleVaultEventNormalizationTests
         Assert.Throws<InvalidDataException>(() => LinuxVaultObservationAdapter.Convert(binding,
             [fact with { AgentIdentity = "other" }]));
         Assert.Throws<InvalidDataException>(() => LinuxVaultObservationAdapter.Convert(binding,
+            [fact with { RootManifestSha256 = null! }]));
+        Assert.Throws<InvalidDataException>(() => LinuxVaultObservationAdapter.Convert(binding,
             [LinuxVaultRawFactCodec.Seal(fact with { AgentIdentity = "other" })]));
         LinuxVaultRawFact rootEvent = LinuxVaultRawFactCodec.Seal(fact with
         {

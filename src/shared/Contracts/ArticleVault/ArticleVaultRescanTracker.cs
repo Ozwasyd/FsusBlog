@@ -34,7 +34,13 @@ public static class ArticleVaultRescanTracker
         var obligation = new VaultRescanObligation(Schema, 1, binding, ownerIdentity,
             string.Empty, reasons.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),
             before, VaultRescanState.Required, 0, null, null, string.Empty);
-        return Seal(obligation);
+        VaultRescanObligation result = Seal(obligation);
+        if (!Validate(result))
+        {
+            throw new InvalidDataException("vault_rescan_request_invalid");
+        }
+
+        return result;
     }
 
     /// <summary>Starts one bounded attempt for the same exact owner; failed attempts remain auditable.</summary>
@@ -65,11 +71,17 @@ public static class ArticleVaultRescanTracker
             throw new InvalidDataException("vault_rescan_transition_invalid");
         }
 
+        string[] reasons = obligation.ReasonCodes.Append(reasonCode).Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal).ToArray();
+        if (reasons.Length > ArticleVaultEventNormalizer.MaxRawFacts)
+        {
+            throw new InvalidDataException("vault_rescan_reason_bound_exceeded");
+        }
+
         return Seal(obligation with
         {
             State = VaultRescanState.Failed,
-            ReasonCodes = obligation.ReasonCodes.Append(reasonCode).Distinct(StringComparer.Ordinal)
-                .Order(StringComparer.Ordinal).ToArray()
+            ReasonCodes = reasons
         });
     }
 

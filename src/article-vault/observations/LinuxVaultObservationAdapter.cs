@@ -19,6 +19,10 @@ public static class LinuxVaultObservationAdapter
     {
         ArgumentNullException.ThrowIfNull(binding);
         ArgumentNullException.ThrowIfNull(facts);
+        if (binding.Scope is null)
+        {
+            throw new InvalidDataException("vault_observation_binding_invalid");
+        }
         if (facts.Count > ArticleVaultEventNormalizer.MaxRawFacts)
         {
             throw new InvalidDataException("vault_observation_split_required");
@@ -27,7 +31,8 @@ public static class LinuxVaultObservationAdapter
         var observations = new List<VaultRawObservation>(facts.Count);
         foreach (LinuxVaultRawFact fact in facts)
         {
-            if (!LinuxVaultRawFactCodec.Validate(fact)
+            if (fact is null || fact.RootManifestSha256 is not { Length: 64 }
+                || fact.ContentSha256 is not { Length: 64 } || !LinuxVaultRawFactCodec.Validate(fact)
                 || fact.SiteIdentity != binding.Scope.SiteIdentity
                 || fact.VaultIdentity != binding.Scope.VaultIdentity
                 || fact.DeviceIdentity != binding.Scope.DeviceIdentity
