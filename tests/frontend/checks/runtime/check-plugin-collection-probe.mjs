@@ -84,6 +84,16 @@ async function snapshot(page)
     return page.evaluate(() => globalThis.pluginCollectionProbe.snapshot());
 }
 
+async function capture(page, filename)
+{
+    await page.evaluate(async () =>
+    {
+        await globalThis.document.fonts.ready;
+        await new Promise((resolve) => globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(resolve)));
+    });
+    await page.screenshot({ path: path.join(output, filename), fullPage: true, animations: 'disabled' });
+}
+
 async function probeCandidate(context, baseUrl, candidate, modeReport)
 {
     const page = await context.newPage();
@@ -341,7 +351,7 @@ async function probeCandidate(context, baseUrl, candidate, modeReport)
     await configure(page, candidate, 2, { longId: true });
     await page.evaluate(() => globalThis.document.documentElement.style.zoom = '2');
     result.zoomAndForcedColors = await collection.evaluate((node) => ({ width: node.clientWidth, scrollWidth: node.scrollWidth }));
-    await page.screenshot({ path: path.join(output, `${modeReport.mode}-${candidate}-375-zoom-forced-colors.png`), fullPage: true });
+    await capture(page, `${modeReport.mode}-${candidate}-375-zoom-forced-colors.png`);
     await page.evaluate(() => globalThis.document.documentElement.style.zoom = '1');
     await configure(page, candidate, 2);
     await page.keyboard.press('Tab');
@@ -352,7 +362,7 @@ async function probeCandidate(context, baseUrl, candidate, modeReport)
         outlineWidth: globalThis.getComputedStyle(node).outlineWidth,
         box: { width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height }
     }));
-    await page.screenshot({ path: path.join(output, `${modeReport.mode}-${candidate}-375-focus.png`), fullPage: true });
+    await capture(page, `${modeReport.mode}-${candidate}-375-focus.png`);
     await observe(checks, 'forced-colors-focus-visible', async () =>
     {
         assert.equal(result.focus.focused, true, 'row must accept focus');
