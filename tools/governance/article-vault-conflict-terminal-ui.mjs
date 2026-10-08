@@ -11,11 +11,14 @@ export const articleVaultConflictUiFiles = Object.freeze([
     'src/frontend/src/components/article-vault/conflictEvidencePresentation.ts',
     'src/frontend/src/components/article-vault/VaultConflictList.vue',
     'src/frontend/src/components/article-vault/resolutionStatusPresentation.ts',
-    'src/frontend/src/components/article-vault/VaultResolutionStatus.vue'
+    'src/frontend/src/components/article-vault/VaultResolutionStatus.vue',
+    'src/frontend/src/components/article-vault/storedConflictReviewPresentation.ts',
+    'src/frontend/src/components/article-vault/VaultStoredConflictReview.vue'
 ]);
 
 const imports = new Set([
     'vue', '@ozwasyd/element-plus', '@/fsusui/button', './conflictEvidencePresentation', './resolutionStatusPresentation',
+    './storedConflictReviewPresentation', './VaultConflictList.vue', './VaultResolutionStatus.vue',
     '../../../../shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json'
 ]);
 const forbiddenReferences = new Set([

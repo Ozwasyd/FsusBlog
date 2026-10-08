@@ -9,6 +9,15 @@ const {
 
 const [presentation, component, statusPresentation, statusComponent] = articleVaultConflictUiFiles;
 
+test('stored review consumers cannot acquire transports or turn a response into local command authority', () =>
+{
+    const [storedPresentation, storedComponent] = articleVaultConflictUiFiles.slice(4);
+    assert.match(diagnostics(storedPresentation, source => `${source}\nconst read = fetch; read("/proposal/latest");\n`), /authority/u);
+    assert.match(diagnostics(storedPresentation, source => `${source}\nsnapshot.proposal.state = "complete";\n`), /canonical machine/u);
+    assert.match(diagnostics(storedComponent, source => source.replace('</template>', '<button @click="recoverLatest()">Recover</button></template>')),
+        /writer/u);
+});
+
 function diagnostics(file, mutation)
 {
     const sources = readArticleVaultConflictUiSources();
@@ -18,7 +27,7 @@ function diagnostics(file, mutation)
 
 test('actual Vue script, render AST and presentation retain the read-only authority boundary', () =>
 {
-    assert.equal(articleVaultConflictUiFiles.length, 4);
+    assert.equal(articleVaultConflictUiFiles.length, 6);
     assert.deepEqual(checkArticleVaultConflictUiSources(readArticleVaultConflictUiSources()), []);
 });
 
