@@ -1,18 +1,25 @@
 using System.Globalization;
 using System.Text;
 
+using FsusBlog.Shared.Contracts.ArticleEmbeds;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 using FsusBlog.Shared.Contracts.ArticleRelations;
+using FsusBlog.Shared.Contracts.ArticleVault.Dependencies;
 using FsusBlog.Shared.Contracts.BlockLinks;
 
 namespace FsusBlog.Shared.Contracts.ArticleVault;
 
 /// <summary>
 /// One explicit current-draft route projection change, consumed after canonical relation
-/// resolution. The target is supplied by #1808/#1868 and is never inferred from a slug.
+/// resolution. The target is supplied by the canonical portable graph and is never inferred from a slug.
 /// </summary>
 public sealed record ArticleVaultBlockLinkRefactorInput(
     ArticleVaultArticleManifest Manifest,
-    ArticleRelationRecord Relation,
+    PortableDependencyManifest Graph,
+    IReadOnlyList<VaultDependencyNode> CurrentAuthorityNodes,
+    string CurrentRelationSha256,
+    ArticleEmbedResolutionBudgetLimits Budgets,
+    ArticleRelationSourceRange SourceRange,
     ArticleBlockRouteProjection Before,
     ArticleBlockRouteProjection After,
     long ExpectedRevision);
@@ -42,8 +49,9 @@ public static class ArticleVaultBlockLinkRefactor
         ReadOnlySpan<byte> sourceBytes)
     {
         ArgumentNullException.ThrowIfNull(input);
-        if (!ArticleVaultManifestValidator.Validate(input.Manifest).IsValid
-            || !ArticleRelationContractValidator.Validate(input.Relation).IsValid
+        if (input.Graph is null || input.Before is null || input.After is null
+            || !ArticleVaultManifestValidator.Validate(input.Manifest).IsValid
+            || !ArticleRelationContractValidator.Validate(input.SourceRange).IsValid
             || !BlockAnchorContractValidator.Validate(input.Before.Target).IsValid
             || !BlockAnchorContractValidator.Validate(input.After.Target).IsValid)
         {
@@ -51,32 +59,13 @@ public static class ArticleVaultBlockLinkRefactor
         }
 
         ArticleVaultArticleManifest manifest = input.Manifest;
-        ArticleRelationRecord relation = input.Relation;
         VaultArticleCoordinate server = manifest.Coordinates.Server;
-        ArticleRelationTargetIdentity? target = relation.Target.TargetIdentity;
-        if (relation.Kind != ArticleRelationKind.Outgoing
-            || relation.Resolution != ArticleRelationResolutionStatus.Resolved
-            || relation.Source.Permission != ArticleRelationPermissionState.Allowed
-            || relation.Target.Permission != ArticleRelationPermissionState.Allowed
-            || relation.Visibility.QueryScope != ArticleRelationQueryScope.Authoring)
-        {
-            return Reject("vault_block_link_target_unavailable");
-        }
-
         if (input.ExpectedRevision < 1
             || server.ServerRevision != input.ExpectedRevision
             || server.Lifecycle != "draft"
             || !server.Present || server.Deleted
-            || relation.Source.ArticleIdentity != manifest.PortableArticleIdentity
-            || relation.Source.RevisionNumber != input.ExpectedRevision
-            || relation.Source.RevisionKind != ArticleRelationRevisionKind.Draft
-            || relation.Source.ContentDigest != server.Source?.Sha256
-            || relation.Source.SourceActor.SiteIdentity != manifest.SiteIdentity
-            || relation.Visibility.QueryActor.SiteIdentity != manifest.SiteIdentity
             || input.Before.Target != input.After.Target
-            || target?.Kind != ArticleRelationTargetKind.Block
-            || target.ArticleIdentity != input.Before.Target.ArticleIdentity
-            || target.BlockAnchorIdentity != input.Before.Target.AnchorId.Value)
+            || input.Graph.SourceSide != VaultDependencySourceSide.Server)
         {
             return Reject("vault_block_link_binding_mismatch");
         }
@@ -84,6 +73,19 @@ public static class ArticleVaultBlockLinkRefactor
         if (!ArticleVaultManifestValidator.ValidateSourceBytes(server.Source!, sourceBytes).IsValid)
         {
             return Reject("vault_block_link_source_mismatch");
+        }
+        if (!PortableDependencyVerifier.VerifyCurrent(input.Graph, manifest, sourceBytes,
+                input.CurrentAuthorityNodes, input.CurrentRelationSha256, input.Budgets).IsValid)
+        {
+            return Reject("vault_block_link_target_unavailable");
+        }
+        VaultLinkDependency[] matches = input.Graph.Nodes.OfType<VaultLinkDependency>()
+            .Where(node => node.Target.Kind == ArticleEmbedTargetKind.Block
+                && node.Target.PortableArticleIdentity == input.Before.Target.ArticleIdentity
+                && node.Target.BlockAnchor == input.Before.Target.AnchorId.Value).ToArray();
+        if (matches.Length != 1)
+        {
+            return Reject("vault_block_link_target_unavailable");
         }
         string source;
         try
@@ -95,10 +97,8 @@ public static class ArticleVaultBlockLinkRefactor
             return Reject("vault_block_link_source_mismatch");
         }
 
-        ArticleRelationOccurrence occurrence = relation.Occurrence;
-        ArticleRelationSourceRange range = occurrence.First;
-        if (occurrence.Count != 1 || occurrence.First != occurrence.Last
-            || range.End > source.Length
+        ArticleRelationSourceRange range = input.SourceRange;
+        if (range.End > source.Length
             || source[range.Start..range.End] != range.MatchedText
             || !BlockAnchorMarkdownParser.TryParse(range.MatchedText, out BlockAnchorMarkdownLink? link).IsValid)
         {
@@ -116,7 +116,7 @@ public static class ArticleVaultBlockLinkRefactor
         string inputSha256 = BlockAnchorContractDigest.Compute(writer =>
         {
             writer.Add(manifest.ContentSha256);
-            writer.Add(relation.RecordDigest);
+            writer.Add(input.Graph.ContentSha256);
             writer.Add(input.ExpectedRevision.ToString(CultureInfo.InvariantCulture));
             writer.Add(input.Before.CanonicalSlug);
             writer.Add(input.After.CanonicalSlug);

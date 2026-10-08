@@ -1,6 +1,9 @@
+using System.Text;
+
 using FsusBlog.Shared.Contracts.ArticleEmbeds;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 using FsusBlog.Shared.Contracts.ArticleVault;
+using FsusBlog.Shared.Contracts.ArticleVault.Dependencies;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -171,6 +174,65 @@ public sealed class ArticleVaultFrozenEmbedAdmissionTests
         }, "vault_embed_authority_invalid");
     }
 
+    [Fact]
+    public void CanonicalGraphKeepsSameTargetDifferentFrozenRevisionsSeparate()
+    {
+        using var fixture = new Fixture();
+        ArticleVaultFrozenEmbedInput input = fixture.Input("published");
+        var binding = new VaultDependencyBinding(input.Manifest.SiteIdentity, input.Manifest.VaultIdentity, Host);
+        var admission = new VaultDependencyAdmission(ArticleEmbedPermissionStatus.Allowed,
+            VaultDependencyRight.Read | VaultDependencyRight.Reference,
+            VaultDependencyRight.Read | VaultDependencyRight.Reference, Digest, Digest, Digest);
+        VaultDependencyNode[] nodes =
+        [
+            new VaultFrozenEmbedDependency(binding, admission, Coordinate(17), Digest, 128),
+            new VaultFrozenEmbedDependency(binding, admission, Coordinate(18), Digest, 128)
+        ];
+        var graph = new PortableDependencyManifest(PortableDependencySchemas.Manifest, PortableDependencySchemas.Version,
+            binding, input.Manifest.ServerArticleIdentity, input.Manifest.Coordinates, VaultDependencySourceSide.Server,
+            input.Manifest.Coordinates.Server.Source!, Digest, nodes, [], string.Empty, string.Empty);
+        string graphSha256 = PortableDependencyCodec.GraphDigest(graph);
+        VaultArticleCoordinate coordinate = input.Manifest.Coordinates.Server with
+        {
+            DependencySha256 = graphSha256
+        };
+        coordinate = coordinate with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(coordinate)
+        };
+        ArticleVaultArticleManifest manifest = input.Manifest with
+        {
+            Coordinates = new VaultArticleCoordinates(coordinate, coordinate, coordinate)
+        };
+        manifest = manifest with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(manifest)
+        };
+        input = input with
+        {
+            Manifest = manifest
+        };
+        graph = PortableDependencyCodec.Seal(graph with
+        {
+            Coordinates = manifest.Coordinates,
+            GraphSha256 = graphSha256
+        });
+        ArticleVaultFrozenEmbedCandidate candidate = ArticleVaultFrozenEmbedAdmission.Compare(input);
+        Assert.True(candidate.Permitted);
+        Assert.NotEqual(PortableDependencyCodec.NodeKey(nodes[0]), PortableDependencyCodec.NodeKey(nodes[1]));
+        Assert.True(ArticleVaultFrozenEmbedAdmission.VerifyGraph(input, candidate, graph,
+            fixture.SourceBytes, nodes, Digest).IsValid);
+        VaultDependencyNode revoked = nodes[0] with
+        {
+            Admission = admission with
+            {
+                Permission = ArticleEmbedPermissionStatus.Denied
+            }
+        };
+        Assert.Equal("vault_embed_graph_unavailable", ArticleVaultFrozenEmbedAdmission.VerifyGraph(
+            input, candidate, graph, fixture.SourceBytes, [revoked, nodes[1]], Digest).ReasonCode);
+    }
+
     private static void AssertRejected(ArticleVaultFrozenEmbedInput input, string reasonCode)
     {
         ArticleVaultFrozenEmbedCandidate result = ArticleVaultFrozenEmbedAdmission.Compare(input);
@@ -196,6 +258,8 @@ public sealed class ArticleVaultFrozenEmbedAdmissionTests
     {
         private readonly CancellationTokenSource _signal = new();
 
+        public byte[] SourceBytes => Encoding.UTF8.GetBytes($"::embed[target=\"{Target}\" mode=\"article\"]\n");
+
         public ArticleVaultFrozenEmbedInput Input(
             string hostLifecycle,
             long revision = 17,
@@ -208,22 +272,23 @@ public sealed class ArticleVaultFrozenEmbedAdmissionTests
             var runtime = new ArticleEmbedRuntimeContext("article-embed", 1, ArticleEmbedSchemas.ProviderRuntime, Digest);
             var document = new ArticleEmbedDocumentIdentity("document:primary", 1);
             var target = new ArticleEmbedTargetIdentity(Target, ArticleEmbedTargetKind.Article, null, null);
+            VaultSourceByteIdentity source = ArticleVaultManifestCodec.CaptureSourceBytes(SourceBytes);
             ArticleEmbedProviderRequest request = ArticleEmbedContractValidator.Seal(new ArticleEmbedProviderRequest(
                 ArticleEmbedSchemas.ProviderRequest, ArticleEmbedSchemas.Version, "request:embed", Host, document, 8,
                 new ArticleEmbedDirectiveProjection(ArticleEmbedSchemas.ParserContract, Target, ArticleEmbedTargetKind.Article, new ArticleEmbedSourceRange(0, 40)),
-                target, ArticleEmbedRequestedScope.Authoring, actor, runtime, Digest, string.Empty, _signal.Token));
+                target, ArticleEmbedRequestedScope.Authoring, actor, runtime, source.Sha256, string.Empty, _signal.Token));
             var facts = new ArticleEmbedTargetFacts(
                 Target, actor.SiteIdentity, 1, revision, revision, Math.Max(latest, revision), visibility, lifecycle, permission,
                 Digest, $"revision:{revision}", 128, "Private test target label",
                 new ArticleEmbedSafeProjectionReference(ArticleEmbedProjectionKind.SafeProjection, "projection:target", Digest), [], [], []);
             ArticleEmbedAuthoritySnapshot snapshot = ArticleEmbedAuthoringContractValidator.Seal(new ArticleEmbedAuthoritySnapshot(
                 ArticleEmbedAuthoringSchemas.AuthoritySnapshot, ArticleEmbedAuthoringSchemas.Version,
-                Host, document, 8, Digest, 1, actor, runtime, null, null, [facts], string.Empty));
+                Host, document, 8, source.Sha256, 1, actor, runtime, null, null, [facts], string.Empty));
             var budgets = new ArticleEmbedResolutionBudgetLimits(8, 64, 1_048_576, 60_000, 128);
             ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve([request], snapshot, budgets);
             var coordinate = new VaultArticleCoordinate(
                 ArticleVaultSchemas.Coordinate, ArticleVaultSchemas.Version, true, false, 8,
-                new VaultSourceByteIdentity(Digest, 128, false, VaultNewlineStyle.Lf, 0, true),
+                source,
                 Digest, Digest, hostLifecycle, Digest, string.Empty);
             coordinate = coordinate with
             {
