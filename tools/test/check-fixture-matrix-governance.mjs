@@ -6,6 +6,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const { digest } = await import(new URL('../test-fixtures/mutation-recovery/canonical.mjs', import.meta.url));
+const { validateFixtureAuthoritySources } = await import(new URL('../testing/fixture-catalog.mjs', import.meta.url));
 
 import { buildFixtureMatrixAcceptance, scanFixtureMatrixSources } from './fixture-matrix-governance.mjs';
 
@@ -30,7 +31,8 @@ export function checkFixtureMatrixGovernance(root = defaultRoot)
         }
         sources[file] = fs.readFileSync(absolute, 'utf8');
     }
-    const scanner = scanFixtureMatrixSources(sources);
+    const authorityErrors = validateFixtureAuthoritySources({ repositoryRoot: root });
+    const scanner = scanFixtureMatrixSources(sources, { authorityErrors });
     const source = {
         commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
         worktreeFingerprint: digest(Object.keys(sources).map((file) => ({ file, digest: digest(sources[file]) })))

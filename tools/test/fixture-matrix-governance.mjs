@@ -17,7 +17,7 @@ const rules = Object.freeze([
     ['all-runtime-acceptance-all', /(?:fixtureProfile|profileId)\s*:\s*['"]?acceptance-all\b/gu],
     ['hidden-bootstrap-seed', /(?:seed(?:Auth|Public|Fixture|Acceptance)|prepareFixtures|prepare-fixtures|fixture-cli[^\n]*\bprepare\b)/giu],
     ['second-producer-dag', /(?:const|let|var|readonly)\s+(?:[\w]*[Pp]rofile[\w]*(?:Map|Dag|DAG)|[\w]*[Pp]roducer(?:Map|Dag|DAG))\s*=/gu],
-    ['old-parser', /(?:fixtureTier|fixturePreset|legacyFixtureProfile|parseLegacyFixture|allowLegacyFixture|fixtureCompat)\b/gu],
+    ['old-parser', /(?:fixtureTier|fixturePreset|parseLegacyFixture|allowLegacyFixture|fixtureCompat)\b/gu],
     ['data-scale-local-fallback', /data-scale[^\n]*(?:\?\?|\|\||fallback|default)[^\n]*(?:local|dev|shared)/giu],
     ['diagnostic-receipt-reuse', /(?:correctness[^\n]*(?:=|:)\s*[^\n]*diagnostic(?:Receipt|Namespace)|diagnostic(?:Receipt|Namespace)[^\n]*(?:correctness|verifiedReceipt))/giu],
     ['consumer-bypass', /(?:skipFixtureVerify|bypassFixtureAdmission|allowUnverifiedFixture)\b/gu],
@@ -26,11 +26,21 @@ const rules = Object.freeze([
 ]);
 
 /** Conservative source scanner. Findings are never auto-fixed or wildcard-suppressed. */
-export function scanFixtureMatrixSources(sources)
+export function scanFixtureMatrixSources(sources, { authorityErrors = [] } = {})
 {
     const violations = [];
     const warnings = [];
     const files = Object.keys(sources).sort();
+    for (const error of authorityErrors)
+    {
+        const separator = error.indexOf(': ');
+        if (separator < 0 || !files.includes(error.slice(0, separator)))
+        {
+            throw new Error('canonical fixture authority error is not bound to scanned source');
+        }
+        violations.push({ ruleId: 'canonical-fixture-authority', file: error.slice(0, separator),
+            line: 1, matchDigest: digest(error) });
+    }
     for (const file of files)
     {
         const source = sources[file];

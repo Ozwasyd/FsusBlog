@@ -63,6 +63,9 @@ second mapping/DAG, old parser, hidden prepare, data-scale fallback, diagnostic
 reuse, admission bypass, latest evidence and sequence restart. It does not parse
 every language; matches are review candidates, and documented examples become
 explicit warnings. No wildcard allowlist or automatic repair is provided.
+The CLI also consumes `validateFixtureAuthoritySources` from the existing canonical
+fixture catalog module for alias/second-authority enforcement. It does not copy
+that owner's alias vocabulary or allowlist into this scanner.
 
 The exactness API consumes five independent rosters: matrix declarations, compiled
 bindings, consumer admissions, actual local observations and actual CI observations.

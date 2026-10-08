@@ -49,6 +49,16 @@ test('documentation matches remain review warnings and never silently authorize 
     assert.equal(buildFixtureMatrixAcceptance(inputs).status, 'blocked');
 });
 
+test('canonical alias and second-authority errors bind to actual scanned paths without a duplicate registry', () =>
+{
+    const sources = { 'tools/data-only.mjs': 'export const value = true;' };
+    const result = scanFixtureMatrixSources(sources, {
+        authorityErrors: ['tools/data-only.mjs: fixture profile alias is forbidden']
+    });
+    assert.equal(result.violations[0].ruleId, 'canonical-fixture-authority');
+    assert.throws(() => scanFixtureMatrixSources(sources, { authorityErrors: ['other.mjs: unbound'] }), /not bound/);
+});
+
 test('compiled bindings, consumer admissions and local/CI observed rosters compare bidirectionally', () =>
 {
     const inputs = governanceMaterials();
