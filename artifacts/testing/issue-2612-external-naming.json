@@ -10,9 +10,7 @@
                 "tests/backend/packages.lock.json",
                 "tests/governance/test-lifecycle-registry.json",
                 "config/testing/correctness-attempt-producers.json",
-                "tests/test-retention-replacements.json",
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "artifacts/change-contract/current-correctness-inventory-generated-binding.json"
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "Preserve canonical JSON schema keys while applying the exact supplied test, lock, registry and producer-inventory capability corrections."
         },
