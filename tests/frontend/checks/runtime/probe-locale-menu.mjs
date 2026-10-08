@@ -270,8 +270,7 @@ try
         ...(!observations.keyboardEntry ? ['keyboard-entry'] : []),
         ...(!observations.pendingOpen ? ['pending-popup-retention'] : []),
         ...(!observations.outsideClose ? ['outside-close'] : []),
-        // A link/command product activation adapter is allowed by #1891. The
-        // nested-anchor observation does not rule out such an adapter.
+        ...(observations.linkKeyboardHash !== '#linked-locale' ? ['public-url-command-adapter'] : []),
         ...Object.entries(observations.keyboard).filter(([, passed]) => !passed).map(([key]) => `keyboard-${key}`),
         ...(!observations.disabledItemIgnored ? ['disabled-item-activation'] : [])
     ];

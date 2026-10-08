@@ -27,6 +27,10 @@ const alternativeVisible = ref(false);
 
 function activate(command: string): void {
     commands.value.push(command);
+    if (command === 'link') {
+        window.location.assign('#linked-locale');
+        return;
+    }
     pending.value = command;
 }
 
@@ -62,14 +66,12 @@ function visibilityChanged(value: boolean): void {
                     <ElDropdownItem
                         data-probe="english"
                         command="en"
-                        role="menuitemradio"
-                        aria-checked="true"
+                        :checked="true"
                     >English</ElDropdownItem>
                     <ElDropdownItem
                         data-probe="japanese"
                         command="ja"
-                        role="menuitemradio"
-                        aria-checked="false"
+                        :checked="false"
                     >日本語 <span v-if="pending === 'ja'" data-probe="item-pending">Pending</span></ElDropdownItem>
                     <ElDropdownItem data-probe="link-item" command="link">
                         <a data-probe="link" href="#linked-locale">Deutsch</a>
