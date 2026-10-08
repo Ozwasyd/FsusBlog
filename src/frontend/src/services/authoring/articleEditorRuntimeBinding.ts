@@ -9,7 +9,7 @@ import { calculateOpenArticleDocumentDigest as digest } from './openArticleDocum
 
 import type { ArticleAnchorContextAdapter, ArticleAnchorSurface } from './articleAnchorContext';
 import type { ArticleAttachmentContextAdapter, ArticleAttachmentTransactionPort } from './articleAttachmentContext';
-import type { ArticleDocumentContextAdapter, ArticleDocumentTaskLease } from './articleDocumentContext';
+import type { ArticleDocumentContext, ArticleDocumentContextAdapter, ArticleDocumentTaskLease } from './articleDocumentContext';
 
 export interface ArticleEditorRuntimeBindingOptions
 {
@@ -81,6 +81,26 @@ export function bindArticleEditorRuntime(
         {
             current();
             return transactions.binding();
+        },
+        /** Borrowed commands must carry the exact current context and public native revision guard. */
+        dispatchTransaction: (context: ArticleDocumentContext,
+            transaction: Parameters<ArticleEditorContinuityPort['dispatchTransaction']>[0]): MarkdownEditorDispatchResult =>
+        {
+            current();
+            if (!owner.isCurrentContext(context) || transaction.documentIdentity?.id !== context.documentId
+                || transaction.documentIdentity.epoch !== context.documentEpoch
+                || transaction.expectedRevision !== context.sourceRevision)
+            {
+                throw new Error('article-editor-command-context-stale');
+            }
+            const result = editor.dispatchTransaction(transaction);
+            if (result.accepted && (!attachments.consumeTransaction(result, transactions)
+                || !continuity.observeTransaction(editor, result)))
+            {
+                // Dispatch already occurred. Never fabricate an inverse transaction or rollback receipt.
+                throw new Error('article-editor-command-observation-invalid');
+            }
+            return result;
         },
         consumeTransaction: (result: MarkdownEditorDispatchResult): boolean =>
             !disposed && attachments.consumeTransaction(result, transactions) && continuity.observeTransaction(editor, result),

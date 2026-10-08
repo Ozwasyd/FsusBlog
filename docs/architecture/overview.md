@@ -115,7 +115,12 @@ updates; selection and focus enter the existing continuity adapter. Automatic
 refresh uses the sole render-refresh policy and the actual FsusUI render producer.
 Preview and compare tasks use canonical document leases; release cancels the
 owned tool, continuity, cache and attachment work without releasing borrowed
-owners. Tool-result admission still requires the current live binding context.
+owners. Tool-result admission still requires the current live binding context. Commands may use the binding's guarded
+`dispatchTransaction(context, transaction)` with the exact current context,
+public document identity and expected source revision. The existing native port
+owns dispatch and history; accepted results enter the same attachment and
+continuity consumers. Stale or disposed handles are rejected before dispatch.
+The operation does not promise persistent-save rollback or viewport completion.
 
 The production Writer now binds that same port after mount and consumes its public
 transaction, selection and host-focus events. It does not dispatch initialization
