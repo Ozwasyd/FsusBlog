@@ -6,7 +6,8 @@ import test from 'node:test';
 
 import { createBrowserContractObservationFixture } from './support/browser-contract-observation-fixture.mjs';
 
-const { readBrowserContractOutcomeRunnerBinding, adaptBrowserContractRunnerSemanticOutcome } = await import(new URL('../../tools/test-matrix/outcomes/browser-contract-runner-binding.mjs', import.meta.url));
+const { readBrowserContractOutcomeRunnerBinding, adaptBrowserContractRunnerSemanticOutcome,
+    adaptBrowserContractRunnerSemanticOutcomeWithCustody } = await import(new URL('../../tools/test-matrix/outcomes/browser-contract-runner-binding.mjs', import.meta.url));
 const { digestCanonical, sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const { readCorrectnessProducerTemporalAuthority } = await import(new URL('../../tools/test/temporal-producer-bindings.mjs', import.meta.url));
 const { sealBrowserContractReceipt } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
@@ -301,4 +302,14 @@ test('composed bridge pins the caller repository root over a runner options over
     f.fail();
     f.options.repositoryRoot = path.join(f.value.directory, 'unavailable-other-repository');
     assert.equal(memberInputs(f, true).adapt().outcome.status, 'failed');
+});
+
+test('custody composition preserves native byte refusal before evaluating downstream held context', async (t) =>
+{
+    const f = fixture(t);
+    fs.appendFileSync(f.value.browserFile, ' ');
+    await assert.rejects(() => adaptBrowserContractRunnerSemanticOutcomeWithCustody({
+        repositoryRoot: f.value.repositoryRoot, authority: {}, runnerBinding: f.options,
+        encodedExpected: '{}', custodyOptions: {}
+    }), /artifact content digest mismatch/u);
 });
