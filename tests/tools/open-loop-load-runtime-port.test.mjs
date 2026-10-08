@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -8,9 +8,34 @@ import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const { encodeAedsFrame } = await import(new URL('../frontend/support/aeds-envelope.mjs', import.meta.url).href);
-const { readLoadArrivalPolicy } = await import(new URL('../../tools/test/lanes/runtime-evidence-probe.mjs', import.meta.url).href);
-const { fetchRouteSample, producerRouteIds } = await import(new URL('../../tools/test/lanes/runtime-http-route-contract.mjs', import.meta.url).href);
+const { readLoadArrivalPolicy, readLoadRouteStatisticsPolicy, readLoadTransportPolicy, runOpenLoopRouteContractProbe } = await import(new URL('../../tools/test/lanes/runtime-evidence-probe.mjs', import.meta.url).href);
+const { fetchRouteSample, producerRouteIds, routeContract } = await import(new URL('../../tools/test/lanes/runtime-http-route-contract.mjs', import.meta.url).href);
 const { buildOpenLoopLoadSchedule, dispatchOpenLoopLoadSchedule } = await import(new URL('../../tools/test/open-loop-load-schedule.mjs', import.meta.url).href);
+const { createOpenLoopLoadClientTransport } = await import(new URL('../../tools/test/open-loop-load-client-transport.mjs', import.meta.url).href);
+const { digestCanonical } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url).href);
+
+function transportPolicy(changes = {})
+{
+    return { transportId: 'source-http', nodeVersion: process.versions.node, clientLibrary: 'node:http',
+        clientVersion: process.versions.node, httpVersion: '1.1', allowH2: false, maxConnectionsPerOrigin: 10,
+        maxPipelining: 1, keepAliveTimeoutMs: 1000, connectTimeoutMs: 1000, headersTimeoutMs: 1000,
+        bodyTimeoutMs: 1000, connectionReusePolicy: 'keep-alive', dnsMode: 'literal',
+        dnsResult: [{ address: '127.0.0.1', family: 4 }], proxyMode: 'direct-no-ambient', tlsPolicy: 'disabled-http', ...changes };
+}
+
+function fixtureRunBinding(endpoint)
+{
+    return { runId: 'source-fixture-run', invocationId: 'source-fixture-invocation', attemptId: 'source-fixture-attempt',
+        backendOrigin: endpoint };
+}
+
+async function explicitTransportFixture(t, fixture)
+{
+    const transport = await createOpenLoopLoadClientTransport({ policy: transportPolicy(), endpoint: fixture.baseUrl,
+        runBinding: fixtureRunBinding(fixture.baseUrl) });
+    t.after(() => transport.close());
+    return transport;
+}
 
 function policy(changes = {})
 {
@@ -20,19 +45,20 @@ function policy(changes = {})
         qualificationWindowMs: 100, offeredRateTolerance: 0, ...changes };
 }
 
-async function serverFixture(t, responseDelayMs)
+async function serverFixture(t, responseDelayMs, responseFor = () => ({ frameType: 13 }))
 {
     let requests = 0;
     const timers = new Set();
     const server = http.createServer((request, response) =>
     {
         requests += 1;
+        const specification = responseFor(request);
         const timer = setTimeout(() =>
         {
             timers.delete(timer);
             response.writeHead(200, { 'content-type': 'application/octet-stream' });
-            response.end(new Uint8Array(encodeAedsFrame(13, new Uint8Array(16))));
-        }, responseDelayMs);
+            response.end(new Uint8Array(encodeAedsFrame(specification.frameType, new Uint8Array(16))));
+        }, specification.delayMs ?? responseDelayMs);
         timers.add(timer);
         response.once('close', () =>
         {
@@ -73,6 +99,173 @@ test('real HTTP responses at ten and five hundred milliseconds cannot change pla
     assert.ok(slowResult.timeline.records[1].dispatchedAtMs < slowResult.timeline.records[0].completedAtMs);
     assert.ok(slowResult.timeline.records.every((row) => row.sample.ok && row.sample.contractDigest));
     assert.equal(slowResult.validation.qualificationEligible, false);
+});
+
+function canonicalFixturePolicies()
+{
+    const routeIds = producerRouteIds('runtime-load-soak');
+    const arrival = policy({ durationMs: 200, plannedRequestsPerSecond: 60, routeMix: routeIds.map((routeId) => ({ routeId, weight: 1 })) });
+    const schedule = buildOpenLoopLoadSchedule(arrival, routeIds);
+    const routePolicy = { schema: 'fsusblog.release-load-route-statistics-policy.v1', routes: routeIds.map((routeId) => ({
+        routeId, minimumValidSamples: 1,
+        thresholds: { latencyP95Ms: 1000, latencyP99Ms: 1000, latencyMaxMs: 1000, errorRate: 0, timeoutRate: 0, dropRate: 0 }
+    })) };
+    return { schedule, routePolicy, routeIds };
+}
+
+test('canonical per-route policy reader refuses absent global-only duplicate and incomplete budgets', () =>
+{
+    const { schedule, routePolicy } = canonicalFixturePolicies();
+    const profile = schedule.policy.profileId;
+    const prefix = `loadProfiles:\n  ${profile}:\n    durationMs: 200\n    maxP95Ms: 3000\n`;
+    assert.throws(() => readLoadRouteStatisticsPolicy(profile, schedule, { policyText: prefix }), /one explicit routeStatisticsPolicy/u);
+    const text = `${prefix}    routeStatisticsPolicy: ${JSON.stringify(routePolicy)}\n`;
+    assert.equal(readLoadRouteStatisticsPolicy(profile, schedule, { policyText: text }).routes.length, 6);
+    assert.throws(() => readLoadRouteStatisticsPolicy(profile, schedule, { policyText: text + `    routeStatisticsPolicy: ${JSON.stringify(routePolicy)}\n` }), /one explicit/u);
+    const incomplete = structuredClone(routePolicy);
+    delete incomplete.routes[0].thresholds.timeoutRate;
+    assert.throws(() => readLoadRouteStatisticsPolicy(profile, schedule, { policyText: `${prefix}    routeStatisticsPolicy: ${JSON.stringify(incomplete)}\n` }), /exact explicit fields/u);
+});
+
+test('canonical open-loop callback gates route failure and propagates combined source identity from real HTTP', async (t) =>
+{
+    const { schedule, routePolicy, routeIds } = canonicalFixturePolicies();
+    routePolicy.routes.find((route) => route.routeId === 'system-seo').thresholds = {
+        latencyP95Ms: 10, latencyP99Ms: 10, latencyMaxMs: 10, errorRate: 0, timeoutRate: 0, dropRate: 0
+    };
+    const fixture = await serverFixture(t, 1, (request) =>
+    {
+        const routeId = routeIds.find((id) => routeContract(id).pathTemplate === request.url);
+        assert.ok(routeId);
+        return { frameType: routeContract(routeId).expectedAedsFrameType, delayMs: routeId === 'system-seo' ? 80 : 1 };
+    });
+    const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const collected = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = () => assert.fail('canonical open-loop used ambient fetch');
+    t.after(() => globalThis.fetch = originalFetch);
+    const probe = await runOpenLoopRouteContractProbe(schedule, { routePolicy, sourceSha, requestBaseUrl: fixture.baseUrl,
+        transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(fixture.baseUrl),
+        onTransportObservation: (observation) => collected.push(observation) });
+    assert.equal(fixture.requestCount(), schedule.plannedCount);
+    assert.equal(probe.failures.length, 0, 'all actual samples pass their unchanged payload oracle');
+    assert.ok(probe.latencyMs.p99 < 3000, 'legacy global fixture budget passes');
+    assert.equal(probe.status, 'failed', 'an independent route budget must defeat global success');
+    assert.equal(probe.routeStatistics.routes.find((route) => route.routeId === 'system-seo').passed, false);
+    assert.equal(probe.candidateIdentity, probe.candidateBinding.contentDigest);
+    assert.equal(probe.candidateBinding.routeStatisticsIdentity, probe.routeStatistics.candidateIdentity);
+    assert.equal(probe.candidateBinding.transportIdentityDigest, probe.transportEvidence.identity.contentDigest);
+    assert.equal(probe.candidateBinding.transportEvidenceDigest, probe.transportEvidence.contentDigest);
+    assert.equal(probe.candidateBinding.policyDigest, digestCanonical({ arrivalPolicyDigest: schedule.policyDigest,
+        routePolicyDigest: probe.routeStatistics.routePolicyDigest, transportPolicyDigest: digestCanonical(transportPolicy()) }));
+    assert.deepEqual(collected, probe.transportEvidence.observations, 'actual collector port receives the same bound event ledger');
+    assert.equal(collected.at(-1).type, 'transport-closed');
+    assert.deepEqual(probe.transportEvidence.finalSnapshot, { activeRequests: 0, socketCount: 0, freeSocketCount: 0, queuedRequests: 0, closed: true });
+    assert.equal(probe.transportEvidence.requestTransports.length, schedule.plannedCount);
+    assert.ok(probe.openLoop.timeline.records.every((record) => Object.keys(record.sample).length === 9));
+    assert.equal(probe.routeStatistics.sourceSha, sourceSha);
+    assert.equal(probe.baseUrl, fixture.baseUrl);
+    assert.equal(probe.qualificationEligible, false);
+});
+
+test('canonical open-loop callback refuses incomplete route or source identity before HTTP', async (t) =>
+{
+    const fixture = await serverFixture(t, 0);
+    const { schedule, routePolicy } = canonicalFixturePolicies();
+    await assert.rejects(runOpenLoopRouteContractProbe(schedule, { routePolicy, sourceSha: 'missing', requestBaseUrl: fixture.baseUrl }), /full source SHA before HTTP/u);
+    await assert.rejects(runOpenLoopRouteContractProbe(schedule, { routePolicy: {}, sourceSha: 'missing', requestBaseUrl: fixture.baseUrl }), /exact explicit fields/u);
+    assert.equal(fixture.requestCount(), 0);
+});
+
+test('canonical transport policy and caller binding refuse missing authority and unsupported timeouts before HTTP', async (t) =>
+{
+    const fixture = await serverFixture(t, 0);
+    const { schedule, routePolicy, routeIds } = canonicalFixturePolicies();
+    const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const options = { routePolicy, sourceSha, requestBaseUrl: fixture.baseUrl, transportPolicy: transportPolicy(),
+        runBinding: fixtureRunBinding(fixture.baseUrl) };
+    await assert.rejects(runOpenLoopRouteContractProbe(schedule, { ...options, transportPolicy: undefined }), /every explicit field/u);
+    await assert.rejects(runOpenLoopRouteContractProbe(schedule, { ...options, runBinding: {} }), /run binding/u);
+    await assert.rejects(runOpenLoopRouteContractProbe(schedule, { ...options, runBinding: fixtureRunBinding('http://127.0.0.1:1') }), /run binding/u);
+    const oversized = buildOpenLoopLoadSchedule({ ...schedule.policy, requestTimeoutMs: 60_001 }, routeIds);
+    await assert.rejects(runOpenLoopRouteContractProbe(oversized, options), /supported request timeout/u);
+    const text = `loadProfiles:\n  fixture:\n    transportPolicy: ${JSON.stringify(transportPolicy())}\n`;
+    assert.deepEqual(readLoadTransportPolicy('fixture', { policyText: text }), transportPolicy());
+    assert.throws(() => readLoadTransportPolicy('fixture', { policyText: 'loadProfiles:\n  fixture:\n' }), /one explicit transportPolicy/u);
+    assert.equal(fixture.requestCount(), 0);
+});
+
+test('explicit client observes scheduler deadline as timeout and outer cancellation as cancellation', async (t) =>
+{
+    const fixture = await serverFixture(t, 500);
+    const transport = await explicitTransportFixture(t, fixture);
+    const timeoutSchedule = buildOpenLoopLoadSchedule(policy({ durationMs: 100, qualificationWindowMs: 100,
+        plannedRequestsPerSecond: 10, requestTimeoutMs: 30 }), ['system-seo']);
+    const deadline = await dispatchOpenLoopLoadSchedule(timeoutSchedule, { request: transport.request });
+    assert.equal(deadline.validation.counts.timedOut, 1);
+    assert.equal(deadline.validation.counts.cancelled, 0);
+    assert.equal(deadline.timeline.records[0].sample.transportFailureStage, 'request-timeout');
+    assert.equal(deadline.timeline.records[0].sample.failureKind, 'timeout');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error('fixture caller cancellation')), 30);
+    t.after(() => clearTimeout(timer));
+    const cancelled = await dispatchOpenLoopLoadSchedule(buildOpenLoopLoadSchedule(policy(), ['system-seo']), {
+        request: transport.request, signal: controller.signal
+    });
+    assert.equal(cancelled.validation.counts.cancelled, 4);
+    assert.equal(cancelled.validation.counts.timedOut, 0);
+    assert.equal(cancelled.timeline.records[0].sample.failureKind, 'cancelled');
+    assert.equal(cancelled.timeline.records[0].sample.transportFailureStage, 'aborted');
+    assert.ok(cancelled.timeline.records.slice(1).every((record) => record.sample === null));
+    await transport.close();
+    assert.deepEqual(transport.snapshot(), { activeRequests: 0, socketCount: 0, freeSocketCount: 0, queuedRequests: 0, closed: true });
+});
+
+test('late caller cancellation cannot rewrite an earlier actual transport deadline before adapter settlement', async (t) =>
+{
+    const fixture = await serverFixture(t, 500);
+    const transport = await explicitTransportFixture(t, fixture);
+    const controller = new AbortController();
+    const schedule = buildOpenLoopLoadSchedule(policy({ durationMs: 100, qualificationWindowMs: 100,
+        plannedRequestsPerSecond: 10, requestTimeoutMs: 30 }), ['system-seo']);
+    const result = await dispatchOpenLoopLoadSchedule(schedule, { signal: controller.signal,
+        request: async (arrival, options) =>
+        {
+            const sample = await transport.request(arrival, options);
+            if (!options.signal.aborted)
+            {
+                await new Promise((resolve) => options.signal.addEventListener('abort', resolve, { once: true }));
+            }
+            assert.equal(options.signal.reason.transportStage, 'request-timeout');
+            controller.abort(new Error('caller cancellation after deadline settlement'));
+            return sample;
+        } });
+    assert.equal(controller.signal.aborted, true);
+    assert.equal(result.validation.counts.timedOut, 1);
+    assert.equal(result.validation.counts.cancelled, 0);
+    assert.equal(result.timeline.records[0].failureKind, 'timeout');
+    assert.equal(result.timeline.records[0].sample.transportFailureStage, 'request-timeout');
+    assert.equal(result.validation.passed, false);
+});
+
+test('canonical interrupted flow retains complete membership and actual post-cleanup transport evidence', async (t) =>
+{
+    const { schedule, routePolicy } = canonicalFixturePolicies();
+    const fixture = await serverFixture(t, 500);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30);
+    t.after(() => clearTimeout(timer));
+    const probe = await runOpenLoopRouteContractProbe(schedule, { routePolicy,
+        sourceSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), requestBaseUrl: fixture.baseUrl,
+        transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(fixture.baseUrl), signal: controller.signal });
+    assert.equal(probe.status, 'failed');
+    assert.equal(probe.openLoop.timeline.records.length, schedule.plannedCount);
+    assert.equal(probe.openLoop.validation.counts.cancelled, schedule.plannedCount);
+    assert.equal(probe.transportEvidence.requestTransports.length, probe.openLoop.validation.counts.dispatched);
+    assert.equal(probe.transportEvidence.observations.at(-1).type, 'transport-closed');
+    assert.deepEqual(probe.transportEvidence.finalSnapshot, { activeRequests: 0, socketCount: 0, freeSocketCount: 0, queuedRequests: 0, closed: true });
+    assert.equal(probe.candidateBinding.runtimeLeaseVerified, false);
+    assert.equal(probe.candidateBinding.qualificationEligible, false);
 });
 
 test('real slow HTTP plus maximum in flight retains explicit backpressure drops', async (t) =>

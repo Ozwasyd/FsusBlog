@@ -410,7 +410,10 @@ export async function dispatchOpenLoopLoadSchedule(schedule, {
                 continue;
             }
             const timeout = new AbortController();
-            const requestTimer = setTimeout(() => timeout.abort(), schedule.policy.requestTimeoutMs);
+            const deadlineReason = Object.assign(
+                new DOMException('load request deadline expired', 'AbortError'), { transportStage: 'request-timeout' }
+            );
+            const requestTimer = setTimeout(() => timeout.abort(deadlineReason), schedule.policy.requestTimeoutMs);
             requestTimers.add(requestTimer);
             const requestSignal = AbortSignal.any([scope.signal, ...(signal ? [signal] : []), timeout.signal]);
             const dispatchedAtMs = now() - start;
@@ -442,12 +445,14 @@ export async function dispatchOpenLoopLoadSchedule(schedule, {
                 .then((sample) =>
                 {
                     record.sample = { ...sample };
-                    record.outcome = signal?.aborted ? 'cancelled' : sample.failureKind === 'timeout' ? 'timed-out' : 'completed';
-                    record.failureKind = signal?.aborted ? 'scenario-cancelled' : sample.failureKind;
+                    const callerCancelled = signal?.aborted && requestSignal.reason === signal.reason;
+                    record.outcome = callerCancelled ? 'cancelled' : sample.failureKind === 'timeout' ? 'timed-out' : 'completed';
+                    record.failureKind = callerCancelled ? 'scenario-cancelled' : sample.failureKind;
                 }).catch(() =>
                 {
-                    record.outcome = signal?.aborted ? 'cancelled' : 'completed';
-                    record.failureKind = signal?.aborted ? 'scenario-cancelled' : 'request-adapter-failed';
+                    const callerCancelled = signal?.aborted && requestSignal.reason === signal.reason;
+                    record.outcome = callerCancelled ? 'cancelled' : 'completed';
+                    record.failureKind = callerCancelled ? 'scenario-cancelled' : 'request-adapter-failed';
                 }).finally(() =>
                 {
                     record.completedAtMs = now() - start;

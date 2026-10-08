@@ -4450,6 +4450,38 @@
             }
         },
         {
+            "file": "tests/tools/open-loop-load-client-transport.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "perf",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "open-loop-load-client-transport",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
+            "file": "tests/tools/open-loop-load-route-statistics.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "perf",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "open-loop-load-route-statistics",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
             "file": "tests/tools/release-load-response-oracle.test.mjs",
             "owner": "manual-diagnostic:tests/tools/release-load-response-oracle.test.mjs",
             "executionCategory": "manual-diagnostic",

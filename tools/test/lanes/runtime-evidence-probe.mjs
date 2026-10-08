@@ -9,7 +9,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { validateMeasurementNoiseReceipt } from '../measurement-noise-envelope.mjs';
-import { bindReleaseReliabilityEvidence } from '../release-reliability-evidence-binding.mjs';
+import { bindReleaseReliabilityEvidence, readReleaseReliabilityEvidenceBinding } from '../release-reliability-evidence-binding.mjs';
 
 import { fetchRouteSample, producerRouteIds, routeCatalogDigest, routeContract } from './runtime-http-route-contract.mjs';
 import {
@@ -53,6 +53,16 @@ import {
 const { buildOpenLoopLoadSchedule, dispatchOpenLoopLoadSchedule, validateLoadArrivalPolicy } = await import(
     new URL('../open-loop-load-schedule.mjs', import.meta.url).href
 );
+
+const { buildOpenLoopLoadRouteStatistics, validateLoadRouteStatisticsPolicy, verifyOpenLoopLoadRouteStatistics } = await import(
+    new URL('../open-loop-load-route-statistics.mjs', import.meta.url).href
+);
+
+const { assertLoadTransportCohort, createOpenLoopLoadClientTransport, validateLoadTransportPolicy } = await import(
+    new URL('../open-loop-load-client-transport.mjs', import.meta.url).href
+);
+const { digestCanonical, sealContentDigest } = await import(new URL('../attempt-provenance.mjs', import.meta.url).href);
+const { readQualifiedRuntimeEnvironment } = await import(new URL('../release-reliability-runtime-environment.mjs', import.meta.url).href);
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
 if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
@@ -223,7 +233,7 @@ export function readLoadProfilePolicy(profile)
     };
 }
 
-export function readLoadArrivalPolicy(profile, { policyText = readPerfPolicy().text } = {})
+function readExplicitLoadProfilePolicy(profile, field, policyText)
 {
     if (typeof profile !== 'string' || !/^[a-z][a-z0-9-]*$/u.test(profile)
         || typeof policyText !== 'string')
@@ -236,10 +246,10 @@ export function readLoadArrivalPolicy(profile, { policyText = readPerfPolicy().t
         throw new Error('arrival policy requires exactly one canonical profile declaration');
     }
     const section = yamlSection(yamlSection(policyText, 'loadProfiles'), profile, 2);
-    const declarations = [...section.matchAll(/^ {4}arrivalPolicy: (.+)$/gmu)];
+    const declarations = [...section.matchAll(new RegExp(`^ {4}${field}: (.+)$`, 'gmu'))];
     if (declarations.length !== 1)
     {
-        throw new Error(`load profile ${profile} requires one explicit arrivalPolicy in ${perfPolicyRelativeFile}; closed-loop concurrency/rounds and minRps cannot declare offered load`);
+        throw new Error(`load profile ${profile} requires one explicit ${field} in ${perfPolicyRelativeFile}; closed-loop fields and global budgets cannot supply it`);
     }
     let arrival;
     try
@@ -248,14 +258,73 @@ export function readLoadArrivalPolicy(profile, { policyText = readPerfPolicy().t
     }
     catch (error)
     {
-        throw new Error(`load profile ${profile} arrivalPolicy must be one inline JSON policy object`, { cause: error });
+        throw new Error(`load profile ${profile} ${field} must be one inline JSON policy object`, { cause: error });
     }
-    const policy = validateLoadArrivalPolicy(arrival, safeBinaryRouteIds);
+    return { value: arrival, section };
+}
+
+export function readLoadArrivalPolicy(profile, { policyText = readPerfPolicy().text } = {})
+{
+    const { value, section } = readExplicitLoadProfilePolicy(profile, 'arrivalPolicy', policyText);
+    const policy = validateLoadArrivalPolicy(value, safeBinaryRouteIds);
     if (policy.profileId !== profile || policy.durationMs !== yamlScalarMap(section).durationMs)
     {
         throw new Error('arrival profile identity or duration differs from the canonical load profile');
     }
     return policy;
+}
+
+export function readLoadRouteStatisticsPolicy(profile, schedule, { policyText = readPerfPolicy().text } = {})
+{
+    const { value } = readExplicitLoadProfilePolicy(profile, 'routeStatisticsPolicy', policyText);
+    if (schedule.policy.profileId !== profile)
+    {
+        throw new Error('route statistics policy profile differs from its actual arrival schedule');
+    }
+    return validateLoadRouteStatisticsPolicy(value, schedule, safeBinaryRouteIds);
+}
+
+export function readLoadTransportPolicy(profile, { policyText = readPerfPolicy().text } = {})
+{
+    const { value } = readExplicitLoadProfilePolicy(profile, 'transportPolicy', policyText);
+    return validateLoadTransportPolicy(value);
+}
+
+function readLoadTransportRunBinding()
+{
+    const binding = readReleaseReliabilityEvidenceBinding({ repositoryRoot: root });
+    const attemptId = process.env.FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID;
+    if (!binding || typeof attemptId !== 'string' || !/^[a-z0-9][a-z0-9_.-]*$/u.test(attemptId))
+    {
+        throw new Error('open-loop transport requires the held release identity and explicit current lifecycle attempt ID before HTTP');
+    }
+    const environment = readQualifiedRuntimeEnvironment({ repositoryRoot: root, namespace, runId: binding.runId });
+    if (environment.FSUSBLOG_DEBUG_BACKEND_URL !== baseUrl)
+    {
+        throw new Error('open-loop endpoint differs from the run-bound bootstrap environment');
+    }
+    // This existing bootstrap binding supplies an endpoint, never a native runtime lease.
+    return { runId: binding.runId, invocationId: binding.invocationId, attemptId,
+        backendOrigin: environment.FSUSBLOG_DEBUG_BACKEND_URL };
+}
+
+function currentLoadSourceSha()
+{
+    const observation = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], {
+        cwd: root, encoding: 'utf8', timeout: 5000,
+        env: { PATH: process.env.PATH, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: os.devNull }
+    });
+    const sourceSha = observation.stdout?.trim();
+    if (observation.error || observation.status !== 0 || !/^[0-9a-f]{40}$/u.test(sourceSha ?? ''))
+    {
+        throw new Error('open-loop producer cannot observe its actual current source SHA');
+    }
+    const binding = readReleaseReliabilityEvidenceBinding({ repositoryRoot: root });
+    if (binding && binding.sourceState.commit !== sourceSha)
+    {
+        throw new Error('open-loop current source differs from its held release reliability identity');
+    }
+    return sourceSha;
 }
 
 function envOverrideInt(name)
@@ -499,7 +568,7 @@ async function runRouteContractProbe(routeIds, options = {})
     return summarizeRouteContractProbe(samples, started, concurrency);
 }
 
-function summarizeRouteContractProbe(samples, started, concurrency)
+function summarizeRouteContractProbe(samples, started, concurrency, requestBaseUrl = baseUrl)
 {
     const durationMs = performance.now() - started;
     const failures = samples.filter((sample) => !sample.ok);
@@ -507,7 +576,7 @@ function summarizeRouteContractProbe(samples, started, concurrency)
     const bytes = samples.reduce((total, sample) => total + sample.bodyBytes, 0);
     const cacheSignals = samples.filter((sample) => sample.xCache || sample.etag || sample.cacheControl).length;
     const probe = {
-        baseUrl,
+        baseUrl: requestBaseUrl,
         namespace,
         measurementSource: 'runtime-http-probe', routeContractDigest: routeCatalogDigest(),
         generatedAt: new Date().toISOString(),
@@ -530,20 +599,69 @@ function summarizeRouteContractProbe(samples, started, concurrency)
     return attachExtendedObservability(probe);
 }
 
-async function runOpenLoopRouteContractProbe(schedule)
+export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sourceSha, transportPolicy, runBinding,
+    requestBaseUrl = baseUrl, signal, onTransportObservation = () =>
+    {} })
 {
+    validateLoadRouteStatisticsPolicy(routePolicy, schedule, safeBinaryRouteIds);
+    if (typeof sourceSha !== 'string' || !/^[0-9a-f]{40}$/u.test(sourceSha))
+    {
+        throw new Error('open-loop producer requires an explicit full source SHA before HTTP');
+    }
+    validateLoadTransportPolicy(transportPolicy);
+    if (schedule.policy.requestTimeoutMs > 60_000 || typeof onTransportObservation !== 'function')
+    {
+        throw new Error('open-loop transport requires its supported request timeout and synchronous collector port before HTTP');
+    }
+    const observations = [];
+    const requestTransports = [];
+    const transport = await createOpenLoopLoadClientTransport({ policy: transportPolicy, endpoint: requestBaseUrl,
+        runBinding, headers: defaultHeaders, onObservation: (observation) =>
+        {
+            observations.push(observation);
+            onTransportObservation(observation);
+        } });
     const started = performance.now();
-    const result = await dispatchOpenLoopLoadSchedule(schedule, {
-        request: (arrival, { signal, requestTimeoutMs }) => fetchRouteSample({
-            routeId: arrival.routeId, baseUrl, headers: defaultHeaders, timeoutMs: requestTimeoutMs,
-            fetchImpl: (url, options) => fetch(url, { ...options,
-                signal: AbortSignal.any([signal, options.signal]) })
-        })
-    });
+    let result;
+    try
+    {
+        result = await dispatchOpenLoopLoadSchedule(schedule, { signal, request: async (arrival, options) =>
+        {
+            const { transport: actualTransport, transportFailureStage, ...sample } = await transport.request(arrival, options);
+            requestTransports.push({ sampleId: arrival.sampleId, routeId: arrival.routeId,
+                transport: actualTransport, failureStage: transportFailureStage });
+            // The payload oracle remains its exact nine-field contract. Socket facts stay in a bound sidecar.
+            return sample;
+        } });
+    }
+    finally
+    {
+        await transport.close();
+    }
+    const headers = observations.filter((observation) => observation.type === 'response-headers').map((observation) => observation.transport);
+    if (headers.length)
+    {
+        assertLoadTransportCohort(transport.identity, headers);
+    }
+    const transportEvidence = sealContentDigest({ schema: 'fsusblog.release-load-transport-evidence.v1',
+        identity: transport.identity, observations, requestTransports: requestTransports.sort((left, right) => left.sampleId.localeCompare(right.sampleId)),
+        finalSnapshot: transport.snapshot(), runtimeLeaseVerified: false, qualificationEligible: false });
     const samples = result.timeline.records.filter((record) => record.sample !== null).map((record) => record.sample);
-    const probe = summarizeRouteContractProbe(samples, started, schedule.policy.maximumInFlight);
-    return { ...probe, status: probe.status === 'ok' && result.validation.passed ? 'ok' : 'failed',
-        openLoop: result, qualificationEligible: false };
+    const inputs = { schedule, timeline: result.timeline, routePolicy, expectedRouteIds: safeBinaryRouteIds, sourceSha };
+    const routeStatistics = buildOpenLoopLoadRouteStatistics(inputs);
+    verifyOpenLoopLoadRouteStatistics(routeStatistics, inputs);
+    const candidateBinding = sealContentDigest({ schema: 'fsusblog.release-load-source-candidate.v1', sourceSha,
+        routeStatisticsIdentity: routeStatistics.candidateIdentity, routeStatisticsDigest: routeStatistics.contentDigest,
+        policyDigest: digestCanonical({ arrivalPolicyDigest: schedule.policyDigest,
+            routePolicyDigest: routeStatistics.routePolicyDigest, transportPolicyDigest: digestCanonical(transportPolicy) }),
+        routeCatalogDigest: routeStatistics.routeCatalogDigest, scheduleDigest: schedule.contentDigest,
+        timelineDigest: result.timeline.contentDigest,
+        transportIdentityDigest: transport.identity.contentDigest, transportEvidenceDigest: transportEvidence.contentDigest,
+        runtimeLeaseVerified: false, qualificationEligible: false });
+    const probe = summarizeRouteContractProbe(samples, started, schedule.policy.maximumInFlight, requestBaseUrl);
+    return { ...probe, status: probe.status === 'ok' && routeStatistics.passed ? 'ok' : 'failed',
+        openLoop: result, routeStatistics, transportEvidence, candidateBinding, candidateIdentity: candidateBinding.contentDigest,
+        qualificationEligible: false };
 }
 
 async function runHttpProbe(paths, options = {})
@@ -4541,8 +4659,12 @@ async function loadProfile(profile, outFile)
     {
         throw new Error('open-loop arrival policy cannot inherit closed-loop ambient execution overrides');
     }
+    const routePolicy = schedule ? readLoadRouteStatisticsPolicy(profile, schedule) : null;
+    const transportPolicy = schedule ? readLoadTransportPolicy(profile) : null;
+    const sourceSha = schedule ? currentLoadSourceSha() : null;
+    const runBinding = schedule ? readLoadTransportRunBinding() : null;
     const iterations = schedule?.plannedCount ?? policy.effective.concurrency * policy.effective.rounds;
-    const probe = schedule ? await runOpenLoopRouteContractProbe(schedule) : await runRouteContractProbe(safeBinaryRouteIds, {
+    const probe = schedule ? await runOpenLoopRouteContractProbe(schedule, { routePolicy, sourceSha, transportPolicy, runBinding }) : await runRouteContractProbe(safeBinaryRouteIds, {
         iterations,
         concurrency: policy.effective.concurrency
     });
@@ -4574,8 +4696,15 @@ async function loadProfile(profile, outFile)
         policy: {
             file: policy.file,
             fileDigest: policy.fileDigest,
-            version: policy.version
+            version: policy.version,
+            ...(schedule ? { arrivalPolicyDigest: schedule.policyDigest,
+                routePolicyDigest: probe.routeStatistics.routePolicyDigest,
+                transportPolicyDigest: digestCanonical(transportPolicy),
+                combinedPolicyDigest: probe.candidateBinding.policyDigest } : {})
         },
+        ...(schedule ? { candidateIdentity: probe.candidateIdentity, qualificationEligible: false,
+            routeStatistics: probe.routeStatistics, candidateBinding: probe.candidateBinding,
+            transportEvidence: probe.transportEvidence } : {}),
         declared: policy.declared,
         effective: policy.effective,
         thresholds: policy.thresholds,
@@ -4600,7 +4729,9 @@ async function loadProfile(profile, outFile)
     {
         const reason = probe.openLoop && !probe.openLoop.validation.passed
             ? `arrival conformance: ${JSON.stringify(probe.openLoop.validation.counts)}`
-            : probe.status !== 'ok' ? `route contract: ${probe.failures[0]?.failureKind}` : 'threshold evaluation';
+            : probe.routeStatistics && !probe.routeStatistics.passed
+                ? `per-route policy: ${probe.routeStatistics.routes.filter((route) => !route.passed).map((route) => route.routeId).join(',')}`
+                : probe.status !== 'ok' ? `route contract: ${probe.failures[0]?.failureKind}` : 'threshold evaluation';
         throw new Error(`load profile ${profile} failed ${reason}`);
     }
 }
