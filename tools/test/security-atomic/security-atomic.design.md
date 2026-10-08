@@ -149,6 +149,15 @@ paths are not admitted attempt-relative paths or canonical sidecar evidence.
 Ordinary synthetic controls cover written-file visibility, asynchronous outlet
 settlement, original failure preservation and writer/outlet error propagation.
 
+The catalog's `security.dast` entry remains a retained CLI command
+`npm run check:security:dast`, resolved by `src/frontend/package.json` to
+`tools/security/run-zap-baseline.sh`. The authenticated DAST API is separately
+registered by the existing `authenticated-dast` bundle step through
+`tools/test/lanes/security-authenticated-dast.sh`. Its new outlet does not bind
+or qualify the catalog's ZAP observation. The matrix owner must supply the exact
+command/producer binding and the original observed-check mapping for each scan
+before an atomic result bridge can emit canonical execution IDs or receipts.
+
 Returning already-validated original security cleanup observations through
 catalog ports remains an unapplied proposal for shared owner coordination. It
 does not add missing before observations or qualify reset/native runtime. Exact
