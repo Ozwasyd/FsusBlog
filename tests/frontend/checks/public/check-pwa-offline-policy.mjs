@@ -154,6 +154,7 @@ function createServiceWorkerContext(initialPaths = [])
     const handlers = new Map();
     const context = {
         TextDecoder,
+        TextEncoder,
         URL,
         Request,
         Response,
@@ -192,6 +193,12 @@ function createServiceWorkerContext(initialPaths = [])
         delete: async () => true
     };
     const sandbox = vm.createContext(context);
+    context.self.importScripts = scriptPath =>
+    {
+        assert(scriptPath === '/current-release-assets.js', 'worker import must use the exact current asset consumer');
+        vm.runInContext(read(resolve(root, 'public/current-release-assets.js')), sandbox, { filename: 'current-release-assets.js' });
+        context.self.FsusCurrentReleaseAssets = context.FsusCurrentReleaseAssets;
+    };
     vm.runInContext(releaseIdContract, sandbox, { filename: 'generated/release-id-contract.js' });
     vm.runInContext(sw, sandbox, { filename: 'sw.js' });
     return { context, sandbox };
