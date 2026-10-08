@@ -1,0 +1,588 @@
+{
+  "schema": "fsusblog.sanitized-diagnostic-excerpt.v1",
+  "qualification": false,
+  "purpose": "Cross-container routing to sole canonical Migration owner #3657; excerpt of existing original failed test run, no rerun or admission receipt.",
+  "testedSourceCommit": "417964796c3a5d06c956178317908c470c058d81",
+  "sourceOwnerIssue": 3657,
+  "relatedIssue": 3608,
+  "sourceTree": "7929f186ab58c6542544c9835fb37b7b8f6c1cc6",
+  "run": {
+    "id": "chain-3608-evidence:migration-contract-affected-originals",
+    "startedAt": "2026-10-08T08:13:37.545586+00:00",
+    "exitCode": 1,
+    "counts": {
+      "executed": 564,
+      "passed": 515,
+      "failed": 49,
+      "skipped": 0
+    },
+    "previous117": {
+      "executed": 117,
+      "nowPassed": 68,
+      "stillFailed": 49
+    },
+    "logSha256": "0680f2f230f609b08f2a8c0d43f03ed7db42515f35f67aeae79361139efaeeb8",
+    "rawTrxSha256": "7700b92645b302dfe0290f4643f24d103de7e2cb09519b2c6e2d1be0b6b31712",
+    "selectionSha256": "3171c26cd94f886cab1a39d9a4fd8e16f50a310447e749c0d799c8bb7ed083a5",
+    "testProject": "tests/migration/FsusBlog.Migration.Tests.csproj",
+    "configuration": "Debug",
+    "testFlags": [
+      "--no-build",
+      "--no-restore"
+    ],
+    "sdk": "10.0.302",
+    "runtime": "10.0.10",
+    "build": {
+      "startedAt": "2026-10-08T08:13:16.726028+00:00",
+      "exitCode": 0,
+      "logSha256": "8fe56530e8be349b3c2dfbe28657d051c754df5bbdf7e939f4cebdeb42c790db",
+      "errors": 0,
+      "warnings": 2529
+    }
+  },
+  "compiledIdentity": {
+    "sha256": {
+      "tests/migration/bin/Debug/net10.0/FsusBlog.Migration.Tests.dll": "d731a58a59112c46395fba6104f0f6bde10f4840d24f7c85e5aa03357a99b80c",
+      "src/migration/bin/Debug/net10.0/FsusBlog.Migration.dll": "da810b5420439c225ddee48279bbbaf0dc1daadb52b366c646a99197f8898e44",
+      "src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll": "42a2d5394dec93ecda23506e2b2a5aa980142b193acd05f866de00a14a3234ca"
+    },
+    "limit": "Migration and test assembly hashes recorded after original run and independently unchanged now. Shared hash is current retained output/copy identity. These are diagnostic observations, not authenticated Production/nested/native authority."
+  },
+  "inputDefinitions": {
+    "sqlite-nul-business-bounds": {
+      "fixture": "Actual test-owned SQLite representative.db, legacy=true; no production data",
+      "sql": "INSERT INTO sys_systemconfig(\"key\",value) VALUES('ordinary',@body)",
+      "parameterExpression": "\"a\\0\" + new string('x', 511)",
+      "parameterStructure": {
+        "prefix": "a",
+        "nulCodeUnit": 0,
+        "tailCharacter": "x",
+        "tailCount": 511,
+        "totalUtf16CodeUnits": 513
+      },
+      "invocation": "ReadSqliteAsync(path, cancellation)",
+      "inputBasis": "Original executed test source. Raw failure does not serialize database parameter values."
+    },
+    "missing-capability-invalid-connection": {
+      "invocation": "new OfflineMigrationSourceObserver().ObserveAsync(provider, \"not-a-database-connection\", cancellation.Token)",
+      "connectionArgument": "not-a-database-connection",
+      "provider": "Per-case MySql or Sqlite",
+      "cancellation": "Fresh CancellationTokenSource in original case"
+    },
+    "sqlite-bare-fixture-path-after-content-read": {
+      "invocation": "new OfflineMigrationSourceObserver().ObserveAsync(CurrentSchemaProviderKind.Sqlite, path, cancellation)",
+      "argumentKind": "Bare file path; not a Data Source= connection string",
+      "pathGeneration": "Path.Combine(Path.GetTempPath(), \"fsusblog-source-observer-test-\" + Guid.NewGuid().ToString(\"N\"), \"representative.db\")",
+      "pathLimit": "Original raw failure does not log per-case randomized path; only source generation expression retained. No path invented."
+    },
+    "postgresql-control-wrong-provider": {
+      "target": "CurrentSchemaControlShape.ProjectApplyJournal(PostgreSql)",
+      "tableName": "__fsus_schema_offline_apply_journal",
+      "actualSnapshot": "Same PostgreSql-projected control table in SchemaModelSnapshot(provider: MySql)",
+      "effects": {
+        "StandardConformingStrings": true,
+        "Expressions": [
+          {
+            "Kind": "check",
+            "Table": "__fsus_schema_offline_apply_journal",
+            "Name": "__fsus_schema_offline_apply_journal_sequence_check",
+            "Expression": "(sequence > 0)",
+            "Columns": [
+              "sequence"
+            ],
+            "SequenceReferences": []
+          }
+        ],
+        "Sequences": [],
+        "Triggers": [],
+        "Functions": []
+      },
+      "invocation": "PgCurrentSchemaControlShape.CompareApplyJournal(actualSnapshot, effects)",
+      "actualProviderIteration": "MySql (first foreach iteration)",
+      "productionGuard": "if (!effects.StandardConformingStrings || actual.Provider != PostgreSql) throw context_unknown; unchanged from canonical endpoint"
+    }
+  },
+  "sourceIdentity": {
+    "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs": {
+      "sha256": "e45504e3121bbdcbffafc7635730fe4be628876f12a6cc46906d3d7dd8d012a6",
+      "canonicalCommit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs": {
+      "sha256": "c8545e715ea8f9363b2e3e97fe0298ce5fb71648c21d95c145d03975cc416cf9",
+      "canonicalCommit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs": {
+      "sha256": "ffb279a771e5d0f2bc48e5d27238ced47bc3dead42f23b55264739fb7c93aa23",
+      "canonicalCommit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs": {
+      "sha256": "a89961edecd120d53e3f8cb287982fd46ff5afef3ef9c62687ed4c479020b272",
+      "canonicalCommit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs": {
+      "sha256": "6346f9dde54548d7252b213266b1114a5820625b031090fea03d400735d53e8a",
+      "canonicalCommit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "tests/migration/OfflineMigrationSourceObserverTests.cs": {
+      "sha256": "b6e3623d0598b4813d114f8355ada8ec5bd44eeb9efef616b6a3c0543fbb078d",
+      "canonicalCommit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs": {
+      "sha256": "b77fd431f122cd4b74f9409badad96d6a248f9e7e16d69d5fb8702358e67c8db",
+      "canonicalCommit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs": {
+      "sha256": "1511fbd89d765c28cfd1b34a10499729bac0f0db8609c310dcd1f07d47769f4e",
+      "canonicalCommit": "0670fcdb0189ea796a21128403312c384c6f0ff0",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs": {
+      "sha256": "0b256d77513ba4d991b26a76ff4cfdbc6a81083b1e4bf68ac959949840f7b1bc",
+      "canonicalCommit": "0670fcdb0189ea796a21128403312c384c6f0ff0",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "src/shared/Algorithms/Schema/PgCurrentSchemaControlShape.cs": {
+      "sha256": "6f78375741b1500acb52d1d9a9c2247abf239084a98e2ebdd8f1e05ff4f83f1e",
+      "canonicalCommit": "0670fcdb0189ea796a21128403312c384c6f0ff0",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs": {
+      "sha256": "f378bcfac9368ef4907ed4ae6947f050c9497c4e13ccf934e10a7677dc155c16",
+      "canonicalCommit": "0670fcdb0189ea796a21128403312c384c6f0ff0",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "src/migration/OfflineMigrationSqliteNativeSession.cs": {
+      "sha256": "4ac6052de546953407476763c588314be80ac127fb325d907402dd6da69b05f4",
+      "canonicalCommit": "0670fcdb0189ea796a21128403312c384c6f0ff0",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "src/migration/OfflineMigrationMySqlNativeSession.cs": {
+      "sha256": "1bddb84398aa15f9a4397585d1137edf49837e2a90e5a2772994bf195864d88f",
+      "canonicalCommit": "0670fcdb0189ea796a21128403312c384c6f0ff0",
+      "wholeFileEqualsCanonicalCommit": true
+    },
+    "src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs": {
+      "sha256": "1060d87abd4e815b061537aab73bcb5fde7be601072347adc775f89fadb1d5fe",
+      "canonicalCommit": "0670fcdb0189ea796a21128403312c384c6f0ff0",
+      "wholeFileEqualsCanonicalCommit": true
+    }
+  },
+  "cases": [
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverTests.cs",
+      "failedLine": 492,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverTests.cs#L492",
+      "group": "nul-bounds",
+      "methodSha256": "3a4f07d8c4d025893fef7c76fc2c97610fff523b3e2c96bc47b807dde961a398",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Throws() Failure: No exception was thrown\nExpected: typeof(FsusBlog.Migration.OfflineMigrationSourceFingerprintException)",
+      "inputRef": "sqlite-nul-business-bounds",
+      "expected": {
+        "exceptionType": "FsusBlog.Migration.OfflineMigrationSourceFingerprintException",
+        "code": "source_fingerprint_unknown",
+        "additionalAssertion": "Differences includes Business category"
+      },
+      "actual": {
+        "exceptionType": null,
+        "code": null,
+        "assertion": "No exception was thrown",
+        "observedInRawResult": true,
+        "laterExpectedCodeAssertionReached": false
+      }
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+      "failedLine": 324,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs#L324",
+      "group": "nul-bounds",
+      "methodSha256": "37f49e7c6bbe8ca2f46d20d0f3ec4efcb22a3f379cfe4be35322108efa821393",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Throws() Failure: No exception was thrown\nExpected: typeof(System.InvalidOperationException)",
+      "inputRef": "sqlite-nul-business-bounds",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "source_fingerprint_unknown:business_shape",
+        "additionalAssertion": "Exception.Message equals expected code"
+      },
+      "actual": {
+        "exceptionType": null,
+        "code": null,
+        "assertion": "No exception was thrown",
+        "observedInRawResult": true,
+        "laterExpectedCodeAssertionReached": false
+      }
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs",
+      "failedLine": 327,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs#L327",
+      "group": "nul-bounds",
+      "methodSha256": "3a4f07d8c4d025893fef7c76fc2c97610fff523b3e2c96bc47b807dde961a398",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Throws() Failure: No exception was thrown\nExpected: typeof(FsusBlog.Migration.OfflineMigrationSourceFingerprintException)",
+      "inputRef": "sqlite-nul-business-bounds",
+      "expected": {
+        "exceptionType": "FsusBlog.Migration.OfflineMigrationSourceFingerprintException",
+        "code": "source_fingerprint_unknown",
+        "additionalAssertion": "Differences includes Business category"
+      },
+      "actual": {
+        "exceptionType": null,
+        "code": null,
+        "assertion": "No exception was thrown",
+        "observedInRawResult": true,
+        "laterExpectedCodeAssertionReached": false
+      }
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+      "failedLine": 324,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs#L324",
+      "group": "nul-bounds",
+      "methodSha256": "37f49e7c6bbe8ca2f46d20d0f3ec4efcb22a3f379cfe4be35322108efa821393",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Throws() Failure: No exception was thrown\nExpected: typeof(System.InvalidOperationException)",
+      "inputRef": "sqlite-nul-business-bounds",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "source_fingerprint_unknown:business_shape",
+        "additionalAssertion": "Exception.Message equals expected code"
+      },
+      "actual": {
+        "exceptionType": null,
+        "code": null,
+        "assertion": "No exception was thrown",
+        "observedInRawResult": true,
+        "laterExpectedCodeAssertionReached": false
+      }
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests.SqliteBusinessBoundsCountTextAfterNulInsteadOfSqlLengthPrefix",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs",
+      "failedLine": 327,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs#L327",
+      "group": "nul-bounds",
+      "methodSha256": "37f49e7c6bbe8ca2f46d20d0f3ec4efcb22a3f379cfe4be35322108efa821393",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Throws() Failure: No exception was thrown\nExpected: typeof(System.InvalidOperationException)",
+      "inputRef": "sqlite-nul-business-bounds",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "source_fingerprint_unknown:business_shape",
+        "additionalAssertion": "Exception.Message equals expected code"
+      },
+      "actual": {
+        "exceptionType": null,
+        "code": null,
+        "assertion": "No exception was thrown",
+        "observedInRawResult": true,
+        "laterExpectedCodeAssertionReached": false
+      }
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.PgCurrentSchemaOwnedTargetObserverTests.CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse",
+      "sourceFile": "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs",
+      "failedLine": 212,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs#L212",
+      "group": "postgresql-comparator",
+      "methodSha256": "48299683752dd966431e4aba9a2634cbcfdd1da563a2961785ca137cc79ecfd5",
+      "canonicalComparison": {
+        "commit": "0670fcdb0189ea796a21128403312c384c6f0ff0",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": false
+      },
+      "rawFailureMessage": "System.InvalidOperationException : current_schema_owned_native_expression_context_unknown",
+      "inputRef": "postgresql-control-wrong-provider",
+      "expected": {
+        "outcome": "Return differences containing provider mismatch expected=PostgreSql actual=MySql",
+        "exceptionType": null
+      },
+      "actual": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "current_schema_owned_native_expression_context_unknown",
+        "observedInRawResult": true,
+        "throwSource": "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs:27"
+      },
+      "unreachedWithinThisCase": [
+        "Sqlite provider iteration",
+        "Semantic and unknown provider projection assertions"
+      ]
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+      "failedLine": 172,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs#L172",
+      "group": "refusal-code",
+      "methodSha256": "98a746ec2833571e5aeb59baf4b7212b291c9a020c17336e75c805ff6b32cf99",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Equal() Failure: Strings differ\n                          ↓ (pos 15)\nExpected: \"offline_source_provider_full_content_capa\"···\nActual:   \"offline_source_sqlite_native_operation_fa\"···\n                          ↑ (pos 15)",
+      "inputRef": "missing-capability-invalid-connection",
+      "provider": "Sqlite",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_provider_full_content_capability_unavailable"
+      },
+      "actual": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_sqlite_native_operation_failed",
+        "typeAssertionPassed": true,
+        "fullCodeBasis": "Source-bound reconstruction of truncated xUnit actual prefix, confirmed constant in current retained compiled Migration.dll; not an untruncated runtime capture.",
+        "codeSource": "src/migration/OfflineMigrationSqliteNativeSession.cs:225",
+        "observedPrefix": "offline_source_sqlite_native_operation_fa"
+      }
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+      "failedLine": 290,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs#L290",
+      "group": "refusal-code",
+      "methodSha256": "f38ea7ae0265fc4eaafd2098cc6adca28dc4db6a7d7a9e479b068990fb3e0bc2",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": false
+      },
+      "rawFailureMessage": "Assert.Equal() Failure: Strings differ\n                          ↓ (pos 15)\nExpected: \"offline_source_provider_full_content_capa\"···\nActual:   \"offline_source_sqlite_native_operation_fa\"···\n                          ↑ (pos 15)",
+      "inputRef": "sqlite-bare-fixture-path-after-content-read",
+      "provider": "Sqlite",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_provider_full_content_capability_unavailable"
+      },
+      "actual": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_sqlite_native_operation_failed",
+        "typeAssertionPassed": true,
+        "fullCodeBasis": "Source-bound reconstruction of truncated xUnit actual prefix, confirmed constant in current retained compiled Migration.dll; not an untruncated runtime capture.",
+        "codeSource": "src/migration/OfflineMigrationSqliteNativeSession.cs:225",
+        "observedPrefix": "offline_source_sqlite_native_operation_fa"
+      },
+      "executedPriorOperations": [
+        "INSERT article: body-A\\0 + 4095 x + U+1F30D",
+        "Read full Schema/Business vectors and digest",
+        "UPDATE article: body-B\\0 + 4095 x + U+1F30D; assert changed digest",
+        "UPDATE sqlite_sequence SET seq=20 WHERE name=article; assert changed digest",
+        "ObserveAsync(Sqlite, path, cancellation) with bare path"
+      ]
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: MySql)",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs",
+      "failedLine": 158,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs#L158",
+      "group": "refusal-code",
+      "methodSha256": "3b958f45e06a1980ee0cd955c413c95b79805b6661a3026c07f68384a5660f55",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Equal() Failure: Strings differ\n                          ↓ (pos 15)\nExpected: \"offline_source_provider_full_content_capa\"···\nActual:   \"offline_source_mysql_native_operation_fai\"···\n                          ↑ (pos 15)",
+      "inputRef": "missing-capability-invalid-connection",
+      "provider": "MySql",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_provider_full_content_capability_unavailable"
+      },
+      "actual": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_mysql_native_operation_failed",
+        "typeAssertionPassed": true,
+        "fullCodeBasis": "Source-bound reconstruction of truncated xUnit actual prefix, confirmed constant in current retained compiled Migration.dll; not an untruncated runtime capture.",
+        "codeSource": "src/migration/OfflineMigrationMySqlNativeSession.cs:280",
+        "observedPrefix": "offline_source_mysql_native_operation_fai"
+      }
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs",
+      "failedLine": 158,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs#L158",
+      "group": "refusal-code",
+      "methodSha256": "3b958f45e06a1980ee0cd955c413c95b79805b6661a3026c07f68384a5660f55",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Equal() Failure: Strings differ\n                          ↓ (pos 15)\nExpected: \"offline_source_provider_full_content_capa\"···\nActual:   \"offline_source_sqlite_native_operation_fa\"···\n                          ↑ (pos 15)",
+      "inputRef": "missing-capability-invalid-connection",
+      "provider": "Sqlite",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_provider_full_content_capability_unavailable"
+      },
+      "actual": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_sqlite_native_operation_failed",
+        "typeAssertionPassed": true,
+        "fullCodeBasis": "Source-bound reconstruction of truncated xUnit actual prefix, confirmed constant in current retained compiled Migration.dll; not an untruncated runtime capture.",
+        "codeSource": "src/migration/OfflineMigrationSqliteNativeSession.cs:225",
+        "observedPrefix": "offline_source_sqlite_native_operation_fa"
+      }
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+      "failedLine": 172,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs#L172",
+      "group": "refusal-code",
+      "methodSha256": "98a746ec2833571e5aeb59baf4b7212b291c9a020c17336e75c805ff6b32cf99",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Equal() Failure: Strings differ\n                          ↓ (pos 15)\nExpected: \"offline_source_provider_full_content_capa\"···\nActual:   \"offline_source_sqlite_native_operation_fa\"···\n                          ↑ (pos 15)",
+      "inputRef": "missing-capability-invalid-connection",
+      "provider": "Sqlite",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_provider_full_content_capability_unavailable"
+      },
+      "actual": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_sqlite_native_operation_failed",
+        "typeAssertionPassed": true,
+        "fullCodeBasis": "Source-bound reconstruction of truncated xUnit actual prefix, confirmed constant in current retained compiled Migration.dll; not an untruncated runtime capture.",
+        "codeSource": "src/migration/OfflineMigrationSqliteNativeSession.cs:225",
+        "observedPrefix": "offline_source_sqlite_native_operation_fa"
+      }
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests.SqliteNativeReadCoversFullRepresentativeContentWithoutGrantingInstanceAdmission",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+      "failedLine": 290,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs#L290",
+      "group": "refusal-code",
+      "methodSha256": "f38ea7ae0265fc4eaafd2098cc6adca28dc4db6a7d7a9e479b068990fb3e0bc2",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": false
+      },
+      "rawFailureMessage": "Assert.Equal() Failure: Strings differ\n                          ↓ (pos 15)\nExpected: \"offline_source_provider_full_content_capa\"···\nActual:   \"offline_source_sqlite_native_operation_fa\"···\n                          ↑ (pos 15)",
+      "inputRef": "sqlite-bare-fixture-path-after-content-read",
+      "provider": "Sqlite",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_provider_full_content_capability_unavailable"
+      },
+      "actual": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_sqlite_native_operation_failed",
+        "typeAssertionPassed": true,
+        "fullCodeBasis": "Source-bound reconstruction of truncated xUnit actual prefix, confirmed constant in current retained compiled Migration.dll; not an untruncated runtime capture.",
+        "codeSource": "src/migration/OfflineMigrationSqliteNativeSession.cs:225",
+        "observedPrefix": "offline_source_sqlite_native_operation_fa"
+      },
+      "executedPriorOperations": [
+        "INSERT article: body-A\\0 + 4095 x + U+1F30D",
+        "Read full Schema/Business vectors and digest",
+        "UPDATE article: body-B\\0 + 4095 x + U+1F30D; assert changed digest",
+        "UPDATE sqlite_sequence SET seq=20 WHERE name=article; assert changed digest",
+        "ObserveAsync(Sqlite, path, cancellation) with bare path"
+      ]
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: MySql)",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs",
+      "failedLine": 158,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs#L158",
+      "group": "refusal-code",
+      "methodSha256": "3b958f45e06a1980ee0cd955c413c95b79805b6661a3026c07f68384a5660f55",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Equal() Failure: Strings differ\n                          ↓ (pos 15)\nExpected: \"offline_source_provider_full_content_capa\"···\nActual:   \"offline_source_mysql_native_operation_fai\"···\n                          ↑ (pos 15)",
+      "inputRef": "missing-capability-invalid-connection",
+      "provider": "MySql",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_provider_full_content_capability_unavailable"
+      },
+      "actual": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_mysql_native_operation_failed",
+        "typeAssertionPassed": true,
+        "fullCodeBasis": "Source-bound reconstruction of truncated xUnit actual prefix, confirmed constant in current retained compiled Migration.dll; not an untruncated runtime capture.",
+        "codeSource": "src/migration/OfflineMigrationMySqlNativeSession.cs:280",
+        "observedPrefix": "offline_source_mysql_native_operation_fai"
+      }
+    },
+    {
+      "testName": "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests.MissingNativeFullContentCapabilityFailsBeforeConnection(provider: Sqlite)",
+      "sourceFile": "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs",
+      "failedLine": 158,
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/417964796c3a5d06c956178317908c470c058d81/tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs#L158",
+      "group": "refusal-code",
+      "methodSha256": "3b958f45e06a1980ee0cd955c413c95b79805b6661a3026c07f68384a5660f55",
+      "canonicalComparison": {
+        "commit": "c1974a38c5ee81b0211705ed376c042f1f3495a9",
+        "methodEqualsCanonicalEndpoint": true,
+        "methodUnchangedByCanonicalCommit": true
+      },
+      "rawFailureMessage": "Assert.Equal() Failure: Strings differ\n                          ↓ (pos 15)\nExpected: \"offline_source_provider_full_content_capa\"···\nActual:   \"offline_source_sqlite_native_operation_fa\"···\n                          ↑ (pos 15)",
+      "inputRef": "missing-capability-invalid-connection",
+      "provider": "Sqlite",
+      "expected": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_provider_full_content_capability_unavailable"
+      },
+      "actual": {
+        "exceptionType": "System.InvalidOperationException",
+        "code": "offline_source_sqlite_native_operation_failed",
+        "typeAssertionPassed": true,
+        "fullCodeBasis": "Source-bound reconstruction of truncated xUnit actual prefix, confirmed constant in current retained compiled Migration.dll; not an untruncated runtime capture.",
+        "codeSource": "src/migration/OfflineMigrationSqliteNativeSession.cs:225",
+        "observedPrefix": "offline_source_sqlite_native_operation_fa"
+      }
+    }
+  ],
+  "limits": [
+    "No unchanged564-case rerun, test/source assertion change or independent Migration repair.",
+    "This is a selected14-case failure excerpt, not a complete runtime receipt or proof that other controls passed on a new publication commit.",
+    "Source-derived inputs and full-code reconstructions are labelled separately from raw observations.",
+    "No credentials, actual database endpoints, generated private temp paths, stdout payloads or production data included.",
+    "True physical private scratch/native/cleanup acceptance remains WIP."
+  ]
+}
