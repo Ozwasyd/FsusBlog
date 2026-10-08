@@ -1,0 +1,35 @@
+✔ plan/progress tier summary binds the exact executable governance suite to its fresh run (0.949328ms)
+✔ shared planner preserves the exact smoke, visual, and boundaries coverage budgets (12.328349ms)
+✔ safe-area matrix only pairs overlay-risk surfaces and freezes profile table (13.051536ms)
+✔ safe-area plan rejects non-overlay-risk cartesian explosion mutations (4.127299ms)
+✔ group and step identities are stable semantic values without ordinal prefixes (8.346958ms)
+✔ planner keeps matrix media order inside one cold navigation per viewport (0.571389ms)
+✔ local production risk plan covers every dimension within 48 navigations (3.055898ms)
+✔ risk matrix plus safe-area stays bounded and overlay-risk only (1.476081ms)
+✔ unknown filters fail closed even when another requested value is valid (0.377578ms)
+✔ mobile-landscape canary is a planner parity list, not a fabricated golden catalog (0.747785ms)
+✔ fresh progress ignores an old current-run pointer and starts with no completed groups (33.472399ms)
+✔ resume reuses only completed route-theme groups when the plan fingerprint matches (23.341658ms)
+✔ resume rejects stale progress with a different plan fingerprint (22.265658ms)
+✔ concurrent group completion merges results through atomic writes (30.949444ms)
+✔ failed groups are recorded but never treated as resumable completion (7.47763ms)
+✔ risk settle budget expands from the live machine-to-scheduler contention ratio (1.522601ms)
+✔ risk settle survives the measured CPU1 delayed-readiness fixture without weakening readiness or stability (1871.640796ms)
+✔ risk settle awaits browser readiness without waiting for network idle (6.535613ms)
+✔ risk settle fails within its deadline when layout keeps changing (20.808897ms)
+✔ risk settle samples layout while font readiness is pending without extending the deadline (0.914186ms)
+✔ runner always writes the current-run summary after Playwright fails (1.34282ms)
+✔ runner preserves a Playwright failure when summary writing also fails (0.284688ms)
+✔ runner fails a successful Playwright process when summary is not ok (0.486692ms)
+✔ runner succeeds only when Playwright and the summary both succeed (0.167082ms)
+✔ broken-image viewport corpus stays network-free while preserving decode failure (8.411585ms)
+✔ summary follows the current-run pointer and ignores stale-run artifacts (21.860209ms)
+✔ visual summary requires one current-run screenshot per planned cold navigation (11.004587ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1970.498453

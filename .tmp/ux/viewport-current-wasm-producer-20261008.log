@@ -1,0 +1,157 @@
+
+> fsusblog-client@0.0.0 ensure:wasm
+> node ../../tools/frontend/ensure-wasm.mjs ensure
+
+[ensure-wasm] receipt fallback=run-canonical-producer: WASM build receipt is missing
+[ensure-wasm] artifacts are stale: manifest missing
+[ensure-wasm] rebuilding wasm artifacts
+[build:wasm] comment_privacy=disabled circuit=fsus.anonymous.comment.v5 layout=6
+[build:wasm] cmake=/workspace/.setup/dependency-cache/cmake/4.3.3/bin/cmake version=4.3.3
+[build:wasm] cpu_budget=4 source=FSUSBLOG_WASM_CPU_BUDGET memory_budget_gib=15.871563 memory_source=detected-free-memory memory_worker_limit=4 variant_workers=4 variants=4
+[build:wasm] wave=1 jobs=1,1,1,1 total=4 memory_gib_per_child=3.967891
+shared:INFO: (Emscripten: Running sanity checks)
+[build:wasm] emscripten=6.0.0 binaryen=wasm-opt version 123 (version_123)
+emcmake: /workspace/.setup/dependency-cache/cmake/4.3.3/bin/cmake --fresh /workspace/FsusBlog-2228-current/src/frontend/wasm -DCMAKE_BUILD_TYPE=Release -DWASM_SIMD=OFF -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE=ON -DFSUSBLOG_WASM_OUTPUT_DIR=/workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-basic -DCMAKE_PREFIX_PATH=/workspace/.setup/vcpkg/installed/wasm32-emscripten -DCMAKE_TOOLCHAIN_FILE=/workspace/.setup/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DCMAKE_CROSSCOMPILING_EMULATOR=/workspace/.setup/emsdk/node/22.16.0_64bit/bin/node in directory /workspace/FsusBlog-2228-current/src/frontend/wasm/build-basic
+emcmake: /workspace/.setup/dependency-cache/cmake/4.3.3/bin/cmake --fresh /workspace/FsusBlog-2228-current/src/frontend/wasm/pow -DCMAKE_BUILD_TYPE=Release -DWASM_RELAXED_SIMD=ON -DFSUSBLOG_WASM_OUTPUT_DIR=/workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-pow-relaxed -DCMAKE_PREFIX_PATH=/workspace/.setup/vcpkg/installed/wasm32-emscripten -DCMAKE_TOOLCHAIN_FILE=/workspace/.setup/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DCMAKE_CROSSCOMPILING_EMULATOR=/workspace/.setup/emsdk/node/22.16.0_64bit/bin/node in directory /workspace/FsusBlog-2228-current/src/frontend/wasm/build-pow-relaxed
+emcmake: /workspace/.setup/dependency-cache/cmake/4.3.3/bin/cmake --fresh /workspace/FsusBlog-2228-current/src/frontend/wasm/pow -DCMAKE_BUILD_TYPE=Release -DWASM_THREADS=ON -DFSUSBLOG_WASM_OUTPUT_DIR=/workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-pow-threads -DCMAKE_PREFIX_PATH=/workspace/.setup/vcpkg/installed/wasm32-emscripten -DCMAKE_TOOLCHAIN_FILE=/workspace/.setup/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DCMAKE_CROSSCOMPILING_EMULATOR=/workspace/.setup/emsdk/node/22.16.0_64bit/bin/node in directory /workspace/FsusBlog-2228-current/src/frontend/wasm/build-pow-threads
+emcmake: /workspace/.setup/dependency-cache/cmake/4.3.3/bin/cmake --fresh /workspace/FsusBlog-2228-current/src/frontend/wasm -DCMAKE_BUILD_TYPE=Release -DWASM_SIMD=ON -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE=ON -DFSUSBLOG_WASM_OUTPUT_DIR=/workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-simd -DCMAKE_PREFIX_PATH=/workspace/.setup/vcpkg/installed/wasm32-emscripten -DCMAKE_TOOLCHAIN_FILE=/workspace/.setup/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DCMAKE_CROSSCOMPILING_EMULATOR=/workspace/.setup/emsdk/node/22.16.0_64bit/bin/node in directory /workspace/FsusBlog-2228-current/src/frontend/wasm/build-simd
+-- WebAssembly worker-sharded SIMD tier enabled
+-- WebAssembly relaxed SIMD enabled
+-- Configuring done (0.3s)
+-- Configuring done (0.3s)
+-- WebAssembly SIMD128 disabled (Scalar fallback mode)
+-- Image codec JPEG enabled via /workspace/.setup/vcpkg/installed/wasm32-emscripten/lib/libjpeg.a
+-- Image codec WebP enabled via /workspace/.setup/vcpkg/installed/wasm32-emscripten/lib/libwebp.a
+-- Image codec AVIF enabled via /workspace/.setup/vcpkg/installed/wasm32-emscripten/lib/libavif.a
+-- Image codec wasm scalar fallback enabled
+-- Generating done (0.0s)
+-- Generating done (0.0s)
+-- Configuring done (0.3s)
+-- Build files have been written to: /workspace/FsusBlog-2228-current/src/frontend/wasm/build-pow-relaxed
+-- Build files have been written to: /workspace/FsusBlog-2228-current/src/frontend/wasm/build-pow-threads
+-- WebAssembly SIMD128 enabled
+-- Image codec JPEG enabled via /workspace/.setup/vcpkg/installed/wasm32-emscripten/lib/libjpeg.a
+-- Image codec WebP enabled via /workspace/.setup/vcpkg/installed/wasm32-emscripten/lib/libwebp.a
+-- Image codec AVIF enabled via /workspace/.setup/vcpkg/installed/wasm32-emscripten/lib/libavif.a
+-- Image codec wasm SIMD128 enabled
+-- Configuring done (0.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /workspace/FsusBlog-2228-current/src/frontend/wasm/build-basic
+-- Generating done (0.0s)
+-- Build files have been written to: /workspace/FsusBlog-2228-current/src/frontend/wasm/build-simd
+[ 50%] Building CXX object CMakeFiles/FsusPowEngine.dir/src/main.cpp.o
+[ 50%] Building CXX object CMakeFiles/FsusPowEngine.dir/src/main.cpp.o
+[ 50%] Building CXX object pow/CMakeFiles/FsusPowEngine.dir/src/main.cpp.o
+[ 50%] Building CXX object pow/CMakeFiles/FsusPowEngine.dir/src/main.cpp.o
+cache:INFO: generating system headers: sysroot_install.stamp... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot_install.stamp" for subsequent builds)
+cache:INFO:  - ok
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-basic/fsus_pow_basic.js
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-pow-threads/fsus_pow_threads.js
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-pow-relaxed/fsus_pow_relaxed.js
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-simd/fsus_pow_simd.js
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libGL-getprocaddr.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libGL-getprocaddr.a" for subsequent builds)
+system_libs:INFO: compiled 4 inputs in 0.17s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libal.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libal.a" for subsequent builds)
+system_libs:INFO: compiled 1 inputs in 0.11s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libhtml5.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libhtml5.a" for subsequent builds)
+system_libs:INFO: compiled 5 inputs in 0.24s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libstubs.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libstubs.a" for subsequent builds)
+system_libs:INFO: compiled 2 inputs in 0.11s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libnoexit.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libnoexit.a" for subsequent builds)
+system_libs:INFO: compiled 1 inputs in 0.11s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libc.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libc.a" for subsequent builds)
+system_libs:INFO: compiled 1074 inputs in 6.41s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libemmalloc.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libemmalloc.a" for subsequent builds)
+system_libs:INFO: compiled 2 inputs in 0.23s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libcompiler_rt.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libcompiler_rt.a" for subsequent builds)
+system_libs:INFO: compiled 184 inputs in 1.47s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libc++-noexcept.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libc++-noexcept.a" for subsequent builds)
+system_libs:INFO: compiled 57 inputs in 7.71s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libc++abi-noexcept.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libc++abi-noexcept.a" for subsequent builds)
+system_libs:INFO: compiled 17 inputs in 1.54s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/lto/libsockets.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/lto/libsockets.a" for subsequent builds)
+system_libs:INFO: compiled 27 inputs in 0.53s
+cache:INFO:  - ok
+[100%] Built target FsusPowEngine
+[100%] Built target FsusPowEngine
+[100%] Built target FsusPowEngine
+[100%] Built target FsusPowEngine
+[ 20%] Building CXX object aeds/CMakeFiles/aeds_decoder_speed.dir/src/aeds_crc32.cpp.o
+[ 20%] Building CXX object aeds/CMakeFiles/aeds_decoder_basic.dir/src/aeds_crc32.cpp.o
+[ 40%] Building CXX object aeds/CMakeFiles/aeds_decoder_basic.dir/src/pod_parse_article.cpp.o
+[ 40%] Building CXX object aeds/CMakeFiles/aeds_decoder_speed.dir/src/pod_parse_article.cpp.o
+[ 60%] Building CXX object aeds/CMakeFiles/aeds_decoder_speed.dir/src/aeds_decode.cpp.o
+[ 60%] Building CXX object aeds/CMakeFiles/aeds_decoder_basic.dir/src/aeds_decode.cpp.o
+[ 80%] Building CXX object aeds/CMakeFiles/aeds_decoder_speed.dir/src/exports.cpp.o
+[ 80%] Building CXX object aeds/CMakeFiles/aeds_decoder_basic.dir/src/exports.cpp.o
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-simd/aeds_decoder_speed.js
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-basic/aeds_decoder_basic.js
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libGL-getprocaddr.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libGL-getprocaddr.a" for subsequent builds)
+system_libs:INFO: compiled 4 inputs in 0.20s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libal.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libal.a" for subsequent builds)
+system_libs:INFO: compiled 1 inputs in 0.12s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libhtml5.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libhtml5.a" for subsequent builds)
+system_libs:INFO: compiled 5 inputs in 0.25s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libc_optz.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libc_optz.a" for subsequent builds)
+system_libs:INFO: compiled 7 inputs in 0.32s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libstubs.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libstubs.a" for subsequent builds)
+system_libs:INFO: compiled 2 inputs in 0.11s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libnoexit.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libnoexit.a" for subsequent builds)
+system_libs:INFO: compiled 1 inputs in 0.12s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libc.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libc.a" for subsequent builds)
+[100%] Built target aeds_decoder_speed
+[ 50%] Building CXX object search/CMakeFiles/FsusSearchRuntime.dir/src/search_index.cpp.o
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-simd/search_simd.js
+system_libs:INFO: compiled 1074 inputs in 8.37s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libemmalloc.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libemmalloc.a" for subsequent builds)
+system_libs:INFO: compiled 2 inputs in 0.27s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libcompiler_rt.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libcompiler_rt.a" for subsequent builds)
+system_libs:INFO: compiled 184 inputs in 1.64s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libc++-noexcept.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libc++-noexcept.a" for subsequent builds)
+system_libs:INFO: compiled 57 inputs in 9.34s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libc++abi-noexcept.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libc++abi-noexcept.a" for subsequent builds)
+system_libs:INFO: compiled 17 inputs in 1.94s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libsockets.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libsockets.a" for subsequent builds)
+system_libs:INFO: compiled 27 inputs in 0.54s
+cache:INFO:  - ok
+cache:INFO: generating system library: sysroot/lib/wasm32-emscripten/libdlmalloc.a... (this will be cached in "/workspace/FsusBlog-2228-current/src/frontend/../../.cache/emscripten/sysroot/lib/wasm32-emscripten/libdlmalloc.a" for subsequent builds)
+system_libs:INFO: compiled 2 inputs in 0.37s
+cache:INFO:  - ok
+[100%] Built target aeds_decoder_basic
+[ 50%] Building CXX object search/CMakeFiles/FsusSearchRuntime.dir/src/search_index.cpp.o
+[100%] Built target FsusSearchRuntime
+[ 50%] Building CXX object comment_privacy/CMakeFiles/FsusCommentPrivacyRuntime.dir/src/comment_privacy.cpp.o
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-simd/comment_privacy_runtime.js
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-basic/search_basic.js
+[100%] Built target FsusCommentPrivacyRuntime
+[ 50%] Building CXX object image_codec/CMakeFiles/FsusImageCodec.dir/src/image_codec_exports.cpp.o
+[100%] Built target FsusSearchRuntime
+[ 50%] Building CXX object image_codec/CMakeFiles/FsusImageCodec.dir/src/image_codec_exports.cpp.o
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-simd/image_codec_simd.js
+[100%] Linking CXX executable /workspace/FsusBlog-2228-current/src/frontend/wasm/stage/wasm-basic/image_codec_basic.js
+[100%] Built target FsusImageCodec
+[100%] Built target FsusImageCodec
+[ensure-wasm] wrote public/wasm/wasm-manifest.aeds
+Wasm artifacts emitted to /workspace/FsusBlog-2228-current/src/frontend/public/wasm
+[ensure-wasm] artifacts refreshed
