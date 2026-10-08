@@ -1412,6 +1412,10 @@ function checkSourceDiff(args, files)
         {
             throw new Error(`source-diff configuration changed: ${file}`);
         }
+        if (current !== fs.readFileSync(path.join(authorityRoot, file), 'utf8'))
+        {
+            throw new Error(`source-diff authority configuration changed: ${file}`);
+        }
         return { file, sha256: sha256(current) };
     });
     const report = { schema: 'fsusblog.frontend-style-source-diff.v1', baseCommit: base,
@@ -1430,8 +1434,9 @@ function checkSourceDiff(args, files)
     const scratch = fs.mkdtempSync(path.join(root, '.tmp/frontend-style/source-diff-base-'));
     try
     {
-        // The original ESLint CLI loads identical original configuration in a separate base root.
-        for (const file of [policy.eslintConfig, 'tools/frontend/style-toolchain/eslint.config.mjs', policy.toolchain.package])
+        // Base policy/source bytes are Git witnesses; executable configuration stays in its sealed authority checkout.
+        for (const file of [...identities.map((identity) => identity.file),
+            'tools/frontend/check-frontend-style.mjs', 'tools/frontend/reviewed-residual-classification.mjs'])
         {
             const destination = path.join(scratch, file);
             fs.mkdirSync(path.dirname(destination), { recursive: true });
@@ -1460,7 +1465,7 @@ function checkSourceDiff(args, files)
             function lint(workingRoot)
             {
                 const result = spawnSync(process.execPath, ['--max-old-space-size=512', path.join(root, policy.toolchain.eslint),
-                    '--config', path.join(workingRoot, policy.eslintConfig), '--format', 'json', file],
+                    '--config', path.join(authorityRoot, policy.eslintConfig), '--format', 'json', file],
                 { cwd: workingRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
                     env: { ...process.env, FSUSBLOG_STYLE_ROOT: workingRoot } });
                 if (result.error || ![0, 1].includes(result.status))

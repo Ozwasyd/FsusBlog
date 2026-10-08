@@ -3200,8 +3200,8 @@
         },
         {
             "path": "tools/frontend/check-frontend-style.mjs",
-            "contentDigest": "sha256:0216bedab799ac7911cbbe267eff7a1efc957417c518c3c01fb6ef160f5baa8c",
-            "indexDigest": "sha256:0216bedab799ac7911cbbe267eff7a1efc957417c518c3c01fb6ef160f5baa8c"
+            "contentDigest": "sha256:6000ed5cfc5c63408b71df904015ed487d80faf5f777fbbc76351bbf6a3dbd72",
+            "indexDigest": "sha256:6000ed5cfc5c63408b71df904015ed487d80faf5f777fbbc76351bbf6a3dbd72"
         },
         {
             "path": "tools/frontend/check-locale-domain-bundles.mjs",

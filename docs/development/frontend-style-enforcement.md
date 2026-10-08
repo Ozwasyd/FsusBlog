@@ -191,6 +191,14 @@ The fixture command declares its own caller, canonical owner, configuration and
 parser inputs; a containing lane's broad source identity is not a substitute for
 the command's actual input ownership.
 
+The `source-diff` diagnostic runs both the Git base and candidate through the
+executing authority's unchanged ESLint configuration. Its base scratch root
+contains exact Git policy and source witnesses, not another executable classifier
+authority. Configuration must match the base, candidate and executing authority;
+changed configuration still requires strict checks. Canonical caller validation
+also applies to the base witnesses. Scratch cleanup and configuration/source drift
+refusal remain mandatory, and this diagnostic never grants qualification.
+
 This candidate has not been promoted. Changes to this authority require independent frozen-policy review and the
 owner-controlled bootstrap in [Change contract](change-contract.md). Current style protection uses an exact effective policy roster while the historical
 change-contract roster and existing replay tuples remain unchanged. Candidate

@@ -557,3 +557,55 @@ test('current style policies refuse PR replacement while retaining the historica
         fs.rmSync(root, { recursive: true, force: true });
     }
 });
+
+test('source-diff executes the original sealed classifier for both Git base and candidate roots', () =>
+{
+    fixture((root) =>
+    {
+        const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+        git('init', '--quiet');
+        git('config', 'user.name', 'FsusBlog Candidate Fixture');
+        git('config', 'user.email', 'fixture@fsus.invalid');
+        for (const relative of [edgeRegistryPath, 'tools/frontend/style-toolchain/closed-canonical-edge.mjs'])
+        {
+            write(root, relative, fs.readFileSync(path.join(authorityRoot, relative)));
+        }
+        const editorConfig = fs.readFileSync(path.join(root, '.editorconfig'));
+        write(root, '.editorconfig', `${editorConfig}\n# different frozen base configuration\n`);
+        git('add', '.');
+        git('commit', '-qm', 'fixture differing base policy');
+        const differingBase = git('rev-parse', 'HEAD');
+        write(root, '.editorconfig', editorConfig);
+        git('add', '.editorconfig');
+        git('commit', '-qm', 'fixture original sealed policy');
+        fs.symlinkSync(path.join(authorityRoot, 'tools/frontend/style-toolchain/node_modules'),
+            path.join(root, 'tools/frontend/style-toolchain/node_modules'), 'dir');
+        const check = (file, base) => execFileSync(process.execPath,
+            [path.join(authorityRoot, 'tools/frontend/check-frontend-style.mjs'),
+                '--root', root, '--mode', 'source-diff', '--base', base, '--file', file],
+            { encoding: 'utf8', stdio: 'pipe' });
+        for (const file of [owner, caller])
+        {
+            check(file, 'HEAD');
+            const report = JSON.parse(fs.readFileSync(path.join(root, '.tmp/frontend-style/source-diff.json'), 'utf8'));
+            assert.equal(report.baseCommit, git('rev-parse', 'HEAD'));
+            assert.equal(report.qualification, false);
+            assert.equal(report.files.length, 1);
+            assert.equal(report.files[0].file, file);
+            assert.equal(report.files[0].baseSourceSha256, report.files[0].candidateSourceSha256);
+            assert.equal(report.files[0].rawBase.exitCode, report.files[0].rawCandidate.exitCode);
+            assert.equal(report.files[0].failure, null);
+            assert.deepEqual(report.failures, []);
+            assert.deepEqual(fs.readdirSync(path.join(root, '.tmp/frontend-style')), ['source-diff.json']);
+        }
+        assert.throws(() => check(owner, differingBase), (error) =>
+            error.status === 1 && /source-diff configuration changed: \.editorconfig/u.test(error.stderr));
+        assert.equal(fs.existsSync(path.join(root, '.tmp/frontend-style/source-diff.json')), false);
+        write(root, caller, `${originalCaller}\nprocess.exit();\n`);
+        assert.throws(() => check(caller, 'HEAD'), (error) =>
+            error.status === 1 && /canonical caller or exact static named edge drift/u.test(error.stderr));
+        assert.equal(fs.existsSync(path.join(root, '.tmp/frontend-style/source-diff.json')), false);
+        assert.equal(fs.readFileSync(path.join(root, '.editorconfig'), 'utf8'), editorConfig.toString());
+        assert.equal(fs.readFileSync(path.join(root, owner), 'utf8'), originalOwner);
+    });
+});
