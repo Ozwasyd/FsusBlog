@@ -169,3 +169,9 @@ or treat raw observation diagnostic facts as correctness artifacts.
 The contract tests use the existing original source fixture and readers. Their
 synthetic member documents exercise consumer behavior, not a physical browser
 run, an independently admitted global outcome profile or release qualification.
+The success-path control also exercises the original canonical raw-source
+admission. At the inspected source, its exact Browser v2 field list omits the
+native finalizer's `attemptStatus`, `cleanFirstAttempt` and
+`qualificationEligible` fields. The original verifier refuses that source;
+successful bridge acceptance remains blocked pending the canonical owner's
+tested schema integration. The bridge preserves both the fields and refusal.
