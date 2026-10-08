@@ -2,7 +2,7 @@
 import path from 'node:path';
 import process from 'node:process';
 
-import { readLegacyReleaseManifestV1, readReleaseManifest } from './release-manifest.mjs';
+import { readReleaseManifest } from './release-manifest.mjs';
 
 function parseArgs(argv)
 {
@@ -28,10 +28,9 @@ try
         throw new Error('missing --manifest');
     };
     const manifestFile = path.resolve(options.manifest);
-    const legacyRollback = options['legacy-rollback'] === 'true';
-    if (options['legacy-rollback'] !== undefined && !['true', 'false'].includes(options['legacy-rollback']))
+    if (options['legacy-rollback'] !== undefined)
     {
-        throw new Error('--legacy-rollback must be true or false');
+        throw new Error('--legacy-rollback is unsupported; restore requires a verified matching backup or a forward fix');
     }
     const readOptions = {
         requireRegistryDigest: true,
@@ -41,8 +40,7 @@ try
         expectedImageDigest: options['image-digest'],
         expectedCommitSha: options['commit-sha']
     };
-    const legacyResult = legacyRollback ? readLegacyReleaseManifestV1(manifestFile, readOptions) : null;
-    const manifest = legacyResult?.manifest ?? readReleaseManifest(manifestFile, readOptions);
+    const manifest = readReleaseManifest(manifestFile, readOptions);
     const slot = options.slot ?? 'candidate';
     if (!/^[a-z][a-z0-9-]{0,31}$/u.test(slot))
     {
@@ -51,8 +49,6 @@ try
     const output = {
         schema: 'fsusblog.release-deploy-input.v1',
         status: 'ok',
-        legacy: legacyResult?.legacy === true,
-        rollbackOnly: legacyResult?.rollbackOnly === true,
         manifest: manifestFile,
         releaseId: manifest.releaseId,
         createdAtUtc: manifest.createdAtUtc,
