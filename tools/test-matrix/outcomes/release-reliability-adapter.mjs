@@ -6,7 +6,7 @@ import { readOutcomeFailureTaxonomy } from './outcome-contract.mjs';
 
 const { digestCanonical } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
 const { digestValue } = await import(new URL('../../test/release-reliability-receipt.mjs', import.meta.url));
-const { releaseReliabilityAuthorityId, releaseReliabilityScenarioIds } = await import(
+const { releaseReliabilityScenarioIds } = await import(
     new URL('../../release/release-reliability-qualified-receipt.mjs', import.meta.url)
 );
 const catalog = JSON.parse(fs.readFileSync(new URL(
@@ -23,6 +23,7 @@ const bindingFields = ['invocationId', 'attemptDigest', 'currentRunDigest', 'fix
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 
 export const releaseReliabilityOutcomeProducerId = 'release-reliability-semantic-outcome';
+export const releaseReliabilityOutcomeAuthorityId = 'tools/test-matrix/outcomes/release-reliability-adapter.mjs';
 
 function require(condition, message)
 {
@@ -357,6 +358,6 @@ export function adaptReleaseReliabilitySemanticOutcome(input)
             { identityField: 'attemptEligibility' }));
     }
     return candidate({ producerId: releaseReliabilityOutcomeProducerId,
-        producerAuthorityId: releaseReliabilityAuthorityId, identity, inputAuthorityRefs,
+        producerAuthorityId: releaseReliabilityOutcomeAuthorityId, identity, inputAuthorityRefs,
         attemptEligibility, membership: { scenarioIds: [...releaseReliabilityScenarioIds], memberOutcomes }, reasons });
 }

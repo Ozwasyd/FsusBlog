@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-const { adaptReleaseReliabilitySemanticOutcome, releaseReliabilityOutcomeProducerId } = await import(
+const { adaptReleaseReliabilitySemanticOutcome, releaseReliabilityOutcomeAuthorityId,
+    releaseReliabilityOutcomeProducerId } = await import(
     new URL('../../tools/test-matrix/outcomes/release-reliability-adapter.mjs', import.meta.url)
 );
 const { digestCanonical } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
@@ -137,6 +138,8 @@ test('exact-seven qualified members produce a verified candidate and preserve al
 {
     const result = adaptReleaseReliabilitySemanticOutcome(fixture());
     assert.equal(result.verificationStatus, 'verified');
+    assert.equal(result.producerAuthorityId, releaseReliabilityOutcomeAuthorityId);
+    assert.equal(result.producerAuthorityId, 'tools/test-matrix/outcomes/release-reliability-adapter.mjs');
     assert.equal(result.outcome.status, 'success');
     assert.equal(result.outcome.membership.memberOutcomes.length, 7);
     assert.ok(result.outcome.membership.memberOutcomes.every(member => member.planned && member.executed
