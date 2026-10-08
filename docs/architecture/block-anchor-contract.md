@@ -206,3 +206,45 @@ durable registration, permission-safe target query (#2441), complete block diagn
 lifecycle persistence (#2443), transactional impact execution (#2447) and real package
 round-trip (#2450) remain integration work. The producer, source integration, index
 and their fixture ports do not certify those capabilities.
+
+## Embed admission in the sole index
+
+`ArticleRelationIndexDependencyKind` distinguishes `Link` and `Embed` without changing
+or impersonating the closed shared link-kind catalog. Complete article families
+carry their existing relation sets and versioned `ArticleRelationIndexEmbedAdmission`
+objects in the same index. `ArticleBlockRelationIndexSource` passes this complete
+embed carrier through its existing source integration. There is one expected-index-
+generation commit and one combined set/edge/text budget; target lookups are projections
+of the same article families.
+
+The admission factories consume the actual upstream `1194ee450` separate authoring
+projection, expanded graph and relation outputs, or a sealed publication plan and its
+relation derivation. They call the original independent projection/relation verifiers.
+They retain the original host/document/revision, authority generation, actor/site/
+permission context, runtime, scope, source-artifact digest, every exact target revision,
+kind/heading/anchor, dependency coordinate and projection/dependency digests. Authoring
+also retains its first-stage projection receipt digest. Frozen publication retains
+all original dependency receipts, including plan/publication-edge/coordinate bindings.
+No parser, resolver, graph algorithm, identity or digest authority is recreated.
+
+Each admission records its original host source sequence and source generation.
+Authoring must match the current host sequence; artifact generations cannot be in the
+future. An unchanged host can retain its original artifact generation while the corpus
+advances. That capture is distinct from the inspection's current corpus generation.
+Frozen publication capture, edge set, coordinates and receipts cannot be rewritten,
+removed or rebound by current replacement or rebuild. A bridge owns immutable copies
+of the original edge/receipt collections. Nested edges keep their actual nested owner;
+inspection revalidation rereads the original host family, not a fabricated nested source.
+
+`InspectEmbedTarget` requires an exact canonical embed target and explicit authoring or
+frozen-publication scope. Its `ArticleRelationIndexEmbedInspection` remains unadmitted,
+as do link inspections. The existing `RevalidateSourceAsync` rereads original families
+at the exact corpus generation and refuses edited, stale or context-swapped inspections,
+even when a result is empty. These APIs do not authorize public items/counts or writes.
+
+Source-only verifier success is not an observed live permission grant or persisted
+publication receipt. Production source registration, canonical identity/parse/permission
+adapters, durable storage, runtime/publication/device qualification and all remaining
+query/impact/package acceptance gates stay separate. Integration must consume upstream
+`1194ee450` together with the exact canonical block validator offer; consuming only the
+embed pipeline's older link validator does not provide canonical block-link admission.

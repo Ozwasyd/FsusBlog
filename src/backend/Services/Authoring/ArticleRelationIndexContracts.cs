@@ -1,8 +1,17 @@
 using System.Collections.Immutable;
 
+using FsusBlog.Shared.Contracts.ArticleEmbeds;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Relations;
 using FsusBlog.Shared.Contracts.ArticleRelations;
 
 namespace FsusBlog.Server.Services.Authoring;
+
+/// <summary>Explicit dependency families; embed edges never impersonate outgoing link records.</summary>
+public enum ArticleRelationIndexDependencyKind : byte
+{
+    Link = 1,
+    Embed = 2
+}
 
 /// <summary>
 /// Complete canonical source sets for one portable article. The original producer supplies
@@ -13,7 +22,10 @@ namespace FsusBlog.Server.Services.Authoring;
 public sealed record ArticleRelationIndexArticle(
     string ArticleIdentity,
     long SourceSequence,
-    ImmutableArray<ArticleRelationSet> Sets);
+    ImmutableArray<ArticleRelationSet> Sets)
+{
+    public ImmutableArray<ArticleRelationIndexEmbedAdmission> Embeds { get; init; } = [];
+}
 
 /// <summary>One ordinal article page from the original relation producer at an exact generation.</summary>
 public sealed record ArticleRelationIndexSourcePage(
@@ -59,7 +71,14 @@ public sealed record ArticleRelationIndexSnapshot(
     long IndexGeneration,
     long SourceGeneration,
     ImmutableSortedDictionary<string, ArticleRelationIndexArticle> Articles,
-    ImmutableDictionary<ArticleRelationTargetIdentity, ImmutableArray<ArticleRelationRecord>> Targets);
+    ImmutableDictionary<ArticleRelationTargetIdentity, ImmutableArray<ArticleRelationRecord>> Targets)
+{
+    public ImmutableDictionary<ArticleEmbedTargetIdentity, ImmutableArray<ArticleRelationIndexEmbedEntry>> EmbedTargets
+    {
+        get; init;
+    }
+        = ImmutableDictionary<ArticleEmbedTargetIdentity, ImmutableArray<ArticleRelationIndexEmbedEntry>>.Empty;
+}
 
 /// <summary>
 /// Unadmitted exact target candidates from an actual index read. Consumers must revalidate against
@@ -72,6 +91,26 @@ public sealed record ArticleRelationIndexInspection(
     ArticleRelationTargetIdentity Target,
     ArticleRelationKind? Kind,
     ImmutableArray<ArticleRelationRecord> Records);
+
+/// <summary>Lookup reference into the same immutable article family, including its original coordinate.</summary>
+public sealed record ArticleRelationIndexEmbedEntry(
+    string HostArticleIdentity,
+    ArticleRelationIndexEmbedAdmission Admission,
+    ArticleEmbedRelationEdge Edge,
+    ArticleEmbedDependencyCoordinate Coordinate,
+    ArticleEmbedDependencyReceipt? PublicationReceipt);
+
+/// <summary>Unadmitted embed candidates; nested owners do not replace the source host family.</summary>
+public sealed record ArticleRelationIndexEmbedInspection(
+    ArticleRelationActorContext Actor,
+    long IndexGeneration,
+    long SourceGeneration,
+    ArticleEmbedTargetIdentity Target,
+    ArticleEmbedEdgeScope Scope,
+    ImmutableArray<ArticleRelationIndexEmbedEntry> Entries)
+{
+    public ArticleRelationIndexDependencyKind DependencyKind => ArticleRelationIndexDependencyKind.Embed;
+}
 
 /// <summary>Closed, content-free index refusal; exceptions never carry source or target text.</summary>
 public sealed class ArticleRelationIndexException(string reasonCode) : InvalidOperationException(reasonCode)

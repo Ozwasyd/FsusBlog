@@ -71,7 +71,10 @@ public sealed record ArticleBlockRelationParsedRevision(
 public sealed record ArticleBlockRelationParsedArticle(
     string ArticleIdentity,
     long SourceSequence,
-    ImmutableArray<ArticleBlockRelationParsedRevision> Revisions);
+    ImmutableArray<ArticleBlockRelationParsedRevision> Revisions)
+{
+    public ImmutableArray<ArticleRelationIndexEmbedAdmission> Embeds { get; init; } = [];
+}
 
 /// <summary>Bounded original parse page, tied to the exact reader context and corpus generation.</summary>
 public sealed record ArticleBlockRelationParsedPage(

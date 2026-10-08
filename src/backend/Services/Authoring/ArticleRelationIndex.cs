@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
+using FsusBlog.Shared.Contracts.ArticleEmbeds;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Relations;
 using FsusBlog.Shared.Contracts.ArticleRelations;
 using FsusBlog.Shared.Contracts.BlockLinks;
 
@@ -58,7 +60,7 @@ public sealed class ArticleRelationIndex
                 cancellationToken.ThrowIfCancellationRequested();
                 Require(after is null || StringComparer.Ordinal.Compare(article.ArticleIdentity, after) > 0,
                     "article_relation_index_page_order_invalid");
-                ArticleRelationIndexArticle held = OwnArticle(article, budget, cancellationToken);
+                ArticleRelationIndexArticle held = OwnArticle(article, budget, page.SourceGeneration, cancellationToken);
                 Require(articles.TryAdd(held.ArticleIdentity, held), "article_relation_index_article_duplicate");
                 Require(articles.Count <= MaxArticles, "article_relation_index_article_budget_exceeded");
                 after = held.ArticleIdentity;
@@ -100,7 +102,7 @@ public sealed class ArticleRelationIndex
             _actor, articleIdentity, null, cancellationToken).ConfigureAwait(false);
         Require(read.Actor == _actor && read.SourceGeneration > 0 && read.Article.ArticleIdentity == articleIdentity,
             "article_relation_index_source_binding_mismatch");
-        ArticleRelationIndexArticle article = OwnArticle(read.Article, new StorageBudget(), cancellationToken);
+        ArticleRelationIndexArticle article = OwnArticle(read.Article, new StorageBudget(), read.SourceGeneration, cancellationToken);
         Require(read.SourceGeneration >= previous.SourceGeneration, "article_relation_index_source_generation_stale");
         previous.Articles.TryGetValue(articleIdentity, out ArticleRelationIndexArticle? old);
         if (read.SourceGeneration == previous.SourceGeneration)
@@ -158,6 +160,48 @@ public sealed class ArticleRelationIndex
         return new(_actor, snapshot.IndexGeneration, snapshot.SourceGeneration, target, kind, records.ToImmutable());
     }
 
+    /// <summary>Reads embed candidates in an explicit scope from the same committed source families.</summary>
+    public ArticleRelationIndexEmbedInspection InspectEmbedTarget(
+        ArticleEmbedTargetIdentity target,
+        ArticleEmbedEdgeScope scope,
+        long expectedIndexGeneration,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Require(ArticleEmbedTargetCodec.Validate(target).IsValid && Enum.IsDefined(scope),
+            "article_relation_index_embed_query_invalid");
+        ArticleRelationIndexSnapshot snapshot = Capture(expectedIndexGeneration, true)!;
+        var entries = ImmutableArray.CreateBuilder<ArticleRelationIndexEmbedEntry>();
+        if (snapshot.EmbedTargets.TryGetValue(target, out ImmutableArray<ArticleRelationIndexEmbedEntry> candidates))
+        {
+            foreach (ArticleRelationIndexEmbedEntry entry in candidates)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (entry.Edge.Scope == scope)
+                {
+                    entries.Add(entry);
+                }
+            }
+        }
+        RequireCurrent(snapshot);
+        return new(_actor, snapshot.IndexGeneration, snapshot.SourceGeneration, target, scope, entries.ToImmutable());
+    }
+
+    /// <summary>Rechecks actual embed inspection parity and rereads original host families, including nested edges.</summary>
+    public async Task RevalidateSourceAsync(
+        ArticleRelationIndexEmbedInspection inspection,
+        CancellationToken cancellationToken = default)
+    {
+        Require(inspection.Actor == _actor && !inspection.Entries.IsDefault, "article_relation_index_inspection_binding_invalid");
+        ArticleRelationIndexSnapshot snapshot = Capture(inspection.IndexGeneration, true)!;
+        ArticleRelationIndexEmbedInspection actual = InspectEmbedTarget(
+            inspection.Target, inspection.Scope, inspection.IndexGeneration, cancellationToken);
+        Require(inspection.SourceGeneration == actual.SourceGeneration && inspection.Entries.SequenceEqual(actual.Entries),
+            "article_relation_index_inspection_tampered");
+        await RevalidateFamiliesAsync(snapshot, inspection.Entries.Select(static entry => entry.HostArticleIdentity), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Recomputes inspection parity from the actual index and sequentially rereads each affected
     /// complete source family through its original port. Fabricated, stale, actor-swapped or edited
@@ -173,18 +217,26 @@ public sealed class ArticleRelationIndex
             inspection.Target, inspection.IndexGeneration, inspection.Kind, cancellationToken);
         Require(inspection.SourceGeneration == actual.SourceGeneration && inspection.Records.SequenceEqual(actual.Records),
             "article_relation_index_inspection_tampered");
+        await RevalidateFamiliesAsync(snapshot, inspection.Records.Select(static record => record.Source.ArticleIdentity), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task RevalidateFamiliesAsync(
+        ArticleRelationIndexSnapshot snapshot,
+        IEnumerable<string> identities,
+        CancellationToken cancellationToken)
+    {
         ArticleRelationIndexSourcePage first = await _source.ReadAsync(
             _actor, null, 1, snapshot.SourceGeneration, cancellationToken).ConfigureAwait(false);
         ValidatePage(first, snapshot.SourceGeneration, 1);
-        foreach (string identity in inspection.Records.Select(static record => record.Source.ArticleIdentity)
-            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+        foreach (string identity in identities.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
             ArticleRelationIndexArticleRead read = await _source.ReadArticleAsync(
                 _actor, identity, snapshot.SourceGeneration, cancellationToken).ConfigureAwait(false);
             Require(read.Actor == _actor && read.SourceGeneration == snapshot.SourceGeneration && read.Article.ArticleIdentity == identity,
                 "article_relation_index_source_binding_mismatch");
-            ArticleRelationIndexArticle current = OwnArticle(read.Article, new StorageBudget(), cancellationToken);
+            ArticleRelationIndexArticle current = OwnArticle(read.Article, new StorageBudget(), read.SourceGeneration, cancellationToken);
             Require(SameArticle(snapshot.Articles[identity], current), "article_relation_index_source_snapshot_stale");
         }
         ArticleRelationIndexSourcePage final = await _source.ReadAsync(
@@ -238,10 +290,12 @@ public sealed class ArticleRelationIndex
     private ArticleRelationIndexArticle OwnArticle(
         ArticleRelationIndexArticle article,
         StorageBudget budget,
+        long sourceGeneration,
         CancellationToken cancellationToken)
     {
         Require(BlockAnchorContractValidator.IsStableArticleIdentity(article.ArticleIdentity)
-            && article.SourceSequence > 0 && !article.Sets.IsDefault && article.Sets.Length <= MaxSets,
+            && article.SourceSequence > 0 && !article.Sets.IsDefault && article.Sets.Length <= MaxSets
+            && !article.Embeds.IsDefault && article.Embeds.Length <= MaxSets,
             "article_relation_index_source_article_invalid");
         var sets = new List<ArticleRelationSet>();
         var revisions = new HashSet<(ArticleRelationRevisionKind Kind, string Identity)>();
@@ -270,9 +324,32 @@ public sealed class ArticleRelationIndex
             });
             sets.Add(held);
         }
+        var embeds = new List<ArticleRelationIndexEmbedAdmission>();
+        var embedIdentities = new HashSet<(ArticleEmbedEdgeScope Scope, string Document, long Epoch, long Revision)>();
+        foreach (ArticleRelationIndexEmbedAdmission admission in article.Embeds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Require(admission is not null, "article_relation_index_embed_admission_invalid");
+            ArticleEmbedRelationEdgeSet set = admission.EdgeSet;
+            Require(set.HostPortableArticleIdentity == article.ArticleIdentity
+                && set.Actor.ActorIdentity == _actor.ActorIdentity && set.Actor.SiteIdentity == _actor.SiteIdentity
+                && set.Actor.PermissionContextDigest == _actor.PermissionContextDigest
+                && admission.SourceGeneration <= sourceGeneration && admission.HostSourceSequence <= article.SourceSequence
+                && (set.Scope != ArticleEmbedEdgeScope.Authoring
+                    || admission.HostSourceSequence == article.SourceSequence),
+                "article_relation_index_embed_binding_invalid");
+            Require(embedIdentities.Add((set.Scope, set.HostDocument.Id, set.HostDocument.Epoch, set.HostSourceRevision)),
+                "article_relation_index_embed_duplicate");
+            budget.Add(admission, cancellationToken);
+            embeds.Add(admission);
+        }
         return article with
         {
-            Sets = sets.OrderBy(static set => set.Source.RevisionIdentity, StringComparer.Ordinal).ToImmutableArray()
+            Sets = sets.OrderBy(static set => set.Source.RevisionIdentity, StringComparer.Ordinal).ToImmutableArray(),
+            Embeds = embeds.OrderBy(static embed => embed.EdgeSet.Scope)
+                .ThenBy(static embed => embed.EdgeSet.HostDocument.Id, StringComparer.Ordinal)
+                .ThenBy(static embed => embed.EdgeSet.HostDocument.Epoch)
+                .ThenBy(static embed => embed.EdgeSet.HostSourceRevision).ToImmutableArray()
         };
     }
 
@@ -285,6 +362,7 @@ public sealed class ArticleRelationIndex
         Require(expectedIndexGeneration < long.MaxValue, "article_relation_index_generation_exhausted");
         var budget = new StorageBudget();
         var targets = new Dictionary<ArticleRelationTargetIdentity, List<ArticleRelationRecord>>();
+        var embedTargets = new Dictionary<ArticleEmbedTargetIdentity, List<ArticleRelationIndexEmbedEntry>>();
         foreach (ArticleRelationIndexArticle article in articles.Values)
         {
             foreach (ArticleRelationSet set in article.Sets)
@@ -306,10 +384,37 @@ public sealed class ArticleRelationIndex
                     records.Add(record);
                 }
             }
+            foreach (ArticleRelationIndexEmbedAdmission admission in article.Embeds)
+            {
+                budget.Add(admission, cancellationToken);
+                Dictionary<string, ArticleEmbedDependencyReceipt> receipts = admission.DependencyReceipts
+                    .ToDictionary(static receipt => receipt.EdgeIdentity, StringComparer.Ordinal);
+                for (int i = 0; i < admission.EdgeSet.Edges.Count; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    ArticleEmbedRelationEdge edge = admission.EdgeSet.Edges[i];
+                    if (!embedTargets.TryGetValue(edge.Target, out List<ArticleRelationIndexEmbedEntry>? entries))
+                    {
+                        entries = [];
+                        embedTargets.Add(edge.Target, entries);
+                    }
+                    receipts.TryGetValue(edge.EdgeIdentity, out ArticleEmbedDependencyReceipt? receipt);
+                    entries.Add(new(article.ArticleIdentity, admission, edge, admission.Coordinates[i], receipt));
+                }
+            }
         }
         return new(_actor, expectedIndexGeneration + 1, sourceGeneration, articles,
             targets.ToImmutableDictionary(static pair => pair.Key, static pair => pair.Value
-                .OrderBy(static record => record.RelationIdentity, StringComparer.Ordinal).ToImmutableArray()));
+                .OrderBy(static record => record.RelationIdentity, StringComparer.Ordinal).ToImmutableArray()))
+        {
+            EmbedTargets = embedTargets.ToImmutableDictionary(static pair => pair.Key, static pair => pair.Value
+                .OrderBy(static entry => entry.HostArticleIdentity, StringComparer.Ordinal)
+                .ThenBy(static entry => entry.Admission.EdgeSet.Scope)
+                .ThenBy(static entry => entry.Admission.EdgeSet.HostDocument.Id, StringComparer.Ordinal)
+                .ThenBy(static entry => entry.Admission.EdgeSet.HostDocument.Epoch)
+                .ThenBy(static entry => entry.Admission.EdgeSet.HostSourceRevision)
+                .ThenBy(static entry => entry.Edge.EdgeIdentity, StringComparer.Ordinal).ToImmutableArray())
+        };
     }
 
     private static void PreserveHistory(
@@ -341,12 +446,26 @@ public sealed class ArticleRelationIndex
                     && nextPublications.TryGetValue(frozen.Source.RevisionIdentity, out string? digest) && digest == frozen.SetDigest,
                     "article_relation_index_history_immutable");
             }
+            Dictionary<(string Document, long Epoch, long Revision), ArticleRelationIndexEmbedAdmission>? nextEmbeds = next?.Embeds
+                .Where(static embed => embed.EdgeSet.Scope == ArticleEmbedEdgeScope.FrozenPublication)
+                .ToDictionary(static embed => (embed.EdgeSet.HostDocument.Id, embed.EdgeSet.HostDocument.Epoch, embed.EdgeSet.HostSourceRevision));
+            foreach (ArticleRelationIndexEmbedAdmission frozen in old.Embeds
+                .Where(static embed => embed.EdgeSet.Scope == ArticleEmbedEdgeScope.FrozenPublication))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Require(nextEmbeds is not null
+                    && nextEmbeds.TryGetValue((frozen.EdgeSet.HostDocument.Id, frozen.EdgeSet.HostDocument.Epoch,
+                        frozen.EdgeSet.HostSourceRevision), out ArticleRelationIndexEmbedAdmission? current)
+                    && frozen.SameBinding(current), "article_relation_index_embed_history_immutable");
+            }
         }
     }
 
     private static bool SameArticle(ArticleRelationIndexArticle left, ArticleRelationIndexArticle right)
         => left.ArticleIdentity == right.ArticleIdentity && left.SourceSequence == right.SourceSequence
-            && left.Sets.Select(static set => set.SetDigest).SequenceEqual(right.Sets.Select(static set => set.SetDigest));
+            && left.Sets.Select(static set => set.SetDigest).SequenceEqual(right.Sets.Select(static set => set.SetDigest))
+            && left.Embeds.Length == right.Embeds.Length
+            && left.Embeds.Zip(right.Embeds).All(static pair => pair.First.SameBinding(pair.Second));
 
     private static bool SameCorpus(
         ImmutableSortedDictionary<string, ArticleRelationIndexArticle> left,
@@ -367,6 +486,19 @@ public sealed class ArticleRelationIndex
         private long _sets;
         private long _relations;
         private long _textCharacters;
+
+        public void Add(ArticleRelationIndexEmbedAdmission admission, CancellationToken cancellationToken)
+        {
+            _sets++;
+            _relations += admission.EdgeSet.Edges.Count;
+            Require(_sets <= MaxSets && _relations <= MaxRelations, "article_relation_index_storage_budget_exceeded");
+            foreach (ArticleEmbedRelationEdge edge in admission.EdgeSet.Edges)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _textCharacters += edge.Directive.TargetToken.Length;
+                Require(_textCharacters <= MaxStoredTextCharacters, "article_relation_index_text_budget_exceeded");
+            }
+        }
 
         public void Add(ArticleRelationSet set, CancellationToken cancellationToken)
         {

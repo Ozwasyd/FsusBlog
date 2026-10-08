@@ -113,7 +113,10 @@ public sealed class ArticleBlockRelationIndexSource(IArticleBlockRelationParsedS
             sets.Add(merged);
         }
         return new(article.ArticleIdentity, article.SourceSequence,
-            sets.OrderBy(static set => set.Source.RevisionIdentity, StringComparer.Ordinal).ToImmutableArray());
+            sets.OrderBy(static set => set.Source.RevisionIdentity, StringComparer.Ordinal).ToImmutableArray())
+        {
+            Embeds = article.Embeds
+        };
     }
 
     private static void Require([DoesNotReturnIf(false)] bool condition, string reasonCode)
