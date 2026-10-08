@@ -187,6 +187,10 @@ internal static class CurrentSchemaPortableBootstrapCompiler
         if (index.Keys.Count == 0 || index.AccessMethod != "btree" || index.IncludedColumns.Count != 0
             || index.Predicate is not null || index.NullsNotDistinct)
             throw new InvalidOperationException("portable_bootstrap_index_effect_unavailable");
+        if (index.Keys.Any(static key => key.Expression is not null))
+        {
+            throw new InvalidOperationException("current_schema_bootstrap_recipe_index_expression_provider_unavailable");
+        }
         RequireColumns(table, index.Keys.Select(static value => value.Column).ToArray());
         string[] keys = index.Keys.Select(key =>
         {

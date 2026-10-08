@@ -423,10 +423,10 @@ and original control creation/admission rules are unchanged.
 
 This source combination retains the original complete MySQL physical-fact model,
 comparison and canonical hash/clone closure rather than discarding observed native
-metadata. It changes the current model to `fsusblog.current-schema.v4` and the
-projection generator to `fsusblog.current-schema-projection.v4`; the reflection
+metadata. The expression-key contract changes the current model to `fsusblog.current-schema.v5` and the
+projection generator to `fsusblog.current-schema-projection.v5`; the reflection
 extractor version remains v2. Both composite source/content identities include
-the explicit control version and complete sole shape. Previously sealed v2/v3 owned
+the explicit control version and complete sole shape. Previously sealed v2/v3/v4 owned
 targets, plans and receipts cannot be reinterpreted, auto-resealed or accepted
 through a second version path. A new candidate must invoke the original owned
 projection producer and obtain fresh exact authorized source/backup/DAG/target
@@ -660,17 +660,26 @@ the single neutral target projection binds both the entity facts and all recipe
 facts. Missing descriptions still refuse before any command is returned.
 The exporter payload is neither an apply grant nor a self-reported current target;
 the offline evidence owner must independently bind its original producer, bytes
-and complete source closure before consumption. No owned target artifact has
-been produced by this source-only change.
+and complete source closure before consumption. Producing an owned target
+artifact does not grant migration execution or current-schema runtime admission.
 
 The original property-definition recipe's unconstrained PostgreSQL `numeric`
 columns retain neutral `decimal` and physical `numeric` facts. Its inline tick
 `CHECK` clauses retain the complete original expressions and PostgreSQL's implicit
 `<table>_<column>_check` names as separate constraint effects. Numeric modifiers,
 unknown column tails and malformed checks still refuse extraction. This bounded
-extraction support does not grant a complete export: unsupported expression index
-keys, native expression semantics and independent producer qualification remain
-separate gates.
+extraction support does not grant independent producer or native qualification.
+
+Current index keys retain either their bound column or a complete neutral
+expression tree, with independent direction, null placement, operator class and
+collation. The original history index's ordered three-column timestamp
+`GREATEST` expression is supported by the sole extractor, PostgreSQL native
+catalog decoder, complete comparer and offline compiler. Expression keys use an
+empty column field; their expressions are never discarded or relabeled as column
+names. Unknown functions, arities, operands and native roster inconsistencies
+refuse. MySQL and SQLite do not acquire an expression-key implementation from
+this PostgreSQL capability. Fresh v5 target/source identities are required; old
+artifacts remain unchanged and cannot grant current admission.
 
 The original Server executable exposes `export-current-schema-owned-target
 --output <new-absolute-file>` before Web host, DI or database configuration.

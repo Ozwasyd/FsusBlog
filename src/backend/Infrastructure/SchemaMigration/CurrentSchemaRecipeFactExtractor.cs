@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 
 using FsusBlog.Contracts.Schema;
+using FsusBlog.Shared.Algorithms.Schema;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 
@@ -43,7 +44,7 @@ internal static class CurrentSchemaRecipeFactExtractor
         }
         var table = new SchemaTableModel(recipe.TableName, columns, [], constraints: constraints,
             owner: new("current-runtime-recipe", "CurrentSchemaRuntimeRollupTables.Tables"));
-        CurrentSchemaRecipeOperation[] operations = (recipe.AdditionalSql ?? []).Select(Additional).ToArray();
+        CurrentSchemaRecipeOperation[] operations = (recipe.AdditionalSql ?? []).Select(source => Additional(source, table)).ToArray();
         return new CurrentSchemaRecipeFacts(table, operations);
     }
 
@@ -136,20 +137,33 @@ internal static class CurrentSchemaRecipeFactExtractor
             ForeignKeyUpdateAction: "no-action", ForeignKeyMatchType: "simple", ReferencedSchema: "public");
     }
 
-    private static CurrentSchemaRecipeOperation Additional(string source)
+    private static CurrentSchemaRecipeOperation Additional(string source, SchemaTableModel owner)
     {
         source = source.Trim();
         if (Starts(source, "CREATE INDEX") || Starts(source, "CREATE UNIQUE INDEX"))
         {
-            Match match = Match(source, $"CREATE (?<unique>UNIQUE )?INDEX IF NOT EXISTS (?<name>{Id}) ON (?<table>{Id})\\s*\\((?<keys>[^)]+)\\)\\s*(?:WHERE (?<predicate>.*?))?;");
-            SchemaIndexKeyModel[] keys = Split(match.Groups["keys"].Value).Select(static key =>
+            Match match = Match(source, $"CREATE (?<unique>UNIQUE )?INDEX IF NOT EXISTS (?<name>{Id}) ON (?<table>{Id})\\s*(?<body>.*);");
+            (string keyList, string? predicate) = IndexBody(match.Groups["body"].Value);
+            SchemaIndexKeyModel[] keys = Split(keyList).Select(key =>
             {
-                Match parsed = Match(key, $"(?<name>{Id})(?: (?<direction>ASC|DESC))?");
+                Match parsed = Match(key, "(?<value>.+?)(?: (?<direction>ASC|DESC))?(?: NULLS (?<nulls>FIRST|LAST))?");
                 bool descending = parsed.Groups["direction"].Value.Equals("DESC", StringComparison.OrdinalIgnoreCase);
-                return new SchemaIndexKeyModel(parsed.Groups["name"].Value, descending ? "desc" : "asc",
-                    descending ? "first" : "last", "default", "default");
+                string value = parsed.Groups["value"].Value;
+                string nulls = parsed.Groups["nulls"].Success ? parsed.Groups["nulls"].Value.ToLowerInvariant()
+                    : descending ? "first" : "last";
+                if (Regex.IsMatch(value, "\\A" + Id + "\\z", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+                {
+                    return new SchemaIndexKeyModel(value, descending ? "desc" : "asc", nulls, "default", "default");
+                }
+                if (match.Groups["table"].Value != owner.Name)
+                    Fail("index_expression_owner_unavailable");
+                var expressionKey = new SchemaIndexKeyModel(string.Empty, descending ? "desc" : "asc", nulls, "default", "default")
+                {
+                    Expression = PgCurrentSchemaExpressionParser.Parse(value, owner.Columns)
+                };
+                _ = SchemaIndexExpressionSemantics.RequireColumns(expressionKey, owner.Columns);
+                return expressionKey;
             }).ToArray();
-            string? predicate = match.Groups["predicate"].Success ? match.Groups["predicate"].Value : null;
             if (predicate is not null) ValidateExpression(predicate);
             var index = new SchemaIndexModel(match.Groups["name"].Value, match.Groups["unique"].Success,
                 keys, [], "btree", predicate, false);
@@ -204,6 +218,41 @@ internal static class CurrentSchemaRecipeFactExtractor
                 match.Groups["table"].Value, Constraint: constraint);
         }
         throw new InvalidOperationException("current_schema_recipe_operation_unavailable");
+    }
+
+    private static (string Keys, string? Predicate) IndexBody(string source)
+    {
+        if (!source.StartsWith('('))
+            Fail("index_key_list_missing");
+        int depth = 0;
+        bool quote = false;
+        for (int index = 0; index < source.Length; index++)
+        {
+            char character = source[index];
+            if (character == '\'')
+            {
+                if (quote && index + 1 < source.Length && source[index + 1] == '\'')
+                    index++;
+                else
+                    quote = !quote;
+            }
+            else if (!quote)
+            {
+                if (character == '(')
+                    depth++;
+                if (character == ')' && --depth == 0)
+                {
+                    string tail = source[(index + 1)..].Trim();
+                    if (tail.Length == 0)
+                        return (source[1..index], null);
+                    if (!Consume(ref tail, "WHERE"))
+                        Fail("index_tail_unavailable");
+                    ValidateExpression(tail);
+                    return (source[1..index], tail);
+                }
+            }
+        }
+        throw new InvalidOperationException("current_schema_recipe_unbalanced_expression");
     }
 
     private static Match Match(string source, string expression)
