@@ -11,110 +11,22 @@
         "src/backend/Program.cs",
         "src/backend/Services/SystemService.cs"
     ],
-    "firstPassTreeSha256": "cbb92d230c1de38831e11b084842c83487c39fc0c43c743adf96be4bcfaaba4b",
-    "secondPassTreeSha256": "cbb92d230c1de38831e11b084842c83487c39fc0c43c743adf96be4bcfaaba4b",
     "idempotent": true,
-    "sourcePreimageRevision": "aa99c14ec2d5395625d801f367ae19fb5b0df3f2",
-    "sourcePreimages": [
-        {
-            "path": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
-            "gitBlob": "9f708dcc83014fabe0b570b3c62d2088dfd251c1"
-        },
-        {
-            "path": "src/backend/Program.cs",
-            "gitBlob": "50734b1e3226d880728905d59fba94c7f7d28908"
-        },
-        {
-            "path": "src/backend/Services/SystemService.cs",
-            "gitBlob": "842f13491890fcd203b2b8abf223b619577e6c2b"
-        }
-    ],
+    "originalNarrowFormatRevision": "8a4916b135eedaec0d6252f9b6e5e1bd53040913",
+    "firstPassTreeSha256": "0694f7bbd7abefeacf11bf500cb1e12598120d524cdad19b8d89945679db1217",
+    "secondPassTreeSha256": "0694f7bbd7abefeacf11bf500cb1e12598120d524cdad19b8d89945679db1217",
     "actualExecution": {
-        "beforeVerifyExitCode": 2,
-        "beforeWhitespaceDiagnostics": 14,
+        "sourceRevision": "390c86209fa23f2cbc4de138afac1c82e549b5d9",
         "firstPassExitCode": 0,
         "secondPassExitCode": 0,
-        "afterVerifyExitCode": 0,
-        "scopedCSharpStyleExitCode": 1,
-        "remainingScopedWhitespaceDiagnostics": 0,
-        "remainingScopedCheckerDiagnostic": "[csharp-style] src/backend/Services/SystemService.cs:19 using-order: using directives must place System first and sort namespaces within a group [SqlSugar]",
-        "freshIntegrationTwoPass": true
+        "firstPassFormattedFiles": 0,
+        "secondPassFormattedFiles": 0,
+        "firstPassLogSha256": "1bcae165eb3069691931de2babd130707e405af3dcb0b1a72dc174c937cdb250",
+        "secondPassLogSha256": "e5fb1c6513de401a07cb436a16e81e5c0fc61aba8f652d2164f8f0e444d3c74d"
     },
-    "roslynEquivalence": {
-        "schema": "fsusblog.roslyn-format-equivalence.v1",
-        "parserAssemblyVersion": "5.9.0.0",
-        "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
-        "paths": [
-            {
-                "path": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
-                "tokenCount": 8188,
-                "beforeTokenSha256": "b6d40de1af17d15c8e250f96e407af385ac31372727acd128df905c53e65588b",
-                "afterTokenSha256": "b6d40de1af17d15c8e250f96e407af385ac31372727acd128df905c53e65588b",
-                "beforeAnchoredTriviaSha256": "c870d942e33f69e2d6b282be4cc648adda5f72401b09d4658307046e76e0fe5a",
-                "afterAnchoredTriviaSha256": "c870d942e33f69e2d6b282be4cc648adda5f72401b09d4658307046e76e0fe5a",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            },
-            {
-                "path": "src/backend/Program.cs",
-                "tokenCount": 1029,
-                "beforeTokenSha256": "99bb4d7041c4e962a7ad1d701aeb0e9b51176fbe4db962f745e3481798f75c66",
-                "afterTokenSha256": "99bb4d7041c4e962a7ad1d701aeb0e9b51176fbe4db962f745e3481798f75c66",
-                "beforeAnchoredTriviaSha256": "bc0355c767a6ac4e0773d38b14c34892ed196818f49c43b84c9eb1550d9ad9d1",
-                "afterAnchoredTriviaSha256": "bc0355c767a6ac4e0773d38b14c34892ed196818f49c43b84c9eb1550d9ad9d1",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            },
-            {
-                "path": "src/backend/Services/SystemService.cs",
-                "tokenCount": 5646,
-                "beforeTokenSha256": "38f2bf986fd02355399eb40e027da5955b22f75226a483287801e9b8e2e940a7",
-                "afterTokenSha256": "38f2bf986fd02355399eb40e027da5955b22f75226a483287801e9b8e2e940a7",
-                "beforeAnchoredTriviaSha256": "ba477407e116d32a173c1a6a4bf756eea0d22e39c57cd44d8325dc25e4c309da",
-                "afterAnchoredTriviaSha256": "ba477407e116d32a173c1a6a4bf756eea0d22e39c57cd44d8325dc25e4c309da",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            },
-            {
-                "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
-                "tokenCount": 3117,
-                "beforeTokenSha256": "d563af1f4caf39c5adfc5409f4674751a7cbab2adedaf868cb728bf51f537da5",
-                "afterTokenSha256": "d563af1f4caf39c5adfc5409f4674751a7cbab2adedaf868cb728bf51f537da5",
-                "beforeAnchoredTriviaSha256": "dbedf91420cf0e339a1102f9bd4d837ac5364942adbca2437e31cee6ed8babb5",
-                "afterAnchoredTriviaSha256": "dbedf91420cf0e339a1102f9bd4d837ac5364942adbca2437e31cee6ed8babb5",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            },
-            {
-                "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
-                "tokenCount": 6523,
-                "beforeTokenSha256": "d74ed934c79d1b3625c5264c1d767af42510db0d5efebc25e050dfb3f071a7e9",
-                "afterTokenSha256": "d74ed934c79d1b3625c5264c1d767af42510db0d5efebc25e050dfb3f071a7e9",
-                "beforeAnchoredTriviaSha256": "e196e88d55e6920c1088a4b59fff4858601f3b3dbdeecbba322ba17e421295e0",
-                "afterAnchoredTriviaSha256": "e196e88d55e6920c1088a4b59fff4858601f3b3dbdeecbba322ba17e421295e0",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            },
-            {
-                "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs",
-                "tokenCount": 3229,
-                "beforeTokenSha256": "77bb1c009d11cda3a048de04189c76f37e56987efb99d4ad3d34d60b16cc7a04",
-                "afterTokenSha256": "77bb1c009d11cda3a048de04189c76f37e56987efb99d4ad3d34d60b16cc7a04",
-                "beforeAnchoredTriviaSha256": "6cec453c3baf22d548039d4dcce96f8431eda77b0e1318875b65c0d06d0541df",
-                "afterAnchoredTriviaSha256": "6cec453c3baf22d548039d4dcce96f8431eda77b0e1318875b65c0d06d0541df",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            }
-        ],
-        "equivalent": true
-    },
-    "qualificationEligible": false,
-    "diagnosticArtifacts": [],
-    "originalNarrowFormatRevision": "8a4916b135eedaec0d6252f9b6e5e1bd53040913"
+    "currentCandidateBindingReason": "After separate owned import-order structural repair, rerun the exact original own-three whitespace command twice on the actual current source. Keep the original format-only revision identity and preserve original execution evidence separately; no new whitespace delta is claimed.",
+    "originalExecutionEvidence": "artifacts/style/issue-1688-three-production-pre-import-idempotence.json",
+    "originalExecutionEvidenceSha256": "67f64abf3e6dd60ff4914e705a2d9f5edfdc0f6cd19b80933a49810341727c42",
+    "separateImportOrderRepairEvidence": "artifacts/style/issue-1688-system-service-import-order.json",
+    "qualificationEligible": false
 }

@@ -1,0 +1,47 @@
+{
+    "path": "src/backend/Services/SystemService.cs",
+    "digest": "40e737c778fad5cc58f2b3ccacbdb3b591dad1676b11a624047da2c7839f83e1",
+    "beforeBlob": "f7289f6ef15c895ce2e9ba4b14f134ac58294855",
+    "bodyByteIdentity": true,
+    "usingDirectiveCount": 16,
+    "usingDirectiveRawTextInventoryPreserved": true,
+    "rawFullTokenOrderPreserved": false,
+    "exactSwapVerified": true,
+    "schema": "fsusblog.csharp-import-order-mechanical-evidence.v1",
+    "sourceRevision": "390c86209fa23f2cbc4de138afac1c82e549b5d9",
+    "originalSource": "9fc557f0b7f2fe5cc6da5309628465917008e566",
+    "afterBlob": "969b38e16777af0a227fd0f782c63c7544479de6",
+    "producerCommand": "node tools/dotnet/check-csharp-style.mjs --fix --file src/backend/Services/SystemService.cs",
+    "producerNodeVersion": "v24.19.0",
+    "producerGitBlob": "7a716357c0734cc4be39439348f23379c52554e5",
+    "firstPassExitCode": 0,
+    "secondPassExitCode": 0,
+    "firstPassFixedFiles": 1,
+    "secondPassFixedFiles": 0,
+    "firstPassTreeSha256": "40e737c778fad5cc58f2b3ccacbdb3b591dad1676b11a624047da2c7839f83e1",
+    "secondPassTreeSha256": "40e737c778fad5cc58f2b3ccacbdb3b591dad1676b11a624047da2c7839f83e1",
+    "idempotent": true,
+    "aliasesOrGlobalUsingsPresent": false,
+    "canonicalImportOrderRoslynEquivalence": {
+        "schema": "fsusblog.roslyn-format-equivalence.v1",
+        "parserAssemblyVersion": "5.9.0.0",
+        "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
+        "paths": [
+            {
+                "path": "src/backend/Services/SystemService.cs",
+                "tokenCount": 5646,
+                "beforeTokenSha256": "ecfb1396d3e7908b99be316a89d99ead7f3d6d3593d440766a29218b59ede06b",
+                "afterTokenSha256": "ecfb1396d3e7908b99be316a89d99ead7f3d6d3593d440766a29218b59ede06b",
+                "beforeAnchoredTriviaSha256": "ba477407e116d32a173c1a6a4bf756eea0d22e39c57cd44d8325dc25e4c309da",
+                "afterAnchoredTriviaSha256": "ba477407e116d32a173c1a6a4bf756eea0d22e39c57cd44d8325dc25e4c309da",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            }
+        ],
+        "equivalent": true
+    },
+    "canonicalization": "Compare only after sorting the two unchanged complete using directives into the same order; namespace/body bytes remain exact. This does not assert original raw full token order identity.",
+    "sourceFixRegisteredInBlameIgnore": false,
+    "qualificationEligible": false
+}
