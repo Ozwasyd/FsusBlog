@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import { retainExecutionFailureCompatibility } from './execution-failure-diagnostic.mjs';
 import path from 'node:path';
 
 import { resolveExecutablePath } from './execution-envelope-environment.mjs';
@@ -487,6 +488,7 @@ export function seedPreparedNuget(prepared, destination)
         throw new Error('NuGet preparation drifted or destination is not a fresh canonical cache');
     }
     let firstFailure = null;
+    let failed = false;
     let cleanupFailure = null;
     try
     {
@@ -528,6 +530,7 @@ export function seedPreparedNuget(prepared, destination)
     catch (error)
     {
         firstFailure = error;
+        failed = true;
         throw error;
     }
     finally
@@ -550,9 +553,9 @@ export function seedPreparedNuget(prepared, destination)
         }
         if (cleanupFailure)
         {
-            if (firstFailure)
+            if (failed)
             {
-                firstFailure.cleanupError = cleanupFailure;
+                retainExecutionFailureCompatibility(firstFailure, 'cleanupError', cleanupFailure);
             }
         }
     }

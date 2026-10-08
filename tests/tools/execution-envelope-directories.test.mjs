@@ -356,6 +356,47 @@ test('preseed failure cleans only the new attempt and preserves first failure', 
     assert.equal(fs.existsSync(seed), true);
 });
 
+for (const reason of [Object.freeze(new Error('interrupted copy')), 0, false, null])
+{
+    test('interrupted preseed retains an immutable or primitive first reason during cleanup refusal', (context) =>
+    {
+        const { root, seed } = fixture(context);
+        const input = inventoryPreparedNuget(seed);
+        const destination = path.join(root, 'interrupted-copy');
+        fs.mkdirSync(destination);
+        context.mock.method(fs, 'writeFileSync', (file) =>
+        {
+            if (String(file).startsWith(destination + path.sep))
+            {
+                throw reason;
+            }
+            throw new Error('unexpected write outside task destination');
+        });
+        const chmod = fs.chmodSync;
+        context.mock.method(fs, 'chmodSync', (file, mode) =>
+        {
+            if (String(file).startsWith(destination + path.sep))
+            {
+                throw new Error('cleanup refusal');
+            }
+            return chmod(file, mode);
+        });
+        let failed = false;
+        try
+        {
+            seedPreparedNuget(input, destination);
+        }
+        catch (error)
+        {
+            failed = true;
+            assert.equal(error, reason);
+        }
+        assert.equal(failed, true);
+        assert.equal(fs.existsSync(seed), true);
+        context.mock.restoreAll();
+    });
+}
+
 test('offline ingress cannot be assigned to another producer', (context) =>
 {
     const { root, seed } = fixture(context);

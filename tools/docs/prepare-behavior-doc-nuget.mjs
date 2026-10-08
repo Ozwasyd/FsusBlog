@@ -8,6 +8,7 @@ const { behaviorDocNugetClosure, behaviorDocNugetFeedConfiguration, inventoryNug
 const { finalizeRunOwnedDirectories, prepareRunOwnedDirectories } = await import(new URL('../test/execution-envelope-directories.mjs', import.meta.url));
 const { observeExecutableIdentity, prepareCorrectnessEnvironment, verifyExecutableIdentity } = await import(new URL('../test/execution-envelope-environment.mjs', import.meta.url));
 const { finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkSandbox } = await import(new URL('../test/execution-envelope-network.mjs', import.meta.url));
+const { createExecutionFailureOwner, executionFailureDataProperty, observeExecutionFailure, retainExecutionFailure, retainExecutionFailureCompatibility, retainExecutionRecovery } = await import(new URL('../test/execution-failure-diagnostic.mjs', import.meta.url));
 const { runPhysicalExecution } = await import(new URL('../test/physical-execution-process-tree.mjs', import.meta.url));
 const { fingerprintPaths, runBoundExecution, validateRunBoundProjection } = await import(new URL('../test/run-once.mjs', import.meta.url));
 const { sealSourceIdentity } = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
@@ -70,6 +71,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
     let directories;
     let attemptRoot;
     let firstFailure = null;
+    const diagnosticOwner = createExecutionFailureOwner();
     let physicalStarted = false;
     let terminalEvidence = null;
     let complete = false;
@@ -164,6 +166,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
         {
             let physicalExecution;
             let failure = null;
+            let failed = false;
             let actualNetwork;
             let actualDirectories;
             try
@@ -188,8 +191,9 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
             }
             catch (error)
             {
-                failure = error;
-                physicalExecution = error.physicalExecution;
+                failed = true;
+                failure = retainExecutionFailure(diagnosticOwner, error);
+                physicalExecution = executionFailureDataProperty(error, 'physicalExecution');
             }
             terminalEvidence = physicalExecution;
             try
@@ -198,12 +202,14 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
             }
             catch (error)
             {
-                if (failure)
+                retainExecutionFailure(diagnosticOwner, error);
+                if (failed)
                 {
-                    failure.cleanupError = error;
+                    retainExecutionFailureCompatibility(failure, 'cleanupError', error);
                 }
                 else
                 {
+                    failed = true;
                     failure = error;
                 }
             }
@@ -215,23 +221,27 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
                 }
                 catch (error)
                 {
-                    if (failure)
+                    retainExecutionFailure(diagnosticOwner, error);
+                    if (failed)
                     {
-                        failure.cleanupError ??= error;
+                        retainExecutionFailureCompatibility(failure, 'cleanupError', error);
                     }
                     else
                     {
+                        failed = true;
                         failure = error;
                     }
                 }
             }
             else
             {
-                failure ??= Object.assign(new Error('NuGet preparation has no verified zero-residue terminal'), { physicalExecution });
+                const terminalFailure = Object.assign(new Error('NuGet preparation has no verified zero-residue terminal'), { physicalExecution });
+                failure = retainExecutionFailure(diagnosticOwner, terminalFailure);
+                failed = true;
             }
-            if (failure)
+            if (failed)
             {
-                failure.physicalExecution ??= physicalExecution;
+                retainExecutionFailureCompatibility(failure, 'physicalExecution', physicalExecution);
                 throw failure;
             }
             verifyExecutableIdentity(toolchain, observeExecutableIdentity('dotnet', { pathValue: process.env.PATH }));
@@ -306,7 +316,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
     }
     catch (error)
     {
-        firstFailure = error;
+        firstFailure = retainExecutionFailure(diagnosticOwner, error);
         operationFailed = true;
     }
     {
@@ -323,13 +333,15 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
             }
         };
         const mayCleanup = !physicalStarted || terminalEvidence?.postObservation === 'zero-members';
-        if (!mayCleanup && firstFailure)
+        if (!mayCleanup && operationFailed)
         {
-            firstFailure.recoveryObligation = { attemptRoot, ownedRoot: directories?.fragment.ownedRoot,
+            const recoveryObligation = { attemptRoot, ownedRoot: directories?.fragment.ownedRoot,
                 capacityReservationFile: reservation?.activeFile,
                 capacityReservationId: reservation?.receipt.reservationId,
                 repositoryLeasePath: lease?.leasePath,
                 reason: 'physical terminal does not verify zero residue; active resources preserved' };
+            retainExecutionRecovery(diagnosticOwner, recoveryObligation);
+            retainExecutionFailureCompatibility(firstFailure, 'recoveryObligation', recoveryObligation);
         }
         if (mayCleanup && directories && !directories.fragment.cleanup.removedOwnedRoot)
         {
@@ -367,9 +379,10 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
         process.removeListener('SIGTERM', onSigterm);
         if (cleanupFailure)
         {
-            if (firstFailure)
+            retainExecutionFailure(diagnosticOwner, cleanupFailure);
+            if (operationFailed)
             {
-                firstFailure.cleanupError ??= cleanupFailure;
+                retainExecutionFailureCompatibility(firstFailure, 'cleanupError', cleanupFailure);
             }
             else
             {
@@ -379,7 +392,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
     }
     if (operationFailed)
     {
-        throw firstFailure;
+        throw observeExecutionFailure(diagnosticOwner).reason;
     }
     return preparationResult;
 }
