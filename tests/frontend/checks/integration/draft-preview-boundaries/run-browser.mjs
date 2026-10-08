@@ -182,8 +182,10 @@ try
             {
                 state = await snapshot(page);
             }
-            catch
-            {}
+            catch (observationError)
+            {
+                state = { observationError: observationError.message };
+            }
             const failure = { name, status: 'fail', error: error.stack, diagnostics, state };
             report.results.push(failure);
             await firstFailure({ source: report.source, ...failure });
