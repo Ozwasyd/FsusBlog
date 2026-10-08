@@ -30,6 +30,19 @@ function harness() {
 
 describe('article author command palette entry', () => {
     it.each([{ ctrlKey: true, metaKey: false }, { ctrlKey: false, metaKey: true }])(
+        'consumes valid repeated Mod+P without reopening the owner %j', (modifier) => {
+            const test = harness();
+            expect(test.key({ ...modifier, repeat: true }).defaultPrevented).toBe(true);
+            expect(test.openCommandPalette).not.toHaveBeenCalled();
+            expect(test.key(modifier).defaultPrevented).toBe(true);
+            for (let index = 0; index < 3; index += 1) {
+                expect(test.key({ ...modifier, repeat: true }).defaultPrevented).toBe(true);
+            }
+            expect(test.openCommandPalette).toHaveBeenCalledTimes(1);
+        }
+    );
+
+    it.each([{ ctrlKey: true, metaKey: false }, { ctrlKey: false, metaKey: true }])(
         'opens the existing owner for one Mod+P variant %j', (modifier) => {
             const test = harness();
             expect(test.key({ ...modifier, key: 'P' }).defaultPrevented).toBe(true);
@@ -41,7 +54,7 @@ describe('article author command palette entry', () => {
 
     it.each([
         { key: 'o' }, { key: 'Enter' }, { key: 'Escape' }, { altKey: true }, { shiftKey: true },
-        { ctrlKey: false }, { metaKey: true }, { repeat: true }, { isComposing: true }, { keyCode: 229 }
+        { ctrlKey: false }, { metaKey: true }, { isComposing: true }, { keyCode: 229 }
     ])('preserves other shortcuts and native/composition events %j', (options) => {
         const test = harness();
         expect(test.key(options).defaultPrevented).toBe(false);
@@ -53,6 +66,30 @@ describe('article author command palette entry', () => {
         const event = new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true, cancelable: true });
         event.preventDefault();
         test.input.dispatchEvent(event);
+        expect(test.openCommandPalette).not.toHaveBeenCalled();
+    });
+
+    it.each([{ isComposing: true }, { keyCode: 229 }, { altKey: true }, { shiftKey: true }])(
+        'does not consume guarded repeated events %j', (guard) => {
+            const test = harness();
+            expect(test.key({ ...guard, repeat: true }).defaultPrevented).toBe(false);
+            expect(test.openCommandPalette).not.toHaveBeenCalled();
+        }
+    );
+
+    it('leaves repeated shortcuts native when disabled, missing, outside the scope or disposed', () => {
+        const test = harness();
+        test.enabled.value = false;
+        expect(test.key({ repeat: true }).defaultPrevented).toBe(false);
+        test.enabled.value = true;
+        test.editor.value = null;
+        expect(test.key({ repeat: true }).defaultPrevented).toBe(false);
+        test.editor.value = { openCommandPalette: test.openCommandPalette };
+        test.shortcutScope.value = null;
+        expect(test.key({ repeat: true }).defaultPrevented).toBe(false);
+        test.shortcutScope.value = test.host;
+        test.scope.stop();
+        expect(test.key({ repeat: true }).defaultPrevented).toBe(false);
         expect(test.openCommandPalette).not.toHaveBeenCalled();
     });
 
