@@ -1,0 +1,20 @@
+{
+  "key": "final-diagnostic-source",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "tools/run-test-matrix.mjs",
+    "ci-pr-smart",
+    "--stage",
+    "source-integration",
+    "--base-ref",
+    "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+  ],
+  "cwd": "/workspace/scheduler-terminal-authority-probe",
+  "head": "dea42508f00af323c5bd9913377b8576f8387906",
+  "status": "COMPLETED",
+  "exitCode": 0,
+  "elapsedSeconds": 53.769,
+  "log": "/workspace/scheduler-terminal-framework-source-evidence/final-diagnostic-source.log",
+  "logSha256": "6a4893c4f465471db282c71e8966f4f0f0a02494938e0bccf4cc0d74ac6130ea",
+  "diagnosticOnly": true
+}

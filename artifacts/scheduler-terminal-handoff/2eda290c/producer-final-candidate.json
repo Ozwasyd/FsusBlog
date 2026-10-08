@@ -1,0 +1,15 @@
+{
+  "key": "producer-final-candidate",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "cwd": "/workspace/scheduler-terminal-authority-probe",
+  "head": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+  "status": "COMPLETED",
+  "exitCode": 0,
+  "elapsedSeconds": 93.452,
+  "log": "/workspace/scheduler-terminal-framework-source-evidence/producer-final-candidate.log",
+  "logSha256": "7673e4d11e40f601cb7d7181ea1ec4a09da9fa18275daa2ffe2db2b93737a11a",
+  "diagnosticOnly": true
+}

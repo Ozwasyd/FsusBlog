@@ -1,0 +1,85 @@
+{
+  "purpose": "Ordinary source/evidence export for original #3521 canonical fixture owner review; not fixture adoption or new runtime authority.",
+  "sourceThread": "01a1142b-a0b5-7419-a4df-a8bbe54660dd",
+  "coordinatorThread": "01a119be-e15d-7134-badb-2af41ed14004",
+  "soleCanonicalAdopter": "01a1195c-41e6-75d9-a27f-ca1481cfd007 (original #3521)",
+  "exportBranch": "task/scheduler-terminal-binding-evidence-2eda290c",
+  "exactSourceParent": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+  "sourceBranchPreserved": "task/scheduler-terminal-canonical-source",
+  "sourceBranchOrFixtureModifiedByExport": false,
+  "diagnosticFixtureCommitNotPublished": "dea42508f00af323c5bd9913377b8576f8387906",
+  "copiedFilesByteIdentical": true,
+  "files": [
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/canonical-owner-request.json",
+      "originalLocalPath": "/workspace/scheduler-terminal-framework-source-evidence/canonical-owner-request.json",
+      "sha256": "0f7bfe40fd22d61b390b9b46aba33a6b7ebd0963e6b21eced4411dcee13d54c9",
+      "bytes": 5159
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/producer-final-candidate.patch",
+      "originalLocalPath": "/workspace/scheduler-terminal-framework-source-evidence/producer-final-candidate.patch",
+      "sha256": "34112710e7dd1963a3186602abc4057d93895380eb1886d5c14f68ea8195a9ac",
+      "bytes": 123156
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/producer-final-output-delta.json",
+      "originalLocalPath": "/workspace/scheduler-terminal-framework-source-evidence/producer-final-output-delta.json",
+      "sha256": "3dd91b9e818a9ca9b99be25322284b96bb4bba680ce5306ae342e111e6dd526b",
+      "bytes": 65449
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/producer-final-candidate.json",
+      "originalLocalPath": "/workspace/scheduler-terminal-framework-source-evidence/producer-final-candidate.json",
+      "sha256": "b36a069302c9062bdd8f7d49feb2338657042898023c1d541fa64e6a4a92eff2",
+      "bytes": 564
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/producer-final-candidate.log",
+      "originalLocalPath": "/workspace/scheduler-terminal-framework-source-evidence/producer-final-candidate.log",
+      "sha256": "7673e4d11e40f601cb7d7181ea1ec4a09da9fa18275daa2ffe2db2b93737a11a",
+      "bytes": 258
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/final-diagnostic-source.json",
+      "originalLocalPath": "/workspace/scheduler-terminal-framework-source-evidence/final-diagnostic-source.json",
+      "sha256": "fb84ee947c66a58c45c6860e3e7c99da7a17311ec9cbddeab272baf06fb8f241",
+      "bytes": 649
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/final-diagnostic-source.log",
+      "originalLocalPath": "/workspace/scheduler-terminal-framework-source-evidence/final-diagnostic-source.log",
+      "sha256": "6a4893c4f465471db282c71e8966f4f0f0a02494938e0bccf4cc0d74ac6130ea",
+      "bytes": 10458
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/source-target-bindings.json",
+      "originalLocalPath": "/workspace/scheduler-terminal-framework-source-evidence/source-target-bindings.json",
+      "sha256": "ae25439b701c1a6eecdde2958f0cf694b09370636d9373d84a8700589aaf77b1",
+      "bytes": 1971
+    }
+  ],
+  "allTargetDigestsPath": "artifacts/scheduler-terminal-handoff/2eda290c/producer-final-output-delta.json",
+  "targetDigestCount": 62,
+  "supportedProducerCommand": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "repositoryProducerCommand": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+  "requiredNodeVersion": "v24.16.0",
+  "producerExitCode": 0,
+  "unchangedIndependentIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+  "generatedFixtureSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+  "patchSha256": "34112710e7dd1963a3186602abc4057d93895380eb1886d5c14f68ea8195a9ac",
+  "reviewInstructions": [
+    "Check out exact source parent 2eda290cc6098971b685b3fb1465d7193bd3dde2 for reproduction; obtain evidence files from this export commit separately.",
+    "Use official Node v24.16.0 and the existing canonical producer; it accepts no output/subset flags.",
+    "Compare the fixed fixture output SHA-256 and unchanged independent index SHA-256 against this handoff. Full output delta contains all 62 target content/index/record digests and transitive closure changes.",
+    "Original canonical owner alone adopts the reserved fixture on the final integrated exact candidate. If source differs, regenerate rather than admitting old evidence."
+  ],
+  "pathMapping": "Copied original request and command records retain their original local paths and attribution; files[] maps those paths to ordinary repository-relative exported paths.",
+  "verificationScope": "Byte/hash/count/source-binding validation and commit metadata only; no tests or SOURCE re-execution solely for export. Existing SOURCE exit0 belongs to isolated diagnostic dea425 only; published source2eda remains SOURCE exit1 until owner adoption.",
+  "testsRerunForExport": false,
+  "runtimeQualificationEligible": false,
+  "githubContentMutationsPerformed": false
+}

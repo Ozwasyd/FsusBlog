@@ -1,0 +1,32 @@
+{
+  "sourceHead": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+  "fixturePath": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "unchangedSourceFixtureSha256": "6c7c448cb46af78814bba22f28558355b2a2dc5b115d7f229c27b6e00ab2bdf6",
+  "indexPath": "config/testing/release-final-execution-authority-index.json",
+  "unchangedIndependentIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+  "targets": [
+    {
+      "target": "tools/run-test-matrix.mjs",
+      "fixtureContentDigest": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "fixtureIndexDigest": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "currentFileDigest": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "currentIndexDigest": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74"
+    },
+    {
+      "target": "tools/test-matrix/source-governance.mjs",
+      "fixtureContentDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "fixtureIndexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "currentFileDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "currentIndexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4"
+    },
+    {
+      "target": "tools/test/lanes/plan-pr-risk.sh",
+      "fixtureContentDigest": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c",
+      "fixtureIndexDigest": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c",
+      "currentFileDigest": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c",
+      "currentIndexDigest": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c"
+    }
+  ],
+  "sourceAuthorityModified": false,
+  "sourceTargetFileDigestsUnchanged": true
+}

@@ -1,0 +1,89 @@
+{
+  "sourceThread": "01a1142b-a0b5-7419-a4df-a8bbe54660dd",
+  "toCoordinator": "01a119be-e15d-7134-badb-2af41ed14004",
+  "canonicalFixtureOwner": "01a1195c-41e6-75d9-a27f-ca1481cfd007 (original #3521)",
+  "exactSource": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+  "sourceBranch": "task/scheduler-terminal-canonical-source",
+  "verifiedConsumedMaster": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "consumedFrameworkFix": "ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c",
+  "canonicalProducer": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "producerExitCode": 0,
+  "producerEvidence": "/workspace/scheduler-terminal-framework-source-evidence/producer-final-candidate.json",
+  "reservedOutput": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "originalFixtureSha256": "6c7c448cb46af78814bba22f28558355b2a2dc5b115d7f229c27b6e00ab2bdf6",
+  "generatedFixtureSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+  "independentIndexPath": "config/testing/release-final-execution-authority-index.json",
+  "independentIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+  "patch": "/workspace/scheduler-terminal-framework-source-evidence/producer-final-candidate.patch",
+  "patchSha256": "34112710e7dd1963a3186602abc4057d93895380eb1886d5c14f68ea8195a9ac",
+  "diagnosticCommit": "dea42508f00af323c5bd9913377b8576f8387906",
+  "diagnosticCommitPublished": false,
+  "changedBindings": 62,
+  "fullTargetAndClosureDigestDetails": "/workspace/scheduler-terminal-framework-source-evidence/producer-final-output-delta.json",
+  "SOURCEtargets": [
+    {
+      "target": "tools/run-test-matrix.mjs",
+      "fixtureContentDigest": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "fixtureIndexDigest": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "currentFileDigest": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "currentIndexDigest": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74"
+    },
+    {
+      "target": "tools/test-matrix/source-governance.mjs",
+      "fixtureContentDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "fixtureIndexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "currentFileDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "currentIndexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4"
+    },
+    {
+      "target": "tools/test/lanes/plan-pr-risk.sh",
+      "fixtureContentDigest": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c",
+      "fixtureIndexDigest": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c",
+      "currentFileDigest": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c",
+      "currentIndexDigest": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c"
+    }
+  ],
+  "invariants": {
+    "globalHeaderUnchanged": true,
+    "targetRosterUnchanged": true,
+    "targetDeclarationsUnchanged": true,
+    "independentIndexSha256Unchanged": true
+  },
+  "sourceBranchAuthorityModified": false,
+  "requestedCapability": "Original #3521 canonical owner reviews and adopts candidate-bound full producer output plus its directly related metadata on exact final integration candidate. If integrated source differs from 2eda, regenerate through the same supported producer; do not reuse this candidate binding as historical/general runtime authority. No parser/index/target declarations/ownership/argv changes or waiver requested.",
+  "currentSourceGate": "Published source 2eda SOURCE exit1 before runtime due 11 stale fixture target/dependency bindings. Isolated supported-producer child dea425 SOURCE exit0 on exact base aaba; source-branch adoption remains with original canonical owner.",
+  "toolSetup": "Original markdownlint-cli2@0.23.1 installed in /tmp using ignore-scripts and writable npm cache; changed README original checker exit0; repository lock/source unchanged.",
+  "diagnosticSOURCE": {
+    "key": "final-diagnostic-source",
+    "command": [
+      "/tmp/node-v24.16.0-linux-x64/bin/node",
+      "tools/run-test-matrix.mjs",
+      "ci-pr-smart",
+      "--stage",
+      "source-integration",
+      "--base-ref",
+      "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+    ],
+    "cwd": "/workspace/scheduler-terminal-authority-probe",
+    "head": "dea42508f00af323c5bd9913377b8576f8387906",
+    "status": "COMPLETED",
+    "exitCode": 0,
+    "elapsedSeconds": 53.769,
+    "log": "/workspace/scheduler-terminal-framework-source-evidence/final-diagnostic-source.log",
+    "logSha256": "6a4893c4f465471db282c71e8966f4f0f0a02494938e0bccf4cc0d74ac6130ea",
+    "diagnosticOnly": true
+  },
+  "diagnosticSOURCEchecks": {
+    "jsFiles": 28,
+    "jsViolations": 0,
+    "markdownFiles": 1,
+    "markdownViolations": 0,
+    "controls": 93,
+    "fail": 0,
+    "skipped": 0,
+    "runtimeOrReleaseQualified": false
+  }
+}

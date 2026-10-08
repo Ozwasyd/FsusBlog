@@ -1,0 +1,1182 @@
+{
+  "sourceParent": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+  "diagnosticOnly": true,
+  "sourceBranchAuthorityModified": false,
+  "fixturePath": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "fixtureBaseSha256": "6c7c448cb46af78814bba22f28558355b2a2dc5b115d7f229c27b6e00ab2bdf6",
+  "fixtureGeneratedSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+  "patchSha256": "34112710e7dd1963a3186602abc4057d93895380eb1886d5c14f68ea8195a9ac",
+  "independentIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+  "invariants": {
+    "globalHeaderUnchanged": true,
+    "targetRosterUnchanged": true,
+    "targetDeclarationsUnchanged": true,
+    "independentIndexSha256Unchanged": true
+  },
+  "changedTargetCount": 62,
+  "changedTargets": [
+    {
+      "target": "tools/coverage/collect-backend-coverage.sh",
+      "contentDigest": "sha256:ba9bfb7b7ae5b5005b09274ae80ff0a491bc183efb6d8267b0d2a6a6f73f62e2",
+      "indexDigest": "sha256:ba9bfb7b7ae5b5005b09274ae80ff0a491bc183efb6d8267b0d2a6a6f73f62e2",
+      "beforeRecordJsonSha256": "2edc2441f4fa68ad65ad713557db13b0d52f7f209c437de51de6b859e89648f9",
+      "afterRecordJsonSha256": "bbc4edefdf81cf00aed976e2e2085d3a8ca09766b0f691af815de3ed43e631f3",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/run-test-matrix.mjs",
+      "contentDigest": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "indexDigest": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "beforeRecordJsonSha256": "996c2963bc597a9966a977917e6d9e874feca7cd5102f8e2c8855e58dff59848",
+      "afterRecordJsonSha256": "bc41e664db0c052541bcf232d8e3d3e335e9dac47f91f1b924896f83da23d446",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test-matrix/source-governance.mjs",
+      "contentDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "indexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "beforeRecordJsonSha256": "7f1ec0402274e66805b53c7a39200ef069c3f43976dc3bfabcec95e432d8a3c1",
+      "afterRecordJsonSha256": "558b55e6647c79de30911984fd3a7828a4b1423c1c880fcce0e27a94ac0d0cd1",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/acceptance-playwright.sh",
+      "contentDigest": "sha256:44ddb097994bdf0ab08f3426b59c89c597d0f51ca57957194fe962f181ab54f1",
+      "indexDigest": "sha256:44ddb097994bdf0ab08f3426b59c89c597d0f51ca57957194fe962f181ab54f1",
+      "beforeRecordJsonSha256": "646aa6efd4c2c7d2e197c750a05d841589b24b087dbdee02ed082cc45f8d23a5",
+      "afterRecordJsonSha256": "6d9ede897af265173d52afe8c72eca98563b9af37d5615600992ab6af5f91366",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/aeds-compression-profile.sh",
+      "contentDigest": "sha256:e65836d687ee8f2aa0d8c7bffb1c14a26f9630957773d9385ec56d014da28099",
+      "indexDigest": "sha256:e65836d687ee8f2aa0d8c7bffb1c14a26f9630957773d9385ec56d014da28099",
+      "beforeRecordJsonSha256": "9306919304e2530c7d5ffa63e0a9e3df65e826da7a206ba9b5a204d4439d17da",
+      "afterRecordJsonSha256": "7dcb08ad2b7627ed83f3e937b5b0b3e094c4faa44423bce5920fb69ace994973",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/aeds-frame-cost.sh",
+      "contentDigest": "sha256:37d625f664897079b51b39da2d5cc46d013612be932f751fc340c72783ac36b1",
+      "indexDigest": "sha256:37d625f664897079b51b39da2d5cc46d013612be932f751fc340c72783ac36b1",
+      "beforeRecordJsonSha256": "5b586248c86a6da30209d6d249f2dc47efb0f650eeb537d5daa9266f83545f0f",
+      "afterRecordJsonSha256": "a59d737ccc11af17d9ac0a2734e1ae687bf094aeff6a8aa419c2176ebce39397",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/article-private-preview.sh",
+      "contentDigest": "sha256:f0eef098cc2e445997ec1f1fc8e2da5ab29f4d9d2fd795191019d5404dceb2f8",
+      "indexDigest": "sha256:f0eef098cc2e445997ec1f1fc8e2da5ab29f4d9d2fd795191019d5404dceb2f8",
+      "beforeRecordJsonSha256": "10b669b3fe18d511a5ae6db100b1c33d4099f5dd743f789451e7faf0cfe84e99",
+      "afterRecordJsonSha256": "3a96169bd7261a25db03b7da7bb09f04ee1131a53d25f9883886372d9937721e",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-api-integration.sh",
+      "contentDigest": "sha256:72d7255394b4e559b9bab2a894891bfef5ff1dab48299d0573ffa81fd5c478aa",
+      "indexDigest": "sha256:72d7255394b4e559b9bab2a894891bfef5ff1dab48299d0573ffa81fd5c478aa",
+      "beforeRecordJsonSha256": "ea83897850d0667e0dee8ec10593971d63b1592f4de242cd191c7022f8a0138e",
+      "afterRecordJsonSha256": "27bfb01738a1d84bf79627d0ebe0cef979560bb573dac760152686fefecda739",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-auth-state-machine.sh",
+      "contentDigest": "sha256:6b3289d26aee853f6310639dfd66f4806d4764e272a294e3b3aa1adecd5481b3",
+      "indexDigest": "sha256:6b3289d26aee853f6310639dfd66f4806d4764e272a294e3b3aa1adecd5481b3",
+      "beforeRecordJsonSha256": "17fd8af10d85a1ac5032e43d4cac64903bb3e45f12af82cb5f87057bb390cc98",
+      "afterRecordJsonSha256": "f804cb7d060ddd68ba8ce2f53dfd6cba6d0d091d66dab7050fa60e9d7140179f",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-benchmark-regression.sh",
+      "contentDigest": "sha256:d2b3fb2ffc7c90b9469be929aca3f32117ebc3cb6918a77082a24d6570fd1309",
+      "indexDigest": "sha256:d2b3fb2ffc7c90b9469be929aca3f32117ebc3cb6918a77082a24d6570fd1309",
+      "beforeRecordJsonSha256": "b141381f13050e2dd5b05c1ac41db4549c5a1530a31d0017cbd92201eb675c11",
+      "afterRecordJsonSha256": "30473a777478ca26d74899275c2e4f9f80242e4d7bc02f51e8fdd58699c91ad1",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-build-governance.sh",
+      "contentDigest": "sha256:c724ba9cdc017f22a3d26a8e0edce9141bfa3d571b3fb806db27c667afc6733e",
+      "indexDigest": "sha256:c724ba9cdc017f22a3d26a8e0edce9141bfa3d571b3fb806db27c667afc6733e",
+      "beforeRecordJsonSha256": "df8e3478e814e4dde34b49692303f7a705b4187d7f11579bd66f7722afc9aa48",
+      "afterRecordJsonSha256": "065a2982570cd6c2655489ce6c06c7f163e19905052eb2e34c26912685fe7344",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-concurrency.sh",
+      "contentDigest": "sha256:03c5d7a524214aeb044193efd85daa41799e68fc63ed0567120207edd90c2b66",
+      "indexDigest": "sha256:03c5d7a524214aeb044193efd85daa41799e68fc63ed0567120207edd90c2b66",
+      "beforeRecordJsonSha256": "476d92489ab44b07c3661d8d84fbe609e0ae0bae894759c8760080ea615644c8",
+      "afterRecordJsonSha256": "2a6015278d47187fcc4c51451a634d7d1286f021452c7b588dd26f058030b75b",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-fast.sh",
+      "contentDigest": "sha256:031c58127d9fae0cfa7ac4466864a705a1d3341ef70f3b38bc44a49cf1a5f525",
+      "indexDigest": "sha256:031c58127d9fae0cfa7ac4466864a705a1d3341ef70f3b38bc44a49cf1a5f525",
+      "beforeRecordJsonSha256": "ce15e37a9053e4ccab676289916ab5cd7df96f04ff21781f4dcf1cc029de4227",
+      "afterRecordJsonSha256": "d5113da138edfab625e55a6bdae315f1fe5cadaf3bdcaaf42dedf968ca93fd10",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-golden.sh",
+      "contentDigest": "sha256:63b895984e38bbebecb3894360f9b548392f54815edd0747494fe7069308c7ab",
+      "indexDigest": "sha256:63b895984e38bbebecb3894360f9b548392f54815edd0747494fe7069308c7ab",
+      "beforeRecordJsonSha256": "a35fec94bb3146c3cdee3395175ff1c6c73ff3c57ab62fb45a22db1baa7307f7",
+      "afterRecordJsonSha256": "8a04642343f2b0af26145004335b9ecced52c21542aa08326012971f136fd9c1",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-mutation-changed-critical.sh",
+      "contentDigest": "sha256:0713c756172575d4b93ecdd4ac844baec25e4d6267b39395c0babd2dbf9e2b27",
+      "indexDigest": "sha256:0713c756172575d4b93ecdd4ac844baec25e4d6267b39395c0babd2dbf9e2b27",
+      "beforeRecordJsonSha256": "44cdb97fccb1a955ab9f29bf8655a7bcaf2faea34cab8e441ea9ef2b2b0bf9e8",
+      "afterRecordJsonSha256": "a503bffd55c3b4be2adde31cb3999bbe3fa0bf082e1f1129005842e144f02361",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-mutation.sh",
+      "contentDigest": "sha256:97ddffe5187807c1a76c709f809f94c5df58d32b47f580027fcc881fb129347c",
+      "indexDigest": "sha256:97ddffe5187807c1a76c709f809f94c5df58d32b47f580027fcc881fb129347c",
+      "beforeRecordJsonSha256": "cca36c8bca2f02116f7513d0d164fccfcee43dc919ff6abcec5155b99ab36fbe",
+      "afterRecordJsonSha256": "66d8ea9e005282a3d67a06c658bee3fcf8e5c21a26a77ec4653c096a56dcf69d",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-property.sh",
+      "contentDigest": "sha256:332dee3aadd7682bf50aa0ddaaa1756f2ce3b8a70fea03bfca489d744cead47b",
+      "indexDigest": "sha256:332dee3aadd7682bf50aa0ddaaa1756f2ce3b8a70fea03bfca489d744cead47b",
+      "beforeRecordJsonSha256": "6eb65ba70c25b493bb94dfbaf2d62d7fde9ca41b274afe7b4d3767bb858888ce",
+      "afterRecordJsonSha256": "9dab8c6c23ff7ab863fa97a85087059eedb84d6d811a92986da9765b397964a5",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-test-governance.sh",
+      "contentDigest": "sha256:e0dcefb7af44e6c380795292436e5f00b181019de267f9dde2299e55fddccd25",
+      "indexDigest": "sha256:e0dcefb7af44e6c380795292436e5f00b181019de267f9dde2299e55fddccd25",
+      "beforeRecordJsonSha256": "c0e8622703f0acebca96f8622eedba52af1e37e3f1eb34812981581f75080864",
+      "afterRecordJsonSha256": "dee85ba2af280dd8b73983752e2f3aa8e106c4d07f2f5f29dc80fcfab22b5858",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/backend-unit.sh",
+      "contentDigest": "sha256:a4d15463855e2f2a3aac87a0d9f6736735b69d9481521d24ed7a76b96369c327",
+      "indexDigest": "sha256:a4d15463855e2f2a3aac87a0d9f6736735b69d9481521d24ed7a76b96369c327",
+      "beforeRecordJsonSha256": "0d53db5fde9b96cf7e00a8c74d6a99251ce04e71c1c3e06c4178db6a34188c41",
+      "afterRecordJsonSha256": "cd3e42367ac8c99c8f167793e0d47b7cb002c4b071aad5f0c721ef0098fa70fa",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/behavior-test-evidence.sh",
+      "contentDigest": "sha256:cb27fb3cd456c396937805777bca9c8a89da0296a2319ab6f5c990cfe49d7513",
+      "indexDigest": "sha256:cb27fb3cd456c396937805777bca9c8a89da0296a2319ab6f5c990cfe49d7513",
+      "beforeRecordJsonSha256": "1e204795f8742109a2e99f526665abbbdc5bc69bf61bda73e00612a9052e55a3",
+      "afterRecordJsonSha256": "0b64b23503d64d39b5c0d8cba5e733487edb02fa172d2f8c1591145d8c79a058",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/bootstrap-acceptance-env.sh",
+      "contentDigest": "sha256:819b3a4cc6048a512eab191a1681c782d06b53fad1b8d73c26c4c3b3e7567ddc",
+      "indexDigest": "sha256:819b3a4cc6048a512eab191a1681c782d06b53fad1b8d73c26c4c3b3e7567ddc",
+      "beforeRecordJsonSha256": "50d969e126cdf52a356b33e1c6e24383dc123238932d59a6c261171b98cb7c0d",
+      "afterRecordJsonSha256": "1366ead5f412c558c2b5119deb8631a2cfdfb9c5cfe5bd797ccf1d3a2e100708",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/browser-contract.sh",
+      "contentDigest": "sha256:82ea8a51eaa6543064e049935970748e64fbe1b328029f04b913f44541d2ac4a",
+      "indexDigest": "sha256:82ea8a51eaa6543064e049935970748e64fbe1b328029f04b913f44541d2ac4a",
+      "beforeRecordJsonSha256": "cbc9503793225e66899c950f5de5e7673938511fc1ac3a160f7873c296252e68",
+      "afterRecordJsonSha256": "f106f31886a09a4d1ec379e58d7fd375f6dba0eaa51df85e1b01ec9b5b96a5e8",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/browser-diagnostics.sh",
+      "contentDigest": "sha256:2789ea71ca3383e588442e4611476cc3876afd1f09c1788747c314d9dabf56eb",
+      "indexDigest": "sha256:2789ea71ca3383e588442e4611476cc3876afd1f09c1788747c314d9dabf56eb",
+      "beforeRecordJsonSha256": "1d591b0d265448a47ef501a03ccb9ad038d3932165c242d305689c09856ac6a4",
+      "afterRecordJsonSha256": "b0e0e3c4c21bec20f84c0cea23094e2d43ace857750a1c6693ab053b508162ff",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
+      "contentDigest": "sha256:cb028eb43b3aaa6ad50247dd7222844baccf4c12532cd9169818c98e38e37903",
+      "indexDigest": "sha256:cb028eb43b3aaa6ad50247dd7222844baccf4c12532cd9169818c98e38e37903",
+      "beforeRecordJsonSha256": "bcd8a5bbc6015fc81136265db4e9cd986f44d660b52af37d7d5e646df139da34",
+      "afterRecordJsonSha256": "03479683a9002148562bec16933bb2804d73fc04b19e5e5591425b47a6c231e1",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/cross-browser-smoke.sh",
+      "contentDigest": "sha256:fec7af46734a3fc042ca4242cbe44a3db33479beb74d8eca448b50f5ab39bb7d",
+      "indexDigest": "sha256:fec7af46734a3fc042ca4242cbe44a3db33479beb74d8eca448b50f5ab39bb7d",
+      "beforeRecordJsonSha256": "22fa5aced0aa8d441e0997ccf1b04960f27e89176cd838c4e95bf059748d75e5",
+      "afterRecordJsonSha256": "f7bd763c5071e2930c328e549b48f6d58e8b0f579b7bfdaed193327d37bedc26",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/cross-stack-contract.sh",
+      "contentDigest": "sha256:cfbcfc346719de23185fad889f9b71aea2c44cf86b07b5ed4b6b6626fd553073",
+      "indexDigest": "sha256:cfbcfc346719de23185fad889f9b71aea2c44cf86b07b5ed4b6b6626fd553073",
+      "beforeRecordJsonSha256": "17a10867e5f9f6d83fb3643ad800eb4e4d29f12c37a698fda795458a993fbed0",
+      "afterRecordJsonSha256": "744b62c669c6424371c13431dff8782a59a5e86f4782c12d2510e4ac3b3ace38",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/csrf-browser-matrix.sh",
+      "contentDigest": "sha256:0cda44f23a4f0f27976904782c291fe68aa5d830c4fb1e581736f69bee369c2e",
+      "indexDigest": "sha256:0cda44f23a4f0f27976904782c291fe68aa5d830c4fb1e581736f69bee369c2e",
+      "beforeRecordJsonSha256": "a1ab2c67b3c6a460c901355ee36358ae58eccac7a38389bbf9ad0bb5226e1904",
+      "afterRecordJsonSha256": "92ca3740b24300e08db727c68d4277a05d01231501c1d76262a62d07f71c19dd",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/data-scale.sh",
+      "contentDigest": "sha256:b002d8bd47968628d6f6a8e74fec99032a93ea5bbeebececd5cdfe0a71fab85a",
+      "indexDigest": "sha256:b002d8bd47968628d6f6a8e74fec99032a93ea5bbeebececd5cdfe0a71fab85a",
+      "beforeRecordJsonSha256": "83db3adef0ced226f747fe03cbcaba0a988c3d7ac6e25662bdf5a08100d0dfbd",
+      "afterRecordJsonSha256": "e830590fd88270b361588d2942d4c3fbc9ee0156793bfd7bef8b01423b7b77e3",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/distributed-contract-fast.sh",
+      "contentDigest": "sha256:cbec7af86f908aa73ebcb404d2ece2509c166fe4064b126358442a312c3f464b",
+      "indexDigest": "sha256:cbec7af86f908aa73ebcb404d2ece2509c166fe4064b126358442a312c3f464b",
+      "beforeRecordJsonSha256": "455215b895f927a6d8a506e9a258f89a6e9c6cb014eeac5d774cde911c59cd3f",
+      "afterRecordJsonSha256": "298f0840c1d4ef543fd5b95cff6c757adb34c7715ddd388292f17b8eaa5942af",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/fault-injection.sh",
+      "contentDigest": "sha256:b682590b8b66106250ed794ca81ce904fa26e4d28e3d81a1fbb421d90c7c23c9",
+      "indexDigest": "sha256:b682590b8b66106250ed794ca81ce904fa26e4d28e3d81a1fbb421d90c7c23c9",
+      "beforeRecordJsonSha256": "7c0202e85ecf6e5bd5ce668c50d3f64f8d8f42c8d8b62c89e9002e906e8c6b7d",
+      "afterRecordJsonSha256": "299337b2640ed0584f8dd43ebde30463402b243d57233d9c557ccfdc66477141",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/frontend-build.sh",
+      "contentDigest": "sha256:a8cd99d07326bf6c60a2559577d7974135bb2b467257ba000999e8fec90dce66",
+      "indexDigest": "sha256:a8cd99d07326bf6c60a2559577d7974135bb2b467257ba000999e8fec90dce66",
+      "beforeRecordJsonSha256": "4626e11a23362a0c64fe3617a17fe2755170dc1721c5fd9abda6e41dbe0ebda9",
+      "afterRecordJsonSha256": "ab4c725b4968bdb746e0f0ec3b54ecf23a6afc633b9a735b24586752721d0eaf",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/frontend-property-model-perf.sh",
+      "contentDigest": "sha256:1eeb05f0d3ff2b50644c87fad55f41e6bf07c1f2302141e0502e2acde077197a",
+      "indexDigest": "sha256:1eeb05f0d3ff2b50644c87fad55f41e6bf07c1f2302141e0502e2acde077197a",
+      "beforeRecordJsonSha256": "d8f37973dc65efc94d82f87aca301fe0a147cef9b363d8f7b04afa74f32f63d9",
+      "afterRecordJsonSha256": "3f1401ab8d26831166e659b9da2c90c6c562650c1acf95ef6257a32f8c5e81da",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/frontend-runtime-contracts.sh",
+      "contentDigest": "sha256:7d1374b9abb8a13df329d1282af888e35d55c9ca18793b9f292121c7e4f5e6ca",
+      "indexDigest": "sha256:7d1374b9abb8a13df329d1282af888e35d55c9ca18793b9f292121c7e4f5e6ca",
+      "beforeRecordJsonSha256": "d02b05da873cc91e0b561cb026717bf06ffa376e212553631d7d6b142db17012",
+      "afterRecordJsonSha256": "41e8366d95b9a10dc8be4497ca05deb67d03cfe55d0ec0ca29aafc57c75dc754",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/frontend-static-governance.sh",
+      "contentDigest": "sha256:ce3c49ba3ed7e4425a083f8df920a2ad438933b51ed89e9d5a58bf4783b9f605",
+      "indexDigest": "sha256:ce3c49ba3ed7e4425a083f8df920a2ad438933b51ed89e9d5a58bf4783b9f605",
+      "beforeRecordJsonSha256": "cd4044cd4d364b75481e51f29b22ec77eb4fab30703cefd82a12454886208ef7",
+      "afterRecordJsonSha256": "7a801f92bc64d6bfe1c3216b4e2fd2820ce9204f08541fba5f6015c5bda1087b",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/frontend-unit-shard.sh",
+      "contentDigest": "sha256:8b1558adfe017afcfe7817c7f2a9bf848e41158320ff39989e13d6d52e4a9053",
+      "indexDigest": "sha256:8b1558adfe017afcfe7817c7f2a9bf848e41158320ff39989e13d6d52e4a9053",
+      "beforeRecordJsonSha256": "4f5589813ede0cbf36f3bd156603fd6e9a1c2024ee5d16a389b49ea21bc4776d",
+      "afterRecordJsonSha256": "e33de02f8223fc8c010b70ed9823bbd2ed32e9963f079f86249038274aaa37aa",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/homogeneous-two-node-fixture.sh",
+      "contentDigest": "sha256:1143811abb56e84c114d9e61bed017953ed7bea1acf9d3f7894e7d24baa863a0",
+      "indexDigest": "sha256:1143811abb56e84c114d9e61bed017953ed7bea1acf9d3f7894e7d24baa863a0",
+      "beforeRecordJsonSha256": "dc2e41a0d3b62e7b985d9ab2594c045aeea10225bec5b5c6fba2927e720ea033",
+      "afterRecordJsonSha256": "83b93393d129c3ae94c8f67fc2162686c794633032483e18329ce86a3b2d9d63",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/load-smoke.sh",
+      "contentDigest": "sha256:45b455cf1ffa7d41085b702a4f7f3495c1ba3f77542e2e0c4565e482cef63817",
+      "indexDigest": "sha256:45b455cf1ffa7d41085b702a4f7f3495c1ba3f77542e2e0c4565e482cef63817",
+      "beforeRecordJsonSha256": "54a6b5f68947f067c7af8be1a10939d51f9754448cd292b0d9b5297a5fa81b37",
+      "afterRecordJsonSha256": "5673c01eab02161fe8fc86d499ff38a24eaee30ebc0023df2d315ffe40ae8e88",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/perception-v2-test-matrix.sh",
+      "contentDigest": "sha256:1df9adaabd36e88a1671af05abcd85b0ce40f80a629f5e621643cb5aa49a838e",
+      "indexDigest": "sha256:1df9adaabd36e88a1671af05abcd85b0ce40f80a629f5e621643cb5aa49a838e",
+      "beforeRecordJsonSha256": "21e4c7f931228e29b6206a6a2391bf00bf7d988ed72d8dedb53ec157399e1593",
+      "afterRecordJsonSha256": "d2a5b67b20a5e02b376ed6eee42f5776c78ba6f118c6d67824532b8a38a145c6",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/perf-regression.sh",
+      "contentDigest": "sha256:4da3a006a4e1f78e497f5e702cd177e58b11d474984d6b151c9107013be99c54",
+      "indexDigest": "sha256:4da3a006a4e1f78e497f5e702cd177e58b11d474984d6b151c9107013be99c54",
+      "beforeRecordJsonSha256": "14f3d777b356211a501b0572702f2658e9975b6b781a6352525f189ac655dbff",
+      "afterRecordJsonSha256": "64354db4f625bf11ad0bdcf87d3d5685eb35f7b0d1200c14ad8e9396fcfdec54",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/plan-pr-risk.sh",
+      "contentDigest": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c",
+      "indexDigest": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c",
+      "beforeRecordJsonSha256": "a3b86b649af0d8af1c6a87daa6d3abed90154addf3043100507d88a3c4936385",
+      "afterRecordJsonSha256": "debab5b85400f48f2e5b837c20c7906d343ac4284fcc9332dd84ef8302a18505",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/privacy-zk-comment-matrix.sh",
+      "contentDigest": "sha256:c9822685a04fd1b3e4442cdceb1651e1fa6c82963ea3a892fe7739d672ccdfbb",
+      "indexDigest": "sha256:c9822685a04fd1b3e4442cdceb1651e1fa6c82963ea3a892fe7739d672ccdfbb",
+      "beforeRecordJsonSha256": "e87da04d1a142a59151fd4117a22661f647d118da4876cd932d74a63fd906f11",
+      "afterRecordJsonSha256": "ea43f05a44fb5566c4dd6356d0d69bcb168b7ef8f542d58e74a40aeecf1eb8fb",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/production-correctness-receipt.sh",
+      "contentDigest": "sha256:3d3ca771791139022e32eb31a04afe75f71c72a3545b785babdbe96bce732830",
+      "indexDigest": "sha256:3d3ca771791139022e32eb31a04afe75f71c72a3545b785babdbe96bce732830",
+      "beforeRecordJsonSha256": "59bc8e29ff0a6e409369501831762535b02b1b919ac6881e322619f6eff03886",
+      "afterRecordJsonSha256": "904c808dbbce9d55d8d7ec72a3e833e064226efe6855ca33ac50393bf2803f6b",
+      "addedClosure": [
+        "tools/contracts/behavior-owner-binding.mjs",
+        "tools/contracts/lib/config-error-security-observation.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "tools/docs/behavior-doc-static-admission.mjs",
+        "tools/docs/doc-claim-staleness-mutation/catalog.mjs",
+        "tools/docs/doc-claim-staleness-mutation/fixture.mjs",
+        "tools/docs/doc-claim-staleness-mutation/governance.mjs",
+        "tools/docs/doc-claim-staleness-mutation/layers.mjs",
+        "tools/docs/doc-claim-staleness-mutation/runner.mjs",
+        "tools/docs/generated-fact-sections/governance.mjs",
+        "tools/docs/prose-claim-verifier/governance.mjs",
+        "tools/fact-extractors/governance.mjs",
+        "tools/fact-extractors/runner.mjs",
+        "tools/governance/check-monolithic-distributed-architecture.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-fixtures/services/mysql.mjs",
+        "tools/test-matrix/artifact-digest-table.mjs",
+        "tools/test-matrix/async-log-pipeline.mjs",
+        "tools/test-matrix/behavior-doc-static-admission-contract.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/execution-envelope-policy.mjs",
+        "tools/test-matrix/local-profile.mjs",
+        "tools/test-matrix/mysql-fixture-recovery.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/priority-score.mjs",
+        "tools/test-matrix/production-build-layout.mjs",
+        "tools/test-matrix/production-capacity-reservation.mjs",
+        "tools/test-matrix/production-disk-demand.mjs",
+        "tools/test-matrix/production-fresh-exclusive-lease.mjs",
+        "tools/test-matrix/production-fresh-orphan-runtime-discovery.mjs",
+        "tools/test-matrix/production-fresh-port-lease.mjs",
+        "tools/test-matrix/production-resource-enforcement.mjs",
+        "tools/test-matrix/production-systemd-resource-boundary.mjs",
+        "tools/test-matrix/release-final-spawn-seal.mjs",
+        "tools/test-matrix/release-final-static-boundary.mjs",
+        "tools/test-matrix/release-reliability-scheduler-projection.mjs",
+        "tools/test-matrix/resident-resource-leases.mjs",
+        "tools/test-matrix/resource-utilization.mjs",
+        "tools/test-matrix/scheduler-admission-support.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test-matrix/windows-job-members.mjs",
+        "tools/test/behavior-doc-nuget-preparation.mjs",
+        "tools/test/current-run-evidence-checkpoint.mjs",
+        "tools/test/current-run-evidence-publication.mjs",
+        "tools/test/data-scale-disk-demand.mjs",
+        "tools/test/data-scale-runtime-admission.mjs",
+        "tools/test/data-scale-runtime-caller.mjs",
+        "tools/test/data-scale-runtime-owner.mjs",
+        "tools/test/data-scale-runtime-resource-pool.mjs",
+        "tools/test/data-scale-runtime-scheduler-owner.mjs",
+        "tools/test/execution-envelope-directories.mjs",
+        "tools/test/execution-envelope-environment.mjs",
+        "tools/test/execution-envelope-network.mjs",
+        "tools/test/execution-envelope-receipt.mjs",
+        "tools/test/execution-envelope-services.mjs",
+        "tools/test/execution-failure-diagnostic.mjs",
+        "tools/test/execution-replay-contract.mjs",
+        "tools/test/mysql-fixture-admission.mjs",
+        "tools/test/physical-execution-linux-systemd-adapter.mjs",
+        "tools/test/physical-execution-nested-channel.mjs",
+        "tools/test/physical-execution-private-dotnet-scratch.mjs",
+        "tools/test/physical-execution-process-tree.mjs",
+        "tools/test/physical-execution-systemd-sender.mjs",
+        "tools/test/physical-execution-windows-job-adapter.mjs",
+        "tools/test/playwright-browser-identity.mjs",
+        "tools/test/release-reliability-receipt.mjs",
+        "tools/test/run-deterministic-command.mjs",
+        "tools/test/run-once.mjs",
+        "tools/test/scheduler-replay-contract.mjs",
+        "tools/test/system-memory.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/production-xss-fast.sh",
+      "contentDigest": "sha256:39a3d8ea04719bd0fe80372954f044c159be23cf928eb5d28f1f83bcb81440e5",
+      "indexDigest": "sha256:39a3d8ea04719bd0fe80372954f044c159be23cf928eb5d28f1f83bcb81440e5",
+      "beforeRecordJsonSha256": "ced12f3f362e45fea85c8e3a9ffe3e7a41fa821d9cae72fcfe6abfdf6744073e",
+      "afterRecordJsonSha256": "ef3690981c2aefb914822d60c48109ca27bd08837254095be0b61dce35ce7b40",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/production-xss-release.sh",
+      "contentDigest": "sha256:4c5b56ef10d42f53b0a9393a893d2d0c55b52634a5af06de0e483f36a042edac",
+      "indexDigest": "sha256:4c5b56ef10d42f53b0a9393a893d2d0c55b52634a5af06de0e483f36a042edac",
+      "beforeRecordJsonSha256": "8c7f64576d100b2062a335ec31b2c2fa5b990c70b062569458a8007802db3dc6",
+      "afterRecordJsonSha256": "9fa28ef4bfe3aac291ba4583178f94db3debe333925dfb906125760d365b2eb0",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/release-evidence.sh",
+      "contentDigest": "sha256:86dc32f005875257d05f476a74c9fd7eb848b10850ab795d773afa52a5ff4a88",
+      "indexDigest": "sha256:86dc32f005875257d05f476a74c9fd7eb848b10850ab795d773afa52a5ff4a88",
+      "beforeRecordJsonSha256": "94fe56271f5f0273a9280dd8540598d7bb56f93412e338c8675eee83143384f3",
+      "afterRecordJsonSha256": "852235cd63c49eb4744427ad3d6ef03b01ef7e0f390f0ee3ab62307703d55980",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/release-final.sh",
+      "contentDigest": "sha256:cff35b87471c1932ac0d3aba65cc3485c332fb1eaa1220985c47aea8ca19a7e7",
+      "indexDigest": "sha256:cff35b87471c1932ac0d3aba65cc3485c332fb1eaa1220985c47aea8ca19a7e7",
+      "beforeRecordJsonSha256": "b88a928fdeadb4edf5d50c2e58faf7b4b33ad2f346bc7ec6ad24860eab4180fa",
+      "afterRecordJsonSha256": "debcec475db814d2aaec09e1196690e3e6fa1fec255f91f908cc80c820305618",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/release-public.sh",
+      "contentDigest": "sha256:325733b214c89870e3324eccd3e1ed1ba40cd20ae41f3b53efab27ddfed1e6f8",
+      "indexDigest": "sha256:325733b214c89870e3324eccd3e1ed1ba40cd20ae41f3b53efab27ddfed1e6f8",
+      "beforeRecordJsonSha256": "23c9bad7e133032a704eba0fc34887cf1a3251757a9925726b0d77ec3e56cd0f",
+      "afterRecordJsonSha256": "cd72defb20dd37d301386170d8fe07a325b79d93df7b47e1a4628b6ce1a8467d",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/resilience-runtime.sh",
+      "contentDigest": "sha256:cafc659238ce83e5952abc90ee3260491424eb8cbd709c968836bc42776b4109",
+      "indexDigest": "sha256:cafc659238ce83e5952abc90ee3260491424eb8cbd709c968836bc42776b4109",
+      "beforeRecordJsonSha256": "97044a572ddd21ce5ecba680f14b9ec4f6daae63d212d1afcd0e06fef5deca77",
+      "afterRecordJsonSha256": "a4bded04420d799a864f6b200f1dbc7c24516b424e028c5de7f6b5ad4cf60f63",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/risk-control-test-matrix.sh",
+      "contentDigest": "sha256:c309394559bd827dc171576789d96f830eccee061dfff982806b47ae1006f371",
+      "indexDigest": "sha256:c309394559bd827dc171576789d96f830eccee061dfff982806b47ae1006f371",
+      "beforeRecordJsonSha256": "d04b16f5c2e8a603777a98ee6a0f923b097ae44649d9333349a265bd295a7d99",
+      "afterRecordJsonSha256": "462c7e4451ac3604471c44608e0d53bbfe2d1ea22b041c66f79556ed347ebf8b",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/runtime-integration.sh",
+      "contentDigest": "sha256:f6083e889d10bb1f09f01f7a74fc1f44ab9bfa3a8a891589c8d05e90112333fe",
+      "indexDigest": "sha256:f6083e889d10bb1f09f01f7a74fc1f44ab9bfa3a8a891589c8d05e90112333fe",
+      "beforeRecordJsonSha256": "b4ce0b8e3961408993d6367081d93b99601480f9e4504cf643e0e8390e36bdff",
+      "afterRecordJsonSha256": "3ac1482fa9767539e427dab31cfd5a6a3bda65191c2cb47f349faebe8b42ba20",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/security-runtime.sh",
+      "contentDigest": "sha256:883fe3aeb6d2ae9b89727e29a964e5a76344b40bf7902a42298e6129569ef203",
+      "indexDigest": "sha256:883fe3aeb6d2ae9b89727e29a964e5a76344b40bf7902a42298e6129569ef203",
+      "beforeRecordJsonSha256": "33bc3eb0a324924ba3e69466f72e3a1c05e80a2611b2254934adcea840e2fde9",
+      "afterRecordJsonSha256": "59896b170a9a383eee72e65306cf1893289ae101bf8f3a01a3798d1961fdaf5e",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/soak.sh",
+      "contentDigest": "sha256:0761a1a23597481af16ffdf9b510812f78e30ca3da2c8d8e8a5e61df572aa0f1",
+      "indexDigest": "sha256:0761a1a23597481af16ffdf9b510812f78e30ca3da2c8d8e8a5e61df572aa0f1",
+      "beforeRecordJsonSha256": "0813712c6f9924a280f48cc4769213a8c7852c7d7116f8c0bef947350d72f1b8",
+      "afterRecordJsonSha256": "3d3fc8e167cd102e7dd2f31e544067906c24c47a3c9e242ad930da3ffd4dc640",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/static-governance.sh",
+      "contentDigest": "sha256:83d812bb556bc315b46084600a6d754263ff778174323ff112b0d69981eaa3a1",
+      "indexDigest": "sha256:83d812bb556bc315b46084600a6d754263ff778174323ff112b0d69981eaa3a1",
+      "beforeRecordJsonSha256": "580eab4f2f22cea05f8cf1f7592bc5ba6f2743c6eec63ba4fc75b41f27ca2f77",
+      "afterRecordJsonSha256": "cdba45b85cb705b620b022a20977f1b648abda806c5d43001dc3dadd4a2bcfd8",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/ux-viewport-boundaries.sh",
+      "contentDigest": "sha256:9830e25f1e6ffb8ee299556b061f51642209d917e8044e592101ef54faef773a",
+      "indexDigest": "sha256:9830e25f1e6ffb8ee299556b061f51642209d917e8044e592101ef54faef773a",
+      "beforeRecordJsonSha256": "d42a3efcb7217d0fb022dd9ee2dd3900b441345214a1d37e9796c3803ecc3bbc",
+      "afterRecordJsonSha256": "621f43420ca00d6cd9a4cab41836dfacb1b11e1bde346fcb9b87e6f9f64cd8a9",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/ux-viewport-smoke.sh",
+      "contentDigest": "sha256:4769614abcb6baca4afb5f1bfc751aee358484d789973ec6781fb6c996e7fcf9",
+      "indexDigest": "sha256:4769614abcb6baca4afb5f1bfc751aee358484d789973ec6781fb6c996e7fcf9",
+      "beforeRecordJsonSha256": "a9d4e4c15b3738c544c7d2d4987a8b016d69b6de7ba25083fef8fbb1cc4575e3",
+      "afterRecordJsonSha256": "834072721f6eef85dc410c980d1a34ab38dddcd8a2bf9c5946ba5b93bb42a529",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/ux-viewport-visual.sh",
+      "contentDigest": "sha256:7bd794a621a7057f6fbfe12a8f128f7c12579451781d4260120174797767c168",
+      "indexDigest": "sha256:7bd794a621a7057f6fbfe12a8f128f7c12579451781d4260120174797767c168",
+      "beforeRecordJsonSha256": "8aad01d98fb56a723e1e75e6ede38f5bd431eefc05a724e051eb942a3235d656",
+      "afterRecordJsonSha256": "407a1f2e18ca44045ba65531a729ad5ea3e53d108cc154427a7cd7ab68511e8a",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/visual-console-playwright.sh",
+      "contentDigest": "sha256:302cb0a30e828454045b40993ee9c6a472d406df85127c646cb591f6f1e23b5f",
+      "indexDigest": "sha256:302cb0a30e828454045b40993ee9c6a472d406df85127c646cb591f6f1e23b5f",
+      "beforeRecordJsonSha256": "c7691f5e72af2e9e7571ca150ba3414483a3fd13b5ea47bca65da5726bfbfe9a",
+      "afterRecordJsonSha256": "38a2ea96fd8001a0b2b0cc149a42931f531164f68fbeb3142b5b6f4f0aea8761",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/lanes/visual-public-playwright.sh",
+      "contentDigest": "sha256:5e164915d95b7e9ee2405d5e411fce121b42224db125b2c5fcce536ceb67dc22",
+      "indexDigest": "sha256:5e164915d95b7e9ee2405d5e411fce121b42224db125b2c5fcce536ceb67dc22",
+      "beforeRecordJsonSha256": "9be2cb143bba87a5ec5f57d61adcba7be5174052f6e86070d5b76699855cc084",
+      "afterRecordJsonSha256": "7ad66aa44039f9150d1af811151783e96e7d5bfd146f85a85ea8b39855d90db6",
+      "addedClosure": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/run-matrix-governance-once.sh",
+      "contentDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
+      "indexDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
+      "beforeRecordJsonSha256": "1508a03a9a4c613653bbe2cb6695d3589e043f5b3493af55dec15809df291151",
+      "afterRecordJsonSha256": "d2dd89b98d0c8163b097c64e352c44367b6ea7e7344cbb3a69a6f7a2cbe96a37",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/run-release-reliability-qualified-local.sh",
+      "contentDigest": "sha256:88d2cb91d1108217aa78dde735c0cd7c2f9f379a8be49375e4bbc795e3be81cf",
+      "indexDigest": "sha256:88d2cb91d1108217aa78dde735c0cd7c2f9f379a8be49375e4bbc795e3be81cf",
+      "beforeRecordJsonSha256": "82306a6574f5596ac5bf45011646c93e36fd8214bf2164498f05c093427ae777",
+      "afterRecordJsonSha256": "e23faa7bbe00f8ca18a9f4655c9c3abb00c1e7d3aaaf1a6cda64f8776602c375",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/run-release-reliability-scenarios.mjs",
+      "contentDigest": "sha256:67b16dd58a8884b1ad2a6d869a68122e3ad458360625fbb3e4a9cd776d0caee7",
+      "indexDigest": "sha256:67b16dd58a8884b1ad2a6d869a68122e3ad458360625fbb3e4a9cd776d0caee7",
+      "beforeRecordJsonSha256": "43927af63a8ffa8a1b1b7e1685ba741d255b148dadc3f5b9f9a9e65b58bbbe9e",
+      "afterRecordJsonSha256": "681e8ef6ee7b9d666b6b779b99f4dfb6b3ff0275ed5f2578354d42d715298c59",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    },
+    {
+      "target": "tools/test/run-runtime-order-equivalence.mjs",
+      "contentDigest": "sha256:d84b595c842ff98e9da7e67e87f652411dd29d4d8f697e8e3e9ad361f0abac0f",
+      "indexDigest": "sha256:d84b595c842ff98e9da7e67e87f652411dd29d4d8f697e8e3e9ad361f0abac0f",
+      "beforeRecordJsonSha256": "5f0f956adebc73f53e55c2e534c0be277e84b793de70a0a33b0578265f95fef4",
+      "afterRecordJsonSha256": "bd388ef6a574f89f272d603ecb5d6b489d335d425ce05aee62eec71845037282",
+      "addedClosure": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ],
+      "removedClosure": []
+    }
+  ],
+  "addedClosureFiles": [
+    {
+      "path": "tools/release/correctness-provisional-receipt.mjs",
+      "contentDigest": "sha256:52fd5b34b4033bddbb6803b307261fa7453772c51064c01cc9ac4a99abfefe0f",
+      "indexDigest": "sha256:52fd5b34b4033bddbb6803b307261fa7453772c51064c01cc9ac4a99abfefe0f"
+    },
+    {
+      "path": "tools/release/correctness-scheduler-authority.mjs",
+      "contentDigest": "sha256:40d8ca3f06d8789a8130727b2c3e31af22eaedaeded516449fd7cb52e5df2e47",
+      "indexDigest": "sha256:40d8ca3f06d8789a8130727b2c3e31af22eaedaeded516449fd7cb52e5df2e47"
+    },
+    {
+      "path": "tools/release/correctness-terminal-receipt.mjs",
+      "contentDigest": "sha256:5b2f2cd51ea3517a55844581b9947897e87c18d6ad1d960cc99d4ac9a69a18df",
+      "indexDigest": "sha256:5b2f2cd51ea3517a55844581b9947897e87c18d6ad1d960cc99d4ac9a69a18df"
+    },
+    {
+      "path": "tools/release/correctness-terminal-seal-journal.mjs",
+      "contentDigest": "sha256:dc92b41b8ff6d02123cfe9f0fe09011ee3729d230ad0cc4f856698cd5fcd2f22",
+      "indexDigest": "sha256:dc92b41b8ff6d02123cfe9f0fe09011ee3729d230ad0cc4f856698cd5fcd2f22"
+    },
+    {
+      "path": "tools/test-matrix/correctness-input-manifest.mjs",
+      "contentDigest": "sha256:63b57c873c46fd9ec402acd6c0c5504d973b5b9e160d50f196ed3995b4d17627",
+      "indexDigest": "sha256:63b57c873c46fd9ec402acd6c0c5504d973b5b9e160d50f196ed3995b4d17627"
+    },
+    {
+      "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+      "contentDigest": "sha256:568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e",
+      "indexDigest": "sha256:568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e"
+    }
+  ],
+  "removedClosureFiles": [],
+  "changedExistingClosureFiles": [
+    {
+      "path": "tools/release/test-evidence-receipts-cli.mjs",
+      "before": {
+        "path": "tools/release/test-evidence-receipts-cli.mjs",
+        "contentDigest": "sha256:e4f1fd2773a6fef791a4ac57f06d59cad3604d435ad13786ec4ae95f0efc935a",
+        "indexDigest": "sha256:e4f1fd2773a6fef791a4ac57f06d59cad3604d435ad13786ec4ae95f0efc935a"
+      },
+      "after": {
+        "path": "tools/release/test-evidence-receipts-cli.mjs",
+        "contentDigest": "sha256:491c509ac99f95c814f6809bd40e9f41dddb7dccfeb9dea18cfafe890b99eaae",
+        "indexDigest": "sha256:491c509ac99f95c814f6809bd40e9f41dddb7dccfeb9dea18cfafe890b99eaae"
+      }
+    },
+    {
+      "path": "tools/test-inventory/discovery.mjs",
+      "before": {
+        "path": "tools/test-inventory/discovery.mjs",
+        "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
+        "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+      },
+      "after": {
+        "path": "tools/test-inventory/discovery.mjs",
+        "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+        "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
+      }
+    },
+    {
+      "path": "tools/test-matrix/scheduler.mjs",
+      "before": {
+        "path": "tools/test-matrix/scheduler.mjs",
+        "contentDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7",
+        "indexDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7"
+      },
+      "after": {
+        "path": "tools/test-matrix/scheduler.mjs",
+        "contentDigest": "sha256:fb09ae4aa7c688436304b7269f5c4e517254b2ad70deca51ca0127415245b631",
+        "indexDigest": "sha256:fb09ae4aa7c688436304b7269f5c4e517254b2ad70deca51ca0127415245b631"
+      }
+    },
+    {
+      "path": "tools/test/bundles/bundle-steps.mjs",
+      "before": {
+        "path": "tools/test/bundles/bundle-steps.mjs",
+        "contentDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727",
+        "indexDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727"
+      },
+      "after": {
+        "path": "tools/test/bundles/bundle-steps.mjs",
+        "contentDigest": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad",
+        "indexDigest": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad"
+      }
+    }
+  ],
+  "recordDigestSerialization": "UTF-8 Python json.dumps(sort_keys=True,separators=(comma,colon),ensure_ascii=False), evidence-only; not a runtime receipt digest"
+}
