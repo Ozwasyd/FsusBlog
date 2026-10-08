@@ -16,7 +16,8 @@ const { createRequiredEvidenceBinding } = await import(new URL('../../tools/rele
 const { createReleaseFinalVerifiedAuthorityBinding, verifyReleaseFinalVerifiedAuthorityBinding, assessReleaseFinalTerminalPrerequisites } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
 const { consumeReleaseFinalVerifiedBindings, assessReleaseFinalTerminalPrerequisites: assessFinalizerPrerequisites } = await import(new URL('../../tools/release/check-release-final.mjs', import.meta.url));
 const { publishReleaseFinalVerifiedAuthorityBinding, verifyPublishedReleaseFinalAuthorityBinding,
-    releaseFinalBindingOutputRegistration, runReleaseFinalBindingProducer } = await import(new URL('../../tools/release/publish-release-final-bindings.mjs', import.meta.url));
+    verifyCommittedReleaseFinalAuthorityBinding, releaseFinalBindingOutputRegistration,
+    runReleaseFinalBindingProducer } = await import(new URL('../../tools/release/publish-release-final-bindings.mjs', import.meta.url));
 
 const matrix = parseMatrix(fs.readFileSync(new URL('../../tests/matrix.yml', import.meta.url), 'utf8'));
 const rawDigest = (bytes) => `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
@@ -72,6 +73,125 @@ async function finalFixture(t, { includeFinalizerInput = false, includeFinalOutp
         repositoryRoot: f.repositoryRoot, verifierRegistry: f.verifierRegistry,
         expectedPlanIdentity, testPlan, bindingInputs };
 }
+
+async function committedFinalFixture(t)
+{
+    const scheduler = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
+    const helper = new URL('./support/canonical-scheduler-fixture.mjs', import.meta.url);
+    if (typeof scheduler.verifyCommittedSchedulerEvidence !== 'function' || !fs.existsSync(helper))
+    {
+        t.skip('supplied scheduler API/base conflicts with this candidate; ordinary integration control requires its actual owner source');
+        return null;
+    }
+    const { writeCanonicalSchedulerFixture } = await import(helper);
+    const { initializeCurrentRunEvidenceCheckpoint, attachCurrentRunEvidenceHandoff } =
+        await import(new URL('../../tools/test/current-run-evidence-checkpoint.mjs', import.meta.url));
+    const bindings = await finalFixture(t, { includeFinalOutput: true });
+    const output = await publishReleaseFinalVerifiedAuthorityBinding({ bindings, outputPath: finalOutputPath });
+    const checkpoint = { runId: bindings.context.schedulerRunId, revision: 7,
+        status: 'running', authoritative: false,
+        sourceState: { commit: bindings.context.sourceCommit, worktreeFingerprint: bindings.context.worktreeFingerprint },
+        currentRunEvidenceReferences: initializeCurrentRunEvidenceCheckpoint(bindings.context) };
+    const handoff = JSON.parse(fs.readFileSync(path.join(bindings.repositoryRoot, output.handoffReference.path)));
+    attachCurrentRunEvidenceHandoff({ checkpoint, context: bindings.context,
+        entry: releaseFinalBindingOutputRegistration, handoff, registry: bindings.locatorRegistry,
+        repositoryRoot: bindings.repositoryRoot });
+    const checkpointFile = path.join(bindings.repositoryRoot, 'runs', bindings.context.schedulerRunId, 'checkpoint.json');
+    writeCanonicalSchedulerFixture(checkpointFile, checkpoint);
+    // The original owner's controlled canonical store helper, plus genuine
+    // output producer bytes. This is an ordinary unit model, not terminal/CAS,
+    // physical scheduler, concurrency or domain qualification evidence.
+    return { bindings, output, checkpointFile, expectedCommittedRevision: 7 };
+}
+
+test('ordinary committed final output consumes the actual scheduler API and retains the wrapper digest without qualification', async (t) =>
+{
+    const fixture = await committedFinalFixture(t);
+    if (!fixture)
+    {
+        return;
+    }
+    const { bindings, output, checkpointFile, expectedCommittedRevision } = fixture;
+    const before = fs.readFileSync(checkpointFile);
+    const verified = await verifyCommittedReleaseFinalAuthorityBinding({ bindings, checkpointFile,
+        expectedCommittedRevision, reference: output.reference, handoffReference: output.handoffReference });
+    assert.equal(verified.status, 'committed-reference-verified');
+    assert.equal(verified.qualificationEligible, false);
+    assert.equal(verified.binding.qualificationEligible, false);
+    assert.equal(verified.committedReadback.committedRevision, expectedCommittedRevision);
+    assert.equal(verified.committedReadback.finalOutputDigest, output.reference.objectDigest);
+    assert.notEqual(verified.committedReadback.finalOutputDigest, output.payloadDigest);
+    assert.equal(verified.committedReadback.finalOutputRef.path, output.reference.path);
+    assert.equal(verified.committedReadback.finalOutputRef.consumerId, releaseFinalBindingOutputRegistration.consumerId);
+    assert.deepEqual(fs.readFileSync(checkpointFile), before);
+});
+
+test('ordinary committed final output refuses missing parameters and baseline revision aliases', async (t) =>
+{
+    const fixture = await committedFinalFixture(t);
+    if (!fixture)
+    {
+        return;
+    }
+    const { bindings, output, checkpointFile, expectedCommittedRevision } = fixture;
+    const options = { bindings, checkpointFile, expectedCommittedRevision,
+        reference: output.reference, handoffReference: output.handoffReference };
+    for (const key of Object.keys(options))
+    {
+        const missing = { ...options };
+        delete missing[key];
+        await assert.rejects(verifyCommittedReleaseFinalAuthorityBinding(missing), Error, key);
+    }
+    await assert.rejects(verifyCommittedReleaseFinalAuthorityBinding({ ...options, expectedRevision: 6 }),
+        (error) => error.reasonCode === 'UNSUPPORTED_INPUT');
+    for (const revision of [undefined, 0, -1, '7', 6, 8])
+    {
+        await assert.rejects(verifyCommittedReleaseFinalAuthorityBinding({ ...options, expectedCommittedRevision: revision }),
+            /committed revision|revision is missing or mismatched/u);
+    }
+    await assert.rejects(verifyCommittedReleaseFinalAuthorityBinding({ ...options,
+        checkpointFile: path.join(bindings.repositoryRoot, 'runs', 'absent-run', 'checkpoint.json') }), /revision is missing/u);
+});
+
+test('ordinary committed final output refuses different current identity and payload digest substitution', async (t) =>
+{
+    const fixture = await committedFinalFixture(t);
+    if (!fixture)
+    {
+        return;
+    }
+    const { bindings, output, checkpointFile, expectedCommittedRevision } = fixture;
+    const options = { bindings, checkpointFile, expectedCommittedRevision,
+        reference: output.reference, handoffReference: output.handoffReference };
+    const context = { ...bindings.context, attemptId: 'another-current-attempt' };
+    context.contentDigest = governanceContentDigest(context);
+    await assert.rejects(verifyCommittedReleaseFinalAuthorityBinding({ ...options,
+        bindings: { ...bindings, context } }), /identity|context|attempt|mismatch/u);
+    await assert.rejects(verifyCommittedReleaseFinalAuthorityBinding({ ...options,
+        reference: { ...output.reference, objectDigest: output.payloadDigest } }), /digest mismatch/u);
+});
+
+test('committed output requires independently expected revision and refuses unavailable scheduler API explicitly', async (t) =>
+{
+    const bindings = await finalFixture(t, { includeFinalOutput: true });
+    await assert.rejects(verifyCommittedReleaseFinalAuthorityBinding({ bindings, checkpointFile: 'runs/current/checkpoint.json' }),
+        (error) => error.reasonCode === 'COMMITTED_REVISION_REQUIRED');
+    await assert.rejects(verifyCommittedReleaseFinalAuthorityBinding({ bindings, expectedCommittedRevision: 7 }),
+        (error) => error.reasonCode === 'CHECKPOINT_REQUIRED');
+    const scheduler = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
+    if (typeof scheduler.verifyCommittedSchedulerEvidence !== 'function')
+    {
+        const output = await publishReleaseFinalVerifiedAuthorityBinding({ bindings, outputPath: finalOutputPath });
+        const options = { bindings, checkpointFile: 'runs/current/checkpoint.json', expectedCommittedRevision: 7,
+            reference: output.reference, handoffReference: output.handoffReference };
+        await assert.rejects(verifyCommittedReleaseFinalAuthorityBinding(options),
+            (error) => error.reasonCode === 'SCHEDULER_READBACK_UNAVAILABLE');
+        await assert.rejects(verifyCommittedReleaseFinalAuthorityBinding({ ...options,
+            bindings: { ...bindings, bindingInputs: bindings.bindingInputs.slice(1) } }),
+        (error) => error.reasonCode === 'MISSING_BINDINGS'
+            && assert.deepEqual(error.localProducerCommands, [bindings.catalog.entries[0].localProducerCommand]) === undefined);
+    }
+});
 
 test('actual final-binding producer publishes immutable v2 bytes through the registered owner and independently reads them back', async (t) =>
 {

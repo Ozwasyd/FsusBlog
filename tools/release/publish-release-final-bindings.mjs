@@ -174,6 +174,44 @@ export async function verifyPublishedReleaseFinalAuthorityBinding(options)
         publicationDigest: state.contentDigest, status: 'published-uncommitted', qualificationEligible: false });
 }
 
+// Consume the scheduler owner's actual public API. Its after-write revision is
+// an independent caller input, never the writer's baseline plus one. Readback
+// proves a committed reference, not terminal or domain qualification.
+export async function verifyCommittedReleaseFinalAuthorityBinding(options)
+{
+    requireKeys(options, ['bindings', 'checkpointFile', 'expectedCommittedRevision',
+        'explicitInputs', 'reference', 'handoffReference']);
+    const { bindings, checkpointFile, expectedCommittedRevision, explicitInputs, reference, handoffReference } = options;
+    const entry = registeredOutput(bindings);
+    requireCheck(Number.isSafeInteger(expectedCommittedRevision) && expectedCommittedRevision > 0,
+        'COMMITTED_REVISION_REQUIRED', 'independently expected after-write committed revision is required');
+    requireCheck(typeof checkpointFile === 'string' && checkpointFile.trim().length > 0,
+        'CHECKPOINT_REQUIRED', 'explicit canonical scheduler checkpoint file is required');
+    const verified = await verifyPublishedReleaseFinalAuthorityBinding({ bindings, handoffReference,
+        ...(reference === undefined ? {} : { reference }),
+        ...(explicitInputs === undefined ? {} : { explicitInputs }) });
+    const scheduler = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
+    requireCheck(scheduler.schedulerCommittedEvidenceReadbackVersion === 1
+        && typeof scheduler.verifyCommittedSchedulerEvidence === 'function',
+    'SCHEDULER_READBACK_UNAVAILABLE', 'canonical scheduler committed-evidence readback v1 is not integrated');
+    const committed = scheduler.verifyCommittedSchedulerEvidence({ checkpointFile, expectedCommittedRevision,
+        context: bindings.context, registry: bindings.locatorRegistry, registryEntry: entry,
+        repositoryRoot: bindings.repositoryRoot, expectedPayloadSchema: releaseFinalVerifiedAuthorityBindingSchema });
+    const retained = committed.finalOutputRef;
+    requireCheck(committed.committedRevision === expectedCommittedRevision
+        && committed.finalOutputDigest === verified.locator.inputDigest
+        && retained?.path === verified.locator.input.path
+        && retained.inputDigest === verified.locator.inputDigest
+        && retained.contentDigest === verified.locator.contentDigest
+        && retained.producerReceiptDigest === verified.locator.producerReceiptDigest
+        && retained.consumerId === entry.consumerId && retained.authorityId === entry.authorityId
+        && retained.producerId === entry.producerId,
+    'COMMITTED_OUTPUT_MISMATCH', 'committed wrapper reference differs from the independently verified final output');
+    return Object.freeze({ binding: verified.binding, committedReadback: committed,
+        publicationDigest: verified.publicationDigest,
+        status: 'committed-reference-verified', qualificationEligible: false });
+}
+
 export async function runReleaseFinalBindingProducer(argv, { repositoryRoot = root } = {})
 {
     const args = {};
