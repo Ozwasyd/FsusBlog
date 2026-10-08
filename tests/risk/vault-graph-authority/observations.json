@@ -10,7 +10,7 @@
     },
     "runs": [
         {
-            "name": "strict-graph",
+            "name": "strict-graph-with-fresh-pullupdate-control",
             "processExit": 0,
             "observations": [
                 {
@@ -98,6 +98,38 @@
                     "passed": true
                 },
                 {
+                    "name": "fresh_server_pullupdate_freezes_fresh_mixed_graph",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "name": "fresh_server_pullupdate_frozen_extension_verifies",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "trace": "fresh-pullupdate-stale-input",
+                    "Status": 0,
+                    "decision": 2,
+                    "storedRevision": 8,
+                    "observedRevision": 9,
+                    "buildAccepted": false,
+                    "buildReason": "portable_dependency_article_or_relation_drift",
+                    "verifyAccepted": false,
+                    "verifyReason": "portable_dependency_article_or_relation_drift"
+                },
+                {
+                    "name": "fresh_server_pullupdate_refuses_old_saved_server_graph_and_bytes",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_article_or_relation_drift",
+                    "passed": true
+                },
+                {
                     "name": "sealed_plan_mutable_backing_array_tamper",
                     "expectedAccepted": false,
                     "observedAccepted": false,
@@ -123,7 +155,7 @@
                     "failures": 0
                 }
             ],
-            "rawLogSha256": "043fdbdf1835d96bc6ca9a6c00127bec21501cfeb5f3738b0868543c28f33137"
+            "rawLogSha256": "7741c9eb05e06bf2656bb2061366d7a967db5a1b7285d5b316ed5de39734eb18"
         },
         {
             "name": "early-composite",
@@ -280,6 +312,7 @@
         "Synthetic finite projection fixtures; no real host authority",
         "No business writes, asset transaction or native materialization",
         "No canonical backend/whole-DAG/scale/roundtrip acceptance",
-        "Production source analyzers retained; no warnings=0 claim"
+        "Production source analyzers retained; no warnings=0 claim",
+        "Coordinator-reported 50068eb predecessor is not fetchable; its defect is not independently reproduced here"
     ]
 }

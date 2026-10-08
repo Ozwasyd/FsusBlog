@@ -183,6 +183,7 @@ internal static partial class Program
         VaultDependencyPlanInput[] inputs = [new(manifest, s_bytes, nodes, edges, Digest)];
         ArticleVaultDependencyPlan extension = ArticleVaultDependencyPlanner.Build(sync, request, context, inputs, s_budgets).Plan!;
         Check("mixed_plan_current_authority", true, () => Result(ArticleVaultDependencyPlanner.VerifyCurrent(extension, sync, request, context, inputs, s_budgets)));
+        FreshPullChecks(manifest, article, request);
         Check("sealed_plan_mutable_backing_array_tamper", false, () =>
         {
             VaultDependencyNode[] frozenNodes = (VaultDependencyNode[])extension.Items[0].Manifest.Nodes;
@@ -209,6 +210,77 @@ internal static partial class Program
             return (digest == PortableDependencyCodec.PlanDigest(extension), null);
         });
         Check("authority_drift_after_freeze_refuses_whole_extension", false, () => Result(ArticleVaultDependencyPlanner.VerifyCurrent(extension, sync, request, context, inputs, s_budgets)));
+    }
+
+    private static void FreshPullChecks(PortableDependencyManifest stored, ArticleVaultArticleManifest article,
+        ArticleVaultPlanRequest original)
+    {
+        byte[] freshBytes = Encoding.UTF8.GetBytes("fresh server source\r\n");
+        PortableDependencyManifest fresh = stored with
+        {
+            SourceSide = VaultDependencySourceSide.Server,
+            Source = ArticleVaultManifestCodec.CaptureSourceBytes(freshBytes)
+        };
+        string graph = PortableDependencyCodec.GraphDigest(fresh);
+        VaultArticleCoordinate freshCoordinate = stored.Coordinates.Server with
+        {
+            Source = fresh.Source,
+            ServerRevision = 9,
+            DependencySha256 = graph
+        };
+        freshCoordinate = freshCoordinate with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(freshCoordinate)
+        };
+        fresh = PortableDependencyCodec.Seal(fresh with
+        {
+            Coordinates = stored.Coordinates with { Server = freshCoordinate },
+            GraphSha256 = graph
+        });
+        ArticleVaultServerObservation observation = original.ServerObservations[0] with
+        {
+            ServerCoordinate = freshCoordinate
+        };
+        observation = observation with
+        {
+            ContentSha256 = ArticleVaultSyncPlanCodec.ComputeContentSha256(observation)
+        };
+        ArticleVaultPlanRequest request = original with
+        {
+            Direction = VaultSyncDirection.Pull,
+            ServerObservations = [observation]
+        };
+        ArticleVaultSyncPlan sync = ArticleVaultSyncPlanner.Build(request).Plan!;
+        ArticleVaultPlanVerificationContext context = new(1000, request.Direction, false);
+        VaultDependencyPlanInput[] freshInputs = [new(fresh, freshBytes, fresh.Nodes, fresh.Edges, Digest)];
+        VaultDependencyPlanBuildResult built = ArticleVaultDependencyPlanner.Build(sync, request, context, freshInputs, s_budgets);
+        Check("fresh_server_pullupdate_freezes_fresh_mixed_graph", true, () =>
+        {
+            return (sync.Status == VaultSyncPlanStatus.Ready
+                && sync.Groups[0].Items[0].Decision == VaultSyncDecision.PullUpdate && built.Plan is not null, built.ReasonCode);
+        });
+        Check("fresh_server_pullupdate_frozen_extension_verifies", true, () => Result(
+            ArticleVaultDependencyPlanner.VerifyCurrent(built.Plan, sync, request, context, freshInputs, s_budgets)));
+        Check("fresh_server_pullupdate_refuses_old_saved_server_graph_and_bytes", false, () =>
+        {
+            PortableDependencyManifest stale = PortableDependencyCodec.Seal(stored with { SourceSide = VaultDependencySourceSide.Server });
+            VaultDependencyPlanInput[] staleInputs = [new(stale, s_bytes, stale.Nodes, stale.Edges, Digest)];
+            VaultDependencyPlanBuildResult staleBuild = ArticleVaultDependencyPlanner.Build(sync, request, context, staleInputs, s_budgets);
+            ArticleVaultValidationResult staleVerify = ArticleVaultDependencyPlanner.VerifyCurrent(built.Plan, sync, request, context, staleInputs, s_budgets);
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                trace = "fresh-pullupdate-stale-input",
+                sync.Status,
+                decision = sync.Groups[0].Items[0].Decision,
+                storedRevision = article.Coordinates.Server.ServerRevision,
+                observedRevision = observation.ServerCoordinate.ServerRevision,
+                buildAccepted = staleBuild.Plan is not null,
+                buildReason = staleBuild.ReasonCode,
+                verifyAccepted = staleVerify.IsValid,
+                verifyReason = staleVerify.ReasonCode
+            }));
+            return (staleBuild.Plan is not null || staleVerify.IsValid, staleVerify.ReasonCode ?? staleBuild.ReasonCode);
+        });
     }
 #endif
 }

@@ -41,10 +41,18 @@ it does not establish original backend project or full DAG qualification.
 
 ## Observed results
 
-- Strict graph: 15/15 mixed graph/plan controls passed, exit 0. They cover
+- Strict graph: 18/18 mixed graph/plan controls passed, exit 0. They cover
   AssetId/owner substitution, revocation, frozen revision drift, cross-vault
   targets, partial edge sets, mixed cycles and cumulative bytes, distinct
   identities, backing-array tamper refusal and frozen input snapshot isolation.
+  The added coordinator-directed control uses stored server revision 8 and fresh
+  observed revision 9: Ready/PullUpdate freezes and verifies the fresh graph, while
+  Build and VerifyCurrent both refuse old saved graph/bytes with
+  `portable_dependency_article_or_relation_drift`. This controls the reported
+  predecessor defect without claiming general graph currentness. The coordinator's
+  predecessor SHA `50068eb43939be73e72054f8d7a662184d2497a1` is not remotely
+  fetchable on this host; that baseline is coordinator-reported, not independently
+  reproduced here.
 - Strict graph plus link/embed composition: exit 1, exactly two production
   CS7036 errors, at `ArticleVaultBlockLinkRefactor.cs:77` and
   `ArticleVaultFrozenEmbedAdmission.cs:160`. Consumers do not supply the required
