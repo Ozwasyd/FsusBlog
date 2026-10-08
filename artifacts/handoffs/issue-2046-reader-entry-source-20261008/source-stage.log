@@ -1,0 +1,141 @@
+[frontend-style] missing configured frontend style path tools/frontend/style-toolchain/node_modules/.bin/eslint
+[frontend-style] missing configured frontend style path tools/frontend/style-toolchain/node_modules/.bin/stylelint
+[native-tooling-style] ok operation=lint domain=docs mode=full selected=1 checked=1 baseline=0 violations=0
+[document-lifecycle] ok documents=372
+fatal: Needed a single revision
+✔ ordinary documentation and normal naming metadata perform source checks without unrelated SDK/runtime (3.098985ms)
+✔ affected source retains fixed-job members and complete original admission/build prerequisites (0.501548ms)
+✔ unknown paths and shared selection authority retain complete checks (0.343639ms)
+✔ full mode preserves every original declaration including unrelated runtime (0.247705ms)
+✔ evidence producers remain prerequisites rather than being mistaken for skipped success (0.314045ms)
+✔ workflow-only prerequisite is retained and undeclared prerequisite fails closed (0.532816ms)
+✔ unknown dependency, dependency cycle and phase inversion fail before any execution (0.227804ms)
+✔ actual Git diff includes deleted paths and both sides of a rename, and missing base never becomes empty impact (46.485111ms)
+✔ the original indexed dependency selects every actual consumer beyond broad path declarations (0.680409ms)
+✔ consumers reject self-authored selection, stale source fingerprint and changed path evidence (4.955341ms)
+✔ ordinary PR dependency owners do not automatically promote manual/nightly/local lanes (0.621099ms)
+✔ CI cannot consume a re-sealed file in place of the original planner output authority (0.779438ms)
+✔ local complete workflow cannot start compiled matrix setup before successful BehaviorDoc admission (2.603696ms)
+✔ explicit local full intent survives the real child caller environment (0.153702ms)
+✔ compiled matrix prerequisite rejects absent admission before any command starts (529.991434ms)
+✔ actual source checker dependency changes select the mandatory source governance owner (0.425674ms)
+✔ explicit source integration executes source gates and real declared regressions without issuing product qualification (0.506336ms)
+✔ full, push and release callers cannot be downgraded by source stage or mixed caller authority (0.198119ms)
+✔ re-sealing stage, regression or deferred qualification claims cannot change the independent source plan (0.90022ms)
+✔ the real stage option parser refuses malformed explicit intent before any execution (2.3018ms)
+✔ source integration explicitly refuses every unregistered source surface rather than silently skipping unknown languages (0.358502ms)
+✔ flat solution checker and its refusal controls are explicit source execution ports (0.228215ms)
+✔ existing plan reuse receives independent explicit caller options instead of defaulting stage from the plan (1.40207ms)
+✔ the fixed shell source port checks syntax without executing the script and refuses command-shaped inputs (11.021503ms)
+✔ shell syntax cannot treat refused or missing source identities as stable input proof (0.36409ms)
+✔ SOURCE frontend routing retains strict original checks for every non-module frontend kind (0.667659ms)
+✔ Python SOURCE syntax uses the existing isolated checker and only verified inputs escape unsupported (0.289708ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 685.065028
+✔ applicable exact target and dependency remain bound without certifying unrelated targets (1.551696ms)
+✔ the original Markdown adapter has an exact source-only declaration and five actual repository inputs (352.192779ms)
+✔ changed applicable source, index, owner and argv each refuse (0.696534ms)
+✔ missing applicable target/dependency, parser or independent index binding refuses (0.300574ms)
+✔ duplicate authority records cannot mint an applicable binding by last-entry overwrite (0.256477ms)
+✔ omitting a required applicable dependency cannot become an empty successful closure (0.185791ms)
+✔ actual target or selected owner omissions cannot self-authorize an empty subset (0.245921ms)
+✔ source governance owns all four actual child entries and recursive indexed source, with independent cache vectors (142.906781ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 585.890953
+node:internal/modules/cjs/loader:1500
+  const err = new Error(message);
+              ^
+
+Error: Cannot find module 'espree'
+Require stack:
+- /workspace/FsusBlog-2046-reader-entry-source/tools/frontend/style-toolchain/package.json
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1500:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1600:12)
+    at require (node:internal/modules/helpers:153:16)
+    at file:///workspace/FsusBlog-2046-reader-entry-source/tools/frontend/check-frontend-style-source-base.test.mjs:13:92
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/workspace/FsusBlog-2046-reader-entry-source/tools/frontend/style-toolchain/package.json'
+  ]
+}
+
+Node.js v24.16.0
+✖ tools/frontend/source-unit-style-diff.test.mjs (38.135233ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48.506292
+
+✖ failing tests:
+
+test at tools/frontend/source-unit-style-diff.test.mjs:1:1
+✖ tools/frontend/source-unit-style-diff.test.mjs (38.135233ms)
+  'test failed'
+✔ native fragment mock span transport refuses column-only without parser qualification (85.016807ms)
+✔ native fragment mock span transport refuses wrong-length without parser qualification (85.48414ms)
+✔ native fragment mock span transport refuses wrong-line without parser qualification (87.395013ms)
+✔ native fragment mock span transport refuses missing-finding without parser qualification (73.329659ms)
+✔ native fragment mock span transport refuses duplicate-finding without parser qualification (76.795805ms)
+✔ native fragment mock span transport refuses foreign-file without parser qualification (83.962064ms)
+✔ native fragment mock span transport refuses duplicate-report without parser qualification (83.008211ms)
+✔ native fragment mock span transport refuses raw-mismatch without parser qualification (93.350687ms)
+✔ native fragment mock span transport refuses abnormal-terminal without parser qualification (78.42349ms)
+✔ original Markdown adapter package boundary accepts equivalent bins and refuses foreign package authority (286.216812ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1097.697177
+✔ flat solution inspection binds actual project source without evaluating it (155.379762ms)
+✔ malformed XML and declarations or external entities are refused (220.301551ms)
+✔ numeric predefined entity aliases and processing instructions cannot become literal project paths (373.9059ms)
+✔ source admission compares the closed complete receipt against independent current HEAD and bindings (758.915667ms)
+✔ unknown elements attributes nested structures and text remain unsupported (312.420334ms)
+✔ escaping substituted and duplicate project paths cannot receive source coverage (493.228605ms)
+✔ missing linked and uncommitted project sources are refused (252.424166ms)
+✔ linked ancestors and hardlinked project aliases are refused (160.081543ms)
+✔ the solution itself and exact caller arguments cannot be replaced by declarations (89.796545ms)
+✔ a source change during the final Git binding recheck is refused through the held descriptor (93.240711ms)
+✔ Python AST syntax does not execute imports bodies bytecode or lifecycle (200.542746ms)
+✔ Python AST refuses malformed UTF-8 syntax and bounded input overflow (169.051087ms)
+✔ Python AST reuses regular single-link source HEAD index and path refusals (165.577721ms)
+✔ Python AST receipt cannot substitute HEAD source parser version limits or extra output (689.451507ms)
+✔ Python AST held descriptor refuses input replacement during the final index recheck (150.859129ms)
+✔ Python AST fixed worker refuses added fields and ignores caller Python import paths (118.439947ms)
+✔ Python AST bounded FD reader refuses growth after the small initial stat without reading beyond cap plus one (39.156217ms)
+✔ Python AST batch budget refuses the next committed source before reading or parsing beyond eight MiB (467.69568ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4980.166233
+[source-governance] failure; no runtime or release qualification
+[matrix] applicable source governance failed; qualification remains unrun

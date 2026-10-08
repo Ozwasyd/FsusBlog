@@ -1,0 +1,21 @@
+{
+  "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+  "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--mode",
+    "full",
+    "--domain",
+    "docs",
+    "--operation",
+    "lint",
+    "--require-tools",
+    "--file",
+    "docs/testing.md"
+  ],
+  "startedAt": "2026-10-08T09:45:43.224304+00:00",
+  "exitCode": 0,
+  "logSha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e",
+  "qualificationEligible": false
+}

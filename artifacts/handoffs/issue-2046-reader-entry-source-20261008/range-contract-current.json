@@ -1,0 +1,14 @@
+{
+  "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+  "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d..bf59cf9c9a19650af940fc4c18da45a310143168"
+  ],
+  "startedAt": "2026-10-08T09:45:34.475492+00:00",
+  "exitCode": 0,
+  "logSha256": "816a41e013ff15234432e8d0b00be08f872e0b807e06e576ea35f62880d95649",
+  "qualificationEligible": false
+}

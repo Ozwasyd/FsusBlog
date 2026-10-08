@@ -1,0 +1,177 @@
+{
+  "testedSourceSha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+  "qualificationEligible": false,
+  "issue2046Accepted": false,
+  "wholeAssignmentComplete": false,
+  "files": [
+    {
+      "file": "assignment-status-current.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/assignment-status-current.json",
+      "sha256": "7668b497a57d077d1440d318223387f36e4fed12b055eaefd88748a8fcb1f760",
+      "sizeBytes": 137806,
+      "byteExact": true
+    },
+    {
+      "file": "assignment-status-current.md",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/assignment-status-current.md",
+      "sha256": "f6f1333c2654784b9a6fb92726ca89058e2a39fd1ad6901b4b368c7858112d76",
+      "sizeBytes": 4233,
+      "byteExact": true
+    },
+    {
+      "file": "docs-lint-current.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/docs-lint-current.json",
+      "sha256": "394ab54273d6b0454103108e67da9a6b3f381c6af50706e86cd73d4d5cc48a88",
+      "sizeBytes": 607,
+      "byteExact": true
+    },
+    {
+      "file": "docs-lint-current.log",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/docs-lint-current.log",
+      "sha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e",
+      "sizeBytes": 108,
+      "byteExact": true
+    },
+    {
+      "file": "entry-api-current.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/entry-api-current.json",
+      "sha256": "f57451038089121355eb6203efa1868bf355a1764495989ba74361421204b010",
+      "sizeBytes": 479,
+      "byteExact": true
+    },
+    {
+      "file": "entry-api-current.log",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/entry-api-current.log",
+      "sha256": "5f45d2281e716f9bbf9d70802692f4e80c2f11e4acc4b21ea55cfe390ee40cf4",
+      "sizeBytes": 425,
+      "byteExact": true
+    },
+    {
+      "file": "entry-api.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/entry-api.json",
+      "sha256": "7370796239f84c1053ec4c9899d126c805dfe492aff5066dd2deee8bee37c5ee",
+      "sizeBytes": 479,
+      "byteExact": true
+    },
+    {
+      "file": "entry-api.log",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/entry-api.log",
+      "sha256": "4134816843fdf9e5ada5d706a23acf393ea279f9fbeda1d609c556f5a2c24b5f",
+      "sizeBytes": 425,
+      "byteExact": true
+    },
+    {
+      "file": "frontend-style-current.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/frontend-style-current.json",
+      "sha256": "d0bf41c6c7ee131de89ec170ae84639e16c920048a82c6acd88292faa0c5c1a3",
+      "sizeBytes": 749,
+      "byteExact": true
+    },
+    {
+      "file": "frontend-style-current.log",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/frontend-style-current.log",
+      "sha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7",
+      "sizeBytes": 68,
+      "byteExact": true
+    },
+    {
+      "file": "range-contract-current.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/range-contract-current.json",
+      "sha256": "6bcba7500486e1fcbb084e9be91092b1e4f2af919845795b14da4fc082e44957",
+      "sizeBytes": 567,
+      "byteExact": true
+    },
+    {
+      "file": "range-contract-current.log",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/range-contract-current.log",
+      "sha256": "816a41e013ff15234432e8d0b00be08f872e0b807e06e576ea35f62880d95649",
+      "sizeBytes": 117,
+      "byteExact": true
+    },
+    {
+      "file": "range-contract.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/range-contract.json",
+      "sha256": "561c37fb7a901bbdea8ea2f15f8ee4d7bf8e9e60efaf8abc3afa318f53b9f335",
+      "sizeBytes": 567,
+      "byteExact": true
+    },
+    {
+      "file": "range-contract.log",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/range-contract.log",
+      "sha256": "c08c6dcb8500f782735b7b6e305e6cb6a323b3bf327c5d9b0439cb50a85ceb17",
+      "sizeBytes": 458,
+      "byteExact": true
+    },
+    {
+      "file": "reader-entry-source-handoff.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/reader-entry-source-handoff.json",
+      "sha256": "69d62edbcfc0a5cc43932f8500665124ef4394daca02359f8a9cfe47f056b791",
+      "sizeBytes": 7851,
+      "byteExact": true
+    },
+    {
+      "file": "source-push.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/source-push.json",
+      "sha256": "e87679ffab6805469ada6e7216748e379a0a70fc96a5f9747b5da8fa87641ff2",
+      "sizeBytes": 387,
+      "byteExact": true
+    },
+    {
+      "file": "source-push.log",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/source-push.log",
+      "sha256": "22b95ba2988d9b57b92949fe5624ef8f30f4c941025e3b94413b66b2ebae334c",
+      "sizeBytes": 172,
+      "byteExact": true
+    },
+    {
+      "file": "source-stage-current.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/source-stage-current.json",
+      "sha256": "88ba69b3af7d31cbbce160d6706b634bd0c812f9683a1342e9a39d6835dd60c2",
+      "sizeBytes": 571,
+      "byteExact": true
+    },
+    {
+      "file": "source-stage-current.log",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/source-stage-current.log",
+      "sha256": "d9a3795b672ecfe14a52ef99f1f6844801c6a6de228b3de6bc9ef511f0b31de0",
+      "sizeBytes": 10501,
+      "byteExact": true
+    },
+    {
+      "file": "source-stage.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/source-stage.json",
+      "sha256": "921913be42df2b81b5a2559bf7c09f0abf35ceaba785af6b951601dc29b16f58",
+      "sizeBytes": 571,
+      "byteExact": true
+    },
+    {
+      "file": "source-stage.log",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/issue-2046-reader-entry-source-20261008/source-stage.log",
+      "sha256": "14695a82991c3ab441c81bbbd104b702dc86770adad83b92a22763c16b27aaa8",
+      "sizeBytes": 9132,
+      "byteExact": true
+    },
+    {
+      "file": "current-pr-plan.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/pr-plan.json",
+      "sha256": "6f4a9957bc8a6313f3ac504aebc906d8cda2e3c4e79d50254360e0ea2b4db4a5",
+      "sizeBytes": 71878,
+      "byteExact": true
+    },
+    {
+      "file": "current-source-governance-result.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/source-governance/result.json",
+      "sha256": "d5af07330d2aac858ef0321390ed08deeb1b3f609f8211d79c80122d5a328e64",
+      "sizeBytes": 9062,
+      "byteExact": true
+    },
+    {
+      "file": "current-frontend-style-source-diff.json",
+      "sourcePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/frontend-style/source-diff.json",
+      "sha256": "fd4795a35f8389e796c1483e0d84fa9f1b292f4045c82e4e9329c1641bd74663",
+      "sizeBytes": 42068,
+      "byteExact": true
+    }
+  ],
+  "exportRunsTests": false
+}

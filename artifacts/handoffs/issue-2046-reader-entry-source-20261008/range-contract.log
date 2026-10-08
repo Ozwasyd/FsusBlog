@@ -1,0 +1,2 @@
+[change-contract] 59fbbb9364b34c4351cc22150a891caf9920ee69: scope must be one of: admin, aeds, api, auth, backend, build, cache, ci, cmake, contracts, core, cpp, csharp, database, deployment, docs, frontend, governance, json, markdown, operations, performance, privacy, public, release, security, shared, shell, style, test, tooling, wasm, yaml, zk
+[change-contract] 59fbbb9364b34c4351cc22150a891caf9920ee69: commit message must contain a Refs: #1234 footer

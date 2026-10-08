@@ -1,0 +1,13 @@
+{
+  "sha": "59fbbb9364b34c4351cc22150a891caf9920ee69",
+  "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/fixture-reader-entry-api.test.mjs"
+  ],
+  "startedAt": "2026-10-08T09:43:57.052007+00:00",
+  "exitCode": 0,
+  "logSha256": "4134816843fdf9e5ada5d706a23acf393ea279f9fbeda1d609c556f5a2c24b5f",
+  "qualificationEligible": false
+}

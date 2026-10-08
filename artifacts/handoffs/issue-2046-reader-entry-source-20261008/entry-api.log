@@ -1,0 +1,12 @@
+✔ reader entry exports retain four required positional signatures (0.917577ms)
+✔ reader missing required arguments return fixed refusals (0.921383ms)
+✔ reader basic parameter types are rejected when invalid (0.150898ms)
+✔ reader entry module depends only on existing receipt schema helpers (0.444442ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 97.526062

@@ -1,0 +1,179 @@
+{
+  "issue": 2046,
+  "classification": "partial-source-entry-api-only",
+  "sourceSha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+  "branch": "codex/issue-2046-reader-entry-source-20261008",
+  "baseSha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "executionEnvironment": "configured FsusBlog cloud workspace",
+  "sourceFiles": [
+    {
+      "path": "docs/testing.md",
+      "gitBlob": "03160293a3d7833db95fc4137560c19199d96aa1",
+      "sha256": "6b94ce3aba2d3b743a93a877b76f41dd3eca90250d55678638ac04330401b187"
+    },
+    {
+      "path": "tests/tools/fixture-reader-entry-api.test.mjs",
+      "gitBlob": "535744b13ebc7e3eeab1de1217fe6078b7283e69",
+      "sha256": "f33073f8b8b179d64df7c19502328b81ff7df709925cdc7622dedb270bb654a3"
+    },
+    {
+      "path": "tools/test-fixtures/receipt/index.mjs",
+      "gitBlob": "15cb0d7c57b49f0d4f3b53bfd3819e8386c892c1",
+      "sha256": "50f45a182399a2732a3e5b287cbbd89a58bfa15274e9e7123eab96f10aaadd5e"
+    },
+    {
+      "path": "tools/test-fixtures/receipt/verified-reader.mjs",
+      "gitBlob": "ccab2d5db3146f80d9b5214b719b396ae39e02d2",
+      "sha256": "7a9223c95b5800b71a87353d75c1dbb5d6d02133332447252a149da1de6a9a78"
+    }
+  ],
+  "entryPoints": [
+    "openVerifiedFixtureReceipt(expectedExecutionIdentity)",
+    "requireCapabilities(receipt, capabilityIds)",
+    "projectEntity(receipt, semanticRole)",
+    "openSecretProjection(receipt, projectionId)"
+  ],
+  "checks": [
+    {
+      "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+      "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/fixture-reader-entry-api.test.mjs"
+      ],
+      "startedAt": "2026-10-08T09:46:19.572292+00:00",
+      "exitCode": 0,
+      "logSha256": "5f45d2281e716f9bbf9d70802692f4e80c2f11e4acc4b21ea55cfe390ee40cf4",
+      "qualificationEligible": false
+    },
+    {
+      "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+      "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d..bf59cf9c9a19650af940fc4c18da45a310143168"
+      ],
+      "startedAt": "2026-10-08T09:45:34.475492+00:00",
+      "exitCode": 0,
+      "logSha256": "816a41e013ff15234432e8d0b00be08f872e0b807e06e576ea35f62880d95649",
+      "qualificationEligible": false
+    },
+    {
+      "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+      "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "source-diff",
+        "--base",
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "--file",
+        "tools/test-fixtures/receipt/index.mjs",
+        "--file",
+        "tools/test-fixtures/receipt/verified-reader.mjs",
+        "--file",
+        "tests/tools/fixture-reader-entry-api.test.mjs"
+      ],
+      "startedAt": "2026-10-08T09:45:35.850583+00:00",
+      "exitCode": 0,
+      "logSha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7",
+      "qualificationEligible": false
+    },
+    {
+      "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+      "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/style/check-native-tooling-style.mjs",
+        "--mode",
+        "full",
+        "--domain",
+        "docs",
+        "--operation",
+        "lint",
+        "--require-tools",
+        "--file",
+        "docs/testing.md"
+      ],
+      "startedAt": "2026-10-08T09:45:43.224304+00:00",
+      "exitCode": 0,
+      "logSha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e",
+      "qualificationEligible": false
+    },
+    {
+      "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+      "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "ci-pr-smart",
+        "--stage",
+        "source-integration",
+        "--base-ref",
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+      ],
+      "startedAt": "2026-10-08T09:46:19.701419+00:00",
+      "exitCode": 0,
+      "logSha256": "d9a3795b672ecfe14a52ef99f1f6844801c6a6de228b3de6bc9ef511f0b31de0",
+      "qualificationEligible": false
+    }
+  ],
+  "entryApiTestOutcomes": {
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0
+  },
+  "readerBehavior": "Only fixed refusals; verified:false, bindingReceipt:null. Existing #1710 validator checks supplied receipt documents; it does not authenticate admission. No authoritative locator is available, so no receipt or private projection file is opened.",
+  "missingOwnerContracts": [
+    "Authoritative mapping from expectedExecutionIdentity to final receipt path; current #1710 normalized identity supplies no locator.",
+    "Caller sealed metadata capability eligibility and profile/execution-class/producer-plan admission.",
+    "Exact consumer semantic-role entity projection; kind/id/handle fields and auth-local supplied-role references are not a generic contract.",
+    "Private projection consumer entitlement and authoritative projection locator/staleness binding."
+  ],
+  "schemaOwnerReadOnlyEvidence": {
+    "issue1710": "https://github.com/Ozwasyd/FsusBlog/issues/1710",
+    "currentBodyRead": true,
+    "currentCommentsRead": true,
+    "landedComment": "https://github.com/Ozwasyd/FsusBlog/issues/1710#issuecomment-5097304216",
+    "historicalOwnerCommit": "60ded6a03d1c53ecd28f61908f7cc8886feac43d",
+    "ownerRequest": "Requested coordinating parent to obtain exact formal contracts from canonical #1710/schema owner; no response or contract commit supplied."
+  },
+  "limits": [
+    "No verified success, binding receipt, new schema registry or authority minted.",
+    "No DB/Redis/producer execution added; dependency test covers direct entry imports only.",
+    "No consumer migration or old reader deletion.",
+    "No generic capability/role/secret projection implementation or runtime acceptance.",
+    "No held fixture adversarial substitution/tampering/cohort/alias/TOCTOU/security-audit scenarios run.",
+    "SOURCE includes existing mandatory governance controls, not product or fixture qualification.",
+    "Initial SOURCE tooling and commit-metadata failures retained; corrected candidate checks have their own SHA binding."
+  ],
+  "issue2046Accepted": false,
+  "wholeAssignmentComplete": false,
+  "qualificationEligible": false,
+  "publication": {
+    "published": false,
+    "pushAttempt": {
+      "command": [
+        "git",
+        "-c",
+        "credential.helper=!gh auth git-credential",
+        "push",
+        "-u",
+        "origin",
+        "codex/issue-2046-reader-entry-source-20261008"
+      ],
+      "startedAt": "2026-10-08T09:48:16.418323+00:00",
+      "exitCode": 128,
+      "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+      "logSha256": "22b95ba2988d9b57b92949fe5624ef8f30f4c941025e3b94413b66b2ebae334c"
+    },
+    "error": "Invalid username or token; Git push exit 128",
+    "prCreated": false,
+    "centralQueue": "No PR/comment/content API writes without grant. Ordinary isolated git source/evidence pushes authorized but current Git credential invalid."
+  },
+  "nextAction": "Refresh configured environment Git credential and push exact source branch; obtain formal contracts through canonical owners before any consumer admission/migration."
+}

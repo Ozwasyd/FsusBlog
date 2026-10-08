@@ -1,0 +1,15 @@
+{
+  "command": [
+    "git",
+    "-c",
+    "credential.helper=!gh auth git-credential",
+    "push",
+    "-u",
+    "origin",
+    "codex/issue-2046-reader-entry-source-20261008"
+  ],
+  "startedAt": "2026-10-08T09:48:16.418323+00:00",
+  "exitCode": 128,
+  "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+  "logSha256": "22b95ba2988d9b57b92949fe5624ef8f30f4c941025e3b94413b66b2ebae334c"
+}

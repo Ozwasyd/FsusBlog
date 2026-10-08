@@ -1,0 +1,852 @@
+{
+    "schema": "fsusblog.frontend-style-source-diff.v1",
+    "baseCommit": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "candidateCommit": "bf59cf9c9a19650af940fc4c18da45a310143168",
+    "configurationIdentities": [
+        {
+            "file": "config/development/frontend-style-policy.json",
+            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+        },
+        {
+            "file": "config/development/frontend-style-rule-registry.json",
+            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/package.json",
+            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/package-lock.json",
+            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+        },
+        {
+            "file": ".editorconfig",
+            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+        },
+        {
+            "file": "eslint.config.mjs",
+            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+        },
+        {
+            "file": "stylelint.config.mjs",
+            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+        },
+        {
+            "file": "src/frontend/eslint.config.mjs",
+            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+        },
+        {
+            "file": "src/frontend/stylelint.config.mjs",
+            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+        }
+    ],
+    "qualification": false,
+    "files": [
+        {
+            "file": "tests/tools/fixture-reader-entry-api.test.mjs",
+            "baseSourceSha256": null,
+            "candidateSourceSha256": "f33073f8b8b179d64df7c19502328b81ff7df709925cdc7622dedb270bb654a3",
+            "rawBase": {
+                "exitCode": null,
+                "reports": [],
+                "findings": []
+            },
+            "rawCandidate": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog-2046-reader-entry-source/tests/tools/fixture-reader-entry-api.test.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "importContext": null,
+            "existing": [],
+            "unexpected": [],
+            "failure": null
+        },
+        {
+            "file": "tools/test-fixtures/receipt/index.mjs",
+            "baseSourceSha256": "a2f4e7abcdd63a991a78f7ff98011dd29bfbbd4c7fc1245db09e1edce932f979",
+            "candidateSourceSha256": "50f45a182399a2732a3e5b287cbbd89a58bfa15274e9e7123eab96f10aaadd5e",
+            "rawBase": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog-2046-reader-entry-source/.tmp/frontend-style/source-diff-base-avnITl/tools/test-fixtures/receipt/index.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "rawCandidate": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog-2046-reader-entry-source/tools/test-fixtures/receipt/index.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "importContext": {
+                "base": {
+                    "sourcePath": "tools/test-fixtures/receipt/index.mjs",
+                    "configurationIdentities": [
+                        {
+                            "file": ".editorconfig",
+                            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+                        },
+                        {
+                            "file": "config/development/frontend-style-policy.json",
+                            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+                        },
+                        {
+                            "file": "config/development/frontend-style-rule-registry.json",
+                            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+                        },
+                        {
+                            "file": "eslint.config.mjs",
+                            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+                        },
+                        {
+                            "file": "src/frontend/eslint.config.mjs",
+                            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+                        },
+                        {
+                            "file": "src/frontend/stylelint.config.mjs",
+                            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+                        },
+                        {
+                            "file": "stylelint.config.mjs",
+                            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+                            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package-lock.json",
+                            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package.json",
+                            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+                            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+                        }
+                    ],
+                    "dependencies": []
+                },
+                "candidate": {
+                    "sourcePath": "tools/test-fixtures/receipt/index.mjs",
+                    "configurationIdentities": [
+                        {
+                            "file": ".editorconfig",
+                            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+                        },
+                        {
+                            "file": "config/development/frontend-style-policy.json",
+                            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+                        },
+                        {
+                            "file": "config/development/frontend-style-rule-registry.json",
+                            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+                        },
+                        {
+                            "file": "eslint.config.mjs",
+                            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+                        },
+                        {
+                            "file": "src/frontend/eslint.config.mjs",
+                            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+                        },
+                        {
+                            "file": "src/frontend/stylelint.config.mjs",
+                            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+                        },
+                        {
+                            "file": "stylelint.config.mjs",
+                            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+                            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package-lock.json",
+                            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package.json",
+                            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+                            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+                        }
+                    ],
+                    "dependencies": []
+                }
+            },
+            "existing": [],
+            "unexpected": [],
+            "failure": null
+        },
+        {
+            "file": "tools/test-fixtures/receipt/verified-reader.mjs",
+            "baseSourceSha256": null,
+            "candidateSourceSha256": "7a9223c95b5800b71a87353d75c1dbb5d6d02133332447252a149da1de6a9a78",
+            "rawBase": {
+                "exitCode": null,
+                "reports": [],
+                "findings": []
+            },
+            "rawCandidate": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog-2046-reader-entry-source/tools/test-fixtures/receipt/verified-reader.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "importContext": null,
+            "existing": [],
+            "unexpected": [],
+            "failure": null
+        }
+    ],
+    "failures": [],
+    "toolVersions": {
+        "eslint": "10.8.0",
+        "espree": "10.4.0",
+        "eslint-scope": "9.1.2"
+    },
+    "baseResolverInputs": {
+        "baseCommit": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "files": [
+            {
+                "file": "tools/package.json",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "723791a9b54fec7e5dcf4d304a74e010f8ca66fd",
+                "size": 417,
+                "sha256": "ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd",
+                "bytes": 417
+            },
+            {
+                "file": "tools/test-fixtures/receipt/canonical.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "size": 2048,
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819",
+                "bytes": 2048
+            },
+            {
+                "file": "tools/test-fixtures/receipt/comment-cleanup-contract.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "b67f61620f0c04de7b1397b1f602ff8149a7e5ad",
+                "size": 7440,
+                "sha256": "021274f2fbcf142ed1d5804be1941c1d26c5ea042949aeefc1118ecd18cc74b8",
+                "bytes": 7440
+            },
+            {
+                "file": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "0c3f2366961f2085ad5827a47a564597afb413f9",
+                "size": 26526,
+                "sha256": "610457f0be724ce37c212ef546f2caf6cae0205196853e62cef1e39801e6b161",
+                "bytes": 26526
+            },
+            {
+                "file": "tools/test-fixtures/receipt/index.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "a4a07975704cc3519dd06ec97ae31b92d2d8f4b4",
+                "size": 2195,
+                "sha256": "a2f4e7abcdd63a991a78f7ff98011dd29bfbbd4c7fc1245db09e1edce932f979",
+                "bytes": 2195
+            },
+            {
+                "file": "tools/test-fixtures/receipt/messaging-cleanup-contract.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "2da3a1af468389a45b6e7f6e27931d8f25c592a7",
+                "size": 3541,
+                "sha256": "950a0e297af9cd5291a3e7ac71b886459ee72cc13e9a1219634cbe55a8d6f7a2",
+                "bytes": 3541
+            },
+            {
+                "file": "tools/test-fixtures/receipt/observations.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "17e29e8c06e874f3836e2d17033449f763c6e7f7",
+                "size": 9308,
+                "sha256": "6217d208d79c0bfc9180115f9591a8eaa1b3f33ce5dbd12aaae02dda07a5fd86",
+                "bytes": 9308
+            },
+            {
+                "file": "tools/test-fixtures/receipt/postconditions.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "f103f2c41bcf9cace9fe02517d7c7bf8ef8763a7",
+                "size": 78499,
+                "sha256": "c2f81a0ad3eaa066e394f0d165ded4a372e3a45301ef944721137f8bfcf62c79",
+                "bytes": 78499
+            },
+            {
+                "file": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "8e2f2125fa7063ef385647a96e6fbdf3c8a93199",
+                "size": 6242,
+                "sha256": "f852e215860a43b816866ade8ba1e45daafb422034afd06ed1324a614a4f12ee",
+                "bytes": 6242
+            },
+            {
+                "file": "tools/test-fixtures/receipt/private-io.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "841d30a806f96750216e4fe1e1ee84072cfa2fa6",
+                "size": 24256,
+                "sha256": "1d926cd3805d2dea500f5ce5a49ae39d783279c2595a380bba54ba0238bc1f3f",
+                "bytes": 24256
+            },
+            {
+                "file": "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "14ae82e36e31f8d4fc7f463c0023ca03a1920864",
+                "size": 20037,
+                "sha256": "924cee5801e53a921149875977aaa0dd7f9d1e8c8babfcfc839899d4b74eed0d",
+                "bytes": 20037
+            },
+            {
+                "file": "tools/test-fixtures/receipt/projection.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "a02c569fab9b390513ac6dbb12c182b761ff062f",
+                "size": 45470,
+                "sha256": "edb323bfcd8fc83dcb68e3790deeaf47f65417630dcc4652e589dc6ba3779dae",
+                "bytes": 45470
+            },
+            {
+                "file": "tools/test-fixtures/receipt/reuse-verifier.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "2a3d3485449db1eae384461f81c9ffdff20fda37",
+                "size": 15797,
+                "sha256": "ee5e8c782e15bb90ca19e9f91d6a047fd91cb128bdd78def2cb9b775199be0d3",
+                "bytes": 15797
+            },
+            {
+                "file": "tools/test-fixtures/receipt/schemas.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "a14e05c7dbb37d174474413057be98d72f501cd3",
+                "size": 1434,
+                "sha256": "ea14e00e3863278d6000877a88cbd16db618fd6f5154e8e915e592e051ce9746",
+                "bytes": 1434
+            },
+            {
+                "file": "tools/test-fixtures/receipt/secrets.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "9d0acdde5f35de88331388d224cb2216f2689af2",
+                "size": 2122,
+                "sha256": "171e2383d15dc5c060d8449b3ef2b458c32253edc794ed1ee9d1cfc30efd8658",
+                "bytes": 2122
+            },
+            {
+                "file": "tools/test-fixtures/receipt/security-postconditions.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "11fa315261883521d39d2ad368f4c6e3bd920e7e",
+                "size": 5271,
+                "sha256": "a873c1b82e2c0a7d112f3b5d5d9b7e73cb1d7d81807e6e3b5b425fecd9be8f89",
+                "bytes": 5271
+            },
+            {
+                "file": "tools/test-fixtures/receipt/security-receipt-contract.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "10bd64e78b995c8fcd586268545f3b3d44fdc28b",
+                "size": 5199,
+                "sha256": "e78c3e882cd6daef388105e0c57ab15b9465fa7f9a5a8d258c80b025446ff5d1",
+                "bytes": 5199
+            },
+            {
+                "file": "tools/test/csharp-source-mask.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "a86d100ab01b87b9bf83c76b197a806fb7fb4659",
+                "size": 3535,
+                "sha256": "94754387449d9391a2ef05c525d9a2ca0b7f1534953f959c3350aaccacf68247",
+                "bytes": 3535
+            },
+            {
+                "file": "tools/test/search-index-utf8-scalar-governance.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "2433e768334ce5c78ab639659ea8317d75f8a0e3",
+                "size": 6290,
+                "sha256": "d339fae09d029278121d8b68609534e7d2b9f278098c3c80fc0e34f70a4b7a49",
+                "bytes": 6290
+            },
+            {
+                "file": "tools/testing/content-shape-catalog.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "7169ce0780300e0cb1163d38a442376aeb05dd76",
+                "size": 32136,
+                "sha256": "c706173c39ad5f453cc98bd467c2334889be5f18e023d3d737b4fd6697d8430d",
+                "bytes": 32136
+            },
+            {
+                "file": "tools/testing/fixture-catalog.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "4451ec5af2d698d0920ffe7d7bb9ff3cdf61c448",
+                "size": 149825,
+                "sha256": "82f5f7ea7a9ee31702f7ce08046094ae06020684782813b3676fc9fb8c5e55a9",
+                "bytes": 149825
+            }
+        ],
+        "dependencies": [
+            {
+                "owner": "tools/test-fixtures/receipt/index.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/index.mjs",
+                "specifier": "./schemas.mjs",
+                "path": "tools/test-fixtures/receipt/schemas.mjs",
+                "blob": "a14e05c7dbb37d174474413057be98d72f501cd3",
+                "sha256": "ea14e00e3863278d6000877a88cbd16db618fd6f5154e8e915e592e051ce9746"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/index.mjs",
+                "specifier": "./secrets.mjs",
+                "path": "tools/test-fixtures/receipt/secrets.mjs",
+                "blob": "9d0acdde5f35de88331388d224cb2216f2689af2",
+                "sha256": "171e2383d15dc5c060d8449b3ef2b458c32253edc794ed1ee9d1cfc30efd8658"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/index.mjs",
+                "specifier": "./private-io.mjs",
+                "path": "tools/test-fixtures/receipt/private-io.mjs",
+                "blob": "841d30a806f96750216e4fe1e1ee84072cfa2fa6",
+                "sha256": "1d926cd3805d2dea500f5ce5a49ae39d783279c2595a380bba54ba0238bc1f3f"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/index.mjs",
+                "specifier": "./observations.mjs",
+                "path": "tools/test-fixtures/receipt/observations.mjs",
+                "blob": "17e29e8c06e874f3836e2d17033449f763c6e7f7",
+                "sha256": "6217d208d79c0bfc9180115f9591a8eaa1b3f33ce5dbd12aaae02dda07a5fd86"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/index.mjs",
+                "specifier": "./postconditions.mjs",
+                "path": "tools/test-fixtures/receipt/postconditions.mjs",
+                "blob": "f103f2c41bcf9cace9fe02517d7c7bf8ef8763a7",
+                "sha256": "c2f81a0ad3eaa066e394f0d165ded4a372e3a45301ef944721137f8bfcf62c79"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/index.mjs",
+                "specifier": "./producer-receipt.mjs",
+                "path": "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "blob": "14ae82e36e31f8d4fc7f463c0023ca03a1920864",
+                "sha256": "924cee5801e53a921149875977aaa0dd7f9d1e8c8babfcfc839899d4b74eed0d"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/index.mjs",
+                "specifier": "./fixture-receipt.mjs",
+                "path": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "blob": "0c3f2366961f2085ad5827a47a564597afb413f9",
+                "sha256": "610457f0be724ce37c212ef546f2caf6cae0205196853e62cef1e39801e6b161"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/index.mjs",
+                "specifier": "./projection.mjs",
+                "path": "tools/test-fixtures/receipt/projection.mjs",
+                "blob": "a02c569fab9b390513ac6dbb12c182b761ff062f",
+                "sha256": "edb323bfcd8fc83dcb68e3790deeaf47f65417630dcc4652e589dc6ba3779dae"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/index.mjs",
+                "specifier": "./reuse-verifier.mjs",
+                "path": "tools/test-fixtures/receipt/reuse-verifier.mjs",
+                "blob": "2a3d3485449db1eae384461f81c9ffdff20fda37",
+                "sha256": "ee5e8c782e15bb90ca19e9f91d6a047fd91cb128bdd78def2cb9b775199be0d3"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/private-io.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/observations.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/observations.mjs",
+                "specifier": "./secrets.mjs",
+                "path": "tools/test-fixtures/receipt/secrets.mjs",
+                "blob": "9d0acdde5f35de88331388d224cb2216f2689af2",
+                "sha256": "171e2383d15dc5c060d8449b3ef2b458c32253edc794ed1ee9d1cfc30efd8658"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/postconditions.mjs",
+                "specifier": "../../test/csharp-source-mask.mjs",
+                "path": "tools/test/csharp-source-mask.mjs",
+                "blob": "a86d100ab01b87b9bf83c76b197a806fb7fb4659",
+                "sha256": "94754387449d9391a2ef05c525d9a2ca0b7f1534953f959c3350aaccacf68247"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/postconditions.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/postconditions.mjs",
+                "specifier": "./security-postconditions.mjs",
+                "path": "tools/test-fixtures/receipt/security-postconditions.mjs",
+                "blob": "11fa315261883521d39d2ad368f4c6e3bd920e7e",
+                "sha256": "a873c1b82e2c0a7d112f3b5d5d9b7e73cb1d7d81807e6e3b5b425fecd9be8f89"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "specifier": "./comment-cleanup-contract.mjs",
+                "path": "tools/test-fixtures/receipt/comment-cleanup-contract.mjs",
+                "blob": "b67f61620f0c04de7b1397b1f602ff8149a7e5ad",
+                "sha256": "021274f2fbcf142ed1d5804be1941c1d26c5ea042949aeefc1118ecd18cc74b8"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "specifier": "./messaging-cleanup-contract.mjs",
+                "path": "tools/test-fixtures/receipt/messaging-cleanup-contract.mjs",
+                "blob": "2da3a1af468389a45b6e7f6e27931d8f25c592a7",
+                "sha256": "950a0e297af9cd5291a3e7ac71b886459ee72cc13e9a1219634cbe55a8d6f7a2"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "specifier": "./observations.mjs",
+                "path": "tools/test-fixtures/receipt/observations.mjs",
+                "blob": "17e29e8c06e874f3836e2d17033449f763c6e7f7",
+                "sha256": "6217d208d79c0bfc9180115f9591a8eaa1b3f33ce5dbd12aaae02dda07a5fd86"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "specifier": "./schemas.mjs",
+                "path": "tools/test-fixtures/receipt/schemas.mjs",
+                "blob": "a14e05c7dbb37d174474413057be98d72f501cd3",
+                "sha256": "ea14e00e3863278d6000877a88cbd16db618fd6f5154e8e915e592e051ce9746"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "specifier": "./secrets.mjs",
+                "path": "tools/test-fixtures/receipt/secrets.mjs",
+                "blob": "9d0acdde5f35de88331388d224cb2216f2689af2",
+                "sha256": "171e2383d15dc5c060d8449b3ef2b458c32253edc794ed1ee9d1cfc30efd8658"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "specifier": "./security-receipt-contract.mjs",
+                "path": "tools/test-fixtures/receipt/security-receipt-contract.mjs",
+                "blob": "10bd64e78b995c8fcd586268545f3b3d44fdc28b",
+                "sha256": "e78c3e882cd6daef388105e0c57ab15b9465fa7f9a5a8d258c80b025446ff5d1"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "specifier": "./observations.mjs",
+                "path": "tools/test-fixtures/receipt/observations.mjs",
+                "blob": "17e29e8c06e874f3836e2d17033449f763c6e7f7",
+                "sha256": "6217d208d79c0bfc9180115f9591a8eaa1b3f33ce5dbd12aaae02dda07a5fd86"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "specifier": "./postconditions.mjs",
+                "path": "tools/test-fixtures/receipt/postconditions.mjs",
+                "blob": "f103f2c41bcf9cace9fe02517d7c7bf8ef8763a7",
+                "sha256": "c2f81a0ad3eaa066e394f0d165ded4a372e3a45301ef944721137f8bfcf62c79"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "specifier": "./private-io.mjs",
+                "path": "tools/test-fixtures/receipt/private-io.mjs",
+                "blob": "841d30a806f96750216e4fe1e1ee84072cfa2fa6",
+                "sha256": "1d926cd3805d2dea500f5ce5a49ae39d783279c2595a380bba54ba0238bc1f3f"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "specifier": "./producer-receipt.mjs",
+                "path": "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "blob": "14ae82e36e31f8d4fc7f463c0023ca03a1920864",
+                "sha256": "924cee5801e53a921149875977aaa0dd7f9d1e8c8babfcfc839899d4b74eed0d"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "specifier": "./schemas.mjs",
+                "path": "tools/test-fixtures/receipt/schemas.mjs",
+                "blob": "a14e05c7dbb37d174474413057be98d72f501cd3",
+                "sha256": "ea14e00e3863278d6000877a88cbd16db618fd6f5154e8e915e592e051ce9746"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "specifier": "./secrets.mjs",
+                "path": "tools/test-fixtures/receipt/secrets.mjs",
+                "blob": "9d0acdde5f35de88331388d224cb2216f2689af2",
+                "sha256": "171e2383d15dc5c060d8449b3ef2b458c32253edc794ed1ee9d1cfc30efd8658"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/projection.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/projection.mjs",
+                "specifier": "./fixture-receipt.mjs",
+                "path": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "blob": "0c3f2366961f2085ad5827a47a564597afb413f9",
+                "sha256": "610457f0be724ce37c212ef546f2caf6cae0205196853e62cef1e39801e6b161"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/projection.mjs",
+                "specifier": "./postconditions.mjs",
+                "path": "tools/test-fixtures/receipt/postconditions.mjs",
+                "blob": "f103f2c41bcf9cace9fe02517d7c7bf8ef8763a7",
+                "sha256": "c2f81a0ad3eaa066e394f0d165ded4a372e3a45301ef944721137f8bfcf62c79"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/projection.mjs",
+                "specifier": "./prepared-public-projection-contract.mjs",
+                "path": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+                "blob": "8e2f2125fa7063ef385647a96e6fbdf3c8a93199",
+                "sha256": "f852e215860a43b816866ade8ba1e45daafb422034afd06ed1324a614a4f12ee"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/projection.mjs",
+                "specifier": "./private-io.mjs",
+                "path": "tools/test-fixtures/receipt/private-io.mjs",
+                "blob": "841d30a806f96750216e4fe1e1ee84072cfa2fa6",
+                "sha256": "1d926cd3805d2dea500f5ce5a49ae39d783279c2595a380bba54ba0238bc1f3f"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/projection.mjs",
+                "specifier": "./schemas.mjs",
+                "path": "tools/test-fixtures/receipt/schemas.mjs",
+                "blob": "a14e05c7dbb37d174474413057be98d72f501cd3",
+                "sha256": "ea14e00e3863278d6000877a88cbd16db618fd6f5154e8e915e592e051ce9746"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/projection.mjs",
+                "specifier": "./secrets.mjs",
+                "path": "tools/test-fixtures/receipt/secrets.mjs",
+                "blob": "9d0acdde5f35de88331388d224cb2216f2689af2",
+                "sha256": "171e2383d15dc5c060d8449b3ef2b458c32253edc794ed1ee9d1cfc30efd8658"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/projection.mjs",
+                "specifier": "./prepared-public-projection-contract.mjs",
+                "path": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+                "blob": "8e2f2125fa7063ef385647a96e6fbdf3c8a93199",
+                "sha256": "f852e215860a43b816866ade8ba1e45daafb422034afd06ed1324a614a4f12ee"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/reuse-verifier.mjs",
+                "specifier": "../../testing/fixture-catalog.mjs",
+                "path": "tools/testing/fixture-catalog.mjs",
+                "blob": "4451ec5af2d698d0920ffe7d7bb9ff3cdf61c448",
+                "sha256": "82f5f7ea7a9ee31702f7ce08046094ae06020684782813b3676fc9fb8c5e55a9"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/reuse-verifier.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/reuse-verifier.mjs",
+                "specifier": "./observations.mjs",
+                "path": "tools/test-fixtures/receipt/observations.mjs",
+                "blob": "17e29e8c06e874f3836e2d17033449f763c6e7f7",
+                "sha256": "6217d208d79c0bfc9180115f9591a8eaa1b3f33ce5dbd12aaae02dda07a5fd86"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/reuse-verifier.mjs",
+                "specifier": "./postconditions.mjs",
+                "path": "tools/test-fixtures/receipt/postconditions.mjs",
+                "blob": "f103f2c41bcf9cace9fe02517d7c7bf8ef8763a7",
+                "sha256": "c2f81a0ad3eaa066e394f0d165ded4a372e3a45301ef944721137f8bfcf62c79"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/reuse-verifier.mjs",
+                "specifier": "./fixture-receipt.mjs",
+                "path": "tools/test-fixtures/receipt/fixture-receipt.mjs",
+                "blob": "0c3f2366961f2085ad5827a47a564597afb413f9",
+                "sha256": "610457f0be724ce37c212ef546f2caf6cae0205196853e62cef1e39801e6b161"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/reuse-verifier.mjs",
+                "specifier": "./schemas.mjs",
+                "path": "tools/test-fixtures/receipt/schemas.mjs",
+                "blob": "a14e05c7dbb37d174474413057be98d72f501cd3",
+                "sha256": "ea14e00e3863278d6000877a88cbd16db618fd6f5154e8e915e592e051ce9746"
+            },
+            {
+                "owner": "tools/test/csharp-source-mask.mjs",
+                "specifier": "./search-index-utf8-scalar-governance.mjs",
+                "path": "tools/test/search-index-utf8-scalar-governance.mjs",
+                "blob": "2433e768334ce5c78ab639659ea8317d75f8a0e3",
+                "sha256": "d339fae09d029278121d8b68609534e7d2b9f278098c3c80fc0e34f70a4b7a49"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/comment-cleanup-contract.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/comment-cleanup-contract.mjs",
+                "specifier": "./secrets.mjs",
+                "path": "tools/test-fixtures/receipt/secrets.mjs",
+                "blob": "9d0acdde5f35de88331388d224cb2216f2689af2",
+                "sha256": "171e2383d15dc5c060d8449b3ef2b458c32253edc794ed1ee9d1cfc30efd8658"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/messaging-cleanup-contract.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/messaging-cleanup-contract.mjs",
+                "specifier": "./secrets.mjs",
+                "path": "tools/test-fixtures/receipt/secrets.mjs",
+                "blob": "9d0acdde5f35de88331388d224cb2216f2689af2",
+                "sha256": "171e2383d15dc5c060d8449b3ef2b458c32253edc794ed1ee9d1cfc30efd8658"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/security-receipt-contract.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/security-receipt-contract.mjs",
+                "specifier": "./secrets.mjs",
+                "path": "tools/test-fixtures/receipt/secrets.mjs",
+                "blob": "9d0acdde5f35de88331388d224cb2216f2689af2",
+                "sha256": "171e2383d15dc5c060d8449b3ef2b458c32253edc794ed1ee9d1cfc30efd8658"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+                "specifier": "./canonical.mjs",
+                "path": "tools/test-fixtures/receipt/canonical.mjs",
+                "blob": "0b6225d247d108ed157fa5ec43e9eed7a181334a",
+                "sha256": "ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+                "specifier": "./schemas.mjs",
+                "path": "tools/test-fixtures/receipt/schemas.mjs",
+                "blob": "a14e05c7dbb37d174474413057be98d72f501cd3",
+                "sha256": "ea14e00e3863278d6000877a88cbd16db618fd6f5154e8e915e592e051ce9746"
+            },
+            {
+                "owner": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+                "specifier": "./secrets.mjs",
+                "path": "tools/test-fixtures/receipt/secrets.mjs",
+                "blob": "9d0acdde5f35de88331388d224cb2216f2689af2",
+                "sha256": "171e2383d15dc5c060d8449b3ef2b458c32253edc794ed1ee9d1cfc30efd8658"
+            },
+            {
+                "owner": "tools/testing/fixture-catalog.mjs",
+                "specifier": "./content-shape-catalog.mjs",
+                "path": "tools/testing/content-shape-catalog.mjs",
+                "blob": "7169ce0780300e0cb1163d38a442376aeb05dd76",
+                "sha256": "c706173c39ad5f453cc98bd467c2334889be5f18e023d3d737b4fd6697d8430d"
+            }
+        ],
+        "unresolved": [],
+        "totalBytes": 447588,
+        "purpose": "static ESLint resolver inputs; no imported module execution",
+        "qualification": false
+    },
+    "sourceCheckPassed": true
+}

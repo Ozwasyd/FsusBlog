@@ -1,0 +1,22 @@
+{
+  "sha": "bf59cf9c9a19650af940fc4c18da45a310143168",
+  "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "source-diff",
+    "--base",
+    "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "--file",
+    "tools/test-fixtures/receipt/index.mjs",
+    "--file",
+    "tools/test-fixtures/receipt/verified-reader.mjs",
+    "--file",
+    "tests/tools/fixture-reader-entry-api.test.mjs"
+  ],
+  "startedAt": "2026-10-08T09:45:35.850583+00:00",
+  "exitCode": 0,
+  "logSha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7",
+  "qualificationEligible": false
+}
