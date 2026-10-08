@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Authoring extension RPC/execution whitespace formatting for #3654 and #1688.
+6f7621cb0336f8a775d13334c9be6f49cdcbc0cc

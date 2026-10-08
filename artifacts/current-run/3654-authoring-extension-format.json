@@ -1,0 +1,112 @@
+{
+  "schema": "fsusblog.format-idempotence-evidence.v1",
+  "formatter": {
+    "identity": "dotnet-format",
+    "version": "10.0.302-servicing.26329.109+35b593bebfcba58f8e78298cef14c2761f5d86c6",
+    "command": "/tmp/fsusblog-3654-content-shape-dotnet/dotnet format whitespace /tmp/fsusblog-3654-authoring-extension-format --folder --include /tmp/fsusblog-3654-authoring-extension-format/src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs /tmp/fsusblog-3654-authoring-extension-format/src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs /tmp/fsusblog-3654-authoring-extension-format/src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs --verbosity quiet"
+  },
+  "paths": [
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs"
+  ],
+  "firstPassTreeSha256": "cb13284265834b5a864a6ba3ef848ef28a6deacf1fc975373292840be97d5675",
+  "secondPassTreeSha256": "cb13284265834b5a864a6ba3ef848ef28a6deacf1fc975373292840be97d5675",
+  "idempotent": true,
+  "revision": "6f7621cb0336f8a775d13334c9be6f49cdcbc0cc",
+  "sourcePreimageRevision": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "sourceBlobs": {
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs": {
+      "preBlob": "93bffd2a69a51f0c5e2dbfa2919c18dafd5f53b6",
+      "postBlob": "4eabaac2bbdae952ac84a21a25ac020c1411e97d",
+      "preSha256": "3061d9526a21bd39076dfa95db93f717796ad1dbf0262af0d23a4bb792389018",
+      "postSha256": "47ea6c0ddf073716b3d65b9c8dff3703dc783e8a8d43759aad42024ed7f4cf0b"
+    },
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs": {
+      "preBlob": "63c6d8ef501274265c2c22ea7df8960735634514",
+      "postBlob": "ec9f79181de699b8635e6ff38b3e43998a105083",
+      "preSha256": "2761617ad713d2841e33a2bbd35fe9687222b430b480e96f3bec45458493cefb",
+      "postSha256": "3fcdce486654bdbb0867a161add7758180a7651d5a6e6a931cb7d392035c67ce"
+    },
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs": {
+      "preBlob": "d31c1b9f97a806c96c362fbfb38c97b6878c13ff",
+      "postBlob": "033612aba30f2cf7cb4e4083892c94c59c9af838",
+      "preSha256": "5dc043c632752648db4a40fc277999ab0d1147fe08b22fdb7006d23b1ca3999f",
+      "postSha256": "60820168f6e241c96a2f1ec46a14dec60ea82194fb79eb9406144e9cd77f25ec"
+    }
+  },
+  "originalFormatOnlyDiff": {
+    "checker": "original tools/governance/change-contract.mjs validateFormatOnlyDiff",
+    "exitCode": 0,
+    "errors": [],
+    "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "head": "6f7621cb0336f8a775d13334c9be6f49cdcbc0cc"
+  },
+  "officialRoslynTokenAndNonWhitespaceTriviaEquivalence": {
+    "checker": "official SDK Roslyn CSharpSyntaxTree; full tokens including structured trivia",
+    "assemblyVersion": "5.6.0.0",
+    "pass": true,
+    "results": [
+      {
+        "before": "/tmp/fsusblog-3654-evidence/authoring-extension-format/preimages/AuthoringExtensionExecutionResolver.cs",
+        "after": "/tmp/fsusblog-3654-evidence/authoring-extension-format/first-pass/AuthoringExtensionExecutionResolver.cs",
+        "tokenCount": 3117,
+        "tokenEquivalent": true,
+        "nonWhitespaceTriviaEquivalent": true,
+        "syntaxErrors": []
+      },
+      {
+        "before": "/tmp/fsusblog-3654-evidence/authoring-extension-format/preimages/AuthoringExtensionRpc.cs",
+        "after": "/tmp/fsusblog-3654-evidence/authoring-extension-format/first-pass/AuthoringExtensionRpc.cs",
+        "tokenCount": 6523,
+        "tokenEquivalent": true,
+        "nonWhitespaceTriviaEquivalent": true,
+        "syntaxErrors": []
+      },
+      {
+        "before": "/tmp/fsusblog-3654-evidence/authoring-extension-format/preimages/AuthoringExtensionRpcIoBrokerHandler.cs",
+        "after": "/tmp/fsusblog-3654-evidence/authoring-extension-format/first-pass/AuthoringExtensionRpcIoBrokerHandler.cs",
+        "tokenCount": 3229,
+        "tokenEquivalent": true,
+        "nonWhitespaceTriviaEquivalent": true,
+        "syntaxErrors": []
+      }
+    ]
+  },
+  "officialRoslynAssemblySha256": {
+    "Microsoft.CodeAnalysis.dll": "c9a83dda95a1dcbc9050c85d5a3313a08955aadb5e247e58688c676263f15a27",
+    "Microsoft.CodeAnalysis.CSharp.dll": "5ad3c2b021c520f694de4c4e0bda98fa153b4a18e5e368d7e4a220ff34dfe3ef"
+  },
+  "actualFormatterExecution": {
+    "formatterVersion": "10.0.302-servicing.26329.109+35b593bebfcba58f8e78298cef14c2761f5d86c6",
+    "formatterFirstExitCode": 0,
+    "formatterSecondExitCode": 0,
+    "formattedVerifyExitCode": 0,
+    "preimageNegativeExitCode": 2,
+    "actualPreimageWhitespaceDiagnosticCount": 78,
+    "idempotent": true,
+    "independentPreimageReplayMatched": true,
+    "replayArgv": [
+      "/tmp/fsusblog-3654-content-shape-dotnet/dotnet",
+      "format",
+      "whitespace",
+      "/tmp/fsusblog-3654-evidence/authoring-extension-format/replay-original-preimages",
+      "--folder",
+      "--include",
+      "/tmp/fsusblog-3654-evidence/authoring-extension-format/replay-original-preimages/src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+      "/tmp/fsusblog-3654-evidence/authoring-extension-format/replay-original-preimages/src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+      "/tmp/fsusblog-3654-evidence/authoring-extension-format/replay-original-preimages/src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs",
+      "--verbosity",
+      "quiet"
+    ],
+    "replayExitCode": 0,
+    "firstPassTreeSha256": "cb13284265834b5a864a6ba3ef848ef28a6deacf1fc975373292840be97d5675",
+    "secondPassTreeSha256": "cb13284265834b5a864a6ba3ef848ef28a6deacf1fc975373292840be97d5675",
+    "sourcePostSha256": {
+      "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs": "47ea6c0ddf073716b3d65b9c8dff3703dc783e8a8d43759aad42024ed7f4cf0b",
+      "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs": "3fcdce486654bdbb0867a161add7758180a7651d5a6e6a931cb7d392035c67ce",
+      "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs": "60820168f6e241c96a2f1ec46a14dec60ea82194fb79eb9406144e9cd77f25ec"
+    },
+    "formatterPolicySha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+  }
+}
