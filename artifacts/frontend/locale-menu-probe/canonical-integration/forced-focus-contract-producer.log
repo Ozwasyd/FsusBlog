@@ -1,0 +1,5 @@
+
+> @ contract-v2:generate /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/contract-v2.mjs
+
+contract-v2:generate wrote spec/components/contracts/v2/contract-v2.json (228 contracts, 2457 members; 528 Avalonia types/3639 public surfaces, 1283 mapped-contract surface states, 401 avalonia-only types)

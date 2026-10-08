@@ -1,0 +1,12 @@
+{
+  "commit": "a996d9e742ce31927f3845024eaa72b8a77d13f3",
+  "tree": "e6208a401d3d9d15fe08bf8e105a00e287b6f134",
+  "status": "",
+  "files": {
+    "vue/packages/icons-vue/src/components/index.ts": "a1d167e6c8a47fc01774cbc35d160afca7451fc674e1ab9041d0630a7f3a7b64",
+    "vue/packages/components/markdown-renderer/src/markdown-renderer.vue": "9cf77cf0886529b07e94ab17cb1eea8ba0088f6c0517e53a480a98e200cdf72d",
+    "scripts/visual-evidence-policy.cjs": "a097c6f1d21aa657dd4246ec586bf2da217e182ce964a126128dd7bad6a171af",
+    "tests/visual-runtime/visual-runtime-integration.test.mjs": "9c48bcacae9770de250e8d13cefdee9561ef55bac3dea5114cee4c0ad56a8b14",
+    "spec/baselines/vue-current.json": "a79f27e2967488d3dce0b4e3ca7b586936fc06eef6f5128aa75ed445eda09644"
+  }
+}

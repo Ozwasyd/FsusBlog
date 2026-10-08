@@ -1,0 +1,26 @@
+
+ RUN  v4.1.5 /workspace/FsusUI
+
+ ❯ vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx (37 tests | 1 failed | 36 skipped) 182ms
+     × invalidates pending heavy activation when the shared theme changes 181ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx > MarkdownRenderer.vue > invalidates pending heavy activation when the shared theme changes
+AssertionError: expected "vi.fn()" to be called 2 times, but got 1 times
+ ❯ vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx:681:36
+    679|       )
+    680|       await flushRenderer()
+    681|       expect(renderMarkdownResult).toHaveBeenCalledTimes(initialCalls …
+       |                                    ^
+    682|       expect(pendingSignal?.aborted).toBe(true)
+    683|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 36 skipped (37)
+   Start at  05:54:42
+   Duration  4.08s (transform 2.72s, setup 105ms, import 3.07s, tests 182ms, environment 600ms)
+

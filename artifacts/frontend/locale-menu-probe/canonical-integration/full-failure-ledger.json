@@ -1,0 +1,1694 @@
+{
+  "qualification": false,
+  "sourceCommit": "a996d9e742ce31927f3845024eaa72b8a77d13f3",
+  "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers pnpm test:visual:full",
+  "exitCode": 1,
+  "preview": {
+    "passed": 646,
+    "failed": 42,
+    "total": 688
+  },
+  "dev": {
+    "passed": 11,
+    "failed": 8,
+    "total": 19
+  },
+  "groups": {
+    "two Demo CDN image certificate failures": 16,
+    "aborted local dynamic-asset diagnostics during mode switch": 4,
+    "status slot fixture expects 已同步到草稿箱; receives metrics/state/capability output": 4,
+    "mobile Markdown chrome screenshot difference": 22,
+    "Markdown stress stays rendering rather than complete within existing 20/30-second assertions": 3,
+    "Markdown stress preview remains Rendering markdown... instead of Stress Section 1 within the existing 20-second content assertion": 1
+  },
+  "providedTitleMatches": 50,
+  "failures": [
+    {
+      "phase": "Preview",
+      "number": 1,
+      "title": "[desktop-light] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data",
+      "logLine": 766,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-light/shard-local/capture-all-capture-data-desktop-light/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-light/shard-local/capture-all-capture-data-desktop-light/error-context.md",
+        "full-results/suite-preview/project-desktop-light/shard-local/capture-all-capture-data-desktop-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 2,
+      "title": "[desktop-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "logLine": 804,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "aborted local dynamic-asset diagnostics during mode switch",
+      "sourceOwnerRequest": "MarkdownEditor fixture/diagnostics owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/support/page-diagnostics.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-light/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-desktop-light/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-light/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-desktop-light/error-context.md",
+        "full-results/suite-preview/project-desktop-light/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-desktop-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "aborted local dynamic asset diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 3,
+      "title": "[desktop-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "logLine": 839,
+      "firstError": "Error: expect(locator).toContainText(expected) failed",
+      "cause": "status slot fixture expects 已同步到草稿箱; receives metrics/state/capability output",
+      "sourceOwnerRequest": "MarkdownEditor chrome fixture owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue:29",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts:400"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-light/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-desktop-light/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-light/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-desktop-light/error-context.md",
+        "full-results/suite-preview/project-desktop-light/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-desktop-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "status-slot fixture text mismatch",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 4,
+      "title": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:25:5 › zoom-in transitions use opacity+translate, no axis scale",
+      "logLine": 901,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-ff12f-ity-translate-no-axis-scale-desktop-light/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-ff12f-ity-translate-no-axis-scale-desktop-light/error-context.md",
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-ff12f-ity-translate-no-axis-scale-desktop-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 5,
+      "title": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:50:5 › list transitions use <=8px displacement",
+      "logLine": 939,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-b0716-itions-use-8px-displacement-desktop-light/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-b0716-itions-use-8px-displacement-desktop-light/error-context.md",
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-b0716-itions-use-8px-displacement-desktop-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 6,
+      "title": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:72:5 › zoom-in overlay transitions have scale >= 0.98",
+      "logLine": 977,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-c7dc2-transitions-have-scale-0-98-desktop-light/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-c7dc2-transitions-have-scale-0-98-desktop-light/error-context.md",
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptan-c7dc2-transitions-have-scale-0-98-desktop-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 7,
+      "title": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:94:5 › no transition uses 500ms",
+      "logLine": 1015,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptance-no-transition-uses-500ms-desktop-light/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptance-no-transition-uses-500ms-desktop-light/error-context.md",
+        "full-results/suite-preview/project-desktop-light/shard-local/motion-transition-acceptance-no-transition-uses-500ms-desktop-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 8,
+      "title": "[mobile-light] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data",
+      "logLine": 1053,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/capture-all-capture-data-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/capture-all-capture-data-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/capture-all-capture-data-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 9,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in source mode with correct geometry and semantics",
+      "logLine": 1091,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-light/chrome-matrix/framed-source-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-light/chrome-matrix/framed-source-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 10,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in live mode with correct geometry and semantics",
+      "logLine": 1145,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-light/chrome-matrix/framed-live-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-light/chrome-matrix/framed-live-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 11,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in split mode with correct geometry and semantics",
+      "logLine": 1199,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-light/chrome-matrix/framed-split-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-light/chrome-matrix/framed-split-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 12,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in source mode with correct geometry and semantics",
+      "logLine": 1253,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-light/chrome-matrix/embedded-source-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-light/chrome-matrix/embedded-source-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 13,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in live mode with correct geometry and semantics",
+      "logLine": 1307,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-light/chrome-matrix/embedded-live-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-light/chrome-matrix/embedded-live-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 14,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in split mode with correct geometry and semantics",
+      "logLine": 1361,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-light/chrome-matrix/embedded-split-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-light/chrome-matrix/embedded-split-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 15,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in source mode with correct geometry and semantics",
+      "logLine": 1415,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-light/chrome-matrix/minimal-source-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-light/chrome-matrix/minimal-source-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 16,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in live mode with correct geometry and semantics",
+      "logLine": 1469,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-light/chrome-matrix/minimal-live-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-light/chrome-matrix/minimal-live-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 17,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in split mode with correct geometry and semantics",
+      "logLine": 1523,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-light/chrome-matrix/minimal-split-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-light/chrome-matrix/minimal-split-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 18,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "logLine": 1577,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "aborted local dynamic-asset diagnostics during mode switch",
+      "sourceOwnerRequest": "MarkdownEditor fixture/diagnostics owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/support/page-diagnostics.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "aborted local dynamic asset diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 19,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:354:13 › markdown editor chrome variants matrix (#429) › stays usable at 150% and 200% zoom",
+      "logLine": 1615,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-light/chrome-evidence/zoom-150-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-light/chrome-evidence/zoom-150-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 20,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "logLine": 1669,
+      "firstError": "Error: expect(locator).toContainText(expected) failed",
+      "cause": "status slot fixture expects 已同步到草稿箱; receives metrics/state/capability output",
+      "sourceOwnerRequest": "MarkdownEditor chrome fixture owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue:29",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts:400"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "status-slot fixture text mismatch",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 21,
+      "title": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:520:13 › markdown editor chrome variants matrix (#429) › keeps framed geometry under forced colors",
+      "logLine": 1731,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-light/chrome-evidence/forced-colors-actual.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-light/chrome-evidence/forced-colors-diff.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-light/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-light/error-context.md",
+        "full-results/suite-preview/project-mobile-light/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-light/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 22,
+      "title": "[desktop-dark] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data",
+      "logLine": 1785,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-dark/shard-local/capture-all-capture-data-desktop-dark/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-dark/shard-local/capture-all-capture-data-desktop-dark/error-context.md",
+        "full-results/suite-preview/project-desktop-dark/shard-local/capture-all-capture-data-desktop-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 23,
+      "title": "[desktop-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "logLine": 1823,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "aborted local dynamic-asset diagnostics during mode switch",
+      "sourceOwnerRequest": "MarkdownEditor fixture/diagnostics owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/support/page-diagnostics.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-dark/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-desktop-dark/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-dark/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-desktop-dark/error-context.md",
+        "full-results/suite-preview/project-desktop-dark/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-desktop-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "aborted local dynamic asset diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 24,
+      "title": "[desktop-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "logLine": 1858,
+      "firstError": "Error: expect(locator).toContainText(expected) failed",
+      "cause": "status slot fixture expects 已同步到草稿箱; receives metrics/state/capability output",
+      "sourceOwnerRequest": "MarkdownEditor chrome fixture owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue:29",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts:400"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-dark/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-desktop-dark/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-dark/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-desktop-dark/error-context.md",
+        "full-results/suite-preview/project-desktop-dark/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-desktop-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "status-slot fixture text mismatch",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 25,
+      "title": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:25:5 › zoom-in transitions use opacity+translate, no axis scale",
+      "logLine": 1920,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-ff12f-ity-translate-no-axis-scale-desktop-dark/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-ff12f-ity-translate-no-axis-scale-desktop-dark/error-context.md",
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-ff12f-ity-translate-no-axis-scale-desktop-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 26,
+      "title": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:50:5 › list transitions use <=8px displacement",
+      "logLine": 1958,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-b0716-itions-use-8px-displacement-desktop-dark/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-b0716-itions-use-8px-displacement-desktop-dark/error-context.md",
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-b0716-itions-use-8px-displacement-desktop-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 27,
+      "title": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:72:5 › zoom-in overlay transitions have scale >= 0.98",
+      "logLine": 1996,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-c7dc2-transitions-have-scale-0-98-desktop-dark/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-c7dc2-transitions-have-scale-0-98-desktop-dark/error-context.md",
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptan-c7dc2-transitions-have-scale-0-98-desktop-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 28,
+      "title": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:94:5 › no transition uses 500ms",
+      "logLine": 2034,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptance-no-transition-uses-500ms-desktop-dark/test-failed-1.png",
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptance-no-transition-uses-500ms-desktop-dark/error-context.md",
+        "full-results/suite-preview/project-desktop-dark/shard-local/motion-transition-acceptance-no-transition-uses-500ms-desktop-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 29,
+      "title": "[mobile-dark] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data",
+      "logLine": 2072,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/capture-all-capture-data-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/capture-all-capture-data-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/capture-all-capture-data-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 30,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in source mode with correct geometry and semantics",
+      "logLine": 2110,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-dark/chrome-matrix/framed-source-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-dark/chrome-matrix/framed-source-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-cd2a8-rect-geometry-and-semantics-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 31,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in live mode with correct geometry and semantics",
+      "logLine": 2164,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-dark/chrome-matrix/framed-live-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-dark/chrome-matrix/framed-live-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-03ee5-rect-geometry-and-semantics-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 32,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in split mode with correct geometry and semantics",
+      "logLine": 2218,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-dark/chrome-matrix/framed-split-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-dark/chrome-matrix/framed-split-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-76014-rect-geometry-and-semantics-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 33,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in source mode with correct geometry and semantics",
+      "logLine": 2272,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-dark/chrome-matrix/embedded-source-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-dark/chrome-matrix/embedded-source-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-40855-rect-geometry-and-semantics-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 34,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in live mode with correct geometry and semantics",
+      "logLine": 2326,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-dark/chrome-matrix/embedded-live-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-dark/chrome-matrix/embedded-live-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-9563a-rect-geometry-and-semantics-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 35,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in split mode with correct geometry and semantics",
+      "logLine": 2380,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-dark/chrome-matrix/embedded-split-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-dark/chrome-matrix/embedded-split-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-e19e3-rect-geometry-and-semantics-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 36,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in source mode with correct geometry and semantics",
+      "logLine": 2434,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-dark/chrome-matrix/minimal-source-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-dark/chrome-matrix/minimal-source-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-db242-rect-geometry-and-semantics-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 37,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in live mode with correct geometry and semantics",
+      "logLine": 2488,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-dark/chrome-matrix/minimal-live-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-dark/chrome-matrix/minimal-live-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-82321-rect-geometry-and-semantics-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 38,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in split mode with correct geometry and semantics",
+      "logLine": 2542,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-dark/chrome-matrix/minimal-split-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-dark/chrome-matrix/minimal-split-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-23d8b-rect-geometry-and-semantics-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 39,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "logLine": 2596,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "aborted local dynamic-asset diagnostics during mode switch",
+      "sourceOwnerRequest": "MarkdownEditor fixture/diagnostics owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/support/page-diagnostics.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-ef79c-through-rapid-mode-switches-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "aborted local dynamic asset diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 40,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:354:13 › markdown editor chrome variants matrix (#429) › stays usable at 150% and 200% zoom",
+      "logLine": 2634,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-dark/chrome-evidence/zoom-150-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-dark/chrome-evidence/zoom-150-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-b0df0--usable-at-150-and-200-zoom-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 41,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "logLine": 2688,
+      "firstError": "Error: expect(locator).toContainText(expected) failed",
+      "cause": "status slot fixture expects 已同步到草稿箱; receives metrics/state/capability output",
+      "sourceOwnerRequest": "MarkdownEditor chrome fixture owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue:29",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts:400"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-33728-nd-slot-visibility-contract-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "status-slot fixture text mismatch",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 42,
+      "title": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:520:13 › markdown editor chrome variants matrix (#429) › keeps framed geometry under forced colors",
+      "logLine": 2750,
+      "firstError": "Error: expect(page).toHaveScreenshot(expected) failed",
+      "cause": "mobile Markdown chrome screenshot difference",
+      "sourceOwnerRequest": "MarkdownEditor chrome/theme/visual owner; canonical root identity requested",
+      "sourceLocations": [
+        "vue/packages/theme-chalk/src/markdown-editor.scss",
+        "vue/packages/demo-app/src/sections/MarkdownEditorChromeVisualSection.vue",
+        "vue/tests/visual/markdown-editor-chrome.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-dark/chrome-evidence/forced-colors-actual.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-dark/chrome-evidence/forced-colors-diff.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-dark/test-failed-1.png",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-dark/error-context.md",
+        "full-results/suite-preview/project-mobile-dark/shard-local/markdown-editor-chrome-mar-7ab56-eometry-under-forced-colors-mobile-dark/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "screenshot difference",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-preview-paired-first.log",
+          "note": "Original baseline test/config, with unchanged expectations"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 1,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:159:7 › dev server home route has no browser diagnostics",
+      "logLine": 2872,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-dev-server-ho-b234b--has-no-browser-diagnostics/test-failed-1.png",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-dev-server-ho-b234b--has-no-browser-diagnostics/error-context.md",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-dev-server-ho-b234b--has-no-browser-diagnostics/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-dev-paired-first.log",
+          "cause": "CDN certificate afterEach diagnostics"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 2,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:159:7 › dev server data route has no browser diagnostics",
+      "logLine": 2910,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-dev-server-da-951a7--has-no-browser-diagnostics/test-failed-1.png",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-dev-server-da-951a7--has-no-browser-diagnostics/error-context.md",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-dev-server-da-951a7--has-no-browser-diagnostics/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-dev-paired-first.log",
+          "cause": "CDN certificate afterEach diagnostics"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 3,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:251:5 › default home mounts only the virtual window and navigates to sections",
+      "logLine": 2948,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-default-home--f3454-w-and-navigates-to-sections/test-failed-1.png",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-default-home--f3454-w-and-navigates-to-sections/error-context.md",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-default-home--f3454-w-and-navigates-to-sections/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-dev-paired-first.log",
+          "cause": "CDN certificate afterEach diagnostics"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 4,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:269:5 › default home TreeSelect dropdown does not bleed into the next section",
+      "logLine": 2986,
+      "firstError": "Error: expect(received).toEqual(expected) // deep equality",
+      "cause": "two Demo CDN image certificate failures",
+      "sourceOwnerRequest": "Demo image fixture owner; canonical root identity requested from coordinating parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/demo-state.ts:131",
+        "vue/packages/demo-app/src/demo-state.ts:133"
+      ],
+      "attachments": [
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-default-home--77e8c-bleed-into-the-next-section/test-failed-1.png",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-default-home--77e8c-bleed-into-the-next-section/error-context.md",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-default-home--77e8c-bleed-into-the-next-section/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "external CDN certificate diagnostics",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-dev-paired-first.log",
+          "cause": "CDN certificate afterEach diagnostics"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 5,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:429:5 › markdown stress route renders long raw HTML without browser diagnostics",
+      "logLine": 3024,
+      "firstError": "Error: expect(locator).toHaveText(expected) failed",
+      "cause": "Markdown stress stays rendering rather than complete within existing 20/30-second assertions",
+      "sourceOwnerRequest": "Markdown stress/runtime owner; coordinate original #1805 / #842 through parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownStressSection.vue",
+        "vue/packages/components/markdown-renderer/src/markdown-renderer.vue",
+        "vue/tests/demo-app-dev/demo-app-dev.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-6465b-without-browser-diagnostics/error-context.md",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-6465b-without-browser-diagnostics/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "stress renderer/status text timeout",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-dev-paired-first.log",
+          "cause": "stress renderer/status timeout"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 6,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:661:5 › markdown stress scrollbar thumb drag stays smooth without text blur",
+      "logLine": 3059,
+      "firstError": "Error: expect(locator).toHaveText(expected) failed",
+      "cause": "Markdown stress stays rendering rather than complete within existing 20/30-second assertions",
+      "sourceOwnerRequest": "Markdown stress/runtime owner; coordinate original #1805 / #842 through parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownStressSection.vue",
+        "vue/packages/components/markdown-renderer/src/markdown-renderer.vue",
+        "vue/tests/demo-app-dev/demo-app-dev.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-918da-ys-smooth-without-text-blur/error-context.md",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-918da-ys-smooth-without-text-blur/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "stress renderer/status text timeout",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-dev-paired-first.log",
+          "cause": "stress renderer/status timeout"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 7,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:814:5 › markdown stress preview scroll remains monotonic while renderer settles",
+      "logLine": 3094,
+      "firstError": "Error: expect(locator).toContainText(expected) failed",
+      "cause": "Markdown stress preview remains Rendering markdown... instead of Stress Section 1 within the existing 20-second content assertion",
+      "sourceOwnerRequest": "Markdown stress/runtime owner; coordinate original #1805 / #842 through parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownStressSection.vue",
+        "vue/packages/components/markdown-renderer/src/markdown-renderer.vue",
+        "vue/tests/demo-app-dev/demo-app-dev.spec.ts:824"
+      ],
+      "attachments": [
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-9cf08-onic-while-renderer-settles/error-context.md",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-9cf08-onic-while-renderer-settles/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "stress renderer/status text timeout",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-dev-paired-first.log",
+          "cause": "stress renderer/status timeout"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 8,
+      "title": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:839:5 › markdown stress preview keeps position in narrow devtools-like viewport",
+      "logLine": 3131,
+      "firstError": "Error: expect(locator).toHaveText(expected) failed",
+      "cause": "Markdown stress stays rendering rather than complete within existing 20/30-second assertions",
+      "sourceOwnerRequest": "Markdown stress/runtime owner; coordinate original #1805 / #842 through parent",
+      "sourceLocations": [
+        "vue/packages/demo-app/src/sections/MarkdownStressSection.vue",
+        "vue/packages/components/markdown-renderer/src/markdown-renderer.vue",
+        "vue/tests/demo-app-dev/demo-app-dev.spec.ts"
+      ],
+      "attachments": [
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-fdf27-rrow-devtools-like-viewport/test-failed-1.png",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-fdf27-rrow-devtools-like-viewport/error-context.md",
+        "full-results/suite-dev/project-default/shard-local/demo-app-dev-markdown-stre-fdf27-rrow-devtools-like-viewport/trace.zip"
+      ],
+      "status": "failed",
+      "providedBaselineComparison": {
+        "providedCommit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+        "sameTitle": true,
+        "reportedCause": "stress renderer/status text timeout",
+        "reportedPairedBaseline": {
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "reproduced": true,
+          "group": "baseline-dev-paired-first.log",
+          "cause": "stress renderer/status timeout"
+        },
+        "comparisonOnly": true,
+        "doesNotQualifyCandidate": true
+      }
+    }
+  ]
+}

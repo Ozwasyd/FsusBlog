@@ -1,0 +1,6 @@
+
+> @ contract-v2:check /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/contract-v2.mjs --check
+
+spec/components/contracts/v2/contract-v2.json drifted from generated output; run pnpm run contract-v2:generate
+ ELIFECYCLE  Command failed with exit code 1.

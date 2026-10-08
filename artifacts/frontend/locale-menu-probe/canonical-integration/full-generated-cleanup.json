@@ -1,0 +1,77 @@
+{
+  "sourceCommit": "a996d9e742ce31927f3845024eaa72b8a77d13f3",
+  "records": [
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-dark-1366-zoom-100.png",
+      "observedSha256": "db0757f483d3c972e586c0d7b8b3da2deadf6e0576eba2065d79008aea1dcb0e",
+      "originalHeadSha256": "cb9d90c25c678bbe459e54cf22bec52fbee00d36810dd99a7b0bd7191af62ae9"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-dark-1366-zoom-150.png",
+      "observedSha256": "725a76a8e89c7f2a580f64ffdcedf12b2358b32c0ae4965ba0fbede7807caa98",
+      "originalHeadSha256": "66f631bfa3620d16d62f6fca058d7bbce0186867fc5b5ae168f28b1cf248f532"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-dark-1366-zoom-200.png",
+      "observedSha256": "147962a6c44251fa04c2626dbe7ed3e96ecba135704e1cc8b5a3941868f06781",
+      "originalHeadSha256": "c7a5454c40e9ff1f81e75e0db8da2233ea325d64e7f1613501a571a099bfa290"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-dark-320-zoom-100.png",
+      "observedSha256": "7895a2632474d1697acfac12acc9a964f3b9cf2ec5b20c73439fa7f0eec01efd",
+      "originalHeadSha256": "e5a3fc2e0ce64b9f4ba132a165783b1723485b11094ded4f6055da82d2c27fb1"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-dark-375-zoom-100.png",
+      "observedSha256": "95bcc9ecdb7dd76e2b349b48f2a68bda74b5aea0312804209eb1bd4621c0a7ca",
+      "originalHeadSha256": "5cb701d816c29b28e617b20512b9d307c5378d6267b19d7661950204ae896313"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-dark-375-zoom-150.png",
+      "observedSha256": "577c1dd683d33eb8d5b36451439053e21c787a11b31b6ddd4aaa2733e40d1f74",
+      "originalHeadSha256": "dc7d01b649e24711b4d9bd76bbe2c29cbb6c5c6b82e72925a38c993d2b6caf99"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-dark-768-zoom-100.png",
+      "observedSha256": "0b563aac5834600a8f5e995dfb768b7870b355bf1d4b3b1bdb0cb54a04f158b4",
+      "originalHeadSha256": "6aab2dfe6899cb6c9c6796d4a0751e9e0f2389eec119070e7acb4042d183698d"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-light-1366-zoom-100.png",
+      "observedSha256": "599858370f7a97be7830ed0349cf283ffb9b7a8a6ddc53b52ae2663832c21ebc",
+      "originalHeadSha256": "0f3079fe153bf500bd1133012bc54c35c823b193f8789cf85111d6ee789870b0"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-light-1366-zoom-150.png",
+      "observedSha256": "4dd6b895ce00e981b22354e0e3d8b14a0c1effec2fc70450873ec35a94152115",
+      "originalHeadSha256": "c3d5345bb6b79c4227321ef815b4bae75f6fc0d6429775995cf2c854ca1eb965"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-light-1366-zoom-200.png",
+      "observedSha256": "1c8238f7ba9123460f67fcfcf9bdea56c47133e527b57e10358cbec317bb03d5",
+      "originalHeadSha256": "89c243a92ad982b5250807eac895d859a38d84c8e20f2a016d8cd8f3ab823708"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-light-320-zoom-100.png",
+      "observedSha256": "1cab933a16f643d843c412967a6a111ecbf6a72769a9bc95b2a4554dc2b82ca0",
+      "originalHeadSha256": "de8e3337c1532f38c14b9e327565258fd1403ba0d08ff4e48f4d9fc937b983f5"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-light-375-zoom-100.png",
+      "observedSha256": "25267195c405393f1c45a96e0ea18e4fc18a7ea00dfa7304376a0749c61d76e8",
+      "originalHeadSha256": "b212ad5f37233ba4506d62af764c90de249f56b9b2f30de4ae7dfcdd3d6aad7d"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-light-375-zoom-150.png",
+      "observedSha256": "fecbd31b51b262cca799f1ac531a382c7a7da349dc7f313827b51e8760977036",
+      "originalHeadSha256": "e085b4b12689bd895a3604b1b37d02c26345fe875a24eaaf0fb736df2482b93c"
+    },
+    {
+      "path": "tests/conformance/visual/artifacts/screenshots/web/issue-468-metric-light-768-zoom-100.png",
+      "observedSha256": "fe6e7e27ffa791208205e49e294da9d288d63329bacf78801b22ca9aeaed9f62",
+      "originalHeadSha256": "97760ac9c9f9fba6d70978f9dffc8fa4abe42dfa7b7a8b04164b867c460efc16"
+    }
+  ],
+  "restoredOnlyRunGeneratedImages": true,
+  "postRestoreStatus": ""
+}

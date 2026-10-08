@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.locale-menu-api-probe.v1",
+    "runId": "locale-menu-published-2026-10-08T06:21:56.567Z",
+    "mode": "published",
+    "blogCommit": "a64a58b4451562f005481d1d57b5d53241f93cff",
+    "blogStatus": "",
+    "localRoot": null,
+    "localCommit": null,
+    "localTree": null,
+    "localStatus": null,
+    "nodeVersion": "v24.19.0",
+    "harnessDigests": {
+        "tests/frontend/fixtures/localeMenuProbe/App.vue": "e7ba645a0d71cda83a8f36b15cbe6441e59f354ee1da9e6be43f71bd140ac600",
+        "tests/frontend/fixtures/localeMenuProbe/Consumer.vue": "6bacbe1d8b35d1a85014643a4fd6f7c3195ea2c66d39c819b0b0600808b72525",
+        "tests/frontend/fixtures/localeMenuProbe/main.ts": "e295dd61fbd7e3c13ec4de264607f090240f918dfe9dc3b56cd6e8ce667eaf80",
+        "tests/frontend/fixtures/localeMenuProbe/index.html": "52f5c8e6b05020c7461fdf72535610a26b98cb6d3f2f73c1419e7ad7d9e372eb",
+        "tests/frontend/checks/runtime/probe-locale-menu.mjs": "b8e19a248eca5b763c2b9850e33f6beab8c8395525dd6a3e3a8102446ec1af9c",
+        "tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs": "b23f06639106ec1f554b78127928fc9e31a442abd22a2536638e85c31c75c1c2"
+    },
+    "authorityDigests": {},
+    "observations": {},
+    "errors": [
+        "Error: ENOENT: no such file or directory, open '/workspace/FsusBlog/src/frontend/node_modules/@ozwasyd/element-plus/package.json'\n    at async open (node:internal/fs/promises:697:25)\n    at async Object.readFile (node:internal/fs/promises:1348:14)\n    at async file:///workspace/FsusBlog/tests/frontend/checks/runtime/probe-locale-menu.mjs:73:40"
+    ],
+    "qualification": false,
+    "status": "blocked"
+}

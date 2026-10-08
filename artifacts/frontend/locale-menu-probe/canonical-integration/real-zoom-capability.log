@@ -1,0 +1,1 @@
+Actual chrome.tabs.getZoom=2; DPR doubles and CSS viewport shrinks; root CSS zoom stays 1

@@ -1,0 +1,21 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "--config",
+    "vue/eslint.config.mjs",
+    "--max-warnings",
+    "0",
+    "vue/packages/components/dropdown/src/dropdown-item-impl.vue",
+    "vue/packages/components/dropdown/src/dropdown-item.vue",
+    "vue/packages/components/dropdown/src/dropdown-menu.vue",
+    "vue/packages/components/dropdown/src/dropdown.ts",
+    "vue/packages/components/dropdown/src/dropdown.vue",
+    "vue/packages/components/dropdown/src/tokens.ts",
+    "vue/packages/components/dropdown/src/viewport-modifiers.ts",
+    "vue/packages/components/markdown-renderer/src/markdown-renderer.vue",
+    "vue/packages/demo-app/src/InteractionTraceFixture.vue"
+  ],
+  "exitCode": 0
+}

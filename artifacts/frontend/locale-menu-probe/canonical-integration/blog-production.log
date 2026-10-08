@@ -1,0 +1,79 @@
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 4176 modules transformed.
+rendering chunks...
+computing gzip size...
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/channel-5WX7Do5g.js                              0.20 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/init-ZxktEp_H.js                                 0.26 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/chunk-4BX2VUAB-C9J8MUcN.js                       0.37 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/chunk-QZHKN3VN-BbBiCV9f.js                       0.38 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/chunk-FMBD7UC4-asU16EfM.js                       0.43 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/index.html                                              0.43 kB │ gzip:   0.28 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/chunk-55IACEB6-DaXEFItx.js                       0.48 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/stateDiagram-v2-BHNVJYJU-CjcOwPHi.js             0.64 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/classDiagram-4FO5ZUOK-DDo1dSRy.js                0.72 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/classDiagram-v2-Q7XG4LA2-DDo1dSRy.js             0.72 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/infoDiagram-5YYISTIA-BJ3qjw9D.js                 0.96 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/chunk-2J33WTMH-BcX5lxGx.js                       1.07 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/ordinal-CxptdPJm.js                              2.20 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/chunk-ND2GUHAM-uW0amcMa.js                       3.75 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/diagram-5GNKFQAL-o2oWz5su.js                     5.43 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/arc-PeGyCGmy.js                                  6.95 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/diagram-LMA3HP47-C7Xps47G.js                     7.32 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/defaultLocale-BkOLpb9e.js                        9.37 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/pieDiagram-4H26LBE5-B19El_7X.js                  9.78 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/diagram-2AECGRRQ-RgWDDMuu.js                    10.84 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/github-light-C5z6FMS6.js                        11.21 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/linear-Z5gAJfKT.js                              11.25 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/github-dark-BA5Caf8C.js                         11.43 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/markdown_simd-DOvYLSJE.js                       12.60 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/markdown_basic-Dc0N3HOC.js                      12.61 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/stateDiagram-AJRCARHV-pCqg789J.js               19.00 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/data-pipeline.worker-Bp7Nxarx.js                20.08 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/diagram-KO2AKTUF-DRL77Muk.js                    21.54 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/markdown-feature-output-gateway-BzGomVUk.js     22.47 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/dagre-BM42HDAG-1AJY_WEd.js                      22.88 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/diagram-OG6HWLK6-CqUk7JDR.js                    31.84 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/ishikawaDiagram-YF4QCWOH-C81hBC1s.js            35.04 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/kanban-definition-UN3LZRKU-CBP6SOJ7.js          38.08 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/ep_wasm-e_oUNDqp.mjs                            39.17 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/markdown-heavy-feature-frame-CWwMdCWO.js        41.05 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/bash-CBwpHwlb.js                                41.52 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/mindmap-definition-RKZ34NQL-Db_vIkfq.js         43.25 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/wardleyDiagram-YWT4CUSO-vY8mQjb9.js             44.48 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/journeyDiagram-JHISSGLW-Bdvsl0hD.js             45.25 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/sankeyDiagram-5OEKKPKP-rR7Z-XgB.js              46.06 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/erDiagram-TEJ5UH35-KdadOMu9.js                  48.38 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/requirementDiagram-4Y6WPE33-C8kcS0cy.js         52.53 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/gitGraphDiagram-PVQCEYII-D68Lxf6z.js            57.44 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/timeline-definition-PNZ67QCA-Cwv41qev.js        60.45 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/quadrantDiagram-W4KKPZXB-BCdmaVvf.js            61.61 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/graph-DPglP2jw.js                               66.27 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/chunk-AQP2D5EJ-wN1q6Yvm.js                      71.27 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/xychartDiagram-2RQKCTM6-U8x5u16t.js             75.20 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/layout-Bx1Q4ywL.js                              79.96 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/chunk-727SXJPM-B79cxoTA.js                      83.99 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/vennDiagram-CIIHVFJN-Dt467PHZ.js                87.61 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/csharp-DbrJmmGm.js                              90.22 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/flowDiagram-I6XJVG4X-6TTGDZG0.js               102.02 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/engine-javascript-D2su0V3x.js                  111.67 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/c4Diagram-AAUBKEIU--rsko_F5.js                 118.44 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/ganttDiagram-6RSMTGT7-CfQ-n7Cm.js              133.05 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/blockDiagram-GPEHLZMM-T3ZAc5aa.js              140.03 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/markdown_basic-Cdz4W9hU.wasm                   144.85 kB │ gzip:  52.83 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/markdown_simd-CpGVm2np.wasm                    145.36 kB │ gzip:  52.54 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/javascript-Cxk329ux.js                         174.87 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/typescript-B-202KI2.js                         181.12 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/sequenceDiagram-3UESZ5HK-DC_tzNI4.js           201.47 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/cose-bilkent-S5V4N54A-DspuY_D7.js              214.59 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/ep_wasm-DS4t0SLk.wasm                          218.31 kB │ gzip:  78.58 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/core-B_vse2rY.js                               225.36 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/architectureDiagram-3BPJPVTR-k08z2A3L.js       418.69 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/katex-she6rk5m.js                              481.88 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/katex-CqNtglxf.js                              484.22 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/cytoscape.esm-VOdWFgLz.js                      959.04 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/mermaid.core-D0Lt57_h.js                     1,041.44 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/wardley-L42UT6IY-Br70XYwL.js                 1,204.96 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/index-r_y4aWx1.css                             657.83 kB │ gzip:  88.23 kB
+../../../../../../tmp/chain-830-canonical-evidence/blog-production/assets/index-DcC-4j5r.js                            1,161.15 kB │ gzip: 227.25 kB
+✓ built in 1m 8s

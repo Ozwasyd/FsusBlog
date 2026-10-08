@@ -1,0 +1,14 @@
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:52:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 12.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:53:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 16.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:54:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 16.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:55:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 16.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:56:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 20.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:57:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 20.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:58:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 20.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:59:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 20.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:60:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 20.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:61:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 20.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:62:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 20.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:63:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 20.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:64:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 16.
+[frontend-style] tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs:65:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 12.

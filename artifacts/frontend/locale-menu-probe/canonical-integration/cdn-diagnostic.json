@@ -1,0 +1,40 @@
+{
+  "createdAt": "2026-10-08T05:59:00.021Z",
+  "qualification": false,
+  "purpose": "network diagnosis only; no canonical capture assertion replaced",
+  "securityOverrides": [],
+  "routingOverrides": [],
+  "browser": "147.0.7727.15",
+  "existingLocalFixtureOwner": "vue/packages/demo-app/src/sections/UploadVisualSection.vue",
+  "existingLocalFixtureSha256": "e22cbfcc428298a5994ecc1601ce0e22bc252c9f5f905d457d8ce539bd903d10",
+  "results": [
+    {
+      "resource": "https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png",
+      "decoded": false,
+      "width": 0,
+      "height": 0
+    },
+    {
+      "resource": "https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png",
+      "decoded": false,
+      "width": 0,
+      "height": 0
+    },
+    {
+      "resource": "existing Upload fixture data PNG",
+      "decoded": true,
+      "width": 1,
+      "height": 1
+    }
+  ],
+  "failed": [
+    {
+      "url": "https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png",
+      "error": "net::ERR_CERT_AUTHORITY_INVALID"
+    },
+    {
+      "url": "https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png",
+      "error": "net::ERR_CERT_AUTHORITY_INVALID"
+    }
+  ]
+}

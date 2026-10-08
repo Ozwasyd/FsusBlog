@@ -1,0 +1,63 @@
+{
+  "source": "e14c9f8321e77c765128732473bb4121c578f559",
+  "checks": [
+    {
+      "command": [
+        "pnpm",
+        "avalonia:baseline:check"
+      ],
+      "exitCode": 0,
+      "log": "paint-candidate-api-check.log"
+    },
+    {
+      "command": [
+        "pnpm",
+        "contract-v2:check"
+      ],
+      "exitCode": 0,
+      "log": "paint-candidate-contract-check.log"
+    },
+    {
+      "command": [
+        "pnpm",
+        "conformance:v2:vue-public"
+      ],
+      "exitCode": 0,
+      "log": "paint-candidate-vue-public.log"
+    },
+    {
+      "command": [
+        "pnpm",
+        "tokens:check"
+      ],
+      "exitCode": 0,
+      "log": "paint-candidate-tokens.log"
+    },
+    {
+      "command": [
+        "pnpm",
+        "check:fsusui-design-conformance"
+      ],
+      "exitCode": 0,
+      "log": "paint-candidate-design.log"
+    },
+    {
+      "command": [
+        "pnpm",
+        "check:documentation-architecture"
+      ],
+      "exitCode": 0,
+      "log": "paint-candidate-docs.log"
+    },
+    {
+      "command": [
+        "pnpm",
+        "exec",
+        "stylelint",
+        "vue/packages/theme-chalk/src/dropdown.scss"
+      ],
+      "exitCode": 254,
+      "log": "paint-candidate-style.log"
+    }
+  ]
+}

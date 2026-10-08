@@ -1,0 +1,19 @@
+{
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--config",
+    "vue/vitest.config.ts",
+    "vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx",
+    "-t",
+    "invalidates pending heavy activation"
+  ],
+  "exitCode": 1,
+  "testSourceCommit": "a996d9e742ce31927f3845024eaa72b8a77d13f3",
+  "preRepairSourceCommit": "9f78c8ed0f35bedc34093ce8b10cc11f50009d4f",
+  "preRepairSourceHash": "d38ff8c94a6e7f0bc8d17050dbe3bf0c88c6b5946311b4ae304a4627b522fbe0",
+  "testFileHash": "a1976cf89aef327613e30df820eb2b9f6c9e7538f31fec275423087554bb6e87",
+  "qualification": false
+}

@@ -1,0 +1,81 @@
+{
+  "schema": "fsusui-design-conformance.ui-ux-classification-receipt.v2",
+  "ownerRepository": "Ozwasyd/FsusUI",
+  "affectedSurfaces": [
+    "Dropdown public keyboard focus in forced colors"
+  ],
+  "uiDecisionClass": "prescribed",
+  "verificationClass": "ux-local",
+  "requiredAuthorities": [
+    {
+      "id": "docs/design.md",
+      "path": "docs/design.md",
+      "digest": "6fe0f02f1217d1a5430dac505a5a1ae06072fb0fc6487011841e5b0fc6a7df55"
+    },
+    {
+      "id": "docs/design/governance.md",
+      "path": "docs/design/governance.md",
+      "digest": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104"
+    },
+    {
+      "id": "docs/design/change-classification.md",
+      "path": "docs/design/change-classification.md",
+      "digest": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e"
+    },
+    {
+      "id": "docs/workflows/visual-change.md",
+      "path": "docs/workflows/visual-change.md",
+      "digest": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042"
+    },
+    {
+      "id": "docs/consumers/design-integration.md",
+      "path": "docs/consumers/design-integration.md",
+      "digest": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b"
+    },
+    {
+      "id": "docs/components/dropdown.md",
+      "path": "docs/components/dropdown.md",
+      "digest": "7b0aeba884d848f54fe83806dc562ec3108aee6ae74f0298268b7b6f12ac03d7"
+    },
+    {
+      "id": "docs/api-stability.md",
+      "path": "docs/api-stability.md",
+      "digest": "cfc1acd37ea205d7bc94784747e211e6238ca4efd0afe10728a1679ea52cb85f"
+    }
+  ],
+  "requiredSkillDigests": [
+    "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+  ],
+  "activeBaselineIdentity": {
+    "repository": "Ozwasyd/FsusUI",
+    "revision": "089e133dedc6c6db11a8f463cf821eb3e882f8ac",
+    "skillDigest": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+    "authorityDigest": "3d5c6450275515e7ff784ad24280514f89515f1265334e24219480bf1ea2edee",
+    "dirtyFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "candidateSha": "089e133dedc6c6db11a8f463cf821eb3e882f8ac",
+  "candidateDigest": "b0dedca3ab316b99f2bfac8eaf56fea360cd35b87f384dc2f2f925c3bdba48c1",
+  "stateEvidenceMatrix": [
+    {
+      "state": "Actual keyboard focus remains but forced colors suppresses box shadow; no visible ring",
+      "viewport": "375x900 physical; 187x450 CSS at real browser 2x zoom",
+      "theme": "dark",
+      "evidenceDigest": "2bd61f632701acfa28f1b03dcd3b73f45d924d4729a673ec815bf6a0b7bfe779"
+    }
+  ],
+  "inScope": [
+    "Restore the prescribed inset focus ring using existing focus width/color tokens inside Dropdown forced-colors rendering",
+    "Keep default rows, selected/disabled semantics and public keyboard owner",
+    "Real public consumer/browser focus paint regression and rendered inspection"
+  ],
+  "outOfScope": [
+    "Shared option-row mixin and Menu implementation",
+    "New tokens, density, variants or design exceptions",
+    "Consumer business workflow and menu CSS",
+    "Independent UX/native/performance qualification and publication/merge"
+  ],
+  "classificationEvidenceDigest": "2bd61f632701acfa28f1b03dcd3b73f45d924d4729a673ec815bf6a0b7bfe779",
+  "domainPolicyDigest": "620c4f746c1f259e3b640044975ad2878b7913806038706f7991bee9d72104d3",
+  "status": "frozen",
+  "receiptDigest": "5096354e69fb286d4c7690e913140c0100c625ff94243938eb8be5651eb7b622"
+}

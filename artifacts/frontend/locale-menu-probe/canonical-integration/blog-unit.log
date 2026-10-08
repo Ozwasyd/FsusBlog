@@ -1,0 +1,28 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog/src/frontend
+
+ ✓ ../../tests/frontend/unit/components/LocaleSelector.test.ts (17 tests) 6206ms
+     ✓ is driven only by props and projects ten catalog items without hardcoding  417ms
+     ✓ desktop trigger shows globe affordance and current nativeName  418ms
+     ✓ renders every projected item native name including long labels  305ms
+     ✓ shows local pending progress on the pending item only  429ms
+     ✓ keeps error visible with retry and emits retry for the failed target  433ms
+     ✓ emits select for a non-selected item and for a pending target again  301ms
+     ✓ emits select when Enter activates the already selected item  448ms
+     ✓ honors item order from props and does not reorder to catalog default  599ms
+     ✓ renders an eleventh injected locale when the caller fails the catalog gate  366ms
+     ✓ routes URL items through the public command adapter without emitting select  386ms
+     ✓ opens with Enter/Space, moves with arrows/Home/End, and restores focus on Escape  839ms
+     ✓ does not open when disabled and keeps the same items/event contract in compact mode  443ms
+     ✓ keeps long native names fully present without ellipsis truncation styles  313ms
+ ✓ ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts (9 tests) 1974ms
+ ✓ ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts (7 tests) 919ms
+     ✓ projects the full catalog as selector items without hardcoding a bilingual list  644ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  05:56:01
+   Duration  53.99s (transform 32.36s, setup 778ms, import 42.46s, tests 9.10s, environment 753ms)
+
+JSON report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.xml

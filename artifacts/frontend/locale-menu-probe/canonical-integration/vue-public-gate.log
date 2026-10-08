@@ -1,0 +1,51 @@
+
+> @ conformance:v2:vue-public /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node --test tests/conformance-v2-vue-public-gate.test.mjs && node ./scripts/with-node-heap.mjs node ./scripts/conformance-v2-vue-public-gate.mjs
+
+✖ real Vue baseline and Contract V2 have complete public-member coverage (41.242999ms)
+✔ a real baseline member addition fails Vue public coverage (11.893672ms)
+✔ a real registry member deletion fails Vue public coverage (33.896182ms)
+✔ a real registry member rename fails Vue public coverage (59.462194ms)
+✔ a real registry member kind drift fails Vue public coverage (42.947593ms)
+✔ content-region compiler metadata drift fails Vue public coverage (72.222877ms)
+✔ enum values and deprecated compiler metadata drift fail Vue public coverage (30.404089ms)
+✔ a real registry cross-kind duplicate fails Vue public coverage (48.772905ms)
+✔ a real registry same-kind duplicate fails Vue public coverage (38.743553ms)
+✔ a real registry duplicate component fails Vue public coverage (65.217416ms)
+✔ a real web-only status drift fails Vue public coverage (49.257732ms)
+✔ a member-level web-only disposition cannot be synthesized in Contract V2 (39.669803ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1181.180196
+
+✖ failing tests:
+
+test at tests/conformance-v2-vue-public-gate.test.mjs:28:1
+✖ real Vue baseline and Contract V2 have complete public-member coverage (41.242999ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'ElDropdownItem contentRegion description is missing from Contract V2',
+  +   'ElDropdownItem contentRegion suffix is missing from Contract V2'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///workspace/FsusUI/tests/conformance-v2-vue-public-gate.test.mjs:56:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ElDropdownItem contentRegion description is missing from Contract V2', 'ElDropdownItem contentRegion suffix is missing from Contract V2' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+ ELIFECYCLE  Command failed with exit code 1.
