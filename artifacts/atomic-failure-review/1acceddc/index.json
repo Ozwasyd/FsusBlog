@@ -1,0 +1,48 @@
+{
+    "schema": "fsusblog.atomic-global-ci-portable-delivery.v1",
+    "sourceHead": "1acceddc60857a5222d93469953da3deaf65a34c",
+    "sourceBranch": "codex/atomic-failure-global-invocation",
+    "featureCommit": "c1a2c70fb511a55b5babe231401b3c3f263b8886",
+    "originalProducerHandoff": "b4802c466e1fb5580c079d793e665e274d0e6460:artifacts/atomic-failure-review/395703a2/request.json",
+    "originalProducerCommand": [
+        "node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "originalAuthorityCapability": "e6a42d63861278c630c31dc025787ad452d42ce2",
+    "latestMasterFetched": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "officialNodeVersion": "24.16.0",
+    "officialNodeArchiveSha256": "d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9",
+    "dataOnly": true,
+    "qualificationEligible": false,
+    "ownedIncrementPatchSha256": "0af1681eb50b0088d5d62b511d042df9b65dcc31f73bcb4445e345292927fd4f",
+    "files": [
+        {
+            "path": "delivery.json",
+            "sha256": "fedca97d85e03976ad86ae17a2f06843acb943795c8337f7701ff794f9a1eb4b"
+        },
+        {
+            "path": "local-checks.json",
+            "sha256": "abc779f15d0ec5f1f55853000b29e957a65f13d20a0dd76d925cc93126bdedb3"
+        },
+        {
+            "path": "owned-increment.patch",
+            "sha256": "0af1681eb50b0088d5d62b511d042df9b65dcc31f73bcb4445e345292927fd4f"
+        },
+        {
+            "path": "owner-requests.json",
+            "sha256": "2a602e06fed3eb125072a8322c05746b2fec4c688fd92384c24bc0c20947e873"
+        },
+        {
+            "path": "queued-draft-pr.json",
+            "sha256": "2c836831b188b1c29150efd263430ac4dcb4f7e30ed07dc1fd119a50ef78b42f"
+        },
+        {
+            "path": "queued-wip.json",
+            "sha256": "f824590c0ebda200dc05db37c275668136c3873654be4d2a10772f5fcbb8d618"
+        },
+        {
+            "path": "source-test-binding.json",
+            "sha256": "d9346edea32b52d21a76b19265e1e04e7e4c41d8e6ed0ebbe1c15954eab80c41"
+        }
+    ]
+}

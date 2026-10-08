@@ -1,0 +1,1277 @@
+{
+    "schema": "fsusblog.atomic-failure-source-delivery.v1",
+    "dataOnly": true,
+    "verificationStatus": "unverified",
+    "qualificationEligible": false,
+    "terminalAcceptancePending": true,
+    "sourceThreadId": "01a1142b-a0b5-7419-a4df-a8bbe54660dd",
+    "originalIntegrationOwner": "01a1195c-41e6-75d9-a27f-ca1481cfd007",
+    "authorizedPartitionThread": "01a119f9-854e-71e6-bcd9-2db47b378039",
+    "repository": "Ozwasyd/FsusBlog",
+    "githubCi": "Disabled; no dispatch or waiting",
+    "candidate": "1acceddc60857a5222d93469953da3deaf65a34c",
+    "branch": "codex/atomic-failure-global-invocation",
+    "sourceFeatureCommit": "c1a2c70fb511a55b5babe231401b3c3f263b8886",
+    "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805",
+    "sourceStageAndBoundaryCandidate": "a11ba8c65b21de97784b9407dd50c649ff47add2",
+    "latestMasterFetched": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "sourceStageBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "existingFrozenDraftPr": {
+        "url": "https://github.com/Ozwasyd/FsusBlog/pull/3970",
+        "head": "395703a20dc438cf5fc74a71287536e1fa7d16c1",
+        "unchanged": true
+    },
+    "newDraftPr": "NOT CREATED: coordinated GitHub content mutation restriction; exact title/body saved",
+    "changedFileCount": 120,
+    "exclusivelyOwnedFileCount": 12,
+    "exactOriginalOwnerFiles": 108,
+    "changedFiles": [
+        {
+            "path": "artifacts/change-contract/atomic-coverage-external-naming.json",
+            "blob": "e00a32dd9aaaf79bd512247966d95e05da3e0948",
+            "sha256": "2196bb11741585829c7cc48ec945ed2097c5248a23fdafec7c0e2ced20293937",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "e00a32dd9aaaf79bd512247966d95e05da3e0948"
+        },
+        {
+            "path": "artifacts/change-contract/atomic-current-execution-generated-binding.json",
+            "blob": "ff41d0f7e74dc96ec808334faf8472738db83f08",
+            "sha256": "f4cb89a95b09f60d9a3681a8b96bf042af34659b56de319e21911d228cc037f0",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "e6a42d63861278c630c31dc025787ad452d42ce2",
+            "ownerBlob": "ff41d0f7e74dc96ec808334faf8472738db83f08"
+        },
+        {
+            "path": "artifacts/change-contract/atomic-failure-external-naming.json",
+            "blob": "5369b455c6d1fc53e611ab1d6ba1c85795afcb27",
+            "sha256": "89d0372bb8a0ebd881419ca7bd3f412b003fa752451912457369086738bea4b6",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "artifacts/change-contract/backend-atomic-producers-external-naming.json",
+            "blob": "77b256e98eb181399d0dc0997b9c293c9e9d56de",
+            "sha256": "f78680fbf308407e817944652fa8053c810f54d031e257ef11ddd2def1883f39",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "9690f0924509d665748afd5310c3b074ebcc03d6",
+            "ownerBlob": "77b256e98eb181399d0dc0997b9c293c9e9d56de"
+        },
+        {
+            "path": "artifacts/change-contract/correctness-authority-external-naming.json",
+            "blob": "f10b2204c28d6e61c298d05202b659315b795ffd",
+            "sha256": "7ad82ef1e2996569585c6ab0c463982226aa0dc480184acc734d735952c84474",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "f10b2204c28d6e61c298d05202b659315b795ffd"
+        },
+        {
+            "path": "artifacts/change-contract/correctness-provisional-external-naming.json",
+            "blob": "29243afa72e2c35e96713d916f044f6ecf08c55c",
+            "sha256": "3a1eab8f93388fcca6ddcb0e3092c85e35dd94133e3347e75908b0c16fba5434",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "29243afa72e2c35e96713d916f044f6ecf08c55c"
+        },
+        {
+            "path": "artifacts/change-contract/correctness-terminal-external-naming.json",
+            "blob": "066af06e3e4e9dfd79c2efe10d20bbba05577b51",
+            "sha256": "4e3a3afc9c973f4d2c52e81957113429fb94b80f4742f84a8c2febb98baac3fd",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "066af06e3e4e9dfd79c2efe10d20bbba05577b51"
+        },
+        {
+            "path": "artifacts/change-contract/correctness-terminal-recovery-external-naming.json",
+            "blob": "0fe061697fa23a4faf4512f90288e121a51485d3",
+            "sha256": "eb071af7e0390cd16a93dce58cf66cc3723c6dffa5158eef0eb857d6b8f26781",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "0fe061697fa23a4faf4512f90288e121a51485d3"
+        },
+        {
+            "path": "artifacts/change-contract/frontend-atomic-admission-external-naming.json",
+            "blob": "94cf34bb40040a19d132c2b7345f2d73761c4eb4",
+            "sha256": "4c2a3e124699046d20e7141d08d02d86a3d9ed33208e53060f04f2309a4bcb71",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "94cf34bb40040a19d132c2b7345f2d73761c4eb4"
+        },
+        {
+            "path": "artifacts/change-contract/frontend-atomic-external-naming.json",
+            "blob": "9add6d92e814f54639bbf22af7e637a8e8d142e8",
+            "sha256": "33465173ba9100876c96115c42e1f3f151d6fa9786be5fb36884d273661aba33",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "9add6d92e814f54639bbf22af7e637a8e8d142e8"
+        },
+        {
+            "path": "artifacts/change-contract/public-runtime-producers-external-naming.json",
+            "blob": "3919622f83cda17deb9b59ac46396abe503b8349",
+            "sha256": "f0ee4bac9667c8c98e256f49e76f3bd92fb46f7df1a0c5366618e8f1acc73f36",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "3919622f83cda17deb9b59ac46396abe503b8349"
+        },
+        {
+            "path": "artifacts/change-contract/scheduler-canonical-resume-external-naming.json",
+            "blob": "93eb9ae6763d8906a156ad998bf88a4a1971081d",
+            "sha256": "23c4d289ffee94d9b13d4a9268d4615db4129eff26fd53bd7e8b6fe93c2e97f7",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "93eb9ae6763d8906a156ad998bf88a4a1971081d"
+        },
+        {
+            "path": "artifacts/change-contract/scheduler-terminal-integration-external-naming.json",
+            "blob": "b72898ebb999c82ce40edede7a22355bcb2b0f67",
+            "sha256": "9ba15c836cf3e2f6ea8e5deb6ed3feedcac1a6dffea8e755c9e49d1e0ceace59",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "b72898ebb999c82ce40edede7a22355bcb2b0f67"
+        },
+        {
+            "path": "artifacts/change-contract/scheduler-terminal-review-external-naming.json",
+            "blob": "73f67eaadac81966de13a2e7cb3af761cddaa678",
+            "sha256": "8434490f8425a57efe2f1c18e7db4527d17c5d701f674fd5790f8766bf1cb884",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "73f67eaadac81966de13a2e7cb3af761cddaa678"
+        },
+        {
+            "path": "artifacts/change-contract/static-atomic-canonical-bridge-external-naming.json",
+            "blob": "c974bb6494d131d7369c8f54acafc039f53eac1e",
+            "sha256": "e31428d2ae17faa771de1019981e7f9b00d3d3eb5e2d6ea4cbc24d1a9cbfa513",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "c974bb6494d131d7369c8f54acafc039f53eac1e"
+        },
+        {
+            "path": "artifacts/change-contract/static-atomic-external-naming.json",
+            "blob": "f24513ced19234ca876f38c8054e9c8461ff0998",
+            "sha256": "33984aee26019e59dba7a9409c17e88506046939ce956f27f81ee5a7f1d58f46",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "f24513ced19234ca876f38c8054e9c8461ff0998"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "blob": "873a330058ccc9e3ce276f3bb87986c48d486364",
+            "sha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "e6a42d63861278c630c31dc025787ad452d42ce2",
+            "ownerBlob": "873a330058ccc9e3ce276f3bb87986c48d486364"
+        },
+        {
+            "path": "tests/tools/atomic-coverage-execution.test.mjs",
+            "blob": "858cfcbef88740303d61ba1fa322a792dc4ae688",
+            "sha256": "00d077753044e90debab9772b27e5c0f8e0af836e83fb22aae0405c1f526def0",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "858cfcbef88740303d61ba1fa322a792dc4ae688"
+        },
+        {
+            "path": "tests/tools/atomic-coverage-inputs.test.mjs",
+            "blob": "7d54e8eb065e021341473121b7ba44ab97b5e8b9",
+            "sha256": "e4556d1d33f80d639b424295fb33ad9dab2a4aaa8c371d78c25c73307546bafe",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "7d54e8eb065e021341473121b7ba44ab97b5e8b9"
+        },
+        {
+            "path": "tests/tools/atomic-coverage-plan.test.mjs",
+            "blob": "e69d166d3b6b51a67e9c2d7548c48f92b4a8c3f9",
+            "sha256": "07c70204762433d8b4461eba28582f1337dfa325bfd1541fb9d15a36e7a9ee8c",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "e69d166d3b6b51a67e9c2d7548c48f92b4a8c3f9"
+        },
+        {
+            "path": "tests/tools/atomic-coverage-projection.test.mjs",
+            "blob": "dbb614547b8ab671892cd26ec125e3d36d2fc11a",
+            "sha256": "293313c6590a8b61eef3d3159e5ec2e8970c242254eb18833b0074f432ae12d4",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "dbb614547b8ab671892cd26ec125e3d36d2fc11a"
+        },
+        {
+            "path": "tests/tools/atomic-failure-authorities.test.mjs",
+            "blob": "ada1bcc80b729d6a0fe76cc7ceae2503b76c3bba",
+            "sha256": "44717d30dddc5aef7299e9e4208e0d1bcbcae04e3de76a4220487f0b31f661de",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tests/tools/atomic-failure-ci-projection.test.mjs",
+            "blob": "9710ce1928bfda7074a0df99d0bbc3fc46bb5eb2",
+            "sha256": "b312aff58d0d1112dff8990e16ddf73faac6c764e75d5e710874d89fac2d3f71",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tests/tools/atomic-failure-conformance.test.mjs",
+            "blob": "54d7125e6c1e1dc0cae01811e7410cc7a687192d",
+            "sha256": "78d045a54b5b98541c2eb04d48eb1599e07718988a2cce60cf4d90a750c6997a",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tests/tools/atomic-failure-navigation.test.mjs",
+            "blob": "1963bcf9a4ea0016c705eb0420ba875f3735944a",
+            "sha256": "6b5356d4862e1c054cf0926c1ad2215a4a86654050d2cfab58dd8738643c27bc",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tests/tools/atomic-producer-compiler.test.mjs",
+            "blob": "ee36caedafeefd81a078a987d9fca92e76da9f6e",
+            "sha256": "8faa2b0d7915ef93a2bbe8a07b9f8761f96bfeba02221ec1877e81e4786c96e6",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "39466f9a3a4714b5b58cd4c75a8baa69588e9c9e",
+            "ownerBlob": "ee36caedafeefd81a078a987d9fca92e76da9f6e"
+        },
+        {
+            "path": "tests/tools/atomic-producer-contract.test.mjs",
+            "blob": "61b09704c65ea7021a7f07b480393641a6ca024e",
+            "sha256": "8c96ec16fdd1d2d47be25021be1c338b6dda76706a3d26c337b3973e2d4b3b9e",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "61b09704c65ea7021a7f07b480393641a6ca024e"
+        },
+        {
+            "path": "tests/tools/backend-atomic-bridge.test.mjs",
+            "blob": "a97ada1dbbec6653d4a1fa8743f5b5f34498ee8a",
+            "sha256": "100ce251985a2356d8bee738b990644a294cab8ce5b04f2d9d05264127af10ed",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "9690f0924509d665748afd5310c3b074ebcc03d6",
+            "ownerBlob": "a97ada1dbbec6653d4a1fa8743f5b5f34498ee8a"
+        },
+        {
+            "path": "tests/tools/backend-atomic-outcomes.test.mjs",
+            "blob": "2ef1bfba246bf3d302f6167c71ff6a6fb93100c6",
+            "sha256": "1945975359f7ef11aab4a38b5b4a6b87482abf431f5281b88340f856a1ecdcfc",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "9690f0924509d665748afd5310c3b074ebcc03d6",
+            "ownerBlob": "2ef1bfba246bf3d302f6167c71ff6a6fb93100c6"
+        },
+        {
+            "path": "tests/tools/backend-atomic-producers.test.mjs",
+            "blob": "d903d859f2d5404e6e4aef8beac39bb6017d5432",
+            "sha256": "f33a8cb0e4e6f947f1e9569854bc06e9b36407de8da452e1d2ba18434992177f",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "9690f0924509d665748afd5310c3b074ebcc03d6",
+            "ownerBlob": "d903d859f2d5404e6e4aef8beac39bb6017d5432"
+        },
+        {
+            "path": "tests/tools/correctness-input-manifest.test.mjs",
+            "blob": "b6392f562a438b22e87cf585bc30006776c62b2b",
+            "sha256": "64e12b603be6857f0f0bbe9a19c41f96a425d84bd94442dab3d8504b646c6106",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "b6392f562a438b22e87cf585bc30006776c62b2b"
+        },
+        {
+            "path": "tests/tools/correctness-provisional-receipt.test.mjs",
+            "blob": "b440d7088b6e804f9878a8da1a6f28d326ee9700",
+            "sha256": "a1c042c0be5cbe4c172502fb2dec9a3714be4172328e05216baad583712b4b35",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "b440d7088b6e804f9878a8da1a6f28d326ee9700"
+        },
+        {
+            "path": "tests/tools/correctness-scheduler-authority.test.mjs",
+            "blob": "74b03c62b86788f76f1717ef8cca17d30f03e8e9",
+            "sha256": "160c07cb5019f3cfdba6b5d160a26e01ab7f54632d891452309bdced0284836f",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "74b03c62b86788f76f1717ef8cca17d30f03e8e9"
+        },
+        {
+            "path": "tests/tools/correctness-terminal-seal-journal.test.mjs",
+            "blob": "ad834b4a7e2c83bd81d87d516a250aad7a9e05fb",
+            "sha256": "dac064a3ca1c0ded1f38bb563e73c738c567597303202c6764dabd21bd21f01d",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "ad834b4a7e2c83bd81d87d516a250aad7a9e05fb"
+        },
+        {
+            "path": "tests/tools/correctness-terminal-seal.test.mjs",
+            "blob": "f14ff67c701560ccdb286f5b5b8b86be0f151e05",
+            "sha256": "85a422886f6e66696f0d3606ec1022458da78a43f24dcd59783a8849c0e19f68",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "f14ff67c701560ccdb286f5b5b8b86be0f151e05"
+        },
+        {
+            "path": "tests/tools/frontend-atomic-manifest-admission.test.mjs",
+            "blob": "076a6c9adfb5ef9becdb5f7b33e84fa9c42a1336",
+            "sha256": "e87c4bf50bdfd97e572cd8dd503eea8de0dbb891884e97a807d15df68349f5de",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "076a6c9adfb5ef9becdb5f7b33e84fa9c42a1336"
+        },
+        {
+            "path": "tests/tools/frontend-atomic-manifest.test.mjs",
+            "blob": "8ebf4d9cd951b0823af0bd2b47b940aae7a19a64",
+            "sha256": "b4353956fd3b73ba8794deca75a1a7418f0f2f4582962c2b2ab39cf54bc8a0b8",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "8ebf4d9cd951b0823af0bd2b47b940aae7a19a64"
+        },
+        {
+            "path": "tests/tools/frontend-atomic-property-model-perf.test.mjs",
+            "blob": "4af9424ed533a514fe97083f2002fa13338a1509",
+            "sha256": "b83acf4a0ccfe2d8f964d06f4bc503ce156524f49ea1b013d1a53c7bc05e0cb8",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "4af9424ed533a514fe97083f2002fa13338a1509"
+        },
+        {
+            "path": "tests/tools/frontend-atomic-visual.test.mjs",
+            "blob": "171d16415ef18ca473ad799f5733729e5f7da39e",
+            "sha256": "8db9eeb16c4a43c33aa854c704efc7d8c4ff91091c6e482cd33730561743e613",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "171d16415ef18ca473ad799f5733729e5f7da39e"
+        },
+        {
+            "path": "tests/tools/public-runtime-producer-compiler-adapter.test.mjs",
+            "blob": "e28e00bc8e5ee3ac7c6abe9a7a3fd03730b563f9",
+            "sha256": "a78eb780d959f4b7d30fde2ea4f8fc173ce3f379253a872fbc30b11349e1afa4",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "e28e00bc8e5ee3ac7c6abe9a7a3fd03730b563f9"
+        },
+        {
+            "path": "tests/tools/public-runtime-producer-dag.test.mjs",
+            "blob": "85d24c0c3f979114d936e23fde076488a3148db3",
+            "sha256": "11c8e2aff24e3262821dfb0a481088d88215a18a409a62d09b8ccd3354087f36",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "85d24c0c3f979114d936e23fde076488a3148db3"
+        },
+        {
+            "path": "tests/tools/public-runtime-producer-declarations.test.mjs",
+            "blob": "0ba1919fb73a2b52dbdec0b0c7602b570f9203fb",
+            "sha256": "e45843d55d1ce46977c2de395faec15463b6dc2b766fd587afe6165a391ec91f",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "0ba1919fb73a2b52dbdec0b0c7602b570f9203fb"
+        },
+        {
+            "path": "tests/tools/public-runtime-producer-projection.test.mjs",
+            "blob": "d9871a2393f1062f26e278115c95c42ef1fd73cf",
+            "sha256": "1d01cd746b21a7afc224a4f6a566e79495d7d15a659d227c0e46b374b752c60f",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "d9871a2393f1062f26e278115c95c42ef1fd73cf"
+        },
+        {
+            "path": "tests/tools/public-runtime-settled-reset-adapter.test.mjs",
+            "blob": "1bd158db246b4405fa4b78708ec26d4759e55520",
+            "sha256": "1e98355f0a7a15aa385abe335d0d7a529b9b9336027b8757cbcdf21cb6fc1d42",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "1bd158db246b4405fa4b78708ec26d4759e55520"
+        },
+        {
+            "path": "tests/tools/scheduler-canonical-resume.test.mjs",
+            "blob": "348c44d440d6a2a4bfcb40d6a02f939cb9fccffe",
+            "sha256": "35a520d34c44545205ccd6d05784ab51b86d98e09f4bc0674d347a07f80deb0f",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "348c44d440d6a2a4bfcb40d6a02f939cb9fccffe"
+        },
+        {
+            "path": "tests/tools/scheduler-correctness-finalizer.test.mjs",
+            "blob": "2241b0788337c5b97adc4a442345463ffca3eff2",
+            "sha256": "47aeeedc7f2e86a5d7ee7eb0ed06c69e633d35a682aed4e0fd0a4618e8e14f25",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "2241b0788337c5b97adc4a442345463ffca3eff2"
+        },
+        {
+            "path": "tests/tools/scheduler-grant-generation.test.mjs",
+            "blob": "1188004576247550882c65156377ece6fda4e3c0",
+            "sha256": "b1f9f12e2c427ceca1637816ba636237ad1a592a714de2990c4fb7c1d70efa2f",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "1188004576247550882c65156377ece6fda4e3c0"
+        },
+        {
+            "path": "tests/tools/static-atomic-assertion-membership.test.mjs",
+            "blob": "e5f674aa6b17f99fd509acfe300bc62ec2290791",
+            "sha256": "0ace99379837526428246ee030ed44e324c87a097327504255c214e8576a8bdd",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "e5f674aa6b17f99fd509acfe300bc62ec2290791"
+        },
+        {
+            "path": "tests/tools/static-atomic-compiler-bridge.test.mjs",
+            "blob": "ba2d8bbc99a31ebb75e1159d18a9e7593724825d",
+            "sha256": "729399d4ccd383e158c70d2948db24645dc5ab8c12651bb71c3061bfd59dc2d1",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "ba2d8bbc99a31ebb75e1159d18a9e7593724825d"
+        },
+        {
+            "path": "tests/tools/static-atomic-declarations.test.mjs",
+            "blob": "94d129d72d78dad7881e474e11911d2b0c9035c0",
+            "sha256": "27836c9d95c6f725ad7e3770d45cf18e118d3f0b866db1b524c7a2a644484c90",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "94d129d72d78dad7881e474e11911d2b0c9035c0"
+        },
+        {
+            "path": "tests/tools/static-atomic-producer.test.mjs",
+            "blob": "dc54bfb96e524d8cc7e16a3e72cb04a6c3b4ea22",
+            "sha256": "da1434015a14b1fd6676e68d675c981cca08820b81d5aef12ee107d952a56c5d",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "dc54bfb96e524d8cc7e16a3e72cb04a6c3b4ea22"
+        },
+        {
+            "path": "tests/tools/static-atomic-summary.test.mjs",
+            "blob": "8dd2a1991c0ba8a3d81bc056cfd1c4cef3a207b5",
+            "sha256": "48e9788bca9e63b3773f9d7c1f665e6295233f0c6a307a64c47db44b17bcae01",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "8dd2a1991c0ba8a3d81bc056cfd1c4cef3a207b5"
+        },
+        {
+            "path": "tests/tools/static-atomic-terminal-bridge.test.mjs",
+            "blob": "c407d8acaa46e5be1f63409ffded62edf418844d",
+            "sha256": "05a1a904f1fcbe354df5151760871e1bd2e3e487d670050da5e5d53a1b0c3ecd",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "c407d8acaa46e5be1f63409ffded62edf418844d"
+        },
+        {
+            "path": "tests/tools/support/atomic-coverage-compiler-fixtures.mjs",
+            "blob": "20abc4214323999be32836b157f386f2d5a4bdbb",
+            "sha256": "4b9e488d8f414c8f048f3d806f4f8096360cc2b3c604b5eecbd40936894c41a0",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "20abc4214323999be32836b157f386f2d5a4bdbb"
+        },
+        {
+            "path": "tests/tools/support/atomic-coverage-fixtures.mjs",
+            "blob": "4e215d6f8ea627cbda6cb0bfdfd069cfb79db1c0",
+            "sha256": "c154a4e66a2412e9fce0f3abe840fa38a228157d1ab627a948aa53625d669c3c",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "4e215d6f8ea627cbda6cb0bfdfd069cfb79db1c0"
+        },
+        {
+            "path": "tests/tools/support/atomic-failure-fixture.mjs",
+            "blob": "14b5d4e5a59ef615d3fc3f918613ffdbbb2c0025",
+            "sha256": "1fc22504162714e72bd5d3728586a20cc4ffee492ca414dbe87a5010fbdc570d",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tests/tools/support/atomic-producer-command.mjs",
+            "blob": "9cdd2a22d0199a08913d107f5b895736e52d7422",
+            "sha256": "5fdd41e21204133e97d5cb8fbeed023c1c9c4acf004b7daed477041a85da4f73",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "9cdd2a22d0199a08913d107f5b895736e52d7422"
+        },
+        {
+            "path": "tests/tools/support/atomic-producer-fixture.mjs",
+            "blob": "27c152f0d8ab31f96a764a908500ef061a64b561",
+            "sha256": "60ba7fd64b84603590a73499a0019f937eba00a7df7f5ae4945d452b7201709c",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "27c152f0d8ab31f96a764a908500ef061a64b561"
+        },
+        {
+            "path": "tests/tools/support/backend-atomic-compiler-fixture.mjs",
+            "blob": "5eb8fbd55d9164e9ddac3b31a303c8f29cfb13ef",
+            "sha256": "254b4b240394d3f825d034434d2e62bd1fa0ec42160379bca586ff3a56fabd81",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "9690f0924509d665748afd5310c3b074ebcc03d6",
+            "ownerBlob": "5eb8fbd55d9164e9ddac3b31a303c8f29cfb13ef"
+        },
+        {
+            "path": "tests/tools/support/backend-atomic-fixture.mjs",
+            "blob": "d353f81162c2ee27e78366c454347959b13118a1",
+            "sha256": "d5018d3ca7f405459b8488d4c3dbaa3d40c0534d6bcbac753b49bd82ce78cdb4",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "9690f0924509d665748afd5310c3b074ebcc03d6",
+            "ownerBlob": "d353f81162c2ee27e78366c454347959b13118a1"
+        },
+        {
+            "path": "tests/tools/support/canonical-scheduler-fixture.mjs",
+            "blob": "03c5cc8201c41cd95ebb3dc3c887471b4311edb2",
+            "sha256": "1931442c53344ac216f052f301e2aa57e591f75b9d99154593bd4a4be1741c64",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "03c5cc8201c41cd95ebb3dc3c887471b4311edb2"
+        },
+        {
+            "path": "tests/tools/support/correctness-terminal-fixture.mjs",
+            "blob": "db20b1124f92a9f307fb90c6b1064b91254bec2f",
+            "sha256": "9b98873abfbf1731ee4f71f7872770d3d1bc2c441900454899e4ea8d68c8eb8b",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "db20b1124f92a9f307fb90c6b1064b91254bec2f"
+        },
+        {
+            "path": "tests/tools/support/public-runtime-compiler-fixture.mjs",
+            "blob": "fc6f77f02262cdf77a47a8daf38d8b6cae3b017c",
+            "sha256": "d221a1040a537eb68c3e6520d24496d21f7e4d1cadbbc70f018a39e978d46483",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "fc6f77f02262cdf77a47a8daf38d8b6cae3b017c"
+        },
+        {
+            "path": "tests/tools/support/static-atomic-canonical-fixture.mjs",
+            "blob": "4f9e735b1e284b81f4b704269a3a8ae44dd05a1e",
+            "sha256": "85ed327a9e8e86e1431b288e548121d40c5465f9e36785f98ed116c09b2ec16f",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "4f9e735b1e284b81f4b704269a3a8ae44dd05a1e"
+        },
+        {
+            "path": "tests/tools/support/static-atomic-fixture.mjs",
+            "blob": "0af7ea48ee7dfc607aaf3549e056c7c43ce64ac2",
+            "sha256": "243e1664d63e67a4111a1d4801c7fc85b40419f1d3b51b080732de6b6615891f",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "0af7ea48ee7dfc607aaf3549e056c7c43ce64ac2"
+        },
+        {
+            "path": "tests/tools/test-evidence-receipt-authority.test.mjs",
+            "blob": "07a272534d66cbe80eb087898c600df7cbb49f17",
+            "sha256": "51f108a1a0baa05f112514f037f1c4cd1642ff0b3c5b50fd048bb49511918b46",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "07a272534d66cbe80eb087898c600df7cbb49f17"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-command.mjs",
+            "blob": "9d9fcb3f1be0cb0a74326a5d71b56e20843ce208",
+            "sha256": "d0f46e1362689d34191b7e2a25bfbe599c318aae51a1ed3d2a0c49a3f6e04912",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "9d9fcb3f1be0cb0a74326a5d71b56e20843ce208"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-compiler-bridge.mjs",
+            "blob": "1f2f1611503e7594f2b37752ce9074708ebef2c5",
+            "sha256": "b3a0def43bf37e3c6a33dddbab6002471fc3846556e7f0d226b8297de8c2a746",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "1f2f1611503e7594f2b37752ce9074708ebef2c5"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-execution.mjs",
+            "blob": "fb6c451f6a21f54e435c62a786dc55e74e30b822",
+            "sha256": "9b95cae27d9d951183756a2c76ccd9119ae97d40b4b837bfa5c0005c6497d334",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "fb6c451f6a21f54e435c62a786dc55e74e30b822"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-inputs.mjs",
+            "blob": "6a3ecc1f3472373df6531b40af0ce1088a092acd",
+            "sha256": "185fd3b2bcbceef613329ebae6fe76fb0e1c066e4e58fd8993e27703358def8c",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "6a3ecc1f3472373df6531b40af0ce1088a092acd"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-plan.mjs",
+            "blob": "8a3c56a483884c80646e0e0b13d74afcf6a21123",
+            "sha256": "35fe5f809ab358d33507213f1e79eaffa2d2be58b7efcd5a287a322cccc7e1a1",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "8a3c56a483884c80646e0e0b13d74afcf6a21123"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-projection.mjs",
+            "blob": "a1ad11ac89a010c3fa1c9d70ced4064bb1076672",
+            "sha256": "3f57ebb88ef58be6a366a891d2888e6a51ebda47061f36741e6ecbde58c982c6",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "a1ad11ac89a010c3fa1c9d70ced4064bb1076672"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage.contract.md",
+            "blob": "bf0e9ff02d7cb469857ef36134d29d4b3b7e7948",
+            "sha256": "61b0f9c072e7ce0dfaeb78a2bb9fe29c5653fa7144c99e00cd904c1097a13990",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+            "ownerBlob": "bf0e9ff02d7cb469857ef36134d29d4b3b7e7948"
+        },
+        {
+            "path": "tools/release/correctness-provisional-receipt.mjs",
+            "blob": "6b4c82357a0d6fa15d916bff770873f5d9d59f4c",
+            "sha256": "52fd5b34b4033bddbb6803b307261fa7453772c51064c01cc9ac4a99abfefe0f",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "6b4c82357a0d6fa15d916bff770873f5d9d59f4c"
+        },
+        {
+            "path": "tools/release/correctness-scheduler-authority.mjs",
+            "blob": "af99d7639a41ca2e64c71de1d2e5a9d4879b69a3",
+            "sha256": "40d8ca3f06d8789a8130727b2c3e31af22eaedaeded516449fd7cb52e5df2e47",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "af99d7639a41ca2e64c71de1d2e5a9d4879b69a3"
+        },
+        {
+            "path": "tools/release/correctness-terminal-receipt.mjs",
+            "blob": "73b8198228558f46a3f5f4437879faef760d2050",
+            "sha256": "5b2f2cd51ea3517a55844581b9947897e87c18d6ad1d960cc99d4ac9a69a18df",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "73b8198228558f46a3f5f4437879faef760d2050"
+        },
+        {
+            "path": "tools/release/correctness-terminal-seal-journal.mjs",
+            "blob": "5420b537e636bc0ebe416a8a4ae79a629c15a5f0",
+            "sha256": "dc92b41b8ff6d02123cfe9f0fe09011ee3729d230ad0cc4f856698cd5fcd2f22",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "5420b537e636bc0ebe416a8a4ae79a629c15a5f0"
+        },
+        {
+            "path": "tools/release/test-evidence-receipts-cli.mjs",
+            "blob": "c48804a9f168d692edcd11122ab71a1587b8a84e",
+            "sha256": "491c509ac99f95c814f6809bd40e9f41dddb7dccfeb9dea18cfafe890b99eaae",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "c48804a9f168d692edcd11122ab71a1587b8a84e"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/README.md",
+            "blob": "db9c886a33e56cb53f4c8fe7dc9335b1b822052c",
+            "sha256": "95eadb8f462b83b2eed416f57b9a9de82b4cc39784e5ebc4fae46570ea82b76c",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/ci-projection.mjs",
+            "blob": "66c372c61f8143a5e7e672613107767ddc9ded01",
+            "sha256": "ff7bcebf7b18a5ffb659b3565b4fcc44dd0989b537aa3212c17697491e018bfa",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/conformance.mjs",
+            "blob": "463d0f4b5d2146f88962d4a504986b994eedfa40",
+            "sha256": "a06b00dcdbdb3ebb8b5e27621015c4fb5d301c8481b1173d097622beb55c4c46",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/executable-authorities.mjs",
+            "blob": "953af9191cee726495187044e63d74c363f3556c",
+            "sha256": "9134950baa4de0345848ac3d9be9321a584fc13b81d8e8fbd7742ddfe8122228",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/failure-navigation.mjs",
+            "blob": "4b29df9dfcd2fc62cea2e4d09a5183f51265f072",
+            "sha256": "aea1687c1d3433c0e70063a4c904fa3f9c1a100ae0a1a2c440dd55d1f9fb7ac9",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/projection-contract.mjs",
+            "blob": "91c9c35898413f30275f747678d243d01ed44d8a",
+            "sha256": "0b95b8ecf5c3632c0a8ec9d979f9bfabc18fcb5970c7a201a331558ca1725d0c",
+            "ownership": "exclusive-atomic-failure-partition"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/README.md",
+            "blob": "5fd8973f6b67b0a8d3e53210599ada038615369a",
+            "sha256": "10d8ef8fa39f2f8f5d538eb70d1c8b309428518ffd05762ff15252a5a23cb13c",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "39466f9a3a4714b5b58cd4c75a8baa69588e9c9e",
+            "ownerBlob": "5fd8973f6b67b0a8d3e53210599ada038615369a"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/compiler.mjs",
+            "blob": "f9f0ba7630adc30273ec20a03b8704f1e0640496",
+            "sha256": "3b80785386fb4585bb20864461e62979e7dce62f51e7ecc87c89773602d48150",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "f9f0ba7630adc30273ec20a03b8704f1e0640496"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/contract.mjs",
+            "blob": "0a6d61bc2a2cdee8138605e06f6275b163f22e1d",
+            "sha256": "5e0bfe5d03cbdb817d15ac91a4ca9ce14a2d94e7eb7d8a96f882a55f1bac2651",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "0a6d61bc2a2cdee8138605e06f6275b163f22e1d"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/contract.schema.json",
+            "blob": "20ec4abb69ea4f3f9c23fd06e86c25f300406849",
+            "sha256": "e21d5550a511e0b7223966e50920240803c06dda6199fc0db6cd9e18040dbb3e",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "20ec4abb69ea4f3f9c23fd06e86c25f300406849"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/disposition.mjs",
+            "blob": "51d943c0c0ba19eba280edb0afcc82ae0dcaa742",
+            "sha256": "6c28e1809e0d9267d8cccdee9760084fb538f8f282a203d71837bd5e92583295",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "51d943c0c0ba19eba280edb0afcc82ae0dcaa742"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/disposition.schema.json",
+            "blob": "9527b9100956fe8c443bb6936c4b556e34bde05d",
+            "sha256": "d09934fcf3e0384b85f6b0eb73c0e8d053f0e80fb184b80e97c8aa5b5508a4ab",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "9527b9100956fe8c443bb6936c4b556e34bde05d"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/execution.mjs",
+            "blob": "457df007357b7900c271d402936394abf17555c2",
+            "sha256": "36653e9eb55b48712417095761529d1d95771d53c4554746aa1e44574f7e1749",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "39466f9a3a4714b5b58cd4c75a8baa69588e9c9e",
+            "ownerBlob": "457df007357b7900c271d402936394abf17555c2"
+        },
+        {
+            "path": "tools/test-matrix/correctness-input-manifest.mjs",
+            "blob": "76b01eaa1dd3fed8632cca077f30a58dcb5fdf77",
+            "sha256": "63b57c873c46fd9ec402acd6c0c5504d973b5b9e160d50f196ed3995b4d17627",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "76b01eaa1dd3fed8632cca077f30a58dcb5fdf77"
+        },
+        {
+            "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+            "blob": "2a807c3cda5a069d6805267905288f4596e97388",
+            "sha256": "568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "2a807c3cda5a069d6805267905288f4596e97388"
+        },
+        {
+            "path": "tools/test-matrix/scheduler.mjs",
+            "blob": "4c6039406878d3e261282f4f3ff935f6c78ab826",
+            "sha256": "fb09ae4aa7c688436304b7269f5c4e517254b2ad70deca51ca0127415245b631",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "4c6039406878d3e261282f4f3ff935f6c78ab826"
+        },
+        {
+            "path": "tools/test/backend-atomic-bridge.mjs",
+            "blob": "0fa408e9c69bbb2b53dc3abc450554bb1c2fd34b",
+            "sha256": "883b28df0fcfa1c86f4de7b746b8428d0a4149f484eca18c57d506c7f63bf3d3",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "9690f0924509d665748afd5310c3b074ebcc03d6",
+            "ownerBlob": "0fa408e9c69bbb2b53dc3abc450554bb1c2fd34b"
+        },
+        {
+            "path": "tools/test/backend-atomic-outcomes.mjs",
+            "blob": "c53ddf7d285aa4a49187812a2e11e3e563a0d0de",
+            "sha256": "593f008ee6edd5b66e2254674723aea512e060c8d4cc48d331e9501383152c3e",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "9690f0924509d665748afd5310c3b074ebcc03d6",
+            "ownerBlob": "c53ddf7d285aa4a49187812a2e11e3e563a0d0de"
+        },
+        {
+            "path": "tools/test/backend-atomic-producers.contract.md",
+            "blob": "10946f16855d85c177a5f64f5032ca07582d3dbc",
+            "sha256": "6387493b78f5fb44c4893fc2af1ea40f6994c14cbffb3048ea40a45d56c3e4d2",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "9690f0924509d665748afd5310c3b074ebcc03d6",
+            "ownerBlob": "10946f16855d85c177a5f64f5032ca07582d3dbc"
+        },
+        {
+            "path": "tools/test/backend-atomic-producers.mjs",
+            "blob": "b40aba94227f5cee4870a69ee3d907c659a58354",
+            "sha256": "ad42af5660b516e287efbfaff3714ce54a3b70fdfd2d1803dfdc54494c61e57b",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "9690f0924509d665748afd5310c3b074ebcc03d6",
+            "ownerBlob": "b40aba94227f5cee4870a69ee3d907c659a58354"
+        },
+        {
+            "path": "tools/test/bundles/bundle-steps.mjs",
+            "blob": "505655b3dc0b258074af42784b4ce449c1b53de9",
+            "sha256": "051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+            "ownerBlob": "505655b3dc0b258074af42784b4ce449c1b53de9"
+        },
+        {
+            "path": "tools/test/frontend-atomic/CONTRACT.md",
+            "blob": "fe543d75301b466694de754ebcfbd1820bb5c3ce",
+            "sha256": "c5fcce94a2d9420d7e25f3e276623e6d0600dba91278564a1212a4499b4df589",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "fe543d75301b466694de754ebcfbd1820bb5c3ce"
+        },
+        {
+            "path": "tools/test/frontend-atomic/manifest-admission.mjs",
+            "blob": "7fe87fbf4b43cea56f1659bc6d23650fea2d1846",
+            "sha256": "c39d515d17399b5ee21ae5c90c555ccf93f2ca89460f98d2f18836c3d268958d",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "7fe87fbf4b43cea56f1659bc6d23650fea2d1846"
+        },
+        {
+            "path": "tools/test/frontend-atomic/manifest-entry.mjs",
+            "blob": "09d92cfe60b793e3bda1def1e3433adefeb2dd90",
+            "sha256": "9ecdf703ddf5669d26c501b13b6f5227be2fb8e93e405f2c9c02ba03e64c6005",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "09d92cfe60b793e3bda1def1e3433adefeb2dd90"
+        },
+        {
+            "path": "tools/test/frontend-atomic/manifest-projection.mjs",
+            "blob": "bafd1b6b4244c79d5c8abea53505c0e8f3614da1",
+            "sha256": "3e98b44465ff2be286ae07f8dbca42753fb245d3aeebdbfca8efe53dad70e690",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "bafd1b6b4244c79d5c8abea53505c0e8f3614da1"
+        },
+        {
+            "path": "tools/test/frontend-atomic/property-model-perf.mjs",
+            "blob": "198d8f1e82054d4be6c1b048786fe19f31dcc52f",
+            "sha256": "5118c7cbeba7a280c8b997845129ef71107f2d33c393b8f264e4462e8a35718e",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "198d8f1e82054d4be6c1b048786fe19f31dcc52f"
+        },
+        {
+            "path": "tools/test/frontend-atomic/visual-projection.mjs",
+            "blob": "f8399dab5a5a24c2580fa3256fc70e44478f2b70",
+            "sha256": "1edec0a42351220236f7089edaa322843d7c04b9278a4f526c17cef2880aff1d",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "f8399dab5a5a24c2580fa3256fc70e44478f2b70"
+        },
+        {
+            "path": "tools/test/lanes/frontend-perf-regression.sh",
+            "blob": "dae0384f062d608f3c68ec61e54097b77917f624",
+            "sha256": "818031adb39198b832ae0c898f276c9b3e192c0d93a278fadf245884f61b88d4",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "dae0384f062d608f3c68ec61e54097b77917f624"
+        },
+        {
+            "path": "tools/test/lanes/frontend-property.sh",
+            "blob": "99278d5c52f9481a5a34a4705c47cd0d1485b0e3",
+            "sha256": "1678cc3ba4db8fa57206243f0f6fee4eb3f157333af8d92088a5c30272cd4039",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "99278d5c52f9481a5a34a4705c47cd0d1485b0e3"
+        },
+        {
+            "path": "tools/test/lanes/frontend-state-machines.sh",
+            "blob": "c7be3f9df3b51fd5834724f50143794c17394b5e",
+            "sha256": "42b969615f268f03d09ca5690f5fc227a67bfa5028e0095b5c3187ca8bf46675",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "be307751be2e6162da04e1674197ae34f7378e14",
+            "ownerBlob": "c7be3f9df3b51fd5834724f50143794c17394b5e"
+        },
+        {
+            "path": "tools/test/public-runtime-producers/README.md",
+            "blob": "f5fe8ddbb9547e45b45bbdd4124dea017eb77ba1",
+            "sha256": "9f66a7a308f081e62731a78e85fbd7cb3eeb0748bb3d6f785649abe5b087f78e",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "f5fe8ddbb9547e45b45bbdd4124dea017eb77ba1"
+        },
+        {
+            "path": "tools/test/public-runtime-producers/compiler-adapter.mjs",
+            "blob": "e42ab819971ee47b3317cdc481de39e5d79fbf57",
+            "sha256": "e22e067c43ee04ee2f9916235343749f0501c28033cdd60d9f3fdd4caf35abc5",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "e42ab819971ee47b3317cdc481de39e5d79fbf57"
+        },
+        {
+            "path": "tools/test/public-runtime-producers/declarations.mjs",
+            "blob": "c587331bfaf0eff6b616a61b8bef6edcd71cf3d4",
+            "sha256": "61ee05ae243aa1c14c393814d09736808a53cd4ea73be295eacb62bc3e9d7192",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "c587331bfaf0eff6b616a61b8bef6edcd71cf3d4"
+        },
+        {
+            "path": "tools/test/public-runtime-producers/projection.mjs",
+            "blob": "cce76e1f1aa601a4ae7174333a5699497544d3eb",
+            "sha256": "babb2b375db9deed38c44c2e7a3a3404bb5915c65ef5649b3b38140c42dee60e",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "cce76e1f1aa601a4ae7174333a5699497544d3eb"
+        },
+        {
+            "path": "tools/test/public-runtime-producers/settled-reset-adapter.mjs",
+            "blob": "aab38c76a3283d2c9ebb5747d9631233a9b0dc80",
+            "sha256": "edb613e8a210a4a0c6a84ea02ef627bebee12b68d8a1683685a214c144e2c3b2",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "43470d5c6411e79a0d4890512863ad5fa8997f06",
+            "ownerBlob": "aab38c76a3283d2c9ebb5747d9631233a9b0dc80"
+        },
+        {
+            "path": "tools/test/static-atomic/CONTRACT.md",
+            "blob": "ea3b0b83b0b9cf41d8f243efc774ea5c0510a994",
+            "sha256": "04fda8a485b8b67658d38fd552d37f507b19d0c7e5dce19144e9647f1c3d4334",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "ea3b0b83b0b9cf41d8f243efc774ea5c0510a994"
+        },
+        {
+            "path": "tools/test/static-atomic/assertion-membership.mjs",
+            "blob": "0e60c03018de84a555114baffb05e16c968c9f58",
+            "sha256": "78ad3871ba78f6383df2904c337ebbc7329c8fb148f37b925303f31ef18dd8e5",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "0e60c03018de84a555114baffb05e16c968c9f58"
+        },
+        {
+            "path": "tools/test/static-atomic/compiler-bridge.mjs",
+            "blob": "59399f10eef63dfa148ca2f0f33e84f56b8877c3",
+            "sha256": "294e1908ddb8849bd040df93fcc378fe6834868f2e8d82c91a6f21b42deeef89",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "59399f10eef63dfa148ca2f0f33e84f56b8877c3"
+        },
+        {
+            "path": "tools/test/static-atomic/declarations.mjs",
+            "blob": "a372adeda2b2545564d0f870507da9fc18033707",
+            "sha256": "e7ea3e5a90324c412ffe00f5a2e74bd1f6e923424c7cab038c0e8ad1f276be6d",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "a372adeda2b2545564d0f870507da9fc18033707"
+        },
+        {
+            "path": "tools/test/static-atomic/producer.mjs",
+            "blob": "fbc7b8c01a9095365b5cc6960d2d273145686895",
+            "sha256": "cb57e2933cad698fd43b8a9e44604d7f16b67f089c4f24109675175a00f05a8d",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "fbc7b8c01a9095365b5cc6960d2d273145686895"
+        },
+        {
+            "path": "tools/test/static-atomic/summary.mjs",
+            "blob": "ebed8130a12a0ee533d6c0441c998fe49f6ed5e7",
+            "sha256": "7520e34cbca48c2e5f4d124fb84660b130ac1116a6c798bee8fb30bb9b8f6a53",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "ebed8130a12a0ee533d6c0441c998fe49f6ed5e7"
+        },
+        {
+            "path": "tools/test/static-atomic/terminal-bridge.mjs",
+            "blob": "538b7cd24045635db13ac786a34f6e265d53265f",
+            "sha256": "76b49df72e18f5f88c08d678e1ad33f05b69f162b53a667ce552b93040aac722",
+            "ownership": "exact-original-owner-consumption",
+            "ownerCommit": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+            "ownerBlob": "538b7cd24045635db13ac786a34f6e265d53265f"
+        }
+    ],
+    "ownedChangedFilesThisIncrement": [
+        "artifacts/change-contract/atomic-failure-external-naming.json",
+        "tests/tools/atomic-failure-ci-projection.test.mjs",
+        "tests/tools/support/atomic-failure-fixture.mjs",
+        "tools/test-matrix/atomic-failure/README.md",
+        "tools/test-matrix/atomic-failure/ci-projection.mjs"
+    ],
+    "ownedIncrementPatch": "/workspace/atomic-failure-evidence/canonical-global-invocation-owned-increment.patch",
+    "sourceTestBlobBinding": "/workspace/atomic-failure-evidence/1acceddc-tested-source-binding.json",
+    "localChecks": [
+        {
+            "candidate": "9df29228dc3960007963f2bcfe8ffc1649640805",
+            "command": [
+                "node",
+                "--test",
+                "--test-concurrency=1",
+                "tests/tools/atomic-failure-authorities.test.mjs",
+                "tests/tools/atomic-failure-ci-projection.test.mjs",
+                "tests/tools/atomic-failure-conformance.test.mjs",
+                "tests/tools/atomic-failure-navigation.test.mjs",
+                "tests/tools/atomic-producer-contract.test.mjs",
+                "tests/tools/atomic-producer-compiler.test.mjs",
+                "tests/tools/runtime-state-conflict-scheduler.test.mjs",
+                "tests/tools/backend-atomic-bridge.test.mjs",
+                "tests/tools/static-atomic-compiler-bridge.test.mjs",
+                "tests/tools/frontend-atomic-manifest-admission.test.mjs",
+                "tests/tools/public-runtime-producer-compiler-adapter.test.mjs",
+                "tests/tools/public-runtime-settled-reset-adapter.test.mjs",
+                "tests/tools/atomic-coverage-execution.test.mjs",
+                "tests/tools/atomic-coverage-inputs.test.mjs",
+                "tests/tools/atomic-coverage-plan.test.mjs",
+                "tests/tools/atomic-coverage-projection.test.mjs"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-9df29228-affected-controls.log",
+            "qualificationEligible": false
+        },
+        {
+            "candidate": "9df29228dc3960007963f2bcfe8ffc1649640805",
+            "command": [
+                "node",
+                "tools/frontend/check-frontend-style.mjs",
+                "--mode",
+                "changed",
+                "--base",
+                "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-9df29228-all-js-style.log"
+        },
+        {
+            "candidate": "9df29228dc3960007963f2bcfe8ffc1649640805",
+            "command": [
+                "node",
+                "tools/governance/check-change-contract.mjs",
+                "--range",
+                "395703a20dc438cf5fc74a71287536e1fa7d16c1..9df29228dc3960007963f2bcfe8ffc1649640805"
+            ],
+            "exitCode": 1,
+            "log": "/workspace/atomic-failure-evidence/atomic-9df29228-commit-range.log"
+        },
+        {
+            "candidate": "9df29228dc3960007963f2bcfe8ffc1649640805",
+            "command": [
+                "node",
+                "tools/docs/generate-document-lifecycle.mjs",
+                "--check"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-9df29228-lifecycle.log"
+        },
+        {
+            "candidate": "9df29228dc3960007963f2bcfe8ffc1649640805",
+            "command": [
+                "node",
+                "tools/style/check-native-tooling-style.mjs",
+                "--mode",
+                "changed",
+                "--domain",
+                "docs",
+                "--file",
+                "tools/coverage/atomic-coverage.contract.md",
+                "--file",
+                "tools/test-matrix/atomic-failure/README.md",
+                "--file",
+                "tools/test-matrix/atomic-producers/README.md",
+                "--file",
+                "tools/test/backend-atomic-producers.contract.md",
+                "--file",
+                "tools/test/frontend-atomic/CONTRACT.md",
+                "--file",
+                "tools/test/public-runtime-producers/README.md",
+                "--file",
+                "tools/test/static-atomic/CONTRACT.md"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-9df29228-native-docs.log"
+        },
+        {
+            "candidate": "9df29228dc3960007963f2bcfe8ffc1649640805",
+            "command": [
+                "node",
+                "tools/run-test-matrix.mjs",
+                "ci-pr-smart",
+                "--plan-only",
+                "--stage",
+                "source-integration",
+                "--event-name",
+                "pull_request",
+                "--base-ref",
+                "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+            ],
+            "exitCode": 1,
+            "log": "/workspace/atomic-failure-evidence/atomic-9df29228-source-plan.log"
+        },
+        {
+            "candidate": "9df29228dc3960007963f2bcfe8ffc1649640805",
+            "command": [
+                "git",
+                "diff",
+                "--check",
+                "395703a2..HEAD"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-9df29228-whitespace.log"
+        },
+        {
+            "candidate": "a11ba8c65b21de97784b9407dd50c649ff47add2",
+            "command": [
+                "node",
+                "tools/test-matrix/release-final-static-boundary.mjs",
+                "--check"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-a11ba8c6-boundary-adequate-budget.log",
+            "timeoutBudgetSeconds": 900,
+            "previousExitCode": 124,
+            "inheritedOwnerPass": false
+        },
+        {
+            "candidate": "a11ba8c65b21de97784b9407dd50c649ff47add2",
+            "command": [
+                "node",
+                "tools/test-matrix/release-final-static-boundary.mjs",
+                "--check"
+            ],
+            "exitCode": 124,
+            "log": "/workspace/atomic-failure-evidence/atomic-a11ba8c6-boundary.log",
+            "inheritedOwnerPass": false
+        },
+        {
+            "candidate": "a11ba8c65b21de97784b9407dd50c649ff47add2",
+            "command": [
+                "node",
+                "tools/run-test-matrix.mjs",
+                "ci-pr-smart",
+                "--plan-only",
+                "--stage",
+                "source-integration",
+                "--event-name",
+                "pull_request",
+                "--base-ref",
+                "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-a11ba8c6-source-plan.log",
+            "testCommandsExecuted": false
+        },
+        {
+            "candidate": "a11ba8c65b21de97784b9407dd50c649ff47add2",
+            "command": [
+                "node",
+                "tools/run-test-matrix.mjs",
+                "ci-pr-smart",
+                "--stage",
+                "source-integration",
+                "--event-name",
+                "pull_request",
+                "--base-ref",
+                "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-a11ba8c6-source-stage-adequate-budget.log",
+            "timeoutBudgetSeconds": 900,
+            "previousExitCode": 124,
+            "reason": "Initial300s parent timed out; original source child subsequently completed successfully. Complete parent gate remains unresolved. No source change, no execution-control rerun, no assertion weakening.",
+            "runtimeQualification": false
+        },
+        {
+            "candidate": "a11ba8c65b21de97784b9407dd50c649ff47add2",
+            "command": [
+                "node",
+                "tools/run-test-matrix.mjs",
+                "ci-pr-smart",
+                "--stage",
+                "source-integration",
+                "--event-name",
+                "pull_request",
+                "--base-ref",
+                "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+            ],
+            "exitCode": 124,
+            "log": "/workspace/atomic-failure-evidence/atomic-a11ba8c6-source-stage.log",
+            "runtimeQualification": false
+        },
+        {
+            "candidate": "1acceddc60857a5222d93469953da3deaf65a34c",
+            "command": [
+                "node",
+                "tools/governance/check-change-contract.mjs",
+                "--range",
+                "395703a20dc438cf5fc74a71287536e1fa7d16c1..1acceddc60857a5222d93469953da3deaf65a34c"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-1acceddc-commit-range.log",
+            "proposedOnly": false,
+            "runtimeQualification": false
+        },
+        {
+            "candidate": "1acceddc60857a5222d93469953da3deaf65a34c",
+            "command": [
+                "node",
+                "tools/run-test-matrix.mjs",
+                "ci-pr-smart",
+                "--plan-only",
+                "--stage",
+                "source-integration",
+                "--event-name",
+                "pull_request",
+                "--base-ref",
+                "6e287562b3f861d3eb81dcb23f93e6243205abd8"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-1acceddc-current-master-source-plan.log",
+            "proposedOnly": false,
+            "runtimeQualification": false
+        },
+        {
+            "candidate": "1acceddc60857a5222d93469953da3deaf65a34c",
+            "command": [
+                "node",
+                "tools/governance/check-change-contract.mjs",
+                "--github-event",
+                "/workspace/atomic-failure-evidence/atomic-global-proposed-pr-event.json"
+            ],
+            "exitCode": 0,
+            "log": "/workspace/atomic-failure-evidence/atomic-1acceddc-proposed-metadata.log",
+            "proposedOnly": true,
+            "runtimeQualification": false
+        }
+    ],
+    "results": {
+        "ordinaryControls": "207PASS/0FAIL/0SKIP; exit0 at9df;101 unchanged source/test/doc/shell blobs at finalhead",
+        "sourceBoundary": "original full check exit0 at a11; previous300s timeout124 retained, adequate900s rerun successful",
+        "actualSourceStage": "ci-pr-smart source-integration exit0 at a11; previous300s parent timeout124/late child success retained, adequate900s rerun completed",
+        "finalMetadata": "only private naming exception changes since a11; exact final-head proposed PR metadata/commit range passed; current-master final plan-only check captured separately",
+        "newExecutionControls": "9PASS at same source before strict style fixes; expanded207 controls include final fixed source",
+        "upstreamBlobs": "108/108 match exact original commits"
+    },
+    "originalAuthorityCapability": {
+        "commit": "e6a42d63861278c630c31dc025787ad452d42ce2",
+        "fixtureBlob": "873a330058ccc9e3ce276f3bb87986c48d486364",
+        "closedRowsByteCompatible": 1236,
+        "newExecutorOutsideClosure": true,
+        "noQualificationPromotion": true
+    },
+    "consumedSourceCapabilities": {
+        "frameworkInput": "39466f9a3a4714b5b58cd4c75a8baa69588e9c9e",
+        "frameworkPublication": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+        "coverage": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+        "backend": "9690f0924509d665748afd5310c3b074ebcc03d6",
+        "static": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+        "frontend": "be307751be2e6162da04e1674197ae34f7378e14",
+        "public-runtime": "43470d5c6411e79a0d4890512863ad5fa8997f06"
+    },
+    "originalProducerPortableHandoff": {
+        "branch": "codex/atomic-failure-authority-review-395703a2",
+        "commit": "b4802c466e1fb5580c079d793e665e274d0e6460",
+        "patch": "artifacts/atomic-failure-review/395703a2/execution-authority.patch",
+        "request": "artifacts/atomic-failure-review/395703a2/request.json",
+        "producerCommand": [
+            "node",
+            "tools/test-matrix/generate-release-final-execution-authority.mjs"
+        ],
+        "sourceCommit": "395703a20dc438cf5fc74a71287536e1fa7d16c1"
+    },
+    "sourceContractsAndOwnerRequests": "/workspace/atomic-failure-evidence/atomic-global-owner-requests.json",
+    "issueGaps": {
+        "2266": "Frontend+coverage now execute together once using original prepare/input seams; public prepare port is consumed. Remaining: original backend/static prepare-only export, public canonical catalogue/runtime/reset assertion/postflight; selected/job-scoped executor/cross-job prerequisite ports; actual single-writer global matrix/ci-plan/workflow/catalogue attachment and receipt/artifact handoff. Original11 binding drifts resolved through exact e6; no authority writer remains requested from this partition.",
+        "2267": "Bounded original-taxonomy/navigation and original terminal collection exist; independently authenticated semantic aggregate/attempt/replay publication bridge remains missing. publishVerifiedFailureNavigation refuses current-run evidence. Physical focused replay/publication/local-CI artifact parity unverified. No held audit added.",
+        "2269": "Bounded owned validator and exact lane/primary claims exist. inspectReleaseFinalCommandTarget provides source/index file closure but no per-launch source location/owner/managed-descendant proof. Canonical transitive launch bridge and matrix/quality-gate registration remain sole-owner inputs, global zero-hidden-authority not proven.",
+        "2276": "207 ordinary controls pass, including actual shared frontend/coverage failure collection, blocked zero spawn, held input zero attempts, original cleanup/zero retry. Whole domain native/runtime fixtures, Production Fresh/resume/workflow vector parity, authenticated aggregate/navigation/focused replay, final current-source terminal acceptance receipt still missing.",
+        "2244": "Tracking-only OPEN; child migrations and final runtime acceptance pending; no implementation or closure on tracking issue."
+    },
+    "unrun": [
+        "Canonical global matrix/workflow/scanner attachment and full authority catalogue",
+        "Actual backend/static prepare-only dispatch and public runtime/reset admission",
+        "Selected/job-scoped CI dispatch and cross-job prerequisites",
+        "Independently authenticated semantic navigation publication",
+        "Complete native/runtime/domain/Production Fresh/resume/physical focused replay and terminal qualification"
+    ],
+    "githubCentralQueue": {
+        "sourcePush": "Succeeded; normal isolated pushes only",
+        "newDraftPr": "/workspace/atomic-failure-evidence/atomic-global-central-pr-create.json",
+        "wipComments": "NOT POSTED; central queue",
+        "restriction": "No GitHub content API mutation/retry"
+    },
+    "remainingBlockers": "Exact original port/catalogue/global single-writer inputs above; no further independent authorized step has actual full inputs. Parent retains review/merge/closure. No runtime/native/release qualification.",
+    "historicalDelivery": "/workspace/atomic-failure-evidence/delivery-395703a2.json",
+    "repositoryWorktreeClean": true,
+    "snapshotUtc": "2026-10-08T13:34:50.840294+00:00"
+}

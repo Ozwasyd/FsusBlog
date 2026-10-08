@@ -1,0 +1,462 @@
+diff --git a/artifacts/change-contract/atomic-failure-external-naming.json b/artifacts/change-contract/atomic-failure-external-naming.json
+index 7c2df0be7..8be38f31a 100644
+--- a/artifacts/change-contract/atomic-failure-external-naming.json
++++ b/artifacts/change-contract/atomic-failure-external-naming.json
+@@ -4,6 +4,12 @@
+         {
+             "id": "environment-variable",
+             "paths": [
++                "tools/coverage/atomic-coverage-command.mjs",
++                "tools/coverage/atomic-coverage-compiler-bridge.mjs",
++                "tools/coverage/atomic-coverage-execution.mjs",
++                "tools/coverage/atomic-coverage-inputs.mjs",
++                "tools/coverage/atomic-coverage-plan.mjs",
++                "tools/coverage/atomic-coverage-projection.mjs",
+                 "tools/release/correctness-provisional-receipt.mjs",
+                 "tools/release/correctness-scheduler-authority.mjs",
+                 "tools/release/correctness-terminal-receipt.mjs",
+@@ -41,7 +47,7 @@
+                 "tools/test/static-atomic/summary.mjs",
+                 "tools/test/static-atomic/terminal-bridge.mjs"
+             ],
+-            "reason": "preserve original process/replay naming while consuming exact canonical terminal and backend/static/frontend/public lane bridges; private atomic planner consumers keep original source owners"
++            "reason": "preserve original process/replay naming while consuming exact canonical terminal, required-input and backend/static/frontend/public/coverage lane bridges; private atomic consumers retain original source owners"
+         },
+         {
+             "id": "shell-environment-variable",
+diff --git a/tests/tools/atomic-failure-ci-projection.test.mjs b/tests/tools/atomic-failure-ci-projection.test.mjs
+index c1e7eb5cc..9710ce192 100644
+--- a/tests/tools/atomic-failure-ci-projection.test.mjs
++++ b/tests/tools/atomic-failure-ci-projection.test.mjs
+@@ -4,7 +4,7 @@ import os from 'node:os';
+ import path from 'node:path';
+ import test from 'node:test';
+ 
+-const { checkAtomicWorkflowMaterial, collectCompiledAtomicTerminalMaterial, createCompiledAtomicRuntimeCiBinding, projectAtomicCiMaterial, projectCompiledAtomicCiMaterial, projectCompiledAtomicRuntimeCiMaterial, projectCanonicalLaneAtomicCiMaterial } = await import(new URL('../../tools/test-matrix/atomic-failure/ci-projection.mjs', import.meta.url));
++const { checkAtomicWorkflowMaterial, collectCompiledAtomicTerminalMaterial, createCompiledAtomicRuntimeCiBinding, projectAtomicCiMaterial, projectCompiledAtomicCiMaterial, projectCompiledAtomicRuntimeCiMaterial, projectCanonicalLaneAtomicCiMaterial, prepareCanonicalAtomicCiGroup, executeCanonicalAtomicCiGroup } = await import(new URL('../../tools/test-matrix/atomic-failure/ci-projection.mjs', import.meta.url));
+ const { compileAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/compiler.mjs', import.meta.url));
+ const { AtomicProducerExecutionError, executeCompiledAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/execution.mjs', import.meta.url));
+ const { digestCanonical, sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
+@@ -455,7 +455,7 @@ test('original runtime catalog drift is refused before a later admission wave',
+ 
+ const laneHostLimits = { maxDepth: 60, maxNodes: 200000, maxBytes: 20000000, maxItems: 140000 };
+ 
+-for (const kind of ['backend', 'static', 'frontend', 'public-runtime'])
++for (const kind of ['backend', 'static', 'frontend', 'public-runtime', 'coverage'])
+ {
+     test(`canonical planner consumes the original ${kind} lane compiler without launching children`, async (t) =>
+     {
+@@ -529,3 +529,152 @@ test('canonical lane projection refuses cross-run replay source without rewritin
+     await assert.rejects(projectCanonicalLaneAtomicCiMaterial({ ...material, context: { ...material.context, schedulerRunId: 'other-run' },
+         graphRef: { ...material.graphRef, path: '.tmp/test-runs/other-run/graph.json' } }, laneHostLimits, frontendContexts), /replay run/u);
+ });
++
++function frontendExecutionFixture(t, scenarios = {})
++{
++    const fragment = originalLaneFixture(t, 'frontend', scenarios);
++    const combined = composeOriginalLaneFixtures([fragment]);
++    const options = { ...fragment.frontendContext, ...combined.frontendContexts[fragment.lane.id] };
++    return { ...combined, options };
++}
++
++test('canonical CI invocation executes original frontend attempts once and returns the complete vector', async (t) =>
++{
++    const { material, options } = frontendExecutionFixture(t);
++    let cleanupCount = 0;
++    Object.values(options.finalizerOperations)[0].execute = () => cleanupCount++;
++    const capacity = structuredClone(options.capacity);
++    const result = await executeCanonicalAtomicCiGroup(material, laneHostLimits, options);
++    assert.equal(result.terminalVector.status, 'success');
++    assert.equal(result.terminalVector.receipts.length, material.compiled.steps.length);
++    assert.equal(result.ciMaterial.ciProjection.jobs[0].invocationCount, 1);
++    assert.equal(cleanupCount, 1);
++    assert.deepEqual(options.capacity, capacity);
++    assert.equal(fs.readdirSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId, 'atomic-dag')).length, 1);
++    for (const receipt of result.terminalVector.receipts.filter((entry) => entry.attemptRef))
++    {
++        const attempt = JSON.parse(fs.readFileSync(receipt.attemptRef.path, 'utf8'));
++        assert.equal(attempt.attemptNumber, 1);
++        assert.equal(attempt.maxAttempts, 1);
++    }
++});
++
++test('one frontend CI invocation preserves both independent failures, blocked child and cleanup in the original error', async (t) =>
++{
++    const { material, options } = frontendExecutionFixture(t, { alphaScenario: 'product-failure', betaScenario: 'product-failure' });
++    let cleanupCount = 0;
++    Object.values(options.finalizerOperations)[0].execute = () => cleanupCount++;
++    await assert.rejects(executeCanonicalAtomicCiGroup(material, laneHostLimits, options), (error) =>
++    {
++        assert.ok(error instanceof AtomicProducerExecutionError);
++        const receipts = Object.fromEntries(error.terminalVector.receipts.map((entry) => [entry.producerId, entry]));
++        assert.equal(receipts['alpha-check'].terminalState, 'failed');
++        assert.equal(receipts['beta-check'].terminalState, 'failed');
++        assert.equal(receipts['dependent-check'].terminalState, 'blocked');
++        assert.equal(receipts['dependent-check'].attemptRef, null);
++        assert.equal(receipts['cleanup-inventory'].terminalState, 'success');
++        assert.equal(error.terminalVector.qualificationEligible, false);
++        return true;
++    });
++    assert.equal(cleanupCount, 1);
++    assert.equal(fs.existsSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId, 'dependent-check')), false);
++});
++
++test('canonical frontend invocation refuses partial selection and unknown CI ownership before creating attempts', async (t) =>
++{
++    const { material, options } = frontendExecutionFixture(t);
++    await assert.rejects(executeCanonicalAtomicCiGroup({ ...material, selectedIds: [] }, laneHostLimits, options), /full-selection/u);
++    const unrelatedJob = structuredClone(material);
++    unrelatedJob.ciPlan.jobs.push({ id: 'second-ci-job', tiers: [] });
++    // Empty planner jobs do not create another runner; actual step ownership stays canonical.
++    unrelatedJob.ciPlan.jobs[0].tiers = [];
++    await assert.rejects(executeCanonicalAtomicCiGroup(unrelatedJob, laneHostLimits, options), /exact-one canonical CI job/u);
++    assert.deepEqual(fs.readdirSync(options.context.evidenceRoot), []);
++});
++
++function coverageFrontendExecutionFixture(t, scenarios = {})
++{
++    const coverage = originalLaneFixture(t, 'coverage', scenarios);
++    const frontend = originalLaneFixture(t, 'frontend');
++    const combined = composeOriginalLaneFixtures([coverage, frontend]);
++    const options = { ...coverage.coverageContext,
++        producerContexts: { ...coverage.coverageContext.producerContexts,
++            ...combined.frontendContexts[frontend.lane.id].producerContexts },
++        finalizerOperations: frontend.frontendContext.finalizerOperations };
++    return { ...combined, options, coverage };
++}
++
++test('one global CI invocation executes original coverage input preparation alongside frontend without duplicate attempts', async (t) =>
++{
++    const { material, options } = coverageFrontendExecutionFixture(t);
++    const result = await executeCanonicalAtomicCiGroup(material, laneHostLimits, options);
++    assert.equal(result.terminalVector.status, 'success');
++    assert.equal(result.terminalVector.receipts.length, material.compiled.steps.length);
++    assert.equal(result.ciMaterial.laneBindings.length, 2);
++    assert.equal(fs.readdirSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId, 'atomic-dag')).length, 1);
++});
++
++test('separate canonical CI runner groups require the absent original job-scoped executor port', async (t) =>
++{
++    const { material, options, coverage } = coverageFrontendExecutionFixture(t);
++    material.ciPlan.jobs = [{ id: 'coverage-runner', tiers: coverage.lane.input.matrix.tiers.map((entry) => entry.id) },
++        { id: 'frontend-runner', tiers: ['frontend-source-fixture'] }];
++    await assert.rejects(executeCanonicalAtomicCiGroup(material, laneHostLimits, options), /job-scoped execution capability/u);
++    assert.equal(fs.existsSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId)), false);
++});
++
++test('one global CI invocation settles real coverage collection failure and an independent frontend group', async (t) =>
++{
++    const { material, options, coverage } = coverageFrontendExecutionFixture(t, { failedDomain: 'backend' });
++    await assert.rejects(executeCanonicalAtomicCiGroup(material, laneHostLimits, options), (error) =>
++    {
++        assert.ok(error instanceof AtomicProducerExecutionError);
++        assert.equal(error.terminalVector.receipts.length, material.compiled.steps.length);
++        const receipts = Object.fromEntries(error.terminalVector.receipts.map((entry) => [entry.producerId, entry]));
++        assert.equal(receipts['coverage-backend'].terminalState, 'failed');
++        assert.equal(receipts['coverage-frontend'].terminalState, 'success');
++        assert.equal(receipts['coverage-merge'].terminalState, 'blocked');
++        assert.equal(receipts['coverage-merge'].attemptRef, null);
++        assert.equal(receipts['alpha-check'].terminalState, 'success');
++        assert.equal(receipts['beta-check'].terminalState, 'success');
++        return true;
++    });
++    assert.equal(fs.readdirSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId, 'atomic-dag')).length, 1);
++    assert.equal(fs.existsSync(path.join(coverage.lane.input.root, 'evidence', options.context.schedulerRunId, 'coverage-merge')), false);
++});
++
++test('global coverage input preparation preserves a held refusal with zero attempts and independent frontend success', async (t) =>
++{
++    const { material, options } = coverageFrontendExecutionFixture(t);
++    const step = material.compiled.steps.find((entry) => entry.id === 'coverage-backend');
++    options.producerContexts[step.id].requiredInputAdmission = { inputClosureRef: step.inputClosureRef,
++        validate: () =>
++        {
++            throw new Error('held original input refusal');
++        } };
++    await assert.rejects(executeCanonicalAtomicCiGroup(material, laneHostLimits, options), (error) =>
++    {
++        const receipts = Object.fromEntries(error.terminalVector.receipts.map((entry) => [entry.producerId, entry]));
++        assert.equal(receipts[step.id].reasonCode, 'required-input-admission-failed');
++        assert.equal(receipts[step.id].attemptRef, null);
++        assert.equal(receipts['coverage-merge'].terminalState, 'blocked');
++        assert.equal(receipts['alpha-check'].terminalState, 'success');
++        return true;
++    });
++});
++
++test('public runtime preparation consumes its available original context port without granting reset or runtime admission', async (t) =>
++{
++    const fragment = originalLaneFixture(t, 'public-runtime');
++    const { material } = composeOriginalLaneFixtures([fragment]);
++    const held = fragment.publicRuntimeContext;
++    const options = { ...held.executionOptions, publicRuntimeContexts: { [fragment.lane.id]: held } };
++    const prepared = await prepareCanonicalAtomicCiGroup(material, laneHostLimits, options);
++    assert.equal(prepared.lanePreparations[0].preparation.runtimeAuthorityStatus, 'unverified');
++    assert.equal(prepared.ciMaterial.ciProjection, null);
++    assert.equal(prepared.pendingLanes[0].reason, 'original-runtime-admission-and-reset-postflight-required');
++    await assert.rejects(executeCanonicalAtomicCiGroup(material, laneHostLimits, options), /preparation remains pending/u);
++    held.timeoutProfiles.load = 0;
++    await assert.rejects(prepareCanonicalAtomicCiGroup(material, laneHostLimits, options), /original timeout profile/u);
++    assert.equal(fs.existsSync(held.context.evidenceRoot), false);
++});
+diff --git a/tests/tools/support/atomic-failure-fixture.mjs b/tests/tools/support/atomic-failure-fixture.mjs
+index 083a94850..14b5d4e5a 100644
+--- a/tests/tools/support/atomic-failure-fixture.mjs
++++ b/tests/tools/support/atomic-failure-fixture.mjs
+@@ -2,6 +2,7 @@ import fs from 'node:fs';
+ import os from 'node:os';
+ import path from 'node:path';
+ 
++import { coverageCompilerFixture } from './atomic-coverage-compiler-fixtures.mjs';
+ import { atomicExecutionOptions, atomicFixture as originalAtomicFixture, rebindAtomicFixture } from './atomic-producer-fixture.mjs';
+ import { backendCompilerFixture } from './backend-atomic-compiler-fixture.mjs';
+ import { publicRuntimeCompilerFixture } from './public-runtime-compiler-fixture.mjs';
+@@ -76,11 +77,13 @@ export function atomicFixture()
+ }
+ 
+ /** Controlled attachments from original lane helpers; never production matrix or qualification. */
+-export function originalLaneFixture(t, kind)
++export function originalLaneFixture(t, kind, scenarios = {})
+ {
+     let lane;
+     let identity;
+     let frontendContext;
++    let publicRuntimeContext;
++    let coverageContext;
+     if (kind === 'backend')
+     {
+         const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'atomic-lane-backend-'));
+@@ -103,10 +106,19 @@ export function originalLaneFixture(t, kind)
+         const { declarations, attachment, authorities, matrix } = fixture;
+         lane = { id: 'public-source', kind, input: { declarations, attachment, authorities, matrix }, options: fixture.compilerOptions };
+         identity = fixture.context;
++        publicRuntimeContext = fixture;
++    }
++    else if (kind === 'coverage')
++    {
++        const fixture = coverageCompilerFixture(t, scenarios);
++        const { root, plan, requests, matrix, authorities } = fixture;
++        lane = { id: 'coverage-source', kind, input: { root, plan, requests, matrix, authorities }, options: {} };
++        identity = fixture.executionOptions.context;
++        coverageContext = fixture.executionOptions;
+     }
+     else
+     {
+-        const fixture = originalAtomicFixture();
++        const fixture = originalAtomicFixture(scenarios);
+         const groupId = 'frontend-source-fixture';
+         fixture.matrix.tiers[0].id = groupId;
+         fixture.matrix.atomicProducerDeclarations.nodes.forEach((node) => node.logicalParentId = groupId);
+@@ -129,7 +141,7 @@ export function originalLaneFixture(t, kind)
+             matrix: fixture.matrix, authorities: fixture.authorities, groupId }, options: {} };
+         identity = frontendContext.context;
+     }
+-    return { lane, identity, frontendContext };
++    return { lane, identity, frontendContext, publicRuntimeContext, coverageContext };
+ }
+ 
+ /** Align only synthetic replay identities; original commands, membership and resource sources remain untouched. */
+diff --git a/tools/test-matrix/atomic-failure/README.md b/tools/test-matrix/atomic-failure/README.md
+index 33a4aa3f7..db9c886a3 100644
+--- a/tools/test-matrix/atomic-failure/README.md
++++ b/tools/test-matrix/atomic-failure/README.md
+@@ -6,8 +6,9 @@ checkpoint through their source-owned I/O contracts. Its returned facts are admi
+ under the explicit host budgets after those original reads. Every projection has
+ `dataOnly: true` and `verificationStatus: unverified`. The display `contentDigest`
+ detects modification; it does not authenticate a graph, producer, attempt,
+-aggregate or replay input. No module runs tests, retries a producer, scans a run
+-directory, writes a checkpoint or qualifies release evidence.
++aggregate or replay input. Projection APIs never run tests, retry producers or
++qualify release evidence. The explicit execution interface below dispatches the
++original executor; it never scans a run directory or writes a checkpoint.
+ 
+ ## Consumer interfaces
+ 
+@@ -33,10 +34,10 @@ and history are consumed unchanged by a normal merge. Missing or ambiguous canon
+ and runtime `stateAccessRef` without its canonical fact bridge are refused.
+ 
+ `projectCanonicalLaneAtomicCiMaterial` consumes original backend, static, frontend
+-and public-runtime lane admissions. It invokes `compileBackendAtomicBridge`,
++and public-runtime lane admissions, plus original coverage action contracts. It invokes `compileBackendAtomicBridge`,
+ `bindStaticAtomicCompilation`, `prepareFrontendManifestAdmission` and
+ `compilePublicRuntimeProducerDag` from exact source9690f092, ab9a2493, be307751 and
+-43470d5c. The canonical global matrix/compiled DAG remains owner-supplied. Every
++43470d5c, and `compileCoverageProducerDag` from d033e029. The canonical global matrix/compiled DAG remains owner-supplied. Every
+ original lane step must match that graph exactly; duplicate primary owners,
+ cross-run/source replay and missing graph children are refused. Static thirteen
+ producer assertion memberships and original public runtime requirements remain
+@@ -49,14 +50,29 @@ no empty state access or runtime success is fabricated. With complete static/bui
+ sources, the existing canonical CI projection yields one invocation per shared
+ runner for all consumed lanes. Global job maps never come from lane fragments.
+ 
+-Lane execution requires original preparation ports: static/backend pre-execution
+-context checks currently live inside their executor wrappers, and backend/frontend
+-admission accepts only scoped graphs. The original owners must expose preparation
+-against the canonical global graph, with owned-step scope, and original terminal
+-projection against its complete vector. The integration must execute the global
+-DAG once rather than execute one wrapper per lane. Public reset/admission remains
+-with the original public/runtime authority owner. No synthetic fixture compilation
+-or original lane component test qualifies native/runtime/CI acceptance.
++`prepareCanonicalAtomicCiGroup` calls the available original frontend fragment
++admissions and `preparePublicRuntimeAttemptContexts`, binding their steps to the
++global graph. It installs original coverage request/material preparation through
++the original required-input admission seam from 39466f9a. Existing held validators
++remain first in that seam; coverage source/request bytes and upstream materials
++are checked by their original validators after dependency/resource admission and
++before attempt allocation. Host-held callbacks remain private capabilities and do
++not become DATA_ONLY proof. No prepared context qualifies runtime.
++
++`executeCanonicalAtomicCiGroup` executes fully consumed frontend and coverage
++graphs in one original canonical DAG invocation. It preserves capacity, commands,
++attempt policy, finalizers, and the original error/full terminal vector. Complete
++selection and exactly one canonical CI runner group are required; original
++selected/job-scoped dispatch ports are still absent. Its source-only dependency
++consumption includes publication-error preservation from 5c1b8cd7 and input
++admission from 39466f9a, without adopting their ancestor's authority fixture.
++
++Backend/static pre-execution checks remain inside their original wrappers; the
++prepare-only ports are genuinely missing. Their owner must expose those checks
++without dispatch. Public preparation is already callable and used, but original
++runtime admission and settled-reset postflight remain pending. Complete-vector
++domain outcome projection remains with each original owner. No synthetic fixture
++execution or original component control qualifies native/runtime/CI acceptance.
+ 
+ `projectCompiledAtomicRuntimeCiMaterial` extends the compiler/CI-plan projection
+ with the original runtime state's catalogue and registry facts. Each original
+diff --git a/tools/test-matrix/atomic-failure/ci-projection.mjs b/tools/test-matrix/atomic-failure/ci-projection.mjs
+index d7928785f..66c372c61 100644
+--- a/tools/test-matrix/atomic-failure/ci-projection.mjs
++++ b/tools/test-matrix/atomic-failure/ci-projection.mjs
+@@ -91,11 +91,23 @@ async function originalLaneCompilation(lane, frontendContexts)
+         const binding = compilePublicRuntimeProducerDag(lane.input, lane.options);
+         return { compiled: binding.compiled, binding };
+     }
++    if (lane.kind === 'coverage')
++    {
++        exactFields(lane.options, [], 'coverage lane options');
++        exactFields(lane.input, ['root', 'plan', 'requests', 'matrix', 'authorities'], 'coverage lane source');
++        const { compileCoverageProducerDag } = await import(new URL('../../coverage/atomic-coverage-compiler-bridge.mjs', import.meta.url));
++        return { compiled: compileCoverageProducerDag(lane.input),
++            binding: { plan: lane.input.plan, requests: lane.input.requests } };
++    }
+     throw new Error('atomic failure projection: original lane compiler capability unavailable');
+ }
+ 
+ function originalLaneStepIds(lane, original)
+ {
++    if (lane.kind === 'coverage')
++    {
++        return [...lane.input.plan.producers, ...lane.input.plan.projections].map((entry) => entry.id);
++    }
+     if (lane.kind === 'static')
+     {
+         return [...new Set([...original.binding.projectionIds,
+@@ -108,6 +120,108 @@ function originalLaneStepIds(lane, original)
+     return original.compiled.steps.filter((step) => step.kind !== 'always-run-finalizer').map((step) => step.id);
+ }
+ 
++/** Prepare available original lane ports without launching or granting runtime authority. */
++export async function prepareCanonicalAtomicCiGroup(input, hostLimits, options)
++{
++    const material = admitMaterial(input, hostLimits);
++    sameFact(options.context.schedulerRunId, material.context.schedulerRunId, 'canonical execution run');
++    sameFact(options.context.sourceCommit, material.context.sourceCommit, 'canonical execution source');
++    sameFact(options.context.worktreeFingerprint, material.worktreeFingerprint, 'canonical execution worktree');
++    const frontendContexts = Object.fromEntries(material.lanes.filter((lane) => lane.kind === 'frontend')
++        .map((lane) => [lane.id, { context: options.context, producerContexts: options.producerContexts }]));
++    const ciMaterial = await projectCanonicalLaneAtomicCiMaterial(material, hostLimits, frontendContexts);
++    const producerContexts = { ...options.producerContexts };
++    const pendingLanes = [];
++    const lanePreparations = [];
++    for (const lane of material.lanes)
++    {
++        if (lane.kind === 'frontend')
++        {
++            lanePreparations.push({ id: lane.id, kind: lane.kind, status: 'original-admission-complete' });
++        }
++        else if (lane.kind === 'coverage')
++        {
++            const { validateCoverageExecutionRequest } = await import(new URL('../../coverage/atomic-coverage-compiler-bridge.mjs', import.meta.url));
++            const { prepareCoverageProducer } = await import(new URL('../../coverage/atomic-coverage-inputs.mjs', import.meta.url));
++            const { loadCoverageAttemptMaterial } = await import(new URL('../../coverage/atomic-coverage-command.mjs', import.meta.url));
++            const { readCoverageBytes } = await import(new URL('../../coverage/atomic-coverage-plan.mjs', import.meta.url));
++            const { digestCanonical, sha256 } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
++            const { root, plan, requests } = lane.input;
++            sameFact(plan.identity, { runId: options.context.schedulerRunId, sourceCommit: options.context.sourceCommit,
++                sourceFingerprint: options.context.worktreeFingerprint }, 'coverage current execution identity');
++            const owners = new Map();
++            for (const producer of plan.producers)
++            {
++                const supplied = producerContexts[producer.id];
++                requireFact(supplied && typeof supplied.verifyAuthority === 'function', 'original coverage producer context required');
++                for (const reference of supplied.authorityReferences)
++                {
++                    owners.set(digestCanonical(reference), supplied.verifyAuthority);
++                }
++            }
++            const verifyAuthority = (reference) => owners.get(digestCanonical(reference))?.(reference);
++            for (const producer of plan.producers)
++            {
++                const step = material.compiled.steps.find((entry) => entry.id === producer.id);
++                const item = requests.find((entry) => entry.request.producerId === producer.id);
++                sameFact(path.resolve(root, item.request.evidenceRoot), options.context.evidenceRoot, 'coverage evidence root');
++                const supplied = producerContexts[producer.id];
++                const prior = supplied.requiredInputAdmission;
++                if (prior !== undefined)
++                {
++                    exactFields(prior, ['inputClosureRef', 'validate'], 'held coverage input admission');
++                    requireFact(typeof prior.validate === 'function', 'held coverage input validator required');
++                    sameFact(prior.inputClosureRef, step.inputClosureRef, 'held coverage input closure');
++                }
++                producerContexts[producer.id] = { ...supplied, requiredInputAdmission: {
++                    inputClosureRef: step.inputClosureRef,
++                    validate: async (ready) =>
++                    {
++                        await prior?.validate(ready);
++                        validateCoverageExecutionRequest(item.request, root);
++                        sameFact(sha256(readCoverageBytes(root, item.request.requestPath)), sha256(item.bytes), 'coverage request bytes at admission');
++                        const inputs = Object.fromEntries(producer.dependsOn.map((id) =>
++                            [id, loadCoverageAttemptMaterial(root, item.request, id)]));
++                        prepareCoverageProducer({ root, plan, producerId: producer.id, inputs, verifyAuthority });
++                    }
++                } };
++            }
++            lanePreparations.push({ id: lane.id, kind: lane.kind, status: 'original-input-admission-installed' });
++        }
++        else if (lane.kind === 'public-runtime')
++        {
++            const { preparePublicRuntimeAttemptContexts } = await import(new URL('../../test/public-runtime-producers/compiler-adapter.mjs', import.meta.url));
++            const supplied = options.publicRuntimeContexts?.[lane.id];
++            requireFact(supplied, 'original public runtime preparation context required');
++            const binding = ciMaterial.laneBindings.find((entry) => entry.id === lane.id).originalBinding;
++            const preparation = preparePublicRuntimeAttemptContexts(binding, lane.input,
++                { ...supplied, context: options.context, producerContexts }, lane.options);
++            lanePreparations.push({ id: lane.id, kind: lane.kind, preparation });
++            pendingLanes.push({ id: lane.id, kind: lane.kind, reason: 'original-runtime-admission-and-reset-postflight-required' });
++        }
++        else
++        {
++            pendingLanes.push({ id: lane.id, kind: lane.kind, reason: 'original-prepare-only-port-unavailable' });
++        }
++    }
++    return { compiled: material.compiled, selectedIds: material.selectedIds, ciMaterial, lanePreparations, pendingLanes,
++        executionOptions: { ...options, matrix: material.matrix, authorities: material.authorities, producerContexts } };
++}
++
++/** Dispatch one complete canonical runner group; preserve the original error and full vector. */
++export async function executeCanonicalAtomicCiGroup(input, hostLimits, options)
++{
++    const prepared = await prepareCanonicalAtomicCiGroup(input, hostLimits, options);
++    requireFact(prepared.pendingLanes.length === 0, 'original lane execution preparation remains pending');
++    requireFact(prepared.ciMaterial.completeSourceCoverage, 'canonical execution has unconsumed producers');
++    requireFact(prepared.ciMaterial.ciProjection?.jobs.length === 1, 'original job-scoped execution capability unavailable');
++    sameFact([...prepared.selectedIds].sort(), prepared.compiled.steps.map((step) => step.id).sort(),
++        'original full-selection execution capability');
++    const { executeCompiledAtomicProducerDag } = await import(new URL('../atomic-producers/execution.mjs', import.meta.url));
++    const terminalVector = await executeCompiledAtomicProducerDag(prepared.compiled, prepared.executionOptions);
++    return { ciMaterial: prepared.ciMaterial, terminalVector };
++}
++
+ /**
+  * Consume original lane admissions and bind every physical step to the sole
+  * owner-supplied whole graph. Never execute lane wrappers or combine matrices.

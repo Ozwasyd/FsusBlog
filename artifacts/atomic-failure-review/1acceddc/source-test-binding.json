@@ -1,0 +1,519 @@
+{
+    "candidate": "1acceddc60857a5222d93469953da3deaf65a34c",
+    "testedCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805",
+    "testedTree": "ab7d8220c1964a3cbe9fa345682884af1e5dcdc1",
+    "metadataCorrectedIdenticalTreeCandidate": "c1a2c70fb511a55b5babe231401b3c3f263b8886",
+    "onlyLaterDelta": "two exact original e6a42d63 fixture/binding files",
+    "unchangedSourceTestDocs": [
+        {
+            "path": "tests/tools/atomic-coverage-execution.test.mjs",
+            "blob": "858cfcbef88740303d61ba1fa322a792dc4ae688",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/atomic-coverage-inputs.test.mjs",
+            "blob": "7d54e8eb065e021341473121b7ba44ab97b5e8b9",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/atomic-coverage-plan.test.mjs",
+            "blob": "e69d166d3b6b51a67e9c2d7548c48f92b4a8c3f9",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/atomic-coverage-projection.test.mjs",
+            "blob": "dbb614547b8ab671892cd26ec125e3d36d2fc11a",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/atomic-failure-authorities.test.mjs",
+            "blob": "ada1bcc80b729d6a0fe76cc7ceae2503b76c3bba",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/atomic-failure-ci-projection.test.mjs",
+            "blob": "9710ce1928bfda7074a0df99d0bbc3fc46bb5eb2",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/atomic-failure-conformance.test.mjs",
+            "blob": "54d7125e6c1e1dc0cae01811e7410cc7a687192d",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/atomic-failure-navigation.test.mjs",
+            "blob": "1963bcf9a4ea0016c705eb0420ba875f3735944a",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/atomic-producer-compiler.test.mjs",
+            "blob": "ee36caedafeefd81a078a987d9fca92e76da9f6e",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/atomic-producer-contract.test.mjs",
+            "blob": "61b09704c65ea7021a7f07b480393641a6ca024e",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/backend-atomic-bridge.test.mjs",
+            "blob": "a97ada1dbbec6653d4a1fa8743f5b5f34498ee8a",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/backend-atomic-outcomes.test.mjs",
+            "blob": "2ef1bfba246bf3d302f6167c71ff6a6fb93100c6",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/backend-atomic-producers.test.mjs",
+            "blob": "d903d859f2d5404e6e4aef8beac39bb6017d5432",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/correctness-input-manifest.test.mjs",
+            "blob": "b6392f562a438b22e87cf585bc30006776c62b2b",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/correctness-provisional-receipt.test.mjs",
+            "blob": "b440d7088b6e804f9878a8da1a6f28d326ee9700",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/correctness-scheduler-authority.test.mjs",
+            "blob": "74b03c62b86788f76f1717ef8cca17d30f03e8e9",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/correctness-terminal-seal-journal.test.mjs",
+            "blob": "ad834b4a7e2c83bd81d87d516a250aad7a9e05fb",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/correctness-terminal-seal.test.mjs",
+            "blob": "f14ff67c701560ccdb286f5b5b8b86be0f151e05",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/frontend-atomic-manifest-admission.test.mjs",
+            "blob": "076a6c9adfb5ef9becdb5f7b33e84fa9c42a1336",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/frontend-atomic-manifest.test.mjs",
+            "blob": "8ebf4d9cd951b0823af0bd2b47b940aae7a19a64",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/frontend-atomic-property-model-perf.test.mjs",
+            "blob": "4af9424ed533a514fe97083f2002fa13338a1509",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/frontend-atomic-visual.test.mjs",
+            "blob": "171d16415ef18ca473ad799f5733729e5f7da39e",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/public-runtime-producer-compiler-adapter.test.mjs",
+            "blob": "e28e00bc8e5ee3ac7c6abe9a7a3fd03730b563f9",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/public-runtime-producer-dag.test.mjs",
+            "blob": "85d24c0c3f979114d936e23fde076488a3148db3",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/public-runtime-producer-declarations.test.mjs",
+            "blob": "0ba1919fb73a2b52dbdec0b0c7602b570f9203fb",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/public-runtime-producer-projection.test.mjs",
+            "blob": "d9871a2393f1062f26e278115c95c42ef1fd73cf",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/public-runtime-settled-reset-adapter.test.mjs",
+            "blob": "1bd158db246b4405fa4b78708ec26d4759e55520",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/scheduler-canonical-resume.test.mjs",
+            "blob": "348c44d440d6a2a4bfcb40d6a02f939cb9fccffe",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/scheduler-correctness-finalizer.test.mjs",
+            "blob": "2241b0788337c5b97adc4a442345463ffca3eff2",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/scheduler-grant-generation.test.mjs",
+            "blob": "1188004576247550882c65156377ece6fda4e3c0",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/static-atomic-assertion-membership.test.mjs",
+            "blob": "e5f674aa6b17f99fd509acfe300bc62ec2290791",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/static-atomic-compiler-bridge.test.mjs",
+            "blob": "ba2d8bbc99a31ebb75e1159d18a9e7593724825d",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/static-atomic-declarations.test.mjs",
+            "blob": "94d129d72d78dad7881e474e11911d2b0c9035c0",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/static-atomic-producer.test.mjs",
+            "blob": "dc54bfb96e524d8cc7e16a3e72cb04a6c3b4ea22",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/static-atomic-summary.test.mjs",
+            "blob": "8dd2a1991c0ba8a3d81bc056cfd1c4cef3a207b5",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/static-atomic-terminal-bridge.test.mjs",
+            "blob": "c407d8acaa46e5be1f63409ffded62edf418844d",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/atomic-coverage-compiler-fixtures.mjs",
+            "blob": "20abc4214323999be32836b157f386f2d5a4bdbb",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/atomic-coverage-fixtures.mjs",
+            "blob": "4e215d6f8ea627cbda6cb0bfdfd069cfb79db1c0",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/atomic-failure-fixture.mjs",
+            "blob": "14b5d4e5a59ef615d3fc3f918613ffdbbb2c0025",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/atomic-producer-command.mjs",
+            "blob": "9cdd2a22d0199a08913d107f5b895736e52d7422",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/atomic-producer-fixture.mjs",
+            "blob": "27c152f0d8ab31f96a764a908500ef061a64b561",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/backend-atomic-compiler-fixture.mjs",
+            "blob": "5eb8fbd55d9164e9ddac3b31a303c8f29cfb13ef",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/backend-atomic-fixture.mjs",
+            "blob": "d353f81162c2ee27e78366c454347959b13118a1",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/canonical-scheduler-fixture.mjs",
+            "blob": "03c5cc8201c41cd95ebb3dc3c887471b4311edb2",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/correctness-terminal-fixture.mjs",
+            "blob": "db20b1124f92a9f307fb90c6b1064b91254bec2f",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/public-runtime-compiler-fixture.mjs",
+            "blob": "fc6f77f02262cdf77a47a8daf38d8b6cae3b017c",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/static-atomic-canonical-fixture.mjs",
+            "blob": "4f9e735b1e284b81f4b704269a3a8ae44dd05a1e",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/support/static-atomic-fixture.mjs",
+            "blob": "0af7ea48ee7dfc607aaf3549e056c7c43ce64ac2",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tests/tools/test-evidence-receipt-authority.test.mjs",
+            "blob": "07a272534d66cbe80eb087898c600df7cbb49f17",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-command.mjs",
+            "blob": "9d9fcb3f1be0cb0a74326a5d71b56e20843ce208",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-compiler-bridge.mjs",
+            "blob": "1f2f1611503e7594f2b37752ce9074708ebef2c5",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-execution.mjs",
+            "blob": "fb6c451f6a21f54e435c62a786dc55e74e30b822",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-inputs.mjs",
+            "blob": "6a3ecc1f3472373df6531b40af0ce1088a092acd",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-plan.mjs",
+            "blob": "8a3c56a483884c80646e0e0b13d74afcf6a21123",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage-projection.mjs",
+            "blob": "a1ad11ac89a010c3fa1c9d70ced4064bb1076672",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/coverage/atomic-coverage.contract.md",
+            "blob": "bf0e9ff02d7cb469857ef36134d29d4b3b7e7948",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/release/correctness-provisional-receipt.mjs",
+            "blob": "6b4c82357a0d6fa15d916bff770873f5d9d59f4c",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/release/correctness-scheduler-authority.mjs",
+            "blob": "af99d7639a41ca2e64c71de1d2e5a9d4879b69a3",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/release/correctness-terminal-receipt.mjs",
+            "blob": "73b8198228558f46a3f5f4437879faef760d2050",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/release/correctness-terminal-seal-journal.mjs",
+            "blob": "5420b537e636bc0ebe416a8a4ae79a629c15a5f0",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/release/test-evidence-receipts-cli.mjs",
+            "blob": "c48804a9f168d692edcd11122ab71a1587b8a84e",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/README.md",
+            "blob": "db9c886a33e56cb53f4c8fe7dc9335b1b822052c",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/ci-projection.mjs",
+            "blob": "66c372c61f8143a5e7e672613107767ddc9ded01",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/conformance.mjs",
+            "blob": "463d0f4b5d2146f88962d4a504986b994eedfa40",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/executable-authorities.mjs",
+            "blob": "953af9191cee726495187044e63d74c363f3556c",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/failure-navigation.mjs",
+            "blob": "4b29df9dfcd2fc62cea2e4d09a5183f51265f072",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-failure/projection-contract.mjs",
+            "blob": "91c9c35898413f30275f747678d243d01ed44d8a",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/README.md",
+            "blob": "5fd8973f6b67b0a8d3e53210599ada038615369a",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/compiler.mjs",
+            "blob": "f9f0ba7630adc30273ec20a03b8704f1e0640496",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/contract.mjs",
+            "blob": "0a6d61bc2a2cdee8138605e06f6275b163f22e1d",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/disposition.mjs",
+            "blob": "51d943c0c0ba19eba280edb0afcc82ae0dcaa742",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/atomic-producers/execution.mjs",
+            "blob": "457df007357b7900c271d402936394abf17555c2",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/correctness-input-manifest.mjs",
+            "blob": "76b01eaa1dd3fed8632cca077f30a58dcb5fdf77",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+            "blob": "2a807c3cda5a069d6805267905288f4596e97388",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test-matrix/scheduler.mjs",
+            "blob": "4c6039406878d3e261282f4f3ff935f6c78ab826",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/backend-atomic-bridge.mjs",
+            "blob": "0fa408e9c69bbb2b53dc3abc450554bb1c2fd34b",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/backend-atomic-outcomes.mjs",
+            "blob": "c53ddf7d285aa4a49187812a2e11e3e563a0d0de",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/backend-atomic-producers.contract.md",
+            "blob": "10946f16855d85c177a5f64f5032ca07582d3dbc",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/backend-atomic-producers.mjs",
+            "blob": "b40aba94227f5cee4870a69ee3d907c659a58354",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/bundles/bundle-steps.mjs",
+            "blob": "505655b3dc0b258074af42784b4ce449c1b53de9",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/frontend-atomic/CONTRACT.md",
+            "blob": "fe543d75301b466694de754ebcfbd1820bb5c3ce",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/frontend-atomic/manifest-admission.mjs",
+            "blob": "7fe87fbf4b43cea56f1659bc6d23650fea2d1846",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/frontend-atomic/manifest-entry.mjs",
+            "blob": "09d92cfe60b793e3bda1def1e3433adefeb2dd90",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/frontend-atomic/manifest-projection.mjs",
+            "blob": "bafd1b6b4244c79d5c8abea53505c0e8f3614da1",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/frontend-atomic/property-model-perf.mjs",
+            "blob": "198d8f1e82054d4be6c1b048786fe19f31dcc52f",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/frontend-atomic/visual-projection.mjs",
+            "blob": "f8399dab5a5a24c2580fa3256fc70e44478f2b70",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/lanes/frontend-perf-regression.sh",
+            "blob": "dae0384f062d608f3c68ec61e54097b77917f624",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/lanes/frontend-property.sh",
+            "blob": "99278d5c52f9481a5a34a4705c47cd0d1485b0e3",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/lanes/frontend-state-machines.sh",
+            "blob": "c7be3f9df3b51fd5834724f50143794c17394b5e",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/public-runtime-producers/README.md",
+            "blob": "f5fe8ddbb9547e45b45bbdd4124dea017eb77ba1",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/public-runtime-producers/compiler-adapter.mjs",
+            "blob": "e42ab819971ee47b3317cdc481de39e5d79fbf57",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/public-runtime-producers/declarations.mjs",
+            "blob": "c587331bfaf0eff6b616a61b8bef6edcd71cf3d4",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/public-runtime-producers/projection.mjs",
+            "blob": "cce76e1f1aa601a4ae7174333a5699497544d3eb",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/public-runtime-producers/settled-reset-adapter.mjs",
+            "blob": "aab38c76a3283d2c9ebb5747d9631233a9b0dc80",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/static-atomic/CONTRACT.md",
+            "blob": "ea3b0b83b0b9cf41d8f243efc774ea5c0510a994",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/static-atomic/assertion-membership.mjs",
+            "blob": "0e60c03018de84a555114baffb05e16c968c9f58",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/static-atomic/compiler-bridge.mjs",
+            "blob": "59399f10eef63dfa148ca2f0f33e84f56b8877c3",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/static-atomic/declarations.mjs",
+            "blob": "a372adeda2b2545564d0f870507da9fc18033707",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/static-atomic/producer.mjs",
+            "blob": "fbc7b8c01a9095365b5cc6960d2d273145686895",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/static-atomic/summary.mjs",
+            "blob": "ebed8130a12a0ee533d6c0441c998fe49f6ed5e7",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        },
+        {
+            "path": "tools/test/static-atomic/terminal-bridge.mjs",
+            "blob": "538b7cd24045635db13ac786a34f6e265d53265f",
+            "functionalTestCandidate": "9df29228dc3960007963f2bcfe8ffc1649640805"
+        }
+    ],
+    "qualificationEligible": false,
+    "finalMetadataOnlyDelta": {
+        "path": "artifacts/change-contract/atomic-failure-external-naming.json",
+        "reason": "json-wire-key exception for exact original e6 generated authority fixture"
+    }
+}

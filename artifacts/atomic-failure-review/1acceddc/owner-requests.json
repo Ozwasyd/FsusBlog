@@ -1,0 +1,153 @@
+{
+    "schema": "fsusblog.canonical-global-atomic-ci-owner-requests.v1",
+    "dataOnly": true,
+    "candidate": "1acceddc60857a5222d93469953da3deaf65a34c",
+    "sourceContracts": {
+        "projectCompiledAtomicRuntimeCiMaterial": {
+            "input": "original compiled/matrix/authorities/ciPlan/graphRef/context/selectedIds plus original runtimeAuthority",
+            "output": "DATA_ONLY state-aware CI projection; exact producer IDs and original conflict policy; refuses unsafe independent-job splitting"
+        },
+        "createCompiledAtomicRuntimeCiBinding": {
+            "input": "same seven compiled fields plus repositoryRoot,runtimeCatalogPath(null uses original default),checkpointRef,worktreeFingerprint",
+            "output": "projection, immutable original runtimeAuthority, canonical checkpoint snapshot, original stateConflictPolicy with current catalogue/registry/source checks",
+            "limits": "full selection only; no live grant admission, job dispatch, CAS or receipt/qualification publication"
+        },
+        "collectCompiledAtomicTerminalMaterial": {
+            "input": "existing complete original vector/expectedVector contract, optionally the exact original runtimeAuthority returned by binder",
+            "output": "same state-aware CI projection digest, source receipts preserved; DATA_ONLY read-only transport material"
+        },
+        "projectCanonicalLaneAtomicCiMaterial": {
+            "input": "compiled,matrix,authorities,ciPlan,graphRef,context,selectedIds,worktreeFingerprint,lanes[{id,kind,input,options}], optional original runtimeAuthority; original frontend held contexts passed as third argument",
+            "consumedOriginalSources": {
+                "backend": "9690f0924509d665748afd5310c3b074ebcc03d6",
+                "static": "ab9a2493c54e1357e4d2b3c74796cb657cd7c34f",
+                "frontend": "be307751be2e6162da04e1674197ae34f7378e14",
+                "public-runtime": "43470d5c6411e79a0d4890512863ad5fa8997f06"
+            },
+            "output": "DATA_ONLY original laneBindings/source digests, explicit unconsumedProducerIds/completeSourceCoverage/runtimeStatePendingProducerIds; ciProjection:null without original runtime state facts, otherwise one canonical invocation per owner-supplied global CI job",
+            "guarantees": "Exact original whole compiled step match; duplicate primary claims and cross-run/source replay refused; no production matrix construction, no child launch, no runtime qualification",
+            "remainingExecutionCapability": "Original prepare-only global-graph scope and original complete-vector lane terminal projection before one whole-graph invocation"
+        },
+        "prepareCanonicalAtomicCiGroup": {
+            "input": "same explicit canonical lane input and hostLimits; private options.context,producerContexts,capacity,finalizerOperations; optional publicRuntimeContexts keyed by original lane ID",
+            "originalPortsUsed": "Frontend fragment prepareFrontendManifestAdmission, public preparePublicRuntimeAttemptContexts, coverage compileCoverageProducerDag/validateCoverageExecutionRequest/readCoverageBytes/loadCoverageAttemptMaterial/prepareCoverageProducer",
+            "output": "ciMaterial, exact compiled and selected IDs, original lane preparations, concrete pendingLanes; private executionOptions with unchanged held contexts and original coverage requiredInputAdmission checks installed",
+            "limits": "No child launches, no resource grant, no runtime/reset or qualification promotion"
+        },
+        "executeCanonicalAtomicCiGroup": {
+            "input": "same ordinary explicit inputs/options as prepareCanonicalAtomicCiGroup",
+            "output": "ciMaterial and original full terminalVector on success; unwrapped original AtomicProducerExecutionError with complete vector on failure",
+            "supported": "Fully consumed frontend and coverage in one owner-supplied global graph, one canonical runner group, complete selected IDs. Original capacity/commands/attempt policy/finalizers remain unchanged. Nine new ordinary controls and207 affected controls pass at equivalent source9df.",
+            "missingOriginalPorts": "Selected-subgraph/not-selected or job-scoped/cross-job prerequisite invocation absent in actual394 source; backend/static prepare-only ports absent; public runtime/postflight incomplete"
+        }
+    },
+    "owners": [
+        {
+            "owner": "canonical #1686 matrix/ci-plan/workflow and #2279 runtime state/source catalogue owners",
+            "scope": "tests/matrix.yml and canonical ci-plan/workflow/state catalogue/registry surfaces remain reserved",
+            "neededCapability": "Generate original stateAccess authority for each actual atomic producer with id,producerId,unknownAccess:false,catalogDigest,catalogEntryDigest,contentDigest. Catalogue entries use exact original producer IDs, including compiled coordination/executable membership; no alias list. Attach actual declarations and invoke the state-aware bridge after canonical CI grouping, before workflow projection. Co-locate conflicting independent producers or retain actual prerequisite job ancestry. Return exact tested commit/API; no lane/test/resource changes requested."
+        },
+        {
+            "owner": "sole atomic framework owner01a119f8-07b7-73d2-b926-b76b9fb78008",
+            "scope": "tools/test-matrix/atomic-producers/execution.mjs and its original terminal contract",
+            "neededCapability": "Original executor selected-subgraph/not-selected terminal support and job-scoped invocation with structured cross-job hard prerequisite receipt handoff. Retain complete vector, no-spawn for non-selected/blocked, original source/run/attempt identity and zero-retry/finalizer behavior. Literal source analyzer does not support whitespace/shell-bearing argv; return original structured argv analyzer capability when needed. These capabilities are absent in exact ebf/2eda source; binder refuses partial execution."
+        },
+        {
+            "owner": "sole-original #3521 integration owner01a1195c-41e6-75d9-a27f-ca1481cfd007",
+            "scope": "tests/fixtures/test-matrix/release-final-execution-target-authority.json and owning authority producer/control surfaces",
+            "neededCapability": "Independent original-owner review/acceptance of compatible current consumer envelope; new executor source lies outside this original closure and needs its own canonical catalogue/gate registration, not a copied historical binding.",
+            "driftedSources": [
+                {
+                    "path": "tools/run-test-matrix.mjs",
+                    "blob": "667448590a27a9df1e76c5dc4b899d55822a377d",
+                    "rawSha256": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74"
+                },
+                {
+                    "path": "tools/test-matrix/source-governance.mjs",
+                    "blob": "ab90d0a98775f8cd76d9db3ce22d7fbc60128fa1",
+                    "rawSha256": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4"
+                },
+                {
+                    "path": "tools/test/lanes/plan-pr-risk.sh",
+                    "blob": "4f2f4a9db547b8aa6ed6800c2bff32eaba60dfde",
+                    "rawSha256": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c"
+                },
+                {
+                    "path": "tools/release/correctness-provisional-receipt.mjs",
+                    "blob": "6b4c82357a0d6fa15d916bff770873f5d9d59f4c",
+                    "rawSha256": "sha256:52fd5b34b4033bddbb6803b307261fa7453772c51064c01cc9ac4a99abfefe0f"
+                },
+                {
+                    "path": "tools/release/correctness-scheduler-authority.mjs",
+                    "blob": "af99d7639a41ca2e64c71de1d2e5a9d4879b69a3",
+                    "rawSha256": "sha256:40d8ca3f06d8789a8130727b2c3e31af22eaedaeded516449fd7cb52e5df2e47"
+                },
+                {
+                    "path": "tools/release/correctness-terminal-receipt.mjs",
+                    "blob": "73b8198228558f46a3f5f4437879faef760d2050",
+                    "rawSha256": "sha256:5b2f2cd51ea3517a55844581b9947897e87c18d6ad1d960cc99d4ac9a69a18df"
+                },
+                {
+                    "path": "tools/release/correctness-terminal-seal-journal.mjs",
+                    "blob": "5420b537e636bc0ebe416a8a4ae79a629c15a5f0",
+                    "rawSha256": "sha256:dc92b41b8ff6d02123cfe9f0fe09011ee3729d230ad0cc4f856698cd5fcd2f22"
+                },
+                {
+                    "path": "tools/test-matrix/correctness-input-manifest.mjs",
+                    "blob": "76b01eaa1dd3fed8632cca077f30a58dcb5fdf77",
+                    "rawSha256": "sha256:63b57c873c46fd9ec402acd6c0c5504d973b5b9e160d50f196ed3995b4d17627"
+                },
+                {
+                    "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+                    "blob": "2a807c3cda5a069d6805267905288f4596e97388",
+                    "rawSha256": "sha256:568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e"
+                },
+                {
+                    "path": "tools/test-matrix/scheduler.mjs",
+                    "blob": "4c6039406878d3e261282f4f3ff935f6c78ab826",
+                    "rawSha256": "sha256:fb09ae4aa7c688436304b7269f5c4e517254b2ad70deca51ca0127415245b631"
+                },
+                {
+                    "path": "tools/test/bundles/bundle-steps.mjs",
+                    "blob": "505655b3dc0b258074af42784b4ce449c1b53de9",
+                    "rawSha256": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad"
+                }
+            ],
+            "candidateSpecificOriginalProducerReview": {
+                "patch": "/workspace/atomic-failure-evidence/395703a2-execution-authority-review.patch",
+                "manifest": "/workspace/atomic-failure-evidence/395703a2-execution-authority-review.json",
+                "producerExitCode": 0,
+                "boundaryCheckExitCode": 0,
+                "planOnlyCheckExitCode": 1,
+                "planOnlyFailure": "PR impact requires a clean committed source candidate: generated review fixture is intentionally not committed/adopted",
+                "notAdmitted": true,
+                "mainFixtureUnchanged": true,
+                "adoptionRequirement": "Original owner reviews candidate-specific producer patch; adopt through ownership, rerun original producer/gates at exact final committed source. Do not transplant old scheduler rows."
+            },
+            "status": "Eleven source drift rows resolved by e6;1236 exact rows compatible; a11 original boundary and actual SOURCE stage exit0 with900s budget, initial300s timeouts retained. Final1ac private naming-only contract passes. Source gate gives no runtime/release qualification."
+        },
+        {
+            "owner": "original backend9690f092 and staticab9a2493 lane owners",
+            "scope": "Their original compile/admission/execution bridges; atomic partition does not edit",
+            "neededCapability": "Export original prepare-only pre-execution checks/validated contexts from existing wrappers without calling executor. The consumer already compiles fragments and requires exact whole-step equality against the supplied global graph; no frontend global-scope port is missing. Export original backend/static terminal projection over the canonical complete vector. Preserve original source/current-run/env/proof checks, commands/resources/timeouts/retries. Return exact tested commit/API."
+        },
+        {
+            "owner": "original public/runtime catalogue owner43470d5c and canonical #2279/#1686 owners",
+            "scope": "Public state/reset and global catalogue/matrix/CIplan/workflow remain reserved",
+            "neededCapability": "Original preparePublicRuntimeAttemptContexts is available and now consumed. Supply canonical stateAccessRef catalogDigest/catalogEntryDigest with original producer IDs and real runtime authority; canonical resetPostconditionAssertionIds currently lacks pre-notification-stream, and394 executor has no domain postflight port. Supply original reset assertion plus admission/postflight before downstream load measurement; no empty state facts or fixture callbacks as native proof."
+        },
+        {
+            "owner": "original #2247 inventory/source-closure and canonical gate owners",
+            "scope": "tools/test-inventory/discovery.mjs, original transitive parser, checker registration",
+            "neededCapability": "Expose canonical active Shell/Node/TS/package/workflow launch facts with source location and exact producer owner or original managed-descendant proof (command/purpose/output/test provenance). Attach owned #2269 bounded validator to canonical matrix/CI gate. No private inventory or dynamic-launch allowlist."
+        }
+    ],
+    "availableSourceCapabilities": {
+        "sourceIncrement": "c1a2c70fb511a55b5babe231401b3c3f263b8886",
+        "publicationErrorPort": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+        "requiredInputPort": "39466f9a3a4714b5b58cd4c75a8baa69588e9c9e",
+        "coverageOriginal": "d033e0296ac021bd9766f738b03dabb293bc0b90",
+        "currentCompatibleAuthority": "e6a42d63861278c630c31dc025787ad452d42ce2",
+        "heldOriginalReviewHead": "395703a20dc438cf5fc74a71287536e1fa7d16c1"
+    }
+}
