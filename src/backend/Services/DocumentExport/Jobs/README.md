@@ -97,9 +97,10 @@ between observations or total kernel read/write traffic, nor host managed CPU.
 Those physical qualification limits remain open. Plans/receipts keep their current
 versions and identities; providers and the independent verifier still need all
 original current-candidate native evidence. PDF/DOCX/EPUB remain inactive.
-The shared completion API currently takes no task/input arguments. Its exact
-binding extension remains with the canonical owner; Jobs passes the same instance
-and frozen arguments but does not invent a second binding or qualification proof.
+The Jobs publication checks use the bound completion overload with the original
+execution task and frozen input, including the final before/after-save callbacks.
+Resource-state failure is checked before simultaneous cancellation or deadline
+refusal so the original recovery claim cannot be discarded by that overlap.
 
 Construct `DocumentExportJobService` with the existing `ReleaseStorageLayout`,
 shared `IDataProtectionProvider`, the exact permission adapter and `TimeProvider`.

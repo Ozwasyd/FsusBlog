@@ -462,19 +462,55 @@ public sealed class DocumentExportJobServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task AttemptResources_FinalStatePublicationRechecksCompletionBeforeUnlock()
+    public async Task AttemptResources_CompletedForeignAttemptCannotPublishOrReleaseClaim()
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Service().CreateAsync(_actor, task, input, default);
+        var provider = new ControlledProvider(task.ProviderId)
+        {
+            ResourceFault = "foreign"
+        };
+        DocumentExportJobSnapshot result = await Service().ExecuteAsync(_actor, task.TaskId, provider, default);
+        Assert.Equal(DocumentExportTaskStatus.CleanupRequired, result.Task.Status);
+        Assert.Equal("attempt_resources_unqualified", result.Attempts[0].Reason);
+        Assert.Equal(DocumentExportTaskStatus.Failed, result.Attempts[0].Status);
+        Assert.Null(result.Output);
+        Assert.Equal(1, provider.Verifications);
+        Assert.NotEqual(task.TaskId, provider.ResourceTask!.TaskId);
+        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v2");
+        DocumentExportJobState state = DocumentExportDigest.Deserialize<DocumentExportJobState>(protector.Unprotect(File.ReadAllBytes(StatePath)));
+        Assert.NotNull(state.Jobs[0].WorkerDigest);
+        Assert.NotNull(state.Jobs[0].Input);
+        Assert.Empty(Directory.GetFiles(JobRoot, "*.object", SearchOption.AllDirectories));
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().RecoverInterruptedAsync(task.TaskId, new TestRecovery(false), default));
+    }
+
+    [Theory]
+    [InlineData("none")]
+    [InlineData("caller")]
+    [InlineData("deadline")]
+    public async Task AttemptResources_FinalStatePublicationRechecksCompletionBeforeUnlock(string interruption)
     {
         (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
         var provider = new ControlledProvider(task.ProviderId);
+        using var caller = new CancellationTokenSource();
         var sync = new FinalStateDeadlineSync(() =>
         {
             DocumentExportAttemptResources resources = Assert.Single(provider.Resources);
             Assert.Throws<InvalidOperationException>(() => resources.BeginStage(provider.ResourceTask!, provider.ResourceInput!,
                 DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets, canonicalRenderer: true));
+            if (interruption == "caller")
+            {
+                caller.Cancel();
+            }
+            else if (interruption == "deadline")
+            {
+                _time.Advance(DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets.WallTime);
+            }
         });
         var service = new DocumentExportJobService(new DocumentExportJobRepository(_layout, _protection, sync), _authorization, _time);
         await service.CreateAsync(_actor, task, input, default);
-        DocumentExportJobSnapshot result = await service.ExecuteAsync(_actor, task.TaskId, provider, default);
+        DocumentExportJobSnapshot result = await service.ExecuteAsync(_actor, task.TaskId, provider, caller.Token);
         Assert.True(sync.Injected);
         Assert.Equal(DocumentExportTaskStatus.CleanupRequired, result.Task.Status);
         Assert.Equal(DocumentExportTaskStatus.Failed, result.Attempts[0].Status);
@@ -491,7 +527,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         await service.CleanupAsync(default);
         Assert.Single(Directory.GetFiles(JobRoot, "*.object", SearchOption.AllDirectories));
         DocumentExportJobSnapshot recovered = await service.RecoverInterruptedAsync(task.TaskId, new TestRecovery(true), default);
-        Assert.Equal(DocumentExportTaskStatus.Failed, recovered.Task.Status);
+        Assert.Equal(interruption == "caller" ? DocumentExportTaskStatus.Cancelled : DocumentExportTaskStatus.Failed, recovered.Task.Status);
         Assert.Equal(result.Attempts[0], recovered.Attempts[0]);
         Assert.Empty(Directory.GetFiles(JobRoot, "*.object", SearchOption.AllDirectories));
     }
@@ -1297,11 +1333,12 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         public DocumentExportAttemptResources CreateAttemptResources(DocumentExportTask task,
             DocumentExportFrozenInput input, TimeProvider time)
         {
-            ResourceTask = task;
+            ResourceTask = ResourceFault == "foreign"
+                ? DocumentExportContractValidator.Seal(task with { TaskId = Guid.NewGuid().ToString("N") }) : task;
             ResourceInput = input;
             ResourceTime = time;
             OnCreateResources?.Invoke();
-            var resources = new DocumentExportAttemptResources(task, input,
+            var resources = new DocumentExportAttemptResources(ResourceTask, input,
                 DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets, time);
             Resources.Add(resources);
             return resources;
@@ -1317,7 +1354,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
             }
             // Component-only controlled observations, using the original stage
             // authority. No native process or physical receipt is qualified.
-            using DocumentExportAttemptResources.Stage stage = resources.BeginStage(task, input,
+            using DocumentExportAttemptResources.Stage stage = resources.BeginStage(ResourceTask!, input,
                 DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets, canonicalRenderer: true);
             DocumentExportProviderResult result = await ExportAsync(task, input, cancellationToken);
             stage.Observe(ExportCpuMicroseconds, 1, result.Bytes.LongLength, input.MarkdownUtf8.Length,
@@ -1339,7 +1376,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
                 await VerifyAsync(result, task, input, cancellationToken);
                 return;
             }
-            DocumentExportAttemptResources.Stage stage = resources.BeginStage(task, input,
+            DocumentExportAttemptResources.Stage stage = resources.BeginStage(ResourceTask!, input,
                 DocumentExportContractCatalog.RequireProvider(task.FormatId).Budgets, canonicalRenderer: false);
             if (ResourceFault == "active")
             {
