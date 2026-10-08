@@ -636,6 +636,7 @@ function stripLeadingScopeAttributes(value)
 function contextualRecordExpressionLines(codeLines)
 {
     const scopes = [];
+    const argumentHeaders = [];
     let header = '';
     let parentheses = 0;
     let brackets = 0;
@@ -675,12 +676,16 @@ function contextualRecordExpressionLines(codeLines)
                     || /(?:\)|=>|=|\bwith|\b(?:else|try|finally|do))\s*$/u.test(header)
                     || /\bnew\b/u.test(header);
                 scopes.push(declaration && !expression ? 'declaration' : executable ? 'expression' : 'unknown');
+                argumentHeaders.push(parentheses > 0 ? header : null);
                 header = '';
             }
             else if (character === '}' && brackets === 0)
             {
                 scopes.pop();
-                header = '';
+                const argumentHeader = argumentHeaders.pop();
+                // Initializers or lambdas inside constructor/base arguments must
+                // not erase the enclosing declaration before its body opens.
+                header = argumentHeader === null || argumentHeader === undefined ? '' : `${argumentHeader} {}`;
             }
             else if (character === ';' && brackets === 0)
             {
