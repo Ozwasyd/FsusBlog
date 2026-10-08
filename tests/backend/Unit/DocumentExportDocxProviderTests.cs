@@ -281,6 +281,51 @@ public sealed class DocumentExportDocxProviderTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => provider.ExportAsync(task, input, cancellation.Token));
+        await Assert.ThrowsAsync<OperationCanceledException>(() => provider.VerifyAsync(null!, task, input, cancellation.Token));
+    }
+
+    [Theory]
+    [InlineData("plan")]
+    [InlineData("receipt")]
+    [InlineData("failure-receipt")]
+    public void CanonicalRendererStageRefusesInactiveDocxBeforeInspectingExecutionClaims(string stage)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider("docx");
+        DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input) with
+        {
+            FormatId = provider.FormatId,
+            ProviderId = provider.ProviderId,
+            ProviderVersion = provider.ProviderVersion,
+            ContentDigest = string.Empty
+        });
+        void Validate()
+        {
+            // No synthetic execution receipt or tool authority is supplied:
+            // inactive admission must reject before examining those claims.
+            switch (stage)
+            {
+                case "plan":
+                    DocumentExportSandboxRuntime.ValidateCanonicalRendererPlan(null!, task, input, null!, string.Empty);
+                    break;
+                case "receipt":
+                    DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(null!, null!, task, input, null!, string.Empty, []);
+                    break;
+                case "failure-receipt":
+                    DocumentExportSandboxRuntime.ValidateCanonicalRendererFailureReceipt(null!, null!, task, input, null!, string.Empty,
+                        "failed", "execution-failed");
+                    break;
+                default:
+                    throw new ArgumentException("Unknown stage.", nameof(stage));
+            }
+        }
+        Assert.Throws<InvalidOperationException>(Validate);
+        DocumentExportTask mismatchedTask = task with
+        {
+            InputDigest = DocumentExportDigest.ComputeBytes("other-input"u8)
+        };
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateCanonicalRendererPlan(
+            null!, mismatchedTask, input, null!, string.Empty));
     }
 
     private sealed class UnavailableRenderer : ICanonicalDocumentRendererAdapter
