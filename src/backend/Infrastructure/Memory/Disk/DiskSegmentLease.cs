@@ -23,6 +23,8 @@ public sealed class DiskSegmentLease : IDisposable
     private readonly IDisposable _reservation;
     private readonly Action _release;
     private bool _disposed;
+    private bool _copying;
+    private bool _disposeRequested;
 
     internal DiskSegmentLease(FileStream file, Guid segmentId, int records, long bytes, DiskSegmentEntry entry, byte[] scratch,
         IDisposable reservation, Action release)
@@ -45,12 +47,19 @@ public sealed class DiskSegmentLease : IDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(privateStaging);
+        MemoryOperationResult<DiskSegmentCopy> result;
+        bool release = false;
         lock (_gate)
         {
-            if (_disposed)
+            if (_disposed || _disposeRequested)
             {
                 return MemoryOperationResult<DiskSegmentCopy>.Reject(MemoryFailure.StaleLocation);
             }
+            if (_copying || !privateStaging.CanWrite)
+            {
+                return MemoryOperationResult<DiskSegmentCopy>.Reject(MemoryFailure.OwnershipViolation);
+            }
+            _copying = true;
             try
             {
                 Verify(_file, _segmentId, _records, _bytes, Entry, _scratch, cancellationToken);
@@ -73,13 +82,27 @@ public sealed class DiskSegmentLease : IDisposable
                 {
                     throw new InvalidDataException("Record changed during copy.");
                 }
-                return MemoryOperationResult<DiskSegmentCopy>.Success(new(Entry.PayloadBytes));
+                result = MemoryOperationResult<DiskSegmentCopy>.Success(new(Entry.PayloadBytes));
             }
             catch (Exception exception) when (DiskSegmentStore.KnownFailure(exception))
             {
-                return MemoryOperationResult<DiskSegmentCopy>.Reject(DiskSegmentStore.Failure(exception));
+                result = MemoryOperationResult<DiskSegmentCopy>.Reject(DiskSegmentStore.Failure(exception));
+            }
+            finally
+            {
+                _copying = false;
+                if (_disposeRequested)
+                {
+                    Close();
+                    release = true;
+                }
             }
         }
+        if (release)
+        {
+            _release();
+        }
+        return result;
     }
 
     public void Dispose()
@@ -90,13 +113,24 @@ public sealed class DiskSegmentLease : IDisposable
             {
                 return;
             }
-            _disposed = true;
-            _file.Dispose();
-            _scratch = [];
-            _reservation.Dispose();
+            _disposeRequested = true;
+            // A caller-owned target may dispose this lease reentrantly from Write.
+            // Preserve the active operation's file, scratch and charge until it exits.
+            if (_copying)
+            {
+                return;
+            }
+            Close();
         }
-        // Release outside the lease gate; the store never disposes an active reader under its gate.
         _release();
+    }
+
+    private void Close()
+    {
+        _disposed = true;
+        _file.Dispose();
+        _scratch = [];
+        _reservation.Dispose();
     }
 
     internal static void Verify(FileStream file, Guid segmentId, int records, long bytes, DiskSegmentEntry entry, byte[] scratch,
