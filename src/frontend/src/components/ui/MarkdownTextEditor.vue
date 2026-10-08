@@ -485,6 +485,12 @@ function trackAuthoringSelection(event: ArticleAuthoringSelectionEvent): void
     {
         return;
     }
+    const current = currentAuthoringBinding.value;
+    if (current?.documentId === identity.id &&
+        current.documentEpoch === identity.epoch && event.revision < current.revision)
+    {
+        return;
+    }
     currentAuthoringBinding.value = Object.freeze({
         documentEpoch: identity.epoch,
         documentId: identity.id,
@@ -499,6 +505,18 @@ function trackAuthoringTransaction(event: FsusUiMarkdownEditorTransactionEvent):
 {
     emit('transaction', event);
     if (!event.accepted)
+    {
+        return;
+    }
+    const identity = props.documentIdentity;
+    if (identity && (identity.id !== event.documentIdentity.id ||
+        identity.epoch !== event.documentIdentity.epoch))
+    {
+        return;
+    }
+    const current = currentAuthoringBinding.value;
+    if (current?.documentId === event.documentIdentity.id &&
+        current.documentEpoch === event.documentIdentity.epoch && event.revision < current.revision)
     {
         return;
     }

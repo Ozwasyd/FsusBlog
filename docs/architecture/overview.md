@@ -138,8 +138,9 @@ or complete surface/tool continuity acceptance.
 Selection events retain the native producer's identity without adding current
 wrapper props. A missing identity cannot establish a document binding and retires
 an unobserved authoring intent; a known foreign document cannot update the current
-binding. Native producer identity and revision evidence remain required for full
-selection/outline continuity acceptance.
+binding. Selection and accepted transaction observations cannot move the current
+intent binding to an older revision. Native producer identity and revision
+evidence remain required for full selection/outline continuity acceptance.
 
 Initialization uses a public selection-only transaction with the current document
 identity and expected revision. A fresh FsusUI editor at revision zero cannot bind
