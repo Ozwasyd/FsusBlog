@@ -247,6 +247,35 @@
       "rawSha256": "595c5b3d9f9fcf96f91b767f7256db868dc47283bf0caf7cb277a8c93525114e",
       "compressedSha256": "3aa9821521e91374f24acc799d857d963a847c1643cf13c5e67fc25a16562f38",
       "rawBytes": 123
+    },
+    {
+      "path": "followup-final-head-controls.log.gz",
+      "testedSourceSha": "d06aad7910272201d7663fc2d327b24e455e0cab",
+      "exitCode": 0,
+      "outcome": "final evidence head original eight-owner controls: 82/82",
+      "rawSha256": "4c7f7b7649c3b0493896de3e2de7810adfcdebf1f425b3b31778c31367396571",
+      "compressedSha256": "f82552e3f6366dd73c2e4a997eaa8b2e6b57151ac66a3526e3cc1fac2ba75329",
+      "rawBytes": 9574
+    },
+    {
+      "path": "followup-final-master-check.log.gz",
+      "testedSourceSha": "d06aad7910272201d7663fc2d327b24e455e0cab",
+      "exitCode": 0,
+      "outcome": "virtual merge-tree against newly fetched 0e9dd575: no content conflict",
+      "rawSha256": "eecc1639d0f2f8228b048a214c486bd0f507c3fe0e5ef5ba0ca59071007fabc9",
+      "compressedSha256": "f6a654a74ebf76fff21ecceb56427c334c61df3bb339e46a94d0d737514da0c1",
+      "rawBytes": 41
+    },
+    {
+      "path": "followup-final-own-contract.log.gz",
+      "testedSourceSha": "d06aad7910272201d7663fc2d327b24e455e0cab",
+      "exitCode": 0,
+      "outcome": "five new local commits including evidence record pass",
+      "rawSha256": "a1895d30ce9549217db30706f1e00f122abd840e1039a4c79ba24e7731fbad04",
+      "compressedSha256": "97356e9f56fbe40668955208da1ab52d4dbc14149ab3400a48cbfb6eee9e3d05",
+      "rawBytes": 81
     }
-  ]
+  ],
+  "finalFetchedMasterSha": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+  "finalChecksGitHead": "d06aad7910272201d7663fc2d327b24e455e0cab"
 }

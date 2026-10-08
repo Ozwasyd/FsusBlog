@@ -11,6 +11,13 @@ Older failure logs remain unchanged and are not carried forward as current passe
 - Run: `chain3620-20261008T050813Z-aa7a24a17c2b`; actual xUnit run UUID is in
   [observations](observations.json).
 - Resume fetch verified master `0a755584aa256995fd9997ca974806e8a0e29d2e`.
+- Final fetch found `0e9dd5751bdd584204fd149bdb1526b97ff682a6`. New work
+  affects locale verification and fixture permission controls, including the
+  shared generated authority. The final virtual merge-tree is clean; no master
+  merge or cross-chain conflict-resolution phase was performed.
+- Evidence-only head `d06aad7910272201d7663fc2d327b24e455e0cab` independently
+  revalidated all 82 Node controls and five new commit messages. These results
+  are archived separately from the native source candidate.
 - Branch: `codex/chain-3620-linux-observation`.
 - At capture, remote/draft PR #3844 remained at
   `c5778fbfac5a2c5ed02cfb369998b5298a20c60b`. New work was local under the
