@@ -21,12 +21,14 @@
         "config/testing/producer-execution-class-contract.json",
         "config/schemas/test-execution-envelope-applicability.schema.json",
         "tools/test/run-matrix-governance-once.sh",
-        "tests/tools/execution-envelope-policy.test.mjs"
+        "tests/tools/execution-envelope-policy.test.mjs",
+        "config/testing/release-final-execution-authority-index.json",
+        "tests/tools/release-final-static-boundary.test.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "742604b842fd12f83ad87d973738d63f54d3c3330f23acf85abf361d3244a183"
+            "sha256": "863d6ea8e27f35d1329878b0cdd09d0438e19449ed8edab29f5857d2630e9a3d"
         },
         {
             "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
