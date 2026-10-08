@@ -35,7 +35,8 @@ function retainedManifest()
     const source = structuredClone(manifest);
     source.frameTypes = source.frameTypes.filter((frame) => frame.goldenOrder < 236);
     source.goldenCatalog.defaultEvidence = source.goldenCatalog.defaultEvidence.filter((entry) =>
-        !entry.endsWith('/ArticlePropertyValueReadWireTests.cs') && !entry.endsWith('/AuthoringWorkspaceSnapshotWireTests.cs'));
+        !entry.endsWith('/ArticlePropertyValueReadWireTests.cs') && !entry.endsWith('/AuthoringWorkspaceSnapshotWireTests.cs')
+        && !entry.endsWith('/WritingAidPreferenceWireTests.cs'));
     return source;
 }
 
@@ -57,7 +58,7 @@ test('the original producer owns five products with manifest-derived identities 
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
     assert.equal(golden.frames.filter(frame => frame.value <= 252).length, 244);
-    assert.equal(golden.frames.length, 263);
+    assert.equal(golden.frames.length, 266);
 });
 
 test('the Canvas and article-link additions retain independently named roots and wire identities', () =>
@@ -185,9 +186,6 @@ test('pending allocations stay outside every generated active frame and golden c
 {
     const outputs = new Map(renderAedsProtocolOutputs(manifest));
     assert.deepEqual(manifest.reservedFrameValues.map(({ name, value, ownerIssue }) => [name, value, ownerIssue]), [
-        ['WritingAidPreferenceSnapshotResponse', 272, 2286],
-        ['WritingAidPreferenceUpdateRequest', 273, 2286],
-        ['WritingAidPreferenceReceiptResponse', 274, 2286],
         ['UploadAssetPreview', 275, 1975]
     ]);
     for (const reservation of manifest.reservedFrameValues)
@@ -216,8 +214,8 @@ for (const [label, mutate, expected] of [
     ['oversized reservation ID', source => { source.reservedFrameValues[0].value = 65536; }, /closed valid identity/u],
     ['terminal LF reservation name', source => { source.reservedFrameValues[0].name += '\n'; }, /closed valid identity/u],
     ['blank reservation reason', source => { source.reservedFrameValues[0].reason = ' '; }, /closed valid identity/u],
-    ['duplicate reserved value', source => { source.reservedFrameValues[1].value = source.reservedFrameValues[0].value; }, /Duplicate reserved/u],
-    ['duplicate reserved name', source => { source.reservedFrameValues[1].name = source.reservedFrameValues[0].name; }, /Duplicate reserved/u],
+    ['duplicate reserved value', source => { source.reservedFrameValues.push({ ...source.reservedFrameValues[0], name: 'DuplicateReserved' }); }, /Duplicate reserved/u],
+    ['duplicate reserved name', source => { source.reservedFrameValues.push({ ...source.reservedFrameValues[0], value: 65534 }); }, /Duplicate reserved/u],
     ['retired reservation ID', source => { source.reservedFrameValues[0].value = source.retiredFrameValues[0].value; }, /reuses retired value/u],
     ['already active reservation ID', source => { source.reservedFrameValues[0].value = 253; }, /collides with an unadmitted reservation/u],
     ['already active reservation name', source => { source.reservedFrameValues[0].name = source.frameTypes[0].name; }, /collides with an unadmitted reservation/u],

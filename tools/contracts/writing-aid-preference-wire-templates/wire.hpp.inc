@@ -1,0 +1,172 @@
+#pragma once
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstring>
+#include <string>
+#include <vector>
+namespace FsusBlog::Aeds::WritingAidPreferenceWire
+{
+inline constexpr std::int64_t MaximumRevision=9007199254740991LL;
+inline std::uint32_t Rotate(std::uint32_t value,int count){return (value>>count)|(value<<(32-count));}
+inline std::string Sha256(const std::string& input)
+{
+    constexpr std::uint32_t constants[]={__SHA_CONSTANTS__};
+    std::vector<std::uint8_t> bytes(((input.size()+9+63)/64)*64,0);
+    std::copy(input.begin(),input.end(),bytes.begin());bytes[input.size()]=128;
+    std::uint64_t bits=input.size()*8;for(int i=0;i<8;i++)bytes[bytes.size()-1-i]=static_cast<std::uint8_t>(bits>>(i*8));
+    std::array<std::uint32_t,8> hash={0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
+    std::array<std::uint32_t,64> words{};
+    for(std::size_t offset=0;offset<bytes.size();offset+=64)
+    {
+        for(int i=0;i<16;i++){words[i]=0;for(int j=0;j<4;j++)words[i]=(words[i]<<8)|bytes[offset+i*4+j];}
+        for(int i=16;i<64;i++){auto x=words[i-15],y=words[i-2];words[i]=words[i-16]+(Rotate(x,7)^Rotate(x,18)^(x>>3))+words[i-7]+(Rotate(y,17)^Rotate(y,19)^(y>>10));}
+        auto a=hash[0],b=hash[1],c=hash[2],d=hash[3],e=hash[4],f=hash[5],g=hash[6],h=hash[7];
+        for(int i=0;i<64;i++)
+        {
+            auto first=h+(Rotate(e,6)^Rotate(e,11)^Rotate(e,25))+((e&f)^(~e&g))+constants[i]+words[i];
+            auto second=(Rotate(a,2)^Rotate(a,13)^Rotate(a,22))+((a&b)^(a&c)^(b&c));
+            h=g;g=f;f=e;e=d+first;d=c;c=b;b=a;a=first+second;
+        }
+        hash[0]+=a;hash[1]+=b;hash[2]+=c;hash[3]+=d;hash[4]+=e;hash[5]+=f;hash[6]+=g;hash[7]+=h;
+    }
+    const char* hex="0123456789abcdef";std::string result;
+    for(auto value:hash)for(int shift=28;shift>=0;shift-=4)result.push_back(hex[(value>>shift)&15]);
+    return result;
+}
+inline bool Scalars(const std::string& value,std::vector<std::uint32_t>& result)
+{
+    result.clear();
+    for(std::size_t i=0;i<value.size();)
+    {
+        auto first=static_cast<unsigned char>(value[i++]);std::uint32_t code;int more;
+        if(first<128){code=first;more=0;}
+        else if(first>=0xc2&&first<=0xdf){code=first&31;more=1;}
+        else if(first>=0xe0&&first<=0xef){code=first&15;more=2;}
+        else if(first>=0xf0&&first<=0xf4){code=first&7;more=3;}
+        else return false;
+        if(i+more>value.size())return false;
+        for(int j=0;j<more;j++){auto byte=static_cast<unsigned char>(value[i++]);if((byte&0xc0)!=0x80)return false;code=(code<<6)|(byte&63);}
+        if((more==1&&code<0x80)||(more==2&&code<0x800)||(more==3&&code<0x10000)||code>0x10ffff||(code>=0xd800&&code<=0xdfff))return false;
+        result.push_back(code);
+    }
+    return true;
+}
+inline bool Whitespace(std::uint32_t code)
+{
+    return code==32||code==133||code==160||code==5760||(code>=8192&&code<=8202)||code==8232||code==8233||code==8239||code==8287||code==12288;
+}
+inline bool Coordinate(const std::string& value)
+{
+    std::vector<std::uint32_t> scalars;if(!Scalars(value,scalars)||scalars.empty()||Whitespace(scalars.front())||Whitespace(scalars.back()))return false;
+    std::size_t units=0;
+    for(auto code:scalars){if(code<32||(code>=127&&code<=159))return false;units+=code>0xffff?2:1;}
+    return units<=128;
+}
+inline bool Owner(const std::string& user,const std::string& site)
+{
+    if(!Coordinate(user)||!Coordinate(site))return false;
+    auto split=user.find(':');if(split==std::string::npos||(user.substr(0,split)!="account"&&user.substr(0,split)!="admin"))return false;
+    auto id=user.substr(split+1);if(id.empty()||id[0]=='0')return false;
+    std::uint64_t value=0;
+    for(auto ch:id){if(ch<'0'||ch>'9'||value>static_cast<std::uint64_t>(MaximumRevision)/10)return false;value=value*10+(ch-'0');if(value>MaximumRevision)return false;}
+    return value>0;
+}
+inline bool Digest(const std::string& value)
+{
+    return value.size()==64&&std::all_of(value.begin(),value.end(),[](char c){return (c>='0'&&c<='9')||(c>='a'&&c<='f');});
+}
+inline bool Uuid(const std::string& value)
+{
+    if(value.size()!=36||value=="00000000-0000-0000-0000-000000000000")return false;
+    for(std::size_t i=0;i<value.size();i++){bool dash=i==8||i==13||i==18||i==23;if(dash?value[i]!='-':!((value[i]>='0'&&value[i]<='9')||(value[i]>='a'&&value[i]<='f')))return false;}
+    return true;
+}
+inline std::string DigestString(const std::string& value)
+{
+    std::vector<std::uint32_t> scalars;if(!Scalars(value,scalars))return {};
+    std::string output="\"";const char* hex="0123456789ABCDEF";
+    auto escape=[&](std::uint32_t code){output+="\\u";for(int shift=12;shift>=0;shift-=4)output.push_back(hex[(code>>shift)&15]);};
+    for(auto code:scalars)
+    {
+        if(code==92)output+="\\\\";
+        else if(code>0xffff){auto raw=code-0x10000;escape(0xd800+(raw>>10));escape(0xdc00+(raw&1023));}
+        else if(code<32||code>126||code==34||code==38||code==39||code==43||code==60||code==62||code==96)escape(code);
+        else output.push_back(static_cast<char>(code));
+    }
+    return output+"\"";
+}
+class Reader
+{
+    const std::uint8_t* data;std::size_t length;std::size_t offset=0;
+public:
+    Reader(const std::uint8_t* bytes,std::size_t count):data(bytes),length(count){}
+    std::size_t Remaining() const{return length-offset;}
+    bool Consumed() const{return offset==length;}
+    bool Byte(std::uint8_t& value){if(Remaining()<1)return false;value=data[offset++];return true;}
+    bool Int32(std::int32_t& value)
+    {
+        if(Remaining()<4){return false;}
+        std::uint32_t raw=0;for(int i=0;i<4;i++)raw|=std::uint32_t(data[offset++])<<(i*8);std::memcpy(&value,&raw,4);return true;
+    }
+    bool Revision(std::int64_t& value)
+    {
+        if(Remaining()<8){return false;}
+        std::uint64_t raw=0;for(int i=0;i<8;i++)raw|=std::uint64_t(data[offset++])<<(i*8);std::memcpy(&value,&raw,8);return value>=0&&value<=MaximumRevision;
+    }
+    bool Fixed(std::string& value,std::size_t width,std::size_t used)
+    {
+        if(Remaining()<width)return false;
+        for(std::size_t i=used;i<width;i++)if(data[offset+i]!=0)return false;
+        value.assign(reinterpret_cast<const char*>(data+offset),used);offset+=width;std::vector<std::uint32_t> scalars;return Scalars(value,scalars);
+    }
+    bool Block(const std::uint8_t*& bytes,std::size_t count){if(count>Remaining())return false;bytes=data+offset;offset+=count;return true;}
+};
+struct Snapshot
+{
+    std::string user;std::string site;std::string digest;std::int64_t revision=0;bool focus=false;bool typewriter=false;bool immersive=false;
+};
+inline std::string SnapshotDigest(const Snapshot& value)
+{
+    return Sha256("["+DigestString("fsusblog.writing-aid-preference.v1")+","+DigestString(value.user)+","+DigestString(value.site)+","+std::to_string(value.revision)+",1,"+(value.focus?"true":"false")+","+(value.typewriter?"true":"false")+","+(value.immersive?"true":"false")+"]");
+}
+inline bool ReadSnapshot(const std::uint8_t* bytes,std::size_t length,Snapshot& value)
+{
+    if(!bytes||length<101||length>612)return false;
+    Reader r(bytes,length);std::int32_t schema,userOffset,userLength,siteOffset,siteLength,count;std::uint8_t focus,typewriter,immersive,reserved;
+    if(!r.Int32(schema)||schema!=1||!r.Byte(focus)||focus>1||!r.Byte(typewriter)||typewriter>1||!r.Byte(immersive)||immersive>1||!r.Byte(reserved)||reserved!=0
+        ||!r.Revision(value.revision)||!r.Int32(userOffset)||!r.Int32(userLength)||!r.Int32(siteOffset)||!r.Int32(siteLength)||!r.Fixed(value.digest,64,64)||!r.Int32(count)
+        ||count<1||count>512||userOffset!=0||userLength<1||userLength>=count||siteOffset!=userLength||siteLength!=count-userLength)return false;
+    const std::uint8_t* blob;if(!r.Block(blob,count)||!r.Consumed())return false;
+    value.user.assign(reinterpret_cast<const char*>(blob),userLength);value.site.assign(reinterpret_cast<const char*>(blob+siteOffset),siteLength);
+    value.focus=focus==1;value.typewriter=typewriter==1;value.immersive=immersive==1;
+    return Owner(value.user,value.site)&&Digest(value.digest)&&!(value.revision==0&&(value.focus||value.typewriter||value.immersive))&&value.digest==SnapshotDigest(value);
+}
+inline bool ReadUpdate(const std::uint8_t* bytes,std::size_t length)
+{
+    if(!bytes||length!=80)return false;
+    Reader r(bytes,length);std::int64_t revision;std::int32_t schema;std::uint8_t focus,typewriter,immersive,reserved;std::string operation;
+    return r.Revision(revision)&&revision<MaximumRevision&&r.Int32(schema)&&schema==1&&r.Byte(focus)&&focus<=1&&r.Byte(typewriter)&&typewriter<=1&&r.Byte(immersive)&&immersive<=1&&r.Byte(reserved)&&reserved==0&&r.Fixed(operation,64,36)&&Uuid(operation)&&r.Consumed();
+}
+inline bool ReadReceipt(const std::uint8_t* bytes,std::size_t length)
+{
+    if(!bytes||length<412||length>1434)return false;
+    Reader r(bytes,length);std::uint8_t version,action,status;std::string operation,device,digest;Snapshot previous,committed;
+    if(!r.Byte(version)||version!=1||!r.Fixed(operation,64,36)||!Uuid(operation)||!r.Fixed(device,71,71)||device.substr(0,7)!="device:"||!Digest(device.substr(7))||!r.Byte(action)||action>1||!r.Byte(status)||status!=0)return false;
+    auto nested=[&](Snapshot& value){std::int32_t count;const std::uint8_t* payload;return r.Int32(count)&&count>=101&&count<=612&&r.Block(payload,count)&&ReadSnapshot(payload,count,value);};
+    if(!nested(previous)||!nested(committed)||!r.Fixed(digest,64,64)||!Digest(digest)||!r.Consumed()||previous.user!=committed.user||previous.site!=committed.site||committed.revision!=previous.revision+1
+        ||(action==1&&(previous.revision!=0||committed.focus||committed.typewriter||committed.immersive)))return false;
+    auto canonical="["+DigestString("fsusblog.writing-aid-receipt.v1")+","+DigestString(operation)+","+DigestString(device)+","+DigestString(previous.digest)+","+DigestString(committed.digest)+","+DigestString(action==0?"update":"initialize")+","+DigestString("committed")+"]";
+    return digest==Sha256(canonical);
+}
+}
+namespace FsusBlog::Aeds
+{
+inline bool ValidateWritingAidPreferencePayload(std::uint16_t frameType,const std::uint8_t* payload,std::uint32_t length)
+{
+    if(frameType==272){WritingAidPreferenceWire::Snapshot value;return WritingAidPreferenceWire::ReadSnapshot(payload,length,value);}
+    if(frameType==273)return WritingAidPreferenceWire::ReadUpdate(payload,length);
+    if(frameType==274)return WritingAidPreferenceWire::ReadReceipt(payload,length);
+    return false;
+}
+}

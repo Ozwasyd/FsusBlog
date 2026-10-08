@@ -37,24 +37,6 @@
     ],
     "reservedFrameValues": [
         {
-            "name": "WritingAidPreferenceSnapshotResponse",
-            "value": 272,
-            "ownerIssue": 2286,
-            "reason": "domain payload source prerequisite and cross-stack codec admission pending"
-        },
-        {
-            "name": "WritingAidPreferenceUpdateRequest",
-            "value": 273,
-            "ownerIssue": 2286,
-            "reason": "domain payload source prerequisite and cross-stack codec admission pending"
-        },
-        {
-            "name": "WritingAidPreferenceReceiptResponse",
-            "value": 274,
-            "ownerIssue": 2286,
-            "reason": "device-bound receipt codec admission pending"
-        },
-        {
             "name": "UploadAssetPreview",
             "value": 275,
             "ownerIssue": 1975,
@@ -1657,6 +1639,24 @@
             "value": 271,
             "goldenFamily": "authoring-workspace-snapshot",
             "goldenOrder": 262
+        },
+        {
+            "name": "WritingAidPreferenceSnapshotResponse",
+            "value": 272,
+            "goldenFamily": "writing-aid-preference",
+            "goldenOrder": 263
+        },
+        {
+            "name": "WritingAidPreferenceUpdateRequest",
+            "value": 273,
+            "goldenFamily": "writing-aid-preference",
+            "goldenOrder": 264
+        },
+        {
+            "name": "WritingAidPreferenceReceiptResponse",
+            "value": 274,
+            "goldenFamily": "writing-aid-preference",
+            "goldenOrder": 265
         }
     ],
     "goldenCatalog": {
@@ -1666,7 +1666,8 @@
             "tests/backend/Unit/PodBinaryCodecTests.cs",
             "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs",
             "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
-            "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs"
+            "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
+            "tests/backend/Unit/WritingAidPreferenceWireTests.cs"
         ]
     }
 }

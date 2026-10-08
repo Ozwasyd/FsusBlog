@@ -267,5 +267,8 @@ public enum AedsFrameType : ushort
     ArticleCanvasLinkHistoryResponse = 268,
     ArticlePropertyValueReadResponse = 269,
     AuthoringWorkspaceSnapshotRequest = 270,
-    AuthoringWorkspaceSnapshotResponse = 271
+    AuthoringWorkspaceSnapshotResponse = 271,
+    WritingAidPreferenceSnapshotResponse = 272,
+    WritingAidPreferenceUpdateRequest = 273,
+    WritingAidPreferenceReceiptResponse = 274
 }

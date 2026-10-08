@@ -6,7 +6,8 @@
     "tests/backend/Unit/PodBinaryCodecTests.cs",
     "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs",
     "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
-    "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs"
+    "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
+    "tests/backend/Unit/WritingAidPreferenceWireTests.cs"
   ],
   "retiredFrameValues": [
     { "value": 40, "reason": "legacy-admin-password-reset" },
@@ -280,6 +281,9 @@
     { "name": "ArticleCanvasLinkHistoryResponse", "value": 268, "family": "article-canvas-link" },
     { "name": "ArticlePropertyValueReadResponse", "value": 269, "family": "article-property-value-read" },
     { "name": "AuthoringWorkspaceSnapshotRequest", "value": 270, "family": "authoring-workspace-snapshot" },
-    { "name": "AuthoringWorkspaceSnapshotResponse", "value": 271, "family": "authoring-workspace-snapshot" }
+    { "name": "AuthoringWorkspaceSnapshotResponse", "value": 271, "family": "authoring-workspace-snapshot" },
+    { "name": "WritingAidPreferenceSnapshotResponse", "value": 272, "family": "writing-aid-preference" },
+    { "name": "WritingAidPreferenceUpdateRequest", "value": 273, "family": "writing-aid-preference" },
+    { "name": "WritingAidPreferenceReceiptResponse", "value": 274, "family": "writing-aid-preference" }
   ]
 }

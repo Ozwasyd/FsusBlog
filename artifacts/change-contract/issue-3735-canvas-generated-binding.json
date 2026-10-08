@@ -12,6 +12,7 @@
         "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs",
         "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
         "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.WritingAidPreference.cs",
         "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
         "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp",
         "src/migration/Definitions/ArticleCanvasLinkMigrationDefinitions.cs",
@@ -26,14 +27,19 @@
         "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasOperationContracts.cs",
         "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs",
         "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceContracts.cs",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceValidator.cs",
         "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotContracts.cs",
         "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotTransportContracts.cs",
+        "src/shared/Contracts/Models/WritingAidPreferencePods.cs",
         "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
         "src/shared/Contracts/Validation/aeds-protocol.json",
         "src/shared/Contracts/Validation/article-canvas-link-wire.json",
         "src/shared/Contracts/Validation/article-property-value-read-wire.json",
         "src/shared/Contracts/Validation/authoring-canvas-wire.json",
         "src/shared/Contracts/Validation/authoring-workspace-snapshot-wire.json",
+        "src/shared/Contracts/Validation/writing-aid-preference-wire.json",
         "tests/fixtures/protocol/article-property-value-read-wire-v1-retired.json",
         "tests/frontend/fixtures/cross-stack-contract-matrix.json",
         "tools/contracts/format-generated-property-value-read-typescript.mjs",
@@ -44,6 +50,8 @@
         "tools/contracts/generate-authoring-canvas-wire.mjs",
         "tools/contracts/generate-authoring-workspace-snapshot-golden.mjs",
         "tools/contracts/generate-authoring-workspace-snapshot-wire.mjs",
+        "tools/contracts/generate-writing-aid-preference-golden.mjs",
+        "tools/contracts/generate-writing-aid-preference-wire.mjs",
         "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.cs.inc",
         "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.hpp.inc",
         "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.ts.inc",
@@ -77,6 +85,9 @@
         "tools/contracts/workspace-snapshot-wire-templates/primitives.cs.inc",
         "tools/contracts/workspace-snapshot-wire-templates/primitives.hpp.inc",
         "tools/contracts/workspace-snapshot-wire-templates/primitives.ts.inc",
+        "tools/contracts/writing-aid-preference-wire-templates/receipt.cs.inc",
+        "tools/contracts/writing-aid-preference-wire-templates/wire.hpp.inc",
+        "tools/contracts/writing-aid-preference-wire-templates/wire.ts.inc",
         "tools/frontend/style-toolchain/eslint.config.mjs",
         "tools/frontend/style-toolchain/package-lock.json",
         "tools/frontend/style-toolchain/package.json",
@@ -98,7 +109,7 @@
         },
         {
             "path": "src/core/Algorithms/AedsFrameType.cs",
-            "sha256": "5fb16d756cf355f8d05bea151db1d93b54439dfe0beda3213463270a20e74ca2"
+            "sha256": "0b3426232b76065bad12b9b98532c5ff5f2afbcb13be963f83933a84826577e8"
         },
         {
             "path": "src/core/Cache/PodBinaryCodec.ArticleCanvasLink.Generated.cs",
@@ -117,6 +128,10 @@
             "sha256": "04e4be7e83e82381390ec9c162c935b9684fb1983deae24a4323f7ff2a40a96c"
         },
         {
+            "path": "src/core/Cache/PodBinaryCodec.WritingAidPreferenceReceipt.Generated.cs",
+            "sha256": "1ef59d4bb73775b119bafd684fe1997aba8961301b0a71b805596e5e5dc35b0e"
+        },
+        {
             "path": "src/frontend/src/codecs/binary/articleCanvasLinkWire.generated.ts",
             "sha256": "ee1db2981e0e0578b192c2c41486201e88c5bfc1f3921e7880ee71ce946c9c4e"
         },
@@ -133,12 +148,16 @@
             "sha256": "c4096d199dcebcbe12c03fcc4fe78c8e32dd20ac0de056d3156229ae9bf18579"
         },
         {
+            "path": "src/frontend/src/codecs/binary/writingAidPreferenceWire.generated.ts",
+            "sha256": "b0a14f932036497d2dc44264675b471202061f2dc6109e12a477af99367893ba"
+        },
+        {
             "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
             "sha256": "6b2caac8274b502744a286e911c5e2eda3e2c953de6fbd28fe82cc65a3276811"
         },
         {
             "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
-            "sha256": "285b6e502934ece491144a45180a296fa34893b858cb849cde3f1ab974890709"
+            "sha256": "bf1cda474f1399d0bc700e216d54a6687bd98a1154e0980c440483914de1e63f"
         },
         {
             "path": "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp",
@@ -157,8 +176,12 @@
             "sha256": "78382f66ae4ed4aceaa9825204622eccdc55ba7d2afcdbe8cf51b0d98a590a54"
         },
         {
+            "path": "src/frontend/wasm/aeds/include/writing_aid_preference_wire.generated.hpp",
+            "sha256": "73d59b0f1fc541b3085d86dc4647d8ff9981ff8fa8d6fcc11de9a040bb6d303c"
+        },
+        {
             "path": "src/frontend/wasm/web/protocol/frame.ts",
-            "sha256": "9126a69fda8a9b86492fcbd8651f83081d2a8d046a0e158bfd18c2b9a84ceb1e"
+            "sha256": "520b85c5f2beb3cef3f13b91970770ce11b495d1dc992a483c34104067b5dd84"
         },
         {
             "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
@@ -166,7 +189,7 @@
         },
         {
             "path": "src/shared/AedsFrameHeader.cs",
-            "sha256": "b2c8250aba7a45c9e2a43a32110d92fa35047acee6aaa7aae61c79903ca1f85c"
+            "sha256": "a856766a6b05cf6feb612f3c179423c014071b81a437ed9c9798fdea7700e3ef"
         },
         {
             "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
@@ -174,7 +197,7 @@
         },
         {
             "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
-            "sha256": "76f9cf1d4ea2de7a52c3ca19bfcb7f9342e61ca7c313faef9d6fb7cbae8a447c"
+            "sha256": "94cd1a32ae3f69d8430806e0ef5c7c8993faeb040148b3546a3c0b4477336df2"
         },
         {
             "path": "tests/fixtures/protocol/article-canvas-link-wire-golden.json",
@@ -187,6 +210,10 @@
         {
             "path": "tests/fixtures/protocol/authoring-workspace-snapshot-wire-golden.json",
             "sha256": "13b5ef6f6751002bf71e5ac958dbd0d7415d297dd62b6fad2c22bc6f0e88f586"
+        },
+        {
+            "path": "tests/fixtures/protocol/writing-aid-preference-wire-golden.json",
+            "sha256": "d3654d4d0a2310590848f19b43043caf4aafda4d0b6d8b96511640ebdc4fdafb"
         },
         {
             "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",

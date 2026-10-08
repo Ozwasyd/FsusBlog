@@ -6,6 +6,7 @@
 #include "article_canvas_link_wire.generated.hpp"
 #include "property_value_read.generated.hpp"
 #include "authoring_workspace_snapshot_wire.generated.hpp"
+#include "writing_aid_preference_wire.generated.hpp"
 #include "font_theme_admin_pods.hpp"
 #include "pod_views.hpp"
 
@@ -64,6 +65,8 @@ const char* ToErrorString(ErrorCode errorCode)
             return "article_property_value_read_payload_invalid";
         case ErrorCode::AuthoringWorkspaceSnapshotPayloadInvalid:
             return "authoring_workspace_snapshot_payload_invalid";
+        case ErrorCode::WritingAidPreferencePayloadInvalid:
+            return "writing_aid_preference_payload_invalid";
         case ErrorCode::AuthoringCanvasPayloadInvalid:
             return "authoring_canvas_payload_invalid";
         case ErrorCode::ArticlePayloadInvalid:
@@ -166,6 +169,12 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         && !ValidateAuthoringWorkspaceSnapshotPayload(FrameType, payload, PayloadLength))
     {
         return MakeError(ErrorCode::AuthoringWorkspaceSnapshotPayloadInvalid);
+    }
+
+    if (FrameType >= 272 && FrameType <= 274
+        && !ValidateWritingAidPreferencePayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::WritingAidPreferencePayloadInvalid);
     }
 
     DecodeResult ok{};
