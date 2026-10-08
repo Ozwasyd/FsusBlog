@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
-import { readVaultAnchorSyntax, verifyVaultAnchorSyntax } from '@/articleVault/anchorSyntaxReader';
+import { readVaultAnchorSyntax, verifyVaultAnchorSyntax } from '@/services/articleVault/anchorSyntaxReader';
 
 const bindingFor = (source: string) => ({
     siteIdentity: 'site:primary',
