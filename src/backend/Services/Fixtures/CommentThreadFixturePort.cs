@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Moderation;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -191,6 +192,10 @@ public sealed class CommentThreadFixtureRecoveryException(
 
 public interface ICommentThreadFixturePort
 {
+    Task<CommentFixtureMutationResult> ExecuteMutationAsync(
+        CommentFixtureMutationPlan plan,
+        CancellationToken cancellationToken = default);
+
     Task<CommentThreadFixtureResult> ExecuteAsync(
         CommentThreadFixturePlan plan,
         CancellationToken cancellationToken = default);
@@ -214,7 +219,7 @@ public interface ICommentThreadFixturePort
 /// Test-only typed composition port. All mutations delegate to the production
 /// comment command and author-management services; the database is read only.
 /// </summary>
-public sealed class CommentThreadFixturePort(
+public sealed partial class CommentThreadFixturePort(
     ICommentEndpointService comments,
     ICommentAnonymousFixtureProvider anonymousComments,
     ICommentAnonymousFixtureCapabilityVault anonymousCapabilities,
@@ -224,7 +229,9 @@ public sealed class CommentThreadFixturePort(
     ICommentQueryService publicQueries,
     ICommentGovernanceService governance,
     CommentFixtureCacheProbe cacheProbe,
-    ISqlSugarClient db) : ICommentThreadFixturePort
+    ISqlSugarClient db,
+    IAuthoringModerationCommands moderationCommands,
+    TimeProvider timeProvider) : ICommentThreadFixturePort
 {
     private const string PlanSchema = "fsusblog.comment-thread-fixture-plan.v1";
     private const string ResultSchema = "fsusblog.comment-thread-fixture-result.v1";

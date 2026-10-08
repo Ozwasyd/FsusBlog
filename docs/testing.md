@@ -1,5 +1,32 @@
 # Test strategy
 
+## Comment mutation authority observations
+
+`ICommentThreadFixturePort.ExecuteMutationAsync` is a mutation-only extension of
+the existing `comment-thread-lifecycle` owner. An admitted initial identity and
+current revision/status/event reference select one formal edit, soft-delete,
+moderation, account report, appeal, or appeal-review command. The injected business
+clock must match the plan. Moderation retains the production claim/version
+preconditions and does not perform a linked security ban. Anonymous management
+uses the existing operation ledger and session-owned capability vault; it does
+not issue another initial comment or consume an initial nullifier again.
+
+The result rereads revisions, moderation events and outbox references. It omits
+management challenges, capability secrets and moderation claim tokens, and does
+not read public/admin/cache/notification projections or perform cleanup. This is
+an authority observation API, not a verified producer receipt. Upstream reference
+admission, permission qualification, atomic audit/outbox delivery, native proof
+execution and independent terminal verification remain separate requirements.
+The existing governance commands do not expose an atomic audit-reference receipt;
+the observer must not manufacture one from moderation event IDs. Scoped anonymous
+report credential custody is not added by this API. Pending remains an initial or
+edit policy outcome; Spam remains a model/signal category rather than a new
+moderation status or an invented transition.
+
+`CommentFixtureMutationRoutingTests` exercises ordinary formal-command routing
+and rereads with read-port models. These controls do not provide PostgreSQL
+transaction, native proof, nullifier or delivery acceptance evidence.
+
 ## Bounded channel delivery contracts
 
 `config/testing/bounded-channel-delivery-contracts.json` is the only delivery contract catalog that produces bounded channels in C# source, and the schema is `config/testing/bounded-channel-delivery-contracts.schema.json`. `tools/governance/bounded-channel-contracts.mjs` will parse direct factory, packaging factory and indirect factory owner, and use `source file + containing type + assigned slot` to form a stable discovery key; catalog and discovery must be bidirectional exact, and cannot be released with wildcard, Markdown inventory or missing items baseline.
