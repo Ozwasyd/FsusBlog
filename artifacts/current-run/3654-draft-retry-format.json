@@ -1,0 +1,39 @@
+{
+  "schema": "fsusblog.format-idempotence-evidence.v1",
+  "formatter": {
+    "identity": "dotnet-format",
+    "version": "10.0.302-servicing.26329.109+35b593bebfcba58f8e78298cef14c2761f5d86c6",
+    "command": "/tmp/fsusblog-3654-content-shape-dotnet/dotnet format whitespace /tmp/fsusblog-3654-embed-save-source --folder --include /tmp/fsusblog-3654-embed-save-source/tests/backend/Unit/AuthoringDraftConcurrencyTests.cs --verbosity quiet"
+  },
+  "paths": [
+    "tests/backend/Unit/AuthoringDraftConcurrencyTests.cs"
+  ],
+  "firstPassTreeSha256": "67e9dcc243bbd323f61a7a30f7def0ef8d786816f6731b13d894472b845287bf",
+  "secondPassTreeSha256": "67e9dcc243bbd323f61a7a30f7def0ef8d786816f6731b13d894472b845287bf",
+  "idempotent": true,
+  "revision": "bc4248dd19b2dad46a8ceb80318015456d5a6dd2",
+  "equivalence": {
+    "checker": "original tools/governance/change-contract.mjs validateFormatOnlyDiff",
+    "argv": [
+      "node",
+      "--input-type=module",
+      "-e",
+      "import {validateFormatOnlyDiff} from './tools/governance/change-contract.mjs'; const errors=validateFormatOnlyDiff(process.cwd(),'b4e8830b7231aee7c2333278bfaf6bb327a3f347','bc4248dd19b2dad46a8ceb80318015456d5a6dd2'); console.log(JSON.stringify({errors,pass:errors.length===0}));process.exitCode=errors.length?1:0;"
+    ],
+    "baseRevision": "b4e8830b7231aee7c2333278bfaf6bb327a3f347",
+    "sourceRevision": "bc4248dd19b2dad46a8ceb80318015456d5a6dd2",
+    "sourceBeforeBlob": "3405f5ac10c7e249e5e455f07ad7f5f95b2e4584",
+    "sourceAfterBlob": "52ecf4f83fba9d49f73f39d2acbd9d2aa42a763b",
+    "sourceBeforeSha256": "a51a5cedc1dec0cbd0d5d349e0c73bd512a520cbb098c01b589788070289750a",
+    "sourceAfterSha256": "e8e8a066792c4aab15a8df018a954c6895ef922e0f708f36be4435e50a9198c1",
+    "errors": [],
+    "exitCode": 0
+  },
+  "executedFormatterPasses": {
+    "firstExitCode": 0,
+    "secondExitCode": 0,
+    "verifyExitCode": 0,
+    "firstPassFileSha256": "e8e8a066792c4aab15a8df018a954c6895ef922e0f708f36be4435e50a9198c1",
+    "secondPassFileSha256": "e8e8a066792c4aab15a8df018a954c6895ef922e0f708f36be4435e50a9198c1"
+  }
+}
