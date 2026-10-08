@@ -1,8 +1,4 @@
 import {
-    AuthoringSessionHost,
-    type AuthoringSessionLifecycleReceipt
-} from './authoringSessionHost';
-import {
     calculateOpenArticleDocumentDigest,
     OpenArticleDocumentRegistry,
     openArticleDocumentCommandSchema,
@@ -12,6 +8,13 @@ import {
     type OpenArticleDocumentCommandResult,
     type OpenArticleDocumentEntry
 } from './openArticleDocumentRegistry';
+
+import type {
+    AuthoringSessionHost,
+    AuthoringSessionLifecycleReceipt
+} from './authoringSessionHost';
+
+export type { ArticleWorkspaceStatusSummary } from './openArticleDocumentRegistry';
 
 export const articleWorkspaceTabRouterSchema = 'fsusblog.article-workspace-tab-router.v1' as const;
 export const articleWorkspaceSessionReceiptSchema = 'fsusblog.article-workspace-session-receipt.v1' as const;
@@ -136,7 +139,7 @@ const cleanSessionReceipt = (entry: OpenArticleDocumentEntry): ArticleWorkspaceS
 };
 
 const immediateSessionPort: ArticleWorkspaceSessionPort = {
-    waitForReady: async (entry) => cleanSessionReceipt(entry)
+    waitForReady: (entry) => new Promise((resolve) => resolve(cleanSessionReceipt(entry)))
 };
 
 function cloneValue<T>(value: T): T
@@ -282,7 +285,8 @@ export class ArticleWorkspaceTabRouter
 
     public listTabs(): ArticleWorkspaceTabPresentation[]
     {
-        return this.registry.listEntries().map((entry) => {
+        return this.registry.listEntries().map((entry) =>
+        {
             const presentation = this.presentationsByTabId.get(entry.tabId);
             return {
                 tabId: entry.tabId,
@@ -291,7 +295,7 @@ export class ArticleWorkspaceTabRouter
                 documentId: entry.identity.documentId,
                 editorSessionRef: entry.editorSessionRef,
                 owningGroupId: entry.owningGroupId,
-                title: presentation?.title || titleFallback(entry),
+                title: presentation?.title?.length ? presentation.title : titleFallback(entry),
                 isPreview: entry.isPreview,
                 isPinned: entry.isPinned,
                 isActive: entry.isActive,
@@ -523,67 +527,73 @@ export class ArticleWorkspaceTabRouter
         });
     }
 
-    public async promotePreview(tabId: string): Promise<ArticleWorkspaceRouterReceipt>
+    public promotePreview(tabId: string): Promise<ArticleWorkspaceRouterReceipt>
     {
-        const commandNumber = ++this.commandSequence;
-        const result = this.registry.execute({
-            schema: openArticleDocumentCommandSchema,
-            kind: 'set-pin-state',
-            commandId: `workspace-command:${commandNumber}`,
-            idempotencyKey: `workspace-idempotency:${commandNumber}`,
-            expectedRevision: this.registry.getRevision(),
-            tabId,
-            pinned: true
-        });
-        const entry = result.entryAfter ?? (result.tabId ? this.registry.getEntry(result.tabId) : null);
-        if (entry)
+        return new Promise((resolve) =>
         {
-            this.updatePresentationFromEntry(entry);
-        }
-        this.notify();
-        return this.receipt({
-            action: 'promote-preview',
-            entrypoint: 'tab',
-            origin: 'user',
-            route: null,
-            tabId: result.tabId,
-            editorSessionRef: result.editorSessionRef,
-            resultStatus: result.status,
-            sessionState: entry ? this.sessionReceiptsByTabId.get(entry.tabId)?.status ?? 'pending' : null,
-            sessionReceiptRef: entry ? this.sessionReceiptsByTabId.get(entry.tabId)?.receiptRef ?? null : null,
-            reason: result.reason
+            const commandNumber = ++this.commandSequence;
+            const result = this.registry.execute({
+                schema: openArticleDocumentCommandSchema,
+                kind: 'set-pin-state',
+                commandId: `workspace-command:${commandNumber}`,
+                idempotencyKey: `workspace-idempotency:${commandNumber}`,
+                expectedRevision: this.registry.getRevision(),
+                tabId,
+                pinned: true
+            });
+            const entry = result.entryAfter ?? (result.tabId ? this.registry.getEntry(result.tabId) : null);
+            if (entry)
+            {
+                this.updatePresentationFromEntry(entry);
+            }
+            this.notify();
+            resolve(this.receipt({
+                action: 'promote-preview',
+                entrypoint: 'tab',
+                origin: 'user',
+                route: null,
+                tabId: result.tabId,
+                editorSessionRef: result.editorSessionRef,
+                resultStatus: result.status,
+                sessionState: entry ? this.sessionReceiptsByTabId.get(entry.tabId)?.status ?? 'pending' : null,
+                sessionReceiptRef: entry ? this.sessionReceiptsByTabId.get(entry.tabId)?.receiptRef ?? null : null,
+                reason: result.reason
+            }));
         });
     }
 
-    public async unpinTab(tabId: string): Promise<ArticleWorkspaceRouterReceipt>
+    public unpinTab(tabId: string): Promise<ArticleWorkspaceRouterReceipt>
     {
-        const commandNumber = ++this.commandSequence;
-        const result = this.registry.execute({
-            schema: openArticleDocumentCommandSchema,
-            kind: 'set-pin-state',
-            commandId: `workspace-command:${commandNumber}`,
-            idempotencyKey: `workspace-idempotency:${commandNumber}`,
-            expectedRevision: this.registry.getRevision(),
-            tabId,
-            pinned: false
-        });
-        const entry = result.entryAfter ?? (result.tabId ? this.registry.getEntry(result.tabId) : null);
-        if (entry)
+        return new Promise((resolve) =>
         {
-            this.updatePresentationFromEntry(entry);
-        }
-        this.notify();
-        return this.receipt({
-            action: 'set-pin-state',
-            entrypoint: 'tab',
-            origin: 'user',
-            route: null,
-            tabId: result.tabId,
-            editorSessionRef: result.editorSessionRef,
-            resultStatus: result.status,
-            sessionState: entry ? this.sessionReceiptsByTabId.get(entry.tabId)?.status ?? 'pending' : null,
-            sessionReceiptRef: entry ? this.sessionReceiptsByTabId.get(entry.tabId)?.receiptRef ?? null : null,
-            reason: result.reason
+            const commandNumber = ++this.commandSequence;
+            const result = this.registry.execute({
+                schema: openArticleDocumentCommandSchema,
+                kind: 'set-pin-state',
+                commandId: `workspace-command:${commandNumber}`,
+                idempotencyKey: `workspace-idempotency:${commandNumber}`,
+                expectedRevision: this.registry.getRevision(),
+                tabId,
+                pinned: false
+            });
+            const entry = result.entryAfter ?? (result.tabId ? this.registry.getEntry(result.tabId) : null);
+            if (entry)
+            {
+                this.updatePresentationFromEntry(entry);
+            }
+            this.notify();
+            resolve(this.receipt({
+                action: 'set-pin-state',
+                entrypoint: 'tab',
+                origin: 'user',
+                route: null,
+                tabId: result.tabId,
+                editorSessionRef: result.editorSessionRef,
+                resultStatus: result.status,
+                sessionState: entry ? this.sessionReceiptsByTabId.get(entry.tabId)?.status ?? 'pending' : null,
+                sessionReceiptRef: entry ? this.sessionReceiptsByTabId.get(entry.tabId)?.receiptRef ?? null : null,
+                reason: result.reason
+            }));
         });
     }
 
@@ -976,7 +986,7 @@ export class ArticleWorkspaceTabRouter
         const current = this.presentationsByTabId.get(entry.tabId);
         this.presentationsByTabId.set(entry.tabId, {
             ...(current ?? this.presentationFor(entry)),
-            ...(title !== undefined ? { title: title.trim() || current?.title || titleFallback(entry) } : {}),
+            ...(title !== undefined ? { title: title.trim().length > 0 ? title.trim() : current?.title?.length ? current.title : titleFallback(entry) } : {}),
             articleId: entry.identity.articleId,
             draftId: entry.identity.draftId,
             documentId: entry.identity.documentId,
@@ -1095,13 +1105,13 @@ export function createArticleWorkspaceSessionPort(
     let usedTick = 0;
     const nextUsedTick = options.nextUsedTick ?? (() => ++usedTick);
     return {
-        waitForReady: async (entry) =>
+        waitForReady: (entry) => new Promise((resolve) =>
         {
             const lifecycle = host.getSession(entry.editorSessionRef)
                 ? host.activate(entry, nextUsedTick())
                 : host.attach(entry, nextUsedTick(), options.isNearby?.(entry) ?? false);
-            return sessionReceiptFromHost(entry, lifecycle);
-        }
+            resolve(sessionReceiptFromHost(entry, lifecycle));
+        })
     };
 }
 

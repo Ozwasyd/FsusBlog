@@ -143,9 +143,10 @@ fails when a second canvas store, browser-local authority, executable/arbitrary
 payload field, graph-position reuse or article/relation/property/graph write is
 introduced.
 
-This boundary does not inline-edit or copy referenced content and does not
-implement a runtime route, UI, edge-to-link conversion, package exchange,
-collaboration, plug-in nodes or public canvases.
+This boundary does not inline-edit or copy referenced content. Its private
+transport is described below; UI composition and canonical article-link
+integration have separate implementation and acceptance scopes. Collaboration,
+plug-in nodes and public canvases remain outside this boundary.
 
 ## Typed private transport
 
