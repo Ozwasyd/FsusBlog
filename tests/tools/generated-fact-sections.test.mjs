@@ -245,6 +245,83 @@ test('transition-table and route-table emit fixed columns', () =>
     assert.match(routes, /\| Method \| Path \| Auth \| Protocol \|/);
 });
 
+test('table cells preserve compiled handler names as literal text', () =>
+{
+    const rendered = RendererRegistry.render(
+        'key-value-table',
+        { handler: '<>c.<Map>b__0_0' },
+        { orderPolicy: 'ordinal', emptyPolicy: 'fail' }
+    );
+    assert.equal(
+        rendered,
+        '| Key | Value |\n| --- | --- |\n| handler | &lt;&gt;c.&lt;Map&gt;b__0_0 |'
+    );
+    assert.doesNotMatch(rendered, /[<>]/u);
+});
+
+test('route tables escape HTML-looking literal headers and cells', () =>
+{
+    const rendered = RendererRegistry.render(
+        'route-table',
+        [{ '<handler>': '<img src=x>', '&literal': '</script>&<script>' }],
+        { columns: ['<handler>', '&literal'], orderPolicy: 'ordinal', emptyPolicy: 'fail' }
+    );
+    assert.equal(
+        rendered,
+        '| &lt;handler&gt; | &amp;literal |\n| --- | --- |\n| &lt;img src=x&gt; | &lt;/script&gt;&amp;&lt;script&gt; |'
+    );
+    assert.doesNotMatch(rendered, /[<>]/u);
+});
+
+test('key-value tables escape HTML-looking strings inside nested JSON values', () =>
+{
+    const rendered = RendererRegistry.render(
+        'key-value-table',
+        { nested: { '<key>': ['<b>&text</b>', { entity: '&lt;handler&gt;' }] } },
+        { orderPolicy: 'ordinal', emptyPolicy: 'fail' }
+    );
+    assert.equal(
+        rendered,
+        '| Key | Value |\n| --- | --- |\n| nested | {"&lt;key&gt;":["&lt;b&gt;&amp;text&lt;/b&gt;",{"entity":"&amp;lt;handler&amp;gt;"}]} |'
+    );
+    assert.doesNotMatch(rendered, /[<>]/u);
+});
+
+test('all table renderers preserve literal entities by escaping ampersands first', () =>
+{
+    const literal = '&lt; &gt; &amp; &#60; &#x3c; <tag>&';
+    const expected = '&amp;lt; &amp;gt; &amp;amp; &amp;#60; &amp;#x3c; &lt;tag&gt;&amp;';
+    const cases = [
+        { renderer: 'key-value-table', value: { key: literal } },
+        { renderer: 'transition-table', value: [{ from: literal, to: literal, guard: literal }] },
+        { renderer: 'failure-mode-table', value: [{ id: literal, description: literal }] },
+        { renderer: 'route-table', value: [{ method: literal, path: literal, auth: literal, protocol: literal }] },
+        { renderer: 'dependency-graph-table', value: [{ from: literal, to: literal, kind: literal }] }
+    ];
+    for (const entry of cases)
+    {
+        const rendered = RendererRegistry.render(entry.renderer, entry.value, { orderPolicy: 'ordinal', emptyPolicy: 'fail' });
+        assert.ok(rendered.includes(expected), entry.renderer);
+        assert.doesNotMatch(rendered, /[<>]/u, entry.renderer);
+    }
+});
+
+test('literal table escaping retains NFC, pipes, newlines and deterministic ordering', () =>
+{
+    const section = sectionDef({ renderer: 'key-value-table', factPath: 'value' });
+    const value = [
+        { key: 'z|<key>\r\nnext', value: 'e\u0301|&<value>\nend' },
+        { key: 'a', value: 'first' }
+    ];
+    const rendered = assertDeterministicRender(section, value, 2);
+    assert.equal(
+        rendered,
+        '| Key | Value |\n| --- | --- |\n| a | first |\n| z\\|&lt;key&gt; next | é\\|&amp;&lt;value&gt; end |'
+    );
+    assert.equal(rendered, assertDeterministicRender(section, [...value].reverse(), 2));
+    assert.equal(rendered.split('\n').length, 4);
+});
+
 test('emptyPolicy fail rejects empty sets; render-empty emits placeholder', () =>
 {
     assert.throws(
