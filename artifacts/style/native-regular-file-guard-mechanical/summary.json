@@ -31,5 +31,33 @@
     "runtimeAndNativeQualified": false,
     "prior291Runtime": "Historical e1d9c841d source only; not rerun or relabelled for this source-only mechanical repair.",
     "heldAuditExecuted": false,
-    "at": "2026-10-08T14:57:02.445214+00:00"
+    "at": "2026-10-08T14:57:02.445214+00:00",
+    "actualSharedBuild": {
+        "command": [
+            "dotnet",
+            "build",
+            "src/shared/FsusBlog.Shared.csproj",
+            "--configuration",
+            "Release",
+            "--no-restore"
+        ],
+        "exitCode": 0,
+        "errors": 0,
+        "inheritedOtherFileWarnings": 163,
+        "targetGuardWarnings": 0,
+        "at": "2026-10-08T15:03:00.152159+00:00",
+        "candidate": "a3f066994b72c8aa653c58cbd72d36195586a77d"
+    },
+    "compiledIdentity": {
+        "beforeActualSource": "e1d9c841d1ccdf5e4905676c15ba5f177b731c07",
+        "beforeAssemblySha256": "2ccd77853d7b8e5ac8ab0954fecbc57b94f5bd31292aca2416217ad2a7b76c14",
+        "afterAssemblySha256": "80df7cc6e9a24dba383f9c46d727f374293debd06860c97acce347d7b4f1f18a",
+        "nestedTypes": 8,
+        "methods": 49,
+        "fullMethodILSignaturesMarshallingImportsExplicitOffsetsEqual": true,
+        "privateFieldNamesExcludedAsAuthorizedRename": true,
+        "targetAssemblyLoaded": false,
+        "PInvokeExecuted": false,
+        "artifact": "compiled-identity.json"
+    }
 }

@@ -1,0 +1,62 @@
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography;
+using System.Text.Json;
+
+static object Describe(string path)
+{
+    using var stream = File.OpenRead(path);
+    using var pe = new PEReader(stream);
+    MetadataReader md = pe.GetMetadataReader();
+    var types = new List<object>();
+    bool Owned(TypeDefinitionHandle h)
+    {
+        TypeDefinition type = md.GetTypeDefinition(h);
+        return md.GetString(type.Name) == "NativeRegularFileGuard"
+            || !type.GetDeclaringType().IsNil && Owned(type.GetDeclaringType());
+    }
+    foreach (TypeDefinitionHandle h in md.TypeDefinitions.Where(Owned))
+    {
+        TypeDefinition type = md.GetTypeDefinition(h);
+        string name = md.GetString(type.Name);
+        TypeLayout layout = type.GetLayout();
+        var fields = type.GetFields().Select(fh =>
+        {
+            FieldDefinition f = md.GetFieldDefinition(fh);
+            return new { Offset = f.GetOffset(), Signature = Convert.ToHexString(md.GetBlobBytes(f.Signature)), Attributes = f.Attributes.ToString(), Marshal = Convert.ToHexString(md.GetBlobBytes(f.GetMarshallingDescriptor())) };
+        }).ToArray();
+        var methods = type.GetMethods().Select(mh =>
+        {
+            MethodDefinition m = md.GetMethodDefinition(mh);
+            MethodImport import = m.GetImport();
+            return new
+            {
+                Name = md.GetString(m.Name),
+                Signature = Convert.ToHexString(md.GetBlobBytes(m.Signature)),
+                Attributes = m.Attributes.ToString(),
+                ImplAttributes = m.ImplAttributes.ToString(),
+                IL = m.RelativeVirtualAddress == 0 ? "" : Convert.ToHexString(pe.GetMethodBody(m.RelativeVirtualAddress).GetILBytes()!),
+                Import = import.Module.IsNil ? "" : md.GetString(md.GetModuleReference(import.Module).Name) + "!" + md.GetString(import.Name) + ":" + import.Attributes,
+                ParameterMarshalling = m.GetParameters().Select(ph => Convert.ToHexString(md.GetBlobBytes(md.GetParameter(ph).GetMarshallingDescriptor()))).ToArray()
+            };
+        }).ToArray();
+        types.Add(new { Name = name, Attributes = type.Attributes.ToString(), LayoutSize = layout.Size, LayoutPacking = layout.PackingSize, Fields = fields, Methods = methods });
+    }
+    return types;
+}
+var before = Describe(args[0]);
+var after = Describe(args[1]);
+string beforeJson = JsonSerializer.Serialize(before);
+string afterJson = JsonSerializer.Serialize(after);
+if (beforeJson != afterJson) throw new Exception("compiled native guard signatures/ABI or method IL changed");
+Console.WriteLine(JsonSerializer.Serialize(new
+{
+    BeforeAssemblySha256 = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(args[0]))),
+    AfterAssemblySha256 = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(args[1]))),
+    NativeGuardAndNestedTypesEquivalent = true,
+    FullMethodILAndNativeImportsEqual = true,
+    PrivateFieldNamesExcludedAsExplicitMechanicalRename = true,
+    TargetAssemblyLoaded = false,
+    PInvokeExecuted = false,
+    Metadata = before
+}, new JsonSerializerOptions { WriteIndented = true }));
