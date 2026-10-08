@@ -40,6 +40,13 @@
                 "config/schemas/article-relation-contract.schema.json"
             ],
             "reason": "Preserve the canonical3654 NuGet lock wire fields and consume canonical2442 relation schema anchor grammar exactly; no independent dependency selection, second schema or wire-key renaming is introduced."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/article-publication-revisions.md"
+            ],
+            "reason": "Consume only the canonical3654 exact-source admission documentation hunks while preserving existing public article lifecycle identifiers and the document authority."
         }
     ]
 }

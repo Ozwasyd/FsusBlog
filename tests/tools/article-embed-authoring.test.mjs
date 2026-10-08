@@ -1,18 +1,11 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import test from "node:test";
-import { pathToFileURL } from "node:url";
 
-const root = path.resolve(import.meta.dirname, "../..");
-const {
+import {
     checkArticleEmbedAuthoring,
     checkArticleEmbedAuthoringSources,
     readArticleEmbedAuthoringSources
-} = await import(
-    pathToFileURL(
-        path.join(root, "tools/governance/check-article-embed-authoring.mjs")
-    ).href
-);
+} from "../../tools/governance/check-article-embed-authoring.mjs";
 
 const contractsPath =
     "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs";
