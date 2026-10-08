@@ -1,13 +1,3 @@
-<script setup lang="ts">
-import type { useArticleAuthorCommandPalette } from '@/composables/useArticleAuthorCommandPalette';
-import { FsusUiButton } from '@/fsusui/button';
-
-defineProps<{
-    palette: ReturnType<typeof useArticleAuthorCommandPalette>;
-    label: string;
-}>();
-</script>
-
 <template>
     <FsusUiButton
         native-type="button"
@@ -20,3 +10,13 @@ defineProps<{
         {{ label }}
     </FsusUiButton>
 </template>
+
+<script setup lang="ts">
+import type { useArticleAuthorCommandPalette } from '@/composables/useArticleAuthorCommandPalette';
+import { FsusUiButton } from '@/fsusui/button';
+
+defineProps<{
+    palette: ReturnType<typeof useArticleAuthorCommandPalette>;
+    label: string;
+}>();
+</script>
