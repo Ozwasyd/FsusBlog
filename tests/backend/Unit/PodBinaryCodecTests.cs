@@ -2258,7 +2258,8 @@ public class PodBinaryCodecTests
         byte[] payload = PodBinaryCodec.EncodeArticleSearch([MakeListItem()]);
         Assert.Equal(AedsArticleSearchWire.Magic, BinaryPrimitives.ReadInt32LittleEndian(payload));
         Assert.False(PodBinaryCodec.TryDecodeArticleSearch(payload.AsMemory(8), out _));
-        Assert.False(PodBinaryCodec.TryDecodeArticleSearch([.. payload, 0], out _));
+        byte[] trailingPayload = [.. payload, 0];
+        Assert.False(PodBinaryCodec.TryDecodeArticleSearch(trailingPayload, out _));
         foreach (int offset in new[] { AedsArticleSearchWire.CurrentRevisionIdOffset, AedsArticleSearchWire.RevisionNoOffset })
         {
             byte[] invalid = payload.ToArray();
