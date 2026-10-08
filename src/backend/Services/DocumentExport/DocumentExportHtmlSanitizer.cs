@@ -281,8 +281,9 @@ internal static class DocumentExportHtmlSanitizer
         {
             return;
         }
-        if (scope.References.Any(reference => !scope.Ids.Contains(reference))
-            || scope.MarkerReferences.Any(reference => !scope.MarkerIds.Contains(reference)))
+        SvgScope completedScope = scope;
+        if (completedScope.References.Any(reference => !completedScope.Ids.Contains(reference))
+            || completedScope.MarkerReferences.Any(reference => !completedScope.MarkerIds.Contains(reference)))
         {
             throw new InvalidDataException("SVG references must resolve inside their own document with the expected target type.");
         }
