@@ -4,19 +4,9 @@
         "config/development/document-lifecycle.json",
         "config/security/public-asset-delivery.json",
         "config/security/public-asset-delivery.schema.json",
-        "config/testing/release-reliability-scenario-catalog.json",
-        "config/testing/replay-qualification-producers.json",
         "config/testing/required-evidence-authority-ledger.json",
-        "config/testing/test-execution-envelope-applicability.json",
-        "tests/matrix.yml",
-        "tools/docs/document-lifecycle.mjs",
-        "tools/docs/generate-document-lifecycle.mjs",
         "tools/security/public-asset-policy.mjs",
-        "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
-        "tools/test/attempt-runner.mjs",
-        "tools/test/generate-evidence-location-governance.mjs",
-        "tools/test/temporal-context-contract.mjs",
-        "tools/test/temporal-context.mjs"
+        "tools/test/generate-evidence-location-governance.mjs"
     ],
     "outputs": [
         {
