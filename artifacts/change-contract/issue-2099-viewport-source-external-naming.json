@@ -5,11 +5,6 @@
             "id": "json-wire-key",
             "paths": ["tests/frontend/fixtures/ux-viewport-matrix.json"],
             "reason": "Preserve the existing viewport catalog wire keys and source version while adding the two required boundary viewport records."
-        },
-        {
-            "id": "css-like-contract",
-            "paths": ["docs/testing.md"],
-            "reason": "Keep the existing media identifiers and CSS zoom distinction exact when documenting declared viewport coverage and unqualified runtime evidence."
         }
     ]
 }
