@@ -41,6 +41,43 @@ public sealed class ArticleScaleBulkWriterInputTests(ITestOutputHelper output)
     [InlineData(ArticleScaleVariant.PublishedWithScheduledUpdate)]
     [InlineData(ArticleScaleVariant.Archived)]
     [InlineData(ArticleScaleVariant.Deleted)]
+    public void Verifier_RejectsContentAddressTamperEvenWithRecomputedGraphDigest(ArticleScaleVariant variant)
+    {
+        ArticleScaleArticleGraph original = CreateGraph("bulk-input-first", variant);
+        ArticleScaleRowPlan block = original.Rows.First(
+            row => row.Kind == ArticleScaleRowKind.ArticleRevisionContentBlock);
+
+        foreach ((string field, object value, string violation) in new[]
+        {
+            ("ContentHash", (object)new string('0', 64), "content_block_hash_mismatch:"),
+            ("ByteLength", (object)0, "content_block_byte_length_mismatch:")
+        })
+        {
+            var fields = new Dictionary<string, object?>(block.Fields, StringComparer.Ordinal)
+            {
+                [field] = value
+            };
+            ArticleScaleRowPlan[] rows = original.Rows.Select(
+                row => row.SemanticId == block.SemanticId ? row with { Fields = fields } : row).ToArray();
+            ArticleScaleArticleGraph tampered = original with
+            {
+                Rows = rows,
+                ArticleDigest = CanonicalArticleGraphFactory.ComputeArticleDigest(
+                    original.SemanticArticleId, original.Variant, rows, original.Relations, original.Pointers)
+            };
+            ArticleScalePlan plan = CreatePlan("bulk-input-first");
+            CanonicalArticleGraphVerificationResult result = CanonicalArticleGraphVerifier.VerifyArticleGraph(plan, tampered);
+            Assert.False(result.IsValid);
+            Assert.Contains(result.Violations, item => item.StartsWith(violation, StringComparison.Ordinal));
+        }
+    }
+
+    [Theory]
+    [InlineData(ArticleScaleVariant.Published)]
+    [InlineData(ArticleScaleVariant.Scheduled)]
+    [InlineData(ArticleScaleVariant.PublishedWithScheduledUpdate)]
+    [InlineData(ArticleScaleVariant.Archived)]
+    [InlineData(ArticleScaleVariant.Deleted)]
     public void ProductionCodec_RejectsGeneratedIdRemapWithoutFactoryPayloadRebinding(ArticleScaleVariant variant)
     {
         ArticleScaleArticleGraph graph = CreateGraph("bulk-input-first", variant);
@@ -67,6 +104,15 @@ public sealed class ArticleScaleBulkWriterInputTests(ITestOutputHelper output)
 
     private static ArticleScaleArticleGraph CreateGraph(string ownedNamespace, ArticleScaleVariant variant)
     {
+        ArticleScalePlan plan = CreatePlan(ownedNamespace);
+        ArticleScaleArticleGraph graph = CanonicalArticleGraphFactory.BuildArticleGraph(
+            plan, 1, variant, ArticleScaleVariantContractCatalog.Get(variant));
+        CanonicalArticleGraphVerifier.VerifyArticleGraph(plan, graph).ThrowIfInvalid();
+        return graph;
+    }
+
+    private static ArticleScalePlan CreatePlan(string ownedNamespace)
+    {
         // Syntactic artifact bindings exercise the pure input boundary only; they are not live artifact evidence.
         var artifacts = new ArticleScaleArtifactBindings(
             Reference(ArticleScaleContractIds.TemporalArtifactSchema, "resolved-temporal-roles", "data-scale.lifecycle"),
@@ -76,10 +122,7 @@ public sealed class ArticleScaleBulkWriterInputTests(ITestOutputHelper output)
             [Reference(ArticleScaleContractIds.FixtureVariantCatalogSchema, "fixture-variant-catalog", ArticleScaleContractIds.TaxonomyShape)]);
         ArticleScalePlan plan = ArticleScalePlanBuilder.Create("scale-s", ownedNamespace, artifacts);
         ArticleScalePlanValidator.Validate(plan, artifacts).ThrowIfInvalid();
-        ArticleScaleArticleGraph graph = CanonicalArticleGraphFactory.BuildArticleGraph(
-            plan, 1, variant, ArticleScaleVariantContractCatalog.Get(variant));
-        CanonicalArticleGraphVerifier.VerifyArticleGraph(plan, graph).ThrowIfInvalid();
-        return graph;
+        return plan;
     }
 
     private static ArticleScaleArtifactReference Reference(string schema, string authority, string shape)

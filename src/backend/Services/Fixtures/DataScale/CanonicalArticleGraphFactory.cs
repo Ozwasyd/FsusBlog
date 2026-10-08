@@ -144,6 +144,7 @@ public static class CanonicalArticleGraphFactory
 
         string baseTitle = $"Canonical Article {articleOrdinal:D6}";
         string markdownContent = $"# Canonical Article {articleOrdinal:D6}\n\nDeterministic markdown body for article {articleOrdinal} variant {variant}.";
+        ArticleRevisionContentAddress contentAddress = ArticleRevisionContentAddress.Compute(markdownContent);
         ArticleSummaryProjectionResult summaryProj = ArticleSummaryProjection.Resolve(null, markdownContent);
         string summary = summaryProj.Text;
         string coverImageUrl = $"https://cdn.example.internal/media/cover-{articleOrdinal:D6}.webp";
@@ -297,8 +298,8 @@ public static class CanonicalArticleGraphFactory
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["RevisionSemanticId"] = revSemanticId,
-                    ["ContentHash"] = contentCanonicalHash,
-                    ["ByteLength"] = Encoding.UTF8.GetByteCount(markdownContent),
+                    ["ContentHash"] = contentAddress.ContentHash,
+                    ["ByteLength"] = contentAddress.ByteLength,
                     ["BlockOrdinal"] = 1,
                     ["BlockType"] = "markdown",
                     ["Content"] = markdownContent,
