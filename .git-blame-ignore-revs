@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Current schema source whitespace recovery for #2217 and #3657.
+38ce8451b39ae2039fed9882179ec64a3a3b5e41
