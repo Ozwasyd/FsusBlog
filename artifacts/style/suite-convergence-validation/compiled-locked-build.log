@@ -1,0 +1,18 @@
+  Determining projects to restore...
+  Restored /workspace/FsusBlog/src/shared/FsusBlog.Shared.csproj (in 176 ms).
+/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+  Failed to restore /workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj (in 88 ms).
+/workspace/FsusBlog/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+  Restored /workspace/FsusBlog/src/core/FsusBlog.Core.csproj (in 447 ms).
+  Restored /workspace/FsusBlog/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 459 ms).
+  Restored /workspace/FsusBlog/src/migration/FsusBlog.Migration.csproj (in 107 ms).
+  Restored /workspace/FsusBlog/src/backend/FsusBlog.Server.csproj (in 463 ms).
+
+Build FAILED.
+
+/workspace/FsusBlog/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+    1 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:01.36

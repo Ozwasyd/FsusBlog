@@ -1,0 +1,5 @@
+[matrix] release-final static boundary rejected matrix parse:
+execution target authority: independent release-final Node parser identity drifted
+execution target authority owner, content, or dependency closure drifted: expected sha256:705b03004c8453b0f427684666831d8d61e60d78f9e89bfa5b870c25f9d7d609; got sha256:84002c2d8c6f06efd412d3f60e9dac33895e9a5b2a8c3e2e9195f54760a53227
+(node:31343) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
