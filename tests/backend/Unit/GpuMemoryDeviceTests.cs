@@ -11,6 +11,242 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class GpuMemoryDeviceTests
 {
     [Fact]
+    public async Task DrainedWaitCancellationDoesNotReleasePendingDmaOrCancelDeviceDrain()
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        Task drained = device.Drained;
+        Assert.Same(drained, device.Drained);
+        Assert.False(drained.IsCompleted);
+        using var allocation = device.TryAllocate(fixture.Content, 8, new(1)).Value!;
+        var source = new Source(fixture.Content, new byte[8]);
+        using var operation = device.TryUpload(allocation, source, allocation.Location).Value!;
+        fixture.Driver.BeforeDispose = () => Assert.False(drained.IsCompleted);
+        device.Dispose();
+        device.Dispose();
+        device.PollCompletions();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => drained.WaitAsync(cancellation.Token));
+        Assert.False(drained.IsCompleted);
+        Assert.False(source.Released);
+        Assert.Equal(0, fixture.Driver.Disposals);
+        Assert.Equal(8, fixture.Ledger.Snapshot().Used["device"]);
+        Assert.Equal(8, fixture.Ledger.Snapshot().Used["host"]);
+        Assert.Equal(1, fixture.Ledger.Snapshot().Used["slots"]);
+        fixture.Driver.Completion = GpuCompletion.Complete;
+        device.PollCompletions();
+        await drained.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(source.Released);
+        Assert.Equal(1, fixture.Driver.Disposals);
+        Assert.All(fixture.Ledger.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        device.Dispose();
+        device.PollCompletions();
+        Assert.Equal(1, fixture.Driver.Disposals);
+        Assert.True(drained.IsCompletedSuccessfully);
+    }
+
+    [Fact]
+    public async Task EmptyDeviceDrainedWaitsForActualDriverTeardown()
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        fixture.Driver.BeforeDispose = () =>
+        {
+            started.Set();
+            Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
+        };
+        Task disposing = Task.Run(device.Dispose);
+        try
+        {
+            Assert.True(started.Wait(TimeSpan.FromSeconds(10)));
+            Assert.False(device.Drained.IsCompleted);
+        }
+        finally
+        {
+            release.Set();
+            await disposing.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        await device.Drained.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, fixture.Driver.Disposals);
+    }
+
+    [Fact]
+    public async Task DrainedWaitsForEveryExternalAllocationHold()
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        using var allocation = device.TryAllocate(fixture.Content, 8, new(1)).Value!;
+        device.TryUpload(allocation, new Source(fixture.Content, new byte[8]), allocation.Location);
+        fixture.Driver.Completion = GpuCompletion.Complete;
+        device.PollCompletions();
+        using var first = allocation.TryAcquirePeerHold(allocation.Location).Value!;
+        using var last = allocation.TryAcquirePeerHold(allocation.Location).Value!;
+        device.Dispose();
+        first.Dispose();
+        Assert.False(device.Drained.IsCompleted);
+        Assert.Equal(8, fixture.Ledger.Snapshot().Used["device"]);
+        Assert.Equal(0, fixture.Driver.Disposals);
+        last.Dispose();
+        await device.Drained.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, fixture.Driver.Disposals);
+        Assert.All(fixture.Ledger.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DrainedRequiresLastMappingConsumerAndConfirmedUnmap(bool failUnmap)
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        using var allocation = device.TryAllocate(fixture.Content, 8, new(1)).Value!;
+        device.TryUpload(allocation, new Source(fixture.Content, new byte[8]), allocation.Location);
+        fixture.Driver.Completion = GpuCompletion.Complete;
+        device.PollCompletions();
+        var mapper = new MappingDriver(fixture.Driver) { ThrowUnmap = failUnmap };
+        using var mapping = GpuMappedReadLease.Map(mapper,
+            allocation.TryAcquirePeerHold(allocation.Location).Value!, 0, 8, 1);
+        using var consumer = mapping.TryAcquireConsumer().Value!;
+        device.Dispose();
+        mapping.Dispose();
+        Assert.False(device.Drained.IsCompleted);
+        Assert.Equal(0, mapper.Unmaps);
+        Assert.Equal(0, fixture.Driver.Disposals);
+        consumer.Dispose();
+        Assert.Equal(1, mapper.Unmaps);
+        if (failUnmap)
+        {
+            Assert.True(mapping.IsQuarantined);
+            Assert.False(device.Drained.IsCompleted);
+            Assert.Equal(8, fixture.Ledger.Snapshot().Used["device"]);
+            Assert.Equal(0, fixture.Driver.Disposals);
+            device.InvalidateEpoch();
+            await Assert.ThrowsAsync<InvalidOperationException>(() => device.Drained);
+            Assert.Equal(8, fixture.Ledger.Snapshot().Used["device"]);
+            Assert.Equal(0, fixture.Driver.Disposals);
+        }
+        else
+        {
+            await device.Drained.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(1, fixture.Driver.Disposals);
+            Assert.All(fixture.Ledger.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        }
+    }
+
+    [Fact]
+    public async Task DrainedWaitsForActualPeerCompletionAndBothDeviceOwners()
+    {
+        var sourceFixture = new Fixture();
+        var destinationFixture = new Fixture(sourceFixture);
+        using var sourceDevice = sourceFixture.Create();
+        using var destinationDevice = destinationFixture.Create();
+        using var source = sourceDevice.TryAllocate(sourceFixture.Content, 8, new(1)).Value!;
+        using var destination = destinationDevice.TryAllocate(sourceFixture.Content, 8, new(1)).Value!;
+        sourceDevice.TryUpload(source, new Source(sourceFixture.Content, new byte[8]), source.Location);
+        sourceFixture.Driver.Completion = GpuCompletion.Complete;
+        sourceDevice.PollCompletions();
+        sourceFixture.Driver.Completion = GpuCompletion.Pending;
+        using var peer = destinationDevice.TryPeerUpload(destination, source, Fixture.Qualified,
+            GpuPeerCapabilityFacts.ClassicDeviceAllocation(1, MemoryDetection.Present),
+            MemoryQualification.Qualified, "unit simulation").Value!;
+        sourceDevice.Dispose();
+        destinationDevice.Dispose();
+        destinationDevice.PollCompletions();
+        Assert.False(sourceDevice.Drained.IsCompleted);
+        Assert.False(destinationDevice.Drained.IsCompleted);
+        Assert.Equal(1, sourceFixture.Ledger.Snapshot().Used["slots"]);
+        Assert.Equal(1, sourceFixture.Ledger.Snapshot().Used["peer-slots"]);
+        sourceFixture.Driver.BeforeDispose = () =>
+        {
+            Assert.False(destinationDevice.Drained.IsCompleted);
+            Assert.Equal(0, sourceFixture.Ledger.Snapshot().Used["slots"]);
+            Assert.Equal(0, sourceFixture.Ledger.Snapshot().Used["peer-slots"]);
+        };
+        sourceFixture.Driver.Completion = GpuCompletion.Complete;
+        destinationDevice.PollCompletions();
+        await Task.WhenAll(sourceDevice.Drained, destinationDevice.Drained).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, sourceFixture.Driver.Disposals);
+        Assert.Equal(1, destinationFixture.Driver.Disposals);
+        Assert.All(sourceFixture.Ledger.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Theory]
+    [InlineData("allocation")]
+    [InlineData("submit")]
+    [InlineData("query")]
+    [InlineData("submission-release")]
+    [InlineData("device-free")]
+    [InlineData("host-free")]
+    [InlineData("driver-teardown")]
+    public async Task DrainedFaultsOnUnprovenCustodyWithoutPretendingCleanupSucceeded(string failure)
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        fixture.Driver.ThrowAllocation = failure == "allocation";
+        var allocated = device.TryAllocate(fixture.Content, 8, new(1));
+        if (allocated.Succeeded)
+        {
+            fixture.Driver.ThrowSubmit = failure == "submit";
+            fixture.Driver.ThrowSubmissionRelease = failure == "submission-release";
+            device.TryUpload(allocated.Value!, new Source(fixture.Content, new byte[8]), allocated.Value!.Location);
+            fixture.Driver.Completion = failure == "query" ? GpuCompletion.Uncertain : GpuCompletion.Complete;
+            device.PollCompletions();
+        }
+        fixture.Driver.ThrowFreeDevice = failure == "device-free";
+        fixture.Driver.ThrowFreeHost = failure == "host-free";
+        fixture.Driver.ThrowDispose = failure == "driver-teardown";
+        Assert.False(device.Drained.IsCompleted);
+        device.Dispose();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => device.Drained);
+        var retained = fixture.Ledger.Snapshot();
+        int frees = fixture.Driver.Frees;
+        int disposals = fixture.Driver.Disposals;
+        device.Dispose();
+        device.InvalidateEpoch();
+        device.PollCompletions();
+        Assert.True(device.Drained.IsFaulted);
+        Assert.Equal(retained.Used, fixture.Ledger.Snapshot().Used);
+        Assert.Equal(frees, fixture.Driver.Frees);
+        Assert.Equal(disposals, fixture.Driver.Disposals);
+        Assert.True(device.Snapshot().RestartRequired);
+        if (failure != "driver-teardown")
+        {
+            Assert.Contains(retained.Used.Values, value => value > 0);
+            Assert.Equal(0, disposals);
+        }
+    }
+
+    [Fact]
+    public async Task DeviceLossCannotCompleteDrainAndLaterDmaProofOnlyReleasesTheCompletedOperation()
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        using var allocation = device.TryAllocate(fixture.Content, 8, new(1)).Value!;
+        var source = new Source(fixture.Content, new byte[8]);
+        device.TryUpload(allocation, source, allocation.Location);
+        device.Dispose();
+        Assert.False(device.Drained.IsCompleted);
+        device.InvalidateEpoch();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => device.Drained);
+        device.PollCompletions();
+        Assert.False(source.Released);
+        Assert.Equal(1, fixture.Ledger.Snapshot().Used["slots"]);
+        Assert.Equal(0, fixture.Driver.Frees);
+        fixture.Driver.Completion = GpuCompletion.Complete;
+        device.PollCompletions();
+        Assert.True(source.Released);
+        Assert.Equal(0, fixture.Ledger.Snapshot().Used["slots"]);
+        Assert.Equal(8, fixture.Ledger.Snapshot().Used["device"]);
+        Assert.Equal(8, fixture.Ledger.Snapshot().Used["host"]);
+        Assert.Equal(0, fixture.Driver.Frees);
+        Assert.Equal(0, fixture.Driver.Disposals);
+        Assert.True(device.Drained.IsFaulted);
+    }
+
+    [Fact]
     public async Task CancelledWaitRetainsSourceDestinationStagingAndSlotUntilActualCompletion()
     {
         var fixture = new Fixture();
@@ -527,11 +763,41 @@ public sealed class GpuMemoryDeviceTests
         public void Dispose() => Released = true;
     }
 
+    private sealed class MappingDriver(IGpuDriverSession session) : IGpuMappedDriverApi
+    {
+        public IGpuDriverSession Session => session;
+        public string DriverApi => "unit-mapping";
+        public int ApiVersion => session.Identity.ApiVersion;
+        public GpuMappingCoherency Coherency => GpuMappingCoherency.Coherent;
+        public bool ThrowUnmap
+        {
+            get; set;
+        }
+        public int Unmaps
+        {
+            get; private set;
+        }
+        public GpuDriverMapping Map(IGpuPeerAllocationHold allocation, long offset, long length) => new(1);
+        public GpuMappingSynchronization SynchronizeForRead(GpuDriverMapping mapping, MemoryLocationToken location)
+            => new(DriverApi, ApiVersion, location, 1, true);
+        public void Read(GpuDriverMapping mapping, long relativeOffset, Span<byte> destination)
+            => throw new NotSupportedException("This unit control exercises mapping custody only.");
+        public void Unmap(GpuDriverMapping mapping)
+        {
+            Unmaps++;
+            if (ThrowUnmap)
+            {
+                throw new GpuDriverException("unit-unmap-uncertain", 999);
+            }
+        }
+    }
+
     private sealed class Driver : IGpuPeerDriverSession
     {
         private readonly Dictionary<ulong, byte[]> _devices = [];
         private readonly Dictionary<nint, byte[]> _hosts = [];
         private readonly Dictionary<nint, Action> _pending = [];
+        private readonly Dictionary<nint, nint> _pendingHosts = [];
         private long _sequence;
         public GpuDeviceIdentity Identity { get; set; } = new("unit", "barrier", "simulated", 1, false);
         public bool RejectAllocation
@@ -539,6 +805,22 @@ public sealed class GpuMemoryDeviceTests
             get; set;
         }
         public Action? BeforeQuery
+        {
+            get; set;
+        }
+        public Action? BeforeDispose
+        {
+            get; set;
+        }
+        public bool ThrowFreeDevice
+        {
+            get; set;
+        }
+        public bool ThrowFreeHost
+        {
+            get; set;
+        }
+        public bool ThrowSubmissionRelease
         {
             get; set;
         }
@@ -593,6 +875,10 @@ public sealed class GpuMemoryDeviceTests
         public void FreeDevice(GpuDeviceAddress address)
         {
             Assert.Empty(_pending);
+            if (ThrowFreeDevice)
+            {
+                throw new GpuDriverException("device-free-uncertain", 999);
+            }
             Assert.True(_devices.Remove(address.Value));
             Frees++;
         }
@@ -605,7 +891,11 @@ public sealed class GpuMemoryDeviceTests
         }
         public void FreeHost(GpuHostAddress address)
         {
-            Assert.Empty(_pending);
+            Assert.DoesNotContain(address.Value, _pendingHosts.Values);
+            if (ThrowFreeHost)
+            {
+                throw new GpuDriverException("host-free-uncertain", 999);
+            }
             Assert.True(_hosts.Remove(address.Value));
             Frees++;
         }
@@ -619,17 +909,21 @@ public sealed class GpuMemoryDeviceTests
             _hosts[address.Value].AsSpan(0, destination.Length).CopyTo(destination);
         }
         public GpuSubmission SubmitUpload(GpuHostAddress source, GpuDeviceAddress destination, long bytes)
-            => Submit(() => _hosts[source.Value].AsSpan(0, (int)bytes).CopyTo(_devices[destination.Value]));
+            => Submit(() => _hosts[source.Value].AsSpan(0, (int)bytes).CopyTo(_devices[destination.Value]), source.Value);
         public GpuSubmission SubmitReadback(GpuDeviceAddress source, GpuHostAddress destination, long bytes)
-            => Submit(() => _devices[source.Value].AsSpan(0, (int)bytes).CopyTo(_hosts[destination.Value]));
+            => Submit(() => _devices[source.Value].AsSpan(0, (int)bytes).CopyTo(_hosts[destination.Value]), destination.Value);
         public MemoryDetection DetectPeerAccess(IGpuPeerDriverSession destination) => MemoryDetection.Present;
         public GpuSubmission SubmitPeerTransfer(GpuDeviceAddress source, IGpuPeerDriverSession destination,
             GpuDeviceAddress destinationAddress, long bytes)
             => Submit(() => _devices[source.Value].AsSpan(0, (int)bytes).CopyTo(((Driver)destination)._devices[destinationAddress.Value]));
-        private GpuSubmission Submit(Action action)
+        private GpuSubmission Submit(Action action, nint host = 0)
         {
             nint id = (nint)(++_sequence);
             _pending.Add(id, action);
+            if (host != 0)
+            {
+                _pendingHosts.Add(id, host);
+            }
             if (ThrowSubmit)
             {
                 throw new GpuDriverException("after-submit", 999);
@@ -645,12 +939,21 @@ public sealed class GpuMemoryDeviceTests
             }
             return Completion;
         }
-        public void ReleaseSubmission(GpuSubmission submission) => Assert.True(_pending.Remove(submission.Event));
+        public void ReleaseSubmission(GpuSubmission submission)
+        {
+            if (ThrowSubmissionRelease)
+            {
+                throw new GpuDriverException("submission-release-uncertain", 999);
+            }
+            Assert.True(_pending.Remove(submission.Event));
+            _pendingHosts.Remove(submission.Event);
+        }
         public void Dispose()
         {
             Assert.Empty(_pending);
             Assert.Empty(_devices);
             Assert.Empty(_hosts);
+            BeforeDispose?.Invoke();
             Disposals++;
             if (ThrowDispose)
             {
