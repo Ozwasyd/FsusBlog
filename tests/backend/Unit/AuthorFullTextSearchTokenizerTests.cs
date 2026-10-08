@@ -122,6 +122,113 @@ public sealed class AuthorFullTextSearchTokenizerTests
             new string('a', AuthorFullTextSearchContract.MaxQueryCharacters + 1)));
     }
 
+    [Theory]
+    [InlineData("İ", "I\u0307", false)]
+    [InlineData("İ", "I\u0307", true)]
+    [InlineData("ᾳ", "α\u0345", false)]
+    [InlineData("ᾳ", "α\u0345", true)]
+    [InlineData("한글", "\u1112\u1161\u11AB\u1100\u1173\u11AF", false)]
+    [InlineData("한글", "\u1112\u1161\u11AB\u1100\u1173\u11AF", true)]
+    public void Canonically_Equivalent_Reviewer_Inputs_Have_Identical_Terms(string nfc, string nfd, bool query)
+    {
+        Assert.Equal(nfc, nfd.Normalize(NormalizationForm.FormC));
+        Assert.Equal(query ? AuthorFullTextSearchTokenizer.TokenizeQueryValue(nfc) : Tokenize(nfc).Select(t => t.Term),
+            query ? AuthorFullTextSearchTokenizer.TokenizeQueryValue(nfd) : Tokenize(nfd).Select(t => t.Term));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Turkish_And_Greek_Canonical_Forms_Preserve_Distinctions_And_Raw_Identity(bool decomposed)
+    {
+        const string Canonical = "I İ ı i ᾳ Α\u0345 café cafe";
+        string source = decomposed ? Canonical.Normalize(NormalizationForm.FormD) : Canonical;
+        string[] expected = ["i", "İ", "ı", "i", "ᾳ", "ᾳ", "café", "cafe"];
+        ImmutableArray<AuthorSearchToken> tokens = Tokenize(source);
+        Assert.Equal(expected, tokens.Select(static token => token.Term));
+        Assert.Equal(expected, AuthorFullTextSearchTokenizer.TokenizeQueryValue(source));
+        string[] rawWords = source.Split(' ');
+        int start = 0;
+        for (int index = 0; index < tokens.Length; index++)
+        {
+            Assert.Equal(index, tokens[index].Position);
+            Assert.Equal(Range(source, start, start + rawWords[index].Length), tokens[index].Source);
+            start += rawWords[index].Length + 1;
+        }
+    }
+
+    [Theory]
+    [InlineData("한", "글")]
+    [InlineData("\u1112\u1161\u11AB", "\u1100\u1173\u11AF")]
+    public void Hangul_Classification_Preserves_Exact_Raw_Ranges_In_A_Bounded_Mixed_Field(string first, string second)
+    {
+        const string Prefix = "outside 👩‍💻 ";
+        string field = "A" + first + second + "中İᾳ B";
+        string source = Prefix + field + " ignored";
+        AuthorSearchSourceRange fieldRange = Range(source, Prefix.Length, Prefix.Length + field.Length) with
+        {
+            SourceRevision = 37
+        };
+        ImmutableArray<AuthorSearchToken> tokens = AuthorFullTextSearchTokenizer.Tokenize(
+            source, fieldRange, "canonical-parser", "document:1");
+        string[] expected = ["a", "한", "글", "中", "İᾳ", "b"];
+        Assert.Equal(expected, tokens.Select(static token => token.Term));
+        Assert.Equal(expected, AuthorFullTextSearchTokenizer.TokenizeQueryValue(field));
+        string[] rawTokens = ["A", first, second, "中", "İᾳ", "B"];
+        int start = Prefix.Length;
+        for (int index = 0; index < tokens.Length; index++)
+        {
+            if (index == tokens.Length - 1)
+            {
+                start++;
+            }
+            int end = start + rawTokens[index].Length;
+            AuthorSearchSourceRange expectedRange = Range(source, start, end) with
+            {
+                SourceRevision = fieldRange.SourceRevision
+            };
+            Assert.Equal(index, tokens[index].Position);
+            Assert.Equal(expectedRange, tokens[index].Source);
+            Assert.Equal(rawTokens[index], source[start..end]);
+            Assert.Equal(Encoding.UTF8.GetBytes(rawTokens[index]),
+                Encoding.UTF8.GetBytes(source)[tokens[index].Source.Utf8Start..tokens[index].Source.Utf8End]);
+            start = end;
+        }
+        if (first.Length > 1)
+        {
+            Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchTokenizer.Tokenize(
+                source, Range(source, Prefix.Length + 1, Prefix.Length + 2), "canonical-parser", "document:1"));
+        }
+    }
+
+    [Fact]
+    public void All_Modern_Hangul_Syllables_Share_Source_And_Query_Boundaries_With_Nfd()
+    {
+        // Keep each query below its real budget while checking all 11,172 syllables,
+        // including adjacent syllables without spaces and both LV and LVT forms.
+        for (int first = 0xAC00; first <= 0xD7A3; first += 256)
+        {
+            string canonical = string.Concat(Enumerable.Range(first, Math.Min(256, 0xD7A4 - first))
+                .Select(static scalar => ((char)scalar).ToString()));
+            string decomposed = canonical.Normalize(NormalizationForm.FormD);
+            string[] expected = canonical.Select(static scalar => scalar.ToString()).ToArray();
+            Assert.Equal(expected, Tokenize(canonical).Select(static token => token.Term));
+            ImmutableArray<AuthorSearchToken> tokens = Tokenize(decomposed);
+            Assert.Equal(expected, tokens.Select(static token => token.Term));
+            Assert.Equal(expected, AuthorFullTextSearchTokenizer.TokenizeQueryValue(canonical));
+            Assert.Equal(expected, AuthorFullTextSearchTokenizer.TokenizeQueryValue(decomposed));
+            int start = 0;
+            for (int index = 0; index < tokens.Length; index++)
+            {
+                int end = start + expected[index].Normalize(NormalizationForm.FormD).Length;
+                Assert.Equal(index, tokens[index].Position);
+                Assert.Equal(Range(decomposed, start, end), tokens[index].Source);
+                start = end;
+            }
+            Assert.Equal(decomposed.Length, start);
+        }
+    }
+
     private static AuthorSearchSourceRange Range(string source, int start, int end)
         => new(AuthorFullTextSearchContract.SourceCoordinateAuthority, "canonical-parser", "document:1", 1,
             AuthorFullTextSearchContract.Digest(source), start, end,

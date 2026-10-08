@@ -87,6 +87,25 @@ public sealed class AuthorFullTextSearchContractsTests
         }
     }
 
+    [Fact]
+    public void Canonical_Tokenizer_Change_Rejects_Previous_Version_Documents_And_Queries()
+    {
+        const string PreviousTokenizer = "fsusblog.author-full-text-tokenizer.v2";
+        const string Raw = "I\u0307 한글";
+        Assert.NotEqual(PreviousTokenizer, AuthorFullTextSearchContract.TokenizerVersion);
+        Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchContract.ValidateDocument(
+            Document(Raw, 0, Raw.Length) with
+            {
+                TokenizerVersion = PreviousTokenizer
+            }, Raw,
+            s_definitions, "canonical-parse-package-v1", "article-7-epoch"));
+        Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchContract.ValidateQuery(
+            Query(new AuthorSearchClause(AuthorSearchClauseKind.PlainText, null, null, null, [Raw])) with
+            {
+                TokenizerVersion = PreviousTokenizer
+            }, s_definitions));
+    }
+
     [Theory]
     [InlineData("中文")]
     [InlineData("CAFÉ")]

@@ -19,7 +19,7 @@ public static partial class AuthorFullTextSearchContract
     public const int SchemaVersion = 2;
     public const string DocumentSchema = "fsusblog.author-full-text-document.v2";
     public const string QuerySchema = "fsusblog.author-full-text-query.v2";
-    public const string TokenizerVersion = "fsusblog.author-full-text-tokenizer.v2";
+    public const string TokenizerVersion = "fsusblog.author-full-text-tokenizer.v3";
     public const string RankingVersion = "fsusblog.author-full-text-ranking.v2";
     public const string IndexOwner = "author-full-text-index";
     public const string SourceCoordinateAuthority = "fsusui.markdown-source-coordinate-map";

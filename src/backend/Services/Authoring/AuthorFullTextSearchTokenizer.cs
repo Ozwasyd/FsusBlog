@@ -81,8 +81,11 @@ public static class AuthorFullTextSearchTokenizer
 
     private static string Normalize(ReadOnlySpan<char> raw)
     {
+        // Compose first: simple folding can change a combining mark (for example
+        // Greek ypogegrammeni), so folding raw NFD would break canonical equivalence.
+        string canonical = raw.ToString().Normalize(NormalizationForm.FormC);
         var normalized = new StringBuilder(raw.Length);
-        foreach (Rune rune in raw.EnumerateRunes())
+        foreach (Rune rune in canonical.EnumerateRunes())
         {
             normalized.Append(AuthorFullTextSearchCaseFold.Fold(rune).ToString());
         }
@@ -112,7 +115,9 @@ public static class AuthorFullTextSearchTokenizer
                 }
                 continue;
             }
-            Rune scalar = Rune.GetRuneAt(element, 0);
+            // Classify a canonical representative while retaining every raw offset.
+            // Decomposed Hangul is one grapheme whose first raw scalar is a Jamo.
+            Rune scalar = Rune.GetRuneAt(element.Normalize(NormalizationForm.FormC), 0);
             bool independent = IsCjk(scalar.Value) || IsSymbolElement(element, scalar);
             bool word = !independent && IsWord(scalar);
             if (!word && wordStart >= 0)
