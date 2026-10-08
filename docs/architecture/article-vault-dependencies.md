@@ -139,3 +139,21 @@ classify BothModified as Blocked; the new-operation adapter preserves all observ
 coordinates and candidate refusal. Root decision/executable-candidate integration
 remains incomplete until a legitimate current candidate can be bound without clearing
 SOURCE HOLD or inventing those missing facts.
+
+`ArticleVaultCurrentSourceReader` now binds the existing exact-current revision
+reader to the original sealed plan and complete current group through shared
+trusted-site DI. It reuses the original executor observation guard and existing
+live permission guard, preserving their refusal semantics. It rechecks current
+facts and permission after reading, validates the literal revision ID and raw
+source-byte identity, and supplies only the verified server bytes to the existing
+three-way source admission owner. A Blocked original plan stays Blocked; no
+writer, package codec, source winner or native admission is introduced.
+
+This fills the current-server source-read integration, not complete metadata or
+decision admission. Existing revision fields and definition-store APIs must be
+distinguished from the absent persisted article-value/current-manifest bridge.
+The package owner supplies portable slug/taxonomy/property mappings under its
+original unresolved-definition policy; the value owner supplies actual persisted
+revision/property coordinates and current definition/permission binding. Source
+acquisition for base/local, typed dependencies, real assets, native writes/readback
+and base completion retain their separate canonical owners and qualification gates.

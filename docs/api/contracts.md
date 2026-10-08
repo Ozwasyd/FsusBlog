@@ -3194,3 +3194,41 @@ They require exact current selected source/revision/graph coordinates and actual
 canonical dependency authority before consumption. A digest verified against a
 saved article manifest cannot substitute for a fresh server observation; current
 coordinate admission and producer integration remain unqualified.
+
+### Vault exact-current source integration
+
+`ArticleVaultCurrentSourceReader.ReadAsync` is an in-process read over an exact
+original sealed plan/group/operation reference and an authenticated document
+context. Explicit trusted-site DI reuses the sole execution store, current
+observation authority, production revision reader, live permission provider and
+time provider. The configured permission site, trusted Vault site and primary
+revision-compare scope retain their existing distinct meanings.
+
+The reader reuses the original executor's complete-group current-observation
+guard before and after reading. The production revision reader receives a
+`CurrentRevision` selector pinned to the actual revision ID, not revision number.
+The package seal, literal article/revision/source identity and complete raw-byte
+identity are checked against the original observed server coordinate. Live
+permission/session and site configuration are rechecked, and cancellation or
+expiry returns no snapshot. Rights/publication/group changes are also refused.
+Blocked plans may supply these read-only facts; their decisions, coordinates,
+operation order and execution eligibility remain unchanged.
+
+`BindServerAsync` supplies those actual server bytes to the existing
+`ArticleVaultAdmittedSource.AdmitCurrent` three-way verifier. Caller-supplied
+base/local bytes still require their original coordinate and byte checks; this
+binding does not qualify native acquisition or Git facts. Both current-source
+results explicitly deny execution and base commit. No HTTP/wire surface,
+alternate planner/package codec or writer is installed.
+
+The current package contains actual title, summary, cover image, category/tag IDs
+and revision rights/responsibility/release snapshots. It does not contain a V1
+slug or portable taxonomy mapping. Property definition `GetAsync` and permission
+validation already exist under the canonical definition owner; the missing part
+is an authorized persisted article-value/revision snapshot and its bridge to
+the exact current Vault metadata coordinate. Pure `BindSnapshot` and supplied
+package property candidates cannot establish that persistence. Complete V1
+metadata bytes and their digest must come from a legitimate original producer;
+the observer's existing opaque projection digest cannot be substituted. The
+resolution planner's decision and candidate admission remains closed pending
+those facts and the root's executable-candidate integration.

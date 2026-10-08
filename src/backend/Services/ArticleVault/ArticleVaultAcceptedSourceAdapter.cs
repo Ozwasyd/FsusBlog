@@ -158,7 +158,7 @@ public sealed class ArticleVaultAcceptedSourceAdapter
             ArticleVaultManifestCodec.CaptureSourceBytes(package.RawMarkdown.AsSpan()), after.ContentDigest);
     }
 
-    private static void RequirePermission(
+    internal static void RequirePermission(
         AuthorRecentArticleHistoryPermissionSnapshot snapshot,
         AuthorRecentArticleHistoryOwner owner,
         int articleId)

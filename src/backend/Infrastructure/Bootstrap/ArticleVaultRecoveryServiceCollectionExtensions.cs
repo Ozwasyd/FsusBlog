@@ -80,6 +80,7 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(trustedVaultSiteIdentity);
         if (services.Any(static descriptor => descriptor.ServiceType == typeof(ArticleVaultAcceptedSourceAdapter)
+            || descriptor.ServiceType == typeof(ArticleVaultCurrentSourceReader)
             || descriptor.ServiceType == typeof(ArticleVaultRecoveryCheckpointReader)
             || descriptor.ServiceType == typeof(ArticleVaultConflictReviewReader)))
         {
@@ -91,6 +92,12 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
             provider.GetRequiredService<IRevisionComparePackageReader>(),
             provider.GetRequiredService<IAuthorRecentArticleHistoryPermissionProjectionProvider>(),
             provider.GetRequiredService<IConfiguration>(), trustedVaultSiteIdentity));
+        services.AddScoped(provider => new ArticleVaultCurrentSourceReader(
+            provider.GetRequiredService<IArticleVaultExecutionStore>(),
+            provider.GetRequiredService<IArticleVaultCurrentObservationAuthority>(),
+            provider.GetRequiredService<IRevisionComparePackageReader>(),
+            provider.GetRequiredService<IAuthorRecentArticleHistoryPermissionProjectionProvider>(),
+            provider.GetRequiredService<IConfiguration>(), provider.GetRequiredService<TimeProvider>(), trustedVaultSiteIdentity));
         services.AddScoped<ArticleVaultRecoveryCheckpointReader>();
         services.AddScoped<ArticleVaultRecoveryStoredProposalReader>();
         services.AddScoped(provider => new ArticleVaultRecoveryHistoryReader(

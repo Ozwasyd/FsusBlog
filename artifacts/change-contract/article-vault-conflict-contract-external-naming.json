@@ -59,6 +59,7 @@
                 "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultAcceptedSourceAdapter.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultConflictReviewReader.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultCurrentSourceReader.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultMaterializationPreflightVerifier.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultPackagePropertyMetadataBridge.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultPropertyMetadataMerge.cs",

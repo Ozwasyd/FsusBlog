@@ -1,0 +1,225 @@
+{
+    "schema": "fsusblog.article-vault.current-candidate-input-handoff.v1",
+    "latestFetchedMaster": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "sourceBindings": [
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultCurrentSourceReader.cs",
+            "sha256": "ec26b48ce5e0c880d91e4dbaec9ebc6c6ec94891ca4978b087a4d1bc828d8a50"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultSyncPlanExecutor.cs",
+            "sha256": "72b35a527fb42a3dc6c8ea1bfdb773137ba3c2806289f5c175f29b47a871e9f1"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultExecutionIntegrity.cs",
+            "sha256": "8368dce88a79d37a748235c2d2c4de943278f5c863f88dfd765b675c547aae4b"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultPackagePropertyMetadataBridge.cs",
+            "sha256": "5769164a63bb9740f2f055b68800599aeec64f5537d2793be6e3005d37111468"
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultPropertyMetadataMerge.cs",
+            "sha256": "134c4a39176ec536267a2b2872ee08a6fa7254879f0f220f8252c1eab4b9de16"
+        },
+        {
+            "path": "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+            "sha256": "feaae169d641bde96508c8d374b57e976f84d70d553595c0fa7bab1ca4ab4915"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs",
+            "sha256": "c8b1e8cf766fe99aaea1a8383f366b0f390cf23fd8fb0df9d55eeff4da191056"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs",
+            "sha256": "f5e8d9b547a1bf766e2181f34320c03794a82d284f6aeb1666bb423014812ec5"
+        },
+        {
+            "path": "src/backend/Models/Dtos/AuthoringDtos.cs",
+            "sha256": "c50d0cae82b202ac4d8f88b2c1357a720adcaa265569bdf8533581cb2d9aed04"
+        },
+        {
+            "path": "src/backend/Interfaces/IAssetStore.cs",
+            "sha256": "b922697f9f44ecc7dfd4044ab7066c2c7144d7028980e05a965163c7cc7f6e5c"
+        },
+        {
+            "path": "src/backend/Interfaces/IPrivateAssetStore.cs",
+            "sha256": "72388deb30d36e244abbe95e110303c889bdd0427b02cb59a2b5147bf536a37d"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultManifestContracts.cs",
+            "sha256": "66ec8bc2077388095660c39e65a1292c764e0162acf6afcfa421f43874b812d1"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs",
+            "sha256": "c0b4251bc8277617093f5fc82cace5555e917b19a653951cd9765a2915b6cbfe"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultResolutionOperationPlan.cs",
+            "sha256": "6cbc59d6bb036e1693e85e0e6b549d4bad35476079c24ca6386cb6d5f9e421b3"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+            "sha256": "fae3cbc8a96d92de6fee2764a0c9360633f52029bf202a61a57cc32e52277b7d"
+        }
+    ],
+    "failingCallers": [
+        {
+            "method": "ArticleVaultResolutionPlanner.RequireExecutionAdmission",
+            "reason": "article_vault_resolution_canonical_execution_admission_missing"
+        },
+        {
+            "method": "ArticleVaultResolutionOperationPlanner.RequireExecutionAdmission",
+            "reason": "article_vault_resolution_operation_canonical_planner_decision_admission_missing / canonical_candidate_payload_admission_missing"
+        },
+        {
+            "method": "ArticleVaultPackagePropertyMetadataBridge.RequireExecutionAdmission",
+            "reason": "article_vault_package_property_source_hold_and_complete_metadata_authority_missing"
+        },
+        {
+            "method": "ArticleVaultPropertyMetadataMerge.RequireExecutionAdmission",
+            "reason": "article_vault_property_metadata_current_definition_rights_and_persisted_reader_missing"
+        }
+    ],
+    "fields": [
+        {
+            "field": "Schema / SchemaVersion",
+            "state": "present",
+            "existingProvider": "ArticleVaultSchemas.MetadataManifest / Version; original codec/validator",
+            "canonicalOwningIssue": "#2118 root",
+            "exactTargetMethod": "ArticleVaultScalarMetadataMerge.Build / VerifyCurrentCandidate",
+            "requiredSourceProvenance": "Use the existing closed V1 schema; no second codec or permissive JSON."
+        },
+        {
+            "field": "SiteIdentity / VaultIdentity / DeviceIdentity",
+            "state": "present",
+            "existingProvider": "Original sealed plan/root and explicit trusted-site composition",
+            "canonicalOwningIssue": "#3582 root integration",
+            "exactTargetMethod": "ArticleVaultCurrentSourceReader.ReadAsync; scalar/property input binding",
+            "requiredSourceProvenance": "Preserve Vault identity, configured permission site and primary revision-compare scope as distinct scopes; require an explicit canonical mapping where package/value scopes differ."
+        },
+        {
+            "field": "PortableArticleIdentity / ServerArticleIdentity",
+            "state": "present, portable cross-package mapping still conditional",
+            "existingProvider": "Original sealed operation + authenticated document context + actual CurrentRevision reader; finite package PortableArticle identity",
+            "canonicalOwningIssue": "#3582 root; #1865/#3663 mapping",
+            "exactTargetMethod": "ArticleVaultCurrentSourceReader.ReadAsync; ArticleVaultPackagePropertyMetadataBridge.ReadCurrent",
+            "requiredSourceProvenance": "Literal operation/article and authorized revision identity are now bound. The package owner must supply its exact portable-to-server mapping, not a label/path/name match."
+        },
+        {
+            "field": "Title / Summary",
+            "state": "present as finite authorized revision fields",
+            "existingProvider": "IRevisionComparePackageReader.ReadAuthorizedAsync(CurrentRevision), package.Metadata; canonical title/summary mapper and finite manifest candidate",
+            "canonicalOwningIssue": "#3582 root binding; #1865/#3663 package projection",
+            "exactTargetMethod": "ArticleVaultScalarMetadataInput.ServerBytes; ArticleVaultScalarMetadataMerge.ReadCurrent",
+            "requiredSourceProvenance": "Provide exact current metadata projection provenance and raw V1 bytes. Finite revision fields alone do not establish that the full V1 digest equals the observed coordinate."
+        },
+        {
+            "field": "Slug",
+            "state": "absent from current persisted revision read",
+            "existingProvider": "V1 ArticleVaultMetadataManifest.Slug exists; actual ArticleRevisionDetailResponse and finite manifest candidate have no slug. ArticleCanonicalInput.PublicRouteKey is a supplied field, not a persisted V1 slug authority.",
+            "canonicalOwningIssue": "#1865/#3663 full portable metadata; #2118 root projection",
+            "exactTargetMethod": "ArticleVaultScalarMetadataInput.BaseBytes / LocalBytes / ServerBytes; ArticleVaultScalarMetadataMerge.ReadCurrent",
+            "requiredSourceProvenance": "Need the canonical persisted/native/export slug source and versioned mapping policy. Do not default from article ID, title, URL or projection path."
+        },
+        {
+            "field": "TaxonomySha256 + typed category/tag portable identities",
+            "state": "IDs present; canonical portable mapping and bound digest absent",
+            "existingProvider": "Revision package and ArticleCanonicalInput contain CategoryId/TagIds. Current observer hashes these in an opaque projection; the finite manifest omits typed portable taxonomy.",
+            "canonicalOwningIssue": "#1865/#3663 canonical mapping; #2118 root merge",
+            "exactTargetMethod": "ArticleVaultScalarMetadataMerge.ReadCurrent; ArticleVaultPropertyMetadataMerge.ReadCurrent",
+            "requiredSourceProvenance": "Supply stable portable/server entity bindings and schema/current provenance for all three snapshots. Same labels/array order cannot establish equivalence; unknown definitions remain unresolved under the existing map/create/skip policy."
+        },
+        {
+            "field": "PropertiesSha256 + typed value provenance",
+            "state": "pure contracts/mappers present; authorized persisted value read absent",
+            "existingProvider": "ArticlePropertyValueValidator.BindSnapshot / ValidateSnapshotCandidate; ArticlePackagePropertyMapper.TryMapCandidate; ArticlePropertyValueSnapshot and mapping bindings",
+            "canonicalOwningIssue": "#2323 values; #2322 definitions; tracking #1808; #1865/#3663 portable mapping",
+            "exactTargetMethod": "ArticleVaultPropertyMetadataInput.{Base,Local,Server}; ArticleVaultPropertyMetadataMerge.ReadCurrent / RequireExecutionAdmission",
+            "requiredSourceProvenance": "Need genuine ArticlePropertyValueSnapshot coordinates: SiteScope, ArticleId, ArticleRevisionId, PropertyRevision, DefinitionOwnerUserId and applicable draft/publication coordinates, plus immutable rows/digest. BindSnapshot on caller assertions does not prove persistence. Current draft/publication-to-Vault mapping is not supplied and remains refused."
+        },
+        {
+            "field": "Current definition schema/option identities and rights",
+            "state": "definition API present; revision-value/definition bridge absent",
+            "existingProvider": "IArticlePropertyDefinitionStore.GetAsync / VerifyAsync; IArticlePropertyDefinitionPermissionAuthority.EnsureAllowed; ArticlePropertyValueValidator.ValidateAsync",
+            "canonicalOwningIssue": "#2322 definitions / #2323 current value owner; #2118 root consumer",
+            "exactTargetMethod": "ArticlePackagePropertyMappingBindings; ArticleVaultPropertyMetadataMerge.RequireExecutionAdmission",
+            "requiredSourceProvenance": "Use the existing authorized definition owner. Bind actual schema revision/digest, owner, definition-scoped option IDs and current permissions to the persisted values; do not create another definition store or claim this API is absent."
+        },
+        {
+            "field": "ContentSha256 / original metadata manifest bytes",
+            "state": "original codec present; authoritative current full input absent",
+            "existingProvider": "ArticleVaultManifestCodec.ComputeContentSha256 / SerializeCanonical / DeserializeMetadataManifest; current server observer instead computes title/summary/cover/category/tag projection digest",
+            "canonicalOwningIssue": "#2118 root projection using #1865/#3663 mapping and #2323 actual values",
+            "exactTargetMethod": "ArticleVaultScalarMetadataMerge.ReadCurrent; ArticleVaultPropertyMetadataMerge.ReadCurrent",
+            "requiredSourceProvenance": "All thirteen V1 fields must be assembled from legitimate sources; all three raw manifests must match the original three-coordinate MetadataManifestSha256. The opaque server projection digest cannot be renamed as a V1 content digest."
+        },
+        {
+            "field": "Source bytes / SourceSha256",
+            "state": "server current read now bound; base/local native acquisition unqualified",
+            "existingProvider": "ArticleVaultCurrentSourceReader.BindServerAsync -> ArticleVaultAdmittedSource.AdmitCurrent; actual production CurrentRevision reader",
+            "canonicalOwningIssue": "#3582 root binding; canonical #2110/#2112 native capture and #2117 source merge",
+            "exactTargetMethod": "ArticleVaultSourceAdmissionInput.{BaseBytes,LocalBytes,ServerBytes}; resolution executable payload",
+            "requiredSourceProvenance": "Server source is pinned to revision ID and exact raw bytes, preserving BOM/newlines. Base/local still need genuine stable snapshots and Git-current provenance. ResolutionPlanInput currently contains metadata bytes and expected source digest, not an executable source payload."
+        },
+        {
+            "field": "CoverImageUrl / CategoryId / TagIds payload facts",
+            "state": "finite fields present; asset/portable current binding separate",
+            "existingProvider": "Authorized revision package; existing ArticleVaultExecutionPayloadItem; canonical asset byte validator, IPrivateAssetStore.OpenReadAsync and private access ticket policy already exist",
+            "canonicalOwningIssue": "#1779/#2125 asset authority; #1865 portable mapping; #3582 candidate integration",
+            "exactTargetMethod": "ArticleVaultExecutionPayloadItem; dependency/current candidate preflight",
+            "requiredSourceProvenance": "Existing asset reads and byte/MIME/size/dimension checks are present. Need operation/plan/AssetId/source-revision/owner/rights/ledger exact authorized read and upload/reuse receipts. OpenReadAsync or a display URL alone is not a Vault operation grant; current IAssetStore exposes DeleteAsync only."
+        },
+        {
+            "field": "DependencySha256 / typed embedded sources",
+            "state": "finite contracts and graph validators present; current supplier projection conditional",
+            "existingProvider": "Existing PortableDependencyVerifier and finite package APIs; newer #3653 typed slots under canonical package owner review",
+            "canonicalOwningIssue": "#2124/#2125/#2126/#2127; #1865/#3663 package; #3653 export slot owner",
+            "exactTargetMethod": "VaultResolutionExpectedOutput.DependencySha256; current candidate preflight",
+            "requiredSourceProvenance": "Need exact selected source/revision/graph and authorized stable nodes/edges/frozen publication facts. Do not use old FrozenInput assumptions, saved server graphs or fabricated upload/publication receipts."
+        },
+        {
+            "field": "Permission / lifecycle / publication / owner boundaries",
+            "state": "real current observation and permission APIs present",
+            "existingProvider": "IArticleVaultCurrentObservationAuthority.ObserveGroupAsync; live history permission provider; canonical CurrentRevision snapshots",
+            "canonicalOwningIssue": "#3582 current-source integration; canonical server writer",
+            "exactTargetMethod": "ArticleVaultSyncPlanExecutor.ValidateCurrentObservations; candidate/writer admission",
+            "requiredSourceProvenance": "The root now delegates the original complete-group and live-permission guards before/after reading. Revision snapshots are historical facts; native metadata cannot grant lifecycle/rights/owner changes."
+        },
+        {
+            "field": "Verified decision / executable candidate admission",
+            "state": "root-owned unfinished capability",
+            "existingProvider": "ArticleVaultResolutionPlanner.RequireExecutionAdmission always refuses after VerifyCurrent; operation planner preserves Blocked and returns canonical_planner_decision_admission_missing or canonical_candidate_payload_admission_missing",
+            "canonicalOwningIssue": "#3582 sole root integration; #2121 canonical resolution executor",
+            "exactTargetMethod": "ArticleVaultResolutionPlanner.RequireExecutionAdmission; ArticleVaultResolutionOperationPlanner.RequireExecutionAdmission; ArticleVaultExecutionIntegrity.ValidateBundle",
+            "requiredSourceProvenance": "The original scalar proposal carries expected digests, not executable values/bytes; the original payload membership admits only PushCreate/PushUpdate and binds observed Local. Root must add a legitimate verified-candidate integration after supplier facts exist. Do not rewrite original observations/Blocked decisions to Ready or add a second planner/codec/writer."
+        }
+    ],
+    "supplierRequests": {
+        "package": [
+            "Exact full published identity and original acceptance evidence for latest package source, including its newer typed embed projection. Parent-reported4068caad resolves read-only to4068caadabbc8e5e229a3a22cb00cd405d124314; source was inspected, not silently consumed.",
+            "Full versioned slug/taxonomy/property portable metadata bindings and actual revision/export/current-source provenance using existing codecs and immutable byte candidates.",
+            "The54b924 finite Validate(inventory,files,out candidate,ct), TryCreatePlan(candidate,request,out plan,ct) and candidate.CopyFileBytes(path) provide finite bytes, not execution authority. Latest ZIP candidate RequireArchiveAuthority remains article_package_zip_authority_unavailable."
+        ],
+        "values": [
+            "Actual authorized persisted ArticlePropertyValueSnapshot at exact article/revision/property epoch; current definition/option/owner/rights bindings using existing #2322 APIs. No synthetic empty/default snapshot or invented PropertyRevision."
+        ],
+        "assets": [
+            "Exact supplied canonical operation-bound read/upload/reuse/ledger APIs and current receipts. Existing private read/policy/inspector APIs are present; required operation admission is not inferred from them."
+        ],
+        "native": [
+            "Exact canonical current acquisition handoff and admitted filesystem/lease/IPC facts; actual native encrypted capture, conditional write, final readback and base remain independent qualification gaps."
+        ]
+    },
+    "rootResponsibility": "Current-server source adapter/DI and original byte binding implemented; verified-decision/executable-candidate admission remains root-owned unfinished work and is not transferred or accepted.",
+    "ownershipCorrection": {
+        "accounted": 49,
+        "retained": 20,
+        "delegated": 29,
+        "subchains": 11,
+        "prototype1871": "dedicated prototype owner; do not duplicate"
+    },
+    "canExecute": false,
+    "canCommitBase": false,
+    "accepted": false
+}

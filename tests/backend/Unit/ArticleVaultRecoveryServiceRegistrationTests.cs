@@ -26,6 +26,8 @@ public sealed class ArticleVaultRecoveryServiceRegistrationTests
         services.AddSingleton(Substitute.For<IArticleVaultExecutionStore>());
         services.AddSingleton(Substitute.For<IArticleVaultOperationCheckpointStore>());
         services.AddSingleton(Substitute.For<IArticleVaultResolutionProposalStore>());
+        services.AddSingleton(Substitute.For<IArticleVaultCurrentObservationAuthority>());
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddSingleton(Substitute.For<IAuthoringRevisionCompareAuthority>());
         services.AddSingleton(Substitute.For<IAuthoringDraftLifecycle>());
         services.AddSingleton(Substitute.For<IAuthorRecentArticleHistoryPermissionProjectionProvider>());
@@ -34,6 +36,9 @@ public sealed class ArticleVaultRecoveryServiceRegistrationTests
         using IServiceScope scope = provider.CreateScope();
         Assert.IsType<AuthoringRevisionComparePackageReader>(scope.ServiceProvider.GetRequiredService<IRevisionComparePackageReader>());
         Assert.IsType<ArticleVaultAcceptedSourceAdapter>(scope.ServiceProvider.GetRequiredService<ArticleVaultAcceptedSourceAdapter>());
+        Assert.IsType<ArticleVaultCurrentSourceReader>(scope.ServiceProvider.GetRequiredService<ArticleVaultCurrentSourceReader>());
+        Assert.Same(scope.ServiceProvider.GetRequiredService<ArticleVaultCurrentSourceReader>(),
+            scope.ServiceProvider.GetRequiredService<ArticleVaultCurrentSourceReader>());
         Assert.IsType<ArticleVaultRecoveryCheckpointReader>(scope.ServiceProvider.GetRequiredService<ArticleVaultRecoveryCheckpointReader>());
         Assert.IsType<ArticleVaultConflictReviewReader>(scope.ServiceProvider.GetRequiredService<ArticleVaultConflictReviewReader>());
         Assert.IsType<ArticleVaultRecoveryStoredProposalReader>(scope.ServiceProvider.GetRequiredService<ArticleVaultRecoveryStoredProposalReader>());
