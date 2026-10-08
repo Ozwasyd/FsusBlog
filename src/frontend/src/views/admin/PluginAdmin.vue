@@ -45,6 +45,7 @@
                     aria-label="已安装插件"
                     density="compact"
                     variant="navigation"
+                    responsive
                     :show-header="false"
                     @change="(_row, key) => selectPlugin(String(key))"
                 >

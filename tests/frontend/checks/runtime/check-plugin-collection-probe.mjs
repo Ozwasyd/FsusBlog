@@ -221,6 +221,29 @@ async function probeCandidate(context, baseUrl, candidate, modeReport)
     });
     if (candidate === 'data-list')
     {
+        await observe(checks, 'responsive-opt-in-and-single-owner', async () =>
+        {
+            await page.setViewportSize({ width: 375, height: 900 });
+            const observations = [];
+            for (const responsive of [false, true])
+            {
+                await configure(page, candidate, 1, { responsive });
+                assert.equal(await collection.getByRole('list').count(), 1);
+                assert.equal(await collection.getByRole('listitem').count(), 1);
+                assert.equal(await rows().count(), 1);
+                const cells = await rows().first().evaluate((node) => Array.from(node.children).map((cell) =>
+                {
+                    const box = cell.getBoundingClientRect();
+                    return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+                }));
+                assert.equal(cells.length, 2);
+                assert.ok(responsive ? cells[1].top >= cells[0].bottom - 1 : cells[1].left >= cells[0].right - 1,
+                    'responsive layout must be opt-in, preserving a single row owner and cell source order');
+                observations.push({ responsive, cells });
+            }
+            await page.setViewportSize({ width: 1440, height: 900 });
+            return observations;
+        });
         await observe(checks, 'public-disabled-and-loading-negative-controls', async () =>
         {
             const observations = [];
@@ -288,6 +311,23 @@ async function probeCandidate(context, baseUrl, candidate, modeReport)
                         for (const field of ['Duplicate plugin name', '-long-identity', '1.2.3', 'Healthy', 'wasm'])
                         {
                             assert.ok(text.includes(field), `missing ${field}`);
+                        }
+                        if (candidate === 'data-list')
+                        {
+                            const cells = await rows().first().evaluate((node) => Array.from(node.children).map((cell) =>
+                            {
+                                const box = cell.getBoundingClientRect();
+                                return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+                            }));
+                            assert.equal(cells.length, 2, 'identity and status must each remain in a public cell');
+                            if ([375, 768].includes(width))
+                            {
+                                assert.ok(cells[1].top >= cells[0].bottom - 1, 'public responsive rows must stack cells on the narrow viewport');
+                            }
+                            else
+                            {
+                                assert.ok(cells[1].left >= cells[0].right - 1, 'wide rows must preserve column order');
+                            }
                         }
                         await rows().last().scrollIntoViewIfNeeded();
                     }
