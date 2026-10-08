@@ -239,7 +239,78 @@ public sealed class GpuMemoryDeviceTests
         {
             Requested = MemoryCapabilityMode.Disabled
         }));
+        Assert.Throws<ArgumentException>(() => fixture.Create(Fixture.Qualified with { Detection = MemoryDetection.Absent }));
         Assert.Equal(0, fixture.Driver.DeviceAllocations);
+    }
+
+    [Fact]
+    public void PeerSourceHoldsHaveDeviceWideBoundAcrossDistinctAllocations()
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        using var first = device.TryAllocate(fixture.Content, 8, new(1)).Value!;
+        using var second = device.TryAllocate(fixture.Content, 8, new(2)).Value!;
+        device.TryUpload(first, new Source(fixture.Content, new byte[8]), first.Location);
+        device.TryUpload(second, new Source(fixture.Content, new byte[8]), second.Location);
+        fixture.Driver.Completion = GpuCompletion.Complete;
+        device.PollCompletions();
+        using var one = first.TryAcquirePeerHold(first.Location).Value!;
+        using var two = first.TryAcquirePeerHold(first.Location).Value!;
+        using var three = second.TryAcquirePeerHold(second.Location).Value!;
+        using var four = second.TryAcquirePeerHold(second.Location).Value!;
+        Assert.Equal(MemoryFailure.BudgetRejected, second.TryAcquirePeerHold(second.Location).Failure);
+        Assert.Equal(MemoryFailure.BudgetRejected, device.TryReadback(first, first.Location).Failure);
+        Assert.Equal(4, device.Snapshot().Operations);
+    }
+
+    [Fact]
+    public void PeerTransferCannotCreateSeparateAccountingAuthority()
+    {
+        var sourceFixture = new Fixture();
+        var other = new Fixture { Content = sourceFixture.Content };
+        using var sourceDevice = sourceFixture.Create();
+        using var destinationDevice = other.Create();
+        using var source = sourceDevice.TryAllocate(sourceFixture.Content, 8, new(1)).Value!;
+        using var destination = destinationDevice.TryAllocate(sourceFixture.Content, 8, new(1)).Value!;
+        Assert.Equal(MemoryFailure.UnsupportedCapability, destinationDevice.TryPeerUpload(destination, source,
+            Fixture.Qualified, GpuPeerCapabilityFacts.ClassicDeviceAllocation(1, MemoryDetection.Present),
+            MemoryQualification.Qualified, "unit simulation").Failure);
+        Assert.Equal(0, sourceFixture.Ledger.Snapshot().Used["slots"]);
+        Assert.Equal(0, other.Ledger.Snapshot().Used["slots"]);
+    }
+
+    [Fact]
+    public void ReadbackFaultInvalidatesDeviceAndRetainsConsumerCustody()
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        using var allocation = device.TryAllocate(fixture.Content, 8, new(1)).Value!;
+        device.TryUpload(allocation, new Source(fixture.Content, new byte[8]), allocation.Location);
+        fixture.Driver.Completion = GpuCompletion.Complete;
+        device.PollCompletions();
+        using var readback = device.TryReadback(allocation, allocation.Location).Value!;
+        device.PollCompletions();
+        fixture.Driver.ThrowReadback = true;
+        Assert.Throws<GpuDriverException>(() => readback.CopyReadbackTo(new byte[8]));
+        readback.Dispose();
+        Assert.False(allocation.IsCurrent);
+        Assert.True(device.Snapshot().RestartRequired);
+        Assert.Equal(1, fixture.Ledger.Snapshot().Used["slots"]);
+        Assert.Equal(1, device.Snapshot().QuarantinedOperations);
+    }
+
+    [Fact]
+    public void FailedContextTeardownIsQuarantinedWithoutAmbiguousRetry()
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        fixture.Driver.ThrowDispose = true;
+        device.Dispose();
+        Assert.True(device.Snapshot().RestartRequired);
+        Assert.Equal(1, fixture.Driver.Disposals);
+        device.Dispose();
+        device.PollCompletions();
+        Assert.Equal(1, fixture.Driver.Disposals);
     }
 
     [Fact]
@@ -263,7 +334,7 @@ public sealed class GpuMemoryDeviceTests
     public async Task PeerCopyRetainsBothDeviceOwnersAndPublishesOnlyCompleteIdenticalBytes()
     {
         var sourceFixture = new Fixture();
-        var destinationFixture = new Fixture { Content = sourceFixture.Content };
+        var destinationFixture = new Fixture(sourceFixture);
         using var sourceDevice = sourceFixture.Create();
         using var destinationDevice = destinationFixture.Create();
         using var source = sourceDevice.TryAllocate(sourceFixture.Content, 8, new(1)).Value!;
@@ -281,13 +352,13 @@ public sealed class GpuMemoryDeviceTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => peer.WaitAsync(cancellation.Token));
         source.Dispose();
         Assert.Equal(8, sourceFixture.Ledger.Snapshot().Used["device"]);
-        Assert.Equal(1, destinationFixture.Ledger.Snapshot().Used["slots"]);
+        Assert.Equal(1, destinationFixture.Ledger.Snapshot().Used["peer-slots"]);
         Assert.Equal(MemoryFailure.StaleLocation, destinationDevice.TryReadback(destination, destination.Location).Failure);
         sourceFixture.Driver.Completion = GpuCompletion.Complete;
         destinationDevice.PollCompletions();
         Assert.True((await peer.WaitAsync()).Succeeded);
         Assert.Equal(0, sourceFixture.Ledger.Snapshot().Used["device"]);
-        Assert.Equal(0, destinationFixture.Ledger.Snapshot().Used["slots"]);
+        Assert.Equal(0, destinationFixture.Ledger.Snapshot().Used["peer-slots"]);
         using var readback = destinationDevice.TryReadback(destination, destination.Location).Value!;
         destinationFixture.Driver.Completion = GpuCompletion.Complete;
         destinationDevice.PollCompletions();
@@ -300,7 +371,7 @@ public sealed class GpuMemoryDeviceTests
     public async Task RegistrySnapshotDoesNotWaitForPeerDriverOrAcquirePeerOperationLock()
     {
         var sourceFixture = new Fixture();
-        var destinationFixture = new Fixture { Content = sourceFixture.Content };
+        var destinationFixture = new Fixture(sourceFixture);
         using var sourceDevice = sourceFixture.Create();
         using var destinationDevice = destinationFixture.Create();
         using var source = sourceDevice.TryAllocate(sourceFixture.Content, 8, new(1)).Value!;
@@ -338,7 +409,7 @@ public sealed class GpuMemoryDeviceTests
     public async Task PeerLossRetainsSlotAndBothAllocationsAndPreventsUninitializedReads()
     {
         var sourceFixture = new Fixture();
-        var destinationFixture = new Fixture { Content = sourceFixture.Content };
+        var destinationFixture = new Fixture(sourceFixture);
         using var sourceDevice = sourceFixture.Create();
         using var destinationDevice = destinationFixture.Create();
         using var source = sourceDevice.TryAllocate(sourceFixture.Content, 8, new(1)).Value!;
@@ -355,8 +426,8 @@ public sealed class GpuMemoryDeviceTests
         destination.Dispose();
         destinationDevice.Dispose();
         Assert.Equal(8, sourceFixture.Ledger.Snapshot().Used["device"]);
-        Assert.Equal(8, destinationFixture.Ledger.Snapshot().Used["device"]);
-        Assert.Equal(1, destinationFixture.Ledger.Snapshot().Used["slots"]);
+        Assert.Equal(8, destinationFixture.Ledger.Snapshot().Used["peer-device"]);
+        Assert.Equal(1, destinationFixture.Ledger.Snapshot().Used["peer-slots"]);
         Assert.True(destinationDevice.Snapshot().RestartRequired);
         Assert.Equal(1, destinationDevice.Snapshot().QuarantinedOperations);
     }
@@ -377,6 +448,18 @@ public sealed class GpuMemoryDeviceTests
             get;
         }
 
+        private readonly ResourceDomainId _peerDevice = new(Guid.NewGuid());
+        private readonly ResourceDomainId _peerSlots = new(Guid.NewGuid());
+        public Fixture(Fixture peer)
+        {
+            _host = peer._host;
+            _device = peer._peerDevice;
+            _registered = peer._registered;
+            _slots = peer._peerSlots;
+            Ledger = peer.Ledger;
+            Content = peer.Content;
+        }
+
         public Fixture(bool shared = false, long hostCap = 128)
         {
             Driver.Identity = Driver.Identity with
@@ -386,12 +469,14 @@ public sealed class GpuMemoryDeviceTests
             var topology = new MemoryResourceTopology([
                 new(_host, "host", MemoryResourceUnit.Bytes, null),
                 new(_device, shared ? "host" : "device", MemoryResourceUnit.Bytes, shared ? _host : null),
+                new(_peerDevice, "peer-device", MemoryResourceUnit.Bytes, null),
                 new(_registered, "registered", MemoryResourceUnit.Bytes, _host),
-                new(_slots, "slots", MemoryResourceUnit.OperationSlots, null)
+                new(_slots, "slots", MemoryResourceUnit.OperationSlots, null),
+                new(_peerSlots, "peer-slots", MemoryResourceUnit.OperationSlots, null)
             ]);
             Ledger = new(topology, [new(_host, MemoryResourceUnit.Bytes, hostCap),
-                new(_device, MemoryResourceUnit.Bytes, 128), new(_registered, MemoryResourceUnit.Bytes, hostCap),
-                new(_slots, MemoryResourceUnit.OperationSlots, 4)], 1, 100, 200);
+                new(_device, MemoryResourceUnit.Bytes, 128), new(_peerDevice, MemoryResourceUnit.Bytes, 128), new(_registered, MemoryResourceUnit.Bytes, hostCap),
+                new(_slots, MemoryResourceUnit.OperationSlots, 4), new(_peerSlots, MemoryResourceUnit.OperationSlots, 4)], 1, 100, 200);
         }
 
         public GpuMemoryDevice Create(MemoryCapabilityStatus? status = null)
@@ -417,7 +502,18 @@ public sealed class GpuMemoryDeviceTests
         private readonly Dictionary<nint, Action> _pending = [];
         private long _sequence;
         public GpuDeviceIdentity Identity { get; set; } = new("unit", "barrier", "simulated", 1, false);
-        public Action? BeforeQuery { get; set; }
+        public Action? BeforeQuery
+        {
+            get; set;
+        }
+        public bool ThrowReadback
+        {
+            get; set;
+        }
+        public bool ThrowDispose
+        {
+            get; set;
+        }
         public GpuCompletion Completion { get; set; } = GpuCompletion.Pending;
         public bool ThrowSubmit
         {
@@ -474,7 +570,14 @@ public sealed class GpuMemoryDeviceTests
             Frees++;
         }
         public void WriteHost(GpuHostAddress address, ReadOnlySpan<byte> source) => source.CopyTo(_hosts[address.Value]);
-        public void ReadHost(GpuHostAddress address, Span<byte> destination) => _hosts[address.Value].AsSpan(0, destination.Length).CopyTo(destination);
+        public void ReadHost(GpuHostAddress address, Span<byte> destination)
+        {
+            if (ThrowReadback)
+            {
+                throw new GpuDriverException("readback-fault", 999);
+            }
+            _hosts[address.Value].AsSpan(0, destination.Length).CopyTo(destination);
+        }
         public GpuSubmission SubmitUpload(GpuHostAddress source, GpuDeviceAddress destination, long bytes)
             => Submit(() => _hosts[source.Value].AsSpan(0, (int)bytes).CopyTo(_devices[destination.Value]));
         public GpuSubmission SubmitReadback(GpuDeviceAddress source, GpuHostAddress destination, long bytes)
@@ -509,6 +612,10 @@ public sealed class GpuMemoryDeviceTests
             Assert.Empty(_devices);
             Assert.Empty(_hosts);
             Disposals++;
+            if (ThrowDispose)
+            {
+                throw new GpuDriverException("context-teardown", 999);
+            }
         }
     }
 }

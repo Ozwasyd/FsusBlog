@@ -37,6 +37,9 @@ public sealed class GpuAllocation : IDisposable
         get;
     }
     internal IGpuDriverSession Driver => _owner.Driver;
+    internal Accounting.MemoryReservationCoordinator Ledger => _owner.Ledger;
+    internal ResourceDomainId TransferDomain => _owner.TransferDomain;
+    internal void InvalidateOwner() => _owner.InvalidateEpoch();
     internal IMemoryAllocationCharge? Charge
     {
         get;
@@ -79,5 +82,5 @@ internal sealed class GpuAllocationHold(GpuMemoryDevice owner, GpuAllocation all
     public long Length => allocation.Length;
     public bool IsCurrent => _owner is not null && allocation.IsCurrent;
 
-    public void Dispose() => Interlocked.Exchange(ref _owner, null)?.ReleaseHold(allocation);
+    public void Dispose() => Interlocked.Exchange(ref _owner, null)?.ReleaseHold(allocation, access == GpuPeerAllocationAccess.Read);
 }
