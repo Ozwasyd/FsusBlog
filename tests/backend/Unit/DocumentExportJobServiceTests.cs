@@ -449,6 +449,33 @@ public sealed class DocumentExportJobServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task UserAdmissionQuota_AggregatesAcrossAuthorizedSites()
+    {
+        for (int index = 0; index < DocumentExportJobPolicy.MaximumOwnerJobs; index++)
+        {
+            DocumentExportJobActor actor = _actor with
+            {
+                SiteId = 11 + index % 2
+            };
+            DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidInput() with
+            {
+                SiteId = actor.SiteId
+            });
+            DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input)
+                with
+            {
+                TaskId = $"site-job-{index}",
+                IdempotencyKey = $"site-key-{index}"
+            });
+            await Service().CreateAsync(actor, task, input, default);
+        }
+        (DocumentExportTask rejected, DocumentExportFrozenInput frozen) = Request();
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().CreateAsync(_actor, rejected, frozen, default));
+        DocumentExportJobScopeUsage user = Assert.Single((await Service().GetUsageAsync(default)).Scopes, scope => scope.UserId == _actor.UserId);
+        Assert.Equal(DocumentExportJobPolicy.MaximumOwnerJobs, user.Jobs);
+    }
+
+    [Fact]
     public async Task Cancellation_CannotEraseObservedCanonicalBudgetFailureOrReleaseItsClaim()
     {
         (DocumentExportTask task, DocumentExportFrozenInput input) = Request();

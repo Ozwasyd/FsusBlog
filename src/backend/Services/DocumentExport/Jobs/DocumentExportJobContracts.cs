@@ -121,7 +121,12 @@ public sealed record DocumentExportDownload(
     long ContentLength,
     ImmutableDictionary<string, string> Headers);
 
-public sealed record DocumentExportJobUsage(int Jobs, int Outputs, long OutputBytes, int CleanupRequired);
+public sealed record DocumentExportJobScopeUsage(long? UserId, long? SiteId, int Jobs, int Outputs, long OutputBytes);
+
+public sealed record DocumentExportJobUsage(int Jobs, int Outputs, long OutputBytes, int CleanupRequired)
+{
+    public ImmutableArray<DocumentExportJobScopeUsage> Scopes { get; init; } = [];
+}
 
 /// <summary>
 /// Bounded private audit facts contain opaque identities and fixed reasons, never
