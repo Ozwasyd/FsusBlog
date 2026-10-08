@@ -248,8 +248,15 @@ public sealed class DiskSegmentStore : IDisposable
                 }
                 segment.Footprint = publishedFootprint;
                 long diskCharge = bound.Value.MaximumChargeBytes;
-                MemoryOperationResult<IMemoryAllocationCharge> committed = admission.Value!.Commit(
-                    new AllocationId(id), Charges(diskCharge, _limits.IndexBytes(segment.Entries.Count)));
+                MemoryOperationResult<MemoryAllocationLayout> layout = MemoryAllocationLayout.TryCreate(size, diskCharge, 1);
+                if (!layout.Succeeded)
+                {
+                    segment.Retired = true;
+                    return MemoryOperationResult<DiskSegmentPublication>.Reject(layout.Failure!.Value);
+                }
+                var descriptor = new MemoryAllocationDescriptor(new AllocationId(id), _budget.DiskDomain, layout.Value!);
+                MemoryOperationResult<IMemoryAllocationCharge> committed = admission.Value!.CommitPhysical(
+                    descriptor, Charges(diskCharge, _limits.IndexBytes(segment.Entries.Count)));
                 if (!committed.Succeeded)
                 {
                     segment.Retired = true;
