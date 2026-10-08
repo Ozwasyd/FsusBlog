@@ -4,7 +4,7 @@ import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { decodeArticlePropertyValueReadResponse, type ArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadCodecs';
+import { decodeArticlePropertyValueReadResponse, encodeArticlePropertyValueReadResponse, type ArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadCodecs';
 import ArticleMetadataField from '@/components/admin/article/ArticleMetadataField.vue';
 import { FsusUiButton } from '@/fsusui/button';
 import { FsusUiInput } from '@/fsusui/input';
@@ -29,7 +29,7 @@ const labels = {
     unavailable: 'Unavailable field', editorUnavailable: 'Editor port unavailable', commitUnavailable: 'Save unavailable',
     unvalidated: 'Unsubmitted input; not validated; save unavailable', choose: 'Choose option', unknownOption: 'Unavailable option',
     defaultApplied: 'Server default applied', required: 'Required', conflict: 'Refresh changed definition', cancel: 'Cancel', save: 'Save',
-    presence: ['Missing', 'Null', 'Present'], reconciliation: ['Current', 'Definition unavailable', 'Inactive definition',
+    presenceLabel: 'Value presence', presence: ['Missing', 'Null', 'Present'], reconciliation: ['Current', 'Definition unavailable', 'Inactive definition',
         'Changed definition', 'Value rejected', 'Reference authority unavailable', 'Required value missing', 'Default pending']
 };
 const wrappers: ReturnType<typeof mount>[] = [];
@@ -60,6 +60,18 @@ function button(wrapper: ReturnType<typeof mount>, name: string)
     if (!found) throw new Error(`missing button ${name}`);
     return found;
 }
+function presenceSelect(wrapper: ReturnType<typeof mount>)
+{
+    const control = wrapper.findAllComponents(FsusUiSelect)[0];
+    if (!control) throw new Error('missing public presence select');
+    return control;
+}
+function valueSelect(wrapper: ReturnType<typeof mount>)
+{
+    const control = wrapper.findAllComponents(FsusUiSelect)[1];
+    if (!control) throw new Error('missing public typed-value select');
+    return control;
+}
 function inputHandler(wrapper: ReturnType<typeof mount>)
 {
     const handler = wrapper.getComponent(FsusUiInput).vm.$.vnode.props?.['onUpdate:modelValue'];
@@ -87,9 +99,9 @@ describe('ArticleMetadataField public controls and real canonical read states', 
             expect(wrapper.getComponent(FsusUiSwitch).props('modelValue')).toBe(payload?.type === 2 && payload.boolean);
         else if ([4, 5].includes(type))
         {
-            expect(wrapper.getComponent(FsusUiSelect).props('modelValue')).toEqual(payload?.type === 4 ? payload.optionId : payload?.type === 5 ? payload.optionIds : undefined);
-            expect(wrapper.getComponent(FsusUiSelect).props('filterable')).toBe(false);
-            expect(wrapper.getComponent(FsusUiSelect).props('allowCreate')).toBe(false);
+            expect(valueSelect(wrapper).props('modelValue')).toEqual(payload?.type === 4 ? payload.optionId : payload?.type === 5 ? payload.optionIds : undefined);
+            expect(valueSelect(wrapper).props('filterable')).toBe(false);
+            expect(valueSelect(wrapper).props('allowCreate')).toBe(false);
         }
         else
         {
@@ -148,11 +160,11 @@ describe('ArticleMetadataField public controls and real canonical read states', 
         changed.definitions = changed.definitions.map((item) => item.definitionId === definition.definitionId
             ? { ...item, options: item.options.map((option, index) => ({ ...option, status: index === 0 ? 1 as const : 2 as const })) } : item);
         await wrapper.setProps({ model: changed });
-        const options = wrapper.getComponent(FsusUiSelect).props('options');
+        const options = valueSelect(wrapper).props('options');
         expect(options.every((item) => 'disabled' in item && item.disabled)).toBe(true);
         expect(options.find((item) => 'value' in item && item.value === missingId)?.label).toBe(labels.unknownOption);
-        expect(wrapper.getComponent(FsusUiSelect).props('modelValue')).toEqual(type === 4 ? missingId : [missingId]);
-        wrapper.getComponent(FsusUiSelect).vm.$emit('update:modelValue', type === 4 ? 42 : [42]);
+        expect(valueSelect(wrapper).props('modelValue')).toEqual(type === 4 ? missingId : [missingId]);
+        valueSelect(wrapper).vm.$emit('update:modelValue', type === 4 ? 42 : [42]);
         await nextTick();
         expect(wrapper.text()).not.toContain(labels.unvalidated);
     });
@@ -201,9 +213,9 @@ describe('ArticleMetadataField public controls and real canonical read states', 
         const { wrapper, model, definition } = render(type);
         const before = structuredClone(value(model, definition.definitionId));
         const ids = definition.options.map((option) => option.optionId);
-        wrapper.getComponent(FsusUiSelect).vm.$emit('update:modelValue', type === 4 ? ids[0] : ids);
+        valueSelect(wrapper).vm.$emit('update:modelValue', type === 4 ? ids[0] : ids);
         await nextTick();
-        expect(wrapper.getComponent(FsusUiSelect).props('modelValue')).toEqual(type === 4 ? ids[0] : ids);
+        expect(valueSelect(wrapper).props('modelValue')).toEqual(type === 4 ? ids[0] : ids);
         expect(wrapper.text()).toContain(labels.unvalidated);
         await button(wrapper, 'Cancel').trigger('click');
         expect(value(model, definition.definitionId)).toEqual(before);
@@ -228,7 +240,7 @@ describe('ArticleMetadataField public controls and real canonical read states', 
         const open = vi.spyOn(window, 'open');
         const storage = vi.spyOn(Storage.prototype, 'setItem');
         const { wrapper } = render(7);
-        await wrapper.find('input').setValue('javascript:alert("private")');
+        await wrapper.getComponent(FsusUiInput).find('input').setValue('javascript:alert("private")');
         expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('javascript:alert("private")');
         expect(wrapper.findAll('a, iframe, img, script')).toHaveLength(0);
         expect(button(wrapper, 'Save').props('disabled')).toBe(true);
@@ -383,5 +395,232 @@ describe('ArticleMetadataField cancellation and stale callback negatives', () =>
         await nextTick();
         expect(model).toEqual(original);
         expect(Object.keys(wrapper.emitted()).filter((name) => !['input', 'change', 'click'].includes(name))).toEqual([]);
+    });
+});
+
+
+describe('ArticleMetadataField canonical presence staging and lossless typed buffers', () =>
+{
+    it.each([0, 2, 4, 5, 7])('stages missing/null for type %i without erasing the typed buffer or Server facts', async (type) =>
+    {
+        const { wrapper, model } = render(type);
+        const before = structuredClone(model);
+        const original = type === 0 || type === 7 ? wrapper.getComponent(FsusUiInput).props('modelValue')
+            : type === 2 ? wrapper.getComponent(FsusUiSwitch).props('modelValue') : valueSelect(wrapper).props('modelValue');
+        const currentValue = (): unknown => type === 0 || type === 7 ? wrapper.getComponent(FsusUiInput).props('modelValue')
+            : type === 2 ? wrapper.getComponent(FsusUiSwitch).props('modelValue') : valueSelect(wrapper).props('modelValue');
+        for (const presence of [0, 1])
+        {
+            presenceSelect(wrapper).vm.$emit('update:modelValue', presence);
+            await nextTick();
+            expect(presenceSelect(wrapper).props('modelValue')).toBe(presence);
+            const typedControl = type === 0 || type === 7 ? wrapper.getComponent(FsusUiInput)
+                : type === 2 ? wrapper.getComponent(FsusUiSwitch) : valueSelect(wrapper);
+            expect(typedControl.vm.$props.disabled).toBe(true);
+            const typedHandler = typedControl.vm.$.vnode.props?.['onUpdate:modelValue'];
+            if (typeof typedHandler !== 'function') throw new Error('missing typed listener');
+            typedHandler(type === 2 ? true : type === 5 ? ['tampered'] : 'tampered');
+            await nextTick();
+            expect(currentValue()).toEqual(original);
+            expect(wrapper.text()).toContain(labels.unvalidated);
+            expect(button(wrapper, 'Save').props('disabled')).toBe(true);
+            // Server presence/default/reconciliation remain visibly unchanged.
+            expect(wrapper.find('[data-presence]').attributes('data-presence')).toBe('2');
+            expect(model).toEqual(before);
+            presenceSelect(wrapper).vm.$emit('update:modelValue', 2);
+            await nextTick();
+            expect(currentValue()).toEqual(original);
+            expect(typedControl.vm.$props.disabled).toBe(false);
+            await button(wrapper, 'Cancel').trigger('click');
+            expect(presenceSelect(wrapper).props('modelValue')).toBe(2);
+            expect(wrapper.text()).not.toContain(labels.unvalidated);
+        }
+    });
+
+    it.each([0, 1, 2])('restores observed Server presence %i after an unsubmitted toggle and cancel', async (presence) =>
+    {
+        const { wrapper, model, definition } = render();
+        const changed = structuredClone(model);
+        Object.assign(value(changed, definition.definitionId), { presence, value: presence === 2 ? { type: 0, text: '' } : null,
+            defaultApplied: false });
+        await wrapper.setProps({ model: changed });
+        const before = structuredClone(changed);
+        expect(presenceSelect(wrapper).props('modelValue')).toBe(presence);
+        expect(wrapper.getComponent(FsusUiInput).props('disabled')).toBe(presence !== 2);
+        presenceSelect(wrapper).vm.$emit('update:modelValue', presence === 2 ? 0 : 2);
+        await nextTick();
+        const cancel = button(wrapper, 'Cancel');
+        (cancel.element as HTMLButtonElement).focus();
+        await cancel.trigger('click');
+        expect(presenceSelect(wrapper).props('modelValue')).toBe(presence);
+        expect(changed).toEqual(before);
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('');
+        if (presence !== 2)
+        {
+            // The public SelectV2 focus expose is absent in this baseline.
+            // Cancel stays mounted/enabled so keyboard focus remains useful.
+            expect(document.activeElement).toBe(cancel.element);
+            expect(cancel.props('disabled')).toBe(false);
+        }
+    });
+
+    it.each(['0', false, undefined, null, -1, 3, NaN, { value: 0 }])('rejects noncanonical UI presence payload %j without coercion', async (candidate) =>
+    {
+        const { wrapper } = render();
+        presenceSelect(wrapper).vm.$emit('update:modelValue', candidate);
+        await nextTick();
+        expect(presenceSelect(wrapper).props('modelValue')).toBe(2);
+        expect(wrapper.text()).not.toContain(labels.unvalidated);
+    });
+
+    it('preserves false, empty text and empty option sets across presence round trips', async () =>
+    {
+        for (const type of [0, 2, 5])
+        {
+            const { wrapper, model, definition } = render(type);
+            const changed = structuredClone(model);
+            value(changed, definition.definitionId).value = type === 0 ? { type: 0, text: '' }
+                : type === 2 ? { type: 2, boolean: false } : { type: 5, optionIds: [] };
+            await wrapper.setProps({ model: changed });
+            const before = structuredClone(changed);
+            presenceSelect(wrapper).vm.$emit('update:modelValue', 1);
+            await nextTick();
+            presenceSelect(wrapper).vm.$emit('update:modelValue', 2);
+            await nextTick();
+            await button(wrapper, 'Cancel').trigger('click');
+            expect(changed).toEqual(before);
+            if (type === 0) expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('');
+            if (type === 2) expect(wrapper.getComponent(FsusUiSwitch).props('modelValue')).toBe(false);
+            if (type === 5) expect(valueSelect(wrapper).props('modelValue')).toEqual([]);
+        }
+    });
+
+    it.each(['cancel', 'permission', 'context', 'revision', 'unmount'])('refuses captured presence callbacks after %s', async (change) =>
+    {
+        const { wrapper, model } = render();
+        const handler = presenceSelect(wrapper).vm.$.vnode.props?.['onUpdate:modelValue'];
+        if (typeof handler !== 'function') throw new Error('missing real presence listener');
+        presenceSelect(wrapper).vm.$emit('update:modelValue', 1);
+        await nextTick();
+        if (change === 'cancel') await button(wrapper, 'Cancel').trigger('click');
+        if (change === 'permission') await wrapper.setProps({ editable: false });
+        if (change === 'context') await wrapper.setProps({ context: { ...wrapper.props('context')!, editorSessionId: 'next' } });
+        if (change === 'revision') await wrapper.setProps({ model: { ...model, propertyRevision: '2' } });
+        if (change === 'unmount') wrapper.unmount();
+        handler(0);
+        await nextTick();
+        if (change === 'context') expect(wrapper.text()).toBe(labels.unavailable);
+        else if (change !== 'unmount')
+        {
+            expect(presenceSelect(wrapper).props('modelValue')).toBe(2);
+            expect(wrapper.text()).not.toContain(labels.unvalidated);
+        }
+    });
+
+    it('does not apply a definition default, normalize or validate a missing candidate locally', async () =>
+    {
+        const { wrapper, model, definition } = render();
+        const changed = structuredClone(model);
+        value(changed, definition.definitionId).presence = 0;
+        value(changed, definition.definitionId).value = null;
+        changed.definitions = changed.definitions.map((item) => item.definitionId === definition.definitionId
+            ? { ...item, required: true, presence: { missing: 1, null: 1, empty: 2 },
+                defaultValue: { kind: 2, value: { type: 0, text: 'private-default' } } } : item);
+        await wrapper.setProps({ model: changed });
+        presenceSelect(wrapper).vm.$emit('update:modelValue', 2);
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('');
+        expect(wrapper.text()).not.toContain('private-default');
+        expect(wrapper.text()).not.toContain(labels.defaultApplied);
+        expect(wrapper.text()).toContain(labels.unvalidated);
+        expect(button(wrapper, 'Save').props('disabled')).toBe(true);
+        expect(value(changed, definition.definitionId).presence).toBe(0);
+    });
+});
+
+
+describe('ArticleMetadataField public control labels', () =>
+{
+    it.each([0, 2, 4, 5, 7])('labels the real type %i presence combobox through its public label prop', (type) =>
+    {
+        const { wrapper } = render(type);
+        const id = presenceSelect(wrapper).props('label');
+        if (!id) throw new Error('missing public presence label ID');
+        expect(document.getElementById(id)?.textContent).toBe(labels.presenceLabel);
+        expect(presenceSelect(wrapper).find('[role="combobox"]').attributes('aria-labelledby')).toBe(id);
+        if (type === 4 || type === 5)
+        {
+            const valueId = valueSelect(wrapper).props('label');
+            if (!valueId) throw new Error('missing public typed label ID');
+            expect(document.getElementById(valueId)?.textContent).toContain('property_');
+            expect(valueSelect(wrapper).find('[role="combobox"]').attributes('aria-labelledby')).toBe(valueId);
+        }
+    });
+});
+
+
+describe('ArticleMetadataField unavailable exact editors preserve canonical wire precision', () =>
+{
+    it.each([
+        { lo: 4294967295, mid: 4294967295, hi: 4294967295, scale: 0, negative: false },
+        { lo: 4294967295, mid: 4294967295, hi: 4294967295, scale: 28, negative: true },
+        { lo: 0, mid: 0, hi: 0, scale: 28, negative: true }
+    ])('preserves every decimal96 limb, scale and sign through the real codec while editing is unavailable', async (number) =>
+    {
+        const { wrapper, model, definition } = render(1);
+        const changed = structuredClone(model);
+        value(changed, definition.definitionId).value = { type: 1, number };
+        // Wire shape witness only, not a persisted/authenticated value receipt.
+        const decoded = decodeArticlePropertyValueReadResponse(encodeArticlePropertyValueReadResponse(changed));
+        expect(value(decoded, definition.definitionId).value).toEqual({ type: 1, number });
+        const before = structuredClone(decoded);
+        await wrapper.setProps({ model: decoded });
+        expect(wrapper.findAll('input, textarea, [role="combobox"]')).toHaveLength(0);
+        expect(wrapper.text()).toContain(labels.editorUnavailable);
+        expect(button(wrapper, 'Save').props('disabled')).toBe(true);
+        expect(decoded).toEqual(before);
+    });
+
+    it.each(['0', '638954208000000001', '3155378975999999999'])('preserves UTC tick string %s with sub-millisecond precision through the canonical codec', async (utc) =>
+    {
+        const { wrapper, model, definition } = render(3);
+        const changed = structuredClone(model);
+        value(changed, definition.definitionId).value = { type: 3, utc };
+        const decoded = decodeArticlePropertyValueReadResponse(encodeArticlePropertyValueReadResponse(changed));
+        expect(value(decoded, definition.definitionId).value).toEqual({ type: 3, utc });
+        await wrapper.setProps({ model: decoded });
+        expect(wrapper.findAll('input, textarea, [role="combobox"]')).toHaveLength(0);
+        expect(wrapper.text()).toContain(labels.editorUnavailable);
+        expect(value(decoded, definition.definitionId).value).toEqual({ type: 3, utc });
+    });
+
+    it.each([1, 3])('retains missing/null exact type %i without converting it to zero or a date', async (type) =>
+    {
+        const { wrapper, model, definition } = render(type);
+        for (const presence of [0, 1] as const)
+        {
+            const changed = structuredClone(model);
+            Object.assign(value(changed, definition.definitionId), { presence, value: null, defaultApplied: false });
+            const decoded = decodeArticlePropertyValueReadResponse(encodeArticlePropertyValueReadResponse(changed));
+            await wrapper.setProps({ model: decoded });
+            expect(value(decoded, definition.definitionId).presence).toBe(presence);
+            expect(value(decoded, definition.definitionId).value).toBeNull();
+            expect(wrapper.find('[data-presence]').attributes('data-presence')).toBe(String(presence));
+            expect(wrapper.findAll('input, textarea, [role="combobox"]')).toHaveLength(0);
+            expect(wrapper.text()).toContain(labels.editorUnavailable);
+        }
+    });
+
+    it.each([
+        { type: 1 as const, number: { lo: 4294967296, mid: 0, hi: 0, scale: 0, negative: false } },
+        { type: 1 as const, number: { lo: 1, mid: 0, hi: 0, scale: 29, negative: false } },
+        { type: 3 as const, utc: '-1' },
+        { type: 3 as const, utc: '3155378976000000000' }
+    ])('lets the existing canonical codec reject out-of-range payload %j rather than clipping it', (payload) =>
+    {
+        const { model, definition } = render(payload.type);
+        const changed = structuredClone(model);
+        value(changed, definition.definitionId).value = payload;
+        expect(() => encodeArticlePropertyValueReadResponse(changed)).toThrow(RangeError);
     });
 });

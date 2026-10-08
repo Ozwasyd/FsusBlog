@@ -13,9 +13,24 @@
             {{ serverStatus }}
         </p>
         <div
-            :key="generation"
+            :key="controlGeneration"
             class="article-metadata-field__control"
         >
+            <label
+                v-if="supported"
+                :id="presenceLabelId"
+            >{{ labels.presenceLabel }}</label>
+            <FsusUiSelect
+                v-if="supported"
+                :model-value="draftPresence"
+                :options="presenceOptions"
+                :label="presenceLabelId"
+                :aria-label="labels.presenceLabel"
+                :aria-describedby="statusId"
+                :disabled="blocked"
+                :validate-event="false"
+                @update:model-value="handlers.presence"
+            />
             <FsusUiInput
                 ref="control"
                 v-if="definition.valueType === 0 || definition.valueType === 7"
@@ -27,7 +42,7 @@
                 :aria-labelledby="labelId"
                 :aria-describedby="statusId"
                 :aria-invalid="invalid"
-                :disabled="blocked"
+                :disabled="blocked || draftPresence !== 2"
                 :validate-event="false"
                 @update:model-value="handlers.text"
             />
@@ -38,7 +53,7 @@
                 :aria-labelledby="labelId"
                 :aria-describedby="statusId"
                 :aria-invalid="invalid"
-                :disabled="blocked"
+                :disabled="blocked || draftPresence !== 2"
                 :validate-event="false"
                 @update:model-value="handlers.boolean"
             />
@@ -47,13 +62,14 @@
                 v-else-if="definition.valueType === 4 || definition.valueType === 5"
                 :model-value="definition.valueType === 4 ? single : multiple"
                 :multiple="definition.valueType === 5"
+                :label="labelId"
                 :options="options"
                 :placeholder="labels.choose"
                 :collapse-tags="true"
                 :aria-labelledby="labelId"
                 :aria-describedby="statusId"
                 :aria-invalid="invalid"
-                :disabled="blocked"
+                :disabled="blocked || draftPresence !== 2"
                 :validate-event="false"
                 @update:model-value="handlers.options"
             />
@@ -75,7 +91,7 @@
         </p>
         <div class="article-metadata-field__actions">
             <FsusUiButton
-                :disabled="!dirty"
+                :disabled="blocked || !supported"
                 @click="cancelFromControl"
             >
                 {{ labels.cancel }}
@@ -123,6 +139,7 @@ const props = defineProps<{
         conflict: string;
         cancel: string;
         save: string;
+        presenceLabel: string;
         presence: readonly string[];
         reconciliation: readonly string[];
     };
@@ -130,6 +147,7 @@ const props = defineProps<{
 
 const labelId = useId();
 const statusId = useId();
+const presenceLabelId = useId();
 const revokedModel = shallowRef<ArticlePropertyValueReadResponse | null>(null);
 watch([
     () => props.context?.articleId,
@@ -175,7 +193,11 @@ const serverStatus = computed(() => incompatible.value ? props.labels.conflict
     : props.labels.reconciliation[definition.value?.status !== 0 ? 2 : reconciliation.value?.status ?? 1] ?? props.labels.unavailable);
 const fieldName = computed(() => definition.value?.displayNames.find((name) => name.locale === props.locale)?.value
     ?? definition.value?.machineKey ?? props.labels.unavailable);
-const presence = computed(() => entry.value?.presence ?? 0);
+type ValuePresence = NonNullable<ArticlePropertyValueReadResponse['current']>['snapshot']['values'][number]['presence'];
+const presence = computed<ValuePresence>(() => entry.value?.presence ?? 0);
+const supported = computed(() => [0, 2, 4, 5, 7].includes(definition.value?.valueType ?? -1));
+const presenceOptions = computed(() => ([0, 1, 2] as const).map((value) => ({ value, label: props.labels.presence[value] })));
+const draftPresence = ref<ValuePresence>(0);
 const options = computed(() =>
 {
     const choices = definition.value?.options.map((option) => ({
@@ -197,6 +219,7 @@ const options = computed(() =>
 
 const control = shallowRef<{ focus: () => void; } | null>(null);
 const generation = ref(0);
+const controlGeneration = ref(0);
 const text = ref('');
 const boolean = ref(false);
 const single = ref<string | undefined>(undefined);
@@ -211,12 +234,14 @@ const handlers = shallowRef<{
     text: (value: unknown) => void;
     boolean: (value: unknown) => void;
     options: (value: unknown) => void;
-}>({ text: ignore, boolean: ignore, options: ignore });
+    presence: (value: unknown) => void;
+}>({ text: ignore, boolean: ignore, options: ignore, presence: ignore });
 
 function cancel(): void
 {
     generation.value++;
     dirty.value = false;
+    draftPresence.value = presence.value;
     const value = entry.value?.value;
     text.value = value?.type === 0 ? value.text : value?.type === 7 ? value.url : '';
     boolean.value = value?.type === 2 ? value.boolean : false;
@@ -228,7 +253,7 @@ function cancel(): void
     handlers.value = {
         text: (candidate) =>
         {
-            if (current() && typeof candidate === 'string')
+            if (current() && draftPresence.value === 2 && typeof candidate === 'string')
             {
                 text.value = candidate;
                 dirty.value = true;
@@ -236,15 +261,25 @@ function cancel(): void
         },
         boolean: (candidate) =>
         {
-            if (current() && typeof candidate === 'boolean')
+            if (current() && draftPresence.value === 2 && typeof candidate === 'boolean')
             {
                 boolean.value = candidate;
                 dirty.value = true;
             }
         },
+        presence: (candidate) =>
+        {
+            // A transient closed UI selection only. The Server owns presence
+            // validation/defaults; never erase the original typed buffer here.
+            if (current() && supported.value && (candidate === 0 || candidate === 1 || candidate === 2))
+            {
+                draftPresence.value = candidate;
+                dirty.value = true;
+            }
+        },
         options: (candidate) =>
         {
-            if (!current())
+            if (!current() || draftPresence.value !== 2)
             {
                 return;
             }
@@ -274,12 +309,21 @@ async function cancelFromControl(event: MouseEvent): Promise<void>
         && visible.value && !blocked.value
         && (document.activeElement === previousFocus || document.activeElement === document.body))
     {
-        control.value?.focus();
+        // SelectV2 documents focus(), but this active baseline does not
+        // expose it. Keep the stable Cancel button focused for selection or
+        // absent values; do not access private internals to emulate that API.
+        if (draftPresence.value === 2 && [0, 2, 7].includes(definition.value?.valueType ?? -1))
+        {
+            control.value?.focus();
+        }
     }
 }
 
-watch([() => props.model, () => props.definitionId, () => props.editable, visible], cancel,
-      { immediate: true, deep: true, flush: 'sync' });
+watch([() => props.model, () => props.definitionId, () => props.editable, visible], () =>
+{
+    controlGeneration.value++;
+    cancel();
+}, { immediate: true, deep: true, flush: 'sync' });
 onBeforeUnmount(() =>
 {
     disposed = true;
@@ -298,7 +342,9 @@ onBeforeUnmount(() =>
 
 .article-metadata-field__control
  {
+    display: grid;
     min-width: 0;
+    gap: var(--fsus-space-2);
 }
 
 .article-metadata-field__status
