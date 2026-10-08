@@ -1,0 +1,33 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/csharp-style-baseline.json",
+                "config/development/csharp-style-policy.json",
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/migration/packages.lock.json"
+            ],
+            "reason": "Preserve the existing external JSON schemas, lock dependency identities and retained governance identifiers; the owned suffix/digest repair and supplied graph/duplicate consolidation change only their bounded payloads."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/csharp-style-enforcement.md"
+            ],
+            "reason": "Document existing external .editorconfig, CLI, tooling and canonical producer authority spellings accurately; internal naming conventions remain enforced."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/dotnet/check-csharp-style.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Retain the existing process environment and execution authority spellings; use GIT_NO_REPLACE_OBJECTS for the original style authority read and keep internal naming rules."
+        }
+    ]
+}
