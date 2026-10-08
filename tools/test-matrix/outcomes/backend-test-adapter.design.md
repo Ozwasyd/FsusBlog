@@ -124,9 +124,12 @@ adapter controls use explicitly identified in-memory verifier doubles. Native
 bridge controls execute the original reporter and real assertions, while preserving
 missing replay/envelope/temporal authorities and unqualified probe identities.
 
-#2020's canonical registry currently profiles build/projection/finalizer only.
-Its owner must register this backend authority and the membership fields above
-for the actual backend producer IDs before #2025 analysis can consume them.
+The canonical catalog supplied at `3f6f443ac4e253f7a9b80e7c7c910d2de8fce824`
+(PR3998) now registers this backend authority for `backend-unit` and
+`backend-xunit`, pinning unchanged adapter bytes from `dae524b96`. The existing
+`readOutcomeAdapterCatalog` and `validateOutcomeAdapterCandidateData` APIs remain
+DATA_ONLY source/schema capabilities, not execution qualification. Its backend
+membership schema is `#/$defs/backend`; no shared registry is edited here.
 Global matrix/lifecycle registration must be assigned to their canonical owners;
 this partition does not edit shared authority files or generated inventories.
 
@@ -175,12 +178,11 @@ The original private JSON writer retains the verification receipt.
 The receipt scope is `native-observation-binding`, with
 `qualificationGranted=false`. A verified raw observation is insufficient to admit
 a qualified candidate: original attempt replay/envelope/temporal authorities and
-`verifyAuthority` remain mandatory. The original runner emits a final slot receipt
-only after completion. Its missing process-crash capability is an incremental
-`RunSlotAsync` event journal in `tools/test/xunit-replay-runner/Program.cs`, carrying
-sealed plan/slot/PID, admission/start/outcome records and the actual terminal
-process result so retained partial topology can be verified. The bridge refuses
-signals, unknown exits and missing outcomes until that owner supplies this API.
+`verifyAuthority` remain mandatory. The original final slot receipt still requires completion. The incremental
+original reporter journal described below now retains callbacks on interrupted
+runs. The current held bridge still refuses signals, unknown exits and missing
+outcomes: consuming that journal requires the parent's actually observed process
+terminal and applicable assertion/attempt authorities, not a new journal flag.
 
 The test-only locked xUnit v2 fixture emits observations around actual
 `Assert.Equal` calls. Its native test-case context comes from the existing xUnit
@@ -194,3 +196,58 @@ failing fact. Original reporter exit 1 is expected evidence of that assertion;
 the control suite must independently exit 0. An absent SDK/build is an unmet
 prerequisite and is never silently skipped. The fixture's envelope/context hashes
 are explicitly unqualified diagnostic descriptions, not authority receipts.
+
+
+## Original reporter incremental journal
+
+`tools/test/xunit-replay-runner/Program.cs` now emits a sibling
+`<slot-output>.events.jsonl` while executing its existing `run-slot` callbacks.
+The existing queue, final slot receipt, controller settings, test semantics and
+return codes remain the original source paths. Every complete event is flushed
+through the file descriptor before the next callback proceeds. File creation uses
+create-new semantics and private Unix mode. Journal IO/capacity failure is reported
+and stops journaling while the original test result path continues unchanged.
+
+Each event has `schema=fsusblog.xunit-replay-slot-journal-event.v1`, `planDigest`,
+`slotId`, `processId`, monotonic zero-based `sequence`, `kind`,
+`qualificationEligible=false` and `payload`. The records are diagnostic observations,
+never a sealed replay receipt or runtime authority. `run-opened` includes native
+queue counts and explicit caps: 100000 events, 128 KiB per encoded event including
+its newline and 16 MiB per journal. Serialization is bounded before appending;
+the final 4096 bytes are reserved for an explicit `journal-stopped` marker where
+output remains writable. Interrupted writes can leave an incomplete last line,
+which cannot be treated as an observed callback. No record is silently truncated.
+
+`collection-admitted` carries the original `CollectionAdmission`; `test-started`
+and `test-outcome` carry the original `TestStart` and `TestOutcome`. A failing
+outcome keeps its native outcome and diagnostic detail without message-based
+classification. The original complete receipt retains full detail even when the
+journal stops on an oversized event. `assembly-finished` records observed counts.
+`runner-terminal` records the original return code 0/1, or the original catch code
+2 and exception type. Null properties remain omitted, matching the original
+serializer. A killed process cannot truthfully emit its own terminal event.
+The parent must retain its actual `close(code,signal)`, PID and command context;
+a journal without terminal is incomplete, not guessed success or `not-run`.
+
+Exact remaining producer/consumer contract: the original parent
+`tools/test/xunit-replay-adapter.mjs::spawnSlot` already observes `{pid,code,signal}`
+but its `execute` requires a complete final slot receipt. Its owner must retain a
+partial-run record referencing the actual sibling journal path/raw digest, actual
+`pid`, `code`, `signal`, queue manifest/plan digest/slot ID, and the attempt command,
+source/run/envelope/temporal authority references. These fields must come from the
+real process and execution owner. Only then may an owned outcome consumer join
+completed native tests, incomplete starts and unstarted queue cases to independently
+held assertion observations. No PID, signal, assertion or authority is manufactured
+by this source increment, and no partial outcome adapter is activated here.
+
+Ordinary callback/output tests live in
+`tests/tools/xunit-replay-slot-journal.test.mjs` and use the separate locked
+`tests/tools/fixtures/backend-outcome-reporter/journal/FsusBlog.XunitJournalFixture.csproj`.
+The original three-case reporter fixture excludes that subdirectory so the wait
+and large-output cases cannot enter its default discovery roster. The new controls
+run the actual original front controller for pass/fail/skip, SIGKILL after an
+observed failure and a flushed live start, journal capacity/unavailable output,
+and final receipt IO failure. They record native exits 0/1/2 and signal SIGKILL
+without invoking candidate, semantic forgery or reviewer audit suites.
+Failed randomized assertion/shrink emission and actual runtime/temporal/envelope
+qualification remain separate missing original-owner capabilities.

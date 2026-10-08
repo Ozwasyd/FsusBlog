@@ -12,7 +12,8 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "tests/tools/fixtures/backend-outcome-reporter/packages.lock.json"
+                "tests/tools/fixtures/backend-outcome-reporter/packages.lock.json",
+                "tests/tools/fixtures/backend-outcome-reporter/journal/packages.lock.json"
             ],
             "reason": "preserve NuGet-generated dependency lock wire keys and package identities in the producer-owned native reporter fixture"
         }
