@@ -90,8 +90,22 @@ public sealed class LinuxCgroupCounterParserTests
             Array.Fill(scratch, (byte)0xcc);
             var capture = reader.CaptureCounter(counter, scratch);
             captures.Add(capture);
-            Assert.Equal(MemoryObservationState.Available, capture.State);
-            Assert.True(capture.Value >= 0);
+            MemoryObservationState nativeAvailability = ProbeNativeFile(path + "/" + LinuxCgroupCounterParser.FileName(counter));
+            _output.WriteLine(JsonSerializer.Serialize(new
+            {
+                Counter = counter,
+                NativeAvailability = nativeAvailability,
+                Capture = capture
+            }));
+            Assert.Equal(nativeAvailability, capture.State);
+            if (nativeAvailability == MemoryObservationState.Available)
+            {
+                Assert.True(capture.Value >= 0);
+            }
+            else
+            {
+                Assert.Null(capture.Value);
+            }
             Assert.Equal(identity, capture.Identity);
             Assert.Equal(MemoryQualification.NotVerified, capture.Qualification);
             Assert.All(scratch, item => Assert.Equal((byte)0, item));
@@ -114,5 +128,28 @@ public sealed class LinuxCgroupCounterParserTests
         }));
         reader.Dispose();
         Assert.Throws<ObjectDisposedException>(() => reader.CaptureCounter(LinuxCgroupCounter.AnonymousBytes, scratch));
+    }
+
+    private static MemoryObservationState ProbeNativeFile(string path)
+    {
+        // Independent native-file availability oracle; never replace a missing PSI file
+        // with host PSI or declare its actual pressure assertions verified.
+        try
+        {
+            using FileStream stream = File.OpenRead(path);
+            return MemoryObservationState.Available;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return MemoryObservationState.Denied;
+        }
+        catch (FileNotFoundException)
+        {
+            return MemoryObservationState.Unknown;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return MemoryObservationState.Unknown;
+        }
     }
 }
