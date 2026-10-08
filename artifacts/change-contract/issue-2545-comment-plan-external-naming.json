@@ -8,6 +8,13 @@
                 "src/backend/Services/Fixtures/DataScale/CommentScalePlan.cs"
             ],
             "reason": "These new source paths fall under the registered src/**/*.cs process-environment consumer surface. The plan uses the existing resolved temporal-role adapter without adding or renaming external environment keys; C# records, enums and local identifiers retain repository naming. This declaration covers the trusted path registry and introduces no new naming policy."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Consume the canonical bd3dbde7939dc95c81cef4ab6b50f883459ee85d NuGet lock postimage unchanged. Preserve the external NuGet schema and package names; do not add internal naming rules or hand-edit dependency objects."
         }
     ]
 }
