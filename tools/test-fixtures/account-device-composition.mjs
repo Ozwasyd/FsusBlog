@@ -238,6 +238,7 @@ export function assertAccountCleanupOwnership(context, result, verifiedIdentitie
         && verifiedIdentities.profileId === context.profileIdentity?.profileId, 'cleanup-run-binding');
     const entities = raw.observations?.database?.entities;
     const states = raw.cleanupState;
+    const authority = localeAuthority();
     requireCondition(Array.isArray(entities) && entities.length > 0 && Array.isArray(states), 'missing-cleanup-plan');
     const users = new Set(entities.map((entity) => entity.id));
     if (raw.providedCapabilities.includes('profile.public-handle.conflict'))
@@ -259,5 +260,21 @@ export function assertAccountCleanupOwnership(context, result, verifiedIdentitie
         requireCondition(typeof state.profileChanged === 'boolean' && typeof state.preferenceChanged === 'boolean'
             && (entity?.kind !== 'profile' || state.preferenceChanged === false)
             && (entity?.kind !== 'preference' || state.profileChanged === false), 'cleanup-domain-crossing');
+        requireCondition(typeof state.previousPreferenceExisted === 'boolean'
+            && state.previousPreference && ['auto', 'fixed'].includes(state.previousPreference.mode)
+            && Number.isSafeInteger(state.previousPreference.revision) && state.previousPreference.revision >= 0
+            && (state.previousPreference.fixedLocale === null
+                || authority.codes.has(state.previousPreference.fixedLocale))
+            && (state.previousPublicHandle === null || typeof state.previousPublicHandle === 'string'),
+        'cleanup-previous-state-shape');
+        if (state.preferenceChanged)
+        {
+            const committed = state.committedPreference;
+            requireCondition(entity?.kind === 'preference' && committed != null
+                && committed.mode === entity.fields.localeMode
+                && committed.fixedLocale === entity.fields.fixedLocale
+                && committed.revision === entity.fields.revision,
+            'cleanup-committed-preference-drift');
+        }
     }
 }

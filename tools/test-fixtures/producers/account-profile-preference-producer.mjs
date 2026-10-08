@@ -276,6 +276,10 @@ async function invoke(context, action, body, signal)
             `account profile/preference ${action} failed HTTP ${response.status}`
         );
     }
+    if (action === 'cleanup' && response.status !== 204)
+    {
+        throw new Error('canonical account cleanup endpoint requires HTTP 204');
+    }
     return payload;
 }
 
@@ -499,6 +503,11 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
     }
 }
 
+/**
+ * Reverify the exact account model source and invoke the existing Task cleanup.
+ * Return redacted invocation evidence with cleanupCompletionVerified=false;
+ * independent cleanup readback and device/private-projection cleanup remain gates.
+ */
 export async function cleanupAccountProfilePreferences(context, producerResult, signal)
 {
     assertNoLegacyOverride();
@@ -506,9 +515,50 @@ export async function cleanupAccountProfilePreferences(context, producerResult, 
     {
         throw new Error('account profile/preference cleanup requires the exact composition receipt');
     }
-    const verifiedIdentities = verifyIdentityReferences(context, producerResult);
-    assertAccountCleanupOwnership(context, producerResult, verifiedIdentities);
-    await invoke(context, 'cleanup', producerResult.compositionReceipt, signal);
+    // Preserve the original DTO key order: the backend digest includes dictionary
+    // serialization order. Keep one immutable source across verification/cleanup.
+    const compositionReceipt = structuredClone(producerResult.compositionReceipt);
+    function freezeSource(value)
+    {
+        if (value && typeof value === 'object')
+        {
+            Object.values(value).forEach(freezeSource);
+            Object.freeze(value);
+        }
+    }
+    freezeSource(compositionReceipt);
+    const sourceResult = { ...producerResult, compositionReceipt };
+    const verifiedIdentities = verifyIdentityReferences(context, sourceResult);
+    assertAccountCleanupOwnership(context, sourceResult, verifiedIdentities);
+    const verification = await invoke(context, 'verify', compositionReceipt, signal);
+    if (verification?.ok !== true || verification.contentDigest !== compositionReceipt.contentDigest
+        || !Array.isArray(verification.verifiedCapabilities)
+        || JSON.stringify([...verification.verifiedCapabilities].sort())
+            !== JSON.stringify([...compositionReceipt.providedCapabilities].sort()))
+    {
+        const failure = new Error('account cleanup requires exact current canonical source verification');
+        failure.verificationFailureDigest = stableDigest(verification ?? null);
+        throw failure;
+    }
+    const completion = await invoke(context, 'cleanup', compositionReceipt, signal);
+    if (completion != null)
+    {
+        const failure = new Error('canonical account CleanupAsync must return no completion receipt');
+        failure.cleanupInvocationCompleted = true;
+        failure.completionDigest = stableDigest(completion);
+        throw failure;
+    }
+    // CleanupAsync returns Task/HTTP 204. Its completion is invocation evidence;
+    // no independent post-cleanup readback or device/auth cleanup receipt exists.
+    return Object.freeze({
+        notAuthoritative: true,
+        producerId,
+        accountModelSourceDigest: compositionReceipt.contentDigest,
+        canonicalSourceVerifiedBeforeCleanup: true,
+        cleanupInvocationCompleted: true,
+        cleanupCompletionVerified: false,
+        deviceAotVerified: false
+    });
 }
 
 export const accountProfilePreferenceProducerMeta = Object.freeze({

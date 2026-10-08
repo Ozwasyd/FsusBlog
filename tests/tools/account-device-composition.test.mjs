@@ -235,6 +235,42 @@ const cleanupMutations = [
     ['preference resets handle', (input) =>
     {
         input.result.compositionReceipt.cleanupState.find((state) => state.preferenceChanged).profileChanged = true;
+    }],
+    ['missing committed preference', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState.find((state) => state.preferenceChanged).committedPreference = null;
+    }],
+    ['committed revision drift', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState.find((state) => state.preferenceChanged).committedPreference.revision += 1;
+    }],
+    ['committed mode drift', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState.find((state) => state.preferenceChanged).committedPreference.mode = 'unknown';
+    }],
+    ['committed locale drift', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState.find((state) => state.preferenceChanged).committedPreference.fixedLocale = 'unknown';
+    }],
+    ['unknown previous locale', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState[0].previousPreference.fixedLocale = 'unknown';
+    }],
+    ['missing previous state', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState[0].previousPreference = null;
+    }],
+    ['untyped previous existence', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState[0].previousPreferenceExisted = 'false';
+    }],
+    ['untyped previous revision', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState[0].previousPreference.revision = '0';
+    }],
+    ['untyped previous handle', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState[0].previousPublicHandle = 1;
     }]
 ];
 

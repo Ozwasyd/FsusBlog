@@ -248,10 +248,19 @@ export function inspectAccountAuthFixtureRepository(domain, repositoryRoot = roo
         sources.push({ path: relativePath, source: readFileSync(absolute, 'utf8') });
     }
     const scanned = scanAccountAuthFixtureSources(domain, sources);
-    // No cleanup schema/verifier is invented while its owner has not transferred
-    // a precise capability SHA. Source findings alone never authorize retirement.
-    blockers.push({ code: 'verified-cleanup-authority-unavailable',
-        dependencyIssue: domain === 'auth-fixture' ? 2680 : domain === 'auth-truth' ? 2694 : 2688 });
+    const inventoryPath = domain === 'auth-fixture'
+        ? 'config/testing/auth-fixture-ownership.json' : domain === 'auth-truth'
+            ? 'config/testing/auth-truth-consumers.json' : 'config/testing/account-locale-fixture-ownership.json';
+    if (!sources.some((source) => source.path === inventoryPath))
+    {
+        blockers.push({ code: 'ownership-or-consumer-inventory-unavailable', path: inventoryPath });
+    }
+    // The cutover issues are deletion/consumer owners, not invented aggregate
+    // APIs. Existing CleanupAsync/cleanupPrivate calls do not supply independent
+    // cleanup completion readback. Source findings never authorize retirement.
+    blockers.push({ code: 'canonical-cleanup-completion-verifier-unavailable',
+        canonicalProducerId: domain === 'account-locale' ? 'account-profile-preferences' : 'auth-session',
+        cutoverIssue: domain === 'auth-fixture' ? 2680 : domain === 'auth-truth' ? 2694 : 2688 });
     return freezeDeep({ ...scanned, status: 'blocked', blockers });
 }
 

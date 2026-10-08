@@ -255,7 +255,7 @@ test('producer verifies account sources but refuses a verified aggregate without
     const result = await prepareAccountProfilePreferences(context);
 
     const verification = await verifyAccountProfilePreferences(context, result);
-    await cleanupAccountProfilePreferences(context, result);
+    const cleanup = await cleanupAccountProfilePreferences(context, result);
 
     assert.equal(verification.ok, false);
     assert.equal(verification.accountSourcesVerified, true);
@@ -263,8 +263,15 @@ test('producer verifies account sources but refuses a verified aggregate without
     assert.match(verification.reason, /authority #2170 is unavailable/u);
     assert.equal(adapter.calls[1].action, 'verify');
     assert.strictEqual(adapter.calls[1].receipt, result.compositionReceipt);
-    assert.equal(adapter.calls[2].action, 'cleanup');
-    assert.strictEqual(adapter.calls[2].receipt, result.compositionReceipt);
+    assert.equal(adapter.calls[2].action, 'verify');
+    assert.equal(adapter.calls[3].action, 'cleanup');
+    assert.strictEqual(adapter.calls[2].receipt, adapter.calls[3].receipt);
+    assert.deepEqual(adapter.calls[3].receipt, result.compositionReceipt);
+    assert.equal(cleanup.canonicalSourceVerifiedBeforeCleanup, true);
+    assert.equal(cleanup.cleanupInvocationCompleted, true);
+    assert.equal(cleanup.cleanupCompletionVerified, false);
+    assert.equal(cleanup.deviceAotVerified, false);
+    assert.equal(cleanup.notAuthoritative, true);
 });
 
 test('profile preference preparation and verification reject incomplete or drifting actual clocks', async () =>
@@ -345,7 +352,7 @@ test('live transport sends prepare identity headers only to the prepare endpoint
         globalThis.fetch = originalFetch;
     }
 
-    assert.deepEqual(requests.map((request) => request.action), ['prepare', 'verify', 'cleanup']);
+    assert.deepEqual(requests.map((request) => request.action), ['prepare', 'verify', 'verify', 'cleanup']);
     assert.equal(requests[0].headers['X-Fsus-Test-Namespace'], 'profile-preferences');
     assert.equal(requests[0].headers['X-Fsus-Test-Run-Id'], 'run-1717');
     for (const request of requests.slice(1))
@@ -419,6 +426,140 @@ test('foreign compensation plan never reaches cleanup authority', async () =>
     result.compositionReceipt.cleanupState[0].userId = 999;
     await assert.rejects(() => cleanupAccountProfilePreferences(context, result), /cleanup-unowned-account/u);
     assert.deepEqual(adapter.calls.map((call) => call.action), ['prepare']);
+});
+
+test('cleanup rejects stale, negative, missing and partial canonical verification before compensation', async () =>
+{
+    for (const update of [
+        (receipt) => ({ ok: false, contentDigest: receipt.contentDigest, verifiedCapabilities: receipt.providedCapabilities }),
+        (receipt) => ({ ok: true, contentDigest: '00'.repeat(32), verifiedCapabilities: receipt.providedCapabilities }),
+        (receipt) => ({ ok: true, contentDigest: receipt.contentDigest }),
+        (receipt) => ({ ok: true, contentDigest: receipt.contentDigest, verifiedCapabilities: receipt.providedCapabilities.slice(1) }),
+        () => null
+    ])
+    {
+        const adapter = compositionAdapter();
+        const context = plannedContext({ adapter });
+        const result = await prepareAccountProfilePreferences(context);
+        adapter.verify = async (receipt) =>
+        {
+            adapter.calls.push({ action: 'verify', receipt });
+            return update(receipt);
+        };
+        await assert.rejects(() => cleanupAccountProfilePreferences(context, result), (error) =>
+            /exact current canonical source verification/u.test(error.message)
+            && /^[a-f0-9]{64}$/u.test(error.verificationFailureDigest));
+        assert.deepEqual(adapter.calls.map((call) => call.action), ['prepare', 'verify']);
+    }
+});
+
+test('cleanup preserves one original-order frozen source across an in-flight verification', async () =>
+{
+    const adapter = compositionAdapter();
+    const context = plannedContext({ adapter });
+    const result = await prepareAccountProfilePreferences(context);
+    const sourceBytes = JSON.stringify(result.compositionReceipt);
+    let release;
+    const pending = new Promise((resolve) =>
+    {
+        release = resolve;
+    });
+    const verify = adapter.verify;
+    adapter.verify = async (receipt) =>
+    {
+        assert.ok(Object.isFrozen(receipt) && Object.isFrozen(receipt.cleanupState[0]));
+        const verification = await verify(receipt);
+        await pending;
+        return verification;
+    };
+    const cleanup = cleanupAccountProfilePreferences(context, result);
+    result.compositionReceipt.cleanupState[0].userId = 999;
+    release();
+    const outcome = await cleanup;
+    assert.equal(outcome.cleanupCompletionVerified, false);
+    assert.strictEqual(adapter.calls[1].receipt, adapter.calls[2].receipt);
+    assert.equal(JSON.stringify(adapter.calls[2].receipt), sourceBytes);
+});
+
+test('cleanup records a void invocation without issuing a verified cleanup receipt', async () =>
+{
+    const adapter = compositionAdapter();
+    adapter.cleanup = async (receipt) =>
+    {
+        adapter.calls.push({ action: 'cleanup', receipt });
+    };
+    const context = plannedContext({ adapter });
+    const result = await prepareAccountProfilePreferences(context);
+    const outcome = await cleanupAccountProfilePreferences(context, result);
+    assert.equal(outcome.notAuthoritative, true);
+    assert.equal(outcome.cleanupInvocationCompleted, true);
+    assert.equal(outcome.cleanupCompletionVerified, false);
+    assert.equal('schema' in outcome, false);
+    assert.equal('receiptDigest' in outcome, false);
+});
+
+test('cleanup rejects an undeclared completion payload rather than accepting a fabricated receipt', async () =>
+{
+    const adapter = compositionAdapter();
+    adapter.cleanup = async () => ({ ok: true, status: 'verified', accessToken: 'private-test-value' });
+    const context = plannedContext({ adapter });
+    const result = await prepareAccountProfilePreferences(context);
+    await assert.rejects(() => cleanupAccountProfilePreferences(context, result), (error) =>
+        /must return no completion receipt/u.test(error.message)
+        && error.cleanupInvocationCompleted === true
+        && !error.message.includes('private-test-value')
+        && /^[a-f0-9]{64}$/u.test(error.completionDigest));
+});
+
+test('HTTP cleanup transport refuses a success status outside the canonical 204 contract', async () =>
+{
+    const adapter = compositionAdapter();
+    const base = plannedContext({ adapter: null });
+    const context = { ...base, handles: { ...base.handles,
+        baseUrl: 'http://127.0.0.1:37568', accountProfilePreferenceFixtureSecret: 'fixture-secret' } };
+    const originalFetch = globalThis.fetch;
+    const calls = [];
+    globalThis.fetch = async (url, options) =>
+    {
+        const action = String(url).split('/').at(-1);
+        calls.push(action);
+        if (action === 'prepare')
+        {
+            return Response.json(await adapter.prepare(JSON.parse(options.body)));
+        }
+        if (action === 'verify')
+        {
+            return Response.json(await adapter.verify(JSON.parse(options.body)));
+        }
+        return new Response(null, { status: 200 });
+    };
+    try
+    {
+        const result = await prepareAccountProfilePreferences(context);
+        await assert.rejects(() => cleanupAccountProfilePreferences(context, result), /requires HTTP 204/u);
+        assert.deepEqual(calls, ['prepare', 'verify', 'cleanup']);
+    }
+    finally
+    {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('cleanup propagates verification and compensation failures with the original private cause', async () =>
+{
+    for (const action of ['verify', 'cleanup'])
+    {
+        const adapter = compositionAdapter();
+        const context = plannedContext({ adapter });
+        const result = await prepareAccountProfilePreferences(context);
+        const original = new Error('private cleanup failure');
+        adapter[action] = async () =>
+        {
+            throw original;
+        };
+        await assert.rejects(() => cleanupAccountProfilePreferences(context, result), (error) =>
+            error.cause === original && !error.message.includes(original.message));
+    }
 });
 
 test('adapter failure retains original private cause while ordinary verdict stays redacted', async () =>

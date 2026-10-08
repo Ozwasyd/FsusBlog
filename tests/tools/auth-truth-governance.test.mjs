@@ -47,7 +47,9 @@ test('all checkers refuse terminal acceptance when actual cleanup authorities ar
             const report = checker(root);
             assert.equal(report.status, 'blocked');
             assert.deepEqual(report.violations, []);
-            assert.equal(report.blockers[0].code, 'verified-cleanup-authority-unavailable');
+            assert.ok(report.blockers.some((blocker) => blocker.code === 'canonical-cleanup-completion-verifier-unavailable'));
+            assert.ok(report.blockers.some((blocker) => blocker.code === 'ownership-or-consumer-inventory-unavailable'));
+            assert.ok(report.blockers.every((blocker) => !('dependencyIssue' in blocker)));
             assert.equal('receiptDigest' in report, false);
         }
         symlinkSync('/does-not-exist', path.join(root, 'external.ts'));
