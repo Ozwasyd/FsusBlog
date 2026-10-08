@@ -5392,36 +5392,44 @@ async function runDagUnlocked(options)
     {
         resolveInterrupt = resolve;
     });
+    const interrupt = (signal, exitCode) =>
+    {
+        if (interrupted)
+        {
+            return;
+        }
+        interrupted = { signal, exitCode };
+        for (const execution of startingExecutions)
+        {
+            execution.terminate(Object.assign(new Error(`scheduler interrupted by ${signal}`), {
+                name: 'AbortError', signal, exitCode
+            }));
+        }
+        for (const entry of active.values())
+        {
+            entry.cancelRequested = true;
+            entry.terminate();
+        }
+        resolveInterrupt({ interrupted: true, signal, exitCode });
+    };
     for (const [signal, exitCode] of [
         ['SIGINT', 130],
         ['SIGTERM', 143]
     ])
     {
-        const handler = () =>
-        {
-            if (interrupted)
-            {
-                return;
-            }
-            interrupted = { signal, exitCode };
-            for (const execution of startingExecutions)
-            {
-                execution.terminate(Object.assign(new Error(`scheduler interrupted by ${signal}`), {
-                    name: 'AbortError', signal, exitCode
-                }));
-            }
-            for (const entry of active.values())
-            {
-                entry.cancelRequested = true;
-                entry.terminate();
-            }
-            resolveInterrupt({ interrupted: true, signal, exitCode });
-        };
+        const handler = () => interrupt(signal, exitCode);
         interruptHandlers.set(signal, handler);
         process.on(signal, handler);
     }
+    const abortHandler = () => interrupt('AbortSignal', 130);
+    options.signal?.addEventListener('abort', abortHandler, { once: true });
+    if (options.signal?.aborted)
+    {
+        abortHandler();
+    }
     const removeInterruptHandlers = () =>
     {
+        options.signal?.removeEventListener('abort', abortHandler);
         for (const [signal, handler] of interruptHandlers)
         {
             process.off(signal, handler);
@@ -6592,6 +6600,11 @@ async function runDagUnlocked(options)
                 `current-run preexecuted tier outputs are missing before admission: ${tier.id}`
             );
         }
+        if (interrupted)
+        {
+            pending.unshift(tier);
+            return false;
+        }
         if (!resume && !currentRunPreexecutedTierBinding)
         {
             cleanFreshOwnedFiles(root, ownedOutputs, tierEnvironment);
@@ -6612,6 +6625,12 @@ async function runDagUnlocked(options)
             return outputPipeline.write(chunk, stderr ? 'stderr' : 'stdout');
         };
         const beforeSnapshot = await snapshotWorktree();
+        if (interrupted)
+        {
+            await outputPipeline.close({ complete: false, truncationReason: 'scheduler-cancelled-before-dispatch' });
+            pending.unshift(tier);
+            return false;
+        }
         const startedAt = Date.now();
         const context = {
             env: tierEnvironment,
@@ -6619,6 +6638,7 @@ async function runDagUnlocked(options)
             logIndexFile: outputPipeline.indexFile,
             logEvidenceFile: outputPipeline.evidenceFile,
             writeOutput,
+            signal: options.signal,
             runId,
             runDirectory
         };
@@ -7145,8 +7165,47 @@ async function runDagUnlocked(options)
         return { success, cancelled, reason, changedPaths, executionResult };
     };
 
+    let interruptionRecorded = false;
+    const recordInterruption = () =>
+    {
+        if (interruptionRecorded)
+        {
+            return;
+        }
+        interruptionRecorded = true;
+        deadlineExpired = true;
+        firstFailure ??= {
+            tierId: active.keys().next().value ?? pending[0]?.id ?? checkpoint.targetTierId,
+            exitCode: interrupted.exitCode,
+            signal: interrupted.signal,
+            reason: `scheduler interrupted by ${interrupted.signal}`,
+            changedPaths: []
+        };
+        checkpoint.failure = firstFailure;
+        checkpoint.failurePoint = firstFailure.tierId;
+        if (!checkpoint.failures.includes(firstFailure))
+        {
+            checkpoint.failures.push(firstFailure);
+        }
+        for (const tier of pending.splice(0))
+        {
+            checkpoint.tiers[tier.id] = { status: 'cancelled', durationMs: 0,
+                reason: `not admitted after scheduler interrupted by ${interrupted.signal}`, reused: false };
+        }
+        writeCheckpoint(checkpointFile, checkpoint, {
+            eventType: 'run-interrupted', tier: firstFailure.tierId, step: 'scheduler'
+        });
+    };
+    if (interrupted)
+    {
+        recordInterruption();
+    }
     while (pending.length > 0 || active.size > 0)
     {
+        if (interrupted)
+        {
+            recordInterruption();
+        }
         if (interrupted && active.size === 0)
         {
             break;
@@ -7245,6 +7304,10 @@ async function runDagUnlocked(options)
             }
             for (const grantedTier of wave)
             {
+                if (interrupted)
+                {
+                    break;
+                }
                 const nextIndex = pending.findIndex((tier) => tier.id === grantedTier.id);
                 if (nextIndex < 0)
                 {
@@ -7340,22 +7403,7 @@ async function runDagUnlocked(options)
         if (outcome.interrupted)
         {
             interruptPromise = null;
-            deadlineExpired = true;
-            firstFailure ??= {
-                tierId: active.keys().next().value ?? pending[0]?.id ?? checkpoint.targetTierId,
-                exitCode: outcome.exitCode,
-                signal: outcome.signal,
-                reason: `scheduler interrupted by ${outcome.signal}`,
-                changedPaths: []
-            };
-            checkpoint.failure = firstFailure;
-            checkpoint.failurePoint = firstFailure.tierId;
-            checkpoint.failures.push(firstFailure);
-            writeCheckpoint(checkpointFile, checkpoint, {
-                eventType: 'run-interrupted',
-                tier: firstFailure.tierId,
-                step: 'scheduler'
-            });
+            recordInterruption();
             continue;
         }
         if (outcome.budgetExpired)
@@ -7871,6 +7919,11 @@ function resolveSchedulerResumeBinding({ checkpointFile, runId, targetTierId, na
 
 export async function runDag(options)
 {
+    if (options.signal !== undefined && !(options.signal instanceof AbortSignal))
+    {
+        throw new TypeError('scheduler signal must be an AbortSignal');
+    }
+    options.signal?.throwIfAborted();
     const resume = options.resume === true || options.mode === 'resume';
     if (resume && options.cpuCapacity !== undefined)
     {
@@ -7946,6 +7999,7 @@ export async function runDag(options)
     {
         resolveSchedulerResumeBinding(resumeBindingOptions);
     }
+    options.signal?.throwIfAborted();
     const releaseLock = acquireRunLock(runsRoot, runId, {
         sourceState,
         namespace,
