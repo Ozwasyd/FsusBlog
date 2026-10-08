@@ -7,10 +7,9 @@
                 "config/testing/correctness-attempt-producers.json",
                 "tests/backend/packages.lock.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/governance/test-lifecycle-registry.json",
-                "tests/test-retention-replacements.json"
+                "tests/governance/test-lifecycle-registry.json"
             ],
-            "reason": "preserve existing serialized NuGet, lifecycle, retention and producer authority keys while integrating the exact coordinator-supplied prerequisite commits"
+            "reason": "preserve existing serialized NuGet, lifecycle and producer authority keys while integrating the exact coordinator-supplied prerequisite commits"
         },
         {
             "id": "environment-variable",
@@ -18,13 +17,6 @@
                 "tools/test/correctness-attempt-migration.mjs"
             ],
             "reason": "retain canonical execution owner and environment authority spellings in the supplied full-roster validation capability"
-        },
-        {
-            "id": "css-like-contract",
-            "paths": [
-                "docs/testing.md"
-            ],
-            "reason": "preserve the supplied documentation's external test, CLI and producer identifiers when describing the canonical complete-roster authority"
         }
     ]
 }
