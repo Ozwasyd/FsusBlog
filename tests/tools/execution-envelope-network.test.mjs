@@ -28,10 +28,11 @@ test('pinned matrix governance grants only private .NET mutex scratch to Landloc
     skip: process.platform !== 'linux'
 }, (t) =>
 {
+    const runId = `private-dotnet-scratch-${process.pid}`;
     const directoryEnvelope = prepareRunOwnedDirectories({
         repositoryRoot: process.cwd(),
         cwd: process.cwd(),
-        runId: `private-dotnet-scratch-${process.pid}`,
+        runId,
         producerId: 'matrix-governance',
         attemptId: 'matrix-governance'
     });
@@ -42,9 +43,10 @@ test('pinned matrix governance grants only private .NET mutex scratch to Landloc
         LANG: 'C.UTF-8',
         LC_ALL: 'C.UTF-8',
         TZ: 'UTC',
+        FSUSBLOG_TEST_RUN_ID: runId,
         FSUSBLOG_CONTENT_FIELD_DOTNET: '/opt/pinned/dotnet'
     };
-    const prepared = prepareNetworkSandbox({
+    const options = {
         command: [process.execPath, '-e', 'process.exit(0)'],
         cwd: process.cwd(),
         directories: directoryEnvelope.fragment.directories,
@@ -53,7 +55,11 @@ test('pinned matrix governance grants only private .NET mutex scratch to Landloc
         policy,
         producerId: 'matrix-governance',
         attemptId: 'matrix-governance'
-    });
+    };
+    assert.throws(() => prepareNetworkSandbox(options), /requires the exact current-attempt owned \/tmp alias/u);
+    assert.throws(() => prepareNetworkSandbox({ ...options, ownedDirectoryEnvelope: directoryEnvelope,
+        environment: { ...environment, FSUSBLOG_TEST_RUN_ID: `${runId}-foreign` } }), /directory identity drifted/u);
+    const prepared = prepareNetworkSandbox({ ...options, ownedDirectoryEnvelope: directoryEnvelope });
     assert.equal(prepared.privateDotnetScratch, true);
     assert.equal(prepared.linuxReadWritePaths.includes('/tmp'), false);
     assert.equal(prepared.linuxReadWritePaths.includes('/tmp/.dotnet/shm'), false);
@@ -61,6 +67,14 @@ test('pinned matrix governance grants only private .NET mutex scratch to Landloc
     const index = prepared.command.indexOf('/tmp/.dotnet/shm');
     assert.ok(index > 0);
     assert.equal(prepared.command[index - 1], '--writable');
+    const alias = prepared.fragment.sandbox.filesystem.ownedPrivateTmp;
+    assert.equal(alias.source, directoryEnvelope.fragment.directories.temp);
+    assert.equal(prepared.linuxOwnedPrivateTmp, directoryEnvelope.privateTmpCapability);
+    const metadataIndex = prepared.command.indexOf('--owned-tmp-source');
+    assert.deepEqual(prepared.command.slice(metadataIndex, metadataIndex + 8), [
+        '--owned-tmp-source', alias.source, '--owned-tmp-device', alias.device,
+        '--owned-tmp-inode', alias.inode, '--owned-tmp-uid', alias.uid
+    ]);
 });
 
 test('service endpoints project exact protocol, loopback address, and current-run port', () =>
