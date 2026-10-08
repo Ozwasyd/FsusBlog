@@ -1,6 +1,8 @@
 import { ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
-import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext'
+import { ArticleDocumentContextAuthority, createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext'
+import { ArticlePreviewSourceAdmission } from '@/services/authoring/articlePreviewSourceAdmission'
+import { calculateOpenArticleDocumentDigest as digest } from '@/services/authoring/openArticleDocumentRegistry'
 import {
   commitArticlePreviewIfCurrent,
   useArticlePreviewGeneration,
@@ -73,6 +75,63 @@ const deferred = <T>() => {
 }
 
 describe('admin article preview generation authority', () => {
+  it('finishes cancellation while the producer ignores abort and rejects its late completion', async () => {
+    const source = { title: 'Title A', content: 'content A', summary: '', coverImageUrl: null }
+    const previous = previewFor(source, 'last-valid')
+    const target = ref<ArticlePreviewResponse | null>(previous)
+    const pending = deferred<ArticlePreviewResponse>()
+    const requestPreview = vi.fn(() => pending.promise)
+    const owner = createDocumentContext()
+    const generation = useArticlePreviewGeneration({ target, documentContext: owner,
+      readRequest: () => requestFor(source), readCurrentSnapshot: () => source,
+      createIdentity: async () => 'identity:Title A', requestPreview })
+    const controller = new AbortController()
+    const run = generation.generate(controller.signal)
+    await vi.waitFor(() => expect(requestPreview).toHaveBeenCalledTimes(1))
+    controller.abort()
+    expect(await run).toBeNull()
+    expect(target.value).toEqual(previous)
+    pending.resolve(previewFor(source))
+    await Promise.resolve()
+    expect(target.value).toEqual(previous)
+    owner.dispose()
+  })
+  it('binds the complete current request and cancels actual owner work while retaining the last admitted preview', async () => {
+    const source = { title: 'Title A', content: 'content A', summary: '', coverImageUrl: null }
+    const authority = new ArticleDocumentContextAuthority()
+    const host = authority.acquire({ articleId: 1, siteScope: 'site:test', userScope: 'user:test', content: source.content })
+    let request = requestFor(source)
+    const previous = previewFor(source, 'last-valid')
+    const target = ref<ArticlePreviewResponse | null>(previous)
+    let pending = deferred<ArticlePreviewResponse>()
+    const requestPreview = vi.fn((_request: ServerDraftSaveRequest, _signal: AbortSignal) => pending.promise)
+    const generation = useArticlePreviewGeneration({ target, documentContext: host.adapter,
+      sourceAdmission: () => ArticlePreviewSourceAdmission.attach(() => ({ context: host.adapter.context,
+        source: source.content, responsibility: null, siteAuthor: '', attachmentLifecycleHistory: [],
+        authoringInputDigest: digest(request) }), authority),
+      readRequest: () => request, readCurrentSnapshot: () => source,
+      createIdentity: async () => 'identity:Title A', requestPreview })
+    try {
+      const first = generation.generate(new AbortController().signal)
+      await vi.waitFor(() => expect(requestPreview).toHaveBeenCalledTimes(1))
+      request = { ...request, rights: { ...request.rights, copyPolicy: 'deny' } }
+      pending.resolve(previewFor(source))
+      expect(await first).toBeNull()
+      expect(target.value).toEqual(previous)
+      pending = deferred<ArticlePreviewResponse>()
+      const second = generation.generate(new AbortController().signal)
+      await vi.waitFor(() => expect(requestPreview).toHaveBeenCalledTimes(2))
+      const signal = requestPreview.mock.calls[1]![1]
+      host.adapter.updateSource('changed source')
+      expect(signal.aborted).toBe(true)
+      pending.resolve(previewFor(source))
+      expect(await second).toBeNull()
+      expect(target.value).toEqual(previous)
+      expect(host.adapter.isCurrentContext(host.adapter.context)).toBe(true)
+    } finally {
+      host.release()
+    }
+  })
   it('keeps B committed when A returns after editing A to B and back to A', async () => {
     const target = ref<ArticlePreviewResponse | null>(null)
     let current: ArticlePreviewSourceSnapshot = {

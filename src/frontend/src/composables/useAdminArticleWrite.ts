@@ -79,6 +79,9 @@ import { ArticleEditorSearchRuntime } from '@/services/authoring/articleEditorSe
 import { validateArticleEditorSurfacePreference, type ArticleEditorSurfacePreference } from '@/services/authoring/articleEditorSurface';
 import { ArticleEditorSurfaceRuntime } from '@/services/authoring/articleEditorSurfaceRuntime';
 import { ArticleLiveCapabilitySession } from '@/services/authoring/articleLiveCapability';
+import type { ArticlePreviewAttachmentPort } from '@/services/authoring/articlePreviewAttachments';
+import { ArticlePreviewSourceAdmission, type ArticlePreviewSourceInput } from '@/services/authoring/articlePreviewSourceAdmission';
+import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
@@ -108,6 +111,13 @@ interface ArticleDraftSnapshot extends ArticleParams {
     serverRevision: number | null;
     documentContextDigest: string;
 }
+
+/** Borrow original live business and attribution owners; this host produces no asset grants or responsibility data. */
+type ArticleWriterPreviewOwners = Readonly<{
+    binding: ArticleEditorRuntimeBinding;
+    business: ArticlePreviewAttachmentPort;
+    readAttribution: () => Pick<ArticlePreviewSourceInput, 'responsibility' | 'siteAuthor'>;
+}>;
 
 export interface ArticleRevisionConflictMetadata {
     currentRevisionId: string;
@@ -523,6 +533,7 @@ export function useAdminArticleWrite()
     const privatePreview = ref<ArticlePreviewResponse | null>(null);
     const privatePreviewLoading = ref(false);
     const privatePreviewStatusText = ref('预览仅在作者工作台内生成');
+    const previewOwners = shallowRef<ArticleWriterPreviewOwners | null>(null);
     const seoIssues = ref<PrepublishIssue[]>([]);
     const seoChecking = ref(false);
     const seoStatusText = ref('发布前检查随表单实时更新');
@@ -723,7 +734,8 @@ export function useAdminArticleWrite()
         [draftStatusText.value.trim(), articleRecoveryStorageWarning.value.trim()].filter(Boolean).join('；'));
     const requiresLeaveConfirm = computed(() => hasDraftContent(articleForm) || hasLocalDraft.value);
     const selectedRevisionLabel = computed(() => selectedRevision.value ? `版本 ${selectedRevision.value.revisionNo}` : '未选择历史版本');
-    const canGeneratePrivatePreview = computed(() => articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0);
+    const canGeneratePrivatePreview = computed(() => previewOwners.value !== null
+        && (articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0));
     const seoPreview = computed<ArticleSeoPreviewState>(() =>
     {
         const baseUrl = normalizeSeoBaseUrl(firstNonEmptyText(
@@ -959,6 +971,11 @@ export function useAdminArticleWrite()
                 }
                 editorRuntimeBinding = null;
                 releaseEditorRuntime = null;
+                if (previewOwners.value?.binding === binding)
+                {
+                    previewOwners.value = null;
+                    previewTask.cancel();
+                }
                 searchRuntime.dispose();
                 surfaceRuntime?.dispose();
                 surfaceRuntime = null;
@@ -989,7 +1006,27 @@ export function useAdminArticleWrite()
                     new ArticleLiveCapabilitySession(articleDocumentContextAdapter), readCurrentPreference);
                 return surfaceRuntime;
             };
-            return Object.freeze({ binding, release, bindSurfacePreference, search: searchRuntime });
+            const bindPreviewOwners = (business: ArticlePreviewAttachmentPort,
+                readAttribution: ArticleWriterPreviewOwners['readAttribution']): (() => void) =>
+            {
+                if (!active || editorRuntimeBinding !== binding || previewOwners.value !== null
+                    || typeof business?.assess !== 'function' || typeof business.verify !== 'function'
+                    || typeof readAttribution !== 'function')
+                {
+                    throw new Error('article-preview-owner-binding-invalid');
+                }
+                const owners = Object.freeze({ binding, business, readAttribution });
+                previewOwners.value = owners;
+                return () =>
+                {
+                    if (previewOwners.value === owners)
+                    {
+                        previewOwners.value = null;
+                        previewTask.cancel();
+                    }
+                };
+            };
+            return Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, search: searchRuntime });
         }
     });
     const initTask = useAbortableTask({
@@ -1197,6 +1234,23 @@ export function useAdminArticleWrite()
     const articlePreviewGeneration = useArticlePreviewGeneration({
         target: privatePreview,
         documentContext: articleDocumentContextAdapter,
+        attachmentBusiness: () => previewOwners.value?.business ?? null,
+        sourceAdmission: () =>
+        {
+            const owners = previewOwners.value;
+            if (editorRuntimeBinding !== owners?.binding)
+            {
+                throw new Error('article-preview-owner-unavailable');
+            }
+            return ArticlePreviewSourceAdmission.attachRuntime(owners.binding, () => ({
+                context: articleDocumentContextAdapter.context,
+                source: articleForm.content,
+                ...owners.readAttribution(),
+                // Bounded lifecycle history invalidates requests; the business owner supplies current inventory.
+                attachmentLifecycleHistory: authoringAttachments.lifecycleReceipts,
+                authoringInputDigest: calculateOpenArticleDocumentDigest(currentPrepublishIdentity())
+            }));
+        },
         readRequest: () => buildServerDraftRequest(
             buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
         ),
@@ -2213,7 +2267,8 @@ export function useAdminArticleWrite()
     {
         if (!canGeneratePrivatePreview.value)
         {
-            showWarningToast('请先填写标题或正文', '请先填写标题或正文');
+            const reason = previewOwners.value === null ? '预览所需的附件与责任信息尚未就绪' : '请先填写标题或正文';
+            showWarningToast(reason, reason);
             return;
         }
 
@@ -3280,6 +3335,7 @@ export function useAdminArticleWrite()
         privatePreview,
         privatePreviewLoading,
         privatePreviewStatusText,
+        privatePreviewAttachmentState: articlePreviewGeneration.attachmentState,
         canGeneratePrivatePreview,
         aiAssist,
         aiAssistLoading,
