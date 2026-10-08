@@ -3,7 +3,7 @@ namespace FsusBlog.Server.Infrastructure.Memory.Contracts;
 public readonly record struct ResourceDomainId(Guid Value);
 public enum MemoryResourceUnit
 {
-    Bytes, OperationSlots
+    Bytes, OperationSlots, Inodes
 }
 public enum MemoryObservationState
 {

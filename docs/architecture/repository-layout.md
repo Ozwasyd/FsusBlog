@@ -136,6 +136,20 @@ permissions, safety, qualification, and budgets. Discovery, qualification, onlin
 selection, and per-operation admission remain distinct. This inventory changes no serving
 behavior and claims no performance improvement.
 
+The common resource vector distinguishes `Inodes`, `OperationSlots`, and `Bytes`.
+An inode capacity domain needs its own identity and cap; available operation slots
+cannot stand in for free inodes. The coordinator rejects a complete vector when any
+domain is exhausted and retains live charges across policy reductions.
+`FrozenDiskPhysicalAllocationPolicy` retains an owner-supplied immutable physical
+upper bound, including volume/root identity, maximum logical and charged bytes,
+policy revision, and finite expiry. Missing, expired, mismatched, or out-of-range
+bounds reject use. Sampled file blocks do not establish a conservative metadata or
+extent bound. This adapter supplies neither filesystem qualification nor automatic
+activation; the disk owner must consume the independent inode domain, and the
+existing policy owner must establish a qualified bound before enabling physical
+admission. The current source-compatible disk path without a physical policy remains
+unqualified for Auto. No new setting or per-host enable authority is introduced.
+
 The current backend, Core, Shared, and Migration projects target `net10.0`. A .NET target
 or an available local toolchain does not establish product platform support. The catalog distinguishes the Dockerfile's `linux-musl-x64` shipping default from
 additional candidate targets and binds each row's source and required offline closure.

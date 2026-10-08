@@ -2128,14 +2128,15 @@
         {
             "id": "memory-ledger-metadata",
             "sourcePaths": [
-                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs"
+                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                "src/backend/Infrastructure/Memory/Accounting/FrozenDiskPhysicalAllocationPolicy.cs"
             ],
             "pathStatus": "baseline-reported",
-            "owner": "MemoryReservationCoordinator bounded entry set, resource topology and fixed event ring",
+            "owner": "MemoryReservationCoordinator bounded entry set, resource topology, fixed event ring and frozen disk bound adapter",
             "producer": "MemoryReservationCoordinator request normalization and immutable accounting-event snapshots",
             "consumers": "Reservation and allocation charge tokens plus snapshot/event-window/allocation-observation callers; physical descriptors stay immutable metadata, not owning leases",
             "releaseEvent": "Reservation disposal or allocation-owner final disposal releases its resource vector; ring slot replacement drops only that event reference; snapshot caller references remain managed",
-            "capacityModel": "Finite entryLimit/eventCapacity/domain roster and at most entryLimit immutable physical descriptors; caller charge amounts describe resource constraints, not exact CLR metadata object sizes",
+            "capacityModel": "Finite entryLimit/eventCapacity/domain roster and at most entryLimit immutable physical descriptors; caller charge amounts describe resource constraints, not exact CLR metadata object sizes; disk physical policy retains one immutable owner-supplied bound and time provider, not filesystem capacity qualification",
             "frequency": "Per vector admission, commit, release and explicit diagnostic snapshot",
             "asyncEscape": "Tokens can escape asynchronously; a converted reservation never releases its allocation charge; actual backing lifetime is delegated to its final owner",
             "classification": "ephemeral-scratch",
@@ -2156,6 +2157,10 @@
                 {
                     "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
                     "anchor": "public sealed class MemoryReservationCoordinator"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Accounting/FrozenDiskPhysicalAllocationPolicy.cs",
+                    "anchor": "public sealed class FrozenDiskPhysicalAllocationPolicy"
                 }
             ]
         },
