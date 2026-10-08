@@ -678,8 +678,12 @@ const handleEditorCompositionEnd = async (): Promise<void> =>
     transition?.();
 };
 
-const handleSubmitShortcut = (event: KeyboardEvent): void =>
+const handleSubmitShortcut = (event: KeyboardEvent | Event): void =>
 {
+    if (!(event instanceof KeyboardEvent))
+    {
+        return;
+    }
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey))
     {
         event.preventDefault();

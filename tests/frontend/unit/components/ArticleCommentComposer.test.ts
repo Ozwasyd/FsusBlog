@@ -30,7 +30,10 @@ const ElInputStub = defineComponent({
   inheritAttrs: false,
   props: {
     modelValue: { type: String, default: '' },
-    disabled: { type: Boolean, default: false }
+    disabled: { type: Boolean, default: false },
+    ariaLabel: { type: String, default: '' },
+    type: { type: String, default: 'text' },
+    resize: { type: String, default: '' }
   },
   emits: ['update:modelValue', 'focus', 'keydown', 'compositionstart', 'compositionend'],
   setup(props, { attrs, emit, expose }) {
@@ -41,6 +44,7 @@ const ElInputStub = defineComponent({
       ref: textarea,
       value: props.modelValue,
       disabled: props.disabled,
+      'aria-label': props.ariaLabel,
       onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
       onFocus: (event: FocusEvent) => emit('focus', event),
       onKeydown: (event: KeyboardEvent) => emit('keydown', event),
@@ -371,6 +375,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
       clientMutationId: '018ff009-1234-7abc-8def-0123456789ab'
     })
     const wrapper = mountComposer({ articleId: 42, accountId: 7, modelValue: '相同文字但属于当前私密正文' })
+    await nextTick()
     await wrapper.get('.comment-composer-draft__actions button:last-child').trigger('click')
     expect(localStorage.getItem(key)).toBeNull()
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
@@ -386,6 +391,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
       clientMutationId: '018ff006-1234-7abc-8def-0123456789ab'
     })
     const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    await nextTick()
     await wrapper.get('.comment-composer-draft__actions button').trigger('click')
     await wrapper.setProps({ modelValue: '审查后匿名发送' })
     const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))!
@@ -399,6 +405,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     })
     vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('storage deletion denied') })
     const blocked = mountComposer({ articleId: 42, accountId: 7 })
+    await nextTick()
     await blocked.get('.comment-composer-draft__actions button').trigger('click')
     await blocked.setProps({ modelValue: '无法清理的公开草稿' })
     expect(blocked.text()).toContain('强匿名发布已暂停')
@@ -416,6 +423,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
       clientMutationId: '018ff008-1234-7abc-8def-0123456789ab'
     })
     const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    await nextTick()
     await wrapper.get('.comment-composer-draft__actions button').trigger('click')
     await wrapper.setProps({ modelValue: '已审查正文' })
     await purgeCommentPrivacyCredentialState('epoch-changed', { broadcast: false })
@@ -499,12 +507,25 @@ describe('ArticleCommentComposer public primitive delegation', () => {
     for (const editor of editors) {
       expect(editor.props('modelValue')).toBe('共享正文')
       expect(editor.props('disabled')).toBe(true)
-      expect(editor.attributes('aria-label')).toBe('发表评论')
-      expect(editor.attributes('type')).toBe('textarea')
-      expect(editor.attributes('resize')).toBe('none')
+      expect(editor.props('ariaLabel')).toBe('发表评论')
+      expect(editor.get('textarea').attributes('aria-label')).toBe('发表评论')
+      expect(editor.props('type')).toBe('textarea')
+      expect(editor.props('resize')).toBe('none')
     }
     editors[1]!.vm.$emit('update:modelValue', '扩展输入')
     expect(wrapper.emitted('update:modelValue')).toContainEqual(['扩展输入'])
+    wrapper.unmount()
+  })
+
+  it('ignores generic Input keydown events without submitting', async () => {
+    const wrapper = mountComposer({ modelValue: '自动填充正文' })
+    const event = new Event('keydown', { cancelable: true })
+    for (const editor of wrapper.findAllComponents(FsusUiInput)) {
+      editor.vm.$emit('keydown', event)
+    }
+    await nextTick()
+    expect(event.defaultPrevented).toBe(false)
+    expect(wrapper.emitted('submit')).toBeUndefined()
     wrapper.unmount()
   })
 
