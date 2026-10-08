@@ -471,13 +471,18 @@ function cancelProgrammaticViewportSuppression(): void
 
 onBeforeUnmount(cancelProgrammaticViewportSuppression);
 
-function trackAuthoringSelection(event: FsusUiMarkdownEditorSelectionEvent): void
+function trackAuthoringSelection(event: ArticleAuthoringSelectionEvent): void
 {
-    const identity = props.documentIdentity;
-    emit('selection-change', identity ? { ...event, documentIdentity: identity } : event);
+    const identity = event.documentIdentity;
+    emit('selection-change', event);
     if (identity === undefined)
     {
         currentAuthoringBinding.value = null;
+        return;
+    }
+    const expected = props.documentIdentity;
+    if (identity.id !== expected?.id || identity.epoch !== expected?.epoch)
+    {
         return;
     }
     currentAuthoringBinding.value = Object.freeze({
