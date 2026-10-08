@@ -1,0 +1,22 @@
+{
+    "command": [
+        "/workspace/toolchains/chain-3663/node/node-v24.16.0-linux-x64/bin/node",
+        "scripts/with-node-heap.mjs",
+        "vitest",
+        "run",
+        "--config",
+        "vue/vitest.config.ts",
+        "vue/packages/wasm/__tests__/markdown-anchor-grammar.test.ts",
+        "vue/packages/wasm/__tests__/markdown-anchor-mutations.test.ts",
+        "vue/packages/wasm/__tests__/markdown-embed-directive.test.ts",
+        "vue/packages/wasm/__tests__/markdown-embed-budget.test.ts",
+        "--reporter=json",
+        "--outputFile=/workspace/chain-3663-evidence/fsusui-current-probe/canonical-anchor-embed-tests.json"
+    ],
+    "sourceSha": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "startUtc": "2026-10-08T14:49:01.775544+00:00",
+    "endUtc": "2026-10-08T14:49:05.846223+00:00",
+    "exitCode": 0,
+    "cleanAfter": true,
+    "qualification": "Original focused grammar/mutation/budget source controls; not Blog frozen graph/permission/provider/package runtime acceptance"
+}

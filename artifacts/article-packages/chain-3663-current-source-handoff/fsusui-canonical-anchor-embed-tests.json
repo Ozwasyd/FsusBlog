@@ -1,0 +1,247 @@
+{
+    "numTotalTestSuites": 10,
+    "numPassedTestSuites": 10,
+    "numFailedTestSuites": 0,
+    "numPendingTestSuites": 0,
+    "numTotalTests": 15,
+    "numPassedTests": 15,
+    "numFailedTests": 0,
+    "numPendingTests": 0,
+    "numTodoTests": 0,
+    "snapshot": {
+        "added": 0,
+        "failure": false,
+        "filesAdded": 0,
+        "filesRemoved": 0,
+        "filesRemovedList": [],
+        "filesUnmatched": 0,
+        "filesUpdated": 0,
+        "matched": 0,
+        "total": 0,
+        "unchecked": 0,
+        "uncheckedKeysByFile": [],
+        "unmatched": 0,
+        "updated": 0,
+        "didUpdate": false
+    },
+    "startTime": 1791470942366,
+    "success": true,
+    "testResults": [
+        {
+            "assertionResults": [
+                {
+                    "ancestorTitles": [
+                        "markdown block anchor grammar"
+                    ],
+                    "fullName": "markdown block anchor grammar maps ^id line-end and following-line placements to #id fragments",
+                    "status": "passed",
+                    "title": "maps ^id line-end and following-line placements to #id fragments",
+                    "duration": 16.533536000000026,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown block anchor grammar"
+                    ],
+                    "fullName": "markdown block anchor grammar rejects invalid ids, duplicates, orphans, and aliases",
+                    "status": "passed",
+                    "title": "rejects invalid ids, duplicates, orphans, and aliases",
+                    "duration": 1.5977799999999434,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown anchor mutations"
+                    ],
+                    "fullName": "markdown anchor mutations kills alias, auto id, DOM post-process, first-wins, and cross-gap ownership",
+                    "status": "passed",
+                    "title": "kills alias, auto id, DOM post-process, first-wins, and cross-gap ownership",
+                    "duration": 1.0789980000000696,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                }
+            ],
+            "startTime": 1791470945047,
+            "endTime": 1791470945066.079,
+            "status": "passed",
+            "message": "",
+            "name": "/workspace/FsusUI/vue/packages/wasm/__tests__/markdown-anchor-grammar.test.ts"
+        },
+        {
+            "assertionResults": [
+                {
+                    "ancestorTitles": [
+                        "markdown anchor mutations"
+                    ],
+                    "fullName": "markdown anchor mutations rejects DOM paths, HTML offsets, naked offsets, nearby reveals, and bidi order",
+                    "status": "passed",
+                    "title": "rejects DOM paths, HTML offsets, naked offsets, nearby reveals, and bidi order",
+                    "duration": 20.974402000000055,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                }
+            ],
+            "startTime": 1791470945799,
+            "endTime": 1791470945819.9744,
+            "status": "passed",
+            "message": "",
+            "name": "/workspace/FsusUI/vue/packages/wasm/__tests__/markdown-anchor-mutations.test.ts"
+        },
+        {
+            "assertionResults": [
+                {
+                    "ancestorTitles": [
+                        "markdown embed budgets, cycle identity, and versioned cache"
+                    ],
+                    "fullName": "markdown embed budgets, cycle identity, and versioned cache fails direct and indirect cycles, depth, size, and time without stack overflow",
+                    "status": "passed",
+                    "title": "fails direct and indirect cycles, depth, size, and time without stack overflow",
+                    "duration": 3.9993409999999585,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown embed budgets, cycle identity, and versioned cache"
+                    ],
+                    "fullName": "markdown embed budgets, cycle identity, and versioned cache isolates cache by identity, version, mode, provider, theme, and locale",
+                    "status": "passed",
+                    "title": "isolates cache by identity, version, mode, provider, theme, and locale",
+                    "duration": 1.4930120000000215,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown embed budgets, cycle identity, and versioned cache"
+                    ],
+                    "fullName": "markdown embed budgets, cycle identity, and versioned cache cancels stale recursion trees and stays bounded at 1000 embeds",
+                    "status": "passed",
+                    "title": "cancels stale recursion trees and stays bounded at 1000 embeds",
+                    "duration": 4.666689000000019,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown embed budgets, cycle identity, and versioned cache"
+                    ],
+                    "fullName": "markdown embed budgets, cycle identity, and versioned cache kills token-only cache, missing cycle detection, unbounded recursion, and stale tree commit",
+                    "status": "passed",
+                    "title": "kills token-only cache, missing cycle detection, unbounded recursion, and stale tree commit",
+                    "duration": 0.9794969999999239,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                }
+            ],
+            "startTime": 1791470944308,
+            "endTime": 1791470944318.9795,
+            "status": "passed",
+            "message": "",
+            "name": "/workspace/FsusUI/vue/packages/wasm/__tests__/markdown-embed-budget.test.ts"
+        },
+        {
+            "assertionResults": [
+                {
+                    "ancestorTitles": [
+                        "markdown embed directive grammar"
+                    ],
+                    "fullName": "markdown embed directive grammar accepts only the public target-then-mode grammar",
+                    "status": "passed",
+                    "title": "accepts only the public target-then-mode grammar",
+                    "duration": 3.8056289999999535,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown embed directive grammar"
+                    ],
+                    "fullName": "markdown embed directive grammar rejects indent, trailing content, extra attributes, and inferred modes",
+                    "status": "passed",
+                    "title": "rejects indent, trailing content, extra attributes, and inferred modes",
+                    "duration": 0.9768829999998161,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown embed directive grammar"
+                    ],
+                    "fullName": "markdown embed directive grammar unescapes only backslash and quote in target",
+                    "status": "passed",
+                    "title": "unescapes only backslash and quote in target",
+                    "duration": 0.6951389999999265,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown embed directive grammar"
+                    ],
+                    "fullName": "markdown embed directive grammar projects embed nodes through the unique parser with CRLF and BOM ranges",
+                    "status": "passed",
+                    "title": "projects embed nodes through the unique parser with CRLF and BOM ranges",
+                    "duration": 15.623423999999886,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown embed directive grammar"
+                    ],
+                    "fullName": "markdown embed directive grammar keeps malformed embed diagnostics without inventing a valid node",
+                    "status": "passed",
+                    "title": "keeps malformed embed diagnostics without inventing a valid node",
+                    "duration": 1.1458380000001398,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown embed directive grammar"
+                    ],
+                    "fullName": "markdown embed directive grammar plans insert/edit/remove as source transactions without provider calls",
+                    "status": "passed",
+                    "title": "plans insert/edit/remove as source transactions without provider calls",
+                    "duration": 0.7860350000000835,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                },
+                {
+                    "ancestorTitles": [
+                        "markdown embed directive mutations"
+                    ],
+                    "fullName": "markdown embed directive mutations kills wikilink, inferred mode, extra style attributes, and consumer regex",
+                    "status": "passed",
+                    "title": "kills wikilink, inferred mode, extra style attributes, and consumer regex",
+                    "duration": 0.9888209999999162,
+                    "failureMessages": [],
+                    "meta": {},
+                    "tags": []
+                }
+            ],
+            "startTime": 1791470943553,
+            "endTime": 1791470943576.9888,
+            "status": "passed",
+            "message": "",
+            "name": "/workspace/FsusUI/vue/packages/wasm/__tests__/markdown-embed-directive.test.ts"
+        }
+    ]
+}

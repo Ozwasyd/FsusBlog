@@ -1,0 +1,254 @@
+{
+    "engine": "SIMD-128",
+    "authorized": true,
+    "cloneAuthorized": false,
+    "runtimeCaptionIntegrated": false,
+    "source": "![alt](assets/00000002-0000-4000-8000-000000000001.png)\r\n::caption[实际 caption]\r\n",
+    "full": {
+        "html": "<p class=\"markdown-renderer__text\"><img loading=\"lazy\" decoding=\"async\" referrerpolicy=\"no-referrer\" src=\"assets/00000002-0000-4000-8000-000000000001.png\" alt=\"alt\" /> ::caption[实际 caption]</p>",
+        "parser": "fsus-markdown-runtime",
+        "rawSource": "![alt](assets/00000002-0000-4000-8000-000000000001.png)\r\n::caption[实际 caption]\r\n",
+        "normalizedSource": "![alt](assets/00000002-0000-4000-8000-000000000001.png)\n::caption[实际 caption]\n",
+        "sourceIdentity": "markdown:141:xgebdf",
+        "features": [
+            "image",
+            "link"
+        ],
+        "placeholders": [],
+        "rendererVersion": "markdown-wasm-contract@2026-07-29",
+        "metadata": {
+            "mode": "article",
+            "baseUrl": "",
+            "allowLatex": false,
+            "allowMermaid": false,
+            "sourceLength": 82,
+            "sourceLineCount": 3,
+            "normalizedSourceLength": 82,
+            "featureCount": 2,
+            "placeholderCount": 0,
+            "rendererVersion": "markdown-wasm-contract@2026-07-29"
+        },
+        "engine": "SIMD-128",
+        "timings": {
+            "initMs": 0.01,
+            "encodeMs": 0.29,
+            "wasmRenderMs": 2.77,
+            "readHtmlMs": 0.05,
+            "readFeaturesMs": 0.08,
+            "readPlaceholdersMs": 0.01,
+            "readMetadataMs": 0.2,
+            "totalMs": 3.68
+        }
+    },
+    "nodes": [
+        {
+            "ok": true,
+            "kind": "caption",
+            "text": "实际 caption",
+            "ranges": {
+                "full": {
+                    "start": 57,
+                    "end": 78
+                },
+                "marker": {
+                    "start": 57,
+                    "end": 66
+                },
+                "text": {
+                    "start": 67,
+                    "end": 77
+                }
+            },
+            "mediaRange": {
+                "start": 0,
+                "end": 55
+            }
+        }
+    ],
+    "figures": [
+        {
+            "tag": "figure",
+            "html": "<figure><img alt=\"alt\" src=\"assets/00000002-0000-4000-8000-000000000001.png\" tabindex=\"-1\"><figcaption tabindex=\"-1\" dir=\"auto\">实际 caption</figcaption></figure>",
+            "media": {
+                "tag": "img",
+                "alt": "alt",
+                "src": "assets/00000002-0000-4000-8000-000000000001.png",
+                "broken": false,
+                "unsupported": false,
+                "tabIndex": -1
+            },
+            "caption": "实际 caption",
+            "label": {
+                "tag": "figcaption",
+                "text": "实际 caption",
+                "html": "实际 caption",
+                "tabIndex": -1,
+                "role": "note"
+            },
+            "visibleCopy": "实际 caption",
+            "sourceDirective": "::caption[实际 caption]",
+            "mediaRange": {
+                "start": 0,
+                "end": 55
+            },
+            "captionRange": {
+                "start": 57,
+                "end": 78
+            }
+        }
+    ],
+    "captionProjection": [
+        {
+            "blockIdentity": "block:markdown:135:i4yrpv:1",
+            "kind": "caption",
+            "status": "valid",
+            "diagnosticCode": null,
+            "presentation": "live-decorated",
+            "normalizedRange": {
+                "start": 56,
+                "end": 78
+            },
+            "rawRange": {
+                "start": 57,
+                "end": 80
+            },
+            "normalizedContentRanges": [
+                {
+                    "start": 66,
+                    "end": 76
+                }
+            ],
+            "rawContentRanges": [
+                {
+                    "start": 67,
+                    "end": 77
+                }
+            ],
+            "normalizedMarkerRanges": [
+                {
+                    "start": 56,
+                    "end": 65
+                }
+            ],
+            "rawMarkerRanges": [
+                {
+                    "start": 57,
+                    "end": 66
+                }
+            ],
+            "parentNormalizedRange": null,
+            "parentRawRange": null,
+            "childNormalizedRanges": [],
+            "childRawRanges": []
+        }
+    ],
+    "negative": {
+        "orphan": [
+            {
+                "ok": false,
+                "kind": "caption",
+                "code": "caption-orphan",
+                "message": "caption has no media owner",
+                "range": {
+                    "start": 0,
+                    "end": 15
+                }
+            }
+        ],
+        "unknownEscape": [
+            {
+                "ok": false,
+                "kind": "caption",
+                "code": "caption-unknown-escape",
+                "message": "caption unknown escape",
+                "range": {
+                    "start": 18,
+                    "end": 34
+                }
+            }
+        ],
+        "duplicate": [
+            {
+                "ok": true,
+                "kind": "caption",
+                "text": "first",
+                "ranges": {
+                    "full": {
+                        "start": 18,
+                        "end": 34
+                    },
+                    "marker": {
+                        "start": 18,
+                        "end": 27
+                    },
+                    "text": {
+                        "start": 28,
+                        "end": 33
+                    }
+                },
+                "mediaRange": {
+                    "start": 0,
+                    "end": 17
+                }
+            },
+            {
+                "ok": false,
+                "kind": "caption",
+                "code": "caption-duplicate",
+                "message": "media may have only one caption",
+                "range": {
+                    "start": 35,
+                    "end": 52
+                }
+            }
+        ],
+        "crossGap": [
+            {
+                "ok": false,
+                "kind": "caption",
+                "code": "caption-cross-gap",
+                "message": "caption cannot skip a blank line",
+                "range": {
+                    "start": 19,
+                    "end": 34
+                }
+            }
+        ],
+        "nonMedia": [
+            {
+                "ok": false,
+                "kind": "caption",
+                "code": "caption-non-media",
+                "message": "caption must follow an image or media block",
+                "range": {
+                    "start": 10,
+                    "end": 25
+                }
+            }
+        ],
+        "empty": [
+            {
+                "ok": false,
+                "kind": "caption",
+                "code": "caption-empty",
+                "message": "caption text cannot be empty",
+                "range": {
+                    "start": 18,
+                    "end": 29
+                }
+            }
+        ],
+        "unclosed": [
+            {
+                "ok": false,
+                "kind": "caption",
+                "code": "caption-unclosed",
+                "message": "caption directive is unclosed",
+                "range": {
+                    "start": 18,
+                    "end": 32
+                }
+            }
+        ]
+    }
+}

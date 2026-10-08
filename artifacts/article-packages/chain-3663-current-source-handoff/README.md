@@ -54,3 +54,9 @@ frozen. No master push, PR merge, auto-merge, issue close or deployment.
 
 JSON evidence copies use repository formatting. Original captured log and TRX
 bytes are unchanged; current-run identities and tested commit remain explicit.
+
+Original anchor grammar/mutation and embed directive/budget source controls
+also passed15/15 on the same clean FsusUI source SHA. Their real reports are
+attached separately; they do not certify Blog frozen graph/permission/provider
+or package runtime acceptance. The actual failed native caption-render
+expectation and returned parser/figure/projection data are retained.

@@ -1,0 +1,28 @@
+{
+    "sourceSha": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "command": [
+        "/workspace/toolchains/chain-3663/node/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/chain-3663-evidence/fsusui-current-probe/probe.mjs"
+    ],
+    "exitCode": 1,
+    "startUtc": "2026-10-08T14:18:53.213186+00:00",
+    "endUtc": "2026-10-08T14:18:53.261684+00:00",
+    "cleanAfter": true,
+    "artifacts": {
+        "vue/packages/wasm/dist/.artifact-fingerprint": "0811b707a46eb85342fab83775999d850014ff87af1ca785159dd774d9c66a36",
+        "vue/packages/wasm/dist/.bundle-artifact-content-digest": "d477a3aeac8fc9fa7e38a5c4243f86f528102cf0331cc998612d5ff76a13d600",
+        "vue/packages/wasm/dist/.native-artifact-fingerprint": "209d3f6e2814d3956088c6b07e0d60a3a9e5daabca37ff6e82fd68ee2d94c227",
+        "vue/packages/wasm/dist/ep_wasm.mjs": "6c1b79200b77ebb02a66b51780bb84df7a06fdc5400d0ed169604c99599ed295",
+        "vue/packages/wasm/dist/ep_wasm.wasm": "28d96e86ab15e187a44a71f93e78f89670e137216b22cd5ce652211d1112b68a",
+        "vue/packages/wasm/dist/index.cjs": "47fc38a1ea0f72e7e0162751112e09788ffc5d7f8c5b55bb98048001f03e6972",
+        "vue/packages/wasm/dist/index.d.cts": "9045779cbaf8be20d9192800e0f1e81400fce91dd4b23a5d91356fa25bc0bf61",
+        "vue/packages/wasm/dist/index.d.mts": "9045779cbaf8be20d9192800e0f1e81400fce91dd4b23a5d91356fa25bc0bf61",
+        "vue/packages/wasm/dist/index.d.ts": "9045779cbaf8be20d9192800e0f1e81400fce91dd4b23a5d91356fa25bc0bf61",
+        "vue/packages/wasm/dist/index.mjs": "72a49aec78630feb19cc7e4ca6a23eef751927a751b8c162c07058714626799d",
+        "vue/packages/wasm/dist/markdown_basic.js": "3bdc57de918232d07af54451f31268d6233f934408de6d58a7102ae26069bdfd",
+        "vue/packages/wasm/dist/markdown_basic.wasm": "9b96f43c4248572cf375d826973aa9aeda06d8074d10cb404e1aaff508d2311d",
+        "vue/packages/wasm/dist/markdown_simd.js": "b9b84d6402b9fb69461bb4281d746b49ac5e02fad398304a1f89deed44ce56c8",
+        "vue/packages/wasm/dist/markdown_simd.wasm": "c25f2596c189efcec91ec71cdc355d5275725eae8bab64c8bf132d8c1230eca3"
+    },
+    "qualification": "Existing local built public API probe only; build provenance and original package producer/runtime qualification not established"
+}

@@ -1,0 +1,18 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The input did not match the regular expression /<figcaption/. Input:
+
+'<p class="markdown-renderer__text"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="assets/00000002-0000-4000-8000-000000000001.png" alt="alt" /> ::caption[实际 caption]</p>'
+
+    at file:///workspace/chain-3663-evidence/fsusui-current-probe/probe.mjs:10:8 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: '<p class="markdown-renderer__text"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="assets/00000002-0000-4000-8000-000000000001.png" alt="alt" /> ::caption[实际 caption]</p>',
+  expected: /<figcaption/,
+  operator: 'match',
+  diff: 'simple'
+}
+
+Node.js v24.16.0
