@@ -60,6 +60,23 @@ FsusBlog uses layered cache behavior:
 
 Cache invalidation is part of the application contract. Article, taxonomy, public shell, and admin-side mutations must invalidate the matching public and internal caches instead of relying on stale TTL behavior alone.
 
+Article source/render positioning has one command owner in
+`services/authoring/articleAnchorContext.ts`. It consumes FsusUI public semantic
+maps and committed transaction position maps, with the existing document context
+as its identity and revision authority. Snapshots and receipts bind source ranges,
+semantic nodes, affinity, direction, viewport offset, surface/tool identity, and
+user intent. Restore orders exact, rebased, semantic-neighbor, then explicitly
+approximate percentage outcomes. A revision transition without a contiguous
+public transaction chain fails closed.
+
+Manual wheel, trackpad, touch, drag, or selection pauses automatic positioning.
+Input and explicit navigation resume immediately; idle resumes after 1200 ms.
+Optional synchronization defaults off, follows the user-selected pane, and ignores
+programmatic generations and events within 16 ms. Commands clamp viewport offsets
+to the current viewport height and use instant positioning for reduced motion.
+Surface/tool consumers execute these commands; the adapter owns no DOM, parser,
+render cache, preference persistence, or product entry point.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:
