@@ -8,7 +8,8 @@
                 "config/development/frontend-style-policy.json",
                 "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/backend/packages.lock.json"
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/execution-dependency-contract.json"
             ],
             "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         },
@@ -36,7 +37,8 @@
                 "tools/governance/change-contract-registry.mjs",
                 "tools/governance/change-contract.mjs",
                 "tools/frontend/check-frontend-style-source-base.test.mjs",
-                "tools/test-matrix/pr-impact-plan.mjs"
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
             ],
             "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         },

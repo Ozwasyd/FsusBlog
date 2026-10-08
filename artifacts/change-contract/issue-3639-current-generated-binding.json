@@ -9,7 +9,9 @@
         "tools/frontend/style-toolchain/eslint.config.mjs",
         "tools/governance/change-contract-registry.mjs",
         "tools/frontend/check-frontend-style-source-base.test.mjs",
-        "tools/test-matrix/pr-impact-plan.mjs"
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/test-matrix/execution-dependency-contract.mjs"
     ],
     "outputs": [
         {
@@ -26,7 +28,11 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "d6dc6d04a85f0c470a91050b48298880b5eb82f3d2d6c8f54eb7453bc5135baf"
+            "sha256": "b9720ee93b189d25b5264350a0c5e2871f9f73bee7e066d0b507e78a5a389d6a"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
         }
     ]
 }
