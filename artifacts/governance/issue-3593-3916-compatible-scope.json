@@ -1,0 +1,82 @@
+{
+  "base": "3f016af238c21dbf23925afef7393aa0bf7817e1",
+  "source": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+  "items": [
+    {
+      "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "originalBlob": "2d1e27b9d98cd35fb60f43499d4e04894b4108c8",
+      "canonicalBlob": "e61cb8830fda029cc7c18bff4c4e6dcc60ab76c1",
+      "exactCanonicalBlob": true,
+      "excluded": null,
+      "consumedSha256": "371ec6292f008a68a95359f86ea5f69aef6ca7b251fdfcd179ec8eab2ca64035"
+    },
+    {
+      "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "originalBlob": "e4521c2f5d864f29b8eb4a46481ab32f5131d34e",
+      "canonicalBlob": "4b72b28deba1c3f35e6a38c18451322068e1d7d0",
+      "exactCanonicalBlob": true,
+      "excluded": null,
+      "consumedSha256": "add9159a79bd1757eb8afbfc6e0205e34a1014ee07cb20ee4f59a07a5e7769ed"
+    },
+    {
+      "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "originalBlob": "f65b401745fe6405e5eb7d0f0bc88864b5eeac39",
+      "canonicalBlob": "6a3f275549039c8b2022500cef0710216d492eb1",
+      "exactCanonicalBlob": true,
+      "excluded": null,
+      "consumedSha256": "42a46ffb9fcd313ab5d41688cf023ca0ad39084e511fb47dec1c06f33bedae59"
+    },
+    {
+      "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "originalBlob": "658d0fe76ba668127527fe2a3a678c1e44484942",
+      "canonicalBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+      "exactCanonicalBlob": false,
+      "excluded": "two schemaMigration Detail expected-value changes",
+      "consumedSha256": "18213955ee953c3f22569369eb0ac4b3e8583c1ed5a5b6989cf7dbf73beab23b"
+    }
+  ],
+  "projectionAssertionChangeExcluded": true,
+  "typeAndLockFixesAlreadyPresent": true,
+  "tokenProof": [
+    {
+      "name": "AuthoringExtensionRpcBrokerTests",
+      "bodyTokens": 5860,
+      "usingSetEqual": true,
+      "bodyTokensEqual": true,
+      "commentsEqual": true,
+      "assertionsAndExpectedLiteralsPreserved": true
+    },
+    {
+      "name": "SecurityAdminPolicyDefaultsTests",
+      "bodyTokens": 7701,
+      "usingSetEqual": true,
+      "bodyTokensEqual": true,
+      "commentsEqual": true,
+      "assertionsAndExpectedLiteralsPreserved": true
+    },
+    {
+      "name": "TaxonomyExactMetadataTests",
+      "bodyTokens": 1611,
+      "usingSetEqual": true,
+      "bodyTokensEqual": true,
+      "commentsEqual": true,
+      "assertionsAndExpectedLiteralsPreserved": true
+    },
+    {
+      "name": "LifecycleHostedBootstrapServiceTests",
+      "bodyTokens": 4524,
+      "usingSetEqual": true,
+      "bodyTokensEqual": true,
+      "commentsEqual": true,
+      "assertionsAndExpectedLiteralsPreserved": true
+    }
+  ],
+  "styleExitCode": 0,
+  "canonicalSourceFixCommit": "5d71bb2eec8c7c3645a799560e2ba28675d5357b",
+  "fetchedMaster": "53da546cc8ab9fd8603067395d988b7ddb650394",
+  "assertionContractClarificationPending": true
+}
