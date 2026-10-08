@@ -386,3 +386,18 @@ and matching per-ancestor usage/limits before existing qualification/admission.
 Its byte/record/ancestor bounds are explicit caller policy inputs, not defaults.
 Format references are the [kernel cgroup documentation](https://docs.kernel.org/admin-guide/cgroup-v2.html)
 and [kernel proc mountinfo documentation](https://www.kernel.org/doc/Documentation/filesystems/proc.txt).
+
+`LinuxCgroupDirectoryReader` owns an actual read-only kernel directory descriptor
+on Linux x64/arm64. It checks the controller filesystem, statx mount/device/inode
+identity and namespace identity before opening a resolved ancestor. Scalar reads
+use fixed controller filenames, reject symlinks and another file domain, check
+directory identity before/after, and clear caller-owned bounded scratch on return.
+Disposal waits for the synchronous read and closes the descriptor; repeated
+disposal is safe. v1 combined memsw is not reported as swap occupancy. Missing,
+denied, malformed and unlimited values remain distinct from a real numeric zero.
+The raw observed-directory API requires the complete prior native identity; it
+does not certify process membership. Raw identity and scalar captures retain
+`NotVerified`. Stable process membership/mount recapture, complete ancestor
+sampling, qualification, measured metadata/descriptor costs and canonical
+governor composition remain required. The supplied read bound is caller policy;
+the test's 64-byte buffer is not a production default.

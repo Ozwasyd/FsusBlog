@@ -3830,6 +3830,14 @@
                 {
                     "path": "tests/backend/Unit/LinuxCgroupScopeResolverTests.cs",
                     "anchor": "public sealed class LinuxCgroupScopeResolverTests"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Platform/LinuxCgroupDirectoryReader.cs",
+                    "anchor": "public sealed class LinuxCgroupDirectoryReader"
+                },
+                {
+                    "path": "tests/backend/Unit/LinuxCgroupDirectoryReaderTests.cs",
+                    "anchor": "public sealed class LinuxCgroupDirectoryReaderTests"
                 }
             ]
         }
