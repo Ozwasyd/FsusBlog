@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/frontend/control-legality.json",
+                "tests/backend/packages.lock.json",
+                "tests/frontend/package-lock.json",
+                "tests/frontend/package.json",
+                "tests/governance/frontend-test-layout.json",
+                "tests/tools/package-lock.json",
+                "tests/tools/package.json"
+            ],
+            "reason": "Preserve existing registered external spelling at the exact supplied source and local-alias integration paths. This bounded naming declaration changes no source authority, test failure, runtime qualification or security policy."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/motion-guidelines.md",
+                "docs/security/comment-draft-privacy.md"
+            ],
+            "reason": "Preserve existing registered external spelling at the exact supplied source and local-alias integration paths. This bounded naming declaration changes no source authority, test failure, runtime qualification or security policy."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve existing registered external spelling at the exact supplied source and local-alias integration paths. This bounded naming declaration changes no source authority, test failure, runtime qualification or security policy."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/control-legality/admission.mjs",
+                "tools/frontend/control-legality/source.mjs"
+            ],
+            "reason": "Preserve existing registered external spelling at the exact supplied source and local-alias integration paths. This bounded naming declaration changes no source authority, test failure, runtime qualification or security policy."
+        }
+    ]
+}
