@@ -16,10 +16,10 @@ const {
     installPublicShellLocaleTelemetry, publicShellLocaleCommitReady, readPublicShellLocaleDom
 } = await import(new URL('../browser-contract/public-shell-locale-scene-driver.mjs', import.meta.url));
 const catalog = JSON.parse(readFileSync(new URL('../../src/shared/Contracts/Localization/locale-catalog.json', import.meta.url)));
-let currentMatrix;
+let currentMatrix = await createPublicShellLocaleMatrix();
 const locales = catalog.locales.filter((item) => item.status === 'enabled');
 const descriptor = locales[0];
-const items = locales.map((item) => ({ code: item.code, selected: item.code === descriptor.code }));
+const items = currentMatrix.scenes.find((scene) => scene.issue === 2084 && scene.locale === descriptor.code).selectorItems;
 const copy = { 'public.shell.login': 'test auth copy' };
 const viewport = { width: 390, height: 900 };
 
@@ -120,8 +120,9 @@ async function enteredSwitchModel({ stage = 'commit', route = 'Home', captureRes
             metadata: { title: 'Node fixture title', description: 'Node fixture description', openGraphLocale: locale.openGraphLocale },
             viewport: scene.viewport,
             copyNodes: Object.entries(committed ? copies.target : copies.source).map(([key, value]) => ({ key, text: value, visible: true })),
-            selectors: [{ active: locale.code, expanded: true, visible: true,
-                items: selected.selectorItems.map((item) => ({ code: item.code, selected: item.code === locale.code, visible: true })) }],
+            selectors: [{ active: locale.code, expanded: true, visible: true, disabled: false,
+                items: selected.selectorItems.map((item) => ({ ...item, englishName: item.englishName !== item.nativeName ? item.englishName : null,
+                    disabled: false, visible: true })) }],
             geometry: [{ name: 'header', visible: true, box: { x: 0, y: 0, width: 390, height: 96 } }], containment: []
         };
     };
@@ -645,8 +646,8 @@ function domInput()
             language: descriptor.documentLanguage, direction: descriptor.direction,
             metadata: { openGraphLocale: descriptor.openGraphLocale }, viewport,
             copyNodes: [{ key: 'public.shell.login', text: copy['public.shell.login'], visible: true }],
-            selectors: [{ active: descriptor.code, expanded: false, visible: true,
-                items: items.map((item) => ({ ...item, visible: false })) }],
+            selectors: [{ active: descriptor.code, expanded: false, visible: true, disabled: false,
+                items: items.map((item) => ({ ...item, englishName: item.englishName !== item.nativeName ? item.englishName : null, disabled: false, visible: false })) }],
             geometry: [
                 { name: 'header', visible: true, box: box(0, 390, 96) },
                 { name: 'brand', visible: true, box: box(0) },
@@ -670,6 +671,11 @@ for (const [name, mutate] of [
     ['wrong language', (value) => value.language = 'unknown'],
     ['missing dir', (value) => value.direction = ''],
     ['wrong copy', (value) => value.copyNodes[0].text = 'wrong'],
+    ['native label drift', (value) => value.selectors[0].items[0].nativeName = 'wrong'],
+    ['English label drift', (value) => value.selectors[0].items[0].englishName = 'wrong'],
+    ['direction drift', (value) => value.selectors[0].items[0].direction = 'invalid'],
+    ['disabled projection drift', (value) => value.selectors[0].items[0].disabled = true],
+    ['missing disabled fact', (value) => delete value.selectors[0].disabled],
     ['missing selected locale', (value) => value.selectors[0].items.forEach((item) => item.selected = false)],
     ['duplicate selector key', (value) => value.selectors[0].items.push(value.selectors[0].items[0])],
     ['opened hidden items', (value) => value.selectors[0].expanded = true],
@@ -699,7 +705,7 @@ test('DOM reader records actual containment, hidden state, metadata and text wit
         <div data-locale-selector data-active-locale="${descriptor.code}">
         <button data-locale-selector-trigger aria-expanded="false">actual trigger</button>
         <div hidden data-locale-selector-menu><button data-locale-selector-item
-        data-locale-code="${descriptor.code}" aria-checked="true">actual item</button></div></div>
+        data-locale-code="${descriptor.code}" aria-checked="true" dir="ltr" aria-disabled="true"><span class="locale-selector__item-native">actual native</span><span class="locale-selector__item-english">actual English</span></button></div></div>
         </header></div></body></html>`);
     for (const element of window.document.querySelectorAll('*'))
     {
@@ -710,6 +716,11 @@ test('DOM reader records actual containment, hidden state, metadata and text wit
     assert.equal(observed.metadata.title, 'real configured title');
     assert.equal(observed.copyNodes.find((item) => item.key === 'public.shell.home').text, 'actual home');
     assert.equal(observed.selectors[0].items[0].visible, false);
+    assert.equal(observed.selectors[0].items[0].nativeName, 'actual native');
+    assert.equal(observed.selectors[0].items[0].englishName, 'actual English');
+    assert.equal(observed.selectors[0].items[0].direction, 'ltr');
+    assert.equal(observed.selectors[0].items[0].disabled, true);
+    assert.equal(observed.selectors[0].disabled, false);
     assert.ok(observed.containment.some(([parent, child]) => parent === 0 && child === 1));
     assert.equal(window.document.documentElement.outerHTML, before);
     assert.equal(observed.copyNodes.some((item) => item.key.startsWith('layout.')), false);

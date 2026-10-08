@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   activateLocaleRuntime,
+  ENABLED_LOCALES,
   activeLocale,
   beginLocaleRouteTransaction,
   createLocaleTextContext,
@@ -182,6 +183,30 @@ describe('locale runtime', () => {
     expect(scoped.formatDate('invalid')).toBe('日時形式が無効です')
     expect(formatDate('invalid')).toBe('Invalid time')
   })
+
+  for (const descriptor of ENABLED_LOCALES) {
+    it(`keeps prepared and active Intl formatting coherent for ${descriptor.code}`, async () => {
+      const prepared = await prepareLocaleDomains(descriptor.code, ['common', 'layout', 'public'])
+      const scoped = createLocaleTextContext(prepared)
+      const instant = new Date('2026-07-20T12:00:00Z')
+      const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }
+      const expectedNumber = new Intl.NumberFormat(descriptor.intlLocale).format(12345.67)
+      const expectedDate = new Intl.DateTimeFormat(descriptor.intlLocale, options).format(instant)
+      expect(scoped.activeLocale.value).toBe(descriptor.code)
+      expect(scoped.formatNumber(12345.67)).toBe(expectedNumber)
+      expect(scoped.formatDate(instant, options)).toBe(expectedDate)
+      expect(scoped.formatRelativeTime(-1, 'day'))
+        .toBe(new Intl.RelativeTimeFormat(descriptor.intlLocale, { numeric: 'auto' }).format(-1, 'day'))
+      await activateLocaleRuntime(descriptor.code, ['common', 'layout', 'public'])
+      expect(activeLocale.value).toBe(descriptor.code)
+      expect(formatNumber(12345.67)).toBe(expectedNumber)
+      expect(formatDate(instant, options)).toBe(expectedDate)
+      expect(document.documentElement.lang).toBe(descriptor.documentLanguage)
+      expect(document.querySelector('meta[property="og:locale"]')?.getAttribute('content'))
+        .toBe(descriptor.openGraphLocale)
+      expect(scoped.formatNumber(12345.67)).toBe(formatNumber(12345.67))
+    })
+  }
 
   it('keeps canonical zh-Hant distinct from the controlled zh-TW input alias', () => {
     expect(parseSupportedLocale('zh-tw')).toBe('zh-Hant')

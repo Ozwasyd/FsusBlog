@@ -114,10 +114,15 @@ export function readPublicShellLocaleDom()
             pending: element.getAttribute('data-pending-locale'),
             visible: visible(trigger),
             expanded: trigger?.getAttribute('aria-expanded') === 'true',
+            disabled: Boolean(trigger?.disabled || trigger?.getAttribute('aria-disabled') === 'true'),
             items: [...element.querySelectorAll('[data-locale-selector-item]')].map((item) => ({
                 code: item.getAttribute('data-locale-code'),
                 selected: item.getAttribute('aria-checked') === 'true',
                 visible: visible(item),
+                nativeName: item.querySelector('.locale-selector__item-native')?.textContent ?? null,
+                englishName: item.querySelector('.locale-selector__item-english')?.textContent ?? null,
+                direction: item.getAttribute('dir'),
+                disabled: Boolean(item.disabled || item.getAttribute('aria-disabled') === 'true'),
                 ariaLabelOrText: item.getAttribute('aria-label') ?? text(item)
             }))
         };
@@ -184,6 +189,16 @@ export function assertPublicShellLocaleDom({ observation, descriptor, copy, sele
             'observed selector exact catalog order');
         assert.deepEqual(selector.items.filter((item) => item.selected).map((item) => item.code), [descriptor.code],
             'observed selector selected keyset');
+        assert.equal(typeof selector.disabled, 'boolean', 'observed selector disabled fact missing');
+        for (const [index, item] of selector.items.entries())
+        {
+            const projected = selectorItems[index];
+            assert.equal(item.nativeName, projected.nativeName, 'observed selector native label');
+            assert.equal(item.englishName, projected.englishName !== projected.nativeName ? projected.englishName : null,
+                'observed selector English label');
+            assert.equal(item.direction, projected.direction, 'observed selector direction');
+            assert.equal(item.disabled, selector.disabled, 'observed selector item disabled projection');
+        }
         if (selector.expanded && selector.visible)
         {
             assert.ok(selector.items.every((item) => item.visible), 'opened selector item visibility');
