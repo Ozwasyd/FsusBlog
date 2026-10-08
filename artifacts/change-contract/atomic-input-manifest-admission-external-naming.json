@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/atomic-producers/input-admission.mjs"
+            ],
+            "reason": "The bounded admission adapter preserves the original runner's external process environment contract; its root, manifest, inputClosure and command options remain internal camelCase names. It introduces no new environment variable or alternate environment authority."
+        }
+    ]
+}
