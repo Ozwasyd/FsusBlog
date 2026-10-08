@@ -1,6 +1,43 @@
 import { ElMarkdownEditor } from '@ozwasyd/element-plus';
 
+import { AUTHOR_TYPOGRAPHY_CHOICES, AUTHOR_TYPOGRAPHY_FIELDS } from '@/view-contracts/authorTypographyProfile';
+import type { AuthorTypographyDimension } from '@/view-contracts/authorTypographyProfile';
+
 import type { ArticleEditorRuntimeBinding } from './articleEditorRuntimeBinding';
+
+export interface AuthorTypographyDimensionMapping
+{
+    readonly dimension: AuthorTypographyDimension;
+    readonly values: readonly string[];
+    readonly inspectedPublicContracts: readonly string[];
+    readonly target: null;
+    readonly status: 'blocked';
+    readonly missingContract: string;
+}
+
+/** Audited names only, no copied token values or inferred author-editor override. */
+export function readAuthorTypographyDimensionMappings(): readonly AuthorTypographyDimensionMapping[]
+{
+    const inspected: Record<AuthorTypographyDimension, readonly string[]> = {
+        fontFamily: ['--fsus-typography-family-body', '--fsus-typography-family-monospace'],
+        fontSize: ['--fsus-typography-body-md-size', '--fsus-typography-body-lg-size'],
+        lineHeight: ['--fsus-typography-body-md-line-height'],
+        canvasWidth: ['ElMarkdownEditor.props.editorProfile'],
+        paragraphSpacing: ['--fsus-space-2', '--fsus-space-4', '--fsus-space-6']
+    };
+    const missing: Record<AuthorTypographyDimension, string> = {
+        fontFamily: 'Registered system-sans/reading-serif/cjk-sans author profiles with pinned no-network fallback; body/monospace stacks do not supply them.',
+        fontSize: 'Closed compact/standard/large author-editor size contract; body tokens do not control prose editor text size.',
+        lineHeight: 'Closed compact/standard/relaxed author-editor line-height contract; one body line-height token is insufficient.',
+        canvasWidth: 'Closed narrow/standard/wide author-editor width contract; markdown/prose editorProfile cannot independently select width.',
+        paragraphSpacing: 'Closed compact/standard/relaxed author paragraph rhythm contract; task spacing tokens do not specify prose paragraph margins.'
+    };
+    return Object.freeze(AUTHOR_TYPOGRAPHY_FIELDS.map(dimension => Object.freeze({
+        dimension, values: AUTHOR_TYPOGRAPHY_CHOICES[dimension],
+        inspectedPublicContracts: Object.freeze(inspected[dimension]),
+        target: null, status: 'blocked' as const, missingContract: missing[dimension]
+    })));
+}
 
 /** A refusal observation, never a preference, default profile, or runtime adapter. */
 export type AuthorTypographyMappingAvailability = Readonly<{

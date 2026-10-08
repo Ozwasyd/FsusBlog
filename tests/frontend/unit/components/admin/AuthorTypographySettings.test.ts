@@ -1,0 +1,134 @@
+// @vitest-environment happy-dom
+import { defineComponent, h } from 'vue';
+import { mount, flushPromises } from '@vue/test-utils';
+import { ElButton, ElForm, ElMarkdownEditor, ElMarkdownRenderer, ElSelect } from '@ozwasyd/element-plus';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import AuthorTypographySettings from '@/components/admin/article/AuthorTypographySettings.vue';
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue';
+import { AUTHOR_TYPOGRAPHY_FIELDS } from '@/view-contracts/authorTypographyProfile';
+import type { AuthorTypographySettingsView } from '@/view-contracts/authorTypographySettings';
+
+const observation: AuthorTypographySettingsView = Object.freeze({
+    profile: Object.freeze({
+        schemaVersion: 1, fontFamily: 'cjk-sans', fontSize: 'large', lineHeight: 'relaxed',
+        canvasWidth: 'narrow', paragraphSpacing: 'compact'
+    }),
+    revision: 17, status: 'current', permission: 'allowed', device: 'verified',
+    designDefault: 'verified', font: 'unavailable'
+});
+const cleanups: (() => void)[] = [];
+function open(view = observation)
+{
+    const wrapper = mount(AuthorTypographySettings, {
+        props: { view }, global: { components: { ElMarkdownRenderer } }
+    });
+    cleanups.push(() => wrapper.unmount());
+    return wrapper;
+}
+afterEach(() => cleanups.splice(0).forEach(cleanup => cleanup()));
+
+describe('AuthorTypographySettings with the real local FsusUI', () =>
+{
+    it('projects exactly five current choices, associated labels and actual unavailable mapping', async () =>
+    {
+        const wrapper = open();
+        await flushPromises();
+        const selects = wrapper.findAllComponents(ElSelect);
+        expect(selects).toHaveLength(5);
+        expect(selects.map(select => select.props('modelValue'))).toEqual(AUTHOR_TYPOGRAPHY_FIELDS.map(field => observation.profile![field]));
+        for (const select of selects)
+        {
+            const id = select.props('id');
+            expect(wrapper.get(`label[for="${id}"]`).text()).not.toBe('');
+            expect(select.get('input[role="combobox"]').attributes('disabled')).toBeDefined();
+        }
+        expect(wrapper.getComponent(ElForm).props('disabled')).toBe(true);
+        expect(wrapper.text()).toContain('当前偏好版本 17');
+        expect(wrapper.text()).toContain('作者排版映射暂不可用');
+        expect(wrapper.text()).toContain('尚未应用所选偏好');
+        expect(wrapper.findComponent(ElMarkdownEditor).exists()).toBe(false);
+        const sample = wrapper.getComponent(MarkdownRenderer);
+        expect(sample.props()).toMatchObject({ mode: 'preview', allowLatex: false, allowMermaid: false, baseUrl: null });
+        expect(sample.getComponent(ElMarkdownRenderer).vm).toBeDefined();
+        expect(sample.props('content')).toContain('العربية');
+        expect(sample.props('content')).toContain('👩🏽‍💻');
+        expect(wrapper.emitted('change')).toBeUndefined();
+    });
+
+    it('refuses forced select/reset events and does not keep optimistic local choices', async () =>
+    {
+        const wrapper = open();
+        for (const select of wrapper.findAllComponents(ElSelect))
+        {
+            select.vm.$emit('update:modelValue', 'standard');
+            select.vm.$emit('update:modelValue', 'https://fonts.example/font.woff2');
+        }
+        wrapper.findAllComponents(ElButton)[0].vm.$emit('click', new MouseEvent('click'));
+        await flushPromises();
+        expect(wrapper.emitted('change')).toBeUndefined();
+        expect(wrapper.emitted('reset')).toBeUndefined();
+        expect(wrapper.props('view')).toBe(observation);
+        await wrapper.setProps({ view: { ...observation, revision: 18, profile: { ...observation.profile!, fontSize: 'compact' } } });
+        expect(wrapper.findAllComponents(ElSelect)[1].props('modelValue')).toBe('compact');
+        expect(wrapper.text()).toContain('当前偏好版本 18');
+    });
+
+    it('displays absence without choosing a client default and distinguishes pending confirmation', async () =>
+    {
+        const wrapper = open({ ...observation, profile: null, revision: null, status: 'loading' });
+        expect(wrapper.findAllComponents(ElSelect).every(select => select.props('modelValue') === undefined)).toBe(true);
+        expect(wrapper.get('form').attributes('aria-busy')).toBe('true');
+        await wrapper.setProps({ view: { ...observation, status: 'saving' } });
+        expect(wrapper.text()).toContain('正在保存偏好');
+        expect(wrapper.text()).not.toContain('服务端已确认偏好');
+        expect(wrapper.emitted('change')).toBeUndefined();
+    });
+
+    it('never reports malformed or absent observations as a confirmed save', async () =>
+    {
+        const wrapper = open({ ...observation, profile: null, revision: null, status: 'saved' });
+        expect(wrapper.text()).not.toContain('服务端已确认偏好');
+        expect(wrapper.text()).toContain('不能确认保存');
+        await wrapper.setProps({ view: { ...observation, status: 'saved', revision: 1.5 } });
+        expect(wrapper.text()).not.toContain('服务端已确认偏好');
+        expect(wrapper.emitted('change')).toBeUndefined();
+    });
+
+    it('distinguishes an exhausted valid revision from a missing observation', () =>
+    {
+        const wrapper = open({ ...observation, revision: Number.MAX_SAFE_INTEGER });
+        expect(wrapper.text()).toContain('偏好版本已达上限');
+        expect(wrapper.text()).not.toContain('尚无已验证的当前偏好');
+        expect(wrapper.getComponent(ElForm).props('disabled')).toBe(true);
+    });
+
+    it.each(['conflict', 'unavailable'] as const)('offers only a fresh read intent after %s', async status =>
+    {
+        const wrapper = open({ ...observation, status });
+        const reload = wrapper.findAll('button').find(button => button.text() === '重新读取偏好')!;
+        await reload.trigger('click');
+        expect(wrapper.emitted('reload')).toEqual([[]]);
+        expect(wrapper.emitted('change')).toBeUndefined();
+        expect(wrapper.emitted('reset')).toBeUndefined();
+        await wrapper.setProps({ view: { ...observation, status, permission: 'denied' } });
+        expect(reload.attributes('disabled')).toBeDefined();
+        await reload.trigger('click');
+        expect(wrapper.emitted('reload')).toHaveLength(1);
+        wrapper.findAllComponents(ElButton)[1].vm.$emit('click', new MouseEvent('click'));
+        expect(wrapper.emitted('reload')).toHaveLength(1);
+    });
+
+    it('keeps labels unique between two settings surfaces without creating a per-mode store', () =>
+    {
+        const parent = mount(defineComponent({
+            setup: () => () => h('div', [h(AuthorTypographySettings, { view: observation }), h(AuthorTypographySettings, { view: observation })])
+        }), { global: { components: { ElMarkdownRenderer } } });
+        try
+        {
+            const ids = parent.findAllComponents(ElSelect).map(select => select.props('id'));
+            expect(new Set(ids).size).toBe(10);
+        }
+        finally { parent.unmount(); }
+    });
+});

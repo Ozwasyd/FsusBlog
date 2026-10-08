@@ -13,16 +13,21 @@
                 "src/shared/Contracts/AuthorTypography/AuthorTypographyPreferenceResultValidator.cs",
                 "src/backend/Interfaces/AuthorTypographyPreferencePorts.cs",
                 "src/backend/Services/UserLocalePreferenceService.AuthorTypography.cs",
-                "tools/frontend/author-typography-inventory.mjs"
+                "tools/frontend/author-typography-inventory.mjs",
+                "src/frontend/src/view-contracts/authorTypographyProfile.ts",
+                "src/frontend/src/view-contracts/authorTypographySettings.ts",
+                "src/frontend/src/components/admin/article/AuthorTypographySettings.vue",
+                "src/frontend/src/services/authoring/authorTypographyMapping.ts"
             ],
-            "reason": "These source paths are covered by the existing broad process-environment registry. No environment keys are added or renamed; external closed profile IDs remain literal while C# and JavaScript identifiers follow the internal naming map."
+            "reason": "These paths intersect the broad environment registry but introduce no process environment keys. Shared C# and client preflight preserve exactly the existing closed profile IDs; the controlled settings projection creates no authority or persisted preference."
         },
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/frontend/fsusui-typecheck-modes.md"
+                "docs/frontend/fsusui-typecheck-modes.md",
+                "src/frontend/src/services/authoring/authorTypographyMapping.ts"
             ],
-            "reason": "Preserve documented public FsusUI property and token spelling while explaining the consumer boundary; no CSS selector, token or process environment contract is added or renamed."
+            "reason": "Preserve exact documented public FsusUI token/property names in the five-dimension audit and current documentation. The audit supplies no CSS values, selectors or style injection and every typography target remains unavailable."
         }
     ]
 }
