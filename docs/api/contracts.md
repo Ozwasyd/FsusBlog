@@ -3117,14 +3117,27 @@ then consumes that same adapter. The accepted instruction must equal the origina
 preflight instruction. Historical access does not execute resume/undo, establish
 native readback or admit a current resolution.
 
-`AddFsusArticleVaultRecoveryReaders(trustedVaultSiteIdentity)` is an explicit
-in-process host composition API. The host supplies the trusted Vault site binding
-independently of requests and registers the existing domain reader/permission/store
-authorities. The checkpoint owner must supply its admitted store separately; missing
-registration is a real composition failure. Repeated/conflicting site composition
-is refused. This API installs no endpoint, inferred identity, database migration,
-backup journal, native lease or writer. It is not called automatically by startup
-while the checkpoint schema and trusted site binding are unavailable.
+`AddFsusArticleVaultPostgresRecoveryStores()` composes the sole proposal and
+checkpoint stores with a host-supplied `NpgsqlDataSource`; no replacement pool,
+migration or protection key is created. `AddFsusArticleVaultRecoveryReaders(
+trustedVaultSiteIdentity)` composes the original readers and live permission
+projection with an explicit server-owned opaque Vault site. Startup opts into both
+only when `ArticleVault:TrustedSiteIdentity` is configured; unavailable store
+resources fail composition rather than creating a fallback. Duplicate stores and
+conflicting site composition are refused.
+
+`POST /api/binary/author/vault/recovery/history` requires the actual authenticated
+admin session and ArticleWrite policy. It accepts AEDS v2 frame 253 only, with a
+closed UTF-8 JSON payload bounded to 16 KiB; duplicate/unknown keys and other frame
+or plain JSON inputs are rejected. Its exact proposal/operation/checkpoint references
+confer no authority. The reader binds the original sealed plan to the authenticated
+principal, configured Vault site and requested article, checks live article permission
+before/after reading and refuses changing immutable producers. Response frame 254
+contains the historical proposal/checkpoint projection with `isHistorical=true`,
+`canExecute=false`, `canCommitBase=false` and no materialization preflight or accepted
+source bytes. The existing private authoring browser transport supplies cookies,
+session/site epoch and cancellation; no new local token or IPC protocol is introduced.
+Missing trusted composition returns the existing binary ApiError with 503.
 
 `ArticleVaultOperationVerifier` binds the original plan, agent, request,
 idempotency key and deadline to an exact immutable checkpoint chain. Cancellation

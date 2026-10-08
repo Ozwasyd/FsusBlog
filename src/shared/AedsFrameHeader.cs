@@ -286,5 +286,7 @@ public enum AedsFrameType : ushort
     ThemeActivationList = 249,
     ThemeActivation = 250,
     ApiError = 251,
-    ThemeActivationHistory = 252
+    ThemeActivationHistory = 252,
+    ArticleVaultRecoveryHistoryRequest = 253,
+    ArticleVaultRecoveryHistoryResponse = 254
 }

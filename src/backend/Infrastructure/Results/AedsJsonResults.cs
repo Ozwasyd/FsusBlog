@@ -40,7 +40,8 @@ internal static class AedsJsonResults
         AedsFrameType expectedFrameType,
         int maxFrameBytes,
         string invalidMessage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<ReadOnlyMemory<byte>, T>? deserialize = null)
     {
         var requestContext = context.RequestServices.GetRequiredService<IBinaryEndpointRequestContext>();
         using BinaryRequestPayload payload = await requestContext.ReadFrameAsync(
@@ -56,12 +57,18 @@ internal static class AedsJsonResults
 
         try
         {
-            T? value = JsonSerializer.Deserialize<T>(payload.Payload.Span, s_jsonOptions);
+            T? value = deserialize is null
+                ? JsonSerializer.Deserialize<T>(payload.Payload.Span, s_jsonOptions)
+                : deserialize(payload.Payload);
             return value is null
                 ? AedsJsonRequest<T>.Failure(ErrorDetail.Create(ErrorCode.Validation, invalidMessage))
                 : AedsJsonRequest<T>.Success(value);
         }
         catch (JsonException)
+        {
+            return AedsJsonRequest<T>.Failure(ErrorDetail.Create(ErrorCode.Validation, invalidMessage));
+        }
+        catch (InvalidDataException) when (deserialize is not null)
         {
             return AedsJsonRequest<T>.Failure(ErrorDetail.Create(ErrorCode.Validation, invalidMessage));
         }

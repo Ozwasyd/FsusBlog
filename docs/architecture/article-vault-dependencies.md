@@ -93,6 +93,27 @@ block admission and require an explicit new plan rather than a fallback writer.
 
 ## Shared host composition increment
 
-The runtime domain composition registers the existing `PostgresArticleVaultOperationCheckpointStore` once per scope and exposes the same scoped instance through `IArticleVaultOperationCheckpointStore`. Registration executes no SQL and does not migrate a database. The explicit `AddFsusArticleVaultRecoveryReaders(trustedVaultSiteIdentity)` composition also registers the sole `ArticleVaultConflictReviewReader` from `6019f3834df477627cd59e55e297cf086ff0bae3`, using the existing permission projection, execution and checkpoint readers. A missing canonical proposal store remains an actual DI failure; no replacement persistence is supplied.
+The sole canonical proposal and checkpoint stores are registered through
+`AddFsusArticleVaultPostgresRecoveryStores()`. They require the host's actual
+`NpgsqlDataSource`, original execution store and time provider; this composition
+creates no second pool, schema or migration. Each interface shares its canonical
+scoped instance. Ordinary domain startup leaves these stores disabled unless the
+host explicitly supplies `ArticleVault:TrustedSiteIdentity` and the required data
+source. Missing dependencies fail real composition validation.
 
-The full supplied branches have unresolved add/add conflicts in resolution-plan and frontend files. The proposal store requires the conflicted owner's `TryDeserialize` capability and is not installed here. No HTTP route is registered: the current AEDS catalog has no Vault frame pair, and the canonical current-resolution-input producer and permission-site/Vault-site binding are not supplied. The current shared IPC request/lease contracts also do not provide a native peer/token dispatcher. Request assertions cannot fill these authority gaps. Native, current execution, browser transport and product qualification remain open.
+The recovery owner commit `0ba8e8eca81798f07540aaec232e1abaffb7e2b2` supplies the
+original proposal codec, immutable proposal storage, exact stored reader and
+transactional encrypted recovery storage. The shared HTTP integration now exposes
+only authenticated exact historical reads through AEDS frames 253/254 and the
+existing private authoring browser runtime. The host binds its opaque Vault site
+independently from the permission-site URL. The route verifies the actual principal,
+article permission before/after reading and original sealed plan; it cannot execute,
+resume, materialize or commit base.
+
+Native owner commit `8b2634d06d543246bc3208076be6c3db2f84e651` was inspected and does
+contain the Linux peer/grant dispatcher and canonical operation adapter. Consumption
+still requires the coordinated handoff and applicable native runtime qualification.
+Current-resolution fact acquisition, decision/candidate admission, real dedicated
+backup protection authority and the original checkpoint transaction's `StageAsync`
+wiring remain open. These authority gaps are distinct from ordinary branch conflicts.
+Historical browser reads do not qualify current execution or product acceptance.

@@ -35,6 +35,8 @@ public sealed class ArticleVaultRecoveryServiceRegistrationTests
         Assert.IsType<ArticleVaultAcceptedSourceAdapter>(scope.ServiceProvider.GetRequiredService<ArticleVaultAcceptedSourceAdapter>());
         Assert.IsType<ArticleVaultRecoveryCheckpointReader>(scope.ServiceProvider.GetRequiredService<ArticleVaultRecoveryCheckpointReader>());
         Assert.IsType<ArticleVaultConflictReviewReader>(scope.ServiceProvider.GetRequiredService<ArticleVaultConflictReviewReader>());
+        Assert.IsType<ArticleVaultRecoveryStoredProposalReader>(scope.ServiceProvider.GetRequiredService<ArticleVaultRecoveryStoredProposalReader>());
+        Assert.IsType<ArticleVaultRecoveryHistoryReader>(scope.ServiceProvider.GetRequiredService<ArticleVaultRecoveryHistoryReader>());
         Assert.Equal(ServiceLifetime.Scoped, Assert.Single(services,
             static descriptor => descriptor.ServiceType == typeof(ArticleVaultAcceptedSourceAdapter)).Lifetime);
         Assert.Equal("article_vault_recovery_site_binding_already_registered", Assert.Throws<InvalidOperationException>(
@@ -46,6 +48,7 @@ public sealed class ArticleVaultRecoveryServiceRegistrationTests
     {
         var services = new ServiceCollection();
         services.AddFsusRuntimeDomainServices();
+        services.AddFsusArticleVaultPostgresRecoveryStores();
         using NpgsqlDataSource dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Database=vault-di-only;Username=vault-di-only");
         services.AddSingleton(dataSource);
         services.AddSingleton(Substitute.For<IArticleVaultExecutionStore>());
@@ -56,8 +59,37 @@ public sealed class ArticleVaultRecoveryServiceRegistrationTests
         var store = first.ServiceProvider.GetRequiredService<IArticleVaultOperationCheckpointStore>();
         Assert.IsType<PostgresArticleVaultOperationCheckpointStore>(store);
         Assert.Same(store, first.ServiceProvider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>());
+        var proposals = first.ServiceProvider.GetRequiredService<IArticleVaultResolutionProposalStore>();
+        Assert.IsType<PostgresArticleVaultResolutionProposalStore>(proposals);
+        Assert.Same(proposals, first.ServiceProvider.GetRequiredService<PostgresArticleVaultResolutionProposalStore>());
+        Assert.NotSame(proposals, second.ServiceProvider.GetRequiredService<IArticleVaultResolutionProposalStore>());
         Assert.NotSame(store, second.ServiceProvider.GetRequiredService<IArticleVaultOperationCheckpointStore>());
         Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IArticleVaultOperationCheckpointStore>());
+    }
+
+    [Fact]
+    public void OrdinaryDomain_DoesNotEnableRecoveryStoresWithoutExplicitHostBinding()
+    {
+        var services = new ServiceCollection();
+        services.AddFsusRuntimeDomainServices();
+        Assert.DoesNotContain(services, static descriptor => descriptor.ServiceType == typeof(IArticleVaultResolutionProposalStore));
+        Assert.DoesNotContain(services, static descriptor => descriptor.ServiceType == typeof(IArticleVaultOperationCheckpointStore));
+        Assert.DoesNotContain(services, static descriptor => descriptor.ServiceType == typeof(ArticleVaultRecoveryHistoryReader));
+    }
+
+    [Fact]
+    public void ExplicitPostgresComposition_RequiresActualHostDataSourceAndRefusesSecondStore()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(Substitute.For<IArticleVaultExecutionStore>());
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddFsusArticleVaultPostgresRecoveryStores();
+        Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultPostgresRecoveryStores());
+        Assert.Throws<AggregateException>(() => services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true,
+            ValidateOnBuild = true
+        }));
     }
 
     [Fact]

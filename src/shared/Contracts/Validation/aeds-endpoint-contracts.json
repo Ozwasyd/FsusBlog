@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "18ce5e8db6d450bbeb0e742a0c29d8c9b4b6334b985dac781a6e2f20884b3801",
+    "contentDigest": "4887a5fab0887d1a70ae58650dbfef1753a4c01f80eafe86d0a3f6993cfa4e92",
     "operations": [
         {
             "method": "DELETE",
@@ -3009,6 +3009,17 @@
             "requestType": null,
             "requestEncoding": null,
             "responseFrame": "UploadPartAck",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/vault/recovery/history",
+            "operationId": "binary_post_author_vault_recovery_history",
+            "requestFrame": "ArticleVaultRecoveryHistoryRequest",
+            "requestType": "FsusBlog.Shared.Contracts.ArticleVault.ArticleVaultRecoveryHistoryRequest",
+            "requestEncoding": "utf8-json",
+            "responseFrame": "ArticleVaultRecoveryHistoryResponse",
             "errorFrame": "ApiError",
             "successStatus": 200
         }

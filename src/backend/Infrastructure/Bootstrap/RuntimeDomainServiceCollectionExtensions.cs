@@ -35,6 +35,13 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddGeneralDomainServices();
         services.AddCoreBridgeServices();
         services.AddHostedService<DeploymentLifecycleHostedService>();
+        // A missing explicit binding disables Vault reads while ordinary authoring stays available.
+        string? trustedVaultSiteIdentity = configuration?["ArticleVault:TrustedSiteIdentity"];
+        if (!string.IsNullOrWhiteSpace(trustedVaultSiteIdentity))
+        {
+            services.AddFsusArticleVaultPostgresRecoveryStores();
+            services.AddFsusArticleVaultRecoveryReaders(trustedVaultSiteIdentity);
+        }
 
         return services;
     }
@@ -58,9 +65,6 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleVaultCanonicalGroupWriter>(
             serviceProvider => serviceProvider.GetRequiredService<ArticleService>());
         services.AddScoped<IArticleVaultSyncPlanExecutor, ArticleVaultSyncPlanExecutor>();
-        services.AddScoped<PostgresArticleVaultOperationCheckpointStore>();
-        services.AddScoped<IArticleVaultOperationCheckpointStore>(
-            serviceProvider => serviceProvider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>());
         services.AddScoped<IArticlePublicationValidator, ArticlePublicationValidator>();
         services.AddScoped<CommentCommandService>();
         services.AddScoped<ICommentMutationOutbox, CommentMutationOutboxWriter>();

@@ -46,6 +46,7 @@ public static partial class AuthoringEndpoints
         MapAuthoringWorkflowRoutes(group);
         MapAuthoringModerationRoutes(group);
         MapAuthoringOperationsRoutes(group);
+        MapArticleVaultReadRoutes(group);
         return app;
     }
 
@@ -119,6 +120,8 @@ public static partial class AuthoringEndpoints
         string[] segments = (remaining.Value ?? string.Empty).Split('/', StringSplitOptions.RemoveEmptyEntries);
         route = default;
 
+        if (HttpMethods.IsPost(method) && segments is ["vault", "recovery", "history"])
+            return Found(AedsFrameType.ArticleVaultRecoveryHistoryRequest, AedsFrameType.ArticleVaultRecoveryHistoryResponse, out route);
         if (HttpMethods.IsPost(method) && segments is ["drafts"])
             return Found(AedsFrameType.AuthorDraftSaveRequest, AedsFrameType.AuthorDraftResponse, out route);
         if (HttpMethods.IsGet(method) && segments is ["drafts", _])
