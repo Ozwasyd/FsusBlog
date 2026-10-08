@@ -232,6 +232,42 @@ public sealed class DiskSegmentStoreTests
         Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
     }
 
+    [Fact]
+    public void ReentrantDisposeKeepsCopyOperationAliveUntilItsFinalHoldEnds()
+    {
+        using var fixture = new Fixture();
+        MemoryContentIdentity identity = Identity();
+        DiskSegmentPublication source = fixture.Publish(identity, new byte[256]);
+        DiskSegmentLease reader = fixture.Store.Acquire(source.SegmentId, identity).Value!;
+        using var target = new RetiringStream(() =>
+        {
+            reader.Dispose();
+            fixture.Store.Retire(source.SegmentId);
+            Assert.Single(fixture.Root.EnumerateNames(16));
+            Assert.True(fixture.Coordinator.Snapshot().Used["volume"] > 0);
+            Assert.Equal(MemoryFailure.StaleLocation, reader.CopyTo(new MemoryStream()).Failure);
+        });
+        Assert.True(reader.CopyTo(target).Succeeded);
+        Assert.Equal(new byte[256], target.ToArray());
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        reader.Dispose();
+    }
+
+    private sealed class RetiringStream(Action retire) : MemoryStream
+    {
+        private bool _retired;
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            if (!_retired)
+            {
+                _retired = true;
+                retire();
+            }
+            base.Write(buffer, offset, count);
+        }
+    }
+
     private sealed class FailingStream : MemoryStream
     {
         private bool _read;
