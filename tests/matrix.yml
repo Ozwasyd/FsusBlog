@@ -1506,6 +1506,8 @@ tiers:
               tools/test-fixtures/media-negative-corpus.mjs,
               tools/test-fixtures/canonical-media-asset-store.mjs,
               tools/test-fixtures/media-positive-generator.mjs,
+              tools/test-fixtures/media-codec-verifier.mjs,
+              tools/test-fixtures/media-codec-verifier.py,
               tools/test-fixtures/media-shape-catalog.mjs,
               tools/test-matrix,
               tools/testing/generate-test-execution-envelope-applicability.mjs,
@@ -3510,6 +3512,8 @@ tiers:
           - tests/tools/media-negative-corpus.test.mjs
           - tools/test-fixtures/canonical-media-asset-store.mjs
           - tools/test-fixtures/media-positive-generator.mjs
+          - tools/test-fixtures/media-codec-verifier.mjs
+          - tools/test-fixtures/media-codec-verifier.py
           - tests/tools/media-positive-generator.test.mjs
           - config/testing/media-shape-catalog.json
           - config/schemas/media-shape-catalog.schema.json

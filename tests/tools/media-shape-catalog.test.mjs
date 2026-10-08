@@ -12,6 +12,52 @@ function mutate(change)
     return sealMediaDocument(catalog);
 }
 
+test('nested schema rejects resealed extra fields, wrong primitive types, and malformed registries', () =>
+{
+    for (const change of [
+        (catalog) => { catalog.unapprovedAuthority = true; },
+        (catalog) => { catalog.shapes[0].unapprovedAuthority = true; },
+        (catalog) => { catalog.formats[0].unapprovedAuthority = true; },
+        (catalog) => { catalog.aspects[0].unapprovedAuthority = true; },
+        (catalog) => { catalog.shapes[0].width = '12'; },
+        (catalog) => { catalog.shapes[0].alpha = 'false'; },
+        (catalog) => { catalog.formats[0].supportsAlpha = 'false'; }
+    ])
+    {
+        assert.match(validateMediaShapeCatalog(mutate(change)).join('\n'), /media shape catalog schema:/);
+    }
+    assert.doesNotThrow(() => validateMediaShapeCatalog({ shapes: [null], formats: null, aspects: null }));
+    assert.equal(validateMediaShapeCatalog({ shapes: [null], formats: null, aspects: null }).length > 0, true);
+});
+
+test('oriented aspect, crop, bounded dimensions, and digest references cannot be relabeled', () =>
+{
+    for (const change of [
+        (catalog) => { catalog.shapes[0].width += 1; },
+        (catalog) => { catalog.aspects[1].width = 4; },
+        (catalog) => { catalog.shapes[1].orientation = 1; },
+        (catalog) => { catalog.shapes[1].expectedCrop = 'center-safe'; },
+        (catalog) => { catalog.shapes[0].width = 9000; catalog.shapes[0].height = 6000; },
+        (catalog) => { catalog.shapes[0].byteDigestRef += '-unrelated'; }
+    ])
+    {
+        assert.match(validateMediaShapeCatalog(mutate(change)).join('\n'), /geometry|bounded dimensions|generator refs/);
+    }
+});
+
+test('negative shapes preserve all source facts outside their single declared fault', () =>
+{
+    for (const change of [
+        (catalog) => { catalog.shapes.find((item) => item.id === 'negative-corrupt-header').orientation = 6; },
+        (catalog) => { catalog.shapes.find((item) => item.id === 'negative-mime-extension-mismatch').extension = '.jpg'; },
+        (catalog) => { catalog.shapes.find((item) => item.id === 'negative-missing-404').sourceShapeId = 'no-cover'; },
+        (catalog) => { catalog.shapes.find((item) => item.id === 'negative-oversized-dimensions').width = 16; }
+    ])
+    {
+        assert.match(validateMediaShapeCatalog(mutate(change)).join('\n'), /single-fault source facts/);
+    }
+});
+
 test('MediaShapeCatalog is closed, complete, content-addressed, and uniquely owned', () =>
 {
     const catalog = loadMediaShapeCatalog();
