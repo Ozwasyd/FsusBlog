@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Preserve the canonical NuGet lock wire keys and the external AngleSharp package name while restoring the exact existing Server dependency edge; no internal symbol or serialized contract is renamed."
+        }
+    ]
+}
