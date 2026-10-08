@@ -6,16 +6,16 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
-import {
+const { createProductionBuildReceipt } = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
+const {
     githubNeedsAuthority,
     schedulerAuthority
-} from '../../tools/release/test-evidence-receipts-cli.mjs';
-import {
+} = await import(new URL('../../tools/release/test-evidence-receipts-cli.mjs', import.meta.url));
+const {
     productionCorrectnessTierClosure,
     validateBrowserlessCorrectnessReceipt
-} from '../../tools/release/test-evidence-receipts.mjs';
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
+} = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
+const { parseMatrix } = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
 
 const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
 const buildReceiptDigest = `sha256:${'c'.repeat(64)}`;
@@ -49,7 +49,8 @@ function sealPlan(overrides = {})
         ...overrides,
         contentDigest: null
     };
-    const { contentDigest: _ignored, ...content } = plan;
+    const content = { ...plan };
+    delete content.contentDigest;
     plan.contentDigest = `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex')}`;
     return plan;
 }
@@ -57,7 +58,8 @@ function sealPlan(overrides = {})
 function sealDocument(document)
 {
     const sealed = { ...document, contentDigest: null };
-    const { contentDigest: _ignored, ...content } = sealed;
+    const content = { ...sealed };
+    delete content.contentDigest;
     sealed.contentDigest = `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex')}`;
     return sealed;
 }
@@ -76,7 +78,7 @@ function authorityEnv(overrides = {})
     };
 }
 
-test('scheduler authority seals dependency success while the aggregate itself is still running', (context) =>
+test('scheduler authority keeps dependency success provisional while the aggregate is still running', (context) =>
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-1151-authority-'));
     context.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -94,7 +96,10 @@ test('scheduler authority seals dependency success while the aggregate itself is
     })}\n`);
 
     const authority = schedulerAuthority(runId, ['unit', 'production-correctness'], sourceState, { repositoryRoot: root });
-    assert.equal(authority.status, 'success');
+    assert.equal(authority.status, 'provisional');
+    assert.equal(authority.authorityLevel, 'provisional');
+    assert.equal(authority.qualificationEligible, false);
+    assert.equal(authority.authoritative, false);
     assert.equal(authority.aggregateStatus, 'running');
 
     const failed = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'));
@@ -106,13 +111,14 @@ test('scheduler authority seals dependency success while the aggregate itself is
     );
 });
 
-test('scheduler receipt generation rejects a same-commit summary from another scheduler run', (context) =>
+test('scheduler receipt generation rejects stale summaries and cannot seal a running aggregate', (context) =>
 {
     const repositoryRoot = path.resolve(import.meta.dirname, '../..');
     const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-1151-scheduler-summary-'));
     context.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
     for (const relativeFile of [
         'tools/release/test-evidence-receipts-cli.mjs',
+        'tools/release/correctness-scheduler-authority.mjs',
         'tools/release/test-evidence-receipts.mjs',
         'tools/release/release-domain-final-binding.mjs',
         'tools/release/release-reliability-qualified-receipt.mjs',
@@ -133,7 +139,7 @@ test('scheduler receipt generation rejects a same-commit summary from another sc
     fs.mkdirSync(path.join(artifactRoot, 'backend'), { recursive: true });
     fs.writeFileSync(path.join(fixture, 'inputs/lock.json'), '{}\n');
     fs.writeFileSync(path.join(artifactRoot, 'backend/server.dll'), 'fixture\n');
-    const buildReceipt = createProductionBuildReceipt({
+    createProductionBuildReceipt({
         root: fixture,
         artifactRoot,
         sourceState,
@@ -179,12 +185,10 @@ test('scheduler receipt generation rejects a same-commit summary from another sc
 
     const current = sealDocument({ ...stale, schedulerRunId: 'current-run', testIds: ['node:current#bound'] });
     fs.writeFileSync(summaryFile, `${JSON.stringify(current, null, 2)}\n`);
-    const accepted = spawnSync(process.execPath, command, { cwd: fixture, encoding: 'utf8', env });
-    assert.equal(accepted.status, 0, accepted.stderr || accepted.stdout);
-    const receipt = JSON.parse(fs.readFileSync(output, 'utf8'));
-    assert.deepEqual(receipt.authority.schedulerRunIds, ['current-run']);
-    assert.ok(receipt.aggregate.testIds.includes('node:current#bound'));
-    assert.ok(!receipt.aggregate.testIds.includes('node:stale#must-not-bind'));
+    const provisional = spawnSync(process.execPath, command, { cwd: fixture, encoding: 'utf8', env });
+    assert.equal(provisional.status, 1);
+    assert.match(provisional.stderr, /authority is not successful: provisional/u);
+    assert.equal(fs.existsSync(output), false);
 });
 
 test('GitHub authority admits only plan-authorized skipped needs after production summary has passed', () =>
