@@ -78,7 +78,7 @@ Refs #3464
 ## Release Note
 
 - Audience: internal
-- Category: Added
+- Category: Internal/Tooling
 - Summary: add sealed native artifact indexes with counted leases
 
 ## Generated Output
