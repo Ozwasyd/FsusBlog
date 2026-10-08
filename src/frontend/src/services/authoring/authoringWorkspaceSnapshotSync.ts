@@ -1,4 +1,4 @@
-import { AuthoringWorkspaceSnapshotError, defaultWorkspaceSnapshotLayout, freezeWorkspaceSnapshot, validateWorkspaceSnapshotLayout, workspaceSnapshotDigest, workspaceSnapshotExact, workspaceSnapshotId, workspaceSnapshotInteger, type AuthoringWorkspaceSnapshotApi, type AuthoringWorkspaceServerObservation, type AuthoringWorkspaceSnapshotLayout } from '@/api/authoringWorkspaceSnapshot';
+import { AuthoringWorkspaceSnapshotError, defaultWorkspaceSnapshotLayout, freezeWorkspaceSnapshot, requireWorkspaceServerObservation, validateWorkspaceSnapshotLayout, workspaceSnapshotDigest, workspaceSnapshotExact, workspaceSnapshotId, workspaceSnapshotInteger, type AuthoringWorkspaceSnapshotApi, type AuthoringWorkspaceServerObservation, type AuthoringWorkspaceSnapshotLayout } from '@/api/authoringWorkspaceSnapshot';
 
 import type { AuthoringWorkspaceSnapshotCache, WorkspaceSnapshotCacheRead } from './authoringWorkspaceSnapshotCache';
 
@@ -69,6 +69,7 @@ export class AuthoringWorkspaceSnapshotSync
     private dirty = false;
     private resetting = false;
     private generation = 0;
+    private lifecycleEpoch = 0;
     private dirtySince = 0;
     private stopped = false;
     private debounce: ReturnType<typeof setTimeout> | null = null;
@@ -98,7 +99,8 @@ export class AuthoringWorkspaceSnapshotSync
     }
     public getServerObservation(): AuthoringWorkspaceServerObservation | null
     {
-        return this.observation;
+        return this.online && !this.stopped && (this.status === 'current' || this.status === 'defaulted')
+            && this.hasAuthority(this.observation) ? this.observation : null;
     }
     public getPlaceholder(): WorkspaceSnapshotCacheRead | null
     {
@@ -110,10 +112,12 @@ export class AuthoringWorkspaceSnapshotSync
     }
     public getState(): WorkspaceSnapshotSyncState
     {
+        const expired = this.online && (this.status === 'current' || this.status === 'defaulted') && !this.hasAuthority(this.observation);
         const unsigned = {
             schema: workspaceSnapshotSyncPolicy.schema, scopeDigest: this.scopeDigest, sourceDigest: this.api.sourceDigest,
-            status: this.status, serverRevision: this.observation?.revision ?? null, dirty: this.dirty,
-            resetting: this.resetting, online: this.online, cacheStatus: this.cacheStatus, reason: this.reason
+            status: expired ? 'failed' as const : this.status, serverRevision: this.observation?.revision ?? null, dirty: this.dirty,
+            resetting: this.resetting, online: this.online, cacheStatus: this.cacheStatus,
+            reason: expired ? 'server_observation_superseded' : this.reason
         };
         return freezeWorkspaceSnapshot({ ...unsigned, contentDigest: workspaceSnapshotDigest(unsigned) });
     }
@@ -136,12 +140,15 @@ export class AuthoringWorkspaceSnapshotSync
         {
             return;
         }
+        const epoch = ++this.lifecycleEpoch;
+        this.api.invalidateObservations();
         this.online = online;
-        this.cacheRead = await this.cache.read();
-        if (this.stopped)
+        const cacheRead = await this.cache.read();
+        if (this.stopped || epoch !== this.lifecycleEpoch)
         {
             return;
         }
+        this.cacheRead = cacheRead;
         this.cacheStatus = this.cacheRead.status;
         if (this.cacheRead.status === 'cached-placeholder')
         {
@@ -156,7 +163,10 @@ export class AuthoringWorkspaceSnapshotSync
         {
             await this.readServer('startup');
         }
-        this.schedulePeriodic();
+        if (!this.stopped && epoch === this.lifecycleEpoch)
+        {
+            this.schedulePeriodic();
+        }
     }
     public onInteraction(kind: typeof workspaceSnapshotSyncPolicy.layoutEvents[number] | typeof workspaceSnapshotSyncPolicy.ignoredEvents[number], layout?: AuthoringWorkspaceSnapshotLayout): void
     {
@@ -193,7 +203,18 @@ export class AuthoringWorkspaceSnapshotSync
         {
             return;
         }
+        if (this.online !== online)
+        {
+            this.lifecycleEpoch++;
+            this.reading++;
+            this.resetting = false;
+            if (online)
+            {
+                this.api.invalidateObservations();
+            }
+        }
         this.online = online;
+        const epoch = this.lifecycleEpoch;
         this.clearDebounce();
         if (!online)
         {
@@ -215,6 +236,10 @@ export class AuthoringWorkspaceSnapshotSync
         {
             await this.flushTask;
         }
+        if (!this.isCurrentOperation(epoch))
+        {
+            return;
+        }
         await this.readServer('reconnect');
         this.scheduleFlush();
     }
@@ -234,9 +259,10 @@ export class AuthoringWorkspaceSnapshotSync
             this.scheduleFlush();
             return;
         }
+        const epoch = this.lifecycleEpoch;
         const operation = async (): Promise<void> =>
         {
-            if (!this.canFlush())
+            if (!this.canFlush() || !this.isCurrentOperation(epoch))
             {
                 return;
             }
@@ -248,7 +274,7 @@ export class AuthoringWorkspaceSnapshotSync
             try
             {
                 const result = await this.api.write(revision, layout, this.abort.signal);
-                if (this.stopped)
+                if (!this.isCurrentOperation(epoch) || !this.hasAuthority(result))
                 {
                     return;
                 }
@@ -261,11 +287,12 @@ export class AuthoringWorkspaceSnapshotSync
                     return;
                 }
                 this.observation = result;
-                this.cacheStatus = await this.cache.verifyAndReplace(result);
-                if (this.stopped)
+                const cacheStatus = await this.cache.verifyAndReplace(result);
+                if (!this.isCurrentOperation(epoch) || !this.hasAuthority(result))
                 {
                     return;
                 }
+                this.cacheStatus = cacheStatus;
                 this.dirty = this.generation !== generation;
                 this.status = this.online ? 'current' : this.dirty ? 'offline-unsynced' : 'cached-placeholder';
                 this.reason = this.online ? null : 'offline';
@@ -274,7 +301,7 @@ export class AuthoringWorkspaceSnapshotSync
             }
             catch
             {
-                if (!this.stopped)
+                if (this.isCurrentOperation(epoch))
                 {
                     this.status = this.online ? 'failed' : 'offline-unsynced';
                     this.reason = 'server_write_failed';
@@ -291,7 +318,7 @@ export class AuthoringWorkspaceSnapshotSync
             if (this.lease)
             {
                 const acquired = await this.lease.run(this.scopeDigest, operation);
-                if (!acquired)
+                if (!acquired && this.isCurrentOperation(epoch))
                 {
                     this.peerLeaseUntil = this.clock.now() + workspaceSnapshotSyncPolicy.debounceMs;
                 }
@@ -307,7 +334,7 @@ export class AuthoringWorkspaceSnapshotSync
         }
         catch
         {
-            if (!this.stopped)
+            if (this.isCurrentOperation(epoch))
             {
                 // A denied coordination mechanism never grants a competing local writer.
                 this.status = this.online ? 'failed' : 'offline-unsynced';
@@ -350,12 +377,13 @@ export class AuthoringWorkspaceSnapshotSync
             throw new AuthoringWorkspaceSnapshotError('reset_requires_current_server');
         }
         const generation = this.generation;
+        const epoch = this.lifecycleEpoch;
         this.resetting = true;
         this.record('reset-start');
         try
         {
             const result = await this.api.reset(expectedRevision, confirmationDigest, this.abort.signal);
-            if (this.stopped)
+            if (!this.isCurrentOperation(epoch) || !this.hasAuthority(result))
             {
                 return;
             }
@@ -377,20 +405,30 @@ export class AuthoringWorkspaceSnapshotSync
                 this.status = 'current';
                 this.reason = null;
             }
-            this.cacheStatus = await this.cache.verifyAndReplace(result);
+            const cacheStatus = await this.cache.verifyAndReplace(result);
+            if (!this.isCurrentOperation(epoch) || !this.hasAuthority(result))
+            {
+                return;
+            }
+            this.cacheStatus = cacheStatus;
             this.send('invalidated', result.revision);
             this.record('server-reset');
         }
         finally
         {
-            this.resetting = false;
-            this.record('reset-end');
-            this.scheduleFlush();
+            if (!this.stopped && epoch === this.lifecycleEpoch)
+            {
+                this.resetting = false;
+                this.record('reset-end');
+                this.scheduleFlush();
+            }
         }
     }
     public async stop(clearScope = true): Promise<void>
     {
         this.stopped = true;
+        this.lifecycleEpoch++;
+        this.reading++;
         this.abort.abort();
         this.api.invalidateObservations();
         this.clearDebounce();
@@ -407,6 +445,7 @@ export class AuthoringWorkspaceSnapshotSync
         this.cacheRead = null;
         this.memory = defaultWorkspaceSnapshotLayout();
         this.dirty = false;
+        this.resetting = false;
         this.status = 'defaulted';
         this.reason = 'scope_closed';
         this.online = false;
@@ -430,10 +469,11 @@ export class AuthoringWorkspaceSnapshotSync
             return;
         }
         const ticket = ++this.reading;
+        const epoch = this.lifecycleEpoch;
         try
         {
             const server = await this.api.read(this.abort.signal);
-            if (this.stopped || ticket !== this.reading || !this.online)
+            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server))
             {
                 return;
             }
@@ -441,11 +481,12 @@ export class AuthoringWorkspaceSnapshotSync
             {
                 return;
             }
-            this.cacheStatus = await this.cache.verifyAndReplace(server);
-            if (this.stopped || ticket !== this.reading)
+            const cacheStatus = await this.cache.verifyAndReplace(server);
+            if (!this.isCurrentOperation(epoch) || ticket !== this.reading || !this.hasAuthority(server))
             {
                 return;
             }
+            this.cacheStatus = cacheStatus;
             if (server.status === 'blocked')
             {
                 this.status = 'blocked';
@@ -476,7 +517,7 @@ export class AuthoringWorkspaceSnapshotSync
         }
         catch (error)
         {
-            if (this.stopped || ticket !== this.reading)
+            if (!this.isCurrentOperation(epoch) || ticket !== this.reading)
             {
                 return;
             }
@@ -487,6 +528,7 @@ export class AuthoringWorkspaceSnapshotSync
     }
     private adopt(server: AuthoringWorkspaceServerObservation): void
     {
+        requireWorkspaceServerObservation(server);
         this.observation = server;
         this.memory = structuredClone(server.snapshot?.layout ?? defaultWorkspaceSnapshotLayout());
         this.dirty = false;
@@ -495,8 +537,28 @@ export class AuthoringWorkspaceSnapshotSync
     }
     private canFlush(): boolean
     {
-        return !this.stopped && !this.resetting && this.online && this.dirty && this.observation !== null
+        return !this.stopped && !this.resetting && this.online && this.dirty && this.hasAuthority(this.observation)
             && (this.status === 'current' || this.status === 'defaulted');
+    }
+    private isCurrentOperation(epoch: number): boolean
+    {
+        return !this.stopped && this.online && epoch === this.lifecycleEpoch;
+    }
+    private hasAuthority(observation: AuthoringWorkspaceServerObservation | null): boolean
+    {
+        if (observation === null)
+        {
+            return false;
+        }
+        try
+        {
+            requireWorkspaceServerObservation(observation);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
     private scheduleFlush(): void
     {
@@ -604,7 +666,7 @@ export class AuthoringWorkspaceSnapshotSync
         {
             return;
         }
-        this.events.push({ kind, revision: this.observation?.revision ?? null, status: this.status });
+        this.events.push({ kind, revision: this.observation?.revision ?? null, status: this.getState().status });
         if (this.events.length > workspaceSnapshotSyncPolicy.maxEvents)
         {
             this.events.shift();

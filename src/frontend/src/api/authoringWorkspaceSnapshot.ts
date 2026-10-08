@@ -258,6 +258,7 @@ export class AuthoringWorkspaceSnapshotApi
 {
     private latestObservation: AuthoringWorkspaceServerObservation | null = null;
     private lifecycleGeneration = 0;
+    private readSequence = 0;
     public readonly scope: AuthoringWorkspaceSnapshotScope;
     public constructor(private readonly transport: AuthoringWorkspaceSnapshotTransport, scope: AuthoringWorkspaceSnapshotScope, public readonly sourceDigest: string, private readonly now: () => number = Date.now)
     {
@@ -271,13 +272,20 @@ export class AuthoringWorkspaceSnapshotApi
     public async read(signal?: AbortSignal): Promise<AuthoringWorkspaceServerObservation>
     {
         const generation = this.lifecycleGeneration;
+        const ticket = ++this.readSequence;
         const raw = await this.transport.read(signal);
         this.checkLifecycle(generation, signal);
+        if (ticket !== this.readSequence)
+        {
+            // Reject an older request before verification can revoke a newer observation at the same revision.
+            throw new AuthoringWorkspaceSnapshotError('server_read_superseded');
+        }
         return this.verify(raw, 'read', workspaceSnapshotDigest(this.scope));
     }
     public invalidateObservations(): void
     {
         this.lifecycleGeneration++;
+        this.readSequence++;
         if (this.latestObservation)
         {
             serverObservations.delete(this.latestObservation);
@@ -291,9 +299,12 @@ export class AuthoringWorkspaceSnapshotApi
         const command = structuredClone({ expectedRevision, layout });
         const inputDigest = workspaceSnapshotDigest(command);
         const generation = this.lifecycleGeneration;
+        this.readSequence++;
         const raw = await this.transport.write(command, signal);
         this.checkLifecycle(generation, signal);
-        return this.verify(raw, 'write', inputDigest, expectedRevision, command.layout);
+        const verified = this.verify(raw, 'write', inputDigest, expectedRevision, command.layout);
+        this.readSequence++;
+        return verified;
     }
     public resetConfirmation(expectedRevision: number): string
     {
@@ -308,9 +319,12 @@ export class AuthoringWorkspaceSnapshotApi
         }
         const layout = defaultWorkspaceSnapshotLayout();
         const generation = this.lifecycleGeneration;
+        this.readSequence++;
         const raw = await this.transport.reset({ expectedRevision, confirmationDigest }, signal);
         this.checkLifecycle(generation, signal);
-        return this.verify(raw, 'reset', workspaceSnapshotDigest({ expectedRevision, layout }), expectedRevision, layout);
+        const verified = this.verify(raw, 'reset', workspaceSnapshotDigest({ expectedRevision, layout }), expectedRevision, layout);
+        this.readSequence++;
+        return verified;
     }
     private expectedRevision(revision: number): void
     {

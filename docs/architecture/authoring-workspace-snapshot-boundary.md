@@ -14,6 +14,9 @@ collapsed (`outlineOpen: false`), following #1805. This default applies to fresh
 bootstrap and an explicitly confirmed reset. Existing valid snapshots retain
 their recorded boolean and digest, including previously saved open preferences;
 reads, cache verification, restore and migration do not rewrite them.
+The same saved boolean applies to mobile Drawer and desktop rail. The original
+shell owner must distinguish a transient reveal-related close from an explicit
+preference change when projecting shell commands into the snapshot.
 
 `AuthoringWorkspaceSnapshotStore` reads without writes and requires expected
 revision CAS for create, update and confirmed layout reset. Its PostgreSQL adapter
@@ -41,6 +44,13 @@ Web Locks rejection retains dirty memory and reports coordination failure withou
 starting an uncoordinated writer. Layout changes made while a confirmed reset is
 in flight wait for its CAS result and retain their new current-session projection.
 Stale restore summaries are dropped when observation authority expires.
+Read requests carry a process-local sequence: superseded requests are rejected
+before receipt verification can revoke a newer observation at the same server
+revision. Startup, read, flush and reset check their lifecycle epoch and current
+server provenance after asynchronous cache completion. Cache outcomes are assigned
+only while the operation is still current; stop clears reset activity and prevents
+late completion from changing closed state. No wire field or second authority is
+introduced by these guards.
 
 Restore planning uses one bounded current permission/lifecycle/draft batch. It
 removes invalid refs deterministically and exposes reason counts without titles
