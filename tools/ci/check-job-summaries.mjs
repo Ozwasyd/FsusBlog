@@ -233,9 +233,9 @@ function parseOption(name) {
   return index >= 0 ? process.argv[index + 1] : null
 }
 
-function requiredTiersFromPlan(options) {
-  if (!fs.existsSync(planFile)) return []
-  const plan = readJson(planFile)
+function requiredTiersFromPlan(options, suppliedPlan = null) {
+  if (!suppliedPlan && !fs.existsSync(planFile)) return []
+  const plan = suppliedPlan ?? readJson(planFile)
   return tierClosure(plan.tiers ?? [], options.tier).filter((tier) => {
     if (options.tier && tier.id === options.tier) return false
     if (tier.localOnly === true && options.includeLocal !== true) return false
@@ -253,14 +253,14 @@ function shardId(index, total) {
   return `${index}-of-${total}`
 }
 
-function expectedSummaryEntries(options) {
+function expectedSummaryEntries(options, suppliedPlan = null) {
   const entries = new Map()
   const add = (id, tier) => {
     const tiers = entries.get(id) ?? []
     tiers.push(tier)
     entries.set(id, tiers)
   }
-  for (const tier of requiredTiersFromPlan(options)) {
+  for (const tier of requiredTiersFromPlan(options, suppliedPlan)) {
     if (tier.requiresPlaywright === 'all') {
       for (const browser of releaseBrowsers) {
         if (tier.shardable === true && Number(tier.defaultShards) > 1) {
@@ -359,3 +359,39 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     fail([error.message])
   }
 }
+
+export function validateStrictJobSummarySet(plan, summaries) {
+  if (!Array.isArray(plan?.tiers) || plan.tiers.length === 0 || !Array.isArray(summaries)) throw new Error('explicit nonempty plan and summary set are required')
+  const errors = summaries.flatMap((summary) => validateJobSummary(summary, summary.jobId))
+  const ids = summaries.map((summary) => summary.jobId)
+  if (new Set(ids).size !== ids.length) errors.push('duplicate job summaries')
+  const options = { tier: 'production', strictShards: true }
+  const required = expectedSummaryEntries(options, plan).map(([id]) => id)
+  if (!required.length) errors.push('production strict shard plan is empty')
+  for (const id of required) if (!ids.includes(id)) errors.push(`missing strict job summary: ${id}`)
+  for (const summary of summaries) if (summary.status !== 'success') errors.push(`job summary is not successful: ${summary.jobId}`)
+  return errors
+}
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['success']), describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeJobEvidence(receipt),
+    async verify({ domainInputs, repositoryRoot, context })
+    {
+        const { readOwnerEvidenceReference } = await import(new URL('../release/required-evidence-owner-input.mjs', import.meta.url));
+        const { verifiedOwnerResult, requireOwnerChecks } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        const plan = readOwnerEvidenceReference(domainInputs?.plan, { repositoryRoot, context });
+        if (!Array.isArray(domainInputs?.summaries))
+        {
+            throw new Error('explicit summary refs are required');
+        }
+        const summaries = domainInputs.summaries.map((ref) => readOwnerEvidenceReference(ref, { repositoryRoot, context }));
+        for (const { receipt } of summaries)
+        {
+            if (receipt.commit !== context.sourceCommit || receipt.schedulerRunId !== context.schedulerRunId)
+            {
+                throw new Error('job summary current-run/source mismatch');
+            }
+        }
+        requireOwnerChecks(validateStrictJobSummarySet(plan.receipt, summaries.map((item) => item.receipt)));
+        return verifiedOwnerResult({ planDigest: plan.digest, summaryDigests: summaries.map((item) => item.digest) });
+    }
+});

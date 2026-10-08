@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json",
+                "tools/test/generate-evidence-location-governance.mjs"
+            ],
+            "reason": "Preserve registered current-run authority spellings while binding the required catalog to exact canonical producer/caller APIs and reanchoring unchanged non-evidence selectors."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/evidence-locator-registry.json",
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/required-evidence-authority-ledger.json"
+            ],
+            "reason": "Preserve canonical locator/catalog/acceptance wire keys and receipt schemas while resealing explicit owner verifier API references and current tracked-source inventory."
+        }
+    ]
+}

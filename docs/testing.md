@@ -1516,6 +1516,23 @@ tests/tools/production-capacity-preflight-order.test.mjs` covers filesystem merg
 
 ## Release-final finalizer authority
 
+### Per-authority exact evidence bindings
+
+`config/testing/required-evidence-authority-ledger.json` remains the required-authority catalog. Each `producerVerifier` now names an explicit owner export. `createDomainVerifierRegistry` binds the catalog version/digest and each owner API, version and source digest; missing, duplicate, unknown or changed entries reject admission.
+
+`createRequiredEvidenceBinding` consumes exactly one canonical current-run reference through the sole locator registry. It verifies the payload schema and bytes, original producer source/worktree/run identity, declared identity fields, candidate image/policy, exact test/coverage/artifact IDs, status and evidence class before invoking the owner verifier. It accepts no search inputs and never starts a producer or retry. A missing input reports only the catalog's local producer command.
+
+The binding retains catalog and locator bindings, identity/ID checks, producer digests and the owner result/reference/digest. `verifyRequiredEvidenceBinding` rereads the explicit reference and independently replays current-source owner verification; a sealed or resigned summary cannot replace that replay. Diagnostic evidence remains ineligible for correctness qualification.
+
+Owner verification requires explicit auxiliary references, including original projection producer/assertion reports, coverage summaries, security observations, closeout manifests and quality artifacts. Legacy receipts lacking required namespace, source/worktree/run identity or evidence class reject admission. The verifier does not synthesize those fields. Source and controlled-fixture checks do not establish current product/runtime qualification, and the existing finalizer remains unchanged until its verified-binding migration is complete.
+
+Focused checks:
+
+```bash
+node --test tests/tools/required-evidence-binding.test.mjs tests/tools/required-evidence-owner-verifiers.test.mjs tests/tools/release-required-evidence-catalog.test.mjs
+node tools/test/generate-evidence-location-governance.mjs --check
+```
+
 <!-- fsus-doc-claim
 claimId: release-final-aggregate-contract.finalizer-authority
 behaviorId: release-final-aggregate-contract
