@@ -370,7 +370,10 @@ try
         await expect(menu).not.toBeAttached();
     }
     report.observations.consumerComposition = true;
-    await page.evaluate(() => { globalThis.document.documentElement.style.zoom = '1'; });
+    await page.evaluate(() =>
+    {
+        globalThis.document.documentElement.style.zoom = '1';
+    });
     await consumer('compact').click();
     await expect(trigger).toContainText('ru-RU');
     await trigger.click();
