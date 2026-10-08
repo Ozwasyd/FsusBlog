@@ -667,7 +667,10 @@ function contextualRecordExpressionLines(codeLines)
             }
             if (character === '{' && brackets === 0)
             {
-                const declaration = /^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\s+[A-Za-z_]\w*\b/u.test(stripLeadingScopeAttributes(header));
+                // Scope admission must recognize the declaration introducer
+                // independently of the narrower naming-policy identifier regex.
+                // Escaped and Unicode identifiers are still legal C# type names.
+                const declaration = /^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\s+/u.test(stripLeadingScopeAttributes(header));
                 const executable = scopes.includes('expression') || expression
                     || /(?:\)|=>|=|\bwith|\b(?:else|try|finally|do))\s*$/u.test(header)
                     || /\bnew\b/u.test(header);
