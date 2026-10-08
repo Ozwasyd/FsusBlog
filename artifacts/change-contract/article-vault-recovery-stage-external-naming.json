@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/ArticleVault/ArticleVaultRecoveryOperationCheckpointWriter.cs"
+            ],
+            "reason": "Preserve exact canonical Article Vault protocol spellings in the compatible server composition interface; no new environment key, wire format or naming authority."
+        }
+    ]
+}
