@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
-  chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync,
-  cpSync, existsSync, readdirSync
-} from 'node:fs'
+    chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync,
+    cpSync, existsSync, readdirSync
+} from 'node:fs';
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -441,7 +441,11 @@ test('runtime-role replay ignores external TMPDIR and cleans repeated compiled o
                 buildReceiptPath: runtimeRoleBuild.buildReceiptPath
             });
             assert.equal(result.status, 'ok', result.failureReasons?.join('\n'));
-            assert.deepEqual(readdirSync(external), []);
+            // SDK verification may create NuGet scratch here; replay output must stay in its canonical owner.
+            assert.ok(!readdirSync(external).some((name) =>
+                name.startsWith('runtime-role-replay-')
+                || name.startsWith('replay-')
+                || name === 'runtime-role-observation.json'));
             assert.ok(!readdirSync(owner).some((name) => name.startsWith('replay-')));
         }
     }

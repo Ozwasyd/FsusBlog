@@ -1454,59 +1454,59 @@ export function extract(context)
   {
     return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
   }
-  let replayDirectory;
-  try
-  {
-    const replayParentRelative = path.dirname(runtimeBinding.artifactPath).replaceAll(path.sep, '/');
-    const segments = replayParentRelative.split('/');
-    for (let count = 1; count <= segments.length; count += 1)
+    let replayDirectory;
+    try
     {
-        const relative = segments.slice(0, count).join('/');
-        const absolute = path.join(context.repositoryRoot, relative);
-        if (!existsSync(absolute))
+        const replayParentRelative = path.dirname(runtimeBinding.artifactPath).replaceAll(path.sep, '/');
+        const segments = replayParentRelative.split('/');
+        for (let count = 1; count <= segments.length; count += 1)
         {
-            mkdirSync(absolute, { mode: 0o700 });
+            const relative = segments.slice(0, count).join('/');
+            const absolute = path.join(context.repositoryRoot, relative);
+            if (!existsSync(absolute))
+            {
+                mkdirSync(absolute, { mode: 0o700 });
+            }
+            resolveContainedPath(context.repositoryRoot, relative, 'directory');
         }
-        resolveContainedPath(context.repositoryRoot, relative, 'directory');
+        const replayParent = resolveContainedPath(
+            context.repositoryRoot,
+            replayParentRelative,
+            'directory'
+        );
+        replayDirectory = mkdtempSync(path.join(replayParent, 'replay-'));
+        const replayOutput = path.join(replayDirectory, 'runtime-role-observation.json');
+        const replay = spawnSync('dotnet', [
+            assemblyAbsolute,
+            '--deployment-observation', deploymentAbsolute,
+            '--output', replayOutput
+        ], {
+            cwd: context.repositoryRoot,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: 5 * 60_000
+        });
+        if (replay.status !== 0 || !existsSync(replayOutput)
+            || sha256(readFileSync(replayOutput)) !== runtimeArtifactDigest)
+        {
+            return failResult([
+                `runtime-role compiled producer replay mismatch: ${String(replay.stderr ?? replay.stdout ?? '').trim()}`
+            ]);
+        }
     }
-    const replayParent = resolveContainedPath(
-        context.repositoryRoot,
-        replayParentRelative,
-        'directory'
-    );
-    replayDirectory = mkdtempSync(path.join(replayParent, 'replay-'));
-    const replayOutput = path.join(replayDirectory, 'runtime-role-observation.json')
-    const replay = spawnSync('dotnet', [
-      assemblyAbsolute,
-      '--deployment-observation', deploymentAbsolute,
-      '--output', replayOutput
-    ], {
-      cwd: context.repositoryRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 5 * 60_000
-    })
-    if (replay.status !== 0 || !existsSync(replayOutput)
-      || sha256(readFileSync(replayOutput)) !== runtimeArtifactDigest)
+    catch (error)
     {
-      return failResult([
-        `runtime-role compiled producer replay mismatch: ${String(replay.stderr ?? replay.stdout ?? '').trim()}`
-      ])
+        return failResult([
+            `runtime-role compiled producer replay mismatch: ${error instanceof Error ? error.message : String(error)}`
+        ]);
     }
-  }
-  catch (error)
-  {
-    return failResult([
-      `runtime-role compiled producer replay mismatch: ${error instanceof Error ? error.message : String(error)}`
-    ]);
-  }
-  finally
-  {
-    if (replayDirectory)
+    finally
     {
-        rmSync(replayDirectory, { recursive: true, force: true });
+        if (replayDirectory)
+        {
+            rmSync(replayDirectory, { recursive: true, force: true });
+        }
     }
-  }
   const expectedDeploymentSources = {
     policy: 'tests/governance/monolithic-distributed-architecture.json',
     project: 'src/backend/FsusBlog.Server.csproj',
