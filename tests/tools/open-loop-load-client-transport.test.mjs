@@ -6,7 +6,7 @@ import net from 'node:net';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 
-const { assertLoadTransportCohort, createOpenLoopLoadClientTransport, resolveLoadTransportDns,
+const { assertLoadTransportCohort, classifyLoadTransportFailure, createOpenLoopLoadClientTransport, resolveLoadTransportDns,
     validateLoadTransportPolicy, verifyLoadTransportObservation }
     = await import(new URL('../../tools/test/open-loop-load-client-transport.mjs', import.meta.url).href);
 const { buildOpenLoopLoadSchedule, dispatchOpenLoopLoadSchedule }
@@ -390,4 +390,212 @@ test('observation port errors fail closed and pre-request authority overrides ar
     const pathOverride = await transportFixture(t, fixture, {}, { requestPaths: { 'public-home': '//another-authority/' } });
     await assert.rejects(pathOverride.request(arrival, requestOptions), /cannot change transport authority/u);
     assert.equal(fixture.requests(), 0);
+});
+
+function failureRows(observations)
+{
+    return observations.filter((row) => row.type === 'request-error');
+}
+
+function assertRouteSampleShape(sample)
+{
+    const { transport, transportFailureStage, ...routeSample } = sample;
+    assert.deepEqual(Object.keys(routeSample).sort(), ['routeId', 'contractDigest', 'status', 'contentType',
+        'bodyBytes', 'frameType', 'latencyMs', 'failureKind', 'ok'].sort());
+    assert.ok(Object.hasOwn(sample, 'transport') && Object.hasOwn(sample, 'transportFailureStage'));
+    return { transport, transportFailureStage, routeSample };
+}
+
+test('real loopback reset preserves native code before the unchanged route oracle folds the error', async (t) =>
+{
+    const fixture = await serverFixture(t, (request) => request.socket.destroy());
+    const observations = [];
+    const transport = await transportFixture(t, fixture, {}, { onObservation: (row) => observations.push(row) });
+    const sample = await transport.request(arrival, requestOptions);
+    assertRouteSampleShape(sample);
+    assert.equal(sample.failureKind, 'request-failed');
+    const failures = failureRows(observations);
+    assert.equal(failures.length, 1);
+    const row = failures[0];
+    assert.equal(row.sampleId, arrival.sampleId);
+    assert.equal(row.sequence, arrival.sequence);
+    assert.equal(row.identityDigest, transport.identity.contentDigest);
+    assert.equal(row.failureFacts.stage, 'headers');
+    assert.equal(row.failureFacts.event, 'native-error');
+    assert.equal(row.failureFacts.error.code, 'ECONNRESET');
+    assert.equal(row.failureFacts.cancellation.origin, 'none');
+    assert.deepEqual(classifyLoadTransportFailure(row.failureFacts), {
+        outcome: 'network-error', errorKind: 'reset', errorCode: 'ECONNRESET',
+        errorDigest: classifyLoadTransportFailure(row.failureFacts).errorDigest
+    });
+    assert.ok(observations.indexOf(row) < observations.findIndex((event) => event.type === 'request-completed'));
+    assert.ok(!Object.hasOwn(row.failureFacts.error, 'message'));
+});
+
+test('real partial-body reset preserves IncomingMessage ECONNRESET after its aborted event', async (t) =>
+{
+    const fixture = await serverFixture(t, (request, response) =>
+    {
+        response.writeHead(200, { 'content-type': 'text/html', 'content-length': '1000' });
+        response.write('<!doctype html>');
+        const timer = setTimeout(() => request.socket.destroy(), 20);
+        response.once('close', () => clearTimeout(timer));
+    });
+    const observations = [];
+    const transport = await transportFixture(t, fixture, {}, { onObservation: (row) => observations.push(row) });
+    const sample = await transport.request(arrival, requestOptions);
+    assertRouteSampleShape(sample);
+    const rows = failureRows(observations);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].failureFacts.stage, 'body');
+    assert.equal(rows[0].failureFacts.error.code, 'ECONNRESET');
+    assert.equal(classifyLoadTransportFailure(rows[0].failureFacts).outcome, 'network-error');
+});
+
+test('real task-owned closed listener preserves ECONNREFUSED at TCP connect', async (t) =>
+{
+    const fixture = await serverFixture(t);
+    await new Promise((resolve) => fixture.server.close(resolve));
+    const observations = [];
+    const transport = await transportFixture(t, fixture, {}, { onObservation: (row) => observations.push(row) });
+    const sample = await transport.request(arrival, requestOptions);
+    assert.equal(sample.ok, false);
+    const facts = failureRows(observations)[0].failureFacts;
+    assert.equal(facts.stage, 'connect');
+    assert.equal(facts.error.code, 'ECONNREFUSED');
+    assert.equal(facts.error.syscall, 'connect');
+    assert.equal(classifyLoadTransportFailure(facts).errorKind, 'connect');
+});
+
+test('real stalled loopback response exposes owned total and stage deadline provenance', async (t) =>
+{
+    for (const stageDeadline of [false, true])
+    {
+        const fixture = await serverFixture(t, () =>
+        {});
+        const observations = [];
+        const transport = await transportFixture(t, fixture, { headersTimeoutMs: stageDeadline ? 30 : 300 },
+            { onObservation: (row) => observations.push(row) });
+        const sample = await transport.request(arrival, { requestTimeoutMs: stageDeadline ? 1000 : 30 });
+        assert.equal(sample.failureKind, 'timeout');
+        const facts = failureRows(observations)[0].failureFacts;
+        assert.equal(facts.cancellation.origin, stageDeadline ? 'transport-stage-deadline' : 'transport-request-deadline');
+        assert.equal(facts.event, stageDeadline ? 'deadline' : 'signal-abort');
+        assert.equal(classifyLoadTransportFailure(facts).outcome, 'timeout');
+    }
+});
+
+test('real outer caller abort is cancellation even with a TimeoutError reason and misleading message', async (t) =>
+{
+    const fixture = await serverFixture(t, () =>
+    {});
+    const observations = [];
+    const transport = await transportFixture(t, fixture, {}, { onObservation: (row) => observations.push(row) });
+    const caller = new AbortController();
+    const pending = transport.request(arrival, { ...requestOptions, signal: caller.signal, callerSignal: caller.signal });
+    await until(() => fixture.requests() === 1);
+    caller.abort(new DOMException('deadline timeout DNS reset', 'TimeoutError'));
+    const sample = await pending;
+    assert.equal(sample.failureKind, 'cancelled');
+    assertRouteSampleShape(sample);
+    const facts = failureRows(observations)[0].failureFacts;
+    assert.equal(facts.error.name, 'TimeoutError');
+    assert.equal(facts.cancellation.origin, 'caller');
+    assert.equal(classifyLoadTransportFailure(facts).outcome, 'cancelled');
+    await until(() => transport.snapshot().socketCount === 0);
+});
+
+test('unattributed real merged abort and conflicting pre-aborted origins refuse classification', async (t) =>
+{
+    const fixture = await serverFixture(t, () =>
+    {});
+    const observations = [];
+    const transport = await transportFixture(t, fixture, {}, { onObservation: (row) => observations.push(row) });
+    const merged = new AbortController();
+    const pending = transport.request(arrival, { ...requestOptions, signal: merged.signal });
+    await until(() => fixture.requests() === 1);
+    merged.abort(new DOMException('timeout', 'TimeoutError'));
+    await pending;
+    const unknown = failureRows(observations)[0].failureFacts;
+    assert.equal(unknown.cancellation.origin, 'unattributed');
+    assert.throws(() => classifyLoadTransportFailure(unknown), /missing or ambiguous cancellation provenance/u);
+    const caller = new AbortController();
+    const deadline = new AbortController();
+    caller.abort();
+    deadline.abort();
+    const ambiguousObservations = [];
+    const ambiguous = await transportFixture(t, fixture, {}, { onObservation: (row) => ambiguousObservations.push(row) });
+    await ambiguous.request(arrival, { ...requestOptions, callerSignal: caller.signal, deadlineSignal: deadline.signal });
+    const conflicting = failureRows(ambiguousObservations)[0].failureFacts;
+    assert.equal(conflicting.cancellation.origin, 'ambiguous');
+    assert.throws(() => classifyLoadTransportFailure(conflicting), /missing or ambiguous cancellation provenance/u);
+});
+
+test('explicit dispatcher deadline port records its actual signal origin without message classification', async (t) =>
+{
+    const fixture = await serverFixture(t, () =>
+    {});
+    const observations = [];
+    const transport = await transportFixture(t, fixture, {}, { onObservation: (row) => observations.push(row) });
+    const deadline = new AbortController();
+    const pending = transport.request(arrival, { ...requestOptions, signal: deadline.signal, deadlineSignal: deadline.signal });
+    await until(() => fixture.requests() === 1);
+    deadline.abort(new Error('caller cancellation'));
+    await pending;
+    const facts = failureRows(observations)[0].failureFacts;
+    assert.equal(facts.cancellation.origin, 'dispatcher-deadline');
+    assert.equal(classifyLoadTransportFailure(facts).outcome, 'timeout');
+});
+
+test('typed DNS failure before HTTP remains available in the existing observation sidecar', async (t) =>
+{
+    const fixture = await serverFixture(t);
+    const endpoint = fixture.endpoint.replace('127.0.0.1', 'localhost');
+    const dnsResult = await resolveLoadTransportDns(endpoint);
+    let failed = false;
+    const resolver = async (hostname, options) =>
+    {
+        if (failed)
+        {
+            const error = new Error('timeout TLS reset');
+            error.code = 'EAI_AGAIN';
+            error.syscall = 'getaddrinfo';
+            throw error;
+        }
+        return lookup(hostname, options);
+    };
+    const observations = [];
+    const transport = await transportFixture(t, { endpoint }, { dnsMode: 'sealed-lookup', dnsResult },
+        { resolver, onObservation: (row) => observations.push(row) });
+    failed = true;
+    await assert.rejects(transport.request(arrival, requestOptions), { code: 'EAI_AGAIN' });
+    const facts = failureRows(observations)[0].failureFacts;
+    assert.equal(facts.stage, 'dns');
+    assert.equal(facts.error.code, 'EAI_AGAIN');
+    assert.equal(classifyLoadTransportFailure(facts).errorKind, 'dns');
+    assert.equal(fixture.requests(), 0);
+});
+
+test('failure classifier refuses missing/contradictory provenance and preserves typed causes', () =>
+{
+    const base = { stage: 'connect', event: 'native-error',
+        error: { name: 'Error', code: 'ECONNREFUSED', syscall: 'connect', cause: null },
+        cancellation: { origin: 'none', abortedSignals: [] } };
+    assert.equal(classifyLoadTransportFailure(base).outcome, 'network-error');
+    for (const changes of [{ stage: null }, { event: null }, { cancellation: { origin: 'caller', abortedSignals: [] } },
+        { error: { ...base.error, code: null } }, { error: { ...base.error, name: null } },
+        { event: 'signal-abort', cancellation: { origin: 'dispatcher-deadline', abortedSignals: ['merged'] } },
+        { event: 'deadline', cancellation: { origin: 'caller', abortedSignals: ['caller'] } },
+        { event: 'deadline', cancellation: { origin: 'transport-stage-deadline', abortedSignals: [] } }])
+    {
+        assert.throws(() => classifyLoadTransportFailure({ ...base, ...changes }));
+    }
+    const nested = { ...base, error: { name: 'TypeError', code: null, syscall: null, cause: base.error } };
+    assert.equal(classifyLoadTransportFailure(nested).errorCode, 'ECONNREFUSED');
+    const tls = { ...base, error: { ...base.error, code: 'CERT_HAS_EXPIRED', syscall: null } };
+    assert.equal(classifyLoadTransportFailure(tls).errorKind, 'tls');
+    const kernelTimeout = { ...base, error: { ...base.error, code: 'ETIMEDOUT' } };
+    assert.equal(classifyLoadTransportFailure(kernelTimeout).outcome, 'network-error');
+    const ambiguous = { ...base, error: { ...base.error, cause: tls.error } };
+    assert.throws(() => classifyLoadTransportFailure(ambiguous), /ambiguous typed network error code/u);
 });
