@@ -38,6 +38,47 @@ internal static class CollectorControls
     private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     private const BindingFlags StaticFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
+    // Inspect compiled business contracts without invoking any service or granting runtime acceptance.
+    internal static async Task RunSemanticOwnerControlsAsync(string inventoryPath, string directory, string sourceCommit)
+    {
+        CurrentSchemaTestMaterializer.ValidateAssemblySourceCommit(sourceCommit);
+        using JsonDocument inventory = JsonDocument.Parse(await File.ReadAllTextAsync(inventoryPath));
+        Require(inventory.RootElement.GetProperty("binding").GetProperty("sourceCommit").GetString() == sourceCommit,
+            "semantic owner controls require the assembly-bound inventory");
+        Assembly[] assemblies = [s_server, typeof(FsusBlog.Core.Common.Result).Assembly];
+        var results = new List<object>();
+        foreach (JsonElement requirement in inventory.RootElement.GetProperty("requirements").EnumerateArray())
+        {
+            foreach (JsonElement owner in requirement.GetProperty("businessOwners").EnumerateArray())
+            {
+                string entrypoint = owner.GetProperty("entrypoint").GetString()!;
+                int separator = entrypoint.LastIndexOf('.');
+                Require(separator > 0, "semantic business entrypoint is invalid");
+                string typeName = entrypoint[..separator];
+                string methodName = entrypoint[(separator + 1)..];
+                Type? type = assemblies.Select(assembly => assembly.GetType(typeName)).FirstOrDefault(candidate => candidate is not null);
+                Require(type is not null && type.GetMethods(InstanceFlags | StaticFlags).Any(method => method.Name == methodName),
+                    "semantic business entrypoint is absent from the original compiled assemblies");
+                results.Add(new
+                {
+                    domain = requirement.GetProperty("domain").GetString(),
+                    kind = requirement.GetProperty("kind").GetString(),
+                    entrypoint,
+                    status = "declared"
+                });
+            }
+        }
+        Directory.CreateDirectory(directory);
+        QueryPlanCollector.WritePrivate(Path.Combine(directory, "semantic-owner-controls.json"), new
+        {
+            sourceCommit,
+            inventoryDigest = inventory.RootElement.GetProperty("contentDigest").GetString(),
+            qualification = "not-performed",
+            scope = "compiled-business-contract-metadata-only",
+            results
+        });
+    }
+
     // The real endpoint registrar and Kestrel router are exercised. No handler,
     // database, cache, payload or product authorization acceptance is asserted.
     internal static async Task RunRouteControlsAsync(string registryPath, string directory, string sourceCommit)

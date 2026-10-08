@@ -8,9 +8,44 @@ import { fileURLToPath } from 'node:url';
 
 const { mapCanonicalQueryExpectedModel } = await import(new URL('../../tools/data-scale/query-expected-model.mjs', import.meta.url));
 const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
-const { buildQueryCaseRegistry, queryCaseIds } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
+const { buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIds } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
+
+test('semantic owner metadata resolves original compiled business contracts and refuses nonexistent methods', () =>
+{
+    const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+    const directory = path.join(root, '.tmp/query-matrix-semantic-owner-controls', randomUUID());
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const kinds = { article: ['top-list', 'prev-next', 'search-no-hit', 'cache-consistency', 'aot-consistency', 'hot-read-consistency'],
+        comment: ['public-thread', 'moderation-queue', 'approved-visibility', 'pending-visibility', 'rejected-visibility', 'hidden-visibility',
+            'region-filter', 'actor-filter', 'permission-filter', 'deleted-root', 'deleted-reply'] };
+    const inventory = buildQuerySemanticOwnerInventory({ kinds,
+        binding: { sourceCommit, dataScaleRunId: 'semantic-owner-control', fixtureGeneration: 'source-only',
+            seedReceiptDigest: computeSha256('controlled-no-admission'), expectedModelDigest: computeSha256('controlled-no-model'),
+            businessEpochUtc: '2026-10-08T00:00:00.000Z' } });
+    assert.equal(inventory.requirements.length, 17);
+    assert.ok(inventory.requirements.every((row) => row.existingCaseIds.length === 0 && row.qualification === false));
+    const inventoryPath = path.join(directory, 'inventory.json');
+    const run = (document) =>
+    {
+        fs.writeFileSync(inventoryPath, JSON.stringify(document), { mode: 0o600 });
+        return spawnSync('dotnet', [path.join(root, 'tools/data-scale/query-plan-collector/bin/Release/net10.0/QueryPlanCollector.dll'),
+            '--semantic-owner-controls', inventoryPath, directory, sourceCommit], { cwd: root, encoding: 'utf8', timeout: 60_000 });
+    };
+    const result = run(inventory);
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const control = JSON.parse(fs.readFileSync(path.join(directory, 'semantic-owner-controls.json')));
+    assert.equal(control.sourceCommit, sourceCommit);
+    assert.equal(control.inventoryDigest, inventory.contentDigest);
+    assert.equal(control.scope, 'compiled-business-contract-metadata-only');
+    assert.equal(control.qualification, 'not-performed');
+    assert.equal(new Set(control.results.map((row) => `${row.domain}:${row.kind}`)).size, 17);
+    const invalid = structuredClone(inventory);
+    invalid.requirements[0].businessOwners[0].entrypoint += 'Missing';
+    assert.equal(run(invalid).status, 1);
+    fs.writeFileSync(inventoryPath, JSON.stringify(inventory), { mode: 0o600 });
+});
 
 test('all original registry coordinates select production GET routes and extensionless details remain unmatched', () =>
 {
