@@ -7,6 +7,8 @@ namespace FsusBlog.Server.Services.DocumentExport;
 /// Explicit publication-only projection supplied by the frozen metadata owner.
 /// Its canonical digest must equal the existing input MetadataDigest; this is
 /// neither a task schema nor a metadata resolver. No owner or database facts are exported.
+/// Language uses a closed language, optional script/region, unique variants policy;
+/// extension, private-use, extlang and grandfathered tags are not supported.
 /// </summary>
 public sealed record EpubPublicationMetadata(
     string Title,
@@ -27,9 +29,7 @@ public sealed record EpubPublicationMetadata(
             || Authors.Distinct(StringComparer.Ordinal).Count() != Authors.Length
             || Language != input.Locale
             || !ValidText(Language, 64)
-            || Language.Split('-')[0].Length is < 2 or > 8
-            || !Language.Split('-')[0].All(char.IsAsciiLetter)
-            || !Language.Split('-').All(part => part.Length is > 0 and <= 8 && part.All(char.IsAsciiLetterOrDigit))
+            || !ValidLanguage(Language)
             || Direction is not ("ltr" or "rtl")
             || !Identifier.StartsWith("urn:uuid:", StringComparison.Ordinal)
             || !Guid.TryParseExact(Identifier[9..], "D", out Guid identifier)
@@ -45,4 +45,34 @@ public sealed record EpubPublicationMetadata(
 
     private static bool ValidText(string value, int maximumLength)
         => !string.IsNullOrWhiteSpace(value) && value.Length <= maximumLength && !value.Any(char.IsControl);
+
+    private static bool ValidLanguage(string value)
+    {
+        string[] parts = value.Split('-');
+        if (parts[0].Length is < 2 or > 8 || !parts[0].All(char.IsAsciiLetter))
+        {
+            return false;
+        }
+        int index = 1;
+        if (index < parts.Length && parts[index].Length == 4 && parts[index].All(char.IsAsciiLetter))
+        {
+            index++;
+        }
+        if (index < parts.Length && (parts[index].Length == 2 && parts[index].All(char.IsAsciiLetter)
+            || parts[index].Length == 3 && parts[index].All(char.IsAsciiDigit)))
+        {
+            index++;
+        }
+        var variants = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (; index < parts.Length; index++)
+        {
+            string variant = parts[index];
+            if (!(variant.Length is >= 5 and <= 8 || variant.Length == 4 && char.IsAsciiDigit(variant[0]))
+                || !variant.All(char.IsAsciiLetterOrDigit) || !variants.Add(variant))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 }
