@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/verify-public-shell-locale.mjs"
+            ],
+            "reason": "Preserve the verifier's existing FSUSBLOG_BROWSER_CONTRACT_RECEIPT process input while rechecking immutable locale network budgets; no environment or CLI spelling changes."
+        }
+    ]
+}
