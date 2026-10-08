@@ -39,7 +39,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
     {
         RequireActor(actor);
         DocumentExportContractValidator.Validate(task, input);
-        if (task.UserId != actor.UserId || task.SiteId != actor.SiteId || task.Status != DocumentExportTaskStatus.Queued)
+        if (task.UserId != actor.UserId || task.SiteScope != actor.SiteScope || task.Status != DocumentExportTaskStatus.Queued)
         {
             throw new DocumentExportJobDeniedException();
         }
@@ -69,7 +69,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
                 || state.Jobs.Where(job => job.Input is not null).Sum(job => InputBytes(job.Input!)) + InputBytes(frozen)
                     > DocumentExportJobPolicy.MaximumTotalInputBytes
                 || state.Jobs.Count(job => job.Snapshot.Task.UserId == actor.UserId) >= DocumentExportJobPolicy.MaximumOwnerJobs
-                || state.Jobs.Count(job => job.Snapshot.Task.SiteId == actor.SiteId) >= DocumentExportJobPolicy.MaximumSiteJobs)
+                || state.Jobs.Count(job => job.Snapshot.Task.SiteScope == actor.SiteScope) >= DocumentExportJobPolicy.MaximumSiteJobs)
             {
                 throw new DocumentExportJobDeniedException();
             }
@@ -368,7 +368,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
                 expires = job.Snapshot.ExpiresAt;
             }
             var output = new DocumentExportOutputRecord(DocumentExportJobPolicy.OutputSchema, Guid.NewGuid().ToString("N"),
-                taskId, actor.UserId, actor.SiteId, job.Snapshot.Task.InputDigest, provider.ProviderId, provider.ProviderVersion,
+                taskId, actor.UserId, actor.SiteScope, job.Snapshot.Task.InputDigest, provider.ProviderId, provider.ProviderVersion,
                 result.Receipt.ContentDigest, Guid.NewGuid().ToString("N"), provider.OutputMediaType, provider.OutputExtension,
                 result.Receipt.OutputDigest, result.Bytes.LongLength, created, expires, null, string.Empty);
             output = SealOutput(output);
@@ -463,7 +463,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             state.Grants.RemoveAll(grant => grant.ExpiresAt <= Now);
             if (state.Grants.Count >= DocumentExportJobPolicy.MaximumGrants
                 || job.Audit.Count(item => item.Kind == "grant" || item.Kind == "download" || item.Kind == "head") >= 96
-                || state.Grants.Count(grant => grant.UserId == actor.UserId && grant.SiteId == actor.SiteId)
+                || state.Grants.Count(grant => grant.UserId == actor.UserId && grant.SiteScope == actor.SiteScope)
                     >= DocumentExportJobPolicy.MaximumOwnerGrants)
             {
                 throw new DocumentExportJobDeniedException();
@@ -475,7 +475,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
                 expiry = job.Snapshot.Output.ExpiresAt;
             }
             state.Grants.Add(new DocumentExportStoredGrant(HashToken(token), taskId, job.Snapshot.Output.OutputId,
-                actor.UserId, actor.SiteId, HashToken(actor.SessionId), expiry));
+                actor.UserId, actor.SiteScope, HashToken(actor.SessionId), expiry));
             Put(state, Audit(job, "grant", "single_use_five_minutes"));
             return new DocumentExportDownloadGrant(token, expiry);
         }, cancellationToken);
@@ -492,7 +492,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         return _repository.UpdateAsync(async state =>
         {
             DocumentExportStoredGrant? grant = state.Grants.SingleOrDefault(candidate => candidate.TokenDigest == HashToken(token));
-            if (grant is null || grant.UserId != actor.UserId || grant.SiteId != actor.SiteId
+            if (grant is null || grant.UserId != actor.UserId || grant.SiteScope != actor.SiteScope
                 || grant.SessionDigest != HashToken(actor.SessionId) || grant.ExpiresAt <= Now)
             {
                 throw new DocumentExportJobDeniedException();
@@ -556,7 +556,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         RequireActor(actor);
         return _repository.UpdateAsync(state =>
         {
-            state.Grants.RemoveAll(grant => grant.UserId == actor.UserId && grant.SiteId == actor.SiteId
+            state.Grants.RemoveAll(grant => grant.UserId == actor.UserId && grant.SiteScope == actor.SiteScope
                 && grant.SessionDigest == HashToken(actor.SessionId));
             return Task.FromResult(true);
         }, cancellationToken);
@@ -788,12 +788,20 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         => state.Grants.RemoveAll(grant => grant.TaskId == taskId);
 
     private static bool SameOwner(DocumentExportTask task, DocumentExportJobActor actor)
-        => task.UserId == actor.UserId && task.SiteId == actor.SiteId;
+        => task.UserId == actor.UserId && task.SiteScope == actor.SiteScope;
 
     private static void RequireActor(DocumentExportJobActor actor)
     {
-        if (actor is null || actor.UserId <= 0 || actor.SiteId <= 0 || string.IsNullOrWhiteSpace(actor.SessionId)
+        if (actor is null || string.IsNullOrWhiteSpace(actor.SessionId)
             || actor.SessionId.Length > 160 || actor.SessionId.Any(char.IsControl))
+        {
+            throw new DocumentExportJobDeniedException();
+        }
+        try
+        {
+            DocumentExportContractValidator.RequireOwnerScope(actor.UserId, actor.SiteScope);
+        }
+        catch (ArgumentException)
         {
             throw new DocumentExportJobDeniedException();
         }
@@ -833,6 +841,14 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
     {
         DocumentExportJobSnapshot snapshot = job.Snapshot;
         DocumentExportTask task = snapshot.Task;
+        try
+        {
+            DocumentExportContractValidator.RequireOwnerScope(task.UserId, task.SiteScope);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidDataException("document_export_job_tampered", exception);
+        }
         DocumentExportProviderContract canonical = DocumentExportContractCatalog.RequireProvider(task.FormatId);
         if (snapshot.Schema != DocumentExportJobPolicy.SnapshotSchema || !Enum.IsDefined(task.Status)
             || task.Schema != DocumentExportContractCatalog.TaskSchema || job.AdmissionTask.Schema != DocumentExportContractCatalog.TaskSchema
@@ -889,7 +905,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         {
             DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
             if (output.Schema != DocumentExportJobPolicy.OutputSchema || output.ContentDigest != SealOutput(output).ContentDigest
-                || output.TaskId != task.TaskId || output.UserId != task.UserId || output.SiteId != task.SiteId
+                || output.TaskId != task.TaskId || output.UserId != task.UserId || output.SiteScope != task.SiteScope
                 || output.InputDigest != task.InputDigest || output.ProviderId != task.ProviderId || output.ProviderVersion != task.ProviderVersion
                 || output.MediaType != provider.OutputMediaType || output.Extension != provider.OutputExtension
                 || output.Length <= 0 || output.Length > Math.Min(provider.Budgets.MaxOutputBytes, DocumentExportJobPolicy.MaximumOutputBytes)
@@ -908,7 +924,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             .OfType<DocumentExportOutputRecord>().Where(output => output.DeletedAt is null).ToArray();
         if (length > DocumentExportJobPolicy.MaximumOutputBytes
             || outputs.Sum(output => output.Length) + length > DocumentExportJobPolicy.MaximumTotalOutputBytes
-            || outputs.Where(output => output.SiteId == task.SiteId).Sum(output => output.Length) + length > DocumentExportJobPolicy.MaximumSiteOutputBytes
+            || outputs.Where(output => output.SiteScope == task.SiteScope).Sum(output => output.Length) + length > DocumentExportJobPolicy.MaximumSiteOutputBytes
             || outputs.Where(output => output.UserId == task.UserId).Sum(output => output.Length) + length
                 > DocumentExportJobPolicy.MaximumOwnerOutputBytes)
         {
@@ -923,8 +939,8 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         ImmutableArray<DocumentExportJobScopeUsage> scopes = state.Jobs.GroupBy(job => job.Snapshot.Task.UserId)
             .Select(group => new DocumentExportJobScopeUsage(group.Key, null, group.Count(),
                 outputs.Count(output => output.UserId == group.Key), outputs.Where(output => output.UserId == group.Key).Sum(output => output.Length)))
-            .Concat(state.Jobs.GroupBy(job => job.Snapshot.Task.SiteId).Select(group => new DocumentExportJobScopeUsage(null, group.Key,
-                group.Count(), outputs.Count(output => output.SiteId == group.Key), outputs.Where(output => output.SiteId == group.Key).Sum(output => output.Length))))
+            .Concat(state.Jobs.GroupBy(job => job.Snapshot.Task.SiteScope, StringComparer.Ordinal).Select(group => new DocumentExportJobScopeUsage(null, group.Key,
+                group.Count(), outputs.Count(output => output.SiteScope == group.Key), outputs.Where(output => output.SiteScope == group.Key).Sum(output => output.Length))))
             .ToImmutableArray();
         return new DocumentExportJobUsage(state.Jobs.Count, outputs.Length, outputs.Sum(output => output.Length),
             state.Jobs.Count(job => job.Snapshot.Task.Status == DocumentExportTaskStatus.CleanupRequired

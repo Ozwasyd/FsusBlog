@@ -36,11 +36,16 @@ No production state is read, migrated or deleted by this change.
 | Authenticated API / browser / Shared AEDS | explicit aligned schemas | #2436 freezes scope from the existing authority and updates actual C#/POD/native/TS codecs together |
 | DOCX / PDF / EPUB evidence | catalog v3 result | #2430 / #2429 / #2432 update consumer fixtures and retained receipt bindings; formats stay inactive |
 
-This is an incremental source handoff. Service/API consumers that still reference
-`SiteId` cannot compile until their sole owners migrate them; they must not add a
-numeric alias or suppress the error. The frozen earlier review candidate remains
-on its original branch with its original wire identity. Compilation of this new
-composition and original runtime/product acceptance are separate pending gates.
+The Jobs service consumes the exact string scope for admission, worker claims,
+output/grant binding, idempotency, quotas and session revocation. It reuses
+`DocumentExportContractValidator.RequireOwnerScope` and ordinal scope comparisons;
+there is no private scope parser or alias. The existing protected-state v2 purpose
+and closed canonical serializer reject prior numeric/v1 state without rewriting
+its bytes, erasing owned objects or resetting grants. API consumers must use this
+same contract and cannot add a numeric alias or suppress a consumer error. The
+frozen earlier review candidate remains on its original branch with its original
+wire identity. Compilation and original runtime/product acceptance are separate
+gates; the controlled job tests do not qualify physical execution.
 
 The shared worker handoff is
 `IAuthorRecentArticleHistoryWorkerPermissionProjectionProvider.ResolveForSessionAsync`.
