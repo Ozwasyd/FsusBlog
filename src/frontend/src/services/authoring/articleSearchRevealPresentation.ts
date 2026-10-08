@@ -3,8 +3,9 @@ import {
     type ArticleAnchorCommand,
     type ArticleAnchorRestoreKind
 } from './articleAnchorContext';
+import { validateArticleDocumentContext, type ArticleDocumentContext, type ArticleDocumentTaskLease } from './articleDocumentContext';
 
-import type { ArticleDocumentContextAdapter, ArticleDocumentTaskLease } from './articleDocumentContext';
+import type { ArticleEditorRuntimeBinding } from './articleEditorRuntimeBinding';
 
 export interface ArticleSearchRevealPresentation {
     readonly status: ArticleAnchorCommand['status'];
@@ -22,7 +23,7 @@ export interface ArticleSearchRevealPresentation {
  */
 export function projectArticleSearchReveal(
     command: unknown,
-    document: ArticleDocumentContextAdapter,
+    binding: ArticleEditorRuntimeBinding,
     lease: ArticleDocumentTaskLease
 ): ArticleSearchRevealPresentation
 {
@@ -40,12 +41,22 @@ export function projectArticleSearchReveal(
         {
             return reject('search-reveal-origin-mismatch');
         }
-        if (!document.isCurrentContext(command.document))
+        let current: ArticleDocumentContext;
+        try
+        {
+            current = binding.positionBinding().document;
+        }
+        catch
+        {
+            return reject('search-reveal-binding-unavailable');
+        }
+        if (!validateArticleDocumentContext(current) || binding.context.contextDigest !== current.contextDigest
+            || command.document.contextDigest !== current.contextDigest)
         {
             return reject('search-reveal-context-stale');
         }
         if (lease.envelope.kind !== 'search' || !lease.isCurrent() || lease.signal.aborted
-            || !document.isCurrentContext(lease.envelope.context))
+            || lease.envelope.context.contextDigest !== current.contextDigest)
         {
             return reject('search-reveal-lease-stale');
         }

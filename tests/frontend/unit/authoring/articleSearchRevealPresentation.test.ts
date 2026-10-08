@@ -6,7 +6,9 @@ import { mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { ArticleAnchorContextAdapter, type ArticleAnchorOrigin } from '@/services/authoring/articleAnchorContext';
+import { ArticleAttachmentContextAdapter } from '@/services/authoring/articleAttachmentContext';
 import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
+import { bindArticleEditorRuntime } from '@/services/authoring/articleEditorRuntimeBinding';
 import { projectArticleSearchReveal } from '@/services/authoring/articleSearchRevealPresentation';
 
 const cleanup: (() => void)[] = [];
@@ -31,6 +33,26 @@ function open(initialSource = 'abcdef')
         document: owner.context,
         map: createMarkdownAnchorMap({ identity: owner.documentIdentity, source })
     });
+    const attachments = new ArticleAttachmentContextAdapter(owner, 'search:test-attachments', 'search:test-v1', anchor);
+    const runtime = bindArticleEditorRuntime(owner, anchor, attachments, {
+        dispatch: input => editor.dispatchTransaction(input),
+        commitSource: result =>
+        {
+            source = result.value;
+            owner.updateSource(source, result.revision);
+        },
+        binding
+    }, () => source, editor, {
+        surface: 'source', configuration: { allowLatex: true, allowMermaid: true, baseUrl: null },
+        identity: { themeDigest: owner.context.contentDigest, locale: 'zh-CN' },
+        cachePolicy: { maxEntryBytes: 65536, maxAgeMs: 60000, maxReceipts: 16 }
+    });
+    cleanup.push(() =>
+    {
+        runtime.dispose();
+        attachments.dispose();
+        owner.dispose();
+    });
     const saved = anchor.capture(binding(), { start: 1, end: 5, direction: 'forward' }, {
         affinity: 'after', viewportOffset: 40, percentage: 0.4, surface: 'source', tool: 'none'
     });
@@ -48,7 +70,7 @@ function open(initialSource = 'abcdef')
     const restore = (transactions?: readonly MarkdownEditorDispatchResult[], origin: ArticleAnchorOrigin = 'search') =>
         anchor.restore(saved, binding(), { origin, now: 200, viewportHeight: 500, reducedMotion: true, transactions });
     const lease = () => owner.beginTask('search', 'search:reveal-presentation');
-    return { owner, anchor, dispatch, restore, lease };
+    return { owner, anchor, runtime, dispatch, restore, lease };
 }
 
 describe('global search canonical reveal presentation (#2319)', () =>
@@ -60,7 +82,7 @@ describe('global search canonical reveal presentation (#2319)', () =>
         const receipts = state.anchor.receipts;
         const context = state.owner.context;
         const lease = state.lease();
-        const result = projectArticleSearchReveal(command, state.owner, lease);
+        const result = projectArticleSearchReveal(command, state.runtime, lease);
         expect(result).toEqual({
             status: 'ready', precision: 'exact', exact: true, approximate: false,
             reason: null, commandDigest: command.contentDigest
@@ -82,7 +104,7 @@ describe('global search canonical reveal presentation (#2319)', () =>
         const transaction = state.dispatch([...changes]);
         const command = state.restore([transaction]);
         expect(command.kind).toBe(precision);
-        expect(projectArticleSearchReveal(command, state.owner, state.lease())).toMatchObject({
+        expect(projectArticleSearchReveal(command, state.runtime, state.lease())).toMatchObject({
             status: 'ready', precision, exact: false, approximate: precision === 'percentage',
             commandDigest: command.contentDigest
         });
@@ -93,12 +115,12 @@ describe('global search canonical reveal presentation (#2319)', () =>
         const state = open();
         state.anchor.manual('touch', 'renderer', 100);
         const paused = state.restore();
-        expect(projectArticleSearchReveal(paused, state.owner, state.lease())).toMatchObject({
+        expect(projectArticleSearchReveal(paused, state.runtime, state.lease())).toMatchObject({
             status: 'paused', precision: null, exact: false, reason: 'user-scroll-priority'
         });
         state.anchor.resume('navigation', 101);
         state.dispatch([{ from: 0, to: 0, insert: 'X' }]);
-        expect(projectArticleSearchReveal(state.restore(), state.owner, state.lease())).toMatchObject({
+        expect(projectArticleSearchReveal(state.restore(), state.runtime, state.lease())).toMatchObject({
             status: 'rejected', precision: null, exact: false, reason: 'source-revision-unmapped'
         });
     });
@@ -126,7 +148,7 @@ describe('global search canonical reveal presentation (#2319)', () =>
                     userScope: change === 'user' ? 'user:other' : 'user:test'
                 });
             }
-            expect(projectArticleSearchReveal(command, state.owner, lease)).toEqual({
+            expect(projectArticleSearchReveal(command, state.runtime, lease)).toEqual({
                 status: 'rejected', precision: null, exact: false, approximate: false,
                 reason: change === 'dispose' ? 'search-reveal-lease-stale' : 'search-reveal-context-stale', commandDigest: null
             });
@@ -137,7 +159,7 @@ describe('global search canonical reveal presentation (#2319)', () =>
         'refuses to present %s as a search reveal', origin =>
         {
             const state = open();
-            expect(projectArticleSearchReveal(state.restore(undefined, origin), state.owner, state.lease())).toMatchObject({
+            expect(projectArticleSearchReveal(state.restore(undefined, origin), state.runtime, state.lease())).toMatchObject({
                 status: 'rejected', precision: null, reason: 'search-reveal-origin-mismatch', commandDigest: null
             });
         }
@@ -155,7 +177,7 @@ describe('global search canonical reveal presentation (#2319)', () =>
             { ...command, reason: secret }, { ...command, extra: secret }
         ])
         {
-            const result = projectArticleSearchReveal(invalid, state.owner, state.lease());
+            const result = projectArticleSearchReveal(invalid, state.runtime, state.lease());
             expect(result).toMatchObject({
                 status: 'rejected', precision: null, exact: false, reason: 'search-reveal-command-invalid', commandDigest: null
             });
@@ -189,10 +211,23 @@ describe('global search canonical reveal presentation (#2319)', () =>
             {
                 lease = open().lease();
             }
-            expect(projectArticleSearchReveal(command, state.owner, lease)).toMatchObject({
+            expect(projectArticleSearchReveal(command, state.runtime, lease)).toMatchObject({
                 status: 'rejected', precision: null, exact: false,
                 reason: 'search-reveal-lease-stale', commandDigest: null
             });
         }
     );
+
+    it('rejects the released canonical runtime even while its document/search lease is current', () =>
+    {
+        const state = open();
+        const command = state.restore();
+        const lease = state.lease();
+        state.runtime.dispose();
+        expect(lease.isCurrent()).toBe(true);
+        expect(projectArticleSearchReveal(command, state.runtime, lease)).toMatchObject({
+            status: 'rejected', precision: null, exact: false,
+            reason: 'search-reveal-binding-unavailable', commandDigest: null
+        });
+    });
 });
