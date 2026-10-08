@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphModels.cs",
+                "src/backend/Services/Fixtures/DataScale/CommentScalePlan.cs"
+            ],
+            "reason": "These new source paths fall under the registered src/**/*.cs process-environment consumer surface. The plan uses the existing resolved temporal-role adapter without adding or renaming external environment keys; C# records, enums and local identifiers retain repository naming. This declaration covers the trusted path registry and introduces no new naming policy."
+        }
+    ]
+}
