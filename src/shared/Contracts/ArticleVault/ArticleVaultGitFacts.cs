@@ -117,7 +117,8 @@ public static class ArticleVaultGitFactDecoder
                 }
 
                 ValidateProjection(records[index]);
-                hints.Add(new(Digest(Encoding.UTF8.GetBytes(records[index])), Digest(Encoding.UTF8.GetBytes(path))));
+                hints.Add(new(ArticleVaultManifestCodec.ComputeProjectionSha256(records[index]),
+                    ArticleVaultManifestCodec.ComputeProjectionSha256(path)));
             }
         }
 
