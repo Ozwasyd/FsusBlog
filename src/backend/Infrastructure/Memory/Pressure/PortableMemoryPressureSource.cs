@@ -11,12 +11,13 @@ public enum MemoryPressureMetric
 {
     GcHeapBytes, GcCommittedBytes, RuntimeCapacityBytes, HostLoadBytes, HostLoadThresholdBytes,
     TotalAllocatedBytes, ProcessWorkingSetBytes, LedgerChargedBytes, LedgerOperationSlots, LedgerInodes,
-    HostAvailableBytes, HostSwapTotalBytes, HostSwapFreeBytes, ProcessSwapBytes
+    HostAvailableBytes, HostSwapTotalBytes, HostSwapFreeBytes, ProcessSwapBytes,
+    ScopedExternalUsageBytes, ScopedExternalLimitBytes
 }
 
 public enum MemoryPressureScope
 {
-    Process, RuntimeCapacity, HostAtLastCollection, HeapAtLastCollection, Ledger, HostCurrent
+    Process, RuntimeCapacity, HostAtLastCollection, HeapAtLastCollection, Ledger, HostCurrent, ExternalResourceDomain
 }
 
 public enum MemoryPressureTransition
@@ -112,6 +113,7 @@ public sealed class MemoryPressureObservation
         MemoryPressureMetric.HostLoadBytes or MemoryPressureMetric.HostLoadThresholdBytes => MemoryPressureScope.HostAtLastCollection,
         MemoryPressureMetric.LedgerChargedBytes or MemoryPressureMetric.LedgerOperationSlots or MemoryPressureMetric.LedgerInodes => MemoryPressureScope.Ledger,
         MemoryPressureMetric.HostAvailableBytes or MemoryPressureMetric.HostSwapTotalBytes or MemoryPressureMetric.HostSwapFreeBytes => MemoryPressureScope.HostCurrent,
+        MemoryPressureMetric.ScopedExternalUsageBytes or MemoryPressureMetric.ScopedExternalLimitBytes => MemoryPressureScope.ExternalResourceDomain,
         _ => MemoryPressureScope.Process
     };
 }

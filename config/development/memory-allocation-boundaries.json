@@ -3732,6 +3732,41 @@
                     "anchor": "public sealed class LinuxProcMemoryPressureSource"
                 }
             ]
+        },
+        {
+            "id": "memory-governor-control-metadata",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Control/MemoryGovernor.cs",
+                "src/backend/Infrastructure/Memory/Control/MemoryGovernorPolicy.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "MemoryGovernor immutable input-bound decisions and frozen policy roster",
+            "producer": "Explicit pure Evaluate captures canonical ledger/qualified scoped observations and the supplied frozen baseline binding",
+            "consumers": "Existing operation owners and common MemoryReservationCoordinator governed bounds; no timer or publisher is registered",
+            "releaseEvent": "Caller-held immutable policy/decision metadata drops only when its real consumer relinquishes it; no target change releases physical backing",
+            "capacityModel": "Policy resources bounded by canonical topology; exactly one target/bound/reclaim/age cell per known capacity; fixed enum reason/degradation vocabulary; control metadata remains process headroom",
+            "frequency": "Per explicit background decision and frozen policy construction; no request hook or timer is registered",
+            "asyncEscape": "Caller-held immutable decisions may outlive the evaluator; no payload, pointer, operation or release handle escapes this pure function",
+            "classification": "ephemeral-scratch",
+            "eligibilityOwner": "Existing baseline/pressure qualification owners supply facts; canonical content, revocation, configuration and publication owners remain unchanged",
+            "migrationDisposition": "No payload tier migration permission granted.",
+            "exclusionReason": "Pure transition and fixture results do not establish P01 calibration, scoped source qualification, product performance or automatic activation",
+            "observationHeadroom": "Measure CPU/allocation/retention against actual frozen P01/P02 limits before runtime acceptance; fixture targets are not production defaults",
+            "testOwner": "tests/backend/Unit/MemoryGovernorTests.cs and tests/backend/Unit/MemoryGovernorAdmissionTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Control/MemoryGovernor.cs",
+                    "anchor": "public static class MemoryGovernor"
+                }
+            ]
         }
     ],
     "syntaxObserver": {

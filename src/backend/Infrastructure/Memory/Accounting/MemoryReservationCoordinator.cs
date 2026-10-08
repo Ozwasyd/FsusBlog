@@ -26,6 +26,8 @@ public sealed class MemoryReservationCoordinator
     private readonly Dictionary<AllocationId, MemoryAllocationCharge> _allocations = [];
     private Dictionary<string, long> _caps;
     private ulong _policyRevision;
+    private ulong _governedSequence;
+    private Dictionary<string, long> _governedCaps = new(StringComparer.Ordinal);
     private ulong _sequence;
     private bool _faulted;
 
@@ -59,6 +61,25 @@ public sealed class MemoryReservationCoordinator
     }
 
     public MemoryOperationResult<MemoryReservation> TryReserve(IEnumerable<MemoryResourceCharge> requested)
+        => Reserve(requested, null, null);
+
+    public MemoryOperationResult<MemoryReservation> TryReserveUnderBounds(IEnumerable<MemoryResourceCharge> requested,
+        IReadOnlyDictionary<string, long> additionalHardCaps, ulong observedPolicyRevision)
+    {
+        ArgumentNullException.ThrowIfNull(additionalHardCaps);
+        var bounds = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach ((string key, long value) in additionalHardCaps.Take(_topology.DomainCount + 1))
+        {
+            if (bounds.Count == _topology.DomainCount || string.IsNullOrWhiteSpace(key) || value < 0 || !bounds.TryAdd(key, value))
+            {
+                return MemoryOperationResult<MemoryReservation>.Reject(MemoryFailure.BoundsViolation);
+            }
+        }
+        return Reserve(requested, bounds, observedPolicyRevision);
+    }
+
+    private MemoryOperationResult<MemoryReservation> Reserve(IEnumerable<MemoryResourceCharge> requested,
+        IReadOnlyDictionary<string, long>? additionalHardCaps, ulong? observedPolicyRevision)
     {
         IReadOnlyList<MemoryResourceCharge> held = Freeze(requested);
         Dictionary<string, long>? vector;
@@ -80,7 +101,18 @@ public sealed class MemoryReservationCoordinator
             {
                 return MemoryOperationResult<MemoryReservation>.Reject(MemoryFailure.OwnershipViolation);
             }
-            if (_reservations.Count + _allocations.Count >= _entryLimit || !Fits(vector))
+            if (observedPolicyRevision is not null && observedPolicyRevision != _policyRevision)
+            {
+                return MemoryOperationResult<MemoryReservation>.Reject(MemoryFailure.StaleLocation);
+            }
+            if (additionalHardCaps is not null && (additionalHardCaps.Keys.Any(key => !_caps.ContainsKey(key))
+                || vector.Keys.Any(key => !additionalHardCaps.ContainsKey(key))))
+            {
+                return MemoryOperationResult<MemoryReservation>.Reject(MemoryFailure.TierUnavailable);
+            }
+            if (_reservations.Count + _allocations.Count >= _entryLimit || !Fits(vector)
+                || additionalHardCaps is not null && vector.Any(entry => entry.Value > additionalHardCaps[entry.Key]
+                    || _used.GetValueOrDefault(entry.Key) > additionalHardCaps[entry.Key] - entry.Value))
             {
                 return MemoryOperationResult<MemoryReservation>.Reject(MemoryFailure.BudgetRejected);
             }
@@ -91,6 +123,44 @@ public sealed class MemoryReservationCoordinator
             Apply(vector);
             Record(next);
             return MemoryOperationResult<MemoryReservation>.Success(reservation);
+        }
+    }
+
+    public MemoryFailure? ApplyGovernedBounds(ulong decisionSequence, ulong observedPolicyRevision,
+        IReadOnlyDictionary<string, long> bounds)
+    {
+        ArgumentNullException.ThrowIfNull(bounds);
+        var next = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach ((string key, long value) in bounds.Take(_topology.DomainCount + 1))
+        {
+            if (next.Count == _topology.DomainCount || string.IsNullOrWhiteSpace(key) || value < 0 || !next.TryAdd(key, value))
+            {
+                return MemoryFailure.BoundsViolation;
+            }
+        }
+        lock (_gate)
+        {
+            if (_faulted)
+            {
+                return MemoryFailure.OwnershipViolation;
+            }
+            if (observedPolicyRevision != _policyRevision || decisionSequence == 0 || decisionSequence < _governedSequence)
+            {
+                return MemoryFailure.StaleLocation;
+            }
+            if (next.Count == 0 || next.Keys.Any(key => !_caps.ContainsKey(key))
+                || _governedCaps.Keys.Any(key => !next.ContainsKey(key)))
+            {
+                return MemoryFailure.TierUnavailable;
+            }
+            if (decisionSequence == _governedSequence)
+            {
+                return next.Count == _governedCaps.Count && next.All(item => _governedCaps.GetValueOrDefault(item.Key, -1) == item.Value)
+                    ? null : MemoryFailure.StaleLocation;
+            }
+            _governedCaps = next;
+            _governedSequence = decisionSequence;
+            return null;
         }
     }
 
@@ -116,6 +186,7 @@ public sealed class MemoryReservationCoordinator
             _used = used;
             _caps = next;
             _policyRevision = revision;
+            _governedSequence = 0;
         }
     }
 
@@ -124,7 +195,7 @@ public sealed class MemoryReservationCoordinator
         lock (_gate)
         {
             return new(_policyRevision, _reservations.Count, _allocations.Count, _faulted,
-                _used.Any(entry => entry.Value > _caps[entry.Key]), ReadOnly(_used), ReadOnly(_caps));
+                _used.Any(entry => entry.Value > Math.Min(_caps[entry.Key], _governedCaps.GetValueOrDefault(entry.Key, long.MaxValue))), ReadOnly(_used), ReadOnly(_caps));
         }
     }
 
@@ -388,7 +459,8 @@ public sealed class MemoryReservationCoordinator
 
     private bool Fits(Dictionary<string, long> vector)
         => vector.All(entry => _caps.TryGetValue(entry.Key, out long cap)
-            && entry.Value <= cap && _used.GetValueOrDefault(entry.Key) <= cap - entry.Value);
+            && entry.Value <= Math.Min(cap, _governedCaps.GetValueOrDefault(entry.Key, long.MaxValue))
+            && _used.GetValueOrDefault(entry.Key) <= Math.Min(cap, _governedCaps.GetValueOrDefault(entry.Key, long.MaxValue)) - entry.Value);
 
     private void Apply(Dictionary<string, long> delta)
     {

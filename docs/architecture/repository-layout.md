@@ -192,6 +192,30 @@ membership/ancestor sampling, Windows/macOS adapters, automatic qualification an
 P01 sampling performance remain outstanding; no raw proc observation qualifies
 admission headroom or a platform support row.
 
+`MemoryGovernor` is a pure input-bound transition function. Its immutable policy
+requires explicit candidate/evidence identity and finite targets, headroom margins,
+growth rates, source ages and recovery windows from the existing frozen baseline
+owner. Missing/unqualified policy or pressure facts return UnmetPrerequisite and
+stop expansion while retaining the latest hard bounds. Scoped usage and capacity
+must match the resource domain/revision; overlapping host, GC, process, native and
+UMA counters are not summed. The ownership ledger still bounds allocated but
+untouched memory; matching scoped headroom additionally accounts for competition.
+Recovery uses the monotonic clock and bounded integral growth. Requested reclaim,
+allocator relinquishment, OS retention, pending and blocked feedback remain
+separate; target changes never dispose owners or spend projected reclaim credit.
+
+`MemoryReservationCoordinator.TryReserveUnderBounds` atomically checks the complete
+vector against configured and supplied bounds at the observed accounting revision.
+`ApplyGovernedBounds` additionally retains a revisioned derived bound in the same
+canonical ledger so existing raw managed/native factories cannot escape an accepted
+scope through another reservation call. It never increases the configured hard cap,
+drops a live charge or erases an existing scoped key. Fault/disable paths keep the
+last bound; recovery requires a newer compatible input-bound decision. The existing
+configuration revision remains independent of this decision sequence. These APIs
+have no qualification or scheduler authority. The pure governor and explicit ledger
+adapter are not registered for production startup; authoritative P01 inputs, actual
+scoped sources and operating/performance acceptance remain required.
+
 The current backend, Core, Shared, and Migration projects target `net10.0`. A .NET target
 or an available local toolchain does not establish product platform support. The catalog distinguishes the Dockerfile's `linux-musl-x64` shipping default from
 additional candidate targets and binds each row's source and required offline closure.
