@@ -76,6 +76,18 @@ test('route-name branching resolves useRoute aliases and computed element access
     assert.ok(graph.errors.some((error) => error.reason === 'route-name-visual-branch'));
 });
 
+test('route-name business reads do not become a visual branch without a layout sink', () =>
+{
+    const graph = source().graph([fixture('<script setup>import {useRoute} from "vue-router";const route=useRoute();const navigationIdentity=route.name;</script><template><h1>Current</h1></template>')]);
+    assert.deepEqual(graph.errors, []);
+});
+
+test('destructured route name flowing through class data fails closed', () =>
+{
+    const graph = source().graph([fixture('<script setup>import {useRoute} from "vue-router";const {name:page}=useRoute();const good=page==="representative";const density=good?"good":"bad";</script><template><h1 :class="density">Current</h1></template>')]);
+    assert.ok(graph.errors.some((error) => error.reason === 'route-name-visual-branch'));
+});
+
 test('imported local wrapper remains local through a public-looking alias', () =>
 {
     fixture('<template><div data-fsus-surface="control-group"/></template>', 'Wrapper.vue');

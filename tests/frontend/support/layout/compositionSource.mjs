@@ -161,22 +161,56 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 routeNames.add(name);
             }
         }
-        const visit = (node, offset) =>
+        const tainted = new Set();
+        function usesRouteName(node)
         {
             if ((ts.isPropertyAccessExpression(node) && node.name.text === 'name' && ts.isIdentifier(node.expression) && routeNames.has(node.expression.text))
                 || (ts.isElementAccessExpression(node) && ts.isIdentifier(node.expression) && routeNames.has(node.expression.text)
-                    && ts.isStringLiteral(node.argumentExpression) && node.argumentExpression.text === 'name'))
+                    && ts.isStringLiteral(node.argumentExpression) && node.argumentExpression.text === 'name')
+                || (ts.isIdentifier(node) && tainted.has(node.text)))
             {
-                errors.push({ ...location(record.file, offset + node.getStart()), reason: 'route-name-visual-branch' });
+                return true;
             }
-            ts.forEachChild(node, (child) => visit(child, offset));
-        };
-        for (const script of record.scripts)
-        {
-            visit(script.ast, script.offset);
+            let found = false;
+            ts.forEachChild(node, (child) =>
+            {
+                found ||= usesRouteName(child);
+            });
+            return found;
         }
-        return { routeNames, visit };
+        function bindings(node)
+        {
+            if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name)
+                && node.initializer && ts.isCallExpression(node.initializer) && ts.isIdentifier(node.initializer.expression)
+                && routeFactories.has(node.initializer.expression.text))
+            {
+                for (const element of node.name.elements)
+                {
+                    if ((element.propertyName ?? element.name).getText() === 'name' && ts.isIdentifier(element.name))
+                    {
+                        tainted.add(element.name.text);
+                    }
+                }
+            }
+            ts.forEachChild(node, bindings);
+        }
+        record.scripts.forEach(({ ast }) => bindings(ast));
+        let changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (const [name, value] of record.variables)
+            {
+                if (!tainted.has(name) && usesRouteName(value))
+                {
+                    tainted.add(name);
+                    changed = true;
+                }
+            }
+        }
+        return { usesRouteName };
     }
+
     function nativePropTargets(record, identifier)
     {
         function literal(node, file, seen = new Set())
@@ -288,7 +322,12 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     if (prop.exp?.content.trim() && prop.name !== 'for' && prop.name !== 'slot')
                     {
                         const exp = expression(prop.exp.content, file);
-                        branches.visit(exp, offset);
+                        const visual = ['if', 'else-if', 'show'].includes(prop.name)
+                            || (prop.name === 'bind' && ['class', 'style', 'density', 'layout', 'placement', 'surface', 'material'].includes(prop.arg?.content));
+                        if (visual && branches.usesRouteName(exp))
+                        {
+                            errors.push({ ...location(file, offset), reason: 'route-name-visual-branch' });
+                        }
                     }
                 }
             }

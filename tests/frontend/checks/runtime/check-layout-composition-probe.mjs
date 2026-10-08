@@ -53,7 +53,7 @@ const cases = [
     { name: 'desktop-mobile-duplicate-owner', content: fixture(baseMarkup + body.replace('<section ', '<section style="display:none" ')), expected: 'duplicate-owner-including-hidden' },
     { name: 'hidden-duplicate-h1', content: fixture(baseMarkup + '<h1 hidden>Hidden page title</h1>'), expected: 'page-heading-not-exact-one' },
     { name: 'hidden-duplicate-content', content: fixture(baseMarkup + '<div hidden data-fsus-content="document-content">Duplicate</div>'), expected: 'hidden-or-duplicate-content-owner' },
-    { name: 'route-name-special-good-layout', content: fixture(baseMarkup, baseScript + 'import {useRoute} from "vue-router";const route=useRoute();const good=route.name==="representative";'), expected: 'route-name-visual-branch' },
+    { name: 'route-name-special-good-layout', content: fixture('<section v-if="good">' + baseMarkup + '</section>', baseScript + 'import {useRoute} from "vue-router";const route=useRoute();const good=route.name==="representative";'), expected: 'route-name-visual-branch' },
     { name: 'excess-fixed-toolbar-status-owner', content: fixture(baseMarkup + '<div style="position:fixed" data-fsus-chrome="status" data-fsus-owner="extra-status-owner">Status</div>'), expected: 'unknown-or-excess-chrome-owner' },
     { name: 'responsive-content-reorder', content: fixture(baseMarkup, baseScript, '@media(max-width:600px){[data-fsus-region="document-content"]{order:-1}}'), expected: 'responsive-content-reorder', viewport: { width: 375, height: 800 } },
     { name: 'unknown-component-with-plausible-labels', content: fixture(baseMarkup + '<UnknownPanel data-fsus-surface="document"/>'), expected: 'unknown-component-source' },
