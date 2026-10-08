@@ -6,10 +6,10 @@ import {
 } from '@/services/telemetryPrivacy'
 
 describe('telemetry privacy boundary', () => {
-  it.each(['public', 'account', 'admin'] as const)('keeps the stable %s route class without request identity', (routeClass) => {
+  it.each([['public','binary_get_category'], ['account','binary_get_auth_me'], ['admin','binary_get_admin_article']] as const)('keeps the stable %s route class without request identity', (routeClass, operationId) => {
     const detail = createBinaryFailureTelemetryDetail({
-      operationId: 'binary_get_auth_me',
-      routeClass,
+      operationId,
+      routeClass: 'public',
       status: 503,
       kind: 'network',
       frameType: 163,

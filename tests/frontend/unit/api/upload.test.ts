@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute, fsusBinaryRouteDescriptors } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 
@@ -27,9 +28,9 @@ describe('upload API requests', () => {
     })
 
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toBe('/api/binary/upload/init')
+    expect(routeUrl(call)).toBe('/api/binary/upload/init')
     expect(call.frameType).toBe(FrameType.UploadInit)
-    expect(call.requestOptions?.method).toBe('POST')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('POST')
     expect(call.requestOptions?.headers).toMatchObject({
       'Content-Type': 'application/octet-stream'
     })
@@ -51,9 +52,9 @@ describe('upload API requests', () => {
     await uploadPart('upload-1', 'upload-token-1', 2, 131072, chunk, 'payload-hash')
 
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toBe('/api/binary/upload/upload-1/part')
+    expect(routeUrl(call)).toBe('/api/binary/upload/upload-1/part')
     expect(call.frameType).toBe(FrameType.UploadPartAck)
-    expect(call.requestOptions?.method).toBe('PUT')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('PUT')
     expect(call.requestOptions?.headers).toMatchObject({
       'Content-Type': 'application/octet-stream',
       'X-Fsus-Upload-Token': 'upload-token-1',
@@ -68,9 +69,9 @@ describe('upload API requests', () => {
     await completeUpload('upload-1', 'upload-token-1', 'abcdef')
 
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toBe('/api/binary/upload/upload-1/complete')
+    expect(routeUrl(call)).toBe('/api/binary/upload/upload-1/complete')
     expect(call.frameType).toBe(FrameType.UploadComplete)
-    expect(call.requestOptions?.method).toBe('POST')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].method).toBe('POST')
     expect(call.requestOptions?.headers).toMatchObject({
       'Content-Type': 'application/octet-stream',
       'X-Fsus-Upload-Token': 'upload-token-1'
@@ -111,4 +112,9 @@ function readFixedUtf8(bytes: Uint8Array, offset: number, length: number): strin
   const slice = bytes.subarray(offset, offset + length)
   const end = slice.indexOf(0)
   return new TextDecoder().decode(end >= 0 ? slice.subarray(0, end) : slice)
+}
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
 }

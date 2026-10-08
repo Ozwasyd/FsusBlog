@@ -19,13 +19,10 @@ export async function requestHumanReadChallenge(input: {
 }): Promise<HumanReadChallenge>
 {
     return await requestBinaryOnly<HumanReadChallenge>({
-        binaryUrl: '/api/binary/read-proof/challenge.aeds',
-        privateScope: 'public',
+        binaryRoute: { operationId: 'binary_post_read_proof_challenge_aeds' },
         frameType: FrameType.HumanReadChallengeResponse,
         signal: input.signal,
         requestOptions: {
-            method: 'POST',
-            credentials: 'include',
             body: encodeAedsFrame(FrameType.HumanReadChallengeRequest, encodeHumanReadChallengeRequest(input))
         }
     });
@@ -41,13 +38,10 @@ export async function submitHumanReadProof(input: {
 }): Promise<HumanReadSubmitResult>
 {
     return await requestBinaryOnly<HumanReadSubmitResult>({
-        binaryUrl: '/api/binary/read-proof/submit.aeds',
-        privateScope: 'public',
+        binaryRoute: { operationId: 'binary_post_read_proof_submit_aeds' },
         frameType: FrameType.HumanReadSubmitResponse,
         signal: input.signal,
         requestOptions: {
-            method: 'POST',
-            credentials: 'include',
             body: encodeAedsFrame(FrameType.HumanReadSubmitRequest, encodeHumanReadSubmitRequest(input))
         }
     });

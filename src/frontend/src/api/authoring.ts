@@ -1,11 +1,9 @@
-import { binaryRequest } from '@/api/binaryApiClient';
-import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder';
-import { requestBinaryOnly } from '@/composition/binaryTransport';
-import { runPrivateRequest } from '@/services/privateRequestRuntime';
 import { AppErrorCode, createAppError } from '@/utils/appError';
+import type { BinaryRouteRequest, BinaryTransportRequest } from '@/contracts/binaryTransport';
+import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder';
+import { requestBinaryJson, requestBinaryOnly } from '@/composition/binaryTransport';
 import { getBrowserFp } from '@/utils/fingerprint';
 
-import { decode } from '@wasm/aeds';
 import { FrameType } from '@wasm/protocol/frame';
 
 import { encodeAedsFrame } from './binaryFrame';
@@ -1449,11 +1447,8 @@ export interface AiAssistResponse {
 }
 
 const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof';
-const BINARY_API_PREFIX = '/api/binary';
-const authoringJsonDecoder = new TextDecoder();
 
 interface AuthoringBinaryRequestOptions {
-    method?: string;
     requestFrame?: FrameType;
     request?: unknown;
     headers?: Record<string, string>;
@@ -1478,23 +1473,18 @@ function authoringBody(frameType: FrameType, request: unknown): ArrayBuffer
 }
 
 export function requestAuthoringBinary<T>(
-    path: string,
+    binaryRoute: BinaryRouteRequest,
     frameType: FrameType,
     config?: ApiRequestConfig,
     options: AuthoringBinaryRequestOptions = {}
 ): Promise<T>
 {
-    const requestOptions: RequestInit = {
-        credentials: 'include',
+    const requestOptions: NonNullable<BinaryTransportRequest['requestOptions']> = {
         headers: authoringHeaders(config?.mfaProofToken)
     };
     for (const [name, value] of Object.entries(options.headers ?? {}))
     {
         ;(requestOptions.headers as Headers).set(name, value);
-    }
-    if (options.method)
-    {
-        requestOptions.method = options.method;
     }
     if (options.requestFrame !== undefined)
     {
@@ -1502,8 +1492,7 @@ export function requestAuthoringBinary<T>(
     }
 
     return requestBinaryOnly<T>({
-        binaryUrl: `${BINARY_API_PREFIX}/author${path}`,
-        privateScope: 'admin',
+        binaryRoute,
         frameType,
         requestOptions,
         signal: config?.signal
@@ -1511,38 +1500,20 @@ export function requestAuthoringBinary<T>(
 }
 
 async function requestAuthoringJson<T>(
-    path: string,
+    binaryRoute: BinaryRouteRequest,
     frameType: FrameType,
     config?: ApiRequestConfig,
     options: AuthoringBinaryRequestOptions = {}
 ): Promise<T>
 {
-    const requestOptions: RequestInit = {
-        credentials: 'include',
-        headers: authoringHeaders(config?.mfaProofToken),
-        signal: config?.signal
-    };
-    if (options.method)
-    {
-        requestOptions.method = options.method;
-    }
-    if (options.requestFrame !== undefined)
-    {
-        requestOptions.body = authoringBody(options.requestFrame, options.request);
-    }
-
-    return await runPrivateRequest('admin', config?.signal, async (signal) =>
-    {
-        const frame = decode(await binaryRequest(`${BINARY_API_PREFIX}/author${path}`, {
-            ...requestOptions,
-            signal
-        }));
-        if (!frame.ok || frame.frameType !== frameType)
-        {
-            throw createAppError(AppErrorCode.ProtocolFailure, frame.ok ? 'AUTHORING_FRAME_UNEXPECTED' : 'AUTHORING_FRAME_DECODE_FAILED');
+    return requestBinaryJson<T>({
+        binaryRoute,
+        frameType,
+        signal: config?.signal,
+        requestOptions: {
+            headers: authoringHeaders(config?.mfaProofToken),
+            ...(options.requestFrame === undefined ? {} : { body: authoringBody(options.requestFrame, options.request) })
         }
-
-        return JSON.parse(authoringJsonDecoder.decode(frame.payloadView)) as T;
     });
 }
 
@@ -1551,8 +1522,7 @@ export async function saveServerDraft(
     config?: ApiRequestConfig
 ): Promise<ServerDraftResponse>
 {
-    return requestAuthoringBinary<ServerDraftResponse>('/drafts', FrameType.AuthorDraftResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<ServerDraftResponse>({ operationId: 'binary_post_author_drafts' }, FrameType.AuthorDraftResponse, config, {
         requestFrame: FrameType.AuthorDraftSaveRequest,
         request: draft
     });
@@ -1560,7 +1530,7 @@ export async function saveServerDraft(
 
 export async function getServerDraft(draftKey: string, config?: ApiRequestConfig): Promise<ServerDraftResponse | null>
 {
-    return requestAuthoringBinary<ServerDraftResponse | null>(`/drafts/${encodeURIComponent(draftKey)}`, FrameType.AuthorDraftResponse, config);
+    return requestAuthoringBinary<ServerDraftResponse | null>({ operationId: 'binary_get_author_drafts_draftKey', params: { draftKey } }, FrameType.AuthorDraftResponse, config);
 }
 
 export async function discardServerDraft(
@@ -1570,8 +1540,7 @@ export async function discardServerDraft(
 ): Promise<boolean>
 {
     const query = new URLSearchParams({ expectedServerRevision: expectedServerRevision.toString() });
-    const result = await requestAuthoringBinary<{ discarded?: boolean; }>(`/drafts/${encodeURIComponent(draftKey)}?${query.toString()}`, FrameType.AuthorDraftDiscardResponse, config, {
-        method: 'DELETE'
+    const result = await requestAuthoringBinary<{ discarded?: boolean; }>({ operationId: 'binary_delete_author_drafts_draftKey', params: { draftKey }, query: query }, FrameType.AuthorDraftDiscardResponse, config, {
     });
     return result.discarded === true;
 }
@@ -1581,8 +1550,7 @@ export async function previewArticleDraft(
     config?: ApiRequestConfig
 ): Promise<ArticlePreviewResponse>
 {
-    const preview = await requestAuthoringBinary<unknown>('/preview', FrameType.ArticlePreviewResponse, config, {
-        method: 'POST',
+    const preview = await requestAuthoringBinary<unknown>({ operationId: 'binary_post_author_preview' }, FrameType.ArticlePreviewResponse, config, {
         requestFrame: FrameType.ArticlePreviewRequest,
         request: draft
     });
@@ -1594,8 +1562,7 @@ export async function checkArticlePrepublish(
     config?: ApiRequestConfig
 ): Promise<PrepublishCheckResponse>
 {
-    return requestAuthoringBinary<PrepublishCheckResponse>('/prepublish-check', FrameType.PrepublishCheckResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<PrepublishCheckResponse>({ operationId: 'binary_post_author_prepublish_check' }, FrameType.PrepublishCheckResponse, config, {
         requestFrame: FrameType.PrepublishCheckRequest,
         request: draft
     });
@@ -1606,8 +1573,7 @@ export async function generateAiAssist(
     config?: ApiRequestConfig
 ): Promise<AiAssistResponse>
 {
-    return requestAuthoringBinary<AiAssistResponse>('/ai-assist', FrameType.AiAssistResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<AiAssistResponse>({ operationId: 'binary_post_author_ai_assist' }, FrameType.AiAssistResponse, config, {
         requestFrame: FrameType.AiAssistRequest,
         request
     });
@@ -1615,7 +1581,7 @@ export async function generateAiAssist(
 
 export async function listAssetLibrary(config?: ApiRequestConfig): Promise<AssetLibraryItemResponse[]>
 {
-    return requestAuthoringBinary<AssetLibraryItemResponse[]>('/assets', FrameType.AssetLibraryList, config);
+    return requestAuthoringBinary<AssetLibraryItemResponse[]>({ operationId: 'binary_get_author_assets' }, FrameType.AssetLibraryList, config);
 }
 
 export async function reindexArticleAssets(
@@ -1623,32 +1589,30 @@ export async function reindexArticleAssets(
     config?: ApiRequestConfig
 ): Promise<AssetLibraryItemResponse[]>
 {
-    return requestAuthoringBinary<AssetLibraryItemResponse[]>(`/articles/${articleId}/assets/reindex`, FrameType.AssetLibraryList, config, {
-        method: 'POST'
+    return requestAuthoringBinary<AssetLibraryItemResponse[]>({ operationId: 'binary_post_author_articles_articleId_int_assets_reindex', params: { articleId } }, FrameType.AssetLibraryList, config, {
     });
 }
 
 export async function cleanupOrphanAssets(config?: ApiRequestConfig): Promise<number>
 {
-    const result = await requestAuthoringBinary<{ deleted?: number; }>('/assets/orphans', FrameType.AssetCleanupResponse, config, {
-        method: 'DELETE'
+    const result = await requestAuthoringBinary<{ deleted?: number; }>({ operationId: 'binary_delete_author_assets_orphans' }, FrameType.AssetCleanupResponse, config, {
     });
     return Number(result.deleted ?? 0);
 }
 
 export async function listAdminCategories(config?: ApiRequestConfig): Promise<AdminCategoryItemResponse[]>
 {
-    return requestAuthoringBinary<AdminCategoryItemResponse[]>('/taxonomy/categories', FrameType.AuthorTaxonomyCategoryList, config);
+    return requestAuthoringBinary<AdminCategoryItemResponse[]>({ operationId: 'binary_get_author_taxonomy_categories' }, FrameType.AuthorTaxonomyCategoryList, config);
 }
 
 export async function listAdminTags(config?: ApiRequestConfig): Promise<AdminTagItemResponse[]>
 {
-    return requestAuthoringBinary<AdminTagItemResponse[]>('/taxonomy/tags', FrameType.AuthorTaxonomyTagList, config);
+    return requestAuthoringBinary<AdminTagItemResponse[]>({ operationId: 'binary_get_author_taxonomy_tags' }, FrameType.AuthorTaxonomyTagList, config);
 }
 
 export async function getAuthorAnalytics(config?: ApiRequestConfig): Promise<AuthorAnalyticsResponse>
 {
-    return requestAuthoringBinary<AuthorAnalyticsResponse>('/analytics', FrameType.AuthorAnalytics, config);
+    return requestAuthoringBinary<AuthorAnalyticsResponse>({ operationId: 'binary_get_author_analytics' }, FrameType.AuthorAnalytics, config);
 }
 
 export async function listAuditLogs(
@@ -1657,7 +1621,7 @@ export async function listAuditLogs(
 ): Promise<AuditLogListResponse>
 {
     const search = buildAuditSearch(params);
-    return requestAuthoringBinary<AuditLogListResponse>(`/audit?${search.toString()}`, FrameType.AuditLogList, config);
+    return requestAuthoringBinary<AuditLogListResponse>({ operationId: 'binary_get_author_audit', query: search }, FrameType.AuditLogList, config);
 }
 
 export async function getAuditLogSummary(
@@ -1666,7 +1630,7 @@ export async function getAuditLogSummary(
 ): Promise<AuditLogSummaryResponse>
 {
     const search = buildAuditSearch(params);
-    return requestAuthoringBinary<AuditLogSummaryResponse>(`/audit/summary?${search.toString()}`, FrameType.AuditLogSummary, config);
+    return requestAuthoringBinary<AuditLogSummaryResponse>({ operationId: 'binary_get_author_audit_summary', query: search }, FrameType.AuditLogSummary, config);
 }
 
 export async function getAuditLogDetail(
@@ -1680,29 +1644,27 @@ export async function getAuditLogDetail(
     {
         search.set('piiMode', piiMode);
     }
-    const query = search.toString();
-    const suffix = query ? `?${query}` : '';
-    return requestAuthoringBinary<AuditLogDetailResponse>(`/audit/${id}${suffix}`, FrameType.AuditLogDetail, config);
+    return requestAuthoringBinary<AuditLogDetailResponse>({ operationId: 'binary_get_author_audit_id_long', params: { id }, query: search }, FrameType.AuditLogDetail, config);
 }
 
 export async function verifyAuditLog(id: string, config?: ApiRequestConfig): Promise<AuditTamperVerifyResponse>
 {
-    return requestAuthoringBinary<AuditTamperVerifyResponse>(`/audit/${id}/verify`, FrameType.AuditTamperVerifyResponse, config);
+    return requestAuthoringBinary<AuditTamperVerifyResponse>({ operationId: 'binary_get_author_audit_id_long_verify', params: { id } }, FrameType.AuditTamperVerifyResponse, config);
 }
 
 export async function getOpsHealth(config?: ApiRequestConfig): Promise<OpsHealthResponse>
 {
-    return requestAuthoringBinary<OpsHealthResponse>('/ops/health', FrameType.OpsHealth, config);
+    return requestAuthoringBinary<OpsHealthResponse>({ operationId: 'binary_get_author_ops_health' }, FrameType.OpsHealth, config);
 }
 
 export async function getBackupStatus(config?: ApiRequestConfig): Promise<BackupStatusResponse>
 {
-    return requestAuthoringBinary<BackupStatusResponse>('/ops/backup', FrameType.BackupStatus, config);
+    return requestAuthoringBinary<BackupStatusResponse>({ operationId: 'binary_get_author_ops_backup' }, FrameType.BackupStatus, config);
 }
 
 export async function getDangerousOperationPolicy(config?: ApiRequestConfig): Promise<DangerousOperationPolicyResponse>
 {
-    return requestAuthoringBinary<DangerousOperationPolicyResponse>('/ops/dangerous-operations/policy', FrameType.DangerousOperationPolicy, config);
+    return requestAuthoringBinary<DangerousOperationPolicyResponse>({ operationId: 'binary_get_author_ops_dangerous_operations_policy' }, FrameType.DangerousOperationPolicy, config);
 }
 
 export async function getCacheDiagnostics(articleId?: number | null, config?: ApiRequestConfig): Promise<CacheDiagnosticsResponse>
@@ -1713,8 +1675,7 @@ export async function getCacheDiagnostics(articleId?: number | null, config?: Ap
         search.set('articleId', String(articleId));
     }
 
-    const query = search.toString();
-    return requestAuthoringBinary<CacheDiagnosticsResponse>(`/cache/diagnostics${query ? `?${query}` : ''}`, FrameType.CacheDiagnostics, config);
+    return requestAuthoringBinary<CacheDiagnosticsResponse>({ operationId: 'binary_get_author_cache_diagnostics', query: search }, FrameType.CacheDiagnostics, config);
 }
 
 export async function runCacheAction(
@@ -1722,8 +1683,7 @@ export async function runCacheAction(
     config?: ApiRequestConfig
 ): Promise<AdminCacheActionResponse>
 {
-    return requestAuthoringBinary<AdminCacheActionResponse>('/cache/actions', FrameType.AdminCacheActionResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<AdminCacheActionResponse>({ operationId: 'binary_post_author_cache_actions' }, FrameType.AdminCacheActionResponse, config, {
         requestFrame: FrameType.AdminCacheActionRequest,
         request
     });
@@ -1731,12 +1691,12 @@ export async function runCacheAction(
 
 export async function inspectIntegrity(config?: ApiRequestConfig): Promise<IntegrityReportResponse>
 {
-    return requestAuthoringBinary<IntegrityReportResponse>('/integrity', FrameType.IntegrityReport, config);
+    return requestAuthoringBinary<IntegrityReportResponse>({ operationId: 'binary_get_author_integrity' }, FrameType.IntegrityReport, config);
 }
 
 export async function previewIntegrityFix(config?: ApiRequestConfig): Promise<IntegrityFixPreviewResponse>
 {
-    return requestAuthoringBinary<IntegrityFixPreviewResponse>('/integrity/fix-preview', FrameType.IntegrityFixPreview, config);
+    return requestAuthoringBinary<IntegrityFixPreviewResponse>({ operationId: 'binary_get_author_integrity_fix_preview' }, FrameType.IntegrityFixPreview, config);
 }
 
 export async function applyIntegrityFix(
@@ -1744,8 +1704,7 @@ export async function applyIntegrityFix(
     config?: ApiRequestConfig
 ): Promise<IntegrityFixResponse>
 {
-    return requestAuthoringBinary<IntegrityFixResponse>('/integrity/fix', FrameType.IntegrityFixResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<IntegrityFixResponse>({ operationId: 'binary_post_author_integrity_fix' }, FrameType.IntegrityFixResponse, config, {
         requestFrame: FrameType.IntegrityFixRequest,
         request
     });
@@ -1754,7 +1713,7 @@ export async function applyIntegrityFix(
 export async function listPlugins(config?: ApiRequestConfig): Promise<PluginAdminOverview>
 {
     return requestAuthoringBinary<PluginAdminOverview>(
-        '/plugins',
+        { operationId: 'binary_get_author_plugins' },
         FrameType.PluginAdminSnapshot,
         config
     );
@@ -1766,7 +1725,7 @@ export async function getPlugin(
 ): Promise<PluginAdminDetail>
 {
     return requestAuthoringBinary<PluginAdminDetail>(
-        `/plugins/${encodeURIComponent(pluginId)}`,
+        { operationId: 'binary_get_author_plugins_pluginId', params: { pluginId } },
         FrameType.PluginAdminSnapshot,
         config
     );
@@ -1781,12 +1740,9 @@ export async function installPlugin(
     const headers = authoringHeaders(config?.mfaProofToken);
     headers.set('X-Fsus-Plugin-Confirm', 'install');
     return requestBinaryOnly<PluginAdminDetail>({
-        binaryUrl: `${BINARY_API_PREFIX}/author/plugins/install`,
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_post_author_plugins_install' },
         frameType: FrameType.PluginAdminSnapshot,
         requestOptions: {
-            method: 'POST',
-            credentials: 'include',
             headers,
             body: encodeAedsFrame(FrameType.PluginPackageInstallRequest, packageBytes)
         },
@@ -1801,11 +1757,10 @@ export async function mutatePlugin(
 ): Promise<PluginAdminDetail | null>
 {
     return requestAuthoringBinary<PluginAdminDetail | null>(
-        `/plugins/${encodeURIComponent(pluginId)}/actions`,
+        { operationId: 'binary_post_author_plugins_pluginId_actions', params: { pluginId } },
         FrameType.PluginAdminSnapshot,
         config,
         {
-            method: 'POST',
             requestFrame: FrameType.PluginAdminMutationRequest,
             request: {
                 capabilities: [],
@@ -1832,7 +1787,7 @@ export async function listCommentModerationQueue(
     {
         search.set('cursor', cursor);
     };
-    return requestAuthoringBinary<CommentModerationQueueResponse>(`/comments/moderation?${search.toString()}`, FrameType.CommentModerationQueue, config);
+    return requestAuthoringBinary<CommentModerationQueueResponse>({ operationId: 'binary_get_author_comments_moderation', query: search }, FrameType.CommentModerationQueue, config);
 }
 
 export async function claimCommentModeration(
@@ -1841,8 +1796,7 @@ export async function claimCommentModeration(
     config?: ApiRequestConfig
 ): Promise<CommentModerationClaimResponse>
 {
-    return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim`, FrameType.CommentModerationClaimResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<CommentModerationClaimResponse>({ operationId: 'binary_post_author_comments_commentId_long_moderation_claim', params: { commentId } }, FrameType.CommentModerationClaimResponse, config, {
         requestFrame: FrameType.CommentModerationClaimRequest,
         request
     });
@@ -1854,8 +1808,7 @@ export async function renewCommentModerationClaim(
     config?: ApiRequestConfig
 ): Promise<CommentModerationClaimResponse>
 {
-    return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim/renew`, FrameType.CommentModerationClaimResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<CommentModerationClaimResponse>({ operationId: 'binary_post_author_comments_commentId_long_moderation_claim_renew', params: { commentId } }, FrameType.CommentModerationClaimResponse, config, {
         requestFrame: FrameType.CommentModerationClaimMutationRequest,
         request
     });
@@ -1867,8 +1820,7 @@ export async function releaseCommentModerationClaim(
     config?: ApiRequestConfig
 ): Promise<CommentModerationClaimResponse>
 {
-    return requestAuthoringBinary<CommentModerationClaimResponse>(`/comments/${encodeURIComponent(commentId)}/moderation/claim/release`, FrameType.CommentModerationClaimResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<CommentModerationClaimResponse>({ operationId: 'binary_post_author_comments_commentId_long_moderation_claim_release', params: { commentId } }, FrameType.CommentModerationClaimResponse, config, {
         requestFrame: FrameType.CommentModerationClaimMutationRequest,
         request
     });
@@ -1876,12 +1828,12 @@ export async function releaseCommentModerationClaim(
 
 export async function getModerationOverview(config?: ApiRequestConfig): Promise<ModerationOverviewResponse>
 {
-    return requestAuthoringBinary<ModerationOverviewResponse>('/moderation/overview', FrameType.ModerationOverview, config);
+    return requestAuthoringBinary<ModerationOverviewResponse>({ operationId: 'binary_get_author_moderation_overview' }, FrameType.ModerationOverview, config);
 }
 
 export async function getAnonymousCommentPolicy(config?: ApiRequestConfig): Promise<AnonymousCommentPolicyResponse>
 {
-    return requestAuthoringJson<AnonymousCommentPolicyResponse>('/moderation/anonymous-comment-policy', FrameType.CommentPolicySnapshot, config);
+    return requestAuthoringJson<AnonymousCommentPolicyResponse>({ operationId: 'binary_get_author_moderation_anonymous_comment_policy' }, FrameType.CommentPolicySnapshot, config);
 }
 
 export async function updateAnonymousCommentPolicy(
@@ -1889,8 +1841,7 @@ export async function updateAnonymousCommentPolicy(
     config?: ApiRequestConfig
 ): Promise<AnonymousCommentPolicyResponse>
 {
-    return requestAuthoringJson<AnonymousCommentPolicyResponse>('/moderation/anonymous-comment-policy', FrameType.CommentPolicySnapshot, config, {
-        method: 'PUT',
+    return requestAuthoringJson<AnonymousCommentPolicyResponse>({ operationId: 'binary_put_author_moderation_anonymous_comment_policy' }, FrameType.CommentPolicySnapshot, config, {
         requestFrame: FrameType.CommentPolicyUpdateRequest,
         request
     });
@@ -1902,9 +1853,8 @@ export async function getArticleCommentPolicy(
     config?: ApiRequestConfig
 ): Promise<EffectiveArticleCommentPolicyResponse>
 {
-    const query = rootId ? `?rootId=${encodeURIComponent(String(rootId))}` : '';
     return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
-        `/moderation/articles/${articleId}/comment-policy${query}`, FrameType.CommentPolicySnapshot, config);
+        { operationId: 'binary_get_author_moderation_articles_articleId_int_comment_policy', params: { articleId }, query: { rootId } }, FrameType.CommentPolicySnapshot, config);
 }
 
 export async function updateArticleCommentPolicy(
@@ -1914,8 +1864,8 @@ export async function updateArticleCommentPolicy(
 ): Promise<EffectiveArticleCommentPolicyResponse>
 {
     return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
-        `/moderation/articles/${articleId}/comment-policy`, FrameType.CommentPolicySnapshot, config, {
-            method: 'PUT', requestFrame: FrameType.CommentPolicyUpdateRequest, request
+        { operationId: 'binary_put_author_moderation_articles_articleId_int_comment_policy', params: { articleId } }, FrameType.CommentPolicySnapshot, config, {
+            requestFrame: FrameType.CommentPolicyUpdateRequest, request
         });
 }
 
@@ -1927,27 +1877,25 @@ export async function updateCommentThreadPolicy(
 ): Promise<EffectiveArticleCommentPolicyResponse>
 {
     return requestAuthoringJson<EffectiveArticleCommentPolicyResponse>(
-        `/moderation/articles/${articleId}/comment-threads/${rootId}`, FrameType.CommentPolicySnapshot, config, {
-            method: 'PUT', requestFrame: FrameType.CommentPolicyUpdateRequest, request
+        { operationId: 'binary_put_author_moderation_articles_articleId_int_comment_threads_rootId_long', params: { articleId, rootId } }, FrameType.CommentPolicySnapshot, config, {
+            requestFrame: FrameType.CommentPolicyUpdateRequest, request
         });
 }
 
 export async function getModerationDictionarySnapshot(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot>
 {
-    return requestAuthoringBinary<ModerationDictionaryRuntimeSnapshot>('/moderation/dictionaries', FrameType.ModerationDictionarySnapshot, config);
+    return requestAuthoringBinary<ModerationDictionaryRuntimeSnapshot>({ operationId: 'binary_get_author_moderation_dictionaries' }, FrameType.ModerationDictionarySnapshot, config);
 }
 
 export async function reloadModerationDictionaries(config?: ApiRequestConfig): Promise<ModerationDictionaryReloadResponse>
 {
-    return requestAuthoringBinary<ModerationDictionaryReloadResponse>('/moderation/dictionaries/reload', FrameType.ModerationDictionaryReloadResponse, config, {
-        method: 'POST'
+    return requestAuthoringBinary<ModerationDictionaryReloadResponse>({ operationId: 'binary_post_author_moderation_dictionaries_reload' }, FrameType.ModerationDictionaryReloadResponse, config, {
     });
 }
 
 export async function rollbackModerationDictionaries(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot>
 {
-    return requestAuthoringBinary<ModerationDictionaryRuntimeSnapshot>('/moderation/dictionaries/rollback', FrameType.ModerationDictionarySnapshot, config, {
-        method: 'POST'
+    return requestAuthoringBinary<ModerationDictionaryRuntimeSnapshot>({ operationId: 'binary_post_author_moderation_dictionaries_rollback' }, FrameType.ModerationDictionarySnapshot, config, {
     });
 }
 
@@ -1957,8 +1905,7 @@ export async function enableModerationDictionary(
     config?: ApiRequestConfig
 ): Promise<ModerationRuntimeStatusResponse>
 {
-    return requestAuthoringBinary<ModerationRuntimeStatusResponse>(`/moderation/dictionaries/${encodeURIComponent(dictionaryId)}/enable`, FrameType.ModerationRuntimeStatus, config, {
-        method: 'POST',
+    return requestAuthoringBinary<ModerationRuntimeStatusResponse>({ operationId: 'binary_post_author_moderation_dictionaries_dictionaryId_enable', params: { dictionaryId } }, FrameType.ModerationRuntimeStatus, config, {
         requestFrame: FrameType.ModerationDictionaryStateRequest,
         request
     });
@@ -1970,8 +1917,7 @@ export async function disableModerationDictionary(
     config?: ApiRequestConfig
 ): Promise<ModerationRuntimeStatusResponse>
 {
-    return requestAuthoringBinary<ModerationRuntimeStatusResponse>(`/moderation/dictionaries/${encodeURIComponent(dictionaryId)}/disable`, FrameType.ModerationRuntimeStatus, config, {
-        method: 'POST',
+    return requestAuthoringBinary<ModerationRuntimeStatusResponse>({ operationId: 'binary_post_author_moderation_dictionaries_dictionaryId_disable', params: { dictionaryId } }, FrameType.ModerationRuntimeStatus, config, {
         requestFrame: FrameType.ModerationDictionaryStateRequest,
         request
     });
@@ -1979,7 +1925,7 @@ export async function disableModerationDictionary(
 
 export async function getModerationRuntimeStatus(config?: ApiRequestConfig): Promise<ModerationRuntimeStatusResponse>
 {
-    return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/runtime/status', FrameType.ModerationRuntimeStatus, config);
+    return requestAuthoringBinary<ModerationRuntimeStatusResponse>({ operationId: 'binary_get_author_moderation_runtime_status' }, FrameType.ModerationRuntimeStatus, config);
 }
 
 export async function setModerationGlobalState(
@@ -1987,8 +1933,7 @@ export async function setModerationGlobalState(
     config?: ApiRequestConfig
 ): Promise<ModerationRuntimeStatusResponse>
 {
-    return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/runtime/global-state', FrameType.ModerationRuntimeStatus, config, {
-        method: 'POST',
+    return requestAuthoringBinary<ModerationRuntimeStatusResponse>({ operationId: 'binary_post_author_moderation_runtime_global_state' }, FrameType.ModerationRuntimeStatus, config, {
         requestFrame: FrameType.ModerationRuntimeGlobalStateRequest,
         request
     });
@@ -1999,8 +1944,7 @@ export async function setModerationRegionState(
     config?: ApiRequestConfig
 ): Promise<ModerationRuntimeStatusResponse>
 {
-    return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/runtime/region-state', FrameType.ModerationRuntimeStatus, config, {
-        method: 'POST',
+    return requestAuthoringBinary<ModerationRuntimeStatusResponse>({ operationId: 'binary_post_author_moderation_runtime_region_state' }, FrameType.ModerationRuntimeStatus, config, {
         requestFrame: FrameType.ModerationRuntimeRegionStateRequest,
         request
     });
@@ -2008,17 +1952,17 @@ export async function setModerationRegionState(
 
 export async function listModerationRegions(config?: ApiRequestConfig): Promise<ModerationRegionDefinition[]>
 {
-    return requestAuthoringBinary<ModerationRegionDefinition[]>('/moderation/regions', FrameType.ModerationRegionList, config);
+    return requestAuthoringBinary<ModerationRegionDefinition[]>({ operationId: 'binary_get_author_moderation_regions' }, FrameType.ModerationRegionList, config);
 }
 
 export async function listModerationRegionGroups(config?: ApiRequestConfig): Promise<ModerationRegionGroupDefinition[]>
 {
-    return requestAuthoringBinary<ModerationRegionGroupDefinition[]>('/moderation/region-groups', FrameType.ModerationRegionGroupList, config);
+    return requestAuthoringBinary<ModerationRegionGroupDefinition[]>({ operationId: 'binary_get_author_moderation_region_groups' }, FrameType.ModerationRegionGroupList, config);
 }
 
 export async function listModerationPolicyTemplates(config?: ApiRequestConfig): Promise<ModerationPolicyTemplateDefinition[]>
 {
-    return requestAuthoringBinary<ModerationPolicyTemplateDefinition[]>('/moderation/policy-templates', FrameType.ModerationPolicyTemplateList, config);
+    return requestAuthoringBinary<ModerationPolicyTemplateDefinition[]>({ operationId: 'binary_get_author_moderation_policy_templates' }, FrameType.ModerationPolicyTemplateList, config);
 }
 
 export async function getModerationEffectivePolicy(
@@ -2026,7 +1970,7 @@ export async function getModerationEffectivePolicy(
     config?: ApiRequestConfig
 ): Promise<ModerationEffectivePolicyPreview>
 {
-    return requestAuthoringBinary<ModerationEffectivePolicyPreview>(`/moderation/effective-policy/${encodeURIComponent(regionCode)}`, FrameType.ModerationEffectivePolicy, config);
+    return requestAuthoringBinary<ModerationEffectivePolicyPreview>({ operationId: 'binary_get_author_moderation_effective_policy_regionCode', params: { regionCode } }, FrameType.ModerationEffectivePolicy, config);
 }
 
 export async function previewModerationEffectivePolicy(
@@ -2034,8 +1978,7 @@ export async function previewModerationEffectivePolicy(
     config?: ApiRequestConfig
 ): Promise<ModerationEffectivePolicyPreview>
 {
-    return requestAuthoringBinary<ModerationEffectivePolicyPreview>('/moderation/effective-policy/preview', FrameType.ModerationEffectivePolicy, config, {
-        method: 'POST',
+    return requestAuthoringBinary<ModerationEffectivePolicyPreview>({ operationId: 'binary_post_author_moderation_effective_policy_preview' }, FrameType.ModerationEffectivePolicy, config, {
         requestFrame: FrameType.ModerationEffectivePolicyPreviewRequest,
         request
     });
@@ -2043,12 +1986,12 @@ export async function previewModerationEffectivePolicy(
 
 export async function listModerationPolicies(config?: ApiRequestConfig): Promise<RegionPolicySummaryResponse[]>
 {
-    return requestAuthoringBinary<RegionPolicySummaryResponse[]>('/moderation/policies', FrameType.RegionPolicySummaryList, config);
+    return requestAuthoringBinary<RegionPolicySummaryResponse[]>({ operationId: 'binary_get_author_moderation_policies' }, FrameType.RegionPolicySummaryList, config);
 }
 
 export async function getModerationModelStatus(config?: ApiRequestConfig): Promise<ModerationModelStatusResponse>
 {
-    return requestAuthoringBinary<ModerationModelStatusResponse>('/moderation/model/status', FrameType.ModerationModelStatus, config);
+    return requestAuthoringBinary<ModerationModelStatusResponse>({ operationId: 'binary_get_author_moderation_model_status' }, FrameType.ModerationModelStatus, config);
 }
 
 export async function setModerationModelRuntime(
@@ -2056,8 +1999,7 @@ export async function setModerationModelRuntime(
     config?: ApiRequestConfig
 ): Promise<ModerationRuntimeStatusResponse>
 {
-    return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/model/runtime', FrameType.ModerationRuntimeStatus, config, {
-        method: 'POST',
+    return requestAuthoringBinary<ModerationRuntimeStatusResponse>({ operationId: 'binary_post_author_moderation_model_runtime' }, FrameType.ModerationRuntimeStatus, config, {
         requestFrame: FrameType.ModerationModelRuntimeRequest,
         request
     });
@@ -2065,15 +2007,13 @@ export async function setModerationModelRuntime(
 
 export async function reloadModerationModel(config?: ApiRequestConfig): Promise<ModerationRuntimeStatusResponse>
 {
-    return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/model/reload', FrameType.ModerationRuntimeStatus, config, {
-        method: 'POST'
+    return requestAuthoringBinary<ModerationRuntimeStatusResponse>({ operationId: 'binary_post_author_moderation_model_reload' }, FrameType.ModerationRuntimeStatus, config, {
     });
 }
 
 export async function rollbackModerationModel(config?: ApiRequestConfig): Promise<ModerationRuntimeStatusResponse>
 {
-    return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/model/rollback', FrameType.ModerationRuntimeStatus, config, {
-        method: 'POST'
+    return requestAuthoringBinary<ModerationRuntimeStatusResponse>({ operationId: 'binary_post_author_moderation_model_rollback' }, FrameType.ModerationRuntimeStatus, config, {
     });
 }
 
@@ -2082,8 +2022,7 @@ export async function previewModerationReplay(
     config?: ApiRequestConfig
 ): Promise<ModerationReplayPreviewResponse>
 {
-    return requestAuthoringBinary<ModerationReplayPreviewResponse>('/moderation/replay/preview', FrameType.ModerationReplayPreview, config, {
-        method: 'POST',
+    return requestAuthoringBinary<ModerationReplayPreviewResponse>({ operationId: 'binary_post_author_moderation_replay_preview' }, FrameType.ModerationReplayPreview, config, {
         requestFrame: FrameType.ModerationReplayPreviewRequest,
         request
     });
@@ -2095,8 +2034,7 @@ export async function moderateComment(
     config?: ApiRequestConfig
 ): Promise<boolean>
 {
-    const result = await requestAuthoringBinary<{ moderated?: boolean; }>(`/comments/${commentId}/moderation`, FrameType.CommentModerationResult, config, {
-        method: 'POST',
+    const result = await requestAuthoringBinary<{ moderated?: boolean; }>({ operationId: 'binary_post_author_comments_commentId_long_moderation', params: { commentId } }, FrameType.CommentModerationResult, config, {
         requestFrame: FrameType.CommentModerationRequest,
         request
     });
@@ -2108,8 +2046,7 @@ export async function moderateCommentsBulk(
     config?: ApiRequestConfig
 ): Promise<CommentModerationBulkResponse>
 {
-    return requestAuthoringBinary<CommentModerationBulkResponse>('/comments/moderation/bulk', FrameType.CommentModerationBulkResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<CommentModerationBulkResponse>({ operationId: 'binary_post_author_comments_moderation_bulk' }, FrameType.CommentModerationBulkResponse, config, {
         requestFrame: FrameType.CommentModerationBulkRequest,
         request
     });
@@ -2120,8 +2057,7 @@ export async function blockAnonymousNullifier(
     config?: ApiRequestConfig
 ): Promise<AnonymousGovernanceActionResponse>
 {
-    return requestAuthoringBinary<AnonymousGovernanceActionResponse>('/comments/moderation/nullifiers/block', FrameType.AnonymousGovernanceActionResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<AnonymousGovernanceActionResponse>({ operationId: 'binary_post_author_comments_moderation_nullifiers_block' }, FrameType.AnonymousGovernanceActionResponse, config, {
         requestFrame: FrameType.AnonymousGovernanceActionRequest,
         request
     });
@@ -2133,8 +2069,7 @@ export async function revokeAnonymousCredential(
     config?: ApiRequestConfig
 ): Promise<AnonymousGovernanceActionResponse>
 {
-    return requestAuthoringBinary<AnonymousGovernanceActionResponse>(`/comments/moderation/anonymous-credentials/${encodeURIComponent(String(credentialId))}/revoke`, FrameType.AnonymousGovernanceActionResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<AnonymousGovernanceActionResponse>({ operationId: 'binary_post_author_comments_moderation_anonymous_credentials_credentialId_revoke', params: { credentialId: String(credentialId) } }, FrameType.AnonymousGovernanceActionResponse, config, {
         requestFrame: FrameType.AnonymousGovernanceActionRequest,
         request
     });
@@ -2145,12 +2080,12 @@ export async function exportArticleContent(
     config?: ApiRequestConfig
 ): Promise<ContentExportResponse>
 {
-    return requestAuthoringBinary<ContentExportResponse>(`/articles/${articleId}/export`, FrameType.ContentExport, config);
+    return requestAuthoringBinary<ContentExportResponse>({ operationId: 'binary_get_author_articles_articleId_int_export', params: { articleId } }, FrameType.ContentExport, config);
 }
 
 export async function exportContentBackup(config?: ApiRequestConfig): Promise<ContentBackupExportResponse>
 {
-    return requestAuthoringBinary<ContentBackupExportResponse>('/content/export', FrameType.ContentBackupExport, config);
+    return requestAuthoringBinary<ContentBackupExportResponse>({ operationId: 'binary_get_author_content_export' }, FrameType.ContentBackupExport, config);
 }
 
 export async function importArticleContent(
@@ -2158,8 +2093,7 @@ export async function importArticleContent(
     config?: ApiRequestConfig
 ): Promise<ContentImportResponse>
 {
-    return requestAuthoringBinary<ContentImportResponse>('/articles/import', FrameType.ContentImportResponse, config, {
-        method: 'POST',
+    return requestAuthoringBinary<ContentImportResponse>({ operationId: 'binary_post_author_articles_import' }, FrameType.ContentImportResponse, config, {
         requestFrame: FrameType.ContentImportRequest,
         request
     });
@@ -2170,7 +2104,7 @@ export async function listArticleRevisions(
     config?: ApiRequestConfig
 ): Promise<ArticleRevisionSummaryResponse[]>
 {
-    return requestAuthoringBinary<ArticleRevisionSummaryResponse[]>(`/articles/${articleId}/revisions`, FrameType.ArticleRevisionList, config);
+    return requestAuthoringBinary<ArticleRevisionSummaryResponse[]>({ operationId: 'binary_get_author_articles_articleId_int_revisions', params: { articleId } }, FrameType.ArticleRevisionList, config);
 }
 
 export async function getArticleRevision(
@@ -2179,7 +2113,7 @@ export async function getArticleRevision(
     config?: ApiRequestConfig
 ): Promise<ArticleRevisionDetailResponse>
 {
-    return requestAuthoringBinary<ArticleRevisionDetailResponse>(`/articles/${articleId}/revisions/${revisionId}`, FrameType.ArticleRevisionDetail, config);
+    return requestAuthoringBinary<ArticleRevisionDetailResponse>({ operationId: 'binary_get_author_articles_articleId_int_revisions_revisionId_long', params: { articleId, revisionId } }, FrameType.ArticleRevisionDetail, config);
 }
 
 export async function rollbackArticleRevision(
@@ -2189,8 +2123,7 @@ export async function rollbackArticleRevision(
     config?: ApiRequestConfig
 ): Promise<ArticleMutationResponse>
 {
-    return requestAuthoringBinary<ArticleMutationResponse>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.MutationId, config, {
-        method: 'POST',
+    return requestAuthoringBinary<ArticleMutationResponse>({ operationId: 'binary_post_author_articles_articleId_int_revisions_revisionId_long_rollback', params: { articleId, revisionId } }, FrameType.MutationId, config, {
         requestFrame: FrameType.ArticleRevisionRollbackRequest,
         request
     });
@@ -2204,11 +2137,10 @@ export async function saveArticleResponsibility(
 ): Promise<ArticleResponsibilitySaveResponse>
 {
     return requestAuthoringBinary<ArticleResponsibilitySaveResponse>(
-        `/articles/${articleId}/revisions/${revisionId}/responsibility`,
+        { operationId: 'binary_put_author_articles_articleId_int_revisions_revisionId_long_responsibility', params: { articleId, revisionId } },
         FrameType.ArticleResponsibilityResponse,
         config,
         {
-            method: 'PUT',
             requestFrame: FrameType.ArticleResponsibilityRequest,
             request
         }
@@ -2222,7 +2154,7 @@ export async function getArticleResponsibilityHistory(
 ): Promise<ArticleResponsibilityVersionResponse[]>
 {
     return requestAuthoringBinary<ArticleResponsibilityVersionResponse[]>(
-        `/articles/${articleId}/revisions/${revisionId}/responsibility`,
+        { operationId: 'binary_get_author_articles_articleId_int_revisions_revisionId_long_responsibility', params: { articleId, revisionId } },
         FrameType.ArticleResponsibilityHistory,
         config
     );

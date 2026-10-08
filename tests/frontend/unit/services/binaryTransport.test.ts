@@ -109,7 +109,7 @@ describe('binaryTransport ApiError mapping', () => {
     ))
 
     await expect(transport.requestBinaryOnly({
-      binaryUrl: '/api/binary/injected-decoder',
+      binaryRoute: { operationId: 'binary_get_category' },
       frameType: FrameType.EmptySuccess
     })).resolves.toBe(injectedValue)
     expect(decodeFramePayload).toHaveBeenCalledOnce()
@@ -126,8 +126,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
 
     const pending = requestBinaryOnly({
-      binaryUrl: '/api/binary/admin/deferred',
-      privateScope: 'admin',
+      binaryRoute: { operationId: 'binary_get_admin_article' },
       frameType: FrameType.EmptySuccess
     })
     await vi.waitFor(() => expect(requestSignal).toBeDefined())
@@ -142,7 +141,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('pow-challenge-frame.hex'))
 
     await expect(requestBinaryOnly<{ salt: string; difficulty: number; timestamp: number; signature: string }>({
-      binaryUrl: '/api/binary/auth/pow-challenge',
+      binaryRoute: { operationId: 'binary_get_auth_pow_challenge' },
       frameType: FrameType.PowChallenge
     })).resolves.toMatchObject({
       salt: 'salt-value',
@@ -162,7 +161,7 @@ describe('binaryTransport ApiError mapping', () => {
       mfaMode: 'risk' | 'standard' | null;
       challengeToken: string | null;
     }>({
-      binaryUrl: '/api/binary/auth/anonymous/bootstrap',
+      binaryRoute: { operationId: 'binary_post_auth_anonymous_bootstrap' },
       frameType: FrameType.AuthLoginFlow
     })).resolves.toMatchObject({
       accountId: 7,
@@ -185,7 +184,7 @@ describe('binaryTransport ApiError mapping', () => {
         identityKind: string;
       } | null;
     }>({
-      binaryUrl: '/api/binary/auth/mfa/challenge',
+      binaryRoute: { operationId: 'binary_post_auth_mfa_challenge' },
       frameType: FrameType.MfaChallengeResult
     })).resolves.toMatchObject({
       verified: true,
@@ -208,7 +207,7 @@ describe('binaryTransport ApiError mapping', () => {
       issuer: string;
       account: string;
     }>({
-      binaryUrl: '/api/binary/auth/mfa/setup/start',
+      binaryRoute: { operationId: 'binary_post_auth_mfa_setup_start' },
       frameType: FrameType.MfaSetupStart
     })).resolves.toMatchObject({
       enabled: true,
@@ -230,7 +229,7 @@ describe('binaryTransport ApiError mapping', () => {
       isCurrent: boolean;
       mfaVerified: boolean;
     }>>({
-      binaryUrl: '/api/binary/auth/sessions',
+      binaryRoute: { operationId: 'binary_get_auth_sessions' },
       frameType: FrameType.AuthSessionList
     })).resolves.toMatchObject([
       {
@@ -273,7 +272,7 @@ describe('binaryTransport ApiError mapping', () => {
       banReason: string | null;
       deletedAt: string | null;
     }>({
-      binaryUrl: '/api/binary/auth/me',
+      binaryRoute: { operationId: 'binary_get_auth_me' },
       frameType: FrameType.IdentityAccountSnapshot
     })).resolves.toMatchObject({
       accountId: 42,
@@ -297,7 +296,7 @@ describe('binaryTransport ApiError mapping', () => {
       enabled: boolean;
       verifiedAt: string | null;
     }>({
-      binaryUrl: '/api/binary/auth/mfa/profile',
+      binaryRoute: { operationId: 'binary_get_auth_mfa_profile' },
       frameType: FrameType.MfaProfile
     })).resolves.toMatchObject({
       enabled: true,
@@ -309,7 +308,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('category-list-frame.hex'))
 
     await expect(requestBinaryOnly<Array<{ id: number; name: string; articleCount: number }>>({
-      binaryUrl: '/api/binary/category.aeds',
+      binaryRoute: { operationId: 'binary_get_category_aeds' },
       frameType: FrameType.CategoryList
     })).resolves.toMatchObject([
       { id: 1, name: 'Tech', articleCount: 2 },
@@ -335,7 +334,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
     expect(mockBinaryRequest).toHaveBeenLastCalledWith(
       '/api/binary/system/seo',
-      expect.not.objectContaining({ credentials: 'omit' })
+      expect.objectContaining({ credentials: 'omit' })
     )
 
     mockBinaryRequest.mockResolvedValueOnce(readProtocolFixtureBuffer('page-content-frame.hex'))
@@ -345,7 +344,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
     expect(mockBinaryRequest).toHaveBeenLastCalledWith(
       '/api/binary/system/page/about',
-      expect.not.objectContaining({ credentials: 'omit' })
+      expect.objectContaining({ credentials: 'omit' })
     )
   })
 
@@ -376,8 +375,6 @@ describe('binaryTransport ApiError mapping', () => {
       2,
       '/api/binary/category.aeds',
       expect.objectContaining({
-        credentials: 'omit',
-        requiresPow: true,
         powScope: 'public-read:/api/binary/category.aeds'
       })
     )
@@ -405,32 +402,25 @@ describe('binaryTransport ApiError mapping', () => {
       2,
       '/api/binary/category.aeds',
       expect.objectContaining({
-        credentials: 'omit',
-        requiresPow: true,
         powScope: 'public-read:/api/binary/category.aeds'
       })
     )
   })
 
-  it('does not retry raw binary URLs on 428 because their public-read contract is unknown', async () => {
-    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(428, 'Binary request failed: 428', encodeApiErrorFrame({
-      status: 428,
-      message: '公开读取请求需要 PoW 凭证',
-      details: 'security.pow',
-      traceId: 'trace-raw'
-    })))
+  it('refuses raw binary URLs before sending or retrying a request', async () => {
+    await expect(requestBinaryOnly({ binaryUrl: '/api/binary/category.aeds', frameType: FrameType.CategoryList } as never))
+      .rejects.toMatchObject({ code: AppErrorCode.ProtocolFailure, message: 'binary_route_missing' })
+    expect(mockBinaryRequest).not.toHaveBeenCalled()
+  })
 
-    await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/category.aeds',
-      frameType: FrameType.CategoryList
-    })).rejects.toMatchObject({
-      name: 'BinaryTransportError',
-      kind: 'precondition_required',
-      status: 428,
-      traceId: 'trace-raw'
-    })
-
-    expect(mockBinaryRequest).toHaveBeenCalledTimes(1)
+  it.each([
+    { binaryRoute: { operationId: 'binary_missing' }, frameType: FrameType.EmptySuccess },
+    { binaryRoute: { operationId: 'binary_get_article_id_aeds' }, frameType: FrameType.EmptySuccess },
+    { binaryRoute: { operationId: 'binary_get_admin_article' }, frameType: FrameType.EmptySuccess, requestOptions: { credentials: 'omit' } },
+    { binaryRoute: { operationId: 'binary_get_auth_me' }, frameType: FrameType.EmptySuccess, requestOptions: { method: 'GET' } }
+  ])('refuses invalid or overridden generated contracts before network IO', async (request) => {
+    await expect(requestBinaryOnly(request as never)).rejects.toThrow()
+    expect(mockBinaryRequest).not.toHaveBeenCalled()
   })
 
   it('keeps credentials included for optional identity routes', async () => {
@@ -441,7 +431,7 @@ describe('binaryTransport ApiError mapping', () => {
       frameType: FrameType.IdentityAccountSnapshot
     })
 
-    expect(mockBinaryRequest).toHaveBeenLastCalledWith('/api/binary/auth/me', expect.not.objectContaining({ credentials: 'omit' }))
+    expect(mockBinaryRequest).toHaveBeenLastCalledWith('/api/binary/auth/me', expect.objectContaining({ credentials: 'include' }))
   })
 
   it('maps a ConversationList frame into the expected view model', async () => {
@@ -466,7 +456,7 @@ describe('binaryTransport ApiError mapping', () => {
         } | null;
       }>;
     }>({
-      binaryUrl: '/api/binary/messages/conversations',
+      binaryRoute: { operationId: 'binary_get_messages_conversations' },
       frameType: FrameType.ConversationList
     })).resolves.toMatchObject({
       total: 1,
@@ -502,7 +492,7 @@ describe('binaryTransport ApiError mapping', () => {
       body: string;
       createdAt: string;
     }>({
-      binaryUrl: '/api/binary/messages/conversations/7/reply',
+      binaryRoute: { operationId: 'binary_post_messages_conversations_id_long_reply', params: { id: "7" } },
       frameType: FrameType.ConversationMessage
     })).resolves.toMatchObject({
       messageId: '11',
@@ -535,7 +525,7 @@ describe('binaryTransport ApiError mapping', () => {
         createdAt: string;
       }>;
     }>({
-      binaryUrl: '/api/binary/messages/conversations/7',
+      binaryRoute: { operationId: 'binary_get_messages_conversations_id_long', params: { id: "7" } },
       frameType: FrameType.ConversationDetail
     })).resolves.toMatchObject({
       conversationId: '7',
@@ -572,7 +562,7 @@ describe('binaryTransport ApiError mapping', () => {
         name: string;
       };
     }>>({
-      binaryUrl: '/api/binary/article/featured/2.aeds',
+      binaryRoute: { operationId: 'binary_get_article_featured_size_aeds', params: { size: "2" } },
       frameType: FrameType.ArticleFeatured
     })).resolves.toMatchObject([
       {
@@ -620,7 +610,7 @@ describe('binaryTransport ApiError mapping', () => {
         name: string;
       }>;
     }>({
-      binaryUrl: '/api/binary/article/42.aeds',
+      binaryRoute: { operationId: 'binary_get_article_id_aeds', params: { id: "42" } },
       frameType: FrameType.ArticleDetail
     })).resolves.toMatchObject({
       id: 42,
@@ -654,7 +644,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-hot-frame.hex'))
 
     await expect(requestBinaryOnly<Array<{ id: number; title: string; views: number }>>({
-      binaryUrl: '/api/binary/article/hot/10.aeds',
+      binaryRoute: { operationId: 'binary_get_article_hot_size_aeds', params: { size: "10" } },
       frameType: FrameType.ArticleHot
     })).resolves.toMatchObject([
       { id: 11, title: 'Hot 1', views: 999 },
@@ -666,7 +656,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-related-reading-frame.hex'))
 
     await expect(requestBinaryOnly<any>({
-      binaryUrl: '/api/binary/article/10/related.aeds',
+      binaryRoute: { operationId: 'binary_get_article_articleId_int_related_aeds', params: { articleId: "10" } },
       frameType: FrameType.ArticleRelatedReading
     })).resolves.toMatchObject({
       related: [
@@ -707,7 +697,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-search-frame.hex'))
 
     const res = await requestBinaryOnly<any>({
-      binaryUrl: '/api/binary/search/article?q=AEDS',
+      binaryRoute: { operationId: 'binary_get_article_search_query_aeds', query: {"q":"AEDS"} },
       frameType: FrameType.ArticleSearch
     });
     expect(res.items).toMatchObject([{
@@ -749,7 +739,7 @@ describe('binaryTransport ApiError mapping', () => {
         }>;
       }>;
     }>({
-      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
+      binaryRoute: { operationId: 'binary_get_article_list_home_page_size_aeds', params: { page: "1", size: "10" } },
       frameType: FrameType.ArticleList
     })).resolves.toMatchObject({
       total: 17,
@@ -817,7 +807,7 @@ describe('binaryTransport ApiError mapping', () => {
       content: string;
       createTime: string;
     }>>({
-      binaryUrl: '/api/binary/stats/recent-comments',
+      binaryRoute: { operationId: 'binary_get_stats_recent_comments' },
       frameType: FrameType.RecentCommentStats
     })).resolves.toMatchObject([
       {
@@ -846,7 +836,7 @@ describe('binaryTransport ApiError mapping', () => {
       region: string;
       count: number;
     }>>({
-      binaryUrl: '/api/binary/stats/regions',
+      binaryRoute: { operationId: 'binary_get_stats_regions' },
       frameType: FrameType.RegionStats
     })).resolves.toMatchObject([
       {
@@ -894,7 +884,7 @@ describe('binaryTransport ApiError mapping', () => {
         count: number;
       }>;
     }>({
-      binaryUrl: '/api/binary/stats',
+      binaryRoute: { operationId: 'binary_get_stats' },
       frameType: FrameType.AdminStats
     })).resolves.toMatchObject({
       overview: {
@@ -973,7 +963,7 @@ describe('binaryTransport ApiError mapping', () => {
       loginLogoUrl: string;
       loginIconUrl: string;
     }>({
-      binaryUrl: '/api/binary/system/seo',
+      binaryRoute: { operationId: 'binary_get_system_seo' },
       frameType: FrameType.SeoConfig
     })).resolves.toMatchObject({
       title: 'Fsus Blog',
@@ -1010,7 +1000,7 @@ describe('binaryTransport ApiError mapping', () => {
       slug: string;
       content: string;
     }>({
-      binaryUrl: '/api/binary/system/page/about',
+      binaryRoute: { operationId: 'binary_get_system_page_slug', params: { slug: "about" } },
       frameType: FrameType.PageContent
     })).resolves.toMatchObject({
       slug: 'about',
@@ -1061,7 +1051,7 @@ describe('binaryTransport ApiError mapping', () => {
         }>;
       }>;
     }>({
-      binaryUrl: '/api/binary/comment/5?limit=10',
+      binaryRoute: { operationId: 'binary_get_comment_articleId_int', params: { articleId: "5" }, query: {"limit":"10"} },
       frameType: FrameType.CommentArticleCursor
     })).resolves.toMatchObject({
       nextCursor: '777',
@@ -1115,7 +1105,7 @@ describe('binaryTransport ApiError mapping', () => {
     const buffer = readProtocolFixtureBuffer('api-error-frame.hex')
     mockBinaryRequest.mockRejectedValue(new BinaryRequestError(403, 'Binary request failed: 403', buffer))
 
-    await requestBinaryOnly({ binaryUrl: '/api/binary/example', frameType: FrameType.EmptySuccess })
+    await requestBinaryOnly({ binaryRoute: { operationId: 'binary_get_category' }, frameType: FrameType.EmptySuccess })
       .then(() => {
         throw new Error('expected requestBinaryOnly to throw')
       })
@@ -1145,7 +1135,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockRejectedValue(new BinaryRequestError(status, `Binary request failed: ${status}`, new ArrayBuffer(0)))
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
+      binaryRoute: { operationId: 'binary_get_article_list_home_page_size_aeds', params: { page: "1", size: "10" } },
       frameType: FrameType.ArticleList
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',
@@ -1173,7 +1163,7 @@ describe('binaryTransport ApiError mapping', () => {
     ))
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/auth/recovery-key/verify',
+      binaryRoute: { operationId: 'binary_post_auth_recovery_key_verify' },
       frameType: FrameType.RecoveryKeyVerifyResponse
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',
@@ -1197,7 +1187,7 @@ describe('binaryTransport ApiError mapping', () => {
     ))
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/auth/passkey/login/begin',
+      binaryRoute: { operationId: 'binary_post_auth_passkey_login_begin' },
       frameType: FrameType.PasskeyLoginBegin
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',
@@ -1228,7 +1218,7 @@ describe('binaryTransport ApiError mapping', () => {
     ))
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/auth/passkey/login/begin',
+      binaryRoute: { operationId: 'binary_post_auth_passkey_login_begin' },
       frameType: FrameType.PasskeyLoginBegin
     })).rejects.toMatchObject({
       riskChallengeHandoff: undefined
@@ -1253,7 +1243,7 @@ describe('binaryTransport ApiError mapping', () => {
     ))
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/comment/1',
+      binaryRoute: { operationId: 'binary_get_comment_articleId_int', params: { articleId: "1" } },
       frameType: FrameType.ArticleList
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',
@@ -1285,7 +1275,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/comment/42?token=secret',
+      binaryRoute: { operationId: 'binary_get_comment_articleId_int', params: { articleId: "42" }, query: {"token":"secret"} },
       frameType: FrameType.ArticleList
     })).rejects.toBeInstanceOf(BinaryTransportError)
 
@@ -1293,8 +1283,8 @@ describe('binaryTransport ApiError mapping', () => {
     expect(payloads).toHaveLength(1)
     for (const payload of payloads) {
       expect(payload).toEqual({
-        operationId: 'binary_legacy_request',
-        routeClass: 'legacy',
+        operationId: 'binary_get_comment_articleId_int',
+        routeClass: 'public',
         status: 429,
         errorCode: 7,
         category: 13,
@@ -1310,7 +1300,7 @@ describe('binaryTransport ApiError mapping', () => {
     const recordSpy = recordTelemetrySpy
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/auth/me',
+      binaryRoute: { operationId: 'binary_get_auth_me' },
       frameType: FrameType.IdentityAccountSnapshot,
       suppressAuthFailureTelemetry: true
     })).rejects.toMatchObject({
@@ -1329,7 +1319,7 @@ describe('binaryTransport ApiError mapping', () => {
     const recordSpy = recordTelemetrySpy
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
+      binaryRoute: { operationId: 'binary_get_article_list_home_page_size_aeds', params: { page: "1", size: "10" } },
       frameType: FrameType.ArticleList,
       signal: controller.signal
     })).rejects.toMatchObject({
@@ -1347,7 +1337,7 @@ describe('binaryTransport ApiError mapping', () => {
     const recordSpy = recordTelemetrySpy
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/system/seo',
+      binaryRoute: { operationId: 'binary_get_system_seo' },
       frameType: FrameType.SeoConfig,
       requestOptions: {
         signal: controller.signal
@@ -1367,7 +1357,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/auth/pow-challenge',
+      binaryRoute: { operationId: 'binary_get_auth_pow_challenge' },
       frameType: FrameType.PowChallenge
     })).rejects.toMatchObject({
       name: 'BinaryTransportError',

@@ -1,5 +1,5 @@
 import type { TransportFailureKind } from '@/contracts/binaryTransport';
-import type { FsusBinaryOperationId } from '@/generated/fsusBinaryRoutes';
+import { fsusBinaryRouteDescriptors, type FsusBinaryOperationId } from '@/generated/fsusBinaryRoutes';
 
 export const BINARY_FAILURE_TELEMETRY_FIELDS = [
     'operationId',
@@ -10,10 +10,10 @@ export const BINARY_FAILURE_TELEMETRY_FIELDS = [
     'frameType'
 ] as const;
 
-export type BinaryFailureRouteClass = 'public' | 'account' | 'admin' | 'legacy';
+export type BinaryFailureRouteClass = 'public' | 'account' | 'admin';
 
 export type BinaryFailureTelemetryDetail = Readonly<{
-    operationId: FsusBinaryOperationId | 'binary_legacy_request' | 'binary_unknown';
+    operationId: FsusBinaryOperationId;
     routeClass: BinaryFailureRouteClass;
     status: number;
     errorCode: number | TransportFailureKind;
@@ -22,8 +22,7 @@ export type BinaryFailureTelemetryDetail = Readonly<{
 }>;
 
 interface BinaryFailureTelemetryInput {
-    operationId?: unknown;
-    routeClass?: unknown;
+    operationId: FsusBinaryOperationId;
     status?: unknown;
     backendCode?: unknown;
     kind?: unknown;
@@ -36,7 +35,6 @@ const SENSITIVE_KEY = /(?:authorization|cookie|token|proof|session(?:[-_ ]?id)?|
 const SAFE_STRUCTURED_STRING_KEY = /^(?:operationId|routeClass|errorCode|kind|type|category|outcome|phase|level|source|eventInfo|reasonCode)$/u;
 const SENSITIVE_STRING = /(?:https?:\/\/|\/api\/|\bBearer\s+|\b(?:token|proof|session|recovery[-_ ]?key|authorization|cookie|secret|password|trace(?:id)?)\s*[:=]|\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/iu;
 const SAFE_CONSOLE_LABEL = /^[\[\]A-Za-z0-9_.:+ -]{1,240}$/u;
-const ROUTE_CLASSES = new Set<BinaryFailureRouteClass>(['public', 'account', 'admin', 'legacy']);
 const FAILURE_KINDS = new Set<TransportFailureKind>([
     'binary_disabled',
     'auth_failed',
@@ -55,13 +53,14 @@ const FAILURE_KINDS = new Set<TransportFailureKind>([
 
 export function createBinaryFailureTelemetryDetail(input: BinaryFailureTelemetryInput): BinaryFailureTelemetryDetail
 {
-    const operationId = typeof input.operationId === 'string'
-    && /^binary_[a-z0-9_]+$/u.test(input.operationId)
-        ? input.operationId as FsusBinaryOperationId | 'binary_legacy_request'
-        : 'binary_unknown';
-    const routeClass = typeof input.routeClass === 'string' && ROUTE_CLASSES.has(input.routeClass as BinaryFailureRouteClass)
-        ? input.routeClass as BinaryFailureRouteClass
-        : 'legacy';
+    const descriptor = fsusBinaryRouteDescriptors[input.operationId];
+    if (!descriptor || !['anonymous', 'optional', 'user', 'admin'].includes(descriptor.auth))
+    {
+        throw new Error('binary_failure_telemetry_descriptor_invalid');
+    }
+    const operationId = descriptor.operationId;
+    const routeClass: BinaryFailureRouteClass = descriptor.auth === 'admin'
+        ? 'admin' : descriptor.auth === 'anonymous' ? 'public' : 'account';
     const kind = typeof input.kind === 'string' && FAILURE_KINDS.has(input.kind as TransportFailureKind)
         ? input.kind as TransportFailureKind
         : 'decode_failed';

@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -28,13 +29,11 @@ describe('readProof API (binary)', () => {
 
     const call = mockBinary.mock.calls[0][0]
     expect(call).toEqual(expect.objectContaining({
-      binaryUrl: '/api/binary/read-proof/challenge.aeds',
+      binaryRoute: { operationId: 'binary_post_read_proof_challenge_aeds' },
       frameType: FrameType.HumanReadChallengeResponse,
       signal
     }))
     expect(call.requestOptions).toEqual(expect.objectContaining({
-      method: 'POST',
-      credentials: 'include',
       body: expect.any(ArrayBuffer)
     }))
     expect(call.requestOptions?.headers).toBeUndefined()
@@ -52,12 +51,10 @@ describe('readProof API (binary)', () => {
 
     const call = mockBinary.mock.calls[0][0]
     expect(call).toEqual(expect.objectContaining({
-      binaryUrl: '/api/binary/read-proof/submit.aeds',
+      binaryRoute: { operationId: 'binary_post_read_proof_submit_aeds' },
       frameType: FrameType.HumanReadSubmitResponse
     }))
     expect(call.requestOptions).toEqual(expect.objectContaining({
-      method: 'POST',
-      credentials: 'include',
       body: expect.any(ArrayBuffer)
     }))
     expect(call.requestOptions?.headers).toBeUndefined()
@@ -68,4 +65,9 @@ describe('readProof API (binary)', () => {
 
 function readFrameType(buffer: ArrayBuffer): number {
   return new DataView(buffer).getUint16(8, true)
+}
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
 }

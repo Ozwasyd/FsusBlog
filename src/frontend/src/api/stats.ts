@@ -16,8 +16,7 @@ export type { AdminStatsOverview, AdminStatsQuery, RecentCommentStatItem, Region
 
 export const getAdminStatsQuery = (config?: ApiRequestConfig) =>
     requestBinaryOnly<AdminStatsQuery>({
-        binaryUrl: '/api/binary/stats',
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_get_stats' },
         frameType: FrameType.AdminStats,
         signal: config?.signal
     });
@@ -27,16 +26,14 @@ export const getSiteStatsOverview = async (config?: ApiRequestConfig) =>
 
 export const getRecentCommentStats = (config?: ApiRequestConfig) =>
     requestBinaryOnly<RecentCommentStatItem[]>({
-        binaryUrl: '/api/binary/stats/recent-comments',
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_get_stats_recent_comments' },
         frameType: FrameType.RecentCommentStats,
         signal: config?.signal
     });
 
 export const getRegionStats = (config?: ApiRequestConfig) =>
     requestBinaryOnly<RegionStatItem[]>({
-        binaryUrl: '/api/binary/stats/regions',
-        privateScope: 'admin',
+        binaryRoute: { operationId: 'binary_get_stats_regions' },
         frameType: FrameType.RegionStats,
         signal: config?.signal
     });

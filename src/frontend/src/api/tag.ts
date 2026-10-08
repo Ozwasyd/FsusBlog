@@ -27,7 +27,6 @@ export const getTags = (config?: { signal?: AbortSignal; }) =>
         frameType: FrameType.TagList,
         signal: config?.signal,
         requestOptions: {
-            method: 'GET'
         }
     });
 
@@ -37,7 +36,6 @@ export const getTagExactMetadata = (id: number, config?: { signal?: AbortSignal;
         frameType: FrameType.TaxonomyExactMetadata,
         signal: config?.signal,
         requestOptions: {
-            method: 'GET'
         }
     });
 
@@ -50,7 +48,6 @@ export const getTagExactMetadataByName = (name: string, config?: { signal?: Abor
         frameType: FrameType.TaxonomyExactMetadata,
         signal: config?.signal,
         requestOptions: {
-            method: 'GET'
         }
     });
 
@@ -65,8 +62,6 @@ export const createTag = (request: string | TaxonomyMetadataMutationRequest, con
         signal: config?.signal as AbortSignal | undefined,
         requestOptions: {
             ...config,
-            method: 'POST',
-            requiresPow: true,
             body: encodeAedsFrame(FrameType.TagWriteRequest, encodeTaxonomyMetadataMutationRequest(toMetadataRequest(request)))
         }
     });
@@ -82,8 +77,6 @@ export const updateTag = (id: number, request: string | TaxonomyMetadataMutation
         signal: config?.signal as AbortSignal | undefined,
         requestOptions: {
             ...config,
-            method: 'PUT',
-            requiresPow: true,
             body: encodeAedsFrame(FrameType.TagWriteRequest, encodeTaxonomyMetadataMutationRequest(toMetadataRequest(request)))
         }
     });
@@ -99,8 +92,6 @@ export const deleteTag = (id: number, config?: RequestInit) =>
         signal: config?.signal as AbortSignal | undefined,
         requestOptions: {
             ...config,
-            method: 'DELETE',
-            requiresPow: true
         }
     });
 

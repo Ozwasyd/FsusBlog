@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -19,7 +20,7 @@ describe('stats API', () => {
   it('getAdminStatsQuery uses single binary stats frame', async () => {
     await getAdminStatsQuery()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/stats',
+      binaryRoute: { operationId: 'binary_get_stats' },
       frameType: FrameType.AdminStats
     }))
   })
@@ -30,7 +31,7 @@ describe('stats API', () => {
 
     await expect(getSiteStatsOverview()).resolves.toBe(overview)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/stats',
+      binaryRoute: { operationId: 'binary_get_stats' },
       frameType: FrameType.AdminStats
     }))
   })
@@ -38,7 +39,7 @@ describe('stats API', () => {
   it('getRecentCommentStats uses binary recent comments frame', async () => {
     await getRecentCommentStats()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/stats/recent-comments',
+      binaryRoute: { operationId: 'binary_get_stats_recent_comments' },
       frameType: FrameType.RecentCommentStats
     }))
   })
@@ -46,9 +47,14 @@ describe('stats API', () => {
   it('getRegionStats uses binary region frame', async () => {
     await getRegionStats()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/stats/regions',
+      binaryRoute: { operationId: 'binary_get_stats_regions' },
       frameType: FrameType.RegionStats
     }))
   })
 
 })
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
+}

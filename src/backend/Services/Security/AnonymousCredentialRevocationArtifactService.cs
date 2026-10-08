@@ -159,10 +159,21 @@ public sealed class AnonymousCredentialRevocationArtifactService(
             ["epoch"] = epoch,
             ["version"] = version,
             ["contentAddress"] = normalizedRoot,
-            ["snapshotPath"] = $"/api/binary/anonymous-credential/revocation/{epoch}/{version}/{normalizedRoot}/full.aeds",
-            ["deltaPath"] = version > 0
-                ? $"/api/binary/anonymous-credential/revocation/{epoch}/{version}/{normalizedRoot}/delta/{version - 1}.aeds"
-                : null,
+            ["snapshot"] = new JsonObject
+            {
+                ["kind"] = "snapshot",
+                ["epoch"] = epoch,
+                ["version"] = version,
+                ["revocationRoot"] = normalizedRoot
+            },
+            ["delta"] = version > 0 ? new JsonObject
+            {
+                ["kind"] = "delta",
+                ["epoch"] = epoch,
+                ["version"] = version,
+                ["revocationRoot"] = normalizedRoot,
+                ["baseVersion"] = version - 1
+            } : null,
             ["entryBytes"] = 32,
             ["maxArtifactBytes"] = AnonymousPrivacyContract.MaxRevocationArtifactBytes
         };

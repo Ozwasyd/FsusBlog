@@ -168,7 +168,6 @@ export async function setClusterNodeState(
         FrameType.ClusterRuntimeSnapshot,
         config,
         {
-            method: 'POST',
             requestFrame: FrameType.ClusterNodeStateRequest,
             request: { state, reason }
         }
@@ -186,7 +185,6 @@ export async function setClusterSchedulerState(
         FrameType.ClusterRuntimeSnapshot,
         config,
         {
-            method: 'POST',
             requestFrame: FrameType.ClusterSchedulerStateRequest,
             request: { enabled, reason }
         }
@@ -204,7 +202,6 @@ export async function releaseExpiredClusterLease(
         FrameType.ClusterRuntimeSnapshot,
         config,
         {
-            method: 'POST',
             requestFrame: FrameType.ClusterLeaseReleaseRequest,
             request: { reason }
         }

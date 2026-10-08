@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FrameType } from '@wasm/protocol/frame';
 import {
@@ -70,7 +71,6 @@ describe('cluster operations API AEDS binary transport', () => {
         expect(binaryMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 binaryUrl: '/api/binary/author/ops/cluster/nodes',
-                privateScope: 'admin',
                 frameType: FrameType.ClusterRuntimeSnapshot
             })
         );
@@ -86,7 +86,6 @@ describe('cluster operations API AEDS binary transport', () => {
         expect(binaryMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 binaryUrl: '/api/binary/author/ops/cluster/nodes/node-a/state',
-                privateScope: 'admin',
                 frameType: FrameType.ClusterRuntimeSnapshot
             })
         );
@@ -101,7 +100,6 @@ describe('cluster operations API AEDS binary transport', () => {
         expect(binaryMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 binaryUrl: '/api/binary/author/ops/cluster/scheduler',
-                privateScope: 'admin',
                 frameType: FrameType.ClusterRuntimeSnapshot
             })
         );
@@ -116,9 +114,13 @@ describe('cluster operations API AEDS binary transport', () => {
         expect(binaryMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 binaryUrl: '/api/binary/author/ops/cluster/leases/00000000000000000000000000000001/release-expired',
-                privateScope: 'admin',
                 frameType: FrameType.ClusterRuntimeSnapshot
             })
         );
     });
 });
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
+}

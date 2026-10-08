@@ -124,7 +124,7 @@ function writeAotBuckets(value: Record<string, number>): void
     localStorage.setItem(AOT_ACTION_BUCKET_KEY, encodePublicAotPayload(value));
 }
 
-export function recordBinaryFailureTelemetry(input: Record<string, unknown>): BinaryFailureTelemetryDetail
+export function recordBinaryFailureTelemetry(input: Parameters<typeof createBinaryFailureTelemetryDetail>[0] & Record<string, unknown>): BinaryFailureTelemetryDetail
 {
     const detail = createBinaryFailureTelemetryDetail(input);
     const next = readCounter() + 1;

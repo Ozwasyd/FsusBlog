@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -22,19 +23,18 @@ describe('admin API binary mutations', () => {
     await getAdminUserList({ page: 2, pageSize: 20, keyword: 'alice', status: 1 })
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/admin/users?page=2&pageSize=20&keyword=alice&status=1',
+      binaryRoute: { operationId: 'binary_get_admin_users', query: expect.any(URLSearchParams) },
       frameType: FrameType.AdminUserList
     }))
+    expect(routeUrl(mockBinary.mock.calls[0][0])).toBe('/api/binary/admin/users?page=2&pageSize=20&keyword=alice&status=1')
   })
 
   it('adminChangeStatus sends binary status request for accountId with admin step-up proof', async () => {
     await adminChangeStatus({ accountId: 10, status: 1, reason: 'spam' }, { mfaProofToken: 'proof-status' })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/admin/users/status',
+      binaryRoute: { operationId: 'binary_put_admin_users_status' },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
-        method: 'PUT',
-        requiresPow: true,
         headers: expect.any(Headers),
         body: expect.any(ArrayBuffer)
       })
@@ -47,3 +47,8 @@ describe('admin API binary mutations', () => {
     expect(payload.getInt32(4, true)).toBe(1)
   })
 })
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
+}

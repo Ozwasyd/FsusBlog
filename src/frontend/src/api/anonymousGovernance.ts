@@ -1,6 +1,6 @@
+import type { BinaryRouteRequest, BinaryTransportRequest } from '@/contracts/binaryTransport';
 import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
-import { fsusBinaryRoutes } from '@/generated/fsusBinaryRoutes';
 import { getBrowserFp } from '@/utils/fingerprint';
 
 import { FrameType } from '@wasm/protocol/frame';
@@ -115,7 +115,6 @@ export interface AnonymousGovernanceActionResponse {
 }
 
 interface AnonymousGovernanceBinaryRequestOptions {
-    method?: string;
     requestFrame?: FrameType;
     request?: unknown;
 }
@@ -139,27 +138,21 @@ function governanceBody(frameType: FrameType, request: unknown): ArrayBuffer
 }
 
 function requestAnonymousGovernanceBinary<T>(
-    binaryUrl: string,
+    binaryRoute: BinaryRouteRequest,
     config?: ApiRequestConfig,
     options: AnonymousGovernanceBinaryRequestOptions = {}
 ): Promise<T>
 {
-    const requestOptions: RequestInit = {
-        credentials: 'include',
+    const requestOptions: NonNullable<BinaryTransportRequest['requestOptions']> = {
         headers: governanceHeaders(config?.mfaProofToken)
     };
-    if (options.method)
-    {
-        requestOptions.method = options.method;
-    }
     if (options.requestFrame !== undefined)
     {
         requestOptions.body = governanceBody(options.requestFrame, options.request);
     }
 
     return requestBinaryOnly<T>({
-        binaryUrl,
-        privateScope: 'admin',
+        binaryRoute,
         frameType: FrameType.AnonymousGovernanceActionResponse,
         requestOptions,
         signal: config?.signal
@@ -169,7 +162,7 @@ function requestAnonymousGovernanceBinary<T>(
 export function getAnonymousGovernanceStatus(config?: ApiRequestConfig): Promise<AnonymousGovernanceStatusResponse>
 {
     return requestAnonymousGovernanceBinary<AnonymousGovernanceStatusResponse>(
-        fsusBinaryRoutes.binary_get_admin_anonymous_governance_status,
+        { operationId: 'binary_get_admin_anonymous_governance_status' },
         config
     );
 }
@@ -177,7 +170,7 @@ export function getAnonymousGovernanceStatus(config?: ApiRequestConfig): Promise
 export function listAnonymousGovernanceNullifiers(config?: ApiRequestConfig): Promise<AnonymousGovernanceNullifierListResponse>
 {
     return requestAnonymousGovernanceBinary<AnonymousGovernanceNullifierListResponse>(
-        fsusBinaryRoutes.binary_get_admin_anonymous_governance_nullifiers,
+        { operationId: 'binary_get_admin_anonymous_governance_nullifiers' },
         config
     );
 }
@@ -188,10 +181,9 @@ export function blockAnonymousGovernanceNullifier(
 ): Promise<AnonymousGovernanceActionResponse>
 {
     return requestAnonymousGovernanceBinary<AnonymousGovernanceActionResponse>(
-        fsusBinaryRoutes.binary_post_admin_anonymous_governance_nullifiers_block,
+        { operationId: 'binary_post_admin_anonymous_governance_nullifiers_block' },
         config,
         {
-            method: 'POST',
             requestFrame: FrameType.AnonymousGovernanceActionRequest,
             request
         }
@@ -204,10 +196,9 @@ export function revokeAnonymousGovernanceCredential(
 ): Promise<AnonymousGovernanceActionResponse>
 {
     return requestAnonymousGovernanceBinary<AnonymousGovernanceActionResponse>(
-        fsusBinaryRoutes.binary_post_admin_anonymous_governance_credentials_revoke,
+        { operationId: 'binary_post_admin_anonymous_governance_credentials_revoke' },
         config,
         {
-            method: 'POST',
             requestFrame: FrameType.AnonymousGovernanceActionRequest,
             request
         }
