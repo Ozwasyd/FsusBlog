@@ -1,0 +1,37 @@
+{
+  "checkedEvidenceSource": "b3212183862bdc9bfd21b3d473ab6da1d5db842d",
+  "documentLint": {
+    "argv": [
+      "/tmp/node-v24.16.0-linux-x64/bin/node",
+      "/tmp/scheduler-ready-evidence/lint-handoff.mjs"
+    ],
+    "exitCode": 0,
+    "output": "{\"files\":[\"artifacts/scheduler-terminal-handoff/ready-ce19fa1f-442cc6bd/README.md\",\"artifacts/scheduler-terminal-handoff/ready-ce19fa1f-442cc6bd/pr-and-wip-copy.md\"],\"results\":{\"artifacts/scheduler-terminal-handoff/ready-ce19fa1f-442cc6bd/pr-and-wip-copy.md\":[],\"artifacts/scheduler-terminal-handoff/ready-ce19fa1f-442cc6bd/README.md\":[]},\"repositoryRulesUnchanged\":true}\n",
+    "files": 2,
+    "sameRepositoryConfigRules": true
+  },
+  "rawEvidenceDiffCheck": {
+    "argv": [
+      "git",
+      "diff",
+      "--check",
+      "442cc6bd979c88b6af4a3fbe63583af61f4768bd..HEAD"
+    ],
+    "exitCode": 2,
+    "output": "artifacts/scheduler-terminal-handoff/ready-ce19fa1f-442cc6bd/checks/producer-first-attempt/ordinary-real-child.log:17: trailing whitespace.\n+  \nartifacts/scheduler-terminal-handoff/ready-ce19fa1f-442cc6bd/checks/producer-first-attempt/ordinary-real-child.log:22: trailing whitespace.\n+  \n",
+    "reason": "Original failing Node assertion raw output has two whitespace-only diff lines. Preserve raw evidence bytes. This is not a passing evidence diff check; both source-candidate diff checks exit0."
+  },
+  "priorHandoffLintAttempts": [
+    {
+      "command": "markdownlint-cli2 --no-globs on the two artifact docs",
+      "exitCode": 0,
+      "lintedFiles": 0,
+      "status": "not a passing document check; repository artifacts ignore excluded them"
+    },
+    {
+      "command": "promise module import named markdownlint",
+      "exitCode": 1,
+      "status": "incorrect tool API export; corrected to exported lint"
+    }
+  ]
+}
