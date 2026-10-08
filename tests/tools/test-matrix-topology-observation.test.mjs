@@ -8,30 +8,17 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { URL } from 'node:url';
 
-import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
-import { runtimeRoleProject } from '../../tools/contracts/lib/runtime-role-observation.mjs';
-import {
-    buildIdentitiesFromMinimalReceipt,
-    minimalContractSourceClosureDigests,
-    runMinimalContractBuild,
-    validateMinimalContractBuildReceipt
-} from '../../tools/docs/behavior-doc-minimal-contract-build.mjs';
-import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs';
-import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs';
-import { semanticDigestFromReceipt } from '../../tools/fact-extractors/receipt.mjs';
-import {
-    loadRegistry,
-    validateOwnershipAgainstBehaviorCatalog,
-    root
-} from '../../tools/fact-extractors/registry.mjs';
-import { runExtractor, assertDeterministicSemanticDigest } from '../../tools/fact-extractors/runner.mjs';
-import {
-    extract as extractTestMatrix,
-    TEST_MATRIX_REQUIRED_FACT_KEYS,
-    TEST_MATRIX_DECLARED_FACT_SOURCES,
-    TEST_MATRIX_CONSUMER_INPUTS
-} from '../../tools/fact-extractors/test-matrix/extract.mjs';
+const { loadCatalog } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
+const { runtimeRoleProject } = await import(new URL('../../tools/contracts/lib/runtime-role-observation.mjs', import.meta.url));
+const { buildIdentitiesFromMinimalReceipt, minimalContractSourceClosureDigests, runMinimalContractBuild, validateMinimalContractBuildReceipt } = await import(new URL('../../tools/docs/behavior-doc-minimal-contract-build.mjs', import.meta.url));
+const { sealSourceIdentity } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
+const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
+const { semanticDigestFromReceipt } = await import(new URL('../../tools/fact-extractors/receipt.mjs', import.meta.url));
+const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await import(new URL('../../tools/fact-extractors/registry.mjs', import.meta.url));
+const { runExtractor, assertDeterministicSemanticDigest } = await import(new URL('../../tools/fact-extractors/runner.mjs', import.meta.url));
+const { extract, TEST_MATRIX_REQUIRED_FACT_KEYS, TEST_MATRIX_DECLARED_FACT_SOURCES, TEST_MATRIX_CONSUMER_INPUTS } = await import(new URL('../../tools/fact-extractors/test-matrix/extract.mjs', import.meta.url));
 const { resolveDockerComposeOracleIdentity } = await import(new URL('../../tools/governance/check-monolithic-distributed-architecture.mjs', import.meta.url));
 
 const extractorId = 'test-matrix-fact-extractor';
@@ -132,7 +119,7 @@ function extractMutatedRuntimeObservation(directory, mutate)
     receipt.contentDigest = digestValue(receipt);
     writeFileSync(path.join(directory, buildReceiptPath), `${JSON.stringify(receipt, null, 2)}\n`);
     const identity = buildIdentitiesFromMinimalReceipt(receipt)['runtime-role-observation'];
-    return extractTestMatrix({
+    return extract({
         repositoryRoot: directory,
         extractor: registryExtractor(),
         sourceCommit: sourceIdentity.sourceCommit,
@@ -146,7 +133,7 @@ function fixtureRepository(options = {})
 {
     if (!trustedRuntimeBuildVerified)
     {
-        const current = extractTestMatrix({
+        const current = extract({
             repositoryRoot: root,
             extractor: registryExtractor(),
             sourceCommit: sourceIdentity.sourceCommit,
@@ -301,7 +288,7 @@ function extractFrom(repositoryRoot, extractorOverrides = {})
 {
     const base = registryExtractor();
     const build = repositoryRoot === root ? runtimeRoleBuild : bindFixtureBuild(repositoryRoot);
-    return extractTestMatrix({
+    return extract({
         repositoryRoot,
         buildIdentity: build.buildIdentity,
         buildReceiptPath: build.buildReceiptPath,
@@ -492,7 +479,7 @@ test('runtime-role replay ignores external TMPDIR and cleans repeated compiled o
         process.env.TMPDIR = external;
         for (let attempt = 0; attempt < 2; attempt += 1)
         {
-            const result = extractTestMatrix({
+            const result = extract({
                 repositoryRoot: root,
                 extractor: registryExtractor(),
                 sourceCommit: sourceIdentity.sourceCommit,
@@ -571,7 +558,7 @@ test('runtime-role replay refuses a symlinked canonical owner before writing out
         mkdirSync(path.dirname(owner), { recursive: true });
         assert.equal(existsSync(owner), false);
         symlinkSync(external, owner, 'dir');
-        const result = extractTestMatrix({
+        const result = extract({
             repositoryRoot: directory,
             extractor: registryExtractor(),
             sourceCommit: sourceIdentity.sourceCommit,
@@ -905,7 +892,7 @@ test('8) extractor refuses docs/testing as fact source', () =>
         // Ensure the forbidden input file exists for the read attempt path.
         assert.ok(existsSync(path.join(directory, 'docs/testing.generated.md')));
         const build = bindFixtureBuild(directory);
-        const result = extractTestMatrix({
+        const result = extract({
             repositoryRoot: directory,
             extractor,
             sourceCommit: sourceIdentity.sourceCommit,
@@ -928,7 +915,7 @@ test('runtime-role observation requires exact receipt and rejects semantic tampe
     try
     {
         const extractor = registryExtractor();
-        const missingIdentity = extractTestMatrix({ repositoryRoot: directory, extractor });
+        const missingIdentity = extract({ repositoryRoot: directory, extractor });
         assert.equal(missingIdentity.status, 'failed');
         assert.match(missingIdentity.failureReasons.join('\n'), /exact runtime-role-observation buildIdentity/iu);
 
@@ -949,7 +936,7 @@ test('runtime-role observation requires exact receipt and rejects semantic tampe
         observation.observationDigest = createHash('sha256').update(JSON.stringify(unsigned)).digest('hex');
         writeFileSync(artifact, `${JSON.stringify(observation, null, 2)}\n`);
         const artifactDigest = createHash('sha256').update(readFileSync(artifact)).digest('hex');
-        const semanticTamper = extractTestMatrix({
+        const semanticTamper = extract({
             repositoryRoot: directory,
             extractor,
             sourceCommit: sourceIdentity.sourceCommit,
@@ -1020,7 +1007,7 @@ test('runtime-role upstream source, parent receipt, assembly and deployment iden
                     `${JSON.stringify(receipt, null, 2)}\n`
                 );
             }
-            const result = extractTestMatrix({
+            const result = extract({
                 repositoryRoot: directory,
                 extractor: registryExtractor(),
                 sourceCommit: sourceIdentity.sourceCommit,
@@ -1089,7 +1076,7 @@ test('coordinated DLL, raw observation and artifact reseal cannot replace the tr
         );
         const identity = buildIdentitiesFromMinimalReceipt(receipt)['runtime-role-observation'];
 
-        const result = extractTestMatrix({
+        const result = extract({
             repositoryRoot: directory,
             extractor: registryExtractor(),
             sourceCommit: sourceIdentity.sourceCommit,
@@ -1133,7 +1120,7 @@ test('nested source and artifact symlinks fail closed before digest consumption'
                 renameSync(observations, physical);
                 symlinkSync(path.basename(physical), observations);
             }
-            const result = extractTestMatrix({
+            const result = extract({
                 repositoryRoot: directory,
                 extractor: registryExtractor(),
                 sourceCommit: sourceIdentity.sourceCommit,
