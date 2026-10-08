@@ -471,13 +471,24 @@ function cancelProgrammaticViewportSuppression(): void
 
 onBeforeUnmount(cancelProgrammaticViewportSuppression);
 
-function trackAuthoringSelection(event: FsusUiMarkdownEditorSelectionEvent): void
+function trackAuthoringSelection(event: ArticleAuthoringSelectionEvent): void
 {
-    const identity = props.documentIdentity;
-    emit('selection-change', identity ? { ...event, documentIdentity: identity } : event);
+    const identity = event.documentIdentity;
+    emit('selection-change', event);
     if (identity === undefined)
     {
         currentAuthoringBinding.value = null;
+        return;
+    }
+    const expected = props.documentIdentity;
+    if (identity.id !== expected?.id || identity.epoch !== expected?.epoch)
+    {
+        return;
+    }
+    const current = currentAuthoringBinding.value;
+    if (current?.documentId === identity.id &&
+        current.documentEpoch === identity.epoch && event.revision < current.revision)
+    {
         return;
     }
     currentAuthoringBinding.value = Object.freeze({
@@ -494,6 +505,18 @@ function trackAuthoringTransaction(event: FsusUiMarkdownEditorTransactionEvent):
 {
     emit('transaction', event);
     if (!event.accepted)
+    {
+        return;
+    }
+    const identity = props.documentIdentity;
+    if (identity && (identity.id !== event.documentIdentity.id ||
+        identity.epoch !== event.documentIdentity.epoch))
+    {
+        return;
+    }
+    const current = currentAuthoringBinding.value;
+    if (current?.documentId === event.documentIdentity.id &&
+        current.documentEpoch === event.documentIdentity.epoch && event.revision < current.revision)
     {
         return;
     }

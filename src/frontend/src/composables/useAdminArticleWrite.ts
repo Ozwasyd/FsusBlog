@@ -3241,6 +3241,7 @@ export function useAdminArticleWrite()
         articleForm,
         authoringDocumentContext,
         authoringDocumentIdentity,
+        authoringDocumentContextAdapter: articleDocumentContextAdapter,
         authoringAttachmentRuntime,
         authoringEditorRuntime,
         currentRevisionId,

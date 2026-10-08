@@ -13,17 +13,21 @@
             "id": "css-like-contract",
             "paths": [
                 "docs/architecture/overview.md",
-                "docs/api/contracts.md"
+                "docs/api/contracts.md",
+                "docs/architecture/article-asset-reference-lifecycle.md"
             ],
-            "reason": "Preserve documented public selector, token and contract spellings while updating canonical anchor, attachment lifecycle and relation boundary ownership."
+            "reason": "Preserve documented public selector, token and contract spellings while updating canonical anchor, attachment lifecycle, relation ownership and the consumed native asset-observation boundary."
         },
         {
             "id": "environment-variable",
             "paths": [
                 "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
-                "tools/governance/check-article-relations.mjs"
+                "tools/governance/check-article-relations.mjs",
+                "src/backend/Interfaces/IFileService.cs",
+                "src/backend/Interfaces/UploadAssetObservation.cs",
+                "src/backend/Services/FileService.AssetObservation.cs"
             ],
-            "reason": "Preserve established repository tool and contract surface naming while correcting canonical block identity validation; no environment variable or external identifier is renamed."
+            "reason": "Preserve established process environment and external contract spellings on the registered C# surfaces while consuming the exact original-owner native asset observer; no external identifier is renamed."
         }
     ]
 }
