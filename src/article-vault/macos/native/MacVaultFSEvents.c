@@ -18,7 +18,7 @@ typedef struct statfs MacVaultMountInformation;
 typedef struct dirent MacVaultDirectoryEntry;
 typedef struct attrlist MacVaultAttributeList;
 
-typedef void (*MacVaultCallback)(void *, const char *, uint32_t, uint64_t, int);
+typedef void (*MacVaultCallback)(void*, const char*, uint32_t, uint64_t, int);
 
 typedef struct
 {
@@ -31,7 +31,7 @@ typedef struct
     FSEventStreamRef stream;
     dispatch_queue_t queue;
     MacVaultCallback callback;
-    void *callbackContext;
+    void* callbackContext;
     size_t maxBatch;
     bool started;
 } MacVaultNative;
@@ -50,16 +50,15 @@ enum
     MacVaultBoundExceeded = 9
 };
 
-static bool SameMount(const MacVaultMountInformation *left, const MacVaultMountInformation *right)
+static bool SameMount(const MacVaultMountInformation* left, const MacVaultMountInformation* right)
 {
     return memcmp(&left->f_fsid, &right->f_fsid, sizeof(left->f_fsid)) == 0
-        && strcmp(left->f_mntonname, right->f_mntonname) == 0
-        && strcmp(left->f_mntfromname, right->f_mntfromname) == 0
-        && strcmp(right->f_fstypename, "apfs") == 0
-        && (right->f_flags & MNT_LOCAL) != 0;
+           && strcmp(left->f_mntonname, right->f_mntonname) == 0
+           && strcmp(left->f_mntfromname, right->f_mntfromname) == 0 && strcmp(right->f_fstypename, "apfs") == 0
+           && (right->f_flags & MNT_LOCAL) != 0;
 }
 
-static int CheckDescriptor(MacVaultNative *vault, int descriptor, bool control)
+static int CheckDescriptor(MacVaultNative* vault, int descriptor, bool control)
 {
     MacVaultFileInformation information;
     MacVaultMountInformation filesystem;
@@ -79,8 +78,7 @@ static int CheckDescriptor(MacVaultNative *vault, int descriptor, bool control)
     if (fcntl(descriptor, F_GETPATH, descriptorPath) != 0
         || (strcmp(descriptorPath, vault->rootPath) != 0
             && (strncmp(descriptorPath, vault->rootPath, rootLength) != 0 || descriptorPath[rootLength] != '/'))
-        || realpath(descriptorPath, canonical) == NULL
-        || strcmp(canonical, descriptorPath) != 0)
+        || realpath(descriptorPath, canonical) == NULL || strcmp(canonical, descriptorPath) != 0)
     {
         return MacVaultPathBlocked;
     }
@@ -88,8 +86,9 @@ static int CheckDescriptor(MacVaultNative *vault, int descriptor, bool control)
     if ((!S_ISDIR(information.st_mode) && !S_ISREG(information.st_mode))
         || (information.st_mode & (S_IRUSR | S_IRGRP | S_IROTH)) == 0
         || (S_ISDIR(information.st_mode) && (information.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) == 0)
-        || (control && (information.st_uid != geteuid() || (information.st_mode & (S_IWGRP | S_IWOTH)) != 0
-            || (S_ISREG(information.st_mode) && information.st_nlink != 1))))
+        || (control
+            && (information.st_uid != geteuid() || (information.st_mode & (S_IWGRP | S_IWOTH)) != 0
+                || (S_ISREG(information.st_mode) && information.st_nlink != 1))))
     {
         return MacVaultPermission;
     }
@@ -97,19 +96,15 @@ static int CheckDescriptor(MacVaultNative *vault, int descriptor, bool control)
     return 0;
 }
 
-static int CheckRoot(MacVaultNative *vault)
+static int CheckRoot(MacVaultNative* vault)
 {
     char canonical[PATH_MAX];
     char descriptorPath[PATH_MAX];
     MacVaultFileInformation current;
-    if (realpath(vault->rootPath, canonical) == NULL
-        || strcmp(canonical, vault->rootPath) != 0
-        || fcntl(vault->descriptor, F_GETPATH, descriptorPath) != 0
-        || strcmp(descriptorPath, vault->rootPath) != 0
-        || lstat(vault->rootPath, &current) != 0
-        || !S_ISDIR(current.st_mode)
-        || current.st_dev != vault->rootStat.st_dev
-        || current.st_ino != vault->rootStat.st_ino)
+    if (realpath(vault->rootPath, canonical) == NULL || strcmp(canonical, vault->rootPath) != 0
+        || fcntl(vault->descriptor, F_GETPATH, descriptorPath) != 0 || strcmp(descriptorPath, vault->rootPath) != 0
+        || lstat(vault->rootPath, &current) != 0 || !S_ISDIR(current.st_mode)
+        || current.st_dev != vault->rootStat.st_dev || current.st_ino != vault->rootStat.st_ino)
     {
         return MacVaultRootLost;
     }
@@ -117,7 +112,7 @@ static int CheckRoot(MacVaultNative *vault)
     return CheckDescriptor(vault, vault->descriptor, false);
 }
 
-static bool EquivalentName(const char *left, const char *right, bool caseSensitive, bool *valid)
+static bool EquivalentName(const char* left, const char* right, bool caseSensitive, bool* valid)
 {
     CFStringRef leftString = CFStringCreateWithCString(NULL, left, kCFStringEncodingUTF8);
     CFStringRef rightString = CFStringCreateWithCString(NULL, right, kCFStringEncodingUTF8);
@@ -147,7 +142,7 @@ static bool EquivalentName(const char *left, const char *right, bool caseSensiti
     return equivalent;
 }
 
-static int CheckNames(int descriptor, const char *segment, bool caseSensitive, bool rootLevel)
+static int CheckNames(int descriptor, const char* segment, bool caseSensitive, bool rootLevel)
 {
     // A separate open file description keeps enumeration offsets local to this observation.
     int enumerationDescriptor = openat(descriptor, ".", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
@@ -156,7 +151,7 @@ static int CheckNames(int descriptor, const char *segment, bool caseSensitive, b
         return MacVaultPermission;
     }
 
-    DIR *directory = fdopendir(enumerationDescriptor);
+    DIR* directory = fdopendir(enumerationDescriptor);
     if (directory == NULL)
     {
         close(enumerationDescriptor);
@@ -165,7 +160,7 @@ static int CheckNames(int descriptor, const char *segment, bool caseSensitive, b
 
     int result = 0;
     size_t count = 0;
-    MacVaultDirectoryEntry *entry;
+    MacVaultDirectoryEntry* entry;
     errno = 0;
     while ((entry = readdir(directory)) != NULL)
     {
@@ -183,8 +178,7 @@ static int CheckNames(int descriptor, const char *segment, bool caseSensitive, b
             break;
         }
 
-        if (rootLevel && EquivalentName(".fsus", entry->d_name, false, &valid)
-            && strcmp(".fsus", entry->d_name) != 0)
+        if (rootLevel && EquivalentName(".fsus", entry->d_name, false, &valid) && strcmp(".fsus", entry->d_name) != 0)
         {
             result = MacVaultPathBlocked;
             break;
@@ -202,7 +196,7 @@ static int CheckNames(int descriptor, const char *segment, bool caseSensitive, b
     return result;
 }
 
-static int OpenRelative(MacVaultNative *vault, const char *relativePath, bool allowMissing, int *resultDescriptor)
+static int OpenRelative(MacVaultNative* vault, const char* relativePath, bool allowMissing, int* resultDescriptor)
 {
     int result = CheckRoot(vault);
     *resultDescriptor = -1;
@@ -226,11 +220,11 @@ static int OpenRelative(MacVaultNative *vault, const char *relativePath, bool al
     }
 
     bool control = strncmp(path, ".fsus/", 6) == 0 || strcmp(path, ".fsus") == 0;
-    char *segment = path;
+    char* segment = path;
     bool rootLevel = true;
     while (segment != NULL)
     {
-        char *separator = strchr(segment, '/');
+        char* separator = strchr(segment, '/');
         if (separator != NULL)
         {
             *separator = '\0';
@@ -297,8 +291,8 @@ static int OpenRelative(MacVaultNative *vault, const char *relativePath, bool al
     return 0;
 }
 
-__attribute__((visibility("default"))) MacVaultNative *FsusVaultMacOpen(
-    const char *rootPath, uint64_t *fileId, uint32_t *device, int *caseSensitive, int *error)
+__attribute__((visibility("default"))) MacVaultNative*
+FsusVaultMacOpen(const char* rootPath, uint64_t* fileId, uint32_t* device, int* caseSensitive, int* error)
 {
     *error = MacVaultRootInvalid;
     char canonical[PATH_MAX];
@@ -312,8 +306,8 @@ __attribute__((visibility("default"))) MacVaultNative *FsusVaultMacOpen(
     int descriptor = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     char components[PATH_MAX];
     memcpy(components, rootPath + 1, strlen(rootPath));
-    char *state = NULL;
-    for (char *segment = strtok_r(components, "/", &state); segment != NULL; segment = strtok_r(NULL, "/", &state))
+    char* state = NULL;
+    for (char* segment = strtok_r(components, "/", &state); segment != NULL; segment = strtok_r(NULL, "/", &state))
     {
         int child = openat(descriptor, segment, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
         close(descriptor);
@@ -324,7 +318,7 @@ __attribute__((visibility("default"))) MacVaultNative *FsusVaultMacOpen(
         }
     }
 
-    MacVaultNative *vault = calloc(1, sizeof(*vault));
+    MacVaultNative* vault = calloc(1, sizeof(*vault));
     if (vault == NULL)
     {
         close(descriptor);
@@ -345,13 +339,14 @@ __attribute__((visibility("default"))) MacVaultNative *FsusVaultMacOpen(
     MacVaultAttributeList attributes = {0};
     attributes.bitmapcount = ATTR_BIT_MAP_COUNT;
     attributes.volattr = ATTR_VOL_INFO | ATTR_VOL_CAPABILITIES;
+
     struct
     {
         uint32_t length;
         vol_capabilities_attr_t capabilities;
     } result = {0};
-    if (fgetattrlist(descriptor, &attributes, &result, sizeof(result), 0) != 0
-        || result.length != sizeof(result)
+
+    if (fgetattrlist(descriptor, &attributes, &result, sizeof(result), 0) != 0 || result.length != sizeof(result)
         || (result.capabilities.valid[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_CASE_SENSITIVE) == 0)
     {
         *error = MacVaultUnsupported;
@@ -360,10 +355,12 @@ __attribute__((visibility("default"))) MacVaultNative *FsusVaultMacOpen(
         return NULL;
     }
 
-    vault->caseSensitive = (result.capabilities.capabilities[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_CASE_SENSITIVE) != 0;
+    vault->caseSensitive =
+        (result.capabilities.capabilities[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_CASE_SENSITIVE) != 0;
     CFUUIDRef uuid = FSEventsCopyUUIDForDevice(vault->rootStat.st_dev);
     CFStringRef uuidString = uuid == NULL ? NULL : CFUUIDCreateString(NULL, uuid);
-    bool validUuid = uuidString != NULL
+    bool validUuid =
+        uuidString != NULL
         && CFStringGetCString(uuidString, vault->volumeIdentity, sizeof(vault->volumeIdentity), kCFStringEncodingUTF8);
     if (uuidString != NULL)
     {
@@ -389,13 +386,13 @@ __attribute__((visibility("default"))) MacVaultNative *FsusVaultMacOpen(
     return vault;
 }
 
-__attribute__((visibility("default"))) void FsusVaultMacVolume(MacVaultNative *vault, char *buffer)
+__attribute__((visibility("default"))) void FsusVaultMacVolume(MacVaultNative* vault, char* buffer)
 {
     memcpy(buffer, vault->volumeIdentity, 37);
 }
 
-__attribute__((visibility("default"))) int FsusVaultMacInspect(
-    MacVaultNative *vault, const char *relativePath, uint64_t *fileId, int *missing)
+__attribute__((visibility("default"))) int
+FsusVaultMacInspect(MacVaultNative* vault, const char* relativePath, uint64_t* fileId, int* missing)
 {
     int descriptor;
     int result = OpenRelative(vault, relativePath, true, &descriptor);
@@ -419,8 +416,8 @@ __attribute__((visibility("default"))) int FsusVaultMacInspect(
     return result;
 }
 
-__attribute__((visibility("default"))) int FsusVaultMacReadManifest(
-    MacVaultNative *vault, unsigned char *buffer, int capacity, int *length)
+__attribute__((visibility("default"))) int
+FsusVaultMacReadManifest(MacVaultNative* vault, unsigned char* buffer, int capacity, int* length)
 {
     int descriptor;
     int result = OpenRelative(vault, ".fsus/vault.json", false, &descriptor);
@@ -432,8 +429,8 @@ __attribute__((visibility("default"))) int FsusVaultMacReadManifest(
 
     MacVaultFileInformation before;
     MacVaultFileInformation after;
-    if (capacity <= 0 || fstat(descriptor, &before) != 0 || !S_ISREG(before.st_mode)
-        || before.st_size <= 0 || before.st_size > capacity)
+    if (capacity <= 0 || fstat(descriptor, &before) != 0 || !S_ISREG(before.st_mode) || before.st_size <= 0
+        || before.st_size > capacity)
     {
         close(descriptor);
         return MacVaultManifestInvalid;
@@ -467,16 +464,20 @@ __attribute__((visibility("default"))) int FsusVaultMacReadManifest(
     return result;
 }
 
-static void Observe(ConstFSEventStreamRef stream, void *context, size_t count, void *paths,
-    const FSEventStreamEventFlags flags[], const FSEventStreamEventId eventIds[])
+static void Observe(ConstFSEventStreamRef stream,
+                    void* context,
+                    size_t count,
+                    void* paths,
+                    const FSEventStreamEventFlags flags[],
+                    const FSEventStreamEventId eventIds[])
 {
     (void)stream;
-    MacVaultNative *vault = context;
-    char **eventPaths = paths;
+    MacVaultNative* vault = context;
+    char** eventPaths = paths;
     size_t boundedCount = count > vault->maxBatch ? vault->maxBatch : count;
     for (size_t index = 0; index < boundedCount; index++)
     {
-        const char *path = eventPaths[index];
+        const char* path = eventPaths[index];
         int error = path == NULL || strnlen(path, PATH_MAX) >= PATH_MAX ? MacVaultPathBlocked : 0;
         vault->callback(vault->callbackContext, error == 0 ? path : NULL, flags[index], eventIds[index], error);
     }
@@ -487,8 +488,8 @@ static void Observe(ConstFSEventStreamRef stream, void *context, size_t count, v
     }
 }
 
-__attribute__((visibility("default"))) int FsusVaultMacStart(
-    MacVaultNative *vault, MacVaultCallback callback, void *context, int maxBatch)
+__attribute__((visibility("default"))) int
+FsusVaultMacStart(MacVaultNative* vault, MacVaultCallback callback, void* context, int maxBatch)
 {
     int result = CheckRoot(vault);
     if (result != 0 || callback == NULL || maxBatch < 8 || maxBatch > 16384 || vault->stream != NULL)
@@ -505,7 +506,7 @@ __attribute__((visibility("default"))) int FsusVaultMacStart(
         return MacVaultStreamFailed;
     }
 
-    const void *values[] = {root};
+    const void* values[] = {root};
     CFArrayRef roots = CFArrayCreate(NULL, values, 1, &kCFTypeArrayCallBacks);
     CFRelease(root);
     if (roots == NULL)
@@ -514,9 +515,14 @@ __attribute__((visibility("default"))) int FsusVaultMacStart(
     }
 
     FSEventStreamContext streamContext = {0, vault, NULL, NULL, NULL};
-    vault->stream = FSEventStreamCreate(NULL, Observe, &streamContext, roots,
-        kFSEventStreamEventIdSinceNow, 0.05,
-        kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer);
+    vault->stream = FSEventStreamCreate(NULL,
+                                        Observe,
+                                        &streamContext,
+                                        roots,
+                                        kFSEventStreamEventIdSinceNow,
+                                        0.05,
+                                        kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagFileEvents
+                                            | kFSEventStreamCreateFlagNoDefer);
     CFRelease(roots);
     if (vault->stream == NULL)
     {
@@ -534,12 +540,12 @@ __attribute__((visibility("default"))) int FsusVaultMacStart(
     return vault->started ? 0 : MacVaultStreamFailed;
 }
 
-static void DrainQueue(void *context)
+static void DrainQueue(void* context)
 {
     (void)context;
 }
 
-__attribute__((visibility("default"))) void FsusVaultMacClose(MacVaultNative *vault)
+__attribute__((visibility("default"))) void FsusVaultMacClose(MacVaultNative* vault)
 {
     if (vault == NULL)
     {
