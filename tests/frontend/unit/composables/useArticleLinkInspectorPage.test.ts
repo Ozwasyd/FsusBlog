@@ -2,10 +2,11 @@
 
 import { mount } from '@vue/test-utils';
 import { ElMarkdownEditor, type MarkdownEditorDispatchResult, type MarkdownEditorTransaction, type MarkdownEditorTransactionEvent } from '@ozwasyd/element-plus';
-import { effectScope, ref, shallowRef } from 'vue';
+import { defineComponent, effectScope, h, nextTick, ref, shallowRef } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useArticleLinkInspectorPage } from '@/composables/useArticleLinkInspectorPage';
+import ArticleLinkInspectorSections from '@/components/admin/article/ArticleLinkInspectorSections.vue';
 import { createMarkdownAnchorMap } from '@/fsusui/articlePositionMaps';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
@@ -254,5 +255,32 @@ describe('link inspector page lifecycle with the existing owner and real local F
         first.runtime.value = other.binding;
         expect(await first.state.load(async () => page)).toBe(false);
         expect(first.state.status.value).toBe('unavailable');
+    });
+
+    it('binds the existing real section renderer and removes its private row/action DOM on revocation', async () => {
+        const test = harness();
+        expect(await test.state.load(async () => page)).toBe(true);
+        const view = mount(defineComponent({
+            setup: () => () => h(ArticleLinkInspectorSections, {
+                available: test.state.status.value !== 'unavailable',
+                contextKey: test.state.contextKey.value ?? '',
+                pages: test.state.status.value === 'current' && test.state.data.value ? {
+                    backlinks: { contextKey: test.state.contextKey.value!, pageKey: test.state.data.value.pageKey,
+                        state: 'current', rowIds: test.state.data.value.rowIds, hasPreviousPage: false, hasNextPage: false }
+                } : {},
+                labels: {
+                    titles: { outgoing: 'Outgoing', backlinks: 'Backlinks', risks: 'Risks', mentions: 'Mentions' },
+                    states: { loading: 'Loading', error: 'Unavailable', stale: 'Stale', 'rebuild-required': 'Rebuild', offline: 'Offline' },
+                    unavailable: 'Links unavailable', empty: 'No results', previous: 'Previous', next: 'Next'
+                }
+            }, { backlinks: ({ rowId }: { rowId: string }) => h('button', { type: 'button' }, `Private owner row ${rowId}`) })
+        }));
+        cleanups.push(() => view.unmount());
+        expect(view.get('[role="listitem"] button').text()).toBe('Private owner row relation:fixture');
+        test.admittedCoordinate.value = null;
+        await nextTick();
+        expect(view.text()).toBe('Links unavailable');
+        expect(view.findAll('[role="listitem"]')).toHaveLength(0);
+        expect(view.findAll('button')).toHaveLength(0);
     });
 });
