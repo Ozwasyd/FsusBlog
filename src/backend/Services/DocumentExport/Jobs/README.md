@@ -62,9 +62,11 @@ claiming the worker, the job owner calls `CreateAttemptResources` once with the
 same execution task/input and its `TimeProvider`, then passes that exact instance
 to `ExportAsync` and `VerifyAsync`. Check `RequireCompleted` again at publication
 boundaries alongside the existing deadline/cancellation checks. An adapter without
-this port must be refused for aggregate qualification, not silently delegated to
-the old per-stage methods. The original job owner must wire this additional port;
-its SiteScope source migration alone does not provide aggregate accounting.
+this port is blocked before a worker claim; the service never delegates to its
+old per-stage methods. The Jobs service creates the resource once after the durable
+claim, passes it to both explicit overloads, and checks completion before object
+publication and before/after final state persistence. An incomplete or active
+resource stage retains its worker claim for the original quiescence recovery.
 
 The canonical renderer and the final sandbox stage use the resource-aware
 overloads with that same instance. Stages cannot overlap, repeat the same role,
