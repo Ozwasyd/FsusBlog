@@ -178,8 +178,17 @@ bounds. A shrink keeps all existing charges; converted reservations cannot relea
 allocation charge. Expanded backing is rejected before allocation when it exceeds its grant.
 The event ring records ownership identities and charge deltas; after rotation its window
 explicitly ceases to claim complete history. Metadata headroom, pool retention/trim,
-cross-tier descriptors and measured process reclaim remain incomplete; the coordinator
+cross-tier integration and measured process reclaim remain incomplete; the coordinator
 is not integrated into product serving or capability activation.
+
+`MemoryAllocationLayout` checks multiplication, power-of-two alignment and rounded
+capacity before an allocator call. Its physical descriptor separates logical bytes,
+alignment padding and retained capacity slack. The managed array owner binds this
+immutable descriptor to its unique charge; conversion rejects a mismatched byte domain
+or actual capacity. The existing coordinator exposes bounded allocation observations
+with the same descriptor and frozen actual vector. Older resource/operation charges
+retain an explicit unknown layout, and historical observations are not live ownership.
+These descriptions do not qualify native alignment, pool retention or physical reclaim.
 
 `Infrastructure/Memory/Lifetime/ManagedMemoryBacking` exercises the lease protocol on
 one initialized managed array. It reserves exact payload capacity before allocation,

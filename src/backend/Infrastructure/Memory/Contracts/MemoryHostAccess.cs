@@ -10,12 +10,18 @@ public interface IMemoryReservation : IDisposable
         get;
     }
     MemoryOperationResult<IMemoryAllocationCharge> Commit(AllocationId allocation, IReadOnlyList<MemoryResourceCharge> actualCharges);
+    MemoryOperationResult<IMemoryAllocationCharge> CommitPhysical(MemoryAllocationDescriptor descriptor, IReadOnlyList<MemoryResourceCharge> actualCharges);
 }
 
 // OWNERSHIP: Only the backing owner's final role/read/pin/operation release disposes this charge.
 public interface IMemoryAllocationCharge : IDisposable
 {
     AllocationId Allocation
+    {
+        get;
+    }
+    // Null means resource/operation accounting without a verified physical layout.
+    MemoryAllocationDescriptor? Descriptor
     {
         get;
     }

@@ -12,6 +12,38 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ManagedMemoryBackingTests
 {
     [Fact]
+    public async Task SharedRolesAndSmallViewsKeepOneInspectablePhysicalDescriptorUntilDrain()
+    {
+        var fixture = new Fixture(64);
+        using ManagedMemoryBacking owner = fixture.Create(64);
+        var roles = new List<ManagedMemoryBacking.MemoryRoleLease>();
+        foreach (MemoryRoleKind kind in Enum.GetValues<MemoryRoleKind>())
+        {
+            roles.Add(owner.TryRetainRole(owner.Location, kind).Value!);
+        }
+        IMemoryHostReadLease reader = owner.TryAcquireHostView(owner.Location, 1, 1).Value!;
+        MemoryAllocationObservation observed = Assert.Single(fixture.Ledger.Allocations());
+        Assert.Same(owner.Descriptor, observed.Descriptor);
+        Assert.Equal(owner.Location.Allocation, observed.Allocation);
+        Assert.Equal(3, observed.Descriptor!.Layout.LogicalBytes);
+        Assert.Equal(64, observed.Descriptor.Layout.CapacityBytes);
+        Assert.Equal(0, observed.Descriptor.Layout.AlignmentSlack);
+        Assert.Equal(61, observed.Descriptor.Layout.RetainedSlack);
+        Assert.Single(reader.Memory.ToArray());
+        owner.Close();
+        foreach (ManagedMemoryBacking.MemoryRoleLease role in roles)
+        {
+            role.Dispose();
+        }
+        Assert.Single(fixture.Ledger.Allocations());
+        Assert.Equal(64, fixture.Ledger.Snapshot().Used["payload"]);
+        reader.Dispose();
+        await owner.Drained;
+        Assert.Empty(fixture.Ledger.Allocations());
+        Assert.Equal(64, observed.Descriptor.Layout.CapacityBytes);
+    }
+
+    [Fact]
     public void ClrOutOfRangeCapacityIsRejectedBeforeCreatingAnyReservation()
     {
         var fixture = new Fixture(long.MaxValue);

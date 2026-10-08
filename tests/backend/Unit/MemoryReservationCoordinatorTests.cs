@@ -8,6 +8,69 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class MemoryReservationCoordinatorTests
 {
     [Fact]
+    public void PhysicalDescriptorMustMatchActualDomainAndCapacityBeforeConversion()
+    {
+        ResourceDomainId host = new(Guid.NewGuid());
+        ResourceDomainId other = new(Guid.NewGuid());
+        var ledger = Create([(host, "host", 64), (other, "other", 64)]);
+        using MemoryReservation reservation = ledger.TryReserve([Bytes(host, 64)]).Value!;
+        AllocationId identity = new(Guid.NewGuid());
+        MemoryAllocationLayout layout = MemoryAllocationLayout.TryCreate(3, 64, 1).Value!;
+        Assert.Equal(MemoryFailure.BoundsViolation,
+            reservation.CommitPhysical(new MemoryAllocationDescriptor(identity, other, layout), [Bytes(host, 64)]).Failure);
+        Assert.Equal(MemoryFailure.BoundsViolation,
+            reservation.CommitPhysical(new MemoryAllocationDescriptor(identity, host, layout), [Bytes(host, 32)]).Failure);
+        Assert.Equal(1, ledger.Snapshot().Reservations);
+        Assert.Empty(ledger.Allocations());
+        var descriptor = new MemoryAllocationDescriptor(identity, host, layout);
+        using IMemoryAllocationCharge charge = reservation.CommitPhysical(descriptor, [Bytes(host, 64)]).Value!;
+        MemoryAllocationObservation observed = Assert.Single(ledger.Allocations());
+        Assert.Same(descriptor, observed.Descriptor);
+        Assert.Same(descriptor, charge.Descriptor);
+        Assert.Equal(3, observed.Descriptor.Layout.LogicalBytes);
+        Assert.Equal(64, Assert.Single(observed.ActualCharges).Amount);
+        charge.Dispose();
+        Assert.Empty(ledger.Allocations());
+        Assert.Equal(64, Assert.Single(observed.ActualCharges).Amount);
+        AssertReplay(ledger);
+    }
+
+    [Fact]
+    public void DescriptorConversionRacesCannotReopenTheReservedCapacity()
+    {
+        ResourceDomainId host = new(Guid.NewGuid());
+        var ledger = Create([(host, "host", 64)]);
+        using MemoryReservation reservation = ledger.TryReserve([Bytes(host, 64)]).Value!;
+        var descriptor = new MemoryAllocationDescriptor(new(Guid.NewGuid()), host,
+            MemoryAllocationLayout.TryCreate(3, 64, 1).Value!);
+        var committed = new ConcurrentBag<IMemoryAllocationCharge>();
+        Parallel.For(0, 256, index =>
+        {
+            if (index % 2 == 0)
+            {
+                MemoryOperationResult<IMemoryAllocationCharge> result = reservation.CommitPhysical(descriptor, [Bytes(host, 64)]);
+                if (result.Succeeded)
+                {
+                    committed.Add(result.Value!);
+                }
+                else
+                {
+                    Assert.Equal(MemoryFailure.OwnershipViolation, result.Failure);
+                }
+            }
+            else
+            {
+                Assert.Equal(MemoryFailure.BudgetRejected, ledger.TryReserve([Bytes(host, 1)]).Failure);
+            }
+            Assert.Equal(64, ledger.Snapshot().Used["host"]);
+        });
+        using IMemoryAllocationCharge charge = Assert.Single(committed);
+        Assert.False(ledger.Snapshot().Faulted);
+        Assert.Same(descriptor, Assert.Single(ledger.Allocations()).Descriptor);
+        AssertReplay(ledger);
+    }
+
+    [Fact]
     public void ConcurrentLastCapacityIsAtomicAndIndependentEventsReplayEveryCharge()
     {
         ResourceDomainId host = new(Guid.NewGuid());
@@ -64,6 +127,7 @@ public sealed class MemoryReservationCoordinatorTests
         Assert.Equal(64, ledger.Snapshot().Used["host"]);
         MemoryOperationResult<IMemoryAllocationCharge> committed = reservation.Commit(new(Guid.NewGuid()), [Bytes(host, 64)]);
         using IMemoryAllocationCharge allocation = committed.Value!;
+        Assert.Null(Assert.Single(ledger.Allocations()).Descriptor);
         reservation.Dispose();
         Assert.Equal(64, ledger.Snapshot().Used["host"]);
         Assert.Equal(0, ledger.Snapshot().Reservations);

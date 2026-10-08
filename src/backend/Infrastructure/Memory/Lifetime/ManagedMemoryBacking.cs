@@ -73,6 +73,7 @@ public sealed class ManagedMemoryBacking : IMemoryHostViewSource, IDisposable
     {
         get;
     }
+    public MemoryAllocationDescriptor Descriptor => _charge.Descriptor!;
     public Task Drained => _drained.Task;
 
     public static MemoryOperationResult<ManagedMemoryBacking> TryCreate(MemoryReservationCoordinator ledger,
@@ -86,6 +87,11 @@ public sealed class ManagedMemoryBacking : IMemoryHostViewSource, IDisposable
             || epoch.Value == 0 || operationDomain.Value == Guid.Empty)
         {
             return MemoryOperationResult<ManagedMemoryBacking>.Reject(MemoryFailure.BoundsViolation);
+        }
+        MemoryOperationResult<MemoryAllocationLayout> layout = MemoryAllocationLayout.TryCreate(payload.Length, capacity, 1);
+        if (!layout.Succeeded)
+        {
+            return MemoryOperationResult<ManagedMemoryBacking>.Reject(layout.Failure!.Value);
         }
         MemoryResourceCharge[] vector = [new(payloadDomain, MemoryResourceUnit.Bytes, capacity)];
         MemoryOperationResult<MemoryReservation> admission = ledger.TryReserve(vector);
@@ -103,7 +109,8 @@ public sealed class ManagedMemoryBacking : IMemoryHostViewSource, IDisposable
         {
             payload.CopyTo(buffer);
             var location = new MemoryLocationToken(new(Guid.NewGuid()), new(Guid.NewGuid()), revision, epoch);
-            MemoryOperationResult<IMemoryAllocationCharge> conversion = reservation.Commit(location.Allocation, vector);
+            var descriptor = new MemoryAllocationDescriptor(location.Allocation, payloadDomain, layout.Value!);
+            MemoryOperationResult<IMemoryAllocationCharge> conversion = reservation.CommitPhysical(descriptor, vector);
             if (!conversion.Succeeded)
             {
                 return MemoryOperationResult<ManagedMemoryBacking>.Reject(conversion.Failure!.Value);

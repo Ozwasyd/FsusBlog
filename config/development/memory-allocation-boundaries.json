@@ -3349,6 +3349,40 @@
                     "anchor": "cmake_minimum_required"
                 }
             ]
+        },
+        {
+            "id": "memory-allocation-layout-metadata",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "Allocation caller immutable layout and physical descriptor; canonical coordinator owns its charge",
+            "producer": "Checked layout factory and allocation caller descriptor construction before commit",
+            "consumers": "ManagedMemoryBacking and bounded canonical ledger allocation observations",
+            "releaseEvent": "Owner and historical diagnostic callers drop descriptor references; no payload or ledger release is performed by descriptor collection",
+            "capacityModel": "One immutable scalar layout and physical descriptor per bound owner; explicit entryLimit bounds retained ledger descriptors; returned diagnostic metadata remains caller-owned",
+            "frequency": "Per admitted backing creation and explicit diagnostic snapshot",
+            "asyncEscape": "Immutable descriptions may outlive backing; they confer no owning lease, allocation access or content eligibility",
+            "classification": "ephemeral-scratch",
+            "eligibilityOwner": "Existing content/publication authority only; physical descriptors do not grant serving permission",
+            "migrationDisposition": "Metadata remains managed; payload migration never authorized here",
+            "exclusionReason": "Control metadata is outside admitted payload backing; its CLR overhead needs bounded metadata policy and process headroom",
+            "observationHeadroom": "Observe metadata heap and event snapshots separately; resource-vector totals do not claim exact CLR heap accounting",
+            "testOwner": "tests/backend/Unit/MemoryAllocationLayoutTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                    "anchor": "public sealed class MemoryAllocationLayout"
+                }
+            ]
         }
     ],
     "syntaxObserver": {

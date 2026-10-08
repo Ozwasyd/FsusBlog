@@ -9,6 +9,8 @@ public sealed record MemoryAccountingEvent(ulong Sequence, string Kind, Guid Res
 public sealed record MemoryAccountingSnapshot(ulong PolicyRevision, int Reservations, int Allocations,
     bool Faulted, bool OverTarget, IReadOnlyDictionary<string, long> Used, IReadOnlyDictionary<string, long> HardCaps);
 public sealed record MemoryAccountingEventWindow(bool CompleteFromStart, IReadOnlyList<MemoryAccountingEvent> Events);
+public sealed record MemoryAllocationObservation(AllocationId Allocation, MemoryAllocationDescriptor? Descriptor,
+    IReadOnlyList<MemoryResourceCharge> ActualCharges);
 
 // LINEARIZATION: One gate admits the complete vector, converts its ownership or releases
 // its charge. No allocator, callback, await, I/O or external sampler runs under this gate.
@@ -132,8 +134,19 @@ public sealed class MemoryReservationCoordinator
         }
     }
 
+    public IReadOnlyList<MemoryAllocationObservation> Allocations()
+    {
+        lock (_gate)
+        {
+            // Metadata is bounded by the existing entry limit. Unknown layouts stay
+            // explicit; operation-slot charges cannot masquerade as physical bytes.
+            return Array.AsReadOnly(_allocations.Values.Select(charge =>
+                new MemoryAllocationObservation(charge.Allocation, charge.Descriptor, charge.ActualCharges)).ToArray());
+        }
+    }
+
     internal MemoryOperationResult<IMemoryAllocationCharge> Commit(MemoryReservation reservation,
-        AllocationId allocation, IReadOnlyList<MemoryResourceCharge> charges)
+        AllocationId allocation, IReadOnlyList<MemoryResourceCharge> charges, MemoryAllocationDescriptor? descriptor = null)
     {
         IReadOnlyList<MemoryResourceCharge> actual = Freeze(charges);
         Dictionary<string, long>? vector;
@@ -146,6 +159,12 @@ public sealed class MemoryReservationCoordinator
             return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.TierUnavailable);
         }
         if (allocation.Value == Guid.Empty || vector is null)
+        {
+            return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.BoundsViolation);
+        }
+        if (descriptor is not null && (descriptor.Allocation != allocation
+            || !actual.Any(charge => charge.Domain == descriptor.Domain && charge.Unit == MemoryResourceUnit.Bytes
+                && charge.Amount == descriptor.Layout.CapacityBytes)))
         {
             return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.BoundsViolation);
         }
@@ -169,7 +188,7 @@ public sealed class MemoryReservationCoordinator
             EnsureEventSpace();
             Dictionary<string, long> delta = reservation.Vector.ToDictionary(entry => entry.Key,
                 entry => vector.GetValueOrDefault(entry.Key) - entry.Value, StringComparer.Ordinal);
-            var charge = new MemoryAllocationCharge(this, allocation, actual, vector, reservation.TokenId);
+            var charge = new MemoryAllocationCharge(this, allocation, actual, vector, reservation.TokenId, descriptor);
             MemoryAccountingEvent next = PrepareEvent("committed", delta, reservation.TokenId, allocation);
             _allocations.Add(allocation, charge);
             _reservations.Remove(reservation);
@@ -339,6 +358,11 @@ public sealed class MemoryReservation : IMemoryReservation
     }
     public MemoryOperationResult<IMemoryAllocationCharge> Commit(AllocationId allocation, IReadOnlyList<MemoryResourceCharge> actualCharges)
         => _coordinator.Commit(this, allocation, actualCharges);
+    public MemoryOperationResult<IMemoryAllocationCharge> CommitPhysical(MemoryAllocationDescriptor descriptor, IReadOnlyList<MemoryResourceCharge> actualCharges)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        return _coordinator.Commit(this, descriptor.Allocation, actualCharges, descriptor);
+    }
     public void Dispose() => _coordinator.Release(this);
 }
 
@@ -346,10 +370,12 @@ internal sealed class MemoryAllocationCharge : IMemoryAllocationCharge
 {
     private readonly MemoryReservationCoordinator _coordinator;
     internal MemoryAllocationCharge(MemoryReservationCoordinator coordinator, AllocationId allocation,
-        IReadOnlyList<MemoryResourceCharge> actual, Dictionary<string, long> vector, Guid reservationId)
+        IReadOnlyList<MemoryResourceCharge> actual, Dictionary<string, long> vector, Guid reservationId,
+        MemoryAllocationDescriptor? descriptor)
     {
         _coordinator = coordinator;
         Allocation = allocation;
+        Descriptor = descriptor;
         ActualCharges = actual;
         ReservationId = reservationId;
         Vector = vector;
@@ -367,6 +393,10 @@ internal sealed class MemoryAllocationCharge : IMemoryAllocationCharge
         get;
     }
     public AllocationId Allocation
+    {
+        get;
+    }
+    public MemoryAllocationDescriptor? Descriptor
     {
         get;
     }
