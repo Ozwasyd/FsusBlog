@@ -29,7 +29,12 @@ public sealed class DocumentExportEpubProvider
         DocumentExportContractValidator.Validate(task, input);
         metadata.Validate(input);
         DocumentExportProviderContract provider = RequireActiveProvider(task);
-        RequireToolBinding(provider, _renderer.Tool);
+        DocumentExportToolContract rendererTool = _renderer.Tool;
+        rendererTool = rendererTool with
+        {
+            Arguments = rendererTool.Arguments.ToArray().ToImmutableArray()
+        };
+        RequireCanonicalToolBinding(provider, rendererTool);
         DocumentExportFrozenInput frozen = DocumentExportContractValidator.Seal(input);
         metadata = metadata with
         {
@@ -38,7 +43,7 @@ public sealed class DocumentExportEpubProvider
         using var deadline = TimeoutCancellationScope.Create(provider.Budgets.WallTime, cancellationToken);
         try
         {
-            return await ExportCoreAsync(task, frozen, metadata, provider, deadline.Token);
+            return await ExportCoreAsync(task, frozen, metadata, provider, rendererTool, deadline.Token);
         }
         catch (OperationCanceledException) when (deadline.IsTimeoutCancellationRequested)
         {
@@ -47,13 +52,18 @@ public sealed class DocumentExportEpubProvider
     }
 
     private async Task<DocumentExportProviderResult> ExportCoreAsync(DocumentExportTask task, DocumentExportFrozenInput frozen,
-        EpubPublicationMetadata metadata, DocumentExportProviderContract provider, CancellationToken cancellationToken)
+        EpubPublicationMetadata metadata, DocumentExportProviderContract provider, DocumentExportToolContract rendererTool,
+        CancellationToken cancellationToken)
     {
         CanonicalDocumentRendererResult rendered = await _renderer.RenderAsync(task, frozen, cancellationToken);
-        DocumentExportSandboxRuntime.ValidateReceipt(rendered.SandboxReceipt, rendered.SandboxPlan,
-            task, frozen, rendered.Tool, rendered.SandboxPlan.HostBuildDigest, rendered.ResponseBytes);
+        if (DocumentExportDigest.Compute(rendered.Tool) != DocumentExportDigest.Compute(rendererTool))
+        {
+            throw new InvalidDataException("EPUB canonical renderer substituted its frozen tool identity.");
+        }
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(rendered.SandboxReceipt, rendered.SandboxPlan,
+            task, frozen, rendererTool, rendered.SandboxPlan.HostBuildDigest, rendered.ResponseBytes);
         _resources.Validate(frozen, cancellationToken);
-        RequireToolBinding(provider, rendered.Tool);
+        RequireCanonicalToolBinding(provider, rendererTool);
         DocumentExportRendererResponse response = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(rendered.ResponseBytes);
         EpubPackageBuildResult package = EpubPackageBuilder.Build(frozen, response, metadata,
             provider.Budgets, cancellationToken);
@@ -62,7 +72,7 @@ public sealed class DocumentExportEpubProvider
             DocumentExportContractCatalog.ResultSchema, task.ContentDigest, frozen.ContentDigest,
             provider.ProviderId, provider.ProviderVersion, frozen.RendererId, frozen.RendererVersion, frozen.RendererDigest,
             frozen.AssetManifestDigest, frozen.FontManifestDigest, frozen.ReadingStyleAuthorityDigest,
-            rendered.Tool.ToolId, rendered.Tool.ToolVersion, rendered.SandboxReceipt.ContentDigest,
+            rendererTool.ToolId, rendererTool.ToolVersion, rendered.SandboxReceipt.ContentDigest,
             provider.OutputMediaType, provider.OutputExtension, provider.NormalizationPolicy,
             validation.OutputDigest, validation.SemanticDigest, validation.OutputBytes, validation.ObservedFeatures,
             validation.Warnings, [], DocumentExportProviderResultStatus.Succeeded,
@@ -82,9 +92,9 @@ public sealed class DocumentExportEpubProvider
         cancellationToken.ThrowIfCancellationRequested();
         DocumentExportContractValidator.Validate(task, input);
         DocumentExportProviderContract provider = RequireActiveProvider(task);
-        RequireToolBinding(provider, tool);
-        DocumentExportSandboxRuntime.ValidatePlan(result.SandboxPlan, task, input, provider, tool, expectedHostBuildDigest);
-        DocumentExportSandboxRuntime.ValidateReceipt(result.SandboxReceipt, result.SandboxPlan, task, input, tool,
+        RequireCanonicalToolBinding(provider, tool);
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererPlan(result.SandboxPlan, task, input, tool, expectedHostBuildDigest);
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(result.SandboxReceipt, result.SandboxPlan, task, input, tool,
             expectedHostBuildDigest, result.SandboxOutputBytes);
         DocumentExportRendererResponse response = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(result.SandboxOutputBytes);
         ArgumentNullException.ThrowIfNull(resources);
@@ -111,20 +121,24 @@ public sealed class DocumentExportEpubProvider
         if (provider.FormatId != "epub" || provider.ProviderId != "document-export.epub"
             || provider.ProviderVersion != "1" || !provider.ImplementationAvailable
             || provider.OutputMediaType != "application/epub+zip" || provider.OutputExtension != ".epub"
-            || provider.NormalizationPolicy != "normalized-epub-v1")
+            || provider.NormalizationPolicy != "normalized-epub-v1"
+            || DocumentExportContractCatalog.ExecutionBindings.Single(candidate => candidate.ProviderId == provider.ProviderId)
+                .ImplementationIdentity != typeof(DocumentExportEpubProvider).FullName)
         {
             throw new InvalidOperationException("EPUB has no active exact provider/tool registration; format fallback is prohibited.");
         }
         return provider;
     }
 
-    private static void RequireToolBinding(DocumentExportProviderContract provider, DocumentExportToolContract tool)
+    private static void RequireCanonicalToolBinding(DocumentExportProviderContract provider, DocumentExportToolContract tool)
     {
+        DocumentExportProviderContract renderer = DocumentExportContractCatalog.RequireProvider("self-contained-html");
         DocumentExportProviderExecutionBinding binding = DocumentExportContractCatalog.ExecutionBindings.Single(
-            candidate => candidate.ProviderId == provider.ProviderId);
-        if (binding.ImplementationIdentity != typeof(DocumentExportEpubProvider).FullName
+            candidate => candidate.ProviderId == renderer.ProviderId);
+        if (!renderer.ImplementationAvailable || provider.RendererId != renderer.RendererId
+            || provider.RendererVersion != renderer.RendererVersion
             || binding.ToolId != tool.ToolId || binding.ToolVersion != tool.ToolVersion
-            || provider.ToolchainId != tool.ToolId || provider.ToolchainVersion != tool.ToolVersion
+            || renderer.ToolchainId != tool.ToolId || renderer.ToolchainVersion != tool.ToolVersion
             || !binding.ExactArguments.SequenceEqual(tool.Arguments, StringComparer.Ordinal))
         {
             throw new InvalidDataException("EPUB canonical renderer adapter does not match the shared closed registry.");
