@@ -54,6 +54,11 @@ public sealed class PdfDocumentExportJobProvider : IDocumentExportAttemptJobProv
         _ = await _provider.ValidateResultAsync(evidence, task, input, _expectedHostBuildDigest, cancellationToken);
     }
 
+    /// <summary>
+    /// Consumes the original attempt's retained canonical evidence once and
+    /// independently verifies the supplied PDF bytes using the same resource owner.
+    /// Verification failures and cancellation propagate to the job owner.
+    /// </summary>
     public async Task VerifyAsync(
         DocumentExportProviderResult result,
         DocumentExportTask task,
