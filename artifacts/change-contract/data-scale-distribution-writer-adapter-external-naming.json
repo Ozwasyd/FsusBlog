@@ -6,7 +6,7 @@
             "paths": [
                 "tools/data-scale/distribution-writer-adapter.mjs"
             ],
-            "reason": "The trusted registry assigns tools MJS sources to the existing environment naming scope. Preserve the canonical fixture serializer and published writer source names while using camelCase internally; this adapter adds no environment settings or writer authority."
+            "reason": "The trusted registry assigns tools MJS sources to the existing environment naming scope. Preserve the original fixture serializer and actual typed writer API names while using camelCase internally; the reviewed source references add no environment settings, allocator authority or JS writer bridge."
         }
     ]
 }
