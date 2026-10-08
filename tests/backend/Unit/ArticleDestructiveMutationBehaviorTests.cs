@@ -19,6 +19,8 @@ using NSubstitute;
 using SqlSugar;
 
 using StackExchange.Redis;
+
+using Comment = FsusBlog.Server.Entities.Comment;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Concurrency")]
