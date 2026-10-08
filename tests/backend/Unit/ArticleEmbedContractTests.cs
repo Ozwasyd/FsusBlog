@@ -223,7 +223,10 @@ public sealed class ArticleEmbedContractTests
             original.Attribution! with { AttributionDigest = DigestB }
         })
         {
-            ArticleEmbedProviderResult tampered = ArticleEmbedContractValidator.Seal(original with { Attribution = changed });
+            ArticleEmbedProviderResult tampered = ArticleEmbedContractValidator.Seal(original with
+            {
+                Attribution = changed
+            });
             Assert.Equal("article_embed_resolved_payload_mismatch", ArticleEmbedContractValidator.Validate(tampered, request).ReasonCode);
         }
     }
