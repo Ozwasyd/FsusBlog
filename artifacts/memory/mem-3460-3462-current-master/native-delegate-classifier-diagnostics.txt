@@ -1,0 +1,305 @@
+Portable source-bound native delegate classifier diagnostics
+
+For the sole C# classifier owner #3650, via root. This file reports the GPU owner's actual failure; it proposes no classifier change, rename, ABI change, blanket delegate exemption or policy acceptance.
+
+Exact identities:
+Source checkpoint tested: 4148ae735ca386a97ca5dff33d4b7663fea32b2f
+Candidate read by root: ec2187e4cb101257633beb4fda723992d0987b98
+Actual master comparison base: 6e287562b3f861d3eb81dcb23f93e6243205abd8
+Separate Access review source: e6a273473b275dee0c4c2993ebd54e17a882ba33
+Checker path: tools/dotnet/check-csharp-style.mjs
+Checker blob (same in source checkpoint, observed candidate and Access review source): 3688b8fa26034bdc831bfe72518e34af32f30cc4
+GPU source is unchanged from reviewed b8b855fc7c95085899f91435f9daff650d6c48f2. The Access review source remains a separate prerequisite and has not been modified by this artifact.
+
+Exact executed checker command (exit code 1):
+Working directory: /workspace/mem-gpu-current
+PATH=/workspace/.setup/dotnet:$PATH DOTNET_CLI_HOME=/workspace/.setup/dotnet-home NUGET_PACKAGES=/workspace/.setup/nuget node tools/dotnet/check-csharp-style.mjs --mode changed --base 6e287562b3f861d3eb81dcb23f93e6243205abd8 > /tmp/mem-gpu-current-csharp-changed.log 2>&1
+The installed SDK and existing package cache were used. No dependency/SDK installation or native probe was performed.
+
+Observed diagnostics: 45 total; CUDA 19, HIP 14, Metal 12. The diagnostic capture is the delegate return type; the actual declaration identifier follows it. All 45 actual identifiers begin with uppercase letters. Compilation passed; naming admission still fails and is not waived.
+
+Exact original checker expression at tools/dotnet/check-csharp-style.mjs:1294:
+        const typeMatch = trimmed.match(/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:class|struct|record(?:\s+(?:class|struct))?|enum|delegate)\s+([A-Za-z_]\w*)/u);
+This expression is byte-identical in the actual master. It recognizes the token immediately after delegate as the declaration identifier. This explains the return-type capture on these source lines; it is source evidence, not independent owner acceptance or a proposed repair algorithm.
+
+Source file blobs (source checkpoint and observed candidate are identical):
+src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs	a35dfda6a6e07484ed81f53953373bcdd19b81b8
+src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs	49ec8a1f0e362c375c68f70411d53d3f760a41b1
+src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs	a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+
+FULL ORIGINAL DIAGNOSTICS (45; unchanged raw output):
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:169 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:171 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:173 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:175 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:177 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:179 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:181 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:183 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:185 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:187 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:189 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:191 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:193 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:195 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:197 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:199 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:201 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:203 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:205 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:157 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:159 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:161 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:163 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:165 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:167 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:169 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:171 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:173 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:175 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:177 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:179 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:181 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:183 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:245 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:247 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:249 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:251 type-name: type must use PascalCase [void]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:253 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:255 type-name: type must use PascalCase [ulong]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:257 type-name: type must use PascalCase [byte]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:259 type-name: type must use PascalCase [byte]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:261 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:263 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:265 type-name: type must use PascalCase [void]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:267 type-name: type must use PascalCase [void]
+
+EXACT ORIGINAL DECLARATIONS (numbered source lines, including original calling-convention attribute; multiline declarations retained):
+
+01. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:169
+Captured return type: int; actual declaration identifier: Init; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+168:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+169:     internal delegate int Init(uint flags);
+
+02. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:171
+Captured return type: int; actual declaration identifier: GetInt; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+170:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+171:     internal delegate int GetInt(out int value);
+
+03. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:173
+Captured return type: int; actual declaration identifier: GetDevice; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+172:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+173:     internal delegate int GetDevice(out int device, int ordinal);
+
+04. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:175
+Captured return type: int; actual declaration identifier: GetText; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+174:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+175:     internal delegate int GetText([Out] StringBuilder text, int length, int device);
+
+05. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:177
+Captured return type: int; actual declaration identifier: Attribute; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+176:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+177:     internal delegate int Attribute(out int value, int attribute, int device);
+
+06. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:179
+Captured return type: int; actual declaration identifier: RetainContext; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+178:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+179:     internal delegate int RetainContext(out nint context, int device);
+
+07. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:181
+Captured return type: int; actual declaration identifier: ReleaseContext; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+180:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+181:     internal delegate int ReleaseContext(int device);
+
+08. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:183
+Captured return type: int; actual declaration identifier: Handle; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+182:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+183:     internal delegate int Handle(nint handle);
+
+09. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:185
+Captured return type: int; actual declaration identifier: GetHandle; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+184:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+185:     internal delegate int GetHandle(out nint handle);
+
+10. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:187
+Captured return type: int; actual declaration identifier: DeviceAlloc; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+186:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+187:     internal delegate int DeviceAlloc(out ulong address, nuint bytes);
+
+11. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:189
+Captured return type: int; actual declaration identifier: DeviceFree; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+188:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+189:     internal delegate int DeviceFree(ulong address);
+
+12. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:191
+Captured return type: int; actual declaration identifier: HostAlloc; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+190:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+191:     internal delegate int HostAlloc(out nint address, nuint bytes, uint flags);
+
+13. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:193
+Captured return type: int; actual declaration identifier: CreateHandle; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+192:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+193:     internal delegate int CreateHandle(out nint handle, uint flags);
+
+14. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:195
+Captured return type: int; actual declaration identifier: Upload; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+194:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+195:     internal delegate int Upload(ulong destination, nint source, nuint bytes, nint stream);
+
+15. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:197
+Captured return type: int; actual declaration identifier: Readback; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+196:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+197:     internal delegate int Readback(nint destination, ulong source, nuint bytes, nint stream);
+
+16. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:199
+Captured return type: int; actual declaration identifier: RecordEvent; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+198:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+199:     internal delegate int RecordEvent(nint @event, nint stream);
+
+17. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:201
+Captured return type: int; actual declaration identifier: PeerAccess; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+200:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+201:     internal delegate int PeerAccess(out int accessible, int source, int destination);
+
+18. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:203
+Captured return type: int; actual declaration identifier: EnablePeerAccess; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+202:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+203:     internal delegate int EnablePeerAccess(nint peerContext, uint flags);
+
+19. src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:205
+Captured return type: int; actual declaration identifier: PeerCopy; source blob: a35dfda6a6e07484ed81f53953373bcdd19b81b8
+204:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+205:     internal delegate int PeerCopy(ulong destination, nint destinationContext, ulong source, nint sourceContext, nuint bytes, nint stream);
+
+20. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:157
+Captured return type: int; actual declaration identifier: Init; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+156:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+157:     internal delegate int Init(uint flags);
+
+21. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:159
+Captured return type: int; actual declaration identifier: GetInt; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+158:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+159:     internal delegate int GetInt(out int value);
+
+22. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:161
+Captured return type: int; actual declaration identifier: SetDevice; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+160:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+161:     internal delegate int SetDevice(int device);
+
+23. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:163
+Captured return type: int; actual declaration identifier: GetText; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+162:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+163:     internal delegate int GetText([Out] StringBuilder text, int length, int device);
+
+24. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:165
+Captured return type: int; actual declaration identifier: Attribute; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+164:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+165:     internal delegate int Attribute(out int value, int attribute, int device);
+
+25. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:167
+Captured return type: int; actual declaration identifier: Handle; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+166:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+167:     internal delegate int Handle(nint handle);
+
+26. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:169
+Captured return type: int; actual declaration identifier: Allocate; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+168:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+169:     internal delegate int Allocate(out nint address, nuint bytes);
+
+27. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:171
+Captured return type: int; actual declaration identifier: HostAllocate; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+170:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+171:     internal delegate int HostAllocate(out nint address, nuint bytes, uint flags);
+
+28. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:173
+Captured return type: int; actual declaration identifier: CreateHandle; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+172:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+173:     internal delegate int CreateHandle(out nint handle, uint flags);
+
+29. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:175
+Captured return type: int; actual declaration identifier: Copy; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+174:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+175:     internal delegate int Copy(nint destination, nint source, nuint bytes, int kind, nint stream);
+
+30. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:177
+Captured return type: int; actual declaration identifier: RecordEvent; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+176:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+177:     internal delegate int RecordEvent(nint @event, nint stream);
+
+31. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:179
+Captured return type: int; actual declaration identifier: PeerAccess; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+178:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+179:     internal delegate int PeerAccess(out int accessible, int source, int destination);
+
+32. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:181
+Captured return type: int; actual declaration identifier: EnablePeerAccess; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+180:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+181:     internal delegate int EnablePeerAccess(int peerDevice, uint flags);
+
+33. src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:183
+Captured return type: int; actual declaration identifier: PeerCopy; source blob: 49ec8a1f0e362c375c68f70411d53d3f760a41b1
+182:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+183:     internal delegate int PeerCopy(nint destination, int destinationDevice, nint source, int sourceDevice, nuint bytes, nint stream);
+
+34. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:245
+Captured return type: nint; actual declaration identifier: CopyDevices; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+244:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+245:     private delegate nint CopyDevices();
+
+35. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:247
+Captured return type: nint; actual declaration identifier: RegisterSelector; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+246:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+247:     private delegate nint RegisterSelector([MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+
+36. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:249
+Captured return type: nint; actual declaration identifier: PoolPush; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+248:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+249:     private delegate nint PoolPush();
+
+37. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:251
+Captured return type: void; actual declaration identifier: PoolPop; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+250:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+251:     private delegate void PoolPop(nint pool);
+
+38. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:253
+Captured return type: nint; actual declaration identifier: SendPointer; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+252:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+253:     private delegate nint SendPointer(nint value, nint selector);
+
+39. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:255
+Captured return type: ulong; actual declaration identifier: SendInteger; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+254:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+255:     private delegate ulong SendInteger(nint value, nint selector);
+
+40. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:257
+Captured return type: byte; actual declaration identifier: SendBoolean; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+256:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+257:     private delegate byte SendBoolean(nint value, nint selector);
+
+41. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:259
+Captured return type: byte; actual declaration identifier: SendResponds; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+258:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+259:     private delegate byte SendResponds(nint value, nint selector, nint argument);
+
+42. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:261
+Captured return type: nint; actual declaration identifier: SendIndex; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+260:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+261:     private delegate nint SendIndex(nint value, nint selector, ulong index);
+
+43. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:263
+Captured return type: nint; actual declaration identifier: SendBuffer; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+262:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+263:     private delegate nint SendBuffer(nint value, nint selector, ulong length, ulong options);
+
+44. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:265
+Captured return type: void; actual declaration identifier: SendVoid; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+264:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+265:     private delegate void SendVoid(nint value, nint selector);
+
+45. src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:267
+Captured return type: void; actual declaration identifier: SendCopy; source blob: a9a004e88c9ceb6d7119cf07d997cd750e1d43b0
+266:     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+267:     private delegate void SendCopy(nint value, nint selector, nint source, ulong sourceOffset,
+268:         nint destination, ulong destinationOffset, ulong bytes);
+
+The owning source/checker boundaries are unchanged. GPU and common integration work already available in this candidate has passed the actual backend build and all 142 ordinary GPU/frozen-input controls. This evidence-only increment does not rerun those unchanged-source checks or qualify native GPU/BAR behavior. The failed changed-style gate is delegated to the original classifier owner; full-candidate independent review remains with root. No GPU-side workaround was introduced.
