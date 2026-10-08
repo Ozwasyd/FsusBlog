@@ -44,7 +44,7 @@ test('full disposable artifact tar roundtrip keeps owner/mode/mtime/raw xattr an
     const planFile = path.join(plan.taskRoot, 'plan.json');
     const bytes = Buffer.from(JSON.stringify(plan));
     fs.writeFileSync(planFile, bytes);
-    const actual = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, '/usr/bin/node', '--max-old-space-size=128', tool, '--plan', planFile, '--plan-sha256', sha256(bytes), '--mode', 'archive'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
+    const actual = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, process.execPath, '--max-old-space-size=128', tool, '--plan', planFile, '--plan-sha256', sha256(bytes), '--mode', 'archive'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
     assert.equal(actual.status, 0, actual.stderr);
     const receipt = JSON.parse(actual.stdout);
     assert.equal(receipt.fullRoundtripBytesRootModeOwnerMtimeAclXattrVerified, true);
@@ -127,7 +127,7 @@ test('disposable sparse preserves Git/raw custody; operational owner refuses unr
     const bytes = Buffer.from(JSON.stringify(plan));
     const planFile = path.join(taskRoot, 'plan.json');
     fs.writeFileSync(planFile, bytes);
-    const actual = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, '/usr/bin/node', '--max-old-space-size=128', sparseTool, '--plan', planFile, '--plan-sha256', sha256(bytes), '--mode', 'sparse'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
+    const actual = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, process.execPath, '--max-old-space-size=128', sparseTool, '--plan', planFile, '--plan-sha256', sha256(bytes), '--mode', 'sparse'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
     assert.equal(actual.status, 0, actual.stderr);
     const receipt = JSON.parse(actual.stdout);
     if (receipt.refused === 1) {
@@ -153,7 +153,7 @@ test('disposable sparse preserves Git/raw custody; operational owner refuses unr
     plan.targets[0].head = '0'.repeat(40);
     const staleBytes = Buffer.from(JSON.stringify(plan));
     fs.writeFileSync(path.join(taskRoot, 'stale-plan.json'), staleBytes);
-    const refused = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, '/usr/bin/node', sparseTool, '--plan', path.join(taskRoot, 'stale-plan.json'), '--plan-sha256', sha256(staleBytes), '--mode', 'sparse'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
+    const refused = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, process.execPath, sparseTool, '--plan', path.join(taskRoot, 'stale-plan.json'), '--plan-sha256', sha256(staleBytes), '--mode', 'sparse'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
     assert.equal(refused.status, 0, refused.stderr);
     assert.equal(JSON.parse(refused.stdout).refused, 1);
 });
