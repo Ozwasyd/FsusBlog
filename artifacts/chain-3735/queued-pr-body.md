@@ -11,3 +11,5 @@ Evidence and all70 per-issue gates: artifacts/chain-3735/README.md, source-front
 This body is queued locally during GitHub content-write403 throttling; no repeated PR/body/comment write or alternate identity attempt. Existing draftPR:https://github.com/Ozwasyd/FsusBlog/pull/3839.
 
 Current selected-revalidation source `bb109c208764cc00f96d3087d97bd911add70ff3`: exact SDK0errors/1529warnings,43/43 selected DTO/catalog tests and52/52 generator controls.276/277 remain inert reservations; all5 products unchanged. Actual d365 source closure and authenticated codec/HTTP/TS binding pending; see artifacts/chain-3735/navigation-revalidation-handoff.md. Full product acceptance remains0.
+
+Export2436 source29f89672ef8aa456bd36dca5118fd1a9101adbf5: four exact roots and original codec symbols/limits reviewed and queued; original proposal family/error metadata is pending. No Export frame/error allocated, no sibling endpoint/DI/freezer imported. Static83-case enumeration is not executable acceptance. See artifacts/chain-3735/export-2436-registration-handoff.md.

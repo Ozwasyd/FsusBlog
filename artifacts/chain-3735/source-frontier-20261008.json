@@ -1,6 +1,6 @@
 {
   "schema": "fsusblog.chain3735.source-frontier.v1",
-  "capturedAtUtc": "2026-10-08T11:50:06.575571+00:00",
+  "capturedAtUtc": "2026-10-08T12:21:53.591788+00:00",
   "publishedSourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
   "branch": "codex/chain-3735-20261008",
   "draftPR": "https://github.com/Ozwasyd/FsusBlog/pull/3839",
@@ -6745,6 +6745,18 @@
     {
       "path": ".tmp/chain-3735/current-issue-refresh/summary.json",
       "sha256": "f34df7ca926efd7d33849e1052afa14a1367217d051631263f168db431f40dde"
+    },
+    {
+      "path": "artifacts/chain-3735/export-2436-registration-queue.json",
+      "sha256": "337b4e40a528209eb11486f2f7ee41029f5c991311b4c542fb80778c805dabf8"
+    },
+    {
+      "path": "artifacts/chain-3735/export-2436-registration-handoff.md",
+      "sha256": "0d3c4abc1f7ec31d92810d43e085a1f318aa34e33f54d435794545daee8e303e"
+    },
+    {
+      "path": ".tmp/chain-3735/export-2436-registration/source-review.json",
+      "sha256": "ed766ab18ee6bb7dcf3dab2e44ea33696950cf9a7ade6a9f1ff4ff33b96f9af5"
     }
   ],
   "outstandingGates": [
@@ -7032,10 +7044,9 @@
     ]
   },
   "latestMasterFetch": {
-    "sha": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
-    "previousSha": "b9c076e4b763130075218ff9d50f9a6c36784f59",
-    "ordinaryFetchFailure": "fatal: could not read Username for https://github.com",
-    "recoveryCommand": [
+    "sha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+    "previousSha": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+    "command": [
       "git",
       "-c",
       "credential.helper=",
@@ -7046,6 +7057,55 @@
       "master"
     ],
     "identity": "same existing authorized gh credential; read-only fetch",
-    "sourceDelta": "Governance/docs and ArticleMetadataPropertyList/PublicBlogLayoutShell/articleDocumentContext/tests; no Canvas/AEDS/source-reader overlap. No merge/rebase or unsupplied sibling source consumed."
+    "sourceDelta": [
+      "artifacts/change-contract/backend-existing-reader-lock-external-naming.json",
+      "tests/backend/packages.lock.json"
+    ],
+    "consumedIntoRoot": false
+  },
+  "masterFetchHistory": [
+    {
+      "sha": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+      "previousSha": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+      "ordinaryFetchFailure": "fatal: could not read Username for https://github.com",
+      "recoveryCommand": [
+        "git",
+        "-c",
+        "credential.helper=",
+        "-c",
+        "credential.helper=!gh auth git-credential",
+        "fetch",
+        "origin",
+        "master"
+      ],
+      "identity": "same existing authorized gh credential; read-only fetch",
+      "sourceDelta": "Governance/docs and ArticleMetadataPropertyList/PublicBlogLayoutShell/articleDocumentContext/tests; no Canvas/AEDS/source-reader overlap. No merge/rebase or unsupplied sibling source consumed."
+    }
+  ],
+  "export2436ProtocolQueue": {
+    "queue": {
+      "path": "artifacts/chain-3735/export-2436-registration-queue.json",
+      "sha256": "337b4e40a528209eb11486f2f7ee41029f5c991311b4c542fb80778c805dabf8"
+    },
+    "handoff": {
+      "path": "artifacts/chain-3735/export-2436-registration-handoff.md",
+      "sha256": "0d3c4abc1f7ec31d92810d43e085a1f318aa34e33f54d435794545daee8e303e"
+    },
+    "sourceSha": "29f89672ef8aa456bd36dca5118fd1a9101adbf5",
+    "parentSha": "81f9e8a14aba3bf39d6f231dd9f91bc4109cd88f",
+    "reviewedRootHead": "889a8aceca12178a136eb72e3bf96ba102b831ee",
+    "sourceOnly": true,
+    "fourExactRoots": [
+      "DocumentExportRequest",
+      "DocumentExportTaskRequest",
+      "DocumentExportJobResponse",
+      "DocumentExportPageResponse"
+    ],
+    "assignedFrameIds": [],
+    "assignedNativeErrors": [],
+    "registryChanged": false,
+    "blockedBy": "original proposal exact family labels/native error and response complete-frame limit not supplied; source/run-bound83 execution receipt pending",
+    "wireActivationReady": false,
+    "accepted": false
   }
 }

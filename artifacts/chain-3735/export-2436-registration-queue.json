@@ -1,0 +1,258 @@
+{
+  "schema": "fsusblog.chain3735.protocol-registration-queue.v1",
+  "capturedAtUtc": "2026-10-08T12:19:09.037938+00:00",
+  "issue": 2436,
+  "soleProtocolOwnerRoot": 3735,
+  "authoritativeRegistry": "src/shared/Contracts/Validation/aeds-protocol.json",
+  "kind": "evidence handoff queue; not protocol authority or activation",
+  "suppliedSourceCommit": "29f89672ef8aa456bd36dca5118fd1a9101adbf5",
+  "suppliedParentCommit": "81f9e8a14aba3bf39d6f231dd9f91bc4109cd88f",
+  "suppliedBranch": "codex/export-api-ui-2436-wire-domain-20261008",
+  "reviewedRootHead": "889a8aceca12178a136eb72e3bf96ba102b831ee",
+  "latestFetchedMaster": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+  "sourceReferences": [
+    {
+      "path": "src/core/Mapping/Models/DocumentExportModels.cs",
+      "gitBlob": "59a7ecffc71d052f40bffe8d8bcc7883fac8f807",
+      "sha256": "3d311922d3a4e3b972392903435132265ca10c3b6762e2d4dd8046bdf41699b4",
+      "bytes": 2651,
+      "localReviewCopy": ".tmp/chain-3735/export-2436-registration/DocumentExportModels.cs"
+    },
+    {
+      "path": "src/core/Cache/PodBinaryCodec.DocumentExport.cs",
+      "gitBlob": "9e31e68b12bd0878950a804b0e66339c9ec8c90a",
+      "sha256": "538804485f90890bae630a7a3c2e50069dc69c5464be4efa3a5b6fb429c86795",
+      "bytes": 23788,
+      "localReviewCopy": ".tmp/chain-3735/export-2436-registration/PodBinaryCodec.DocumentExport.cs"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs",
+      "gitBlob": "e935e0cce73b4ae21554f2192ceea94dc9df4b66",
+      "sha256": "67bb70bebef9a7665a8d1a32c1c0f3a1a60eebbc2947511534df203ed1c54a48",
+      "bytes": 9071,
+      "localReviewCopy": ".tmp/chain-3735/export-2436-registration/DocumentExportEndpointBinding.cs"
+    },
+    {
+      "path": "tests/backend/Fixtures/document-export-payload-goldens-v1.json",
+      "gitBlob": "589e57e4a61be20d36d66bf42d627786a2cf6f38",
+      "sha256": "bcc6ae78c019adb7837332ed87012db85031997a55fb6a64bbdb34ae6a906411",
+      "bytes": 2187,
+      "localReviewCopy": ".tmp/chain-3735/export-2436-registration/document-export-payload-goldens-v1.json"
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportBinaryCodecTests.cs",
+      "gitBlob": "70f01483456f8f9623d30494f9174747b77d78c6",
+      "sha256": "37007737ec69d596d84181f28ccdbbb72ed35c5d060451b55e1de14c0feab388",
+      "bytes": 11052,
+      "localReviewCopy": ".tmp/chain-3735/export-2436-registration/DocumentExportBinaryCodecTests.cs"
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportEndpointBindingTests.cs",
+      "gitBlob": "d8d0e8f79ffe911c10fcb4cd1d127424a0e9745e",
+      "sha256": "5bb6146dc36348110130d99091842d9d81df7c93b5c57a7439170d3298a219a4",
+      "bytes": 6075,
+      "localReviewCopy": ".tmp/chain-3735/export-2436-registration/DocumentExportEndpointBindingTests.cs"
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportEndpointsTests.cs",
+      "gitBlob": "e568655f37810d586ead1a0a2f92fc53bf1229e3",
+      "sha256": "c86f7e4278b5d5345ad68b29b3c218e659227630c594be1c7995ffe83a25ad15",
+      "bytes": 27876,
+      "localReviewCopy": ".tmp/chain-3735/export-2436-registration/DocumentExportEndpointsTests.cs"
+    }
+  ],
+  "roots": [
+    {
+      "name": "DocumentExportRequest",
+      "model": "DocumentExportRequestCoreModel",
+      "namespace": "FsusBlog.Core.Mapping.Models",
+      "direction": "request",
+      "codecOwner": "FsusBlog.Core.Cache.PodBinaryCodec",
+      "codecSymbols": [
+        "EncodeDocumentExportRequest",
+        "WriteDocumentExportRequest",
+        "TryDecodeDocumentExportRequest"
+      ],
+      "endpointMaxCompleteFrameBytes": 16384,
+      "endpointMaxPayloadBytesGiven16ByteHeader": 16368,
+      "codecDecoderMaxPayloadBytes": 4194304,
+      "family": null,
+      "frameId": null,
+      "nativeErrorId": null,
+      "status": "queued; original proposal family/error semantics and parity binding not supplied"
+    },
+    {
+      "name": "DocumentExportTaskRequest",
+      "model": "DocumentExportTaskRequestCoreModel",
+      "namespace": "FsusBlog.Core.Mapping.Models",
+      "direction": "request",
+      "codecOwner": "FsusBlog.Core.Cache.PodBinaryCodec",
+      "codecSymbols": [
+        "EncodeDocumentExportTaskRequest",
+        "WriteDocumentExportTaskRequest",
+        "TryDecodeDocumentExportTaskRequest"
+      ],
+      "endpointMaxCompleteFrameBytes": 1024,
+      "endpointMaxPayloadBytesGiven16ByteHeader": 1008,
+      "codecDecoderMaxPayloadBytes": 4194304,
+      "family": null,
+      "frameId": null,
+      "nativeErrorId": null,
+      "status": "queued; original proposal family/error semantics and parity binding not supplied"
+    },
+    {
+      "name": "DocumentExportJobResponse",
+      "model": "DocumentExportJobResponseCoreModel",
+      "namespace": "FsusBlog.Core.Mapping.Models",
+      "direction": "response",
+      "codecOwner": "FsusBlog.Core.Cache.PodBinaryCodec",
+      "codecSymbols": [
+        "EncodeDocumentExportJobResponse",
+        "WriteDocumentExportJobResponse",
+        "TryDecodeDocumentExportJobResponse"
+      ],
+      "endpointMaxCompleteFrameBytes": null,
+      "endpointMaxPayloadBytesGiven16ByteHeader": null,
+      "codecDecoderMaxPayloadBytes": 4194304,
+      "family": null,
+      "frameId": null,
+      "nativeErrorId": null,
+      "status": "queued; original proposal family/error semantics and parity binding not supplied"
+    },
+    {
+      "name": "DocumentExportPageResponse",
+      "model": "DocumentExportPageResponseCoreModel",
+      "namespace": "FsusBlog.Core.Mapping.Models",
+      "direction": "response",
+      "codecOwner": "FsusBlog.Core.Cache.PodBinaryCodec",
+      "codecSymbols": [
+        "EncodeDocumentExportPageResponse",
+        "WriteDocumentExportPageResponse",
+        "TryDecodeDocumentExportPageResponse"
+      ],
+      "endpointMaxCompleteFrameBytes": null,
+      "endpointMaxPayloadBytesGiven16ByteHeader": null,
+      "codecDecoderMaxPayloadBytes": 4194304,
+      "family": null,
+      "frameId": null,
+      "nativeErrorId": null,
+      "status": "queued; original proposal family/error semantics and parity binding not supplied"
+    }
+  ],
+  "outputExclusions": [
+    "object paths",
+    "owner/session identity",
+    "filenames",
+    "download capability"
+  ],
+  "payloadFacts": {
+    "payloadVersion": 1,
+    "encoding": "existing BinaryPodReader/BinaryPodWriter; little endian; strict UTF-8 byte-length-prefix",
+    "pageSizeMaximum": 50,
+    "attemptsMaximum": 3,
+    "identifierMaximumUtf16CodeUnits": 192,
+    "reasonMaximumUtf16CodeUnits": 2048,
+    "digest": "sha256: plus 64 lowercase hex; 71 characters",
+    "positiveInt64Fields": "article/revision/publication/source version/job version; preserve canonical decimal strings in TypeScript",
+    "statusClosedRange": [
+      1,
+      10
+    ],
+    "booleanAndPresenceTags": [
+      0,
+      1
+    ],
+    "decoderMaxPayloadBytes": 4194304,
+    "outerHeaderBytes": 16,
+    "decoderPayloadLimitPlusHeaderBytes": 4194320,
+    "warning": "4MiB is the decoder payload limit; request endpoint maxFrameBytes is a separate full-frame limit. No full-frame or native family limit is inferred from a missing proposal."
+  },
+  "goldenVectors": [
+    {
+      "name": "request-revision",
+      "payloadBytes": 121,
+      "sha256": "23b7dd2ec31aecc4abdaefdc55489ff3bbbe61ec0f04acb6a3735a45e0c81da6"
+    },
+    {
+      "name": "task-request",
+      "payloadBytes": 14,
+      "sha256": "a04b4e5925a65ae313cebd3f473957d5db3505db4d8c278861450ebf5c484654"
+    },
+    {
+      "name": "queued-job-response",
+      "payloadBytes": 327,
+      "sha256": "50d6322685bddfdb9b33fd248546c079ffcf1dc6d4b1144cb47b169502705af7"
+    },
+    {
+      "name": "empty-page-response",
+      "payloadBytes": 17,
+      "sha256": "b0182c804b5c8dac35f4473cbf7e4cc3772e2231c928291d74824af8956279c8"
+    },
+    {
+      "name": "single-page-response",
+      "payloadBytes": 340,
+      "sha256": "2594ab9993e5322f5c60ff55762893430fbfa2d745dd8a2804cf60eb81c41732"
+    }
+  ],
+  "evidence": {
+    "supplied83ControlsClaim": "Provided by parent; raw source/DLL/run-bound execution receipt not supplied here",
+    "sourceStaticCaseEnumeration": {
+      "DocumentExportBinaryCodecTests": 31,
+      "DocumentExportEndpointBindingTests": 21,
+      "DocumentExportEndpointsTests": 31
+    },
+    "staticTotal": 83,
+    "rootSdkOr83Execution": "not run; no independent QA reconstruction",
+    "currentSourceReview": "Exact parent/blob/SHA256, declared root and codec symbols, actual endpoint frame limits, canonical registry collision snapshot verified",
+    "wireActivationReady": false,
+    "httpAuthNativeDownloadAccepted": false
+  },
+  "registrySnapshot": {
+    "activeFrameCount": 267,
+    "activeMaximum": 275,
+    "existingReservations": [
+      276,
+      277
+    ],
+    "exportFramesAllocated": false,
+    "exportErrorAllocated": false,
+    "frame275Unchanged": true
+  },
+  "ownership": {
+    "retainWith3653": [
+      "canonical freezer",
+      "DI",
+      "route composition"
+    ],
+    "retainWith2436": [
+      "API/UI ordinary implementation and its independent review"
+    ],
+    "retainWith3735": [
+      "sole shared protocol/decoder registry assignments and parity integration"
+    ],
+    "doNotConsume": [
+      "whole parent branch",
+      "unrelated durable jobs/provider/freezer/DI/route/UI source"
+    ]
+  },
+  "pending": {
+    "requiredProposal": "Exact original proposal commit/path: four root family labels, response/native frame limits and decoder error semantics",
+    "requiredExecutionEvidence": "Exact tested source/DLL/SDK/run identity, commands/exits and original83-control receipt; source enumeration is not execution",
+    "afterSupply": "Check proposal against these actual symbols/limits, then allocate collision-free reservations in canonical manifest and perform managed/native/TS/generator/golden parity before active registration"
+  },
+  "accepted": false,
+  "nestedModels": [
+    {
+      "name": "DocumentExportSourceCoreModel",
+      "role": "source coordinate nested in admission request and job display projection; no standalone frame"
+    },
+    {
+      "name": "DocumentExportAttemptCoreModel",
+      "role": "durable attempt display projection; no lifecycle authority or standalone frame"
+    },
+    {
+      "name": "DocumentExportOutputCoreModel",
+      "role": "output custody display projection; no authority/path/grant or standalone frame"
+    }
+  ]
+}

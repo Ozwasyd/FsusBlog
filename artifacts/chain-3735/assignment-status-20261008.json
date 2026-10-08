@@ -8,11 +8,11 @@
   "trackingCount": 13,
   "fullyAcceptedCount": 0,
   "baselineMaster": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
-  "latestFetchedMaster": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
-  "masterDeltaScope": "Governance/docs and ArticleMetadataPropertyList/PublicBlogLayoutShell/articleDocumentContext/tests; no Canvas/AEDS/source-reader overlap. No merge/rebase or unsupplied sibling source consumed.",
+  "latestFetchedMaster": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+  "masterDeltaScope": "Only existing-reader-lock external-naming evidence and backend test packages.lock.json changed since dbb; current upstream compiler dependency lock is not consumed or a passed gate.",
   "branch": "codex/chain-3735-20261008",
   "draftPR": "https://github.com/Ozwasyd/FsusBlog/pull/3839",
-  "headAtAccounting": "bb109c208764cc00f96d3087d97bd911add70ff3",
+  "headAtAccounting": "889a8aceca12178a136eb72e3bf96ba102b831ee",
   "workerAccountingSources": [
     {
       "path": ".tmp/chain-3735/workspace-preflight/issue-status.json",
@@ -136,7 +136,7 @@
   },
   "currentVerificationArtifact": {
     "path": "artifacts/chain-3735/verification-20261008.json",
-    "sha256": "4ebe26af21a1b2c43d5edcf6a6fd7bc0c766424b60973875bcc70d46b24aa7ce"
+    "sha256": "77a72a27dd8e53de7afb2efe088f68291e29e3a67ceeb2dc628c5488c0147d0d"
   },
   "issues": [
     {
@@ -12419,7 +12419,7 @@
   },
   "currentSourceFrontier": {
     "path": "artifacts/chain-3735/source-frontier-20261008.json",
-    "sha256": "be07afb45f50f885e9e05079efc35e7c1ad01d7579eb7e9da740cd3e7021f9b0"
+    "sha256": "efebd0ec86cd5ff1b9ec327b1ab53a1a3700b023e7700c4a5788b38f493d51df"
   },
   "previousFetchedMasterBeforeDbb": "b9c076e4b763130075218ff9d50f9a6c36784f59",
   "navigationRevalidationHandoff": {
@@ -12625,10 +12625,9 @@
     }
   },
   "latestMasterFetch": {
-    "sha": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
-    "previousSha": "b9c076e4b763130075218ff9d50f9a6c36784f59",
-    "ordinaryFetchFailure": "fatal: could not read Username for https://github.com",
-    "recoveryCommand": [
+    "sha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+    "previousSha": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+    "command": [
       "git",
       "-c",
       "credential.helper=",
@@ -12639,6 +12638,37 @@
       "master"
     ],
     "identity": "same existing authorized gh credential; read-only fetch",
-    "sourceDelta": "Governance/docs and ArticleMetadataPropertyList/PublicBlogLayoutShell/articleDocumentContext/tests; no Canvas/AEDS/source-reader overlap. No merge/rebase or unsupplied sibling source consumed."
+    "sourceDelta": [
+      "artifacts/change-contract/backend-existing-reader-lock-external-naming.json",
+      "tests/backend/packages.lock.json"
+    ],
+    "consumedIntoRoot": false
+  },
+  "previousFetchedMasterBefore1787": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+  "export2436ProtocolQueue": {
+    "queue": {
+      "path": "artifacts/chain-3735/export-2436-registration-queue.json",
+      "sha256": "337b4e40a528209eb11486f2f7ee41029f5c991311b4c542fb80778c805dabf8"
+    },
+    "handoff": {
+      "path": "artifacts/chain-3735/export-2436-registration-handoff.md",
+      "sha256": "0d3c4abc1f7ec31d92810d43e085a1f318aa34e33f54d435794545daee8e303e"
+    },
+    "sourceSha": "29f89672ef8aa456bd36dca5118fd1a9101adbf5",
+    "parentSha": "81f9e8a14aba3bf39d6f231dd9f91bc4109cd88f",
+    "reviewedRootHead": "889a8aceca12178a136eb72e3bf96ba102b831ee",
+    "sourceOnly": true,
+    "fourExactRoots": [
+      "DocumentExportRequest",
+      "DocumentExportTaskRequest",
+      "DocumentExportJobResponse",
+      "DocumentExportPageResponse"
+    ],
+    "assignedFrameIds": [],
+    "assignedNativeErrors": [],
+    "registryChanged": false,
+    "blockedBy": "original proposal exact family labels/native error and response complete-frame limit not supplied; source/run-bound83 execution receipt pending",
+    "wireActivationReady": false,
+    "accepted": false
   }
 }

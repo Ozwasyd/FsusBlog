@@ -2,7 +2,7 @@
 
 Original closure **123 issues**. Retained root **70 = 62 execution + 8 tracking**; transferred sole ownership **53**; fully accepted **0**. The complete table below preserves every owned issue and its outstanding gate. Tracking is evidence aggregation only.
 
-Published source `bb109c208764cc00f96d3087d97bd911add70ff3`, branch `codex/chain-3735-20261008`, [draft PR #3839](https://github.com/Ozwasyd/FsusBlog/pull/3839). Initial verified master `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`; latest fetched master `dbb373071db1ad21aaa665f4a1512bfb43f59950`. No master push, merge, auto-merge, closure or deployment occurred.
+Published source `bb109c208764cc00f96d3087d97bd911add70ff3`, branch `codex/chain-3735-20261008`, [draft PR #3839](https://github.com/Ozwasyd/FsusBlog/pull/3839). Initial verified master `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`; latest fetched master `1787fe43953a275ee25a481e1eec7c8dbbd5852f`. No master push, merge, auto-merge, closure or deployment occurred.
 
 | Actual tested source | Result | Limit |
 |---|---|---|
@@ -27,6 +27,7 @@ Remaining formal gates: root3657 schema/native issuer; root2246/roots3560/3663 p
 
 The diagnostic Emsdk6.0.0 basic/speed compile succeeded, but CMake3.28.3 differs from repository4.3.3 pin and no contemporaneous source binding was captured. Retrospective hashes cannot prove a frozen build or formal Wasm receipt. This limit is preserved explicitly.
 
+- [Export2436 protocol queue](export-2436-registration-handoff.md): exact four roots reviewed; family/error proposal pending, no ID allocated or endpoint consumed
 - [Selected revalidation source handoff](navigation-revalidation-handoff.md)
 - [Current exact source/run evidence](source-frontier-20261008.json)
 - [All123 snapshots and current70 ownership](assignment-status-20261008.json)

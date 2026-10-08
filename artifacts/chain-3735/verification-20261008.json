@@ -27566,6 +27566,32 @@
         "limit": "Pure public API controls; lexical directive collector includes fenced content and supplies no authority/context/dependency facts, not runtime/UX qualification."
       },
       "durableReview": "artifacts/chain-3735/embed-source-adapter-review.json"
+    },
+    "export2436ProtocolQueue": {
+      "queue": {
+        "path": "artifacts/chain-3735/export-2436-registration-queue.json",
+        "sha256": "337b4e40a528209eb11486f2f7ee41029f5c991311b4c542fb80778c805dabf8"
+      },
+      "handoff": {
+        "path": "artifacts/chain-3735/export-2436-registration-handoff.md",
+        "sha256": "0d3c4abc1f7ec31d92810d43e085a1f318aa34e33f54d435794545daee8e303e"
+      },
+      "sourceSha": "29f89672ef8aa456bd36dca5118fd1a9101adbf5",
+      "parentSha": "81f9e8a14aba3bf39d6f231dd9f91bc4109cd88f",
+      "reviewedRootHead": "889a8aceca12178a136eb72e3bf96ba102b831ee",
+      "sourceOnly": true,
+      "fourExactRoots": [
+        "DocumentExportRequest",
+        "DocumentExportTaskRequest",
+        "DocumentExportJobResponse",
+        "DocumentExportPageResponse"
+      ],
+      "assignedFrameIds": [],
+      "assignedNativeErrors": [],
+      "registryChanged": false,
+      "blockedBy": "original proposal exact family labels/native error and response complete-frame limit not supplied; source/run-bound83 execution receipt pending",
+      "wireActivationReady": false,
+      "accepted": false
     }
   },
   "historicalBeforeCurrentSourceFrontier": {
@@ -39206,7 +39232,7 @@
   },
   "currentSourceFrontier": {
     "path": "artifacts/chain-3735/source-frontier-20261008.json",
-    "sha256": "be07afb45f50f885e9e05079efc35e7c1ad01d7579eb7e9da740cd3e7021f9b0"
+    "sha256": "efebd0ec86cd5ff1b9ec327b1ab53a1a3700b023e7700c4a5788b38f493d51df"
   },
   "currentSourceFrontierSummary": {
     "currentManagedBuild": "bb109c208764cc00f96d3087d97bd911add70ff3",
