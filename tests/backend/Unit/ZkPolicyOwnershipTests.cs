@@ -70,6 +70,8 @@ public sealed class ZkPolicyOwnershipTests
             Assert.False(new ZkVerifierReadiness(options, verifier).Current.TrustedSetupVerified);
             File.WriteAllText(key, "{\"production_usable\":false}");
             Assert.False(new ZkVerifierReadiness(options, verifier).Current.TrustedSetupVerified);
+            File.WriteAllText(key, "[]");
+            Assert.False(new ZkVerifierReadiness(options, verifier).Current.TrustedSetupVerified);
         }
         finally
         {
