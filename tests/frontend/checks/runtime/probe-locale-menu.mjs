@@ -197,7 +197,8 @@ try
     await probe('outside').click();
     try
     {
-        await expect(probe('menu')).not.toBeVisible({ timeout: 1500 });
+        await expect.poll(async () => (await state()).visible, { timeout: 1500 }).toBe(false);
+        await expect(probe('menu')).not.toBeAttached({ timeout: 1500 });
         report.observations.outsideClose = !(await state()).visible;
     }
     catch
