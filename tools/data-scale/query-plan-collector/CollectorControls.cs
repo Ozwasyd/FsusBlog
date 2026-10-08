@@ -37,6 +37,7 @@ internal static class CollectorControls
     internal static void RunRelatedPayloadControls(string directory, string sourceCommit)
     {
         CurrentSchemaTestMaterializer.ValidateAssemblySourceCommit(sourceCommit);
+        Directory.CreateDirectory(directory);
         DateTime now = DateTime.Parse("2026-10-08T00:00:00Z", null, System.Globalization.DateTimeStyles.AdjustToUniversal);
         var related = new RelatedReadingItem(2, "neighbor", null, now, "related-control");
         var previous = new RelatedReadingItem(2, "neighbor", null, now, "previous-control");
