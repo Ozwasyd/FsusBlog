@@ -170,6 +170,59 @@ describe('product surface actions using the real editor and canonical continuity
         expect(h.runtime.state.pending).toBeNull();
     });
 
+    it('preserves a real manual-scroll pause and replans only after the anchor owner resumes', async () => {
+        const h = await mounted(); h.capability('fatal');
+        const bytes = h.source();
+        const context = h.owner.context;
+        const instance = h.wrapper.vm;
+        h.bound.anchors.manual('touch', 'source', 100);
+        const paused = h.runtime.applyDecision(h.capture(), { ...restore, now: 110 })!;
+        expect(paused.status).toBe('paused');
+        expect(paused.after).toBeNull();
+        expect(h.runtime.applyDecision(h.capture(), { ...restore, now: 120 })).toBe(paused);
+        expect(h.source()).toBe(bytes);
+        expect(h.owner.context).toBe(context);
+        expect(h.wrapper.vm).toBe(instance);
+        expect(h.bound.anchors.resume('navigation', 200)).toBe(true);
+        const replanned = h.runtime.applyDecision(h.capture(), { ...restore, now: 210 })!;
+        expect(replanned.requestRef).not.toBe(paused.requestRef);
+        expect((await h.acknowledge(replanned)).targetSurface).toBe('source');
+        expect(h.preference().surface).toBe('live');
+    });
+
+    it('replans a pending transition after actual input advances its document revision', async () => {
+        const h = await mounted(); h.capability('fatal');
+        const original = h.runtime.applyDecision(h.capture(), restore)!;
+        const edit = h.port.dispatchTransaction({ changes: [{ from: 14, to: 14, insert: 'new ' }], history: 'record', origin: 'input',
+            documentIdentity: h.owner.documentIdentity, expectedRevision: h.owner.context.sourceRevision });
+        expect(edit.accepted).toBe(true);
+        await nextTick(); await nextTick();
+        const replanned = h.runtime.applyDecision(h.capture(), { ...restore, now: 110 })!;
+        expect(replanned.requestRef).not.toBe(original.requestRef);
+        expect(replanned.before.document.sourceRevision).toBe(edit.revision);
+        const stale = createArticleEditorContinuityAcknowledgement({ requestRef: original.requestRef,
+            document: original.before.document, instanceRef: h.bound.continuity.instanceRef,
+            sessionRef: original.before.sessionRef, historyRef: original.before.historyRef, history: original.before.history,
+            selection: { ...original.anchorCommand!.range!, direction: original.anchorCommand!.direction },
+            surface: original.targetSurface, tool: original.targetTool, generation: original.anchorCommand!.generation,
+            focus: 'editor', focusEvent: 'focusin', viewportOffset: original.anchorCommand!.viewportOffset });
+        expect(h.bound.continuity.acknowledge(h.port, stale)).toBeNull();
+        expect((await h.acknowledge(replanned)).after!.history).toEqual(edit.history);
+        expect(h.source()).toContain('new ');
+    });
+
+    it('withdraws stale automatic admission when real user scroll takes control', async () => {
+        const h = await mounted(); h.capability('fatal');
+        const original = h.runtime.applyDecision(h.capture(), restore)!;
+        h.bound.anchors.manual('wheel', 'source', 110);
+        const paused = h.runtime.applyDecision(h.capture(), { ...restore, now: 120 })!;
+        expect(paused.requestRef).not.toBe(original.requestRef);
+        expect(paused.status).toBe('paused');
+        expect(paused.after).toBeNull();
+        expect(h.bound.continuity.receipts.slice().reverse().find(item => item.requestRef === original.requestRef)!.status).toBe('rejected');
+        expect(h.preference().surface).toBe('live');
+    });
+
     it.each(['document-switch', 'dispose'] as const)('rejects an actual initialization completion after %s', async boundary => {
         const h = await mounted(); h.capability('fatal');
         const recovery = h.runtime.recover(environment);
