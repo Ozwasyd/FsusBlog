@@ -92,6 +92,37 @@ Imports must re-resolve targets through the existing authoring pipeline and curr
 permission authority; export receipts cannot be reused as import permission. The
 import owner must prove that behavior at its own actual import boundary.
 
+`DocumentExportFrozenEmbedSourceBridge.FreezeAsync` assembles this slot through
+the existing `IRevisionComparePackageReader.ReadAuthorizedAsync`, the existing
+job authorization adapter, and three required reader/verifier ports. It binds
+the captured owner/site, exact draft or revision selector, original source bytes
+and package digest, and the stored numeric-to-portable host mapping. Publication
+coordinates have no corresponding source-reader selector and are refused. The
+source reader's nullable `DocumentEpoch` remains in its original domain; a null
+revision epoch never supplies the independent publication `HostDocument.Epoch`.
+
+The publication reader must return the authorized persisted expected plan digest,
+original parser requests, publication authority, plan and relation derivation.
+The bridge independently verifies those original artifacts, copies their bounded
+collection closure, reads each original retained dependency in order, owns its
+bytes, requires the separate canonical codec/retention verifier, and rechecks
+current permission before returning. Missing stored publications or projections,
+drift, cancellation and revoked permission do not return a partial or null slot.
+No default implementation, route, DI registration or format activation is added.
+
+The current authoring reader at supplied source
+`54f1c0ab4d3adfd6caf0b92a6d7d2b5309732a38` exposes authorized comparison packages,
+not persisted embed plans or projection payloads. Its old `primary` site literal
+cannot be remapped to the export SiteScope. Canonical implementations of the
+publication reader, retained-projection reader and independent projection verifier
+remain required; controlled bridge tests do not qualify those missing owners.
+The independent plan/relation verifiers prove consistency of their supplied
+artifacts; they do not prove that a reader's host mapping came from the raw package.
+That mapping and the publication authority's source-digest domain must be proven
+by the real persistent reader. The bridge does not equate the comparison package's
+bare source digest with the embed authority's digest or manufacture an epoch.
+The task materializer refusal above remains unconditional for non-null slots.
+
 The earlier SiteScope v3 consumer handoff remains on its published branch. This
 v4 source increment requires an explicit consumer handoff; no protected state is
 migrated and no old payload is silently upgraded. Removing this increment before
