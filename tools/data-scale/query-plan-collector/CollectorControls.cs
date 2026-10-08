@@ -38,6 +38,11 @@ internal static class CollectorControls
         string connectionPath = args[1];
         string directory = Path.GetFullPath(args[2]);
         string sourceCommit = args[3];
+        var controlConnection = new NpgsqlConnectionStringBuilder((await File.ReadAllTextAsync(connectionPath)).Trim());
+        if (controlConnection.Host is not ("127.0.0.1" or "localhost" or "::1") || controlConnection.Database != "query_capture_controls")
+        {
+            throw new InvalidOperationException("collector controls require their owned disposable loopback database");
+        }
         Directory.CreateDirectory(directory);
         string captureDirectory = Path.Combine(directory, "commands");
         string bindingPath = Path.Combine(directory, "binding.json");
