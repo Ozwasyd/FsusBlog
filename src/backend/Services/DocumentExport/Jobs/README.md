@@ -103,6 +103,10 @@ uses paths; a hostile writer with the same filesystem identity could race those
 checks. No production qualification is claimed for that boundary. The existing
 anchored owner already protects output object reads/commits/deletes. The module
 fails closed outside Linux until a private ACL/locking adapter is available.
+The current test-platform authority recognizes only `Platform=Unix`, which also
+selects macOS. These storage tests require a canonical Linux-specific selection
+handoff before macOS CI can accept them; they must not silently skip or broaden
+the production platform guard. This is an unresolved test integration boundary.
 The canonical live identity/site adapter, provider verifier adapters, interrupted
 execution recovery adapter, dispatcher/HTTP registration, background health/drain
 integration and exact-candidate CI must be supplied and independently verified
