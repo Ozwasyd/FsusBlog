@@ -14,6 +14,8 @@ namespace FsusBlog.Server.Services;
 
 public sealed partial class UserLocalePreferenceService
 {
+    // Until an explicit expiry contract exists, keep every admitted identity and refuse overflow.
+    private const int MaximumRetainedAuthoringOperations = 256;
     private static readonly JsonSerializerOptions s_authorTypographyPersistenceOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -202,6 +204,11 @@ public sealed partial class UserLocalePreferenceService
                         ?? new(WritingAidPreferenceOutcome.RevisionConflict);
                     return;
                 }
+                if (await AuthoringPreferenceJournalIsFullAsync(owner, cancellationToken).ConfigureAwait(false))
+                {
+                    result = new(WritingAidPreferenceOutcome.Unavailable);
+                    return;
+                }
                 AuthoringPreferenceCasWrite<T>? write = prepare(current, checked(current.Revision + 1));
                 if (write is null || write.Next.Revision != current.Revision + 1
                     || !ValidateAuthoringPreferenceState(owner, write.Next)
@@ -304,6 +311,25 @@ public sealed partial class UserLocalePreferenceService
             new(reader.GetInt32(0), reader.GetBoolean(1), reader.GetBoolean(2), reader.GetBoolean(3)),
             reader.IsDBNull(4) ? null : reader.GetString(4), reader.GetString(6));
         return state.Revision > 0 && ValidateAuthoringPreferenceState(owner, state) ? state : null;
+    }
+
+    private async Task<bool> AuthoringPreferenceJournalIsFullAsync(
+        WritingAidPreferenceOwner owner,
+        CancellationToken cancellationToken)
+    {
+        // Existing rows are locked by the common transaction before this bounded indexed scan.
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT count(*) FROM (
+                SELECT 1 FROM user_authoring_preference_operation
+                WHERE user_scope = @UserScope AND site_scope = @SiteScope
+                LIMIT @MaximumOperations
+            ) AS retained_operations;
+            """,
+            new SugarParameter("@UserScope", owner.UserScope), new SugarParameter("@SiteScope", owner.SiteScope),
+            new SugarParameter("@MaximumOperations", MaximumRetainedAuthoringOperations)).ConfigureAwait(false);
+        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
+            && reader.GetInt64(0) >= MaximumRetainedAuthoringOperations;
     }
 
     private async Task<AuthoringPreferenceCasResult<T>?> ReadAuthoringPreferenceOperationAsync<T>(

@@ -37,3 +37,13 @@ public interface IWritingAidPreferenceCommand
         WritingAidPreferenceUpdate update,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>One-time server defaults initialization. It cannot translate an unverified legacy key or overwrite a row.</summary>
+public interface IWritingAidPreferenceInitializationCommand
+{
+    Task<WritingAidPreferenceResult> InitializeWritingAidPreferenceAsync(
+        WritingAidPreferenceOwner owner,
+        string deviceScope,
+        Guid operationId,
+        CancellationToken cancellationToken = default);
+}

@@ -11,12 +11,14 @@ public static class WritingAidPreferenceReceiptValidator
 
     public static bool Validate(WritingAidPreferenceReceipt? receipt, WritingAidPreferenceOwner owner)
         => receipt is not null && receipt.OperationId != Guid.Empty && IsDeviceScope(receipt.DeviceScope)
-            && receipt.Action is "update" or "initialize" or "migrate-legacy"
+            && receipt.Action is "update" or "initialize"
             && receipt.Status == "committed"
             && receipt.Previous is not null && receipt.Committed is not null
             && WritingAidPreferenceValidator.ValidateSnapshot(receipt.Previous, owner) == WritingAidPreferenceValidation.Valid
             && WritingAidPreferenceValidator.ValidateSnapshot(receipt.Committed, owner) == WritingAidPreferenceValidation.Valid
             && receipt.Committed.Revision == receipt.Previous.Revision + 1
+            && (receipt.Action != "initialize" || receipt.Previous.Revision == 0
+                && receipt.Committed.Values == WritingAidPreferenceContract.Defaults)
             && receipt.ContentDigest == ComputeDigest(receipt with { ContentDigest = string.Empty });
 
     public static string ComputeDigest(WritingAidPreferenceReceipt receipt)
