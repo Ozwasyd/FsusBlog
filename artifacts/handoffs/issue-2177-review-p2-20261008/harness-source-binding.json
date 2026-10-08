@@ -1,0 +1,85 @@
+{
+  "candidateSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "purpose": "Exact repository test sources linked without copying/replacing production code. Select original five recipient cases and seven old/new pure suites only. Other linked tests provide existing helper types and are not selected.",
+  "formalBackendProjectAcceptance": false,
+  "harnessIsNotFormalMatrix": true,
+  "files": [
+    {
+      "path": "tests/backend/GlobalUsings.cs",
+      "gitBlob": "3e394db9d3ffec0ec591dde277ea41d1dd670014",
+      "sha256": "c87e4f17494a136f908d58c72a14e200e0d00b54ce39f93cbe90141277e18175"
+    },
+    {
+      "path": "tests/backend/Unit/ArticleCommentPolicyServiceTests.cs",
+      "gitBlob": "eba8fb15f8ead6c30cf5db7c290cdc194dfa85bf",
+      "sha256": "710205819a0747dd124f8e5eef2f53fd39b981dc38f26b096c6d8286f67ccad2"
+    },
+    {
+      "path": "tests/backend/Unit/AnonymousCommentPolicyTests.cs",
+      "gitBlob": "7271da79d4bc84d7eecf0f429c7b196360d1c3f1",
+      "sha256": "7ef7c4837e4a08e5edd55015c731bf783dea452be22969adcf62d943d6234aa7"
+    },
+    {
+      "path": "tests/backend/Unit/AnonymousCommentScopePolicyTests.cs",
+      "gitBlob": "cf2f054cb4456a8b72375b7e588110f55a739910",
+      "sha256": "233a871ba98298127bedc217b9c1cc2bc99023d282ec05e05581e92dc6544f3c"
+    },
+    {
+      "path": "tests/backend/Unit/CommentModerationInitialStateTests.cs",
+      "gitBlob": "3b7fe6110d4fd4d1ec307107d90146c466775ea7",
+      "sha256": "2321873e808371267786d9494acfa4ef87bf1ad90643c07b437facf43669d313"
+    },
+    {
+      "path": "tests/backend/Unit/CommentModerationDispositionPolicyTests.cs",
+      "gitBlob": "1aed868c35316cf0b2f8d1675ec017d8563b5780",
+      "sha256": "8b4a0213c12d7e0b8874e1bbf7d5f4b068e8b82aba3d3fb87d9a94e43db49e06"
+    },
+    {
+      "path": "tests/backend/Unit/CommentCommandBoundaryTests.cs",
+      "gitBlob": "8515ef5b52e40c9a26aba280c86fea3a16d70615",
+      "sha256": "27e765129703777a97df7a4e7e2ff4b5a12994a2d5095187b21c7fb6951ac907"
+    },
+    {
+      "path": "tests/backend/Unit/CommentPurePolicyContractTests.cs",
+      "gitBlob": "e5e81c7b3abab9bc5069cd642dfe70d6ae4f5eb2",
+      "sha256": "08a196a13708347959d6445256964831e4daedea9b00bdfc7b3d8735a5670e4f"
+    },
+    {
+      "path": "tests/backend/Unit/CommentServiceValidationTests.cs",
+      "gitBlob": "f64cb3ca8e6a81fdaf9ca1c419c833e17621a80e",
+      "sha256": "bca21497950b3db0d57dd37f395a3274f638664bd952a375bd1fdf3e847c01cc"
+    },
+    {
+      "path": "tests/backend/Unit/AccountSubjectHashProjectionTests.cs",
+      "gitBlob": "dcc707ffbd5f6f579cb664697c2c1ed3f64439e2",
+      "sha256": "fc24efba33b6b1124822e5f5832b57727e25dc9079d6bce63d967132a0a77f84"
+    },
+    {
+      "path": "tests/backend/Fixtures/PostgresSchemaMigrationFixture.cs",
+      "gitBlob": "9a3097f79f99c9e6505960d6be0340ed2ca35376",
+      "sha256": "b9338609c41550add97c2baf3af243595038ca4726c7052ad9994e32f255f136"
+    },
+    {
+      "path": "tests/backend/Fixtures/SchemaMigrationPostgresCollection.cs",
+      "gitBlob": "6f4c54d2c920d450701e14604fefe2670f32c8c7",
+      "sha256": "c4b0c0b4f400f07ca11cbd1773d05ac8e219d83e194ba9aa3be56bbf5ef4f457"
+    },
+    {
+      "path": "tests/backend/Helpers/TestInfrastructure/PostgresSqlSugarTestClient.cs",
+      "gitBlob": "f6400254a842243cf8d104f5ab7e41a8a2fe60e0",
+      "sha256": "93111e11bd7d953c75078dc56b55a74b8e0b69bd54c4ce09f62e6caed50c76d3"
+    },
+    {
+      "path": "tests/backend/Helpers/TestInfrastructure/TestTemporalContext.cs",
+      "gitBlob": "28a7c9146bff6d7a3523aae4ac27d7aac309067c",
+      "sha256": "693f89c477fcab14eaf259940d83a88dc8e29caeb4e2071b015ed4b640a06d59"
+    },
+    {
+      "path": "tests/backend/Helpers/TestInfrastructure/RealConcurrencyHarness.cs",
+      "gitBlob": "051c561c13779ebd5afab84a03e156d5b5fbfdc2",
+      "sha256": "62f583b0da8b5147273afb872cefb43271233e8f488310a6e6e875869767205f"
+    }
+  ],
+  "productionProject": "src/backend/FsusBlog.Server.csproj",
+  "productionSources": "Entire actual candidate project and unchanged project references compiled; no production stubs."
+}

@@ -1,0 +1,137 @@
+{
+  "kind": "ordinary-bounded-review-correction-evidence-export-not-qualified-receipt",
+  "sourceHead": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "previousHead": "b325e08d63d7802ee62d8707a5b901d43ceda8c9",
+  "reviewer": "01a11ab1-5d08-77e2-9b39-444059573034",
+  "sourceBranch": "codex/issue-2177-review-source-20261008",
+  "artifacts": [
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/review-correction-handoff.json",
+      "sha256": "d0791fc131bd894c10e06e60d7340bc5d5e6f5e947041feebe9ab3115ecd9069",
+      "bytes": 10518,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/review-p2-bound.json",
+      "sha256": "16d23a6645c57692e3af2f833d16e40013e5926b5b7b165e283f725047fdae69",
+      "bytes": 3303,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/review-p2-bound.trx",
+      "sha256": "dc352eaa09ad071d6880bccfb5d3514c0d757c94775e328d0c51860537461742",
+      "bytes": 126607,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/review-p2-bound.log",
+      "sha256": "4bfa35d3bcb30295c28ba342d5b993a9b014eceda8fcc50290c72563ca8793c6",
+      "bytes": 1091,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/harness-source-binding.json",
+      "sha256": "11e71eced840081389c915ef88641d2bbb87678c935509214bb44981f8a5c314",
+      "bytes": 4033,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/formal-locked-restore.json",
+      "sha256": "940f8606f523c5ad58b48264aeb3930b10f39b1ddc3960524be509b960ced81b",
+      "bytes": 465,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/formal-locked-restore.log",
+      "sha256": "040ce415d069fd8e259c742c4de34885d02e1dd411f862686ec17542d7ccf379",
+      "bytes": 1411,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/harness-locked-restore.json",
+      "sha256": "f8ee1b8abec8f700116331cc4c838d4d485103c1f44f28a13ab9b87e054b15d3",
+      "bytes": 532,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/range-contract.json",
+      "sha256": "fd2ee5f5fd2b57d3a7087577871192f2f0362d2cdd48a42f3965470a4fe4c5bf",
+      "bytes": 553,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/range-contract.log",
+      "sha256": "4cc6d8f588a334811a2d8151c69c2d6b3d34bd527e432d328250150db2648297",
+      "bytes": 81,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/source-stage.json",
+      "sha256": "5f9d40456f40b01c7ef970619ef8e8a0404877ab300c1faffa98d6985ec2a74a",
+      "bytes": 593,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/source-stage.log",
+      "sha256": "039186819cada355c60104e388061399adbeaddbc259b569213f10b3c2aae68e",
+      "bytes": 256,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/local-review-contract-final.json",
+      "sha256": "3bd4e75cccd9361caf1be19e6f2bdeb61fd1c994c4929536083b4c88d3b483f0",
+      "bytes": 404,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/local-review-contract-final.log",
+      "sha256": "e369562d603bd6cd5716c0d67fcc535018cf892b0e2696c4de50d3cf81e86bc6",
+      "bytes": 42,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/local-pr-event.json",
+      "sha256": "ee76e39e563a2806dcb70bbc6d7f5854529f3fb10f87ba543b0e0cdf5d155c3d",
+      "bytes": 8133,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/local-pr-body.txt",
+      "sha256": "925e2b762d10f8bec0b307baee34d889b76f81fefa8b6fabf661e50f777701d0",
+      "bytes": 7253,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/canonical-3654-prerequisite-inspection.json",
+      "sha256": "4bbe03d3cf09bc89fd88eb71c4c4e3a045a269a56c6965452c0627b91baf7cf3",
+      "bytes": 623,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/canonical-3654-lifecycle-delta.patch",
+      "sha256": "1a105ad10377e7bea700183452f5032353dfcdb742d098efcf92be11f24aa5be",
+      "bytes": 3101,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/harness/ReplyRecipientReviewHarness.csproj",
+      "sha256": "2e3851994127e89ba34320c3406bf31bd9dbf3ee2b0a4d10a346413118c67f91",
+      "bytes": 3704,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-review-p2-20261008/harness/packages.lock.json",
+      "sha256": "ffa4f4f9e3086650f2f286d61d72fbc2e999765b68dd1054e48c5d84f3618b02",
+      "bytes": 26656,
+      "copiedByteExact": true
+    }
+  ],
+  "originalFiveCases": "All preserved and passed in current exact linked-source harness, included in 80/80; no skipped cases.",
+  "testsRerunForExport": false,
+  "qualificationEligible": false,
+  "formalBackendProject": "Original locked restore NU1004 retained, full matrix not run/waived.",
+  "portableReplay": "Harness links exact source checkout files. Original csproj records original executor absolute paths; a different executor must materialize Include paths from harness-source-binding.json under its exact 10a5 source checkout, preserving every listed source SHA and test selection. Original project/lock/commands retained byte-exact.",
+  "historical75": "No reseal or compiled dependency-closure equivalence claim.",
+  "prCreated": false,
+  "queueGrant": false
+}

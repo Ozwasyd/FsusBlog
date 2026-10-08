@@ -1,0 +1,223 @@
+{
+  "kind": "same-reviewer-bounded-P2-source-correction-not-product-acceptance",
+  "reviewerThread": "01a11ab1-5d08-77e2-9b39-444059573034",
+  "reviewedPreviousHead": "b325e08d63d7802ee62d8707a5b901d43ceda8c9",
+  "correctedRefrozenHead": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "branch": "codex/issue-2177-review-source-20261008",
+  "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "newCommitOnly": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "correctionFiles": [
+    "tests/backend/Unit/CommentServiceValidationTests.cs"
+  ],
+  "correction": "Direct call to public ResolveReplyRecipientId. All five original InlineData cases and Assert.Equal remain unchanged. No caller deletion, skip, production change, test weakening or outbox/baseline integration.",
+  "fullCurrentDiffFiles": [
+    {
+      "path": "artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json",
+      "gitBlob": "083ea1d65f3accdeebe8852e9678ae90424fb037",
+      "sha256": "2881587850c33ae5d3758b6b060dbea6db44b3704899531d81e09e49fc59ed1a"
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "gitBlob": "48401be64ef3b086c36db116ef69b58b5f22af3e",
+      "sha256": "e5fb59aee6bb9171d2cc4825e185c68498219c30e90a444e7edb35270181e8d3"
+    },
+    {
+      "path": "src/backend/Services/ArticleCommentPolicyService.cs",
+      "gitBlob": "17dc99fed8d7375eec13da375e35650b8aaa5e40",
+      "sha256": "7d6d6769a53d8b2961276083002235c05fd13a127d7c07e4b3912997e1434132"
+    },
+    {
+      "path": "src/backend/Services/CommentModerationService.cs",
+      "gitBlob": "1a9854726f4baa1a7c2ffb4dc12d02ab9c7b96f1",
+      "sha256": "0d765e17403a9ab79acfa1da1e8998c5ba59cb7829e22a74f8fbb737098458b8"
+    },
+    {
+      "path": "src/backend/Services/CommentService.cs",
+      "gitBlob": "e780e21342614401233f66d23447a168fdd26b01",
+      "sha256": "0fbda401d1121c9158b834a3831813ad517b3e7c4998561737d40ed243f3d74e"
+    },
+    {
+      "path": "src/backend/Services/Security/AnonymousCommentPolicyService.cs",
+      "gitBlob": "0e06d3df71fa2ab10f578af6ece328cc8277c875",
+      "sha256": "e99821b96f96fd8d90f21696a0cd96d164c42bbaf0f547e6840b15835b9bbf1b"
+    },
+    {
+      "path": "tests/backend/Unit/CommentModerationInitialStateTests.cs",
+      "gitBlob": "3b7fe6110d4fd4d1ec307107d90146c466775ea7",
+      "sha256": "2321873e808371267786d9494acfa4ef87bf1ad90643c07b437facf43669d313"
+    },
+    {
+      "path": "tests/backend/Unit/CommentPurePolicyContractTests.cs",
+      "gitBlob": "e5e81c7b3abab9bc5069cd642dfe70d6ae4f5eb2",
+      "sha256": "08a196a13708347959d6445256964831e4daedea9b00bdfc7b3d8735a5670e4f"
+    },
+    {
+      "path": "tests/backend/Unit/CommentServiceValidationTests.cs",
+      "gitBlob": "f64cb3ca8e6a81fdaf9ca1c419c833e17621a80e",
+      "sha256": "bca21497950b3db0d57dd37f395a3274f638664bd952a375bd1fdf3e847c01cc"
+    }
+  ],
+  "baseIsAncestor": true,
+  "applicationConflicts": [],
+  "trackedClean": true,
+  "currentCandidateChecks": {
+    "range-contract": {
+      "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d..HEAD"
+      ],
+      "startedAt": "2026-10-08T09:09:44.185925+00:00",
+      "exitCode": 0,
+      "logSha256": "4cc6d8f588a334811a2d8151c69c2d6b3d34bd527e432d328250150db2648297",
+      "qualificationEligible": false,
+      "prCreated": false
+    },
+    "source-stage": {
+      "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "ci-pr-smart",
+        "--stage",
+        "source-integration",
+        "--base-ref",
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+      ],
+      "startedAt": "2026-10-08T09:09:45.582297+00:00",
+      "exitCode": 0,
+      "logSha256": "039186819cada355c60104e388061399adbeaddbc259b569213f10b3c2aae68e",
+      "qualificationEligible": false,
+      "prCreated": false
+    },
+    "local-review-contract-final": {
+      "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--github-event",
+        "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-p2-20261008/local-pr-event.json"
+      ],
+      "exitCode": 0,
+      "localDraftOnly": true,
+      "prCreated": false
+    },
+    "formal-locked-restore": {
+      "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode",
+        "-m:1",
+        "-nodeReuse:false"
+      ],
+      "startedAt": "2026-10-08T09:08:07.983718+00:00",
+      "exitCode": 1,
+      "logSha256": "040ce415d069fd8e259c742c4de34885d02e1dd411f862686ec17542d7ccf379",
+      "formalMatrixAcceptance": false
+    },
+    "harness-locked-restore": {
+      "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "restore",
+        "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-p2-20261008/harness/ReplyRecipientReviewHarness.csproj",
+        "--locked-mode",
+        "-m:1",
+        "-nodeReuse:false"
+      ],
+      "startedAt": "2026-10-08T09:08:15.241479+00:00",
+      "exitCode": 0,
+      "logSha256": "265f5142fa50a8748d07b4b497d1dbcdb5a1c3c8618d596377b3bb67897a230b",
+      "formalMatrixAcceptance": false
+    },
+    "review-p2-bound": {
+      "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "runLabel": "p2-bound-12d8f3e3-de45-4c10-a834-b4688433543b",
+      "startedAt": "2026-10-08T09:16:17.197220+00:00",
+      "seconds": 18.066088673000195,
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "test",
+        "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-p2-20261008/harness/ReplyRecipientReviewHarness.csproj",
+        "--no-restore",
+        "-m:1",
+        "-nodeReuse:false",
+        "-p:UseSharedCompilation=false",
+        "--filter",
+        "FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~AnonymousCommentPolicyTests|FullyQualifiedName~AnonymousCommentScopePolicyTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentModerationDispositionPolicyTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentPurePolicyContractTests|FullyQualifiedName~CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply",
+        "--logger",
+        "trx;LogFileName=review-p2-bound.trx",
+        "--results-directory",
+        "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-p2-20261008"
+      ],
+      "exitCode": 0,
+      "logSha256": "4bfa35d3bcb30295c28ba342d5b993a9b014eceda8fcc50290c72563ca8793c6",
+      "qualificationEligible": false,
+      "formalBackendProjectAcceptance": false,
+      "harnessProjectSha256": "2e3851994127e89ba34320c3406bf31bd9dbf3ee2b0a4d10a346413118c67f91",
+      "trxRunId": "10d4498d-eb45-41bf-9c69-6eab9bc758a5",
+      "counters": {
+        "total": "80",
+        "executed": "80",
+        "passed": "80",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "originalRecipientCases": [
+        {
+          "name": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: null, expected: null)",
+          "outcome": "Passed"
+        },
+        {
+          "name": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 7, expected: null)",
+          "outcome": "Passed"
+        },
+        {
+          "name": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 8, expected: 7)",
+          "outcome": "Passed"
+        },
+        {
+          "name": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: 8, expected: null)",
+          "outcome": "Passed"
+        },
+        {
+          "name": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: null, expected: 7)",
+          "outcome": "Passed"
+        }
+      ],
+      "trxSha256": "dc352eaa09ad071d6880bccfb5d3514c0d757c94775e328d0c51860537461742",
+      "newResidualContainerIds": []
+    }
+  },
+  "qualifiedFormalBackendProject": false,
+  "completeMatrix": "Blocked at original NU1004; not run or waived.",
+  "historical75": "Still bound to ea870fe5a14fe2b8a62067ec17b9c790c7042bd5. Byte equality of seven changed owners does not establish whole compiled dependency closure; no reseal. Current separate 80-control harness is tied to actual corrected source.",
+  "canonical3654": {
+    "suppliedCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+    "inspected": true,
+    "consumed": false,
+    "reason": "Not needed by isolated P2 source verification; original owner retains compiler/startup repairs."
+  },
+  "newOutboxCandidate": "Separate branch codex/issue-2177-outbox-source-only-20261008; not part of this review.",
+  "queueGranted": false,
+  "prCreated": false,
+  "reviewerApproval": "Pending independent reviewer response; no self-signing of whole acceptance.",
+  "originalNativeSecurityTransactionAcceptance": "OPEN; denied semantic/cohort/audit cases not rerun."
+}

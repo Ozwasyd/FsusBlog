@@ -1,0 +1,69 @@
+{
+  "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "runLabel": "p2-bound-12d8f3e3-de45-4c10-a834-b4688433543b",
+  "startedAt": "2026-10-08T09:16:17.197220+00:00",
+  "seconds": 18.066088673000195,
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "test",
+    "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-p2-20261008/harness/ReplyRecipientReviewHarness.csproj",
+    "--no-restore",
+    "-m:1",
+    "-nodeReuse:false",
+    "-p:UseSharedCompilation=false",
+    "--filter",
+    "FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~AnonymousCommentPolicyTests|FullyQualifiedName~AnonymousCommentScopePolicyTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentModerationDispositionPolicyTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentPurePolicyContractTests|FullyQualifiedName~CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply",
+    "--logger",
+    "trx;LogFileName=review-p2-bound.trx",
+    "--results-directory",
+    "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-p2-20261008"
+  ],
+  "exitCode": 0,
+  "logSha256": "4bfa35d3bcb30295c28ba342d5b993a9b014eceda8fcc50290c72563ca8793c6",
+  "qualificationEligible": false,
+  "formalBackendProjectAcceptance": false,
+  "harnessProjectSha256": "2e3851994127e89ba34320c3406bf31bd9dbf3ee2b0a4d10a346413118c67f91",
+  "trxRunId": "10d4498d-eb45-41bf-9c69-6eab9bc758a5",
+  "counters": {
+    "total": "80",
+    "executed": "80",
+    "passed": "80",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "originalRecipientCases": [
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: null, expected: null)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 7, expected: null)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 8, expected: 7)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: 8, expected: null)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: null, expected: 7)",
+      "outcome": "Passed"
+    }
+  ],
+  "trxSha256": "dc352eaa09ad071d6880bccfb5d3514c0d757c94775e328d0c51860537461742",
+  "newResidualContainerIds": []
+}

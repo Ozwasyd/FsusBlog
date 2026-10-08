@@ -1,0 +1,10 @@
+  FsusBlog.Shared -> /workspace/FsusBlog-2177-review-source/src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll
+  FsusBlog.Core -> /workspace/FsusBlog-2177-review-source/src/core/bin/Debug/net10.0/FsusBlog.Core.dll
+  FsusBlog.DiLifetimeAnalyzer -> /workspace/FsusBlog-2177-review-source/tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.dll
+  FsusBlog.Server -> /workspace/FsusBlog-2177-review-source/src/backend/bin/Debug/net10.0/FsusBlog.Server.dll
+  ReplyRecipientReviewHarness -> /workspace/FsusBlog-2177-review-source/.tmp/issue-2177-p2-20261008/harness/bin/Debug/net10.0/FsusBlog.Server.Tests.dll
+Test run for /workspace/FsusBlog-2177-review-source/.tmp/issue-2177-p2-20261008/harness/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/FsusBlog-2177-review-source/.tmp/issue-2177-p2-20261008/review-p2-bound.trx
+
+Passed!  - Failed:     0, Passed:    80, Skipped:     0, Total:    80, Duration: 11 s - FsusBlog.Server.Tests.dll (net10.0)

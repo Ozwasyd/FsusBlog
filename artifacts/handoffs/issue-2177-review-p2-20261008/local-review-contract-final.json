@@ -1,0 +1,12 @@
+{
+  "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--github-event",
+    "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-p2-20261008/local-pr-event.json"
+  ],
+  "exitCode": 0,
+  "localDraftOnly": true,
+  "prCreated": false
+}

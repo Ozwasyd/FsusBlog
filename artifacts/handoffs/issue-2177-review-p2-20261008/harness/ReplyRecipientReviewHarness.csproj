@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>FsusBlog.Server.Tests</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Npgsql" />
+    <ProjectReference Include="/workspace/FsusBlog-2177-review-source/src/backend/FsusBlog.Server.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/GlobalUsings.cs" Link="tests/backend/GlobalUsings.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Unit/ArticleCommentPolicyServiceTests.cs" Link="tests/backend/Unit/ArticleCommentPolicyServiceTests.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Unit/AnonymousCommentPolicyTests.cs" Link="tests/backend/Unit/AnonymousCommentPolicyTests.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Unit/AnonymousCommentScopePolicyTests.cs" Link="tests/backend/Unit/AnonymousCommentScopePolicyTests.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Unit/CommentModerationInitialStateTests.cs" Link="tests/backend/Unit/CommentModerationInitialStateTests.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Unit/CommentModerationDispositionPolicyTests.cs" Link="tests/backend/Unit/CommentModerationDispositionPolicyTests.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Unit/CommentCommandBoundaryTests.cs" Link="tests/backend/Unit/CommentCommandBoundaryTests.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Unit/CommentPurePolicyContractTests.cs" Link="tests/backend/Unit/CommentPurePolicyContractTests.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Unit/CommentServiceValidationTests.cs" Link="tests/backend/Unit/CommentServiceValidationTests.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Unit/AccountSubjectHashProjectionTests.cs" Link="tests/backend/Unit/AccountSubjectHashProjectionTests.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Fixtures/PostgresSchemaMigrationFixture.cs" Link="tests/backend/Fixtures/PostgresSchemaMigrationFixture.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Fixtures/SchemaMigrationPostgresCollection.cs" Link="tests/backend/Fixtures/SchemaMigrationPostgresCollection.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Helpers/TestInfrastructure/PostgresSqlSugarTestClient.cs" Link="tests/backend/Helpers/TestInfrastructure/PostgresSqlSugarTestClient.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Helpers/TestInfrastructure/TestTemporalContext.cs" Link="tests/backend/Helpers/TestInfrastructure/TestTemporalContext.cs" />
+    <Compile Include="/workspace/FsusBlog-2177-review-source/tests/backend/Helpers/TestInfrastructure/RealConcurrencyHarness.cs" Link="tests/backend/Helpers/TestInfrastructure/RealConcurrencyHarness.cs" />
+  </ItemGroup>
+</Project>

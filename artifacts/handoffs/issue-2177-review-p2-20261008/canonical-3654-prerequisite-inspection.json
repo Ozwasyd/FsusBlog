@@ -1,0 +1,10 @@
+{
+  "suppliedCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+  "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+  "gitBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+  "sha256": "667c54dd931ee283086e54bf64829182a3d5dc73e80ac181fd1ad1f4a4f96160",
+  "actualDeltaSaved": "canonical-3654-lifecycle-delta.patch",
+  "consumedInPureCandidate": false,
+  "consumedInCleanOutboxCandidate": false,
+  "reason": "Exact linked-source controls do not require this startup file; canonical owner retains these four ordinary compiler repairs. No broad prerequisite integration into frozen reviewer candidate."
+}
