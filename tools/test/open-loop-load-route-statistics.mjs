@@ -115,17 +115,19 @@ function metrics(records)
     const latencies = valid.map((record) => record.sample.latencyMs).sort((a, b) => a - b);
     const bytes = valid.map((record) => record.sample.bodyBytes).sort((a, b) => a - b);
     const plannedSamples = records.length;
-    const failedSamples = plannedSamples - valid.length;
+    const completedSamples = records.filter((record) => ['completed', 'timed-out'].includes(record.outcome)).length;
+    const failedSamples = records.filter((record) => record.outcome === 'completed' && record.sample?.ok !== true).length;
     const timedOutSamples = records.filter((record) => record.outcome === 'timed-out').length;
     const droppedSamples = records.filter((record) => record.outcome === 'dropped').length;
     return { plannedSamples,
         dispatchedSamples: records.filter((record) => record.dispatchedAtMs !== null).length,
-        completedSamples: records.filter((record) => record.outcome === 'completed').length,
+        completedSamples,
         contractPassedSamples: valid.length, failedSamples, timedOutSamples, droppedSamples,
         latencyP50Ms: percentile(latencies, 0.5), latencyP95Ms: percentile(latencies, 0.95),
         latencyP99Ms: percentile(latencies, 0.99), latencyMaxMs: latencies.at(-1) ?? null,
         bodyBytesP50: percentile(bytes, 0.5), bodyBytesP99: percentile(bytes, 0.99),
-        errorRate: failedSamples / plannedSamples, timeoutRate: timedOutSamples / plannedSamples,
+        errorRate: completedSamples === 0 ? null : failedSamples / completedSamples,
+        timeoutRate: completedSamples === 0 ? null : timedOutSamples / completedSamples,
         dropRate: droppedSamples / plannedSamples };
 }
 
@@ -138,10 +140,12 @@ function membership(records)
  * Consume {schedule,timeline,routePolicy,expectedRouteIds,sourceSha,includeAggregate?}.
  * sourceSha is a full Git SHA, not a runtime receipt. Policy identity combines the
  * unchanged arrival policy with explicit route limits. Percentiles use nearest rank
- * over only contract-passed completed samples. failedSamples includes all invalid
- * planned members (timeouts, drops and cancellations included); rates use planned
- * membership as denominator. completedSamples follows the scheduler's completed
- * outcome, excluding timed-out outcomes. Any route or arrival-conformance failure
+ * over only contract-passed completed samples. completedSamples includes settled
+ * completed and timed-out outcomes; failedSamples counts unsuccessful completed
+ * outcomes, excluding timeouts, drops and cancellations. Error/timeout rates use
+ * completedSamples as denominator and remain null when it is zero. dropRate is
+ * droppedSamples / plannedSamples, measuring unsent planned arrivals separately.
+ * Any route or arrival-conformance failure
  * makes passed false. Optional aggregate metrics have no pass authority.
  * This pure source oracle performs no HTTP and grants no runtime qualification.
  */
@@ -178,6 +182,10 @@ export function buildOpenLoopLoadRouteStatistics({
         const members = grouped.get(route.routeId);
         const statistics = metrics(members);
         const failures = [];
+        if (statistics.completedSamples === 0)
+        {
+            failures.push('no-completed-samples');
+        }
         if (statistics.contractPassedSamples < route.minimumValidSamples)
         {
             failures.push('minimum-valid-samples');
