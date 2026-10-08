@@ -223,7 +223,6 @@ export type {
     MarkdownFeatureActivationKind,
     MarkdownFeatureActivationOptions,
     MarkdownFeatureActivationResult,
-    MarkdownFeatureAdapter,
     MarkdownRenderChunk,
     MarkdownRenderChunkKind,
     MarkdownRenderRequest,
