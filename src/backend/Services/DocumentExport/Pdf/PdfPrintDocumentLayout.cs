@@ -45,7 +45,7 @@ internal static class PdfPrintDocumentLayout
         h1,h2,h3,h4,h5,h6{break-after:avoid}p,li,blockquote{orphans:3;widows:3}
         figure,img,svg{break-inside:avoid;max-width:100%}figure{margin:1em 0}
         table{table-layout:fixed}thead{display:table-header-group}tfoot{display:table-footer-group}tr{break-inside:avoid}
-        pre{white-space:pre-wrap;overflow-wrap:anywhere;overflow:visible}code{white-space:inherit}
+        pre{direction:ltr;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;overflow:visible}code{white-space:inherit}
         .page-break,.page-break-before{break-before:page}.page-break-after{break-after:page}.page-break-inside-avoid{break-inside:avoid}
         details,details>*{display:block}a{color:#2A599C;text-decoration:underline}
         }

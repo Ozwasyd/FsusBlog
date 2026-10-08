@@ -70,6 +70,7 @@ public sealed class DocumentExportPdfProviderTests
         PdfPrintRenderRequest request = PdfPrintDocumentLayout.Compose(Response(input, "<p>Text</p>"), input, 1024 * 1024);
 
         Assert.Contains($"lang=\"{locale}\" dir=\"rtl\"", request.HtmlDocument, StringComparison.Ordinal);
+        Assert.Contains("pre{direction:ltr;text-align:left;", request.HtmlDocument, StringComparison.Ordinal);
     }
 
     [Fact]

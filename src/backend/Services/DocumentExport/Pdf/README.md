@@ -18,6 +18,8 @@ existing light reading palette for both registered input themes. User CSS, print
 arguments, scripts and remote resource reads are not accepted.
 The document direction uses the admitted locale's .NET culture data, including
 Persian `fa-IR` and Urdu `ur-PK`, instead of an Arabic/Hebrew prefix list.
+Program code uses LTR direction and left alignment within either document direction
+so leading indentation and tab columns are preserved in RTL articles as well.
 
 `PdfDocumentExportProvider.ExportAsync` returns `PdfDocumentExportResult`, containing
 the shared provider result plus actual canonical-renderer evidence and observed

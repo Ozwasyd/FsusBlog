@@ -53,7 +53,7 @@ def request(fragment="<p>Hello PDF</p>", expected="Hello PDF", links=None, fonts
         f"@font-face{{font-family:'{font['family']}';src:url(data:{font['mediaType']};base64,{font['bytes']})}}"
         for font in fonts
     )
-    css = "@page{size:A4;margin:18mm;@bottom-center{content:counter(page)' / 'counter(pages);font-size:9px}}body{margin:0;font-family:'DejaVu Sans';font-size:12px}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{table-layout:fixed;width:100%}td{overflow-wrap:anywhere}.page-break{break-before:page}"
+    css = "@page{size:A4;margin:18mm;@bottom-center{content:counter(page)' / 'counter(pages);font-size:9px}}body{margin:0;font-family:'DejaVu Sans';font-size:12px}pre{direction:ltr;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere}table{table-layout:fixed;width:100%}td{overflow-wrap:anywhere}.page-break{break-before:page}"
     return {
         "htmlDocument": f"<!doctype html><html><head><meta charset='utf-8'><style>{faces}{css}</style></head><body>{fragment}</body></html>",
         "fontAssets": fonts,
@@ -468,6 +468,20 @@ def test_code_whitespace_tabs_and_logical_ligatures_are_preserved(code):
     assert (
         tool.verify_pdf(base64.b64decode(result["pdfBase64"]), value)["pageCount"] == 1
     )
+
+
+@pytest.mark.parametrize(
+    "locale,text", [("fa-IR", "سلام جهان"), ("ur-PK", "السلام علیکم")]
+)
+def test_rtl_document_keeps_program_code_indentation(locale, text):
+    value = request(f"<p>{text}</p><pre>  a  b\n    c\td  </pre>", text + "a b c d")
+    value["htmlDocument"] = value["htmlDocument"].replace(
+        "<html>", f'<html lang="{locale}" dir="rtl">'
+    )
+    data = base64.b64decode(render_in_process(value)["pdfBase64"])
+    with pymupdf.open(stream=data) as pdf:
+        assert "  a  b\n" in pdf[0].get_text()
+    assert tool.verify_pdf(data, value)["pageCount"] == 1
 
 
 def test_table_footer_before_body_is_explicitly_rejected():
