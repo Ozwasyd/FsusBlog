@@ -455,7 +455,7 @@ export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs 
                         launchNative: (specification) => request('launch-native', specification),
                         retainNative: () => request('retain-native'),
                         cancelNative: () => request('cancel-native'),
-                        close: () => closeReservationChild(child)
+                        close: () => closeReservationChild(child, () => stderr.trim())
                     });
                     continue;
                 }
@@ -513,7 +513,7 @@ export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs 
     });
 }
 
-function closeReservationChild(child)
+function closeReservationChild(child, diagnostics = () => '')
 {
     return new Promise((resolve, reject) =>
     {
@@ -525,7 +525,7 @@ function closeReservationChild(child)
             }
             else
             {
-                reject(new Error('reservation owner exited without verified cleanup'));
+                reject(new Error(`reservation owner exited without verified cleanup (code=${child.exitCode}, signal=${child.signalCode}): ${diagnostics()}`));
             }
             return;
         }
@@ -549,7 +549,7 @@ function closeReservationChild(child)
             }
             else
             {
-                reject(new Error('reservation owner exited without verified cleanup'));
+                reject(new Error(`reservation owner exited without verified cleanup (code=${code}, signal=${child.signalCode}): ${diagnostics()}`));
             }
         });
         try
