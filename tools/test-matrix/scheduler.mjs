@@ -7694,6 +7694,11 @@ export async function runDag(options)
     {
         throw new Error('contract.missing-resume-identity: explicit runId is required');
     }
+    if (resume && (typeof options.runId !== 'string' || safeRunId(options.runId) !== options.runId
+        || options.runId === '.' || options.runId === '..'))
+    {
+        throw new Error('contract.invalid-resume-identity: runId must name an exact run root');
+    }
     if (options.reuseAcrossSourceChanges === true)
     {
         throw new Error('contract.cross-candidate-reuse-forbidden');

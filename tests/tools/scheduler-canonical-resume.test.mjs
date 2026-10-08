@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
 
-const { findLatestRunId, readCanonicalSchedulerCheckpoint, runDag } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
+const { findDiagnosticRecentRun, findLatestRunId, readCanonicalSchedulerCheckpoint, runDag } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 const { RunEvidenceObjectStore } = await import(new URL('../../tools/test-matrix/content-addressed-evidence-store.mjs', import.meta.url));
 
 function fixture(t)
@@ -18,7 +18,7 @@ function fixture(t)
     let executions = 0;
     const options = { root, runsRoot: path.join(root, '.tmp/runs'), runId: 'canonical-run',
         targetTierId: 'ordinary', sourceState, snapshotWorktree, dynamicPriority: false,
-        systemResources: { cpuCount: 2, totalMemoryGiB: 8, freeMemoryGiB: 8 },
+        systemResources: { cpuCount: 2, availableMemoryGiB: 8, load1: 0 },
         currentFreeMemoryGiB: () => 8,
         tiers: [{ id: 'ordinary', command: `${process.execPath} -e "process.exit(0)"`,
             executionDependsOn: [], services: [], parallelizable: true, exclusiveResources: [],
@@ -112,6 +112,7 @@ test('resume requires explicit run and candidate before tier spawn and never sel
     const result = await runDag(current.options);
     await assert.rejects(runDag({ ...current.options, mode: 'resume', runId: undefined }), /missing-resume-identity.*runId/u);
     await assert.rejects(runDag({ ...current.options, mode: 'resume' }), /missing-resume-identity.*candidateIdentityDigest/u);
+    await assert.rejects(runDag({ ...resumeOptions(current.options, result), runId: '../canonical-run' }), /invalid-resume-identity/u);
     assert.throws(() => findLatestRunId(current.options.runsRoot, 'ordinary'), /automatic latest-run selection is forbidden/u);
     await assert.rejects(runDag({ ...resumeOptions(current.options, result), runId: 'absent-run' }), /missing-resume-run/u);
     await assert.rejects(runDag({ ...resumeOptions(current.options, result), targetTierId: 'other-tier' }), /resume-identity-mismatch: targetTierId/u);
@@ -120,6 +121,19 @@ test('resume requires explicit run and candidate before tier spawn and never sel
     await assert.rejects(runDag({ ...resumeOptions(current.options, result),
         budgetPolicyDigest: `sha256:${'b'.repeat(64)}` }), /resume-identity-mismatch: budgetPolicyDigest/u);
     assert.equal(current.executions(), 1);
+});
+
+test('recent-run viewer stays diagnostic-only and cannot serve as a resume selector', async (t) =>
+{
+    const current = fixture(t);
+    const first = await runDag(current.options);
+    await runDag({ ...current.options, runId: 'other-run' });
+    const diagnostic = findDiagnosticRecentRun(current.options.runsRoot, 'ordinary');
+    assert.equal(diagnostic.runId, 'other-run');
+    assert.equal(diagnostic.authority, 'diagnostic-only');
+    assert.equal(diagnostic.qualificationEligible, false);
+    await assert.rejects(runDag({ ...resumeOptions(current.options, first), runId: diagnostic }), /invalid-resume-identity/u);
+    assert.equal(current.executions(), 2);
 });
 
 test('correctness reuse requires exact owner-verified full candidate; missing candidate reruns and true override rejects', async (t) =>
