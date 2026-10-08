@@ -50,15 +50,16 @@ public sealed class CanonicalArticleLifecycleTemporalBridgeTests
     public async Task Publishing_PreservesOriginalReceiptAndDelegatesRealTransactionAndDueCheck()
     {
         ICanonicalArticleLifecycleFixturePort port = Substitute.For<ICanonicalArticleLifecycleFixturePort>();
+        CanonicalArticleLifecycleFixtureBinding binding = Binding();
         var receipt = new CanonicalArticleLifecycleReceipt("schema", CanonicalArticleLifecycleFixturePort.CurrentWriterContractDigest,
             s_digest, "run", "ns", "profile", "role", CanonicalArticleLifecycleVariants.Scheduled, 1, 42,
             [], [], [], 10, null, FsusBlog.Server.Entities.ArticleStatus.Scheduled, false, s_digest, s_digest, s_digest);
         var failure = new InvalidOperationException("formal transaction refused");
         port.PublishScheduledAsync(Arg.Any<CanonicalArticleLifecycleFixtureBinding>(), receipt, Arg.Any<CancellationToken>())
             .Returns(Task.FromException<CanonicalArticleLifecycleResult>(failure));
-        Exception thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => Bridge(port, s_due).PublishScheduledAsync(Binding(), receipt, "article.scheduled-due"));
+        Exception thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => Bridge(port, s_due).PublishScheduledAsync(binding, receipt, "article.scheduled-due"));
         Assert.Same(failure, thrown);
-        await port.Received(1).PublishScheduledAsync(Binding(), receipt, Arg.Any<CancellationToken>());
+        await port.Received(1).PublishScheduledAsync(binding, receipt, Arg.Any<CancellationToken>());
     }
 
     [Fact]
