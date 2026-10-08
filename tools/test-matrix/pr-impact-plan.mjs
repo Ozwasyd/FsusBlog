@@ -354,6 +354,7 @@ export const sourceGovernanceChildEntries = Object.freeze({
     frontend: 'tools/frontend/check-frontend-style.mjs',
     csharp: 'tools/dotnet/check-csharp-style.mjs',
     solution: 'tools/configuration/check-solution-source.mjs',
+    cpp: 'tools/configuration/check-cpp-source.mjs',
     docs: 'tools/style/check-native-tooling-style.mjs',
     lifecycle: 'tools/docs/generate-document-lifecycle.mjs'
 });
@@ -380,7 +381,8 @@ export const sourceRegressionEntries = Object.freeze([
     'tests/tools/pr-applicable-execution-authority.test.mjs',
     'tools/frontend/source-unit-style-diff.test.mjs',
     'tests/tools/native-tooling-style.test.mjs',
-    'tools/configuration/solution-source.test.mjs'
+    'tools/configuration/solution-source.test.mjs',
+    'tools/configuration/cpp-source.test.mjs'
 ]);
 
 export function selectSourceRegressionTargets(changedFiles)
@@ -390,8 +392,10 @@ export function selectSourceRegressionTargets(changedFiles)
         || matchesImpactPath(file, 'tools/frontend/check-frontend-style.mjs')
         || matchesImpactPath(file, 'tools/frontend/source-unit-style-diff.mjs')
         || matchesImpactPath(file, 'tools/style/check-native-tooling-style.mjs')
-        || matchesImpactPath(file, 'tools/configuration/check-solution-source.mjs')) ? [...sourceRegressionEntries]
-        : changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')) ? ['tools/configuration/solution-source.test.mjs'] : [];
+        || matchesImpactPath(file, 'tools/configuration/check-solution-source.mjs')
+        || matchesImpactPath(file, 'tools/configuration/check-cpp-source.mjs')) ? [...sourceRegressionEntries]
+        : [...(changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')) ? ['tools/configuration/solution-source.test.mjs'] : []),
+            ...(changedFiles.some(file => /\.(?:cc|cpp|cxx|h|hh|hpp|hxx)$/u.test(file)) ? ['tools/configuration/cpp-source.test.mjs'] : [])];
 }
 
 export function sourceGovernanceExecutableEntries()
@@ -414,11 +418,12 @@ export function sourceRegressionArguments(entry)
 
 // Known structured data receives the declaration/closed-input source checks;
 // it never grants executable authority. Every other unchecked surface is explicit.
-export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [])
+export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], checkedCpp = [])
 {
     return files.filter(file => !/\.(?:mjs|js|cjs|ts|tsx|vue|css|scss|cs|md|sh|json|yaml|yml)$/u.test(file)
         && !(file.endsWith('.slnx') && checkedSolutions.includes(file))
         && !(file.endsWith('.py') && checkedPython.includes(file))
+        && !(/\.(?:cc|cpp|cxx|h|hh|hpp|hxx)$/u.test(file) && checkedCpp.includes(file))
         && !['.gitignore', '.gitattributes', '.editorconfig'].includes(file));
 }
 
@@ -436,7 +441,7 @@ export function sourceShellSyntaxArguments(file)
 
 // Fixed repository inputs of the reviewed frontend SOURCE checker/parser contract.
 // These are data/configuration witnesses, never executable child ports.
-export const sourceGovernanceDataInputs = Object.freeze([
+export const sourceFrontendDataInputs = Object.freeze([
     'config/development/frontend-style-policy.json',
     'config/development/frontend-style-rule-registry.json',
     'tools/frontend/style-toolchain/package.json',
@@ -446,6 +451,9 @@ export const sourceGovernanceDataInputs = Object.freeze([
     'tools/frontend/style-toolchain/eslint.config.mjs',
     'tools/frontend/style-toolchain/stylelint.config.mjs'
 ]);
+
+export const sourceGovernanceDataInputs = Object.freeze([...sourceFrontendDataInputs,
+    'config/development/native-tooling-style-policy.json', '.clang-format', '.clang-tidy']);
 
 export function assertSourceShellSyntaxInspection(input)
 {
@@ -503,7 +511,7 @@ export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
         {
             throw new Error('SOURCE frontend configuration requires the complete policy input set');
         }
-        return new Set([...sourceGovernanceDataInputs, ...policy.configurationSources,
+        return new Set([...sourceFrontendDataInputs, ...policy.configurationSources,
             policy.ruleRegistry, policy.toolchain?.package, policy.toolchain?.lock,
             policy.eslintConfig, policy.stylelintConfig]);
     }

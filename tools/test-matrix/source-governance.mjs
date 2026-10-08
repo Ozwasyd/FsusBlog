@@ -7,6 +7,7 @@ import { parseMatrix } from './parse-matrix.mjs';
 import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding, prImpactCallerContext, sourceGovernanceChildEntries, effectivePrExecutionStage, sourceRegressionArguments, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs } from './pr-impact-plan.mjs';
 import { inspectReleaseFinalCommandTarget, validateReleaseFinalStaticBoundary, validateSourceGovernanceChildExecution } from './release-final-static-boundary.mjs';
 import { snapshotGitWorktree } from './scheduler.mjs';
+const { inspectCppSource, isCppSource } = await import(new URL('../configuration/check-cpp-source.mjs', import.meta.url));
 const { parseWorkflowJobNeeds } = await import(new URL('../yaml/workflow-structure.mjs', import.meta.url));
 const { validateSolutionSourceReceipt, validatePythonSourceReceipt } = await import(new URL('../configuration/check-solution-source.mjs', import.meta.url));
 
@@ -54,13 +55,34 @@ const groups = [
     [sourceGovernanceChildEntries.csharp, ['--mode', 'full'], files.filter(file => file.endsWith('.cs'))],
     [sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'docs', '--operation', 'lint', '--require-tools'], files.filter(file => file.endsWith('.md'))],
     ...(effectivePrExecutionStage(callerContext) === 'source-integration'
-        ? [[sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'scripts', '--operation', 'lint'], files.filter(file => file.endsWith('.sh'))]] : [])
+        ? [[sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'scripts', '--operation', 'lint'], files.filter(file => file.endsWith('.sh'))],
+            [sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'native', '--operation', 'lint', '--require-tools'], files.filter(isCppSource)]] : [])
 ];
 const results = [];
 const checkedSolutions = [];
 const checkedPython = [];
+const checkedCpp = [];
 if (effectivePrExecutionStage(callerContext) === 'source-integration')
 {
+    const cppFiles = files.filter(isCppSource);
+    if (cppFiles.length)
+    {
+        const checker = sourceGovernanceChildEntries.cpp;
+        verifyChildBeforeSpawn(checker);
+        try
+        {
+            const inspection = inspectCppSource({ repositoryRoot: root, files: cppFiles });
+            results.push({ checker, files: cppFiles, status: 'success', exitCode: 0,
+                qualificationEligible: false, inspection });
+            checkedCpp.push(...cppFiles);
+        }
+        catch (error)
+        {
+            results.push({ checker, files: cppFiles, status: 'failure', exitCode: 1,
+                qualificationEligible: false, error: error.message });
+            process.exitCode = 1;
+        }
+    }
     const solutions = files.filter(file => file.endsWith('.slnx'));
     if (solutions.length)
     {
@@ -181,7 +203,7 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration')
             process.exitCode = 1;
         }
     }
-    const unsupported = unsupportedSourceStageFiles(files, checkedSolutions, checkedPython);
+    const unsupported = unsupportedSourceStageFiles(files, checkedSolutions, checkedPython, checkedCpp);
     if (unsupported.length)
     {
         results.push({ checker: 'unsupported-source-stage-language', files: unsupported,
