@@ -33,7 +33,7 @@ export interface DocumentExportSelection {
  */
 export interface DocumentExportPresentation {
     taskId: string;
-    version: number;
+    version: number | string;
     status: number;
     source: string;
     format: string;
@@ -46,7 +46,7 @@ export interface DocumentExportPresentation {
     diagnostic: boolean;
     output: {
         filename: string | null;
-        bytes: number;
+        bytes: number | string;
         mediaType: string;
         expiresAt: string;
         deleted: boolean;
@@ -94,4 +94,36 @@ export function documentExportCanDownload(view: DocumentExportPresentation, now:
     const expiresAt = view.output ? Date.parse(view.output.expiresAt) : Number.NaN;
     return view.status === 6 && !view.diagnostic && view.output !== null
         && !view.output.deleted && Number.isFinite(expiresAt) && expiresAt > now;
+}
+
+/** Lossless display scalars; the generated adapter owns wire decoding. */
+function presentationInt64(value: number | string, minimum: bigint): bigint
+{
+    if (typeof value === 'number' ? !Number.isSafeInteger(value)
+        : !/^(0|[1-9][0-9]{0,18})$/.test(value))
+    {
+        throw new Error('document_export_presentation_int64');
+    }
+    const exact = BigInt(value);
+    if (exact < minimum || exact > 9223372036854775807n)
+    {
+        throw new Error('document_export_presentation_int64');
+    }
+    return exact;
+}
+
+export function documentExportCompareVersions(left: number | string, right: number | string): number
+{
+    const a = presentationInt64(left, 1n);
+    const b = presentationInt64(right, 1n);
+    return a < b ? -1 : a > b ? 1 : 0;
+}
+
+export function documentExportValidatePresentation(view: DocumentExportPresentation): void
+{
+    presentationInt64(view.version, 1n);
+    if (view.output !== null)
+    {
+        presentationInt64(view.output.bytes, 0n);
+    }
 }

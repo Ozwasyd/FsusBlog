@@ -1,14 +1,14 @@
 import { effectScope } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { documentExportCanDownload, documentExportStatusLabel } from '@/components/document-export/documentExportUiPort';
+import { documentExportCanDownload, documentExportStatusLabel, documentExportCompareVersions, documentExportValidatePresentation } from '@/components/document-export/documentExportUiPort';
 import type { DocumentExportPresentation, DocumentExportUiPort } from '@/components/document-export/documentExportUiPort';
 import { useDocumentExport } from '@/composables/useDocumentExport';
 
 const disposals: (() => void)[] = [];
 afterEach(() => { disposals.splice(0).forEach((dispose) => dispose()); vi.useRealTimers(); });
 
-function view(taskId = 'task', status = 3, version = 1): DocumentExportPresentation {
+function view(taskId = 'task', status = 3, version: number | string = 1): DocumentExportPresentation {
     return {
         taskId, status, version, source: 'draft coordinate/version 12', format: 'pdf',
         provider: 'canonical-pdf', options: 'registered-only', inputDigest: 'fixture-input',
@@ -396,4 +396,50 @@ describe('one canonical export receipt view', () => {
         expect(center.views.value).toHaveLength(20);
     });
 
+});
+
+describe('lossless presentation scalars', () => {
+    it.each([
+        ['9007199254740993', '9007199254740992', 1],
+        ['10', '9', 1],
+        ['9223372036854775807', '9223372036854775806', 1],
+        [42, '42', 0], ['1', 2, -1],
+    ])('compares %s to %s without rounding', (left, right, expected) => {
+        expect(documentExportCompareVersions(left, right)).toBe(expected);
+    });
+    it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, '01', '+1', ' 1', '1e2', '9223372036854775808'])('refuses invalid version %s', (version) => {
+        expect(() => documentExportCompareVersions(version, 1)).toThrow('document_export_presentation_int64');
+    });
+    it('retains the newer exact version across stale pages and status replies', async () => {
+        const newer = view('task', 4, '9007199254740993');
+        const older = view('task', 3, '9007199254740992');
+        const { center, port } = createPort([newer]);
+        await open(center);
+        center.select('task');
+        port.list = vi.fn().mockResolvedValue([older]);
+        await center.refresh();
+        port.status = vi.fn().mockResolvedValue(older);
+        await center.act('status', 'task');
+        expect(center.selectedView.value).toBe(newer);
+        expect(center.views.value).toEqual([newer]);
+    });
+    it('refuses an unsafe page atomically without adopting any new receipt', async () => {
+        const existing = view();
+        const { center, port } = createPort([existing]);
+        await open(center);
+        center.select('task');
+        port.list = vi.fn().mockResolvedValue([view('other'), view('task', 4, Number.MAX_SAFE_INTEGER + 1)]);
+        await center.refresh();
+        expect(center.views.value).toEqual([existing]);
+        expect(center.selectedView.value).toBe(existing);
+        expect(center.queryFailure.value).toBe('uncertain');
+        expect(port.request).not.toHaveBeenCalled();
+    });
+    it('preserves exact output byte text and rejects unsafe numeric output sizes', () => {
+        const receipt = { ...view('task', 10), output: { filename: null, bytes: '9223372036854775807', mediaType: 'application/pdf', expiresAt: '2001-01-01', deleted: true } };
+        expect(() => documentExportValidatePresentation(receipt)).not.toThrow();
+        expect(receipt.output.bytes).toBe('9223372036854775807');
+        expect(() => documentExportValidatePresentation({ ...receipt, output: { ...receipt.output, bytes: Number.MAX_SAFE_INTEGER + 1 } })).toThrow('document_export_presentation_int64');
+        expect(() => documentExportValidatePresentation({ ...receipt, output: { ...receipt.output, bytes: -1 } })).toThrow('document_export_presentation_int64');
+    });
 });

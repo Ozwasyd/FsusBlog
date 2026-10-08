@@ -296,3 +296,19 @@ describe('export center product composition', () => {
     });
 
 });
+
+
+describe('exact output size presentation', () => {
+    it('renders an authorized cleanup receipt size without converting it to Number', async () => {
+        const port = createPort();
+        const receipt = { ...snapshot, version: '9223372036854775807', status: 10, output: { filename: null, bytes: '9223372036854775807', mediaType: 'application/pdf', expiresAt: '2001-01-01', deleted: true } };
+        port.list = vi.fn().mockResolvedValue([receipt]);
+        const { wrapper } = mountCenter(port);
+        await flushPromises();
+        await wrapper.find('[aria-label^="查看 specified"]').trigger('click');
+        await flushPromises();
+        expect(wrapper.text()).toContain('9223372036854775807 bytes');
+        expect(wrapper.text()).not.toContain('9223372036854776000');
+        expect(port.download).not.toHaveBeenCalled();
+    });
+});

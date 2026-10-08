@@ -3,6 +3,7 @@ import { computed, shallowRef } from 'vue';
 
 import { createDocumentExportCall } from '@/components/document-export/documentExportCall';
 import type { DocumentExportCallState } from '@/components/document-export/documentExportCall';
+import { documentExportCompareVersions, documentExportValidatePresentation } from '@/components/document-export/documentExportUiPort';
 import type {
     DocumentExportPresentation,
     DocumentExportSelection,
@@ -36,9 +37,16 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
     let timer: ReturnType<typeof setTimeout> | undefined;
     let downloadController: AbortController | undefined;
 
-    const views = computed(() => snapshots.value.map(port.inspect));
-    const selectedView = computed(() => selected.value === null ? null : port.inspect(selected.value));
+    const views = computed(() => snapshots.value.map(inspect));
+    const selectedView = computed(() => selected.value === null ? null : inspect(selected.value));
     const busy = computed(() => reconciling.value || submission.value.phase === 'pending' || actionState.value.phase === 'pending');
+
+    function inspect(snapshot: TSnapshot): DocumentExportPresentation
+    {
+        const view = port.inspect(snapshot);
+        documentExportValidatePresentation(view);
+        return view;
+    }
 
     function stopPolling(): void
     {
@@ -48,17 +56,17 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
 
     function accept(snapshot: TSnapshot): void
     {
-        const incoming = port.inspect(snapshot);
-        const current = snapshots.value.find((item) => port.inspect(item).taskId === incoming.taskId);
-        if (current && port.inspect(current).version > incoming.version)
+        const incoming = inspect(snapshot);
+        const current = snapshots.value.find((item) => inspect(item).taskId === incoming.taskId);
+        if (current && documentExportCompareVersions(inspect(current).version, incoming.version) > 0)
         {
             return;
         }
         snapshots.value = snapshots.value.map((item) =>
-            port.inspect(item).taskId === incoming.taskId ? snapshot : item);
-        if (selected.value === null || port.inspect(selected.value).taskId === incoming.taskId)
+            inspect(item).taskId === incoming.taskId ? snapshot : item);
+        if (selected.value === null || inspect(selected.value).taskId === incoming.taskId)
         {
-            if (selected.value === null || port.inspect(selected.value).version <= incoming.version)
+            if (selected.value === null || documentExportCompareVersions(inspect(selected.value).version, incoming.version) <= 0)
             {
                 selected.value = snapshot;
             }
@@ -103,9 +111,9 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
             submission.value = state;
             if (state.phase === 'confirmed')
             {
-                const incoming = port.inspect(state.result);
-                const current = snapshots.value.find((snapshot) => port.inspect(snapshot).taskId === incoming.taskId);
-                selected.value = current && port.inspect(current).version > incoming.version ? current : state.result;
+                const incoming = inspect(state.result);
+                const current = snapshots.value.find((snapshot) => inspect(snapshot).taskId === incoming.taskId);
+                selected.value = current && documentExportCompareVersions(inspect(current).version, incoming.version) > 0 ? current : state.result;
                 accept(selected.value);
                 void refresh(0);
             }
@@ -154,19 +162,19 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
             {
                 throw new Error('document_export_page_limit');
             }
-            const previous = new Map(snapshots.value.map((snapshot) => [port.inspect(snapshot).taskId, snapshot]));
+            const previous = new Map(snapshots.value.map((snapshot) => [inspect(snapshot).taskId, snapshot]));
             snapshots.value = page.map((snapshot) =>
             {
-                const view = port.inspect(snapshot);
+                const view = inspect(snapshot);
                 const known = previous.get(view.taskId);
-                return known && port.inspect(known).version > view.version ? known : snapshot;
+                return known && documentExportCompareVersions(inspect(known).version, view.version) > 0 ? known : snapshot;
             });
             offset.value = nextOffset;
             queryFailure.value = '';
             if (selected.value !== null)
             {
-                const id = port.inspect(selected.value).taskId;
-                const latest = snapshots.value.find((snapshot) => port.inspect(snapshot).taskId === id);
+                const id = inspect(selected.value).taskId;
+                const latest = snapshots.value.find((snapshot) => inspect(snapshot).taskId === id);
                 if (latest)
                 {
                     accept(latest);
@@ -246,7 +254,7 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
 
     function select(taskId: string): void
     {
-        selected.value = snapshots.value.find((snapshot) => port.inspect(snapshot).taskId === taskId) ?? null;
+        selected.value = snapshots.value.find((snapshot) => inspect(snapshot).taskId === taskId) ?? null;
     }
 
     function actionAllowed(name: string, view: DocumentExportPresentation): boolean
@@ -280,8 +288,8 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
     async function act(name: 'cancel' | 'retry' | 'download' | 'delete' | 'status', taskId: string): Promise<void>
     {
         const snapshot = selected.value;
-        if (snapshot === null || port.inspect(snapshot).taskId !== taskId
-            || !actionAllowed(name, port.inspect(snapshot)) || actionState.value.phase === 'uncertain')
+        if (snapshot === null || inspect(snapshot).taskId !== taskId
+            || !actionAllowed(name, inspect(snapshot)) || actionState.value.phase === 'uncertain')
         {
             return;
         }
