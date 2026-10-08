@@ -158,6 +158,49 @@ public sealed class ArticleVaultAgentDispatchTests
     }
 
     [Fact]
+    public async Task ShutdownCancellation_RequiresRevocationAndRetainsCanonicalRecovery()
+    {
+        using var fixture = new ArticleVaultAgentDispatchFixture();
+        await fixture.RegisterAsync();
+        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => fixture.Dispatch.CancelRegisteredOperationsAsync(default));
+        Assert.Equal("agent_shutdown_cancellation_requires_revocation", error.Message);
+        fixture.Dispatch.Dispose();
+        await fixture.Dispatch.CancelRegisteredOperationsAsync(default);
+        ArticleVaultAgentOperationReference pointer = Assert.Single(fixture.Dispatch.InspectOperationReferences());
+        Assert.Equal(fixture.History[^1].ContentSha256, pointer.CheckpointSha256);
+        Assert.Equal(VaultOperationState.RecoveryRequired, fixture.History[^1].State);
+        Assert.True(fixture.History[^1].CancellationRequested);
+        Assert.Equal(0, fixture.Executions);
+    }
+
+    [Fact]
+    public async Task ShutdownCancellationFailure_PreservesPointerAndFixedReason()
+    {
+        using var fixture = new ArticleVaultAgentDispatchFixture();
+        await fixture.RegisterAsync();
+        fixture.Cancel = () => throw new InvalidDataException("private unit detail");
+        fixture.Dispatch.Dispose();
+        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => fixture.Dispatch.CancelRegisteredOperationsAsync(default));
+        Assert.Equal("agent_shutdown_canonical_cancellation_unavailable", error.Message);
+        Assert.Null(error.InnerException);
+        Assert.Equal(fixture.Reference, Assert.Single(fixture.Dispatch.InspectOperationReferences()));
+    }
+
+    [Fact]
+    public async Task ShutdownAlreadyCancelled_DoesNotAppendOrAdoptNewWork()
+    {
+        using var fixture = new ArticleVaultAgentDispatchFixture(cancelled: true);
+        await fixture.RegisterAsync();
+        fixture.Cancel = () => throw new InvalidDataException("terminal operation must not be recancelled");
+        fixture.Dispatch.Dispose();
+        await fixture.Dispatch.CancelRegisteredOperationsAsync(default);
+        Assert.Equal(fixture.Reference, Assert.Single(fixture.Dispatch.InspectOperationReferences()));
+        Assert.Equal(0, fixture.Executions);
+    }
+
+    [Fact]
     public async Task Revoke_AndUnavailableProducerCommandsCannotBecomeSuccess()
     {
         using var fixture = new ArticleVaultAgentDispatchFixture();

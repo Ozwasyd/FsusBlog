@@ -175,23 +175,9 @@ public sealed class ArticleVaultAgentDispatchScope : IDisposable
                     // The target completed while the cancellation request was being admitted.
                 }
 
-                ArticleVaultAgentOperationReference previous = entry.Reference;
-                ArticleVaultAgentOperationSnapshot snapshot = await _operations.CancelAsync(previous, cancellationToken)
-                    .ConfigureAwait(false);
-                ArticleVaultOperationCheckpoint tip = snapshot.History[^1];
-                ArticleVaultAgentOperationReference durable = new(previous.Identity, tip.Sequence, tip.ContentSha256);
-                ArticleVaultAgentOperationInventory.RequireCurrentBinding(_binding, _rootManifestSha256, durable, snapshot);
-                if (tip.Sequence < previous.CheckpointSequence
-                    || snapshot.History[(int)previous.CheckpointSequence].ContentSha256 != previous.CheckpointSha256
-                    || tip.State != VaultOperationState.Cancelled
-                        && !(tip.State == VaultOperationState.RecoveryRequired && tip.CancellationRequested))
-                {
-                    return Blocked("agent_cancel_canonical_receipt_unavailable");
-                }
-
+                ArticleVaultOperationCheckpoint tip = await CancelEntryAsync(entry, cancellationToken).ConfigureAwait(false);
                 lock (_gate)
                 {
-                    entry.Reference = durable;
                     if (_revoked)
                     {
                         return Blocked("agent_execution_recovery_required", tip.ContentSha256);
@@ -363,6 +349,75 @@ public sealed class ArticleVaultAgentDispatchScope : IDisposable
                 ArticleVaultOperationCodec.Deserialize<ArticleVaultAgentOperationReference>(
                     ArticleVaultOperationCodec.Serialize(entry.Reference))).ToArray();
         }
+    }
+
+    /// <summary>
+    /// Persists cancellations for this session's registered operations after local authority is
+    /// revoked. Historical pointers retained from another session are not adopted or executed.
+    /// </summary>
+    public async Task CancelRegisteredOperationsAsync(CancellationToken cancellationToken)
+    {
+        OperationEntry[] entries;
+        lock (_gate)
+        {
+            if (!_revoked)
+            {
+                throw new InvalidDataException("agent_shutdown_cancellation_requires_revocation");
+            }
+
+            entries = _registered.Values.ToArray();
+        }
+
+        bool failed = false;
+        foreach (OperationEntry entry in entries)
+        {
+            try
+            {
+                ArticleVaultAgentOperationReference reference = entry.Reference;
+                ArticleVaultAgentOperationSnapshot snapshot = await _operations.ReadAsync(reference, cancellationToken)
+                    .ConfigureAwait(false);
+                ArticleVaultAgentOperationInventory.RequireCurrentBinding(_binding, _rootManifestSha256, reference, snapshot);
+                if (!ArticleVaultOperationVerifier.IsTerminal(snapshot.History[^1].State))
+                {
+                    await CancelEntryAsync(entry, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (Exception)
+            {
+                // Continue cancelling the other owned operations; preserve their durable pointers.
+                failed = true;
+            }
+        }
+
+        if (failed)
+        {
+            throw new InvalidDataException("agent_shutdown_canonical_cancellation_unavailable");
+        }
+    }
+
+    private async Task<ArticleVaultOperationCheckpoint> CancelEntryAsync(
+        OperationEntry entry, CancellationToken cancellationToken)
+    {
+        ArticleVaultAgentOperationReference previous = entry.Reference;
+        ArticleVaultAgentOperationSnapshot snapshot = await _operations.CancelAsync(previous, cancellationToken)
+            .ConfigureAwait(false);
+        ArticleVaultOperationCheckpoint tip = snapshot.History[^1];
+        ArticleVaultAgentOperationReference durable = new(previous.Identity, tip.Sequence, tip.ContentSha256);
+        ArticleVaultAgentOperationInventory.RequireCurrentBinding(_binding, _rootManifestSha256, durable, snapshot);
+        if (tip.Sequence < previous.CheckpointSequence
+            || snapshot.History[(int)previous.CheckpointSequence].ContentSha256 != previous.CheckpointSha256
+            || tip.State != VaultOperationState.Cancelled
+                && !(tip.State == VaultOperationState.RecoveryRequired && tip.CancellationRequested))
+        {
+            throw new InvalidDataException("agent_cancel_canonical_receipt_unavailable");
+        }
+
+        lock (_gate)
+        {
+            entry.Reference = durable;
+        }
+
+        return tip;
     }
 
     private OperationEntry? FindOperation(ArticleVaultAgentRequest request, bool cancellation)

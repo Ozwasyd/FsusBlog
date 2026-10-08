@@ -100,6 +100,14 @@ can return it. A conflicting append or missing read-back never reports durable
 cancellation. An interrupted accepted result
 retains its canonical digest with recovery-required semantics.
 
+After revocation and peer/registration draining, stop/logout/site-switch/unlink
+requests canonical cancellation for only this session's registered operations.
+Verified terminal operations are retained without another transition. The host
+persists advanced pointers even if another cancellation fails, and records a
+blocked shutdown when cancellation or inventory persistence is unavailable.
+Retained historical pointers from previous sessions do not authorize adoption,
+execution or recovery.
+
 `ArticleVaultAgentCanonicalOperationAdapter` is a server composition adapter over
 the original sealed execution store, checkpoint store and sync executor. It verifies
 persisted results before and after the original executor's result-replay path. It

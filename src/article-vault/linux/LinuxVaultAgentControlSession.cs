@@ -298,42 +298,47 @@ public sealed class LinuxVaultAgentControlSession : IAsyncDisposable
         {
             lock (_gate)
             {
-                IReadOnlyList<ArticleVaultAgentOperationReference> current = dispatch.InspectOperationReferences();
-                if (current.Any(reference => !_journal.Tip!.Operations.Any(old =>
-                    old.Identity.OperationIdentity == reference.Identity.OperationIdentity
-                    && old.CheckpointSequence == reference.CheckpointSequence
-                    && old.CheckpointSha256 == reference.CheckpointSha256)))
+                try
                 {
-                    ArticleVaultAgentOperationReference[] inventory = _journal.Tip!.Operations
-                        .Where(old => !current.Any(reference => reference.Identity.OperationIdentity == old.Identity.OperationIdentity))
-                        .Concat(current).ToArray();
+                    PersistOperationPointers(dispatch);
+                }
+                catch
+                {
+                    _revocationRequested = true;
                     try
                     {
-                        // The held journal survives lease revocation until admitted peers drain.
-                        // Persist the canonical pointer before the endpoint can send its receipt.
-                        _journal.Append(Receipt, inventory, CancellationToken.None);
+                        _grants.Revoke(CancellationToken.None);
                     }
-                    catch
+                    finally
                     {
-                        _revocationRequested = true;
-                        try
-                        {
-                            _grants.Revoke(CancellationToken.None);
-                        }
-                        finally
-                        {
-                            dispatch.Dispose();
-                        }
-
-                        return ArticleVaultAgentCommandReceipts.Create(request, size,
-                            ArticleVaultAgentCommandStatus.Blocked, "agent_operation_inventory_persistence_failed",
-                            result.CanonicalResultSha256);
+                        dispatch.Dispose();
                     }
+
+                    return ArticleVaultAgentCommandReceipts.Create(request, size,
+                        ArticleVaultAgentCommandStatus.Blocked, "agent_operation_inventory_persistence_failed",
+                        result.CanonicalResultSha256);
                 }
             }
         }
 
         return result;
+    }
+
+    private void PersistOperationPointers(ArticleVaultAgentDispatchScope dispatch)
+    {
+        IReadOnlyList<ArticleVaultAgentOperationReference> current = dispatch.InspectOperationReferences();
+        if (current.Any(reference => !_journal.Tip!.Operations.Any(old =>
+            old.Identity.OperationIdentity == reference.Identity.OperationIdentity
+            && old.CheckpointSequence == reference.CheckpointSequence
+            && old.CheckpointSha256 == reference.CheckpointSha256)))
+        {
+            ArticleVaultAgentOperationReference[] inventory = _journal.Tip!.Operations
+                .Where(old => !current.Any(reference => reference.Identity.OperationIdentity == old.Identity.OperationIdentity))
+                .Concat(current).ToArray();
+            // The held journal survives lease revocation until admitted peers drain.
+            // Persist canonical pointers before returning an IPC or terminal lifecycle receipt.
+            _journal.Append(Receipt, inventory, CancellationToken.None);
+        }
     }
 
     /// <summary>
@@ -442,6 +447,39 @@ public sealed class LinuxVaultAgentControlSession : IAsyncDisposable
             }
 
             await registrations.ConfigureAwait(false);
+            if (_dispatch is not null)
+            {
+                try
+                {
+                    await _dispatch.CancelRegisteredOperationsAsync(cancellation.Token).ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    if (failure is null)
+                    {
+                        failure = exception;
+                        failureReason = "owned_control_canonical_cancellation_failed";
+                    }
+                }
+
+                try
+                {
+                    lock (_gate)
+                    {
+                        // Also retain any successful canonical append before a later cancellation failed.
+                        PersistOperationPointers(_dispatch);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    if (failure is null)
+                    {
+                        failure = exception;
+                        failureReason = "owned_control_cancellation_inventory_failed";
+                    }
+                }
+            }
+
             _lease.Dispose();
         }
         catch (Exception exception)

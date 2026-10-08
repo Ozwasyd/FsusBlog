@@ -45,6 +45,27 @@ public sealed class ArticleVaultAgentLifecycleInventoryTests
     }
 
     [Fact]
+    public async Task DurableCancellationPointer_RoundTripsWithoutAuthorizingRunningOrRollback()
+    {
+        using var fixture = new ArticleVaultAgentDispatchFixture();
+        ArticleVaultAgentLifecycleReceipt stopped = ArticleVaultAgentLifecycle.Initial(fixture.Binding, ArticleVaultAgentPlatform.Linux, 0);
+        ArticleVaultAgentLifecycleInventoryReceipt first = ArticleVaultAgentLifecycleInventory.Create(null,
+            fixture.Plan.RootManifestSha256, 1, stopped, [fixture.Reference]);
+        ArticleVaultAgentOperationSnapshot cancelled = await fixture.CancelAsync(fixture.Reference, default);
+        ArticleVaultOperationCheckpoint tip = cancelled.History[^1];
+        ArticleVaultAgentOperationReference durable = new(fixture.Identity, tip.Sequence, tip.ContentSha256);
+        ArticleVaultAgentOperationInventory.RequireCurrentBinding(fixture.Binding, fixture.Plan.RootManifestSha256, durable, cancelled);
+        ArticleVaultAgentLifecycleInventoryReceipt next = ArticleVaultAgentLifecycleInventory.Create(first,
+            fixture.Plan.RootManifestSha256, 1, stopped, [durable]);
+        ArticleVaultAgentLifecycleInventoryReceipt decoded = ArticleVaultAgentLifecycleInventory.Decode(ArticleVaultAgentProtocol.Encode(next));
+        Assert.Equal(durable, Assert.Single(decoded.Operations));
+        Assert.True(decoded.Lifecycle.RescanRequired);
+        Assert.Equal(ArticleVaultAgentLifecycleState.Stopped, decoded.Lifecycle.NewState);
+        Assert.Throws<InvalidDataException>(() => ArticleVaultAgentLifecycleInventory.Create(next,
+            fixture.Plan.RootManifestSha256, 1, stopped, [fixture.Reference]));
+    }
+
+    [Fact]
     public void Inventory_RejectsUnknownFieldsAndContentDrift()
     {
         using var fixture = new ArticleVaultAgentDispatchFixture();
