@@ -20,6 +20,7 @@ enum class ErrorCode : std::uint8_t
     FrameTypeRetired = 9,
     AuthoringCanvasPayloadInvalid = 11,
     ArticleCanvasLinkPayloadInvalid = 12,
+    ArticlePropertyValueReadPayloadInvalid = 13,
     FontThemePayloadInvalid = 10
 };
 

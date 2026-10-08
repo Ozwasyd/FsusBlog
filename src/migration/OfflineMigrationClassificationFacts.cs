@@ -1771,6 +1771,25 @@ public static class OfflineMigrationClassificationFacts
                 Validators: ["descriptor_policy", "n_minus_one_read_write", "article_canvas_link_owner_site_scope",
                     "article_canvas_link_canonical_cas", "article_canvas_link_revision_history", "article_canvas_link_receipt_integrity"]));
 
+        result.Add(
+            "20261008-post-article-property-value-snapshots",
+            new OfflineMigrationClassificationFact(
+                "20261008-post-article-property-value-snapshots",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20261008-article-property-values"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators: ["descriptor_policy", "n_minus_one_read_write", "article_property_value_closed_storage",
+                    "article_property_value_canonical_cas", "article_property_value_immutable_snapshots",
+                    "article_property_value_signed_audit_binding"]));
+
         foreach (string id in result.Keys.ToArray())
         {
             result[id] = result[id] with

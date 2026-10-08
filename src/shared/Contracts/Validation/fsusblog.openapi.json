@@ -41003,7 +41003,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -41167,7 +41167,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_10:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_10:0"
                             ]
                         }
                     ],
@@ -42275,7 +42275,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_1:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_1:0"
                             ]
                         }
                     ],
@@ -42397,6 +42397,251 @@
                 "x-fsus-result-placement": "aeds.frame.payload",
                 "x-fsus-protocol-state": "active-aeds-only",
                 "x-fsus-source-identity": "HTTP: GET /api/binary/author/articles/{articleId:int}/export"
+            }
+        },
+        "/api/binary/author/articles/{articleId:int}/properties": {
+            "get": {
+                "operationId": "binary_author_article_property_values_read",
+                "tags": [
+                    "Binary"
+                ],
+                "summary": "/author/articles/{articleId:int}/properties",
+                "responses": {
+                    "200": {
+                        "description": "ArticlePropertyValueReadResponse AEDS frame",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "ApiError AEDS error frame (401)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "ApiError AEDS error frame (403)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "406": {
+                        "description": "ApiError AEDS error frame (406)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "description": "ApiError AEDS error frame (423)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "ApiError AEDS error frame (500)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-fsus-protocol": "AEDS",
+                "x-fsus-aeds-version": 2,
+                "x-fsus-request-frame": null,
+                "x-fsus-response-frame": "ArticlePropertyValueReadResponse",
+                "x-fsus-error-frame": "ApiError",
+                "x-fsus-auth": "admin",
+                "x-fsus-pow": false,
+                "x-fsus-content-type": "application/octet-stream",
+                "x-fsus-success-status": 200,
+                "x-fsus-cache": "no-store",
+                "x-fsus-rate-limit": "none",
+                "x-fsus-permission": "article.write",
+                "x-fsus-request-contract": {
+                    "Direction": "request",
+                    "Source": "none",
+                    "SchemaRef": null,
+                    "Encoding": "none",
+                    "Required": false,
+                    "Nullable": false,
+                    "RequiredFields": [],
+                    "Parameters": [
+                        {
+                            "Name": "articleId",
+                            "Direction": "request",
+                            "Source": "path",
+                            "SchemaRef": "path://int32",
+                            "Required": true,
+                            "Nullable": false,
+                            "Bounds": {
+                                "Minimum": "-2147483648",
+                                "Maximum": "2147483647",
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            },
+                            "Evidence": [
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapArticlePropertyValueRoutes>b__1_0:0"
+                            ]
+                        },
+                        {
+                            "Name": "ownerUserId",
+                            "Direction": "request",
+                            "Source": "query",
+                            "SchemaRef": "query://string",
+                            "Required": false,
+                            "Nullable": true,
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            },
+                            "Evidence": [
+                                "compiled-il:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapArticlePropertyValueRoutes>b__1_0>d.MoveNext@44"
+                            ]
+                        }
+                    ],
+                    "Properties": {},
+                    "Definitions": {},
+                    "OneOf": [],
+                    "Discriminator": null,
+                    "Bounds": {},
+                    "FieldSetState": "not-applicable",
+                    "BoundsState": "not-applicable",
+                    "UnionState": "not-applicable",
+                    "SchemaDigest": null,
+                    "SourceTypes": [],
+                    "ReaderIdentities": []
+                },
+                "x-fsus-response-contracts": [
+                    {
+                        "Status": 200,
+                        "Kind": "success",
+                        "SchemaRef": "aeds://frame/ArticlePropertyValueReadResponse",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": null
+                    },
+                    {
+                        "Status": 401,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+                    },
+                    {
+                        "Status": 403,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+                    },
+                    {
+                        "Status": 406,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+                    },
+                    {
+                        "Status": 423,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+                    },
+                    {
+                        "Status": 500,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+                    }
+                ],
+                "x-fsus-public-error-refs": [
+                    "configuration-error-security-policy:error-transport-mappings:401",
+                    "configuration-error-security-policy:error-transport-mappings:403",
+                    "configuration-error-security-policy:error-transport-mappings:406",
+                    "configuration-error-security-policy:error-transport-mappings:423",
+                    "configuration-error-security-policy:error-transport-mappings:500"
+                ],
+                "x-fsus-public-error-statuses": [
+                    401,
+                    403,
+                    406,
+                    423,
+                    500
+                ],
+                "x-fsus-public-error-status-evidence": {
+                    "401": [
+                        "compiled-authorization:deny-anonymous"
+                    ],
+                    "403": [
+                        "compiled-authorization:claim-requirement"
+                    ],
+                    "406": [
+                        "compiled-middleware:ApiBinaryResponseMiddleware.accept"
+                    ],
+                    "423": [
+                        "compiled-middleware:BannedUserMiddleware"
+                    ],
+                    "500": [
+                        "compiled-middleware:GlobalExceptionMiddleware"
+                    ]
+                },
+                "x-fsus-public-error-ref-state": "operation-status-authority-bound",
+                "x-fsus-error-authority-behavior": "configuration-error-security-policy",
+                "x-fsus-result-placement": "aeds.frame.payload",
+                "x-fsus-protocol-state": "active-aeds-only",
+                "x-fsus-source-identity": "HTTP: GET /api/binary/author/articles/{articleId:int}/properties"
             }
         },
         "/api/binary/author/articles/{articleId:int}/revisions": {
@@ -42524,7 +42769,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_5:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_5:0"
                             ]
                         }
                     ],
@@ -42773,7 +43018,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_6:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_6:0"
                             ]
                         },
                         {
@@ -42794,7 +43039,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_6:1"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_6:1"
                             ]
                         }
                     ],
@@ -43043,7 +43288,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_8:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_8:0"
                             ]
                         },
                         {
@@ -43064,7 +43309,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_8:1"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_8:1"
                             ]
                         }
                     ],
@@ -43353,7 +43598,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_9:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_9:0"
                             ]
                         },
                         {
@@ -43374,7 +43619,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_9:1"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_9:1"
                             ]
                         }
                     ],
@@ -44007,7 +44252,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "8594512d70026a7df60eaeaa2be123e4b2c71ed7b2d6576bf4ce6928b6a7d6e9",
+                    "SchemaDigest": "1e54e866e7607b060bb685dbb0d128543bf911c4eb68159349d7547620eeb92e",
                     "SourceTypes": [
                         "FsusBlog.Contracts.Articles.ArticleResponsibilityDraft"
                     ],
@@ -44146,7 +44391,7 @@
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringWorkflowRoutes>b__56_9>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@339"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringWorkflowRoutes>b__60_9>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@339"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -44337,7 +44582,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_7:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_7:0"
                             ]
                         },
                         {
@@ -44358,7 +44603,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_7:1"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_7:1"
                             ]
                         }
                     ],
@@ -44468,7 +44713,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "6be67153e35dc1b041474a124a8b5cd3cdefb87a9eead7542e80cdf8cf33d469",
+                    "SchemaDigest": "5c6f9147a8384ae2faeddd1901de1223da7682130a51b1c0a0dff012feaec3d5",
                     "SourceTypes": [
                         "FsusBlog.Server.Models.Dtos.ArticleRevisionRollbackRequest"
                     ],
@@ -44589,7 +44834,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "406": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
@@ -45272,7 +45517,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:7"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:7"
                             ]
                         },
                         {
@@ -45293,7 +45538,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:6"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:6"
                             ]
                         },
                         {
@@ -45314,7 +45559,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:14"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:14"
                             ]
                         },
                         {
@@ -45335,7 +45580,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:12"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:12"
                             ]
                         },
                         {
@@ -45356,7 +45601,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:10"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:10"
                             ]
                         },
                         {
@@ -45377,7 +45622,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:2"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:2"
                             ]
                         },
                         {
@@ -45398,7 +45643,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:3"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:3"
                             ]
                         },
                         {
@@ -45419,7 +45664,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:15"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:15"
                             ]
                         },
                         {
@@ -45440,7 +45685,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:16"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:16"
                             ]
                         },
                         {
@@ -45461,7 +45706,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:11"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:11"
                             ]
                         },
                         {
@@ -45482,7 +45727,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:4"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:4"
                             ]
                         },
                         {
@@ -45503,7 +45748,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:9"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:9"
                             ]
                         },
                         {
@@ -45524,7 +45769,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:8"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:8"
                             ]
                         },
                         {
@@ -45545,7 +45790,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:13"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:13"
                             ]
                         },
                         {
@@ -45566,7 +45811,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_3:5"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_3:5"
                             ]
                         }
                     ],
@@ -45706,7 +45951,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -45870,7 +46115,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_4:5"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_4:5"
                             ]
                         },
                         {
@@ -45891,7 +46136,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_4:4"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_4:4"
                             ]
                         },
                         {
@@ -45912,7 +46157,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_4:10"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_4:10"
                             ]
                         },
                         {
@@ -45933,7 +46178,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_4:8"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_4:8"
                             ]
                         },
                         {
@@ -45954,7 +46199,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_4:9"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_4:9"
                             ]
                         },
                         {
@@ -45975,7 +46220,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_4:2"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_4:2"
                             ]
                         },
                         {
@@ -45996,7 +46241,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_4:7"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_4:7"
                             ]
                         },
                         {
@@ -46017,7 +46262,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_4:6"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_4:6"
                             ]
                         },
                         {
@@ -46038,7 +46283,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_4:11"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_4:11"
                             ]
                         },
                         {
@@ -46059,7 +46304,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_4:3"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_4:3"
                             ]
                         }
                     ],
@@ -46376,7 +46621,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_5:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_5:0"
                             ]
                         },
                         {
@@ -46397,7 +46642,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_5:3"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_5:3"
                             ]
                         },
                         {
@@ -46418,7 +46663,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_5:4"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_5:4"
                             ]
                         }
                     ],
@@ -46558,7 +46803,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -46722,7 +46967,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_6:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_6:0"
                             ]
                         }
                     ],
@@ -47360,7 +47605,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_10:2"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_10:2"
                             ]
                         }
                     ],
@@ -53811,7 +54056,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_27:4"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_27:4"
                             ]
                         },
                         {
@@ -53832,7 +54077,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_27:3"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_27:3"
                             ]
                         },
                         {
@@ -53853,7 +54098,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_27:2"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_27:2"
                             ]
                         }
                     ],
@@ -54195,7 +54440,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_7:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_7:0"
                             ]
                         }
                     ],
@@ -54230,7 +54475,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "2213310a4bea9555488e48b0ce6b15015cb4408d4b2f4b32ab722f7da00542b7",
+                    "SchemaDigest": "d7d8571d38feef90e37da4eb203b411d467d5267007be22ac60aaeb35cfde41c",
                     "SourceTypes": [
                         "FsusBlog.Server.Models.Dtos.AnonymousCredentialRevokeRequest"
                     ],
@@ -54373,7 +54618,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -55068,7 +55313,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -55493,7 +55738,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -55727,7 +55972,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_32:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_32:0"
                             ]
                         }
                     ],
@@ -55957,7 +56202,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "60d2578c60cf060182e4482739baed6e8d8099ccdc97baaee30ed979bc98ee8b",
+                    "SchemaDigest": "10b525eacf3b0bf705ed220b1e6729d57b0cfc2359a455eff16be0425be7154e",
                     "SourceTypes": [
                         "FsusBlog.Server.Models.Dtos.CommentModerationRequest"
                     ],
@@ -56112,7 +56357,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -56121,7 +56366,7 @@
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__50_32>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@917"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__54_32>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@917"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -56282,7 +56527,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_34:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_34:0"
                             ]
                         }
                     ],
@@ -56589,7 +56834,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_28:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_28:0"
                             ]
                         }
                     ],
@@ -56711,7 +56956,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "22b5b730d98ed452cb23a34fcb26d005db5d7a66e286deac4ddccbdb6f6fc69b",
+                    "SchemaDigest": "19047a79ea2c27ba2c82e679fef2b802655b6f635e538425cb38e5900c937ebf",
                     "SourceTypes": [
                         "FsusBlog.Server.Models.Dtos.CommentModerationClaimRequest"
                     ],
@@ -57056,7 +57301,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_30:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_30:0"
                             ]
                         }
                     ],
@@ -57178,7 +57423,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "e975cd218eca35c02bed8add7eda35781c41dd7c3a1f298b69039384b8a72f87",
+                    "SchemaDigest": "a3d5becfb6873d11e89c1bb9fca37cf056efc944d15a25d8fd286bdc24ddfc41",
                     "SourceTypes": [
                         "FsusBlog.Server.Models.Dtos.CommentModerationClaimMutationRequest"
                     ],
@@ -57523,7 +57768,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_29:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_29:0"
                             ]
                         }
                     ],
@@ -57645,7 +57890,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "799ea5af9d0c0c842c3bd7367242897f45373265ab22d45a0df9555d03fde95e",
+                    "SchemaDigest": "09e14c07168db033bf3eb4e921e8119d9f810ac6117d4417d7862cdd744af987",
                     "SourceTypes": [
                         "FsusBlog.Server.Models.Dtos.CommentModerationClaimMutationRequest"
                     ],
@@ -57953,7 +58198,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_33:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_33:0"
                             ]
                         }
                     ],
@@ -58342,7 +58587,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -59607,7 +59852,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_2:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_2:0"
                             ]
                         },
                         {
@@ -59628,7 +59873,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_2:1"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_2:1"
                             ]
                         }
                     ],
@@ -59760,7 +60005,7 @@
                 ],
                 "x-fsus-public-error-status-evidence": {
                     "400": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringWorkflowRoutes>b__56_2>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.RequireTransportMappingId@48"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringWorkflowRoutes>b__60_2>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.RequireTransportMappingId@48"
                     ],
                     "401": [
                         "compiled-authorization:deny-anonymous"
@@ -59917,7 +60162,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__56_1:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringWorkflowRoutes>b__60_1:0"
                             ]
                         }
                     ],
@@ -60681,7 +60926,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -61754,7 +61999,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -61978,7 +62223,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_35:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_35:0"
                             ]
                         }
                     ],
@@ -62035,7 +62280,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "bcee9531b4de6166b265ed2370b218b82b666a52ff85c8bf3a0008d44a5ec7ef",
+                    "SchemaDigest": "c536c7c8a797f6280b4be28fe786a1b2771543720a8746fa8e952058eb2f38bb",
                     "SourceTypes": [
                         "FsusBlog.Server.Services.CommentAppealDecisionRequest"
                     ],
@@ -62179,7 +62424,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -62346,7 +62591,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_2:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_2:0"
                             ]
                         },
                         {
@@ -62367,7 +62612,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_2:1"
+                                "compiled-handler-parameter:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_2:1"
                             ]
                         }
                     ],
@@ -62706,7 +62951,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_3:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_3:0"
                             ]
                         }
                     ],
@@ -62916,7 +63161,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "5e0b581484bf7c0645674f164189aa6182ba6d6073d071ae50861b24dc3a6c3f",
+                    "SchemaDigest": "dfae805ce97a906ebbf01af9f2329075444d48a781e64a1d744bb4d2583464b9",
                     "SourceTypes": [
                         "FsusBlog.Server.Services.ArticleCommentPolicyUpdateRequest"
                     ],
@@ -63071,7 +63316,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -63080,7 +63325,7 @@
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__50_3>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@548"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__54_3>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@548"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -63309,7 +63554,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_4:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_4:0"
                             ]
                         },
                         {
@@ -63330,7 +63575,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_4:1"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_4:1"
                             ]
                         }
                     ],
@@ -63420,7 +63665,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "d71a132ddae34f2d908c0d345fba20328e887e063e7361f8a6cf250839f2d7de",
+                    "SchemaDigest": "7dec9690b4f41c8a78d785f2e33203d32658e8c9981893de4364b9afa0549150",
                     "SourceTypes": [
                         "FsusBlog.Server.Services.ThreadCommentPolicyUpdateRequest"
                     ],
@@ -63574,7 +63819,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -63583,7 +63828,7 @@
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__50_4>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@560"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__54_4>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@560"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -64130,7 +64375,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -64151,7 +64396,7 @@
                         "compiled-rate-limit:EnableRateLimitingAttribute"
                     ],
                     "500": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__50_12>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@750",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__54_12>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@750",
                         "compiled-middleware:GlobalExceptionMiddleware"
                     ]
                 },
@@ -64496,27 +64741,27 @@
                 ],
                 "x-fsus-public-error-status-evidence": {
                     "400": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__50_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__54_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772"
                     ],
                     "401": [
                         "compiled-authorization:deny-anonymous",
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Unauthorized",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__50_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__54_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772"
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__50_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__54_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__50_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__54_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772"
                     ],
                     "406": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__50_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__54_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -64531,7 +64776,7 @@
                         "compiled-rate-limit:EnableRateLimitingAttribute"
                     ],
                     "500": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__50_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringModerationRoutes>b__54_13>d.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@772",
                         "compiled-middleware:GlobalExceptionMiddleware"
                     ]
                 },
@@ -64743,7 +64988,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_15:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_15:0"
                             ]
                         }
                     ],
@@ -64800,7 +65045,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "00b6ba22a04b3354e9f2d5fd370accd946a3dc7ee8b8c4ff8a772b3059b057f4",
+                    "SchemaDigest": "c7445276bde132b035e580c3b2d43661b514c16ccf317add6f8b7867f5604ff6",
                     "SourceTypes": [
                         "FsusBlog.Server.Models.Dtos.ModerationDictionaryStateRequest"
                     ],
@@ -64947,26 +65192,26 @@
                 "x-fsus-public-error-status-evidence": {
                     "400": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.ReadAsync",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "401": [
                         "compiled-authorization:deny-anonymous",
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Unauthorized",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "406": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -64981,7 +65226,7 @@
                         "compiled-rate-limit:EnableRateLimitingAttribute"
                     ],
                     "500": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
                         "compiled-middleware:GlobalExceptionMiddleware"
                     ]
                 },
@@ -65193,7 +65438,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_14:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_14:0"
                             ]
                         }
                     ],
@@ -65250,7 +65495,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "a2bbf2cc1acd60bd7c50fbf84518b301bde5420bcae2d9b0c0ffdf77646d2797",
+                    "SchemaDigest": "8f6e78389c95f1bcce0f04ef3efac81b200f4047edbe6f9f14d824b29ba50d1b",
                     "SourceTypes": [
                         "FsusBlog.Server.Models.Dtos.ModerationDictionaryStateRequest"
                     ],
@@ -65397,26 +65642,26 @@
                 "x-fsus-public-error-status-evidence": {
                     "400": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.ReadAsync",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "401": [
                         "compiled-authorization:deny-anonymous",
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Unauthorized",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "406": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -65431,7 +65676,7 @@
                         "compiled-rate-limit:EnableRateLimitingAttribute"
                     ],
                     "500": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
                         "compiled-middleware:GlobalExceptionMiddleware"
                     ]
                 },
@@ -66028,7 +66273,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__50_20:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringModerationRoutes>b__54_20:0"
                             ]
                         }
                     ],
@@ -66500,26 +66745,26 @@
                 ],
                 "x-fsus-public-error-status-evidence": {
                     "400": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "401": [
                         "compiled-authorization:deny-anonymous",
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Unauthorized",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "406": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -66534,7 +66779,7 @@
                         "compiled-rate-limit:EnableRateLimitingAttribute"
                     ],
                     "500": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
                         "compiled-middleware:GlobalExceptionMiddleware"
                     ]
                 },
@@ -66879,26 +67124,26 @@
                 ],
                 "x-fsus-public-error-status-evidence": {
                     "400": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "401": [
                         "compiled-authorization:deny-anonymous",
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Unauthorized",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "406": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -66913,7 +67158,7 @@
                         "compiled-rate-limit:EnableRateLimitingAttribute"
                     ],
                     "500": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
                         "compiled-middleware:GlobalExceptionMiddleware"
                     ]
                 },
@@ -67374,26 +67619,26 @@
                 "x-fsus-public-error-status-evidence": {
                     "400": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.ReadAsync",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "401": [
                         "compiled-authorization:deny-anonymous",
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Unauthorized",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "406": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -67408,7 +67653,7 @@
                         "compiled-rate-limit:EnableRateLimitingAttribute"
                     ],
                     "500": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
                         "compiled-middleware:GlobalExceptionMiddleware"
                     ]
                 },
@@ -69595,26 +69840,26 @@
                 "x-fsus-public-error-status-evidence": {
                     "400": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.ReadAsync",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "401": [
                         "compiled-authorization:deny-anonymous",
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Unauthorized",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "406": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -69629,7 +69874,7 @@
                         "compiled-rate-limit:EnableRateLimitingAttribute"
                     ],
                     "500": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
                         "compiled-middleware:GlobalExceptionMiddleware"
                     ]
                 },
@@ -70093,26 +70338,26 @@
                 "x-fsus-public-error-status-evidence": {
                     "400": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.ReadAsync",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "401": [
                         "compiled-authorization:deny-anonymous",
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Unauthorized",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "406": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -70127,7 +70372,7 @@
                         "compiled-rate-limit:EnableRateLimitingAttribute"
                     ],
                     "500": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__14.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<CompleteModerationRuntimeMutationAsync>d__18.MoveNext->FsusBlog.Server.Infrastructure.Results.ApiErrorSemanticMapper.GetDefaultMappingId@764",
                         "compiled-middleware:GlobalExceptionMiddleware"
                     ]
                 },
@@ -73480,7 +73725,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-il:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringOperationsRoutes>b__52_17>d.MoveNext@180"
+                                "compiled-il:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringOperationsRoutes>b__56_17>d.MoveNext@180"
                             ]
                         }
                     ],
@@ -73526,7 +73771,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "09acf1a3c77936c79b89b74289f8a5e5b06699efd148308984b6963a6ae51dc6",
+                    "SchemaDigest": "449e610650cc46a2c6a06e9c8406fc0b19f0253002f863c2c850625b49831e4b",
                     "SourceTypes": [
                         "FsusBlog.Server.Infrastructure.Plugins.PluginAdminService.InstallAsync(Stream)"
                     ],
@@ -73680,7 +73925,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -73689,7 +73934,7 @@
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringOperationsRoutes>b__52_17>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@970"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringOperationsRoutes>b__56_17>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@970"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -73850,7 +74095,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_16:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_16:0"
                             ]
                         }
                     ],
@@ -74204,7 +74449,7 @@
                                 "MaxProperties": null
                             },
                             "Evidence": [
-                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__52_18:0"
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c.<MapAuthoringOperationsRoutes>b__56_18:0"
                             ]
                         }
                     ],
@@ -74355,7 +74600,7 @@
                     "FieldSetState": "closed",
                     "BoundsState": "closed",
                     "UnionState": "none",
-                    "SchemaDigest": "056e0b40af23312b26b44322a45fa1b56a46c10899a9752210604b8d44528aa6",
+                    "SchemaDigest": "a5cb6902156387aaac7969a81a6e21225056d8fc66a70c85b5e92d2ef39b011c",
                     "SourceTypes": [
                         "FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+PluginAdminMutationRequest"
                     ],
@@ -74521,7 +74766,7 @@
                     ],
                     "403": [
                         "compiled-authorization:claim-requirement",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__42.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<RequireAdminSensitiveStepUpAsync>d__46.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@116"
                     ],
                     "404": [
                         "compiled-call:FsusBlog.Server.Infrastructure.Results.AedsJsonResults.NotFound"
@@ -74530,8 +74775,8 @@
                         "compiled-middleware:ApiBinaryResponseMiddleware.accept"
                     ],
                     "409": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringOperationsRoutes>b__52_18>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@2341",
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringOperationsRoutes>b__52_18>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@2436"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringOperationsRoutes>b__56_18>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@2341",
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringOperationsRoutes>b__56_18>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@2436"
                     ],
                     "415": [
                         "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
@@ -74549,7 +74794,7 @@
                         "compiled-middleware:GlobalExceptionMiddleware"
                     ],
                     "503": [
-                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringOperationsRoutes>b__52_18>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@2514"
+                        "compiled-mapping-authority:nested:FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints+<>c+<<MapAuthoringOperationsRoutes>b__56_18>d.MoveNext->FsusBlog.Server.Infrastructure.Results.AedsJsonResults.Error@2514"
                     ]
                 },
                 "x-fsus-public-error-ref-state": "operation-status-authority-bound",
@@ -99217,7 +99462,7 @@
         "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
         "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
     },
-    "x-fsus-observation-digest": "0b15848836efbe595dcc78103c31d282ead411e76fc50b8f4beb1373def42595",
+    "x-fsus-observation-digest": "1632732e8644fde247d3d95fbadd4f7ca00e602c103d84fed151115a61488603",
     "x-fsus-protocol-states": {
         "SupportedVersions": [
             2
@@ -99268,6 +99513,7 @@
             "ArticleList",
             "ArticlePreviewRequest",
             "ArticlePreviewResponse",
+            "ArticlePropertyValueReadResponse",
             "ArticleRelatedReading",
             "ArticleResponsibilityHistory",
             "ArticleResponsibilityRequest",

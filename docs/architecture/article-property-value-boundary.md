@@ -1,4 +1,4 @@
-# Article property value validation boundary
+# Article property value authority boundary
 
 The existing `ArticlePropertyDefinitionContract` remains the sole eight-type catalog and definition-policy owner. Shared `ArticlePropertyTypedValue` payloads, presence, normalized entries and snapshot candidates do not introduce a second catalog or a persistence authority.
 
@@ -10,6 +10,14 @@ Normalized entries retain `Missing`, `Null`, zero, false, empty values and defin
 
 `BindSnapshot` creates an immutable candidate from genuinely observed article/revision/property and optional draft/publication coordinates. `ValidateSnapshotCandidate` checks its closed schema, coordinate/value shapes and recomputed digests. These pure operations do not prove that coordinates were observed, persist anything, authorize a caller, produce a durable receipt or qualify a PostgreSQL transaction. The sole canonical article transaction must recheck current permissions, definitions and reference policies before a write.
 
-## Remaining integration
+## Canonical article participant
 
-Related to #2322, #2323, #2324 and tracking #1808. This increment supplies a zero-write API for the canonical package planner. The current value writer, persistence/CAS/reconciliation, draft/revision/publication storage, production reference authority and canonical query/index projection remain separate, unaccepted capabilities. It adds no route, wire root, database migration or production provider registration. Runtime, HTTP/session, rendered UX and full-chain scale acceptance remain open.
+`IArticlePropertyValueAuthority` is implemented by the existing `ArticleService`. A mutation derives the actor's current admin permissions from the database, checks the current authenticated session and article access, locks the article and definition owners, checks article/property revisions, and validates the closed Replace/Patch command. The existing article update creates the actual revision and canonical outbox in the same transaction as property facts, snapshots, current head and request receipt. A replay requires current authorization and an identical command digest. A retained publication is bound only when its real revision matches the new revision.
+
+`ArticlePropertyValuePersistence` participates in that ambient transaction; it never starts a second transaction. Seven additive relational tables retain typed scalar/option/reference facts, immutable snapshot coordinates, a current head and actor/request receipts. Independent hydration verifies shape, bounded resource use, value/factset/snapshot digests and the existing signed audit chain. Snapshot and receipt audit events contain digests rather than property plaintext. Ordinary article updates carry immutable facts into a new signed coordinate header; rollback copies authenticated historical facts into a new monotonic property revision. Definition-owner locks use the existing definition producer's lock identity and stable owner order.
+
+The typed AEDS v2 read root is frame 269, `ArticlePropertyValueReadResponse`, at `GET /api/binary/author/articles/{articleId}/properties`. It returns the current persisted snapshot, canonical definition descriptors and closed reconciliation results under current article-write authorization and no-store response rules. Definition IDs from the stored snapshot are included in the bounded canonical batch read, so known deleted definitions remain available as tombstones. The aggregate definition budget is 1000 distinct IDs; oversized current/history unions fail explicitly. The wire's 8 MiB and 40,000 aggregate item limits remain independent limits. Generated C#, TypeScript and native validators consume one wire producer and the existing eight-type catalog.
+
+## Remaining acceptance
+
+Related to #2322, #2323, #2324 and tracking #1808. This source increment does not qualify the entire property lifecycle. Direct lifecycle-writer and scheduled-publication paths still need the same participant integration and an authentic background actor boundary. Standalone drafts and nonempty article references remain unavailable. Original typed-command history/replay verification, durable reconciliation/query projections, permanent-deletion cleanup, full per-field error receipts and complete scale coverage remain open. Schema qualification, actual HTTP/session admission, rendered UX and full frontend types are separate unaccepted gates. The mutation API is currently a backend authority interface; no HTTP mutation contract is inferred from the read endpoint.

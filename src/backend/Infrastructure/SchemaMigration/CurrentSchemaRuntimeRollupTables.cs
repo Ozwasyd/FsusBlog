@@ -19,6 +19,7 @@ internal static class CurrentSchemaRuntimeRollupTables
         get;
     } =
     [
+        .. ArticlePropertyValueRuntimeTables.Tables,
         new(
             "daily_read_stats",
             """

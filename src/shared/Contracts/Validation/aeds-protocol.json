@@ -1613,6 +1613,12 @@
             "value": 268,
             "goldenFamily": "article-canvas-link",
             "goldenOrder": 259
+        },
+        {
+            "name": "ArticlePropertyValueReadResponse",
+            "value": 269,
+            "goldenFamily": "article-property-value-read",
+            "goldenOrder": 260
         }
     ],
     "goldenCatalog": {
@@ -1620,7 +1626,8 @@
         "defaultEvidence": [
             "tests/backend/Unit/BackendGoldenCatalogTests.cs",
             "tests/backend/Unit/PodBinaryCodecTests.cs",
-            "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
+            "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs",
+            "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs"
         ]
     }
 }

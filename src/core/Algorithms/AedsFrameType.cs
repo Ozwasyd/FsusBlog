@@ -264,5 +264,6 @@ public enum AedsFrameType : ushort
     AuthoringCanvasReferenceResolutionBatch = 265,
     ArticleCanvasLinkRequest = 266,
     ArticleCanvasLinkReceipt = 267,
-    ArticleCanvasLinkHistoryResponse = 268
+    ArticleCanvasLinkHistoryResponse = 268,
+    ArticlePropertyValueReadResponse = 269
 }

@@ -2923,6 +2923,26 @@
           "requestFrame": "ArticleCanvasLinkRequest"
         }
       ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePropertyValueRoutes.cs",
+      "frontendWrapper": "src/frontend/src/api/articlePropertyValues.ts",
+      "frontendAdapter": "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
+      "id": "article-property-value-read",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/author/articles/{articleId:int}/properties",
+          "auth": "admin",
+          "pow": false,
+          "responseFrame": "ArticlePropertyValueReadResponse",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_article_property_values_read"
+        }
+      ]
     }
   ],
   "coherenceProfiles": [

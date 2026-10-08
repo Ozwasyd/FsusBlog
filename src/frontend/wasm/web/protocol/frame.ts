@@ -261,6 +261,7 @@ export const FrameType = {
   ArticleCanvasLinkRequest: 266,
   ArticleCanvasLinkReceipt: 267,
   ArticleCanvasLinkHistoryResponse: 268,
+  ArticlePropertyValueReadResponse: 269,
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];

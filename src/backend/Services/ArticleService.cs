@@ -72,7 +72,10 @@ public partial class ArticleService(
     IArticleListCursorCodec? _articleListCursorCodec = null,
     IArticleViewProjectionObligationCoordinator? _articleViewProjectionObligations = null,
     IAuthoringCanvasDocumentStore? _authoringCanvasDocuments = null,
-    IAuthoringCanvasExternalCoordinateAuthority? _authoringCanvasCoordinates = null) : IArticleCoreGateway, IArticleMutationCommandService
+    IAuthoringCanvasExternalCoordinateAuthority? _authoringCanvasCoordinates = null,
+    ArticlePropertyValuePersistence? _articlePropertyValues = null,
+    ArticlePropertyValueValidator? _articlePropertyValueValidator = null,
+    IArticlePropertyDefinitionStore? _articlePropertyDefinitions = null) : IArticleCoreGateway, IArticleMutationCommandService
 #pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId, string? CoverImageUrl);

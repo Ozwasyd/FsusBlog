@@ -376,6 +376,13 @@ int main(int argc, char** argv)
                     return 16;
                 }
             }
+            else if (frame_type == 269)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::ArticlePropertyValueReadPayloadInvalid)
+                {
+                    return 17;
+                }
+            }
             else if (!decoded.ok || decoded.frame_type != frame_type || decoded.payload_len != 0U)
             {
                 return 12;

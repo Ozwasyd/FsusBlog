@@ -4,6 +4,7 @@
 #include "aeds_frame.hpp"
 #include "authoring_canvas_wire.generated.hpp"
 #include "article_canvas_link_wire.generated.hpp"
+#include "property_value_read.generated.hpp"
 #include "font_theme_admin_pods.hpp"
 #include "pod_views.hpp"
 
@@ -58,6 +59,8 @@ const char* ToErrorString(ErrorCode errorCode)
             return "payload_crc_mismatch";
         case ErrorCode::ArticleCanvasLinkPayloadInvalid:
             return "article_canvas_link_payload_invalid";
+        case ErrorCode::ArticlePropertyValueReadPayloadInvalid:
+            return "article_property_value_read_payload_invalid";
         case ErrorCode::AuthoringCanvasPayloadInvalid:
             return "authoring_canvas_payload_invalid";
         case ErrorCode::ArticlePayloadInvalid:
@@ -149,6 +152,11 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         && !ValidateArticleCanvasLinkPayload(FrameType, payload, PayloadLength))
     {
         return MakeError(ErrorCode::ArticleCanvasLinkPayloadInvalid);
+    }
+
+    if (FrameType == 269 && !ValidateArticlePropertyValueReadPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::ArticlePropertyValueReadPayloadInvalid);
     }
 
     DecodeResult ok{};
