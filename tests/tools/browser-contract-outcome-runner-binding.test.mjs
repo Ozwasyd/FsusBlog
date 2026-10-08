@@ -75,11 +75,11 @@ function fixture(t)
     return { value, options, rawFile, reseal, fail, read: () => readBrowserContractOutcomeRunnerBinding(options) };
 }
 
-function memberInputs(f, failure = false)
+function memberInputs(f, failure = false, attemptOverrides = {})
 {
     const authority = { identity: f.options.expected.identity,
         attemptEligibility: { aggregateDigest: digest('4'), attemptDigest: digest('5'), attemptNumber: 1,
-            cleanFirstAttempt: !failure, firstFailure: failure, qualificationEligible: !failure },
+            cleanFirstAttempt: !failure, firstFailure: failure, qualificationEligible: !failure, ...attemptOverrides },
         policyDigest: digest('6'), runtimeIdentities: [{ projectId: 'browser-contract', browserId: 'chromium',
             runtimeDigest: f.options.expected.browserActualDigest }], inputAuthorityRefs: [] };
     const members = f.value.browser.scenarios.map((scenario) => ({
@@ -272,7 +272,6 @@ test('native failed attempt cannot erase first-failure qualification provenance'
 {
     const f = fixture(t);
     f.fail();
-    const inputs = memberInputs(f, true);
-    Object.assign(inputs.authority.attemptEligibility, { firstFailure: false, cleanFirstAttempt: true, qualificationEligible: true });
+    const inputs = memberInputs(f, true, { firstFailure: false, cleanFirstAttempt: true, qualificationEligible: true });
     assert.throws(inputs.adapt, /failed native attempt provenance was erased/u);
 });
