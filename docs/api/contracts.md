@@ -3214,3 +3214,55 @@ its file candidate still always refuses execution. This reader supplies no
 permission, zero-write runtime, staging/cleanup, timeout, interrupted-flow or
 independent original-project qualification receipt. The complete authority list
 and all original #2402/#2411 acceptance gates remain required.
+
+## Frozen revision export candidate
+
+`ArticlePackageFrozenExportCandidateWriter.TryWriteCandidate` binds the existing
+`ArticlePackageManifestCandidatePlan` to an exact whole set of explicit portable
+`ArticlePackageFrozenExportCandidateInput` bindings. Each binding carries the
+canonical document export owner's v3 `DocumentExportFrozenInput`, including its
+new frozen-embed slot. This API requires that newer companion source closure;
+the package branch does not replace or edit document export contracts or providers.
+
+The writer checks caller count once and copies bounded indexes, then validates
+the actual document input through `DocumentExportContractValidator`. Its source
+owner's `Seal` makes defensive byte copies; the original input content digest
+must survive that copy unchanged and the copied input is validated again. A
+revision's article ID, revision ID, site and complete raw Markdown bytes must
+match the planned article. Draft/publication inputs are refused until their
+package schema and source authority are available. SourceVersion, document
+metadata/property digests and exporting UserId retain their own domains; they
+are not equated to package RevisionNo, property-mapping digests or definition
+ownership. The read-only `SourceBindings` retain those supplied coordinates.
+
+At most 1,000 inputs and 256 document assets per input are inspected. All supplied
+Markdown and presentation-font bytes share a 64 MiB pre-copy budget. The document
+owner validates its required font set, while those presentation fonts are not
+emitted as article content assets. Any other asset is refused, never silently
+omitted. A non-null `FrozenEmbeds` slot is also refused with
+`article_package_export_dependency_schema_unavailable`: the existing finite
+manifest cannot represent its original plan, portable dependency mapping and
+retained projection bytes. Presence of a typed slot never supplies missing
+persistent authorization, codec parity or retention.
+A null slot does not prove the raw Markdown has no dependencies; the finite
+writer performs no syntax parsing and never grants complete export authority.
+
+For supported inputs, the writer emits the existing finite manifest, exact
+Markdown and checksum documents, using the sole checksum digest owner. The
+official ZIP library writes ordinal paths with stored payloads, fixed 1980-01-01
+timestamps and regular-file attributes into a bounded private buffer. The
+existing actual ZIP/byte validators verify the entire generated archive before
+any candidate is returned. Repeated equal inputs in the same official runtime
+produce equal archive bytes; the finite file-set digest remains distinct from
+archive bytes and from a complete package semantic digest. No alternate parser,
+dependency schema, download route, store or temporary output is introduced.
+
+The returned candidate exposes the validated file `Candidate`, actual archive
+length/hash and `CopyArchiveBytes()` as a detached copy. Failure or cancellation
+returns no partial candidate. `RequireExportAuthority()` always refuses with
+`article_package_export_authority_unavailable`. The current source bridge's
+persistent publication reader, retained projection reader and independent
+projection verifier ports still need canonical implementations; its document
+materializer gate is unchanged. Full V1 metadata/privacy/version/dependency/asset
+schema, current permissions, staging/timeout/cleanup/idempotency receipts and
+independent original-project acceptance remain required for #2400/#2410.
