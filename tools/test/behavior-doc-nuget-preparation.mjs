@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import { retainExecutionFailureCompatibility } from './execution-failure-diagnostic.mjs';
 import path from 'node:path';
 
 import { resolveExecutablePath } from './execution-envelope-environment.mjs';
+import { retainExecutionFailureCompatibility } from './execution-failure-diagnostic.mjs';
 import { validateRunBoundProjection } from './run-once.mjs';
 
 const { hostDeclarations } = await import(new URL('../docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
