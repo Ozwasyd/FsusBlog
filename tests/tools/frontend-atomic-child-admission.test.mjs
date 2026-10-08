@@ -100,7 +100,8 @@ function temporalObservation(options)
         locale: context.locale, nodeTimezone: context.nodeTimezone, monotonicClockSource: context.monotonicClockSource };
 }
 
-function reseal(options, edit = () => {})
+function reseal(options, edit = () =>
+{})
 {
     const plan = JSON.parse(options.replayBytes);
     delete plan.planDigest;
