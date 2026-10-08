@@ -216,7 +216,10 @@ public static class ArticleEmbedContractValidator
             || result.Attribution.SourcePortableArticleIdentity != request.Target.PortableArticleIdentity
             || result.Attribution.SourceRevision != result.Coordinate.ResolvedRevision
             || !IsSafeDisplayText(result.Attribution.DisplayText)
-            || !ArticleEmbedContractDigest.IsSha256(result.Attribution.AttributionDigest)
+            || !DigestEquals(result.Attribution.AttributionDigest, ArticleEmbedContractDigest.ComputeAttribution(
+                result.Attribution.SourcePortableArticleIdentity,
+                result.Attribution.SourceRevision,
+                result.Attribution.DisplayText))
             || result.Permission != ArticleEmbedPermissionStatus.Allowed)
         {
             return Invalid("article_embed_resolved_payload_mismatch");
