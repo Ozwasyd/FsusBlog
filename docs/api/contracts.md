@@ -2891,3 +2891,36 @@ render: key-value-table
 | UserCommentCursorVersion | {"class":"blog","domain":"blog","id":"UserCommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-version","securityCritical":false} |
 | VisitLock | {"class":"security-critical","domain":"sec","id":"VisitLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"visit-lock","securityCritical":true} |
 <!-- FSUSBLOG-GENERATED:END api.security-cache-policies -->
+
+## Portable article-package foundation
+
+The shared `Contracts/ArticlePackages` owner supplies the foundation used by the
+single article-package schema required by #2398 and #2408. This increment exposes
+portable identities, a bounded canonical entry inventory, and raw UTF-8 byte
+metadata. It does not yet define or validate the complete manifest, property
+snapshots, version migrations, or canonical syntax/dependency projections.
+
+Article identities follow the existing article-embed portable identity codec.
+Asset, definition, and option identities are explicit typed portable references;
+source database coordinates remain separate. No identity is inferred from a
+title, slug, URL, filename, or array position. The canonical inventory admits only
+manifest/checksum entries and typed article/asset paths. Unknown paths, aliases,
+duplicates, nonregular entries, and exceeded count/byte budgets fail closed.
+Inventory validation consumes descriptors only; callers must independently prove
+the descriptors against real archive entries. It does not read or extract ZIPs.
+
+`ArticlePackageSourceBytes` validates strict UTF-8 and hashes the original bytes.
+Its metadata includes the original byte length, lowercase SHA-256, leading BOM,
+LF/CRLF/bare-CR counts, exact final newline, and trailing ASCII space/tab counts.
+Metadata verification recomputes every field without trimming, replacing invalid
+bytes, normalizing Unicode, or rewriting newlines. The 32 MiB Markdown byte budget
+is enforced before decoding. These checks do not parse anchors, embeds, or captions.
+
+Foundation verification is not complete package validation or permission to
+import. Complete schema work must consume the canonical typed-value and immutable
+snapshot contracts. Export/validation must consume actual canonical syntax and
+frozen dependency producers; execution additionally needs its original writers
+and transaction receipts. The #1724 publication/projection port is a development
+capability, with database/outbox/AOT convergence still unqualified. The #2317
+author full-text index and lifecycle rebuild contract is distinct; publication
+receipts cannot substitute for its missing atomic index writer/readback.
