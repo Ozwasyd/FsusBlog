@@ -150,10 +150,8 @@ public sealed class DocumentExportRequestFreezer(
             read.Assets.Select(asset => asset with
             {
                 Bytes = asset.Bytes.AsSpan().ToArray().ToImmutableArray()
-            }).ToImmutableArray(), DocumentExportReadingStyleAuthority.AuthorityDigest, string.Empty)
-        {
-            FrozenEmbeds = read.FrozenEmbeds
-        };
+            }).ToImmutableArray(), DocumentExportReadingStyleAuthority.AuthorityDigest,
+            read.FrozenEmbeds, string.Empty);
         DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(unsignedInput);
         DocumentExportContractValidator.Validate(input);
         // Detect mutation of retained buffers while custody was being copied.

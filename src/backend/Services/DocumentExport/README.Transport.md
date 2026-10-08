@@ -35,6 +35,15 @@ persisted facts for the exact principal, formal SiteScope and source coordinate:
   already-published embed bridge is not a complete source reader or materializer.
 - A stable full facts seal and a second live permission check before admission.
 
+`DocumentExportHttpJobAuthorization` consumes the existing SQL-backed
+`IAuthorRecentArticleHistoryPermissionProjectionProvider` for each HTTP operation.
+It binds the actor to the actual admin principal/session and verifies the returned
+owner, current status, single exact article decision and original permission seal.
+It performs no second SQL query or digest-domain conversion. Without an original
+authenticated HTTP context it denies worker access; a real worker permission path
+remains a separate missing prerequisite. This adapter has not been qualified
+against a real database/session merely by controlled source tests.
+
 The available `IRevisionComparePackageReader` exposes Markdown and comparison
 metadata/snapshots, but does not supply the complete export property/asset/font
 closure or renderer build. Its current backend authority requires literal
