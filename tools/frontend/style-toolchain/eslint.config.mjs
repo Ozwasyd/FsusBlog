@@ -12,6 +12,13 @@ import tseslint from 'typescript-eslint';
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const repositoryRoot = path.resolve(process.env.FSUSBLOG_STYLE_ROOT ?? defaultRoot);
 const frontendRoot = path.join(repositoryRoot, 'src/frontend');
+const { resolveLocalFsusUiApplicationProject } = await import(
+    new URL('../../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
+);
+const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot });
+const applicationProjectOptions = localApplicationProject
+    ? { projectService: false, project: [localApplicationProject], extraFileExtensions: ['.vue'] }
+    : { projectService: true };
 
 const typedFiles = [
     'src/frontend/src/**/*.{ts,tsx}',
@@ -216,7 +223,7 @@ export default [
             parser: tseslint.parser,
             parserOptions: {
                 ecmaVersion: 'latest',
-                projectService: true,
+                ...applicationProjectOptions,
                 sourceType: 'module',
                 tsconfigRootDir: frontendRoot
             },
@@ -238,7 +245,7 @@ export default [
                 ecmaVersion: 'latest',
                 extraFileExtensions: ['.vue'],
                 parser: tseslint.parser,
-                projectService: true,
+                ...applicationProjectOptions,
                 sourceType: 'module',
                 tsconfigRootDir: frontendRoot
             },
