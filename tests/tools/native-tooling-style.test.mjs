@@ -384,6 +384,12 @@ test('native tooling style governance keeps ambiguous C++ parameter syntax stric
             'void Build(int input)\n{\n    {\n        using input = int;\n        Reader bad_name(input);\n    }\n}',
             'void Build()\n{\n    {\n        const int Input = 1;\n    }\n    Reader bad_name(Input);\n}',
             'const int Input = 1;\ntemplate<typename Input>\nvoid Build()\n{\n    Reader bad_name(Input);\n}',
+            'const int Input = 1;\ntemplate<typename Input>\nReader bad_name(Input);',
+            'const int Input = 1;\ntemplate<typename Input> Reader bad_name(Input);',
+            'const int Input = 1;\ntemplate<\n    typename Input\n>\nReader bad_name(Input);',
+            'const int Input = 1;\nvoid Build()\n{\n    typedef int (*Input)();\n    Reader bad_name(Input);\n}',
+            'const int Input = 1;\n#define Input int\nReader bad_name(Input);',
+            '#if 0\nconst int input = 1;\n#endif\nReader bad_name(input);',
             '#define DECLARE_VALUE \\\n    const int input = 1;\nReader bad_name(input);',
             '/* const int input = 1; */\nReader bad_name(input);',
             'const char* text = R"raw(\nconst int input = 1;\n)raw";\nReader bad_name(input);'
