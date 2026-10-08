@@ -79,6 +79,8 @@ describe('one canonical export receipt view', () => {
         center.select('task');
         await center.act('cancel', 'task');
         const reconciliation = center.reconcile();
+        await center.retryAction();
+        expect(port.cancel).toHaveBeenCalledTimes(1);
         center.setOpen(false);
         center.changeIdentity();
         await center.reconcile();
