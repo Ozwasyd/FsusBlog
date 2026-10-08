@@ -1,0 +1,76 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/testing/release-reliability-scenario-catalog.json",
+        "tests/matrix.yml",
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+        "config/testing/replay-qualification-producers.json",
+        "config/testing/test-execution-envelope-applicability.json",
+        "tools/test/attempt-runner.mjs",
+        "tools/test/temporal-context.mjs",
+        "tools/test/temporal-context-contract.mjs",
+        "tools/test/correctness-attempt-migration.mjs",
+        "src/shared/Contracts/AuthSystem/user-session-authentication-contract.json",
+        "tools/contracts/generate-auth-session-contract.mjs",
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "tools/frontend/generate-aeds-protocol.mjs",
+        "config/application/backend-configuration-contract.json",
+        "config/development/csharp-style-policy.json",
+        "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21"
+        },
+        {
+            "path": "src/frontend/src/generated/authSessionContract.ts",
+            "sha256": "854b9db0613397c7df23ffd5e3e5e38a26e9b501070bc4a36c4b01d0355cad5c"
+        },
+        {
+            "path": "src/shared/Contracts/AuthSystem/UserSessionAuthenticationContract.generated.cs",
+            "sha256": "07c00371d807a2742efd45219b93ae8008802fd4f02ed0839f75b63e857809a7"
+        },
+        {
+            "path": "src/core/Algorithms/AedsFrameType.cs",
+            "sha256": "8f2a5eddfb10b5a330805e49bfed8ffd97558deb61e8be2a7a335ec17eb1bfa8"
+        },
+        {
+            "path": "src/shared/AedsFrameHeader.cs",
+            "sha256": "2c69b4b6f821ffbf5634670284279b5bfbcd9f3fe4096b04066dd60472509900"
+        },
+        {
+            "path": "src/frontend/wasm/web/protocol/frame.ts",
+            "sha256": "1c09a8da8046655648952002dfab3c4a903fc73f07805752b40eee571a97618d"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+            "sha256": "d34f7ad5158688587880bc7318fcd550213530fe0c51adbd362117858f45b3b2"
+        },
+        {
+            "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+            "sha256": "7b2c0e6beeb5e508f4518495b299a393da7ff799cb6c58825a140b941559d8ca"
+        },
+        {
+            "path": "docs/configuration/backend-configuration-reference.generated.md",
+            "sha256": "9a29f279d4b37a1d0721b147a619c20277704da91434744c592fc575a6e3eabf"
+        },
+        {
+            "path": "config/development/csharp-style-baseline.json",
+            "sha256": "a4b259c4f5da4556f9035828675d22c0796b3b696ca83ad9df4f2128105fe9dc"
+        },
+        {
+            "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+            "sha256": "39fc976621e48db03991d104d935a919fd316360c577b18a74926226816b7d43"
+        },
+        {
+            "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+            "sha256": "0c06864359a651da35144e038069aa26a982943d86e099f369719da476d1a954"
+        }
+    ]
+}
