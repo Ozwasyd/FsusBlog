@@ -78,6 +78,20 @@ surface do not expose a persistent per-view count wall.
 
 ## Structured visual adjudication contract
 
+`inspectCompositionObservationDiagnostic` from the existing
+`@fsusblog/layout-governance/visual-producer-admission` entry consumes the
+canonical composition source, route and DOM APIs. It rebuilds the route graph,
+binds actual source/worktree/FsusUI/parser identities, and projects the declared
+scene state ID from the sole matrix into the analyzer's dimension-to-ID input.
+An undeclared state fails; loading or asset states do not default to a selected
+Settings tab. Caller loaders, graphs and verifier callbacks are forbidden.
+
+This consumer is diagnostic only. Missing public exports refuse explicitly;
+combined source/DOM observations cannot become separate static and DOM receipts.
+Unknown conditional and public-surface errors remain blocking, while runtime
+state origin, geometry and rendered field adjudication remain independent gates.
+Its declaration mapping does not qualify any current-run state fixture.
+
 `config/schemas/layout-visual-adjudication.schema.json` owns the exact ten visual
 rubric fields. `tests/frontend/support/layout/visualAdjudication.mjs` independently
 checks their states, evidence references, source and scene bindings, content
@@ -95,9 +109,9 @@ movement requires the existing ledger's exact entry digest/classification and
 the explicitly supplied old/new screenshot digests. Schema, rubric, and verifier
 identities invalidate receipts when their consumed bytes change.
 
-The current implementation is a contract-only increment. Canonical static/DOM
-and geometry producer adapters have not been handed off, so their receipts are
-opaque artifact bytes and every production `rendered` verification fails with
+Canonical source/DOM diagnostics can be consumed through the bounded API above.
+Qualified static/DOM scene admission and geometry producer adapters remain
+pending, so every production `rendered` verification still fails with
 `layout-visual-producer-adapter-unavailable`. Callers cannot supply an alternate
 verification callback or replace that authority with a status bit. Current-run
 state/viewport fixture admission and production-positive verification remain

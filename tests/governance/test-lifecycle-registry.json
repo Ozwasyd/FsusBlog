@@ -7641,6 +7641,16 @@
                 "category": "real-subprocess-lifecycle",
                 "physicalOwner": "process:lifecycle"
             }
+        },
+        {
+            "file": "tests/tools/layout-composition-diagnostic-consumer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/layout-composition-diagnostic-consumer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
         }
     ]
 }

@@ -39,6 +39,7 @@
                 "tests/frontend/fixtures/ux-viewport-matrix.json",
                 "tests/frontend/package-lock.json",
                 "tests/frontend/package.json",
+                "tests/governance/test-lifecycle-registry.json",
                 "tests/tools/package-lock.json",
                 "tests/tools/package.json"
             ],

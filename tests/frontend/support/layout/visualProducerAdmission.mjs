@@ -12,6 +12,8 @@ import { validateJsonSchema } from '@fsusblog/layout-governance/schema-validator
 
 import { compositionDigest } from './compositionContracts.mjs';
 
+export { inspectCompositionObservationDiagnostic, projectCompositionSceneState } from './visualCompositionObservation.mjs';
+
 const canonicalRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 const registryUrl = new URL('../../../../config/testing/evidence-locator-registry.json', import.meta.url);
 const schemaUrl = new URL('../../../../config/schemas/layout-visual-adjudication.schema.json', import.meta.url);
@@ -23,6 +25,7 @@ const authorityPaths = [
     'tests/frontend/package-lock.json',
     'tests/frontend/support/layout/compositionContracts.mjs',
     'tests/frontend/support/layout/visualAdjudication.mjs',
+    'tests/frontend/support/layout/visualCompositionObservation.mjs',
     'tools/test-matrix/schema-validator/validate.mjs',
     'tools/test-matrix/schema-validator/package.json',
     'tools/test-matrix/schema-validator/package-lock.json',

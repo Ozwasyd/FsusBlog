@@ -126,10 +126,10 @@ function verifyEvidence(receipt, artifacts, purpose)
     {
         if (receipt.evidenceClass === 'rendered')
         {
-            // No producer contract has been handed off for #2098/#2099. Do not
-            // infer their schema, trust a status bit, or expose a caller-supplied
-            // callback as production authority. A future canonical adapter must
-            // independently verify the opaque bytes and their execution binding.
+            // The canonical #2098 diagnostic API is consumed separately through
+            // inspectCompositionObservationDiagnostic. Its diagnostic-only
+            // source/DOM observation is not qualified static/DOM scene evidence.
+            // Do not split it into two receipts or promote a status bit to pass.
             const owner = ['static', 'dom'].includes(reference.kind) ? 2098 : 2099;
             fail('producer-adapter-unavailable', `${reference.kind}: canonical producer adapter for #${owner} unavailable`);
         }
