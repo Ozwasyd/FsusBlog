@@ -1,0 +1,17 @@
+✔ default Demo runtime invalidates when its base tsconfig changes (86.035547ms)
+✔ cold preparation ignores owned WASM build output and then reuses every layer (64.000042ms)
+✔ prepares an empty runtime and writes a ready manifest (19.726003ms)
+✔ reuses every layer when inputs and runtime outputs are unchanged (19.269278ms)
+✔ invalidates icons, WASM, and Demo layers independently (28.223716ms)
+✔ detects missing, stale, corrupt, and mismatched runtime state (18.515555ms)
+✔ detects manifest configuration and fingerprint-file mismatches (12.670547ms)
+✔ dry-run reports rebuild reasons without commands or writes (5.89246ms)
+✔ works without Actions variables and exposes a local fallback command (13.646922ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 334.672656

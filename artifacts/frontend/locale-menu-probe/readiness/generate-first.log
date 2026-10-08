@@ -1,0 +1,5 @@
+
+> @element-plus/icons-vue@2.3.2 build:generate /workspace/FsusUI/vue/packages/icons-vue
+> node ../../../scripts/with-node-heap.mjs tsx build/generate.ts
+
+Generated 302 FsusUI design-aligned icons.

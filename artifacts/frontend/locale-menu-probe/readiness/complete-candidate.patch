@@ -1,0 +1,1121 @@
+diff --git a/.changeset/dropdown-controlled-radio-items.md b/.changeset/dropdown-controlled-radio-items.md
+new file mode 100644
+index 00000000..cfa32857
+--- /dev/null
++++ b/.changeset/dropdown-controlled-radio-items.md
+@@ -0,0 +1,10 @@
++---
++'element-plus': minor
++---
++
++Add consumer-controlled `checked` state to DropdownItem, rendering coherent menuitemradio and aria-checked semantics while preserving ordinary command items. Prefer the checked item on keyboard entry and support ArrowUp on the trigger. Document public URL/command adapters and asynchronous pending/error/retry composition without storing consumer selection or preferences.
++
++Add explicit multiline DropdownItem content with description/suffix slots and
++opt-in viewport-bounded Dropdown geometry, including body-teleported root CSS
++zoom coordinate normalization through the existing Popper modifiers. Default
++single-line rows remain unchanged.
+diff --git a/.changeset/icons-registry-export-sync.md b/.changeset/icons-registry-export-sync.md
+new file mode 100644
+index 00000000..066244fe
+--- /dev/null
++++ b/.changeset/icons-registry-export-sync.md
+@@ -0,0 +1,9 @@
++---
++'element-plus': patch
++---
++
++Regenerate the Vue icon index from the existing icon registry so AddDocument,
++ApplicationMenu, RefreshReplace, Replace and SearchFilter are available through
++the documented icon exports. Keep canonical visual preparation source inputs
++stable by checking in the generator's existing output; no glyph, token,
++fingerprint gate or runtime receipt is changed.
+diff --git a/docs/components/dropdown.md b/docs/components/dropdown.md
+index 4b7657bd..86f2c321 100644
+--- a/docs/components/dropdown.md
++++ b/docs/components/dropdown.md
+@@ -35,48 +35,121 @@ Set `split-button` to turn the trigger into a two-part button group.
+ 
+ Use `handleOpen` / `handleClose` to control menu visibility manually.
+ 
++## Consumer-owned Single Selection
++
++Set `checked` on every selectable `DropdownItem` under a `role="menu"`
++Dropdown. Defined boolean values render `menuitemradio` with `aria-checked`;
++omitting `checked` preserves the ordinary `menuitem` command contract. The
++consumer supplies exactly one committed checked item in each selection group.
++Activation emits `command`; it never mutates `checked` itself.
++
++Use `hide-on-click="false"` for an asynchronous transaction. Keep `checked`
++bound to the last committed value while showing pending progress or a visible
++error/retry item in the menu. Update that value only after success, and close
++through the public `handleClose` method when the consumer decides the
++transaction is settled. Failed, interrupted, and superseded transactions remain
++consumer-owned. FsusUI does not store preferences, choose locale values, or
++perform resource requests.
++
++```vue
++<el-dropdown ref="dropdown" trigger="click" :hide-on-click="false">
++  <el-button>{{ committedLabel }}</el-button>
++  <template #dropdown>
++    <el-dropdown-menu>
++      <el-dropdown-item
++        v-for="item in items"
++        :key="item.id"
++        :command="item"
++        :checked="item.id === committedId"
++        :disabled="item.disabled"
++      >
++        {{ item.label }}
++        <span v-if="pendingId === item.id">{{ pendingLabel }}</span>
++      </el-dropdown-item>
++      <el-dropdown-item v-if="error" command="retry">
++        <span role="alert">{{ error }}</span>
++        {{ retryLabel }}
++      </el-dropdown-item>
++    </el-dropdown-menu>
++  </template>
++</el-dropdown>
++```
++
++Enter, Space, ArrowDown, and ArrowUp open a click-triggered dropdown. The
++existing roving focus model prefers a focusable checked item on keyboard
++entry, handles ArrowUp/Down/Home/End, skips disabled items, and restores focus
++to the trigger on Escape. A custom trigger, including compact content, remains
++in the default slot; public `visible-change` and `handleOpen` / `handleClose`
++provide an observable visibility contract. Changing `checked` does not move
++focus away from a user who is navigating pending or retry content.
++
++## URL and Command Activation Adapter
++
++The `command` event receives `(command, instance, event)`. Use a public
++consumer adapter to distinguish navigation records from async commands; do
++not query component-private DOM or add another keyboard handler. For example:
++
++```ts
++function activate(item, _instance, event) {
++  if (item.href) {
++    window.location.assign(item.href)
++    return
++  }
++  void requestResource(item.id)
++}
++```
++
++The adapter owns URL and transaction semantics. A nested anchor alone is not
++a keyboard activation adapter: Enter/Space on the menu item activate its
++public command rather than dispatching the nested anchor's native click.
++Choose and test one coherent URL/command adapter for the consumer.
++Keyboard activation intentionally prevents the browser's original key default
++before emitting `command`; its event can therefore have `defaultPrevented=true`
++while still representing a valid command. Do not discard a public keyboard
++command solely because that flag is set.
++
+ ---
+ 
+ ## Dropdown API
+ 
+ ### Dropdown Attributes
+ 
+-| 属性名 | 说明 | 类型 | 默认值 |
+-|--------|------|------|--------|
+-| type | 按钮类型（`split-button` 为 true 时有效） | `'default' \| 'primary' \| 'success' \| 'warning' \| 'info' \| 'danger'` | `''` |
+-| size | 菜单大小 | `'large' \| 'default' \| 'small'` | `''` |
+-| split-button | 是否使用分裂按钮 | `boolean` | `false` |
+-| disabled | 是否禁用 | `boolean` | `false` |
+-| placement | 弹出位置 | `'top' \| 'top-start' \| 'top-end' \| 'bottom' \| 'bottom-start' \| 'bottom-end'` | `bottom` |
+-| trigger | 触发方式 | `'click' \| 'hover' \| 'contextmenu'` | `hover` |
+-| hide-on-click | 点击菜单项后是否关闭菜单 | `boolean` | `true` |
+-| show-timeout | 显示延迟（ms，`hover` 模式有效） | `number` | `150` |
+-| hide-timeout | 隐藏延迟（ms，`hover` 模式有效） | `number` | `150` |
+-| max-height | 菜单最大高度 | `string \| number` | `''` |
+-| popper-class | 自定义弹出层 class | `string \| object` | `''` |
+-| teleported | 是否挂载到 body | `boolean` | `true` |
+-| persistent | 非激活时是否保留 DOM | `boolean` | `true` |
++| 属性名        | 说明                                      | 类型                                                                              | 默认值   |
++| ------------- | ----------------------------------------- | --------------------------------------------------------------------------------- | -------- |
++| type          | 按钮类型（`split-button` 为 true 时有效） | `'default' \| 'primary' \| 'success' \| 'warning' \| 'info' \| 'danger'`          | `''`     |
++| size          | 菜单大小                                  | `'large' \| 'default' \| 'small'`                                                 | `''`     |
++| split-button  | 是否使用分裂按钮                          | `boolean`                                                                         | `false`  |
++| disabled      | 是否禁用                                  | `boolean`                                                                         | `false`  |
++| placement     | 弹出位置                                  | `'top' \| 'top-start' \| 'top-end' \| 'bottom' \| 'bottom-start' \| 'bottom-end'` | `bottom` |
++| trigger       | 触发方式                                  | `'click' \| 'hover' \| 'contextmenu'`                                             | `hover`  |
++| hide-on-click | 点击菜单项后是否关闭菜单                  | `boolean`                                                                         | `true`   |
++| show-timeout  | 显示延迟（ms，`hover` 模式有效）          | `number`                                                                          | `150`    |
++| hide-timeout  | 隐藏延迟（ms，`hover` 模式有效）          | `number`                                                                          | `150`    |
++| max-height    | 菜单最大高度                              | `string \| number`                                                                | `''`     |
++| popper-class  | 自定义弹出层 class                        | `string \| object`                                                                | `''`     |
++| teleported    | 是否挂载到 body                           | `boolean`                                                                         | `true`   |
++| persistent    | 非激活时是否保留 DOM                      | `boolean`                                                                         | `true`   |
+ 
+ ### Dropdown Events
+ 
+-| 事件名 | 说明 | 回调参数 |
+-|--------|------|---------|
+-| click | `split-button` 为 true 时，点击左侧按钮触发 | `(e: MouseEvent) => void` |
+-| command | 点击菜单项时触发，参数为菜单项的 `command` 值 | `(...args: any[]) => void` |
+-| visible-change | 菜单显示/隐藏变化时触发 | `(val: boolean) => void` |
++| 事件名         | 说明                                          | 回调参数                   |
++| -------------- | --------------------------------------------- | -------------------------- |
++| click          | `split-button` 为 true 时，点击左侧按钮触发   | `(e: MouseEvent) => void`  |
++| command        | 点击菜单项时触发，参数为菜单项的 `command` 值 | `(...args: any[]) => void` |
++| visible-change | 菜单显示/隐藏变化时触发                       | `(val: boolean) => void`   |
+ 
+ ### Dropdown Slots
+ 
+-| 插槽名 | 说明 | 子组件 |
+-|--------|------|--------|
+-| default | 触发元素（有效 HTML 元素或 FsusUI 组件） | — |
+-| dropdown | 下拉菜单内容 | `DropdownMenu` |
++| 插槽名   | 说明                                     | 子组件         |
++| -------- | ---------------------------------------- | -------------- |
++| default  | 触发元素（有效 HTML 元素或 FsusUI 组件） | —              |
++| dropdown | 下拉菜单内容                             | `DropdownMenu` |
+ 
+ ### Dropdown Exposes
+ 
+-| 名称 | 说明 | 类型 |
+-|------|------|------|
+-| handleOpen | 打开下拉菜单 | `() => void` |
++| 名称        | 说明         | 类型         |
++| ----------- | ------------ | ------------ |
++| handleOpen  | 打开下拉菜单 | `() => void` |
+ | handleClose | 关闭下拉菜单 | `() => void` |
+ 
+ ---
+@@ -85,8 +158,8 @@ Use `handleOpen` / `handleClose` to control menu visibility manually.
+ 
+ ### Dropdown-Menu Slots
+ 
+-| 插槽名 | 说明 | 子组件 |
+-|--------|------|--------|
++| 插槽名  | 说明       | 子组件         |
++| ------- | ---------- | -------------- |
+ | default | 菜单项列表 | `DropdownItem` |
+ 
+ ---
+@@ -95,9 +168,48 @@ Use `handleOpen` / `handleClose` to control menu visibility manually.
+ 
+ ### Dropdown-Item Attributes
+ 
+-| 属性名 | 说明 | 类型 | 默认值 |
+-|--------|------|------|--------|
+-| command | 点击时传递给 `command` 事件的值 | `string \| number \| object` | — |
+-| disabled | 是否禁用 | `boolean` | `false` |
+-| divided | 是否显示上方分割线 | `boolean` | `false` |
+-| icon | 自定义图标 | `string \| Component` | — |
++| 属性名   | 说明                                                                                              | 类型                         | 默认值      |
++| -------- | ------------------------------------------------------------------------------------------------- | ---------------------------- | ----------- |
++| command  | 点击时传递给 `command` 事件的值                                                                   | `string \| number \| object` | —           |
++| disabled | 是否禁用                                                                                          | `boolean`                    | `false`     |
++| divided  | 是否显示上方分割线                                                                                | `boolean`                    | `false`     |
++| icon     | 自定义图标                                                                                        | `string \| Component`        | —           |
++| checked  | Consumer-controlled single-selection state under a menu parent; omit for an ordinary command item | `boolean \| undefined`       | `undefined` |
++
++### Explicit multiline content and viewport bounds
++
++`DropdownItem` accepts `multiline` (Boolean, default `false`). Opting in gives its
++primary default slot and optional `description` slot a natural block height with
++the existing option-height token as a minimum. Both lines wrap; font sizes remain
++canonical, and disabled, checked, hover and focus states retain the flat row
++surface. The optional `suffix` slot reserves space for consumer-owned status
++content without placing a second focus target in the row. Descriptions are read
++with the item; decorative suffix icons should be `aria-hidden`. Supplying a
++`description` without `multiline` does not change ordinary command-row geometry.
++
++```vue
++<el-dropdown trigger="click" viewport-bounded :hide-on-click="false">
++  <el-button>Language</el-button>
++  <template #dropdown>
++    <el-dropdown-menu>
++      <el-dropdown-item multiline :checked="true" text-value="日本語" command="ja">
++        日本語
++        <template #description>Japanese</template>
++        <template #suffix><span aria-hidden="true">✓</span></template>
++      </el-dropdown-item>
++    </el-dropdown-menu>
++  </template>
++</el-dropdown>
++```
++
++`Dropdown.viewportBounded` (Boolean, default `false`) explicitly constrains the
++panel width and scrollable height to the visual viewport. Its unset `maxHeight`
++uses the documented menu maximum; an explicit maximum remains an upper bound.
++For a body-teleported panel under root CSS `zoom`, a modifier adapter presents
++consistent client coordinates to the existing Popper engine, then converts style
++and arrow output to CSS coordinates. It keeps the enlarged text and delegates
++placement, flipping, tethering and lifecycle listeners to Popper. Positioned
++custom append contexts keep the existing engine's scale handling; nested or
++independently zoomed append contexts are not qualified by this root-zoom contract.
++The internal measured CSS properties are not theme tokens or consumer overrides.
++Browser page zoom and assistive technology still require separate qualification.
+diff --git a/docs/design.md b/docs/design.md
+index cb6d8a77..8a2efdd2 100644
+--- a/docs/design.md
++++ b/docs/design.md
+@@ -287,6 +287,7 @@ FsusUI 默认使用 paper/document material、细边框和稳定留白表达层
+ - 阴影默认 `none`，仅在需要明确层级时 opt into `--el-box-shadow-light`，不叠加额外外发光。
+ - 选中项用 `Scholarly Blue` 或浅蓝背景表达，不使用高饱和整行色块。
+ - 列表项需要稳定高度，Hover、Active、Disabled 三种状态必须可区分。
++- DropdownItem 显式 `multiline` 内容变体允许主标签与语义描述换行，行高随内容自然扩展，最小高度仍使用 `--fsus-select-option-height`；默认单行 `34px` 密度不变。保留平面行的选中、禁用与 inset focus 状态，不增加独立卡片、圆角或装饰。显式 `viewportBounded` 模式在视口内限制面板宽度和可滚动高度，CSS zoom 不得通过缩小文字规避溢出。
+ 
+ ### Dialog and Drawer
+ 
+diff --git a/vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts b/vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts
+new file mode 100644
+index 00000000..4d2345cf
+--- /dev/null
++++ b/vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts
+@@ -0,0 +1,79 @@
++import { defineComponent } from 'vue'
++import { flushPromises, mount } from '@vue/test-utils'
++import { describe, expect, test } from 'vitest'
++import {
++  ElButton,
++  ElDropdown,
++  ElDropdownItem,
++  ElDropdownMenu,
++} from '@element-plus/components'
++
++const host = defineComponent({
++  components: { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu },
++  props: {
++    multiline: Boolean,
++    checked: Boolean,
++    disabled: Boolean,
++    viewportBounded: Boolean,
++  },
++  template: `<el-dropdown trigger="click" :teleported="false" :viewport-bounded="viewportBounded">
++    <el-button>Language</el-button>
++    <template #dropdown><el-dropdown-menu>
++      <el-dropdown-item command="ja" :multiline="multiline" :checked="checked" :disabled="disabled" text-value="日本語">
++        日本語<template #description>Japanese</template><template #suffix><span aria-hidden="true">Pending</span></template>
++      </el-dropdown-item>
++    </el-dropdown-menu></template>
++  </el-dropdown>`,
++})
++
++async function open(props: Record<string, boolean>) {
++  const wrapper = mount(host, { props, attachTo: document.body })
++  wrapper.getComponent(ElDropdown).vm.handleOpen()
++  await flushPromises()
++  return wrapper
++}
++
++describe('Dropdown explicit rich content', () => {
++  test('requires opt-in for description and preserves ordinary row structure', async () => {
++    const wrapper = await open({})
++    expect(wrapper.find('.el-dropdown-menu__item-description').exists()).toBe(
++      false,
++    )
++    expect(wrapper.get('[role="menuitemradio"]').classes()).not.toContain(
++      'is-multiline',
++    )
++    expect(wrapper.get('.el-dropdown-menu__item-suffix').text()).toBe('Pending')
++    wrapper.unmount()
++  })
++
++  test('keeps description/status in one checked item and uses the existing selected state', async () => {
++    const wrapper = await open({
++      multiline: true,
++      checked: true,
++      viewportBounded: true,
++    })
++    const item = wrapper.get('[role="menuitemradio"]')
++    expect(item.classes()).toContain('is-multiline')
++    expect(item.classes()).toContain('selected')
++    expect(item.attributes('aria-checked')).toBe('true')
++    expect(wrapper.get('.el-dropdown-menu__item-description').text()).toBe(
++      'Japanese',
++    )
++    expect(item.findAll('button, a, input')).toHaveLength(0)
++    await item.trigger('keydown', { key: 'Enter', code: 'Enter' })
++    expect(wrapper.getComponent(ElDropdown).emitted('command')?.[0]?.[0]).toBe(
++      'ja',
++    )
++    wrapper.unmount()
++  })
++
++  test('disabled multiline content retains semantics and rejects command activation', async () => {
++    const wrapper = await open({ multiline: true, disabled: true })
++    const item = wrapper.get('[role="menuitemradio"]')
++    expect(item.attributes('aria-disabled')).toBe('true')
++    await item.trigger('keydown', { key: ' ', code: 'Space' })
++    await item.trigger('click')
++    expect(wrapper.getComponent(ElDropdown).emitted('command')).toBeUndefined()
++    wrapper.unmount()
++  })
++})
+diff --git a/vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts b/vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts
+new file mode 100644
+index 00000000..e90d516a
+--- /dev/null
++++ b/vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts
+@@ -0,0 +1,139 @@
++import { defineComponent, nextTick } from 'vue'
++import { flushPromises, mount } from '@vue/test-utils'
++import { afterEach, describe, expect, test, vi } from 'vitest'
++import {
++  ElButton,
++  ElDropdown,
++  ElDropdownItem,
++  ElDropdownMenu,
++} from '@element-plus/components'
++
++const host = defineComponent({
++  components: { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu },
++  props: {
++    committed: { type: String, default: 'en' },
++    disabled: Boolean,
++    role: { type: String, default: 'menu' },
++  },
++  template: `
++    <el-dropdown trigger="click" :role="role" :hide-on-click="false" :teleported="false">
++      <el-button>Language</el-button>
++      <template #dropdown>
++        <el-dropdown-menu>
++          <el-dropdown-item command="en" :checked="committed === 'en'" data-item="en">English</el-dropdown-item>
++          <el-dropdown-item command="ja" :checked="committed === 'ja'" :disabled="disabled" data-item="ja">日本語</el-dropdown-item>
++          <el-dropdown-item command="retry" data-item="retry">Retry</el-dropdown-item>
++          <el-dropdown-item role="menuitemradio" aria-checked="true" data-item="uncontrolled">Ordinary</el-dropdown-item>
++        </el-dropdown-menu>
++      </template>
++    </el-dropdown>
++  `,
++})
++
++async function mountMenu(props: Record<string, unknown> = {}) {
++  const wrapper = mount(host, { props, attachTo: document.body })
++  wrapper.getComponent(ElDropdown).vm.handleOpen()
++  await flushPromises()
++  await nextTick()
++  return wrapper
++}
++
++afterEach(() => {
++  document.body.innerHTML = ''
++})
++
++describe('Dropdown public checked state', () => {
++  test('renders one consumer-committed radio and updates through props only', async () => {
++    const wrapper = await mountMenu()
++    expect(wrapper.findAll('[role="menuitemradio"]')).toHaveLength(2)
++    expect(wrapper.findAll('[role="menuitemradio"][aria-checked="true"]')).toHaveLength(1)
++    expect(wrapper.get('[data-item="en"]').attributes('aria-checked')).toBe('true')
++    await wrapper.setProps({ committed: 'ja' })
++    expect(wrapper.get('[data-item="en"]').attributes('aria-checked')).toBe('false')
++    expect(wrapper.get('[data-item="ja"]').attributes('aria-checked')).toBe('true')
++    wrapper.unmount()
++  })
++
++  test('keeps ordinary command items and removes unsupported checked attrs', async () => {
++    const wrapper = await mountMenu()
++    for (const item of ['retry', 'uncontrolled']) {
++      expect(wrapper.get(`[data-item="${item}"]`).attributes('role')).toBe('menuitem')
++      expect(wrapper.get(`[data-item="${item}"]`).attributes('aria-checked')).toBeUndefined()
++    }
++    wrapper.unmount()
++  })
++
++  test('activation never half-commits controlled selection or hides pending content', async () => {
++    const wrapper = await mountMenu()
++    const dropdown = wrapper.getComponent(ElDropdown)
++    await wrapper.get('[data-item="ja"]').trigger('keydown', { key: 'Enter', code: 'Enter' })
++    expect(dropdown.emitted('command')?.[0]?.[0]).toBe('ja')
++    expect(wrapper.get('[data-item="en"]').attributes('aria-checked')).toBe('true')
++    expect(wrapper.get('[data-item="ja"]').attributes('aria-checked')).toBe('false')
++    expect(dropdown.emitted('visible-change')?.at(-1)).toEqual([true])
++    await wrapper.get('[data-item="retry"]').trigger('keydown', { key: ' ', code: 'Space' })
++    expect(dropdown.emitted('command')?.at(-1)?.[0]).toBe('retry')
++    expect(wrapper.get('[data-item="en"]').attributes('aria-checked')).toBe('true')
++    wrapper.unmount()
++  })
++
++  test('disabled radio rejects click, Enter and Space without changing the value', async () => {
++    const wrapper = await mountMenu({ disabled: true })
++    const item = wrapper.get('[data-item="ja"]')
++    expect(item.attributes('aria-disabled')).toBe('true')
++    await item.trigger('click')
++    await item.trigger('keydown', { key: 'Enter', code: 'Enter' })
++    await item.trigger('keydown', { key: ' ', code: 'Space' })
++    expect(wrapper.getComponent(ElDropdown).emitted('command')).toBeUndefined()
++    expect(wrapper.get('[data-item="en"]').attributes('aria-checked')).toBe('true')
++    wrapper.unmount()
++  })
++
++  test('ArrowUp keyboard entry focuses the committed checked item', async () => {
++    const wrapper = mount(host, { props: { committed: 'ja' }, attachTo: document.body })
++    ;(wrapper.get('button').element as HTMLButtonElement).focus()
++    await wrapper.get('button').trigger('keydown', { key: 'ArrowUp', code: 'ArrowUp' })
++    await flushPromises()
++    await vi.waitFor(() => {
++      expect(document.activeElement).toBe(wrapper.get('[data-item="ja"]').element)
++    })
++    wrapper.unmount()
++  })
++
++  test('Escape restores the trigger after checked-item keyboard entry', async () => {
++    const wrapper = mount(host, { attachTo: document.body })
++    const trigger = wrapper.get('button')
++    ;(trigger.element as HTMLButtonElement).focus()
++    await trigger.trigger('keydown', { key: 'Enter', code: 'Enter' })
++    await vi.waitFor(() => {
++      expect(document.activeElement).toBe(wrapper.get('[data-item="en"]').element)
++    })
++    await wrapper.get('[data-item="en"]').trigger('keydown', { key: 'Escape', code: 'Escape' })
++    await vi.waitFor(() => {
++      expect(document.activeElement).toBe(trigger.element)
++      expect(wrapper.getComponent(ElDropdown).emitted('visible-change')?.at(-1)).toEqual([false])
++    })
++    wrapper.unmount()
++  })
++
++  test.each(['navigation', 'group'])('keeps checked state out of the %s role', async (role) => {
++    const wrapper = await mountMenu({ role })
++    const item = wrapper.get('[data-item="en"]')
++    expect(item.attributes('role')).toBe(role === 'navigation' ? 'link' : 'button')
++    expect(item.attributes('aria-checked')).toBeUndefined()
++    wrapper.unmount()
++  })
++
++  test('Escape closes a pointer-opened popup while focus remains on its trigger', async () => {
++    const wrapper = mount(host, { attachTo: document.body })
++    const trigger = wrapper.get('button')
++    ;(trigger.element as HTMLButtonElement).focus()
++    await trigger.trigger('click')
++    const dropdown = wrapper.getComponent(ElDropdown)
++    await vi.waitFor(() => expect(dropdown.emitted('visible-change')?.at(-1)).toEqual([true]))
++    await trigger.trigger('keydown', { key: 'Escape', code: 'Escape' })
++    await vi.waitFor(() => expect(dropdown.emitted('visible-change')?.at(-1)).toEqual([false]))
++    expect(document.activeElement).toBe(trigger.element)
++    wrapper.unmount()
++  })
++})
+diff --git a/vue/packages/components/dropdown/src/dropdown-item-impl.vue b/vue/packages/components/dropdown/src/dropdown-item-impl.vue
+index d6655d9b..8df76007 100644
+--- a/vue/packages/components/dropdown/src/dropdown-item-impl.vue
++++ b/vue/packages/components/dropdown/src/dropdown-item-impl.vue
+@@ -9,7 +9,13 @@
+     :ref="itemRef"
+     v-bind="{ ...dataset, ...$attrs }"
+     :aria-disabled="disabled"
+-    :class="[ns.be('menu', 'item'), ns.is('disabled', disabled)]"
++    :aria-checked="checkedState"
++    :class="[
++      ns.be('menu', 'item'),
++      ns.is('disabled', disabled),
++      ns.is('multiline', multiline),
++      { selected: checkedState === true },
++    ]"
+     :tabindex="tabIndex"
+     :role="role"
+     @click="(e) => $emit('clickimpl', e)"
+@@ -22,7 +28,21 @@
+     <el-icon v-if="icon">
+       <component :is="icon" />
+     </el-icon>
+-    <slot />
++    <template v-if="multiline">
++      <span :class="ns.be('menu', 'item-content')">
++        <span :class="ns.be('menu', 'item-label')"><slot /></span>
++        <span
++          v-if="$slots.description"
++          :class="ns.be('menu', 'item-description')"
++        >
++          <slot name="description" />
++        </span>
++      </span>
++    </template>
++    <slot v-else />
++    <span v-if="$slots.suffix" :class="ns.be('menu', 'item-suffix')">
++      <slot name="suffix" />
++    </span>
+   </li>
+ </template>
+ 
+@@ -52,19 +72,19 @@ export default defineComponent({
+   },
+   props: dropdownItemProps,
+   emits: ['pointermove', 'pointerleave', 'click', 'clickimpl'],
+-  setup(_, { emit }) {
++  setup(props, { emit }) {
+     const ns = useNamespace('dropdown')
+ 
+     const { role: menuRole } = inject(DROPDOWN_INJECTION_KEY, undefined)!
+ 
+     const { collectionItemRef: dropdownCollectionItemRef } = inject(
+       DROPDOWN_COLLECTION_ITEM_INJECTION_KEY,
+-      undefined
++      undefined,
+     )!
+ 
+     const { collectionItemRef: rovingFocusCollectionItemRef } = inject(
+       ROVING_FOCUS_ITEM_COLLECTION_INJECTION_KEY,
+-      undefined
++      undefined,
+     )!
+ 
+     const {
+@@ -75,26 +95,30 @@ export default defineComponent({
+       handleMousedown,
+     } = inject(ROVING_FOCUS_GROUP_ITEM_INJECTION_KEY, undefined)!
+ 
+-    const assignElementRef = (element: Element | ComponentPublicInstance | undefined) => {
+-      const resolvedElement = element instanceof HTMLElement ? element : undefined
++    const assignElementRef = (
++      element: Element | ComponentPublicInstance | undefined,
++    ) => {
++      const resolvedElement =
++        element instanceof HTMLElement ? element : undefined
+ 
+       dropdownCollectionItemRef.value = resolvedElement ?? null
+       rovingFocusCollectionItemRef.value = resolvedElement ?? null
+       rovingFocusGroupItemRef.value = resolvedElement ?? null
+     }
+ 
+-    const itemRef = composeRefs(
+-      assignElementRef
+-    )
++    const itemRef = composeRefs(assignElementRef)
+ 
+     const role = computed<string>(() => {
+       if (menuRole.value === 'menu') {
+-        return 'menuitem'
++        return props.checked === undefined ? 'menuitem' : 'menuitemradio'
+       } else if (menuRole.value === 'navigation') {
+         return 'link'
+       }
+       return 'button'
+     })
++    const checkedState = computed(() =>
++      menuRole.value === 'menu' ? props.checked : undefined,
++    )
+ 
+     const handleKeydown = composeEventHandlers((e: KeyboardEvent) => {
+       const { code } = e
+@@ -113,6 +137,7 @@ export default defineComponent({
+         [COLLECTION_ITEM_SIGN]: '',
+       },
+       role,
++      checkedState,
+       tabIndex,
+       handleFocus,
+       handleKeydown,
+diff --git a/vue/packages/components/dropdown/src/dropdown-item.vue b/vue/packages/components/dropdown/src/dropdown-item.vue
+index c0d77451..0cf31943 100644
+--- a/vue/packages/components/dropdown/src/dropdown-item.vue
++++ b/vue/packages/components/dropdown/src/dropdown-item.vue
+@@ -3,7 +3,7 @@
+     :disabled="disabled"
+     :text-value="textValue ?? textContent"
+   >
+-    <el-roving-focus-item :focusable="!disabled">
++    <el-roving-focus-item :focusable="!disabled" :active="isActiveRadio">
+       <el-dropdown-item-impl
+         v-bind="propsAndAttrs"
+         @pointerleave="handlePointerLeave"
+@@ -11,6 +11,12 @@
+         @clickimpl="handleClick"
+       >
+         <slot />
++        <template v-if="$slots.description" #description>
++          <slot name="description" />
++        </template>
++        <template v-if="$slots.suffix" #suffix>
++          <slot name="suffix" />
++        </template>
+       </el-dropdown-item-impl>
+     </el-roving-focus-item>
+   </el-dropdown-collection-item>
+@@ -57,10 +63,13 @@ export default defineComponent({
+     const _instance = getCurrentInstance()
+     const itemRef = ref<HTMLElement | null>(null)
+     const textContent = computed(() => unref(itemRef)?.textContent ?? '')
+-    const { onItemEnter, onItemLeave } = inject(
++    const { role, onItemEnter, onItemLeave } = inject(
+       DROPDOWN_INJECTION_KEY,
+       undefined,
+     )!
++    const isActiveRadio = computed(
++      () => role.value === 'menu' && props.checked === true,
++    )
+ 
+     const handlePointerMove = composeEventHandlers(
+       (e: PointerEvent) => {
+@@ -132,6 +141,7 @@ export default defineComponent({
+ 
+     return {
+       handleClick,
++      isActiveRadio,
+       handlePointerMove,
+       handlePointerLeave,
+       textContent,
+diff --git a/vue/packages/components/dropdown/src/dropdown-menu.vue b/vue/packages/components/dropdown/src/dropdown-menu.vue
+index 6ade038f..8b328f80 100644
+--- a/vue/packages/components/dropdown/src/dropdown-menu.vue
++++ b/vue/packages/components/dropdown/src/dropdown-menu.vue
+@@ -9,6 +9,7 @@
+     @blur="onBlur"
+     @focus="onFocus"
+     @keydown="handleKeydown"
++    @keydown.capture="onMenuKeydown"
+     @mousedown.self="onMousedown"
+   >
+     <slot />
+@@ -80,7 +81,7 @@ export default defineComponent({
+       undefined
+     )!
+ 
+-    const { contentRef, role, triggerId } = inject(
++    const { contentRef, role, triggerId, onMenuKeydown } = inject(
+       DROPDOWN_INJECTION_KEY,
+       undefined
+     )!
+@@ -243,6 +244,7 @@ export default defineComponent({
+       triggerId,
+       dropdownListWrapperRef,
+       handleKeydown,
++      onMenuKeydown,
+       onBlur,
+       onFocus,
+       onMousedown,
+diff --git a/vue/packages/components/dropdown/src/dropdown.ts b/vue/packages/components/dropdown/src/dropdown.ts
+index 970acbd0..dbd56ba7 100644
+--- a/vue/packages/components/dropdown/src/dropdown.ts
++++ b/vue/packages/components/dropdown/src/dropdown.ts
+@@ -91,6 +91,7 @@ export const dropdownProps = buildProps({
+     type: definePropType<ButtonProps>(Object),
+   },
+   teleported: useTooltipContentProps.teleported,
++  viewportBounded: Boolean,
+ } as const)
+ 
+ export const dropdownItemProps = buildProps({
+@@ -99,6 +100,11 @@ export const dropdownItemProps = buildProps({
+     default: () => ({}),
+   },
+   disabled: Boolean,
++  multiline: Boolean,
++  checked: {
++    type: Boolean,
++    default: undefined,
++  },
+   divided: Boolean,
+   textValue: String,
+   icon: {
+diff --git a/vue/packages/components/dropdown/src/dropdown.vue b/vue/packages/components/dropdown/src/dropdown.vue
+index c3b8dde3..50844e6b 100644
+--- a/vue/packages/components/dropdown/src/dropdown.vue
++++ b/vue/packages/components/dropdown/src/dropdown.vue
+@@ -2,6 +2,7 @@
+   <div
+     v-bind="componentMotionAttrs"
+     :class="[ns.b(), ns.is('disabled', disabled)]"
++    @keydown="handleTriggerKeydown"
+   >
+     <el-tooltip ref="popperRef" v-bind="tooltipBindings" v-on="tooltipEvents">
+       <template #content>
+@@ -79,6 +80,7 @@ import {
+ } from '@element-plus/components/motion'
+ import { ElCollection as ElDropdownCollection, dropdownProps } from './dropdown'
+ import { DROPDOWN_INJECTION_KEY } from './tokens'
++import { dropdownViewportModifiers } from './viewport-modifiers'
+ 
+ import type { CSSProperties, ComponentPublicInstance } from 'vue'
+ import type { Measurable } from '@element-plus/components/popper'
+@@ -113,18 +115,27 @@ export default defineComponent({
+       (ComponentPublicInstance & { $el: HTMLElement }) | null
+     >(null)
+     const popperRef = ref<InstanceType<typeof ElTooltip> | null>(null)
++    let restoreTriggerAfterHide = false
++    let popupVisible = false
+     const contentRef = ref<HTMLElement | null>(null)
+     const scrollbar = ref(null)
+     const currentTabId = ref<string | null>(null)
+     const isUsingKeyboard = ref(false)
+-    const triggerKeys = [EVENT_CODE.enter, EVENT_CODE.space, EVENT_CODE.down]
++    const triggerKeys = [
++      EVENT_CODE.enter,
++      EVENT_CODE.space,
++      EVENT_CODE.down,
++      EVENT_CODE.up,
++    ]
+     const triggerTargetEl = computed(() => contentRef.value ?? undefined)
+     const virtualRef = computed<Measurable | undefined>(
+       () => triggeringElementRef.value?.$el ?? undefined,
+     )
+ 
+     const wrapStyle = computed<CSSProperties>(() => ({
+-      maxHeight: addUnit(props.maxHeight),
++      maxHeight: props.viewportBounded
++        ? `min(${addUnit(props.maxHeight) || '274px'}, calc(var(--el-dropdown-viewport-height, 100dvh) - 24px))`
++        : addUnit(props.maxHeight),
+     }))
+     const dropdownTriggerKls = computed(() => [ns.m(dropdownSize.value)])
+     const trigger = computed(() => ensureArray(props.trigger))
+@@ -152,10 +163,22 @@ export default defineComponent({
+       role: props.role,
+       effect: props.effect,
+       fallbackPlacements,
+-      popperOptions: props.popperOptions,
++      popperOptions: props.viewportBounded
++        ? {
++            ...props.popperOptions,
++            modifiers: [
++              ...dropdownViewportModifiers(),
++              ...(props.popperOptions.modifiers || []),
++            ],
++          }
++        : props.popperOptions,
+       hideAfter: trigger.value.includes('hover') ? props.hideTimeout : 0,
+       placement: props.placement,
+-      popperClass: [ns.e('popper'), props.popperClass],
++      popperClass: [
++        ns.e('popper'),
++        ns.is('viewport-bounded', props.viewportBounded),
++        props.popperClass,
++      ],
+       referenceElement: referenceElementRef.value?.$el,
+       trigger: trigger.value,
+       triggerKeys,
+@@ -174,6 +197,7 @@ export default defineComponent({
+       'before-show': handleBeforeShowTooltip,
+       show: handleShowTooltip,
+       'before-hide': handleBeforeHideTooltip,
++      hide: handleHideTooltip,
+     }
+     const rovingFocusGroupBindings = computed(() => ({
+       loop: props.loop,
+@@ -238,7 +262,10 @@ export default defineComponent({
+       }
+     }
+ 
+-    function handleBeforeShowTooltip() {
++    function handleBeforeShowTooltip(event?: Event) {
++      popupVisible = true
++      restoreTriggerAfterHide = false
++      isUsingKeyboard.value = event?.type === 'keydown'
+       emit('visible-change', true)
+     }
+ 
+@@ -249,9 +276,30 @@ export default defineComponent({
+     }
+ 
+     function handleBeforeHideTooltip() {
++      popupVisible = false
+       emit('visible-change', false)
+     }
+ 
++    function handleContentKeydown(event: KeyboardEvent) {
++      restoreTriggerAfterHide = event.code === EVENT_CODE.esc
++    }
++
++    function handleTriggerKeydown(event: KeyboardEvent) {
++      if (popupVisible && event.code === EVENT_CODE.esc) {
++        event.preventDefault()
++        event.stopPropagation()
++        restoreTriggerAfterHide = true
++        popperRef.value?.onClose(event)
++      }
++    }
++
++    function handleHideTooltip() {
++      if (restoreTriggerAfterHide) {
++        restoreTriggerAfterHide = false
++        triggeringElementRef.value?.$el?.focus({ preventScroll: true })
++      }
++    }
++
+     provide(DROPDOWN_INJECTION_KEY, {
+       contentRef,
+       role: computed(() => props.role),
+@@ -259,6 +307,7 @@ export default defineComponent({
+       isUsingKeyboard,
+       onItemEnter,
+       onItemLeave,
++      onMenuKeydown: handleContentKeydown,
+     })
+ 
+     provide('elDropdown', {
+@@ -309,6 +358,8 @@ export default defineComponent({
+       handleBeforeShowTooltip,
+       handleShowTooltip,
+       handleBeforeHideTooltip,
++      handleContentKeydown,
++      handleTriggerKeydown,
+       onFocusAfterTrapped,
+       popperRef,
+       contentRef,
+diff --git a/vue/packages/components/dropdown/src/tokens.ts b/vue/packages/components/dropdown/src/tokens.ts
+index e14e9adc..fb7cff55 100644
+--- a/vue/packages/components/dropdown/src/tokens.ts
++++ b/vue/packages/components/dropdown/src/tokens.ts
+@@ -7,6 +7,7 @@ export type ElDropdownInjectionContext = {
+   isUsingKeyboard: Ref<boolean>
+   onItemLeave: (e: PointerEvent) => void
+   onItemEnter: (e: PointerEvent) => void
++  onMenuKeydown: (e: KeyboardEvent) => void
+ }
+ 
+ export const DROPDOWN_INJECTION_KEY: InjectionKey<ElDropdownInjectionContext> =
+diff --git a/vue/packages/components/dropdown/src/viewport-modifiers.ts b/vue/packages/components/dropdown/src/viewport-modifiers.ts
+new file mode 100644
+index 00000000..1541f3b1
+--- /dev/null
++++ b/vue/packages/components/dropdown/src/viewport-modifiers.ts
+@@ -0,0 +1,127 @@
++import { arrow, computeStyles, offset, preventOverflow } from '@popperjs/core'
++
++import type { Modifier, State } from '@popperjs/core'
++
++const zoomKey = 'dropdownViewport'
++const getZoom = (state: State) => state.modifiersData[zoomKey]?.zoom ?? 1
++
++// Popper v2 uses client reference rectangles but CSS layout popper dimensions.
++// For a root-zoomed, body-teleported overlay, run its geometry in client pixels
++// and convert only arrow/style output back to CSS pixels. Popper still owns
++// placement, flip, tethering, overflow and event listener cleanup.
++export const dropdownViewportModifiers = (): Modifier<any, any>[] => [
++  {
++    ...preventOverflow,
++    options: { altAxis: true, tether: false },
++  },
++  {
++    name: zoomKey,
++    enabled: true,
++    phase: 'beforeRead',
++    fn: ({ state, name }) => {
++      const element = state.elements.popper
++      const root = element.ownerDocument.documentElement
++      const window = element.ownerDocument.defaultView!
++      const parent = element.offsetParent
++      const rootPositioned =
++        parent &&
++        ((parent !== root && parent !== root.ownerDocument.body) ||
++          window.getComputedStyle(parent).position !== 'static')
++      const rootZoom =
++        Number.parseFloat(window.getComputedStyle(root).zoom) || 1
++      const zoom = rootPositioned ? 1 : rootZoom
++      const viewport = window.visualViewport
++      const width = viewport?.width ?? root.clientWidth
++      const height = viewport?.height ?? root.clientHeight
++      element.style.setProperty(
++        '--el-dropdown-viewport-width',
++        `${width / rootZoom}px`,
++      )
++      element.style.setProperty(
++        '--el-dropdown-viewport-height',
++        `${height / rootZoom}px`,
++      )
++      if (!state.modifiersData[name]?.normalized) {
++        if (!rootPositioned) {
++          state.rects.popper.width = element.offsetWidth * zoom
++          state.rects.popper.height = element.offsetHeight * zoom
++        }
++        state.modifiersData[name] = { zoom, normalized: true }
++      }
++    },
++    effect:
++      ({ state }) =>
++      () => {
++        state.elements.popper.style.removeProperty(
++          '--el-dropdown-viewport-width',
++        )
++        state.elements.popper.style.removeProperty(
++          '--el-dropdown-viewport-height',
++        )
++      },
++  },
++  {
++    ...offset,
++    fn: (args) => {
++      offset.fn(args)
++      const zoom = getZoom(args.state)
++      const data = args.state.modifiersData.offset
++      const offsets = args.state.modifiersData.popperOffsets
++      if (!data || !offsets) return
++      const current = data[args.state.placement]
++      if (!current) return
++      offsets.x += current.x * (zoom - 1)
++      offsets.y += current.y * (zoom - 1)
++      for (const value of Object.values(data)) {
++        if (!value) continue
++        value.x *= zoom
++        value.y *= zoom
++      }
++    },
++  },
++  {
++    ...arrow,
++    fn: (args) => inCssCoordinates(args.state, () => arrow.fn(args)),
++  },
++  {
++    ...computeStyles,
++    fn: (args) =>
++      inCssCoordinates(args.state, () =>
++        computeStyles.fn({
++          ...args,
++          options: {
++            ...args.options,
++            adaptive: getZoom(args.state) === 1 ? args.options.adaptive : false,
++          },
++        }),
++      ),
++  },
++]
++
++function inCssCoordinates(state: State, fn: () => void) {
++  const zoom = getZoom(state)
++  if (zoom === 1) return fn()
++  const rects = state.rects
++  const offsets = state.modifiersData.popperOffsets
++  if (!offsets) return fn()
++  const scaleRect = (rect: State['rects']['popper']) => ({
++    x: rect.x / zoom,
++    y: rect.y / zoom,
++    width: rect.width / zoom,
++    height: rect.height / zoom,
++  })
++  state.rects = {
++    reference: scaleRect(rects.reference),
++    popper: scaleRect(rects.popper),
++  }
++  state.modifiersData.popperOffsets = {
++    x: offsets.x / zoom,
++    y: offsets.y / zoom,
++  }
++  try {
++    fn()
++  } finally {
++    state.rects = rects
++    state.modifiersData.popperOffsets = offsets
++  }
++}
+diff --git a/vue/packages/demo-app/src/InteractionTraceFixture.vue b/vue/packages/demo-app/src/InteractionTraceFixture.vue
+index faf6c99d..6fd8ccd4 100644
+--- a/vue/packages/demo-app/src/InteractionTraceFixture.vue
++++ b/vue/packages/demo-app/src/InteractionTraceFixture.vue
+@@ -37,7 +37,7 @@
+       <el-check-tag
+         v-if="checkTagVisible"
+         :checked="checkTagChecked"
+-        data-testid="trace-check-tag"
++        v-bind="{ 'data-testid': 'trace-check-tag' }"
+         @change="recordCheckTagEvent('change', $event)"
+         @update:checked="updateCheckTag"
+       >
+@@ -119,6 +119,7 @@ import type {
+   MarkdownEditorHistoryState,
+   MarkdownEditorInstance,
+   MarkdownEditorMode,
++  MarkdownEditorProfile,
+   MarkdownEditorSelectionEvent,
+   MarkdownEditorTransaction,
+   MarkdownEditorTransactionEvent,
+@@ -156,7 +157,7 @@ const markdownDocumentIdentity = ref<MarkdownEditorDocumentIdentity>(
+ const markdownDocumentKey = ref(0)
+ const markdownMode = ref<MarkdownEditorMode>('source')
+ const markdownReadonly = ref(false)
+-const markdownProfile = ref('markdown')
++const markdownProfile = ref<MarkdownEditorProfile>('markdown')
+ const markdownLocale = ref('zh-CN')
+ const markdownAtomicIdentity: MarkdownEditorDocumentIdentity = Object.freeze({
+   id: 'markdown-editor-interaction-trace-atomic',
+@@ -324,7 +325,7 @@ const setMountedMarkdownState = async (state: {
+   readonly documentIdentity?: MarkdownEditorDocumentIdentity
+   readonly locale?: string
+   readonly mode?: MarkdownEditorMode
+-  readonly profile?: string
++  readonly profile?: MarkdownEditorProfile
+   readonly readonly?: boolean
+ }) => {
+   if (state.documentIdentity) {
+diff --git a/vue/packages/icons-vue/src/components/index.ts b/vue/packages/icons-vue/src/components/index.ts
+index d11f17b8..a9b48d07 100644
+--- a/vue/packages/icons-vue/src/components/index.ts
++++ b/vue/packages/icons-vue/src/components/index.ts
+@@ -1,8 +1,10 @@
++export { default as AddDocument } from './document-add.vue'
+ export { default as AddLocation } from './add-location.vue'
+ export { default as Aim } from './aim.vue'
+ export { default as AlarmClock } from './alarm-clock.vue'
+ export { default as AlertTriangle } from './warning.vue'
+ export { default as Apple } from './apple.vue'
++export { default as ApplicationMenu } from './menu.vue'
+ export { default as ArrowDown } from './arrow-down.vue'
+ export { default as ArrowDownBold } from './arrow-down-bold.vue'
+ export { default as ArrowLeft } from './arrow-left.vue'
+@@ -231,16 +233,19 @@ export { default as Reading } from './reading.vue'
+ export { default as ReadingLamp } from './reading-lamp.vue'
+ export { default as Refresh } from './refresh.vue'
+ export { default as RefreshLeft } from './refresh-left.vue'
++export { default as RefreshReplace } from './refresh-right.vue'
+ export { default as RefreshRight } from './refresh-right.vue'
+ export { default as Refrigerator } from './refrigerator.vue'
+ export { default as Remove } from './remove.vue'
+ export { default as RemoveFilled } from './remove-filled.vue'
++export { default as Replace } from './refresh-right.vue'
+ export { default as Right } from './right.vue'
+ export { default as SaveAll } from './save-all.vue'
+ export { default as ScaleToOriginal } from './scale-to-original.vue'
+ export { default as School } from './school.vue'
+ export { default as Scissor } from './scissor.vue'
+ export { default as Search } from './search.vue'
++export { default as SearchFilter } from './filter.vue'
+ export { default as Select } from './select.vue'
+ export { default as Sell } from './sell.vue'
+ export { default as SemiSelect } from './semi-select.vue'
+diff --git a/vue/packages/theme-chalk/src/dropdown.scss b/vue/packages/theme-chalk/src/dropdown.scss
+index 6e296dd0..49521002 100644
+--- a/vue/packages/theme-chalk/src/dropdown.scss
++++ b/vue/packages/theme-chalk/src/dropdown.scss
+@@ -58,6 +58,11 @@ $dropdown-divider-width: 1px !default;
+   @include e(popper) {
+     @include set-component-css-var('dropdown', $dropdown);
+ 
++    @include when(viewport-bounded) {
++      max-inline-size: calc(var(--el-dropdown-viewport-width, 100dvw) - 10px);
++      box-sizing: border-box;
++    }
++
+     // using attributes selector to override
+ 
+     @include picker-popper(
+@@ -191,7 +196,37 @@ $dropdown-menu-padding-vertical: map.merge(
+     }
+   }
+ 
+-  @include option-row.fsus-overlay-option-row-primitive('.el-dropdown-menu__item');
++  @include option-row.fsus-overlay-option-row-primitive(
++    '.el-dropdown-menu__item'
++  );
++
++  // Explicit rich content keeps the flat option-row states and default density.
++  .#{$namespace}-dropdown-menu__item.is-multiline {
++    block-size: auto;
++    min-block-size: var(--fsus-select-option-height);
++    line-height: map.get($dropdown-item-line-height, 'default');
++    white-space: normal;
++    overflow-wrap: anywhere;
++    text-overflow: clip;
++  }
++
++  @include e(item-content) {
++    display: flex;
++    flex-direction: column;
++    min-inline-size: 0;
++    flex: 1;
++  }
++
++  @include e(item-description) {
++    font-size: getCssVar('font-size', 'small');
++    color: getCssVar('text-color', 'secondary');
++  }
++
++  @include e(item-suffix) {
++    display: inline-flex;
++    flex-shrink: 0;
++    margin-inline-start: auto;
++  }
+ 
+   @each $size in (large, small) {
+     @include m($size) {

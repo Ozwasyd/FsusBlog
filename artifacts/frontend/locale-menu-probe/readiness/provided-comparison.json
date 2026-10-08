@@ -1,0 +1,51 @@
+{
+  "comparisonOnly": true,
+  "ownCandidateQualified": false,
+  "providedEvidence": {
+    "pr": "https://github.com/Ozwasyd/FsusUI/pull/844",
+    "commit": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+    "artifact": "tests/conformance/visual/artifacts/issue-828/diagnosis/failure-index.json"
+  },
+  "sameTitleAndCause": [
+    {
+      "test": "[desktop-light] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data ────────────────────",
+      "cause": "external CDN certificate diagnostics",
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "test": "[mobile-light] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data ─────────────────────",
+      "cause": "external CDN certificate diagnostics",
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "test": "[desktop-dark] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data ────────────────────",
+      "cause": "external CDN certificate diagnostics",
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "test": "[mobile-dark] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data ─────────────────────",
+      "cause": "external CDN certificate diagnostics",
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    }
+  ]
+}

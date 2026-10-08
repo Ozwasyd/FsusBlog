@@ -1,0 +1,9 @@
+(node:99880) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/FsusUI/vue/packages/element-plus/icons-vue.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/FsusUI/vue/packages/element-plus/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AddDocument === DocumentAdd: passed
+ApplicationMenu === Menu: passed
+RefreshReplace === RefreshRight: passed
+Replace === RefreshRight: passed
+SearchFilter === Filter: passed

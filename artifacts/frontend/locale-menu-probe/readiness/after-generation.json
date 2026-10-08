@@ -1,0 +1,38 @@
+{
+  "stage": "after-official-build-generate",
+  "sourceCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+  "changedTrackedFile": "vue/packages/icons-vue/src/components/index.ts",
+  "generator": "vue/packages/icons-vue/build/generate.ts",
+  "generatorSha256": "1234ea398eaaa7de14bfef16ee7cd1af4698f8a73576453210217b3ff0a6c953",
+  "registrySha256": "fd8fa84e3e87d1621990351eb3f2600061c25a4b362930578d5f4bd354014e86",
+  "tokensSha256": "c97d4b2f3ffcf311fb060b21e12e13367763fb4ca9ba9c8fa4cacf6f72d381d1",
+  "generatedIndexSha256": "a1d167e6c8a47fc01774cbc35d160afca7451fc674e1ab9041d0630a7f3a7b64",
+  "groups": [
+    {
+      "id": "icons",
+      "expectedSourceFingerprint": "8bc817f064f994d03c1a9efea3c50db91864e65054021d9e93c7c6a286060f86",
+      "actualSourceFingerprint": "59882524fd5379de71360518a225645be641ad9f6cdc90079cbf5438976450dc",
+      "fresh": false,
+      "reasons": [
+        "icons source fingerprint changed"
+      ]
+    },
+    {
+      "id": "wasm",
+      "expectedSourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def",
+      "actualSourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def",
+      "fresh": true,
+      "reasons": []
+    },
+    {
+      "id": "demo",
+      "expectedSourceFingerprint": "40ef59fc6aa45a07998c971a4551f19ed503547fc603dcb70f51219c97266108",
+      "actualSourceFingerprint": "84cfe552fdd824681276235b0e8901c5b467c268b052677f2f78435e6ef0d3b7",
+      "fresh": false,
+      "reasons": [
+        "demo source fingerprint changed"
+      ]
+    }
+  ],
+  "ready": false
+}
