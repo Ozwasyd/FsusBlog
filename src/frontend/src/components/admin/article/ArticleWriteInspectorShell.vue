@@ -262,6 +262,10 @@ const requestInspectorCommand = (session: AuthoringInspectorSession, commandId: 
     {
         return;
     }
+    if (props.activeInspector !== 'check' || session.current !== result)
+    {
+        return;
+    }
     emit('inspector-command', result.binding, commandId);
 };
 onUnmounted(() =>

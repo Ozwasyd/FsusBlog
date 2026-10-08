@@ -6,6 +6,31 @@ import { AuthoringInspectorSession, authoringInspectorSchema, computeAuthoringIn
 import { inspectorBinding, inspectorHost, inspectorModel } from '../../fsusui/authoringInspector.fixture'
 
 describe('read-only contributions in the existing Inspector shell', () => {
+  it.each(['command', 'current'] as const)('does not emit after the %s host callback revokes the session', async (callback) => {
+    const host = inspectorHost()
+    const session = new AuthoringInspectorSession(host)
+    const binding = inspectorBinding()
+    session.begin(binding)
+    const fullModel = inspectorModel()
+    const model = { ...fullModel, nodes: fullModel.nodes.filter((node) => node.kind !== 'table') }
+    await session.accept({ schema: authoringInspectorSchema, binding, model, modelSha256: await computeAuthoringInspectorModelDigest(model) })
+    const wrapper = mount(ArticleWriteInspectorShell, { props: { activeInspector: 'check', inspectorSessions: [session] }, global: { stubs: { ElIcon: true } } })
+    const button = wrapper.findAll('[data-authoring-inspector-model] button').find((item) => item.text() === 'command.review')!
+    if (callback === 'command') {
+      vi.mocked(host.commandEnabled).mockImplementation(() => { session.cancel(); return true })
+    } else {
+      // The initial current getter is valid; the subsequent host gate revokes it.
+      vi.mocked(host.isCurrent).mockImplementationOnce(() => true).mockImplementationOnce(() => { session.cancel(); return true })
+    }
+    try {
+      await button.trigger('click')
+      expect(wrapper.emitted('inspector-command')).toBeUndefined()
+      expect(session.current).toBeUndefined()
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('cancels removed sessions while retaining a still-owned session', async () => {
     const removed = new AuthoringInspectorSession(inspectorHost())
     const retained = new AuthoringInspectorSession(inspectorHost())
