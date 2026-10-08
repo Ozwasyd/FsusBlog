@@ -1,0 +1,10 @@
+{
+    "name": "@fsusblog/layout-governance",
+    "version": "0.0.0",
+    "private": true,
+    "exports": {
+        "./fsusui-source-resolver": "./src/frontend/scripts/fsusui-root.mjs",
+        "./schema-validator": "./tools/test-matrix/schema-validator/validate.mjs",
+        "./composition-contracts": "./tests/frontend/support/layout/compositionContracts.mjs"
+    }
+}

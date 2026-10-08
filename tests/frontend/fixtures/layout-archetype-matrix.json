@@ -2,23 +2,3957 @@
   "version": "fsusblog-layout-archetype-matrix-v1",
   "sourceIssue": 1313,
   "coverage": {
-    "viewports": ["desktop", "mobile"],
-    "themes": ["light", "dark"],
-    "media": ["reduced-motion", "high-contrast"],
-    "contracts": ["keyboard", "focus-visible", "hit-targets", "horizontal-overflow", "aot-hydration-parity"]
+    "viewports": [
+      "desktop",
+      "mobile"
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "media": [
+      "reduced-motion",
+      "high-contrast"
+    ],
+    "contracts": [
+      "keyboard",
+      "focus-visible",
+      "hit-targets",
+      "horizontal-overflow",
+      "aot-hydration-parity"
+    ]
   },
   "archetypes": [
-    { "surface": "public", "kind": "feed", "path": "/", "label": "public-home", "primary": "main header", "screenshotTarget": "main header", "snapshot": true, "critical": true },
-    { "surface": "public", "kind": "reading", "path": "/article/{articleId}", "label": "public-article", "primary": "main", "screenshotTarget": "main", "snapshot": true, "critical": true },
-    { "surface": "public", "kind": "index", "path": "/archive", "label": "public-archive", "primary": "main", "screenshotTarget": "main", "snapshot": false, "critical": false },
-    { "surface": "public", "kind": "document", "path": "/about", "label": "public-static-about", "primary": "main", "screenshotTarget": "main", "snapshot": false, "critical": false },
-    { "surface": "public", "kind": "filter-search", "path": "/search?q={searchKeyword}", "label": "public-search", "primary": "main", "screenshotTarget": "main", "snapshot": false, "critical": false },
-    { "surface": "identity", "kind": "identity-settings", "path": "/user/identity", "label": "user-profile", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
-    { "surface": "identity", "kind": "inbox-takeover", "path": "/user/messagebox", "label": "user-messagebox", "primary": "main", "screenshotTarget": ".messages-list-pane .messages-pane-header", "snapshot": true, "critical": true },
-    { "surface": "admin", "kind": "dashboard", "path": "/user/manage", "label": "manage-dashboard", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
-    { "surface": "admin", "kind": "collection", "path": "/user/manage/users", "label": "manage-users", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
-    { "surface": "admin", "kind": "form", "path": "/user/manage/article/write", "label": "manage-write", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
-    { "surface": "admin", "kind": "settings", "path": "/user/manage/settings", "label": "manage-settings", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
-    { "surface": "admin", "kind": "console", "path": "/user/manage/security/risk-control", "label": "manage-security-console", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": false, "critical": false }
-  ]
+    {
+      "surface": "public",
+      "kind": "feed",
+      "path": "/",
+      "label": "public-home",
+      "primary": "main header",
+      "screenshotTarget": "main header",
+      "snapshot": true,
+      "critical": true,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "public-editorial",
+        "primaryRegion": {
+          "id": "editorial-recommendation",
+          "ownerId": "editorial-recommendation-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "editorial-recommendation-anchor",
+          "regionId": "editorial-recommendation"
+        },
+        "pageHeadingOwner": {
+          "id": "content-heading-owner",
+          "regionId": "content-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "content-heading",
+            "ownerId": "content-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "text-recommendations",
+            "ownerId": "text-recommendations-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "article-stream",
+            "ownerId": "article-stream-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "editorial-pagination",
+            "ownerId": "editorial-pagination-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "content-heading",
+          "editorial-recommendation",
+          "text-recommendations",
+          "article-stream",
+          "editorial-pagination"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "editorial-recommendation-owner",
+          "primaryActionId": "open-primary-content",
+          "secondaryOwnerIds": [
+            "text-recommendations-owner",
+            "article-stream-owner",
+            "editorial-pagination-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "editorial-recommendation",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "content-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "text-recommendations",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "article-stream",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "editorial-pagination",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "editorial-recommendation",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "editorial-recommendation",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "editorial-recommendation",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "editorial-recommendation",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "editorial-recommendation",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "editorial-recommendation",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "editorial-recommendation",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "single-brand-surface",
+            "predicate": "single-brand-surface",
+            "regionId": "editorial-recommendation",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "single-primary-recommendation",
+            "predicate": "single-primary-recommendation",
+            "regionId": "editorial-recommendation",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "no-competing-aside",
+            "predicate": "no-competing-aside",
+            "regionId": "editorial-recommendation",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "public",
+      "kind": "reading",
+      "path": "/article/{articleId}",
+      "label": "public-article",
+      "primary": "main",
+      "screenshotTarget": "main",
+      "snapshot": true,
+      "critical": true,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "reading",
+        "primaryRegion": {
+          "id": "article-body",
+          "ownerId": "article-body-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "article-body-anchor",
+          "regionId": "article-body"
+        },
+        "pageHeadingOwner": {
+          "id": "content-heading-owner",
+          "regionId": "content-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "content-heading",
+            "ownerId": "content-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "article-metadata",
+            "ownerId": "article-metadata-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "reading-navigation",
+            "ownerId": "reading-navigation-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "article-comments",
+            "ownerId": "article-comments-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "media-viewer",
+            "ownerId": "media-viewer-owner",
+            "priority": "secondary",
+            "placement": "overlay"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "content-heading",
+          "article-body",
+          "article-metadata",
+          "reading-navigation",
+          "article-comments"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "article-body-owner",
+          "primaryActionId": "read-current-document",
+          "secondaryOwnerIds": [
+            "article-metadata-owner",
+            "reading-navigation-owner",
+            "article-comments-owner",
+            "media-viewer-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "article-body",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "content-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "article-metadata",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "reading-navigation",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "article-comments",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "media-viewer",
+            "role": "overlay",
+            "material": "floating",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "article-body",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "article-body",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "article-body",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "article-body",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "article-body",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "article-body",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "article-body",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "reading-body-first",
+            "predicate": "reading-body-first",
+            "regionId": "article-body",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "reading-aids-secondary",
+            "predicate": "reading-aids-secondary",
+            "regionId": "article-body",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "public",
+      "kind": "index",
+      "path": "/archive",
+      "label": "public-archive",
+      "primary": "main",
+      "screenshotTarget": "main",
+      "snapshot": false,
+      "critical": false,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "public-editorial",
+        "primaryRegion": {
+          "id": "content-index",
+          "ownerId": "content-index-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "content-index-anchor",
+          "regionId": "content-index"
+        },
+        "pageHeadingOwner": {
+          "id": "content-heading-owner",
+          "regionId": "content-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "content-heading",
+            "ownerId": "content-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "index-summary",
+            "ownerId": "index-summary-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "index-pagination",
+            "ownerId": "index-pagination-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "content-heading",
+          "content-index",
+          "index-summary",
+          "index-pagination"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "content-index-owner",
+          "primaryActionId": "open-content-entry",
+          "secondaryOwnerIds": [
+            "index-summary-owner",
+            "index-pagination-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "content-index",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "content-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "index-summary",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "index-pagination",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "content-index",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "content-index",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "content-index",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "content-index",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "content-index",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "content-index",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "content-index",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "single-brand-surface",
+            "predicate": "single-brand-surface",
+            "regionId": "content-index",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "no-competing-aside",
+            "predicate": "no-competing-aside",
+            "regionId": "content-index",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "public",
+      "kind": "document",
+      "path": "/about",
+      "label": "public-static-about",
+      "primary": "main",
+      "screenshotTarget": "main",
+      "snapshot": false,
+      "critical": false,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "public-editorial",
+        "primaryRegion": {
+          "id": "document-content",
+          "ownerId": "document-content-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "document-content-anchor",
+          "regionId": "document-content"
+        },
+        "pageHeadingOwner": {
+          "id": "content-heading-owner",
+          "regionId": "content-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "content-heading",
+            "ownerId": "content-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "document-context",
+            "ownerId": "document-context-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "content-heading",
+          "document-content",
+          "document-context"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "document-content-owner",
+          "primaryActionId": "read-current-document",
+          "secondaryOwnerIds": [
+            "document-context-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "document-content",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "content-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "document-context",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "single-brand-surface",
+            "predicate": "single-brand-surface",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "no-competing-aside",
+            "predicate": "no-competing-aside",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "public",
+      "kind": "filter-search",
+      "path": "/search?q={searchKeyword}",
+      "label": "public-search",
+      "primary": "main",
+      "screenshotTarget": "main",
+      "snapshot": false,
+      "critical": false,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "public-editorial",
+        "primaryRegion": {
+          "id": "content-results",
+          "ownerId": "content-results-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "content-results-anchor",
+          "regionId": "content-results"
+        },
+        "pageHeadingOwner": {
+          "id": "content-heading-owner",
+          "regionId": "content-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "content-heading",
+            "ownerId": "content-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "search-filter",
+            "ownerId": "search-filter-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "results-pagination",
+            "ownerId": "results-pagination-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "content-heading",
+          "content-results",
+          "search-filter",
+          "results-pagination"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "content-results-owner",
+          "primaryActionId": "apply-search",
+          "secondaryOwnerIds": [
+            "search-filter-owner",
+            "results-pagination-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "content-results",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "content-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "search-filter",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "results-pagination",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [
+            {
+              "parentRegionId": "content-results",
+              "childRegionId": "search-filter"
+            }
+          ],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "content-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "content-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "content-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "content-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "content-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "content-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "content-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "single-brand-surface",
+            "predicate": "single-brand-surface",
+            "regionId": "content-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "no-competing-aside",
+            "predicate": "no-competing-aside",
+            "regionId": "content-results",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "identity",
+      "kind": "identity-settings",
+      "path": "/user/identity",
+      "label": "user-profile",
+      "primary": "main",
+      "screenshotTarget": ".el-task-page-header",
+      "snapshot": true,
+      "critical": true,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "task",
+        "primaryRegion": {
+          "id": "identity-task",
+          "ownerId": "identity-task-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "identity-task-anchor",
+          "regionId": "identity-task"
+        },
+        "pageHeadingOwner": {
+          "id": "task-heading-owner",
+          "regionId": "task-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "task-heading",
+            "ownerId": "task-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "credential-resources",
+            "ownerId": "credential-resources-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "identity-settings",
+            "ownerId": "identity-settings-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "identity-risk",
+            "ownerId": "identity-risk-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "task-heading",
+          "identity-task",
+          "credential-resources",
+          "identity-settings",
+          "identity-risk"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "identity-task-owner",
+          "primaryActionId": "apply-identity-task",
+          "secondaryOwnerIds": [
+            "credential-resources-owner",
+            "identity-settings-owner",
+            "identity-risk-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "identity-task",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "task-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "credential-resources",
+            "role": "data-region",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "identity-settings",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "identity-risk",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [
+            {
+              "parentRegionId": "identity-task",
+              "childRegionId": "credential-resources"
+            }
+          ],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "identity-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "identity-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "identity-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "identity-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "identity-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "identity-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "identity-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "identity-task-first",
+            "predicate": "identity-task-first",
+            "regionId": "identity-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "single-risk-authority",
+            "predicate": "single-risk-authority",
+            "regionId": "identity-task",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "identity",
+      "kind": "inbox-takeover",
+      "path": "/user/messagebox",
+      "label": "user-messagebox",
+      "primary": "main",
+      "screenshotTarget": ".messages-list-pane .messages-pane-header",
+      "snapshot": true,
+      "critical": true,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "task",
+        "primaryRegion": {
+          "id": "message-task",
+          "ownerId": "message-task-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "message-task-anchor",
+          "regionId": "message-task"
+        },
+        "pageHeadingOwner": {
+          "id": "task-heading-owner",
+          "regionId": "task-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "task-heading",
+            "ownerId": "task-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "conversation-index",
+            "ownerId": "conversation-index-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "message-context",
+            "ownerId": "message-context-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "task-heading",
+          "message-task",
+          "conversation-index",
+          "message-context"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "message-task-owner",
+          "primaryActionId": "send-current-message",
+          "secondaryOwnerIds": [
+            "conversation-index-owner",
+            "message-context-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "message-task",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "task-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "conversation-index",
+            "role": "data-region",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "message-context",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [
+            {
+              "parentRegionId": "message-task",
+              "childRegionId": "conversation-index"
+            }
+          ],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "message-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "message-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "message-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "message-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "message-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "message-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "message-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "inbox-context-preserved",
+            "predicate": "inbox-context-preserved",
+            "regionId": "message-task",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "admin",
+      "kind": "dashboard",
+      "path": "/user/manage",
+      "label": "manage-dashboard",
+      "primary": "main",
+      "screenshotTarget": ".el-task-page-header",
+      "snapshot": true,
+      "critical": true,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "task",
+        "primaryRegion": {
+          "id": "actionable-tasks",
+          "ownerId": "actionable-tasks-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "actionable-tasks-anchor",
+          "regionId": "actionable-tasks"
+        },
+        "pageHeadingOwner": {
+          "id": "task-heading-owner",
+          "regionId": "task-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "task-heading",
+            "ownerId": "task-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "task-summary",
+            "ownerId": "task-summary-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "recent-changes",
+            "ownerId": "recent-changes-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "task-help",
+            "ownerId": "task-help-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "task-heading",
+          "actionable-tasks",
+          "task-summary",
+          "recent-changes",
+          "task-help"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "actionable-tasks-owner",
+          "primaryActionId": "perform-next-task",
+          "secondaryOwnerIds": [
+            "task-summary-owner",
+            "recent-changes-owner",
+            "task-help-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "actionable-tasks",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "task-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "task-summary",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "recent-changes",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "task-help",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "actionable-tasks",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "actionable-tasks",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "actionable-tasks",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "actionable-tasks",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "actionable-tasks",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "actionable-tasks",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "actionable-tasks",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "task-before-summary",
+            "predicate": "task-before-summary",
+            "regionId": "actionable-tasks",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "flat-ledger",
+            "predicate": "flat-ledger",
+            "regionId": "actionable-tasks",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "no-kpi-wall",
+            "predicate": "no-kpi-wall",
+            "regionId": "actionable-tasks",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "admin",
+      "kind": "collection",
+      "path": "/user/manage/users",
+      "label": "manage-users",
+      "primary": "main",
+      "screenshotTarget": ".el-task-page-header",
+      "snapshot": true,
+      "critical": true,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "task",
+        "primaryRegion": {
+          "id": "collection-results",
+          "ownerId": "collection-results-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "collection-results-anchor",
+          "regionId": "collection-results"
+        },
+        "pageHeadingOwner": {
+          "id": "task-heading-owner",
+          "regionId": "task-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "task-heading",
+            "ownerId": "task-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "collection-filter",
+            "ownerId": "collection-filter-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "selection-actions",
+            "ownerId": "selection-actions-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "collection-pagination",
+            "ownerId": "collection-pagination-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "collection-details",
+            "ownerId": "collection-details-owner",
+            "priority": "secondary",
+            "placement": "overlay"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "task-heading",
+          "collection-results",
+          "collection-filter",
+          "selection-actions",
+          "collection-pagination"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "collection-results-owner",
+          "primaryActionId": "apply-current-selection",
+          "secondaryOwnerIds": [
+            "collection-filter-owner",
+            "selection-actions-owner",
+            "collection-pagination-owner",
+            "collection-details-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "collection-results",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "task-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "collection-filter",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "selection-actions",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "collection-pagination",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "collection-details",
+            "role": "overlay",
+            "material": "floating",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [
+            {
+              "parentRegionId": "collection-results",
+              "childRegionId": "collection-filter"
+            },
+            {
+              "parentRegionId": "collection-results",
+              "childRegionId": "selection-actions"
+            }
+          ],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "collection-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "collection-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "collection-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "collection-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "collection-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "collection-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "collection-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "collection-scan-first",
+            "predicate": "collection-scan-first",
+            "regionId": "collection-results",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "single-toolbar-authority",
+            "predicate": "single-toolbar-authority",
+            "regionId": "collection-results",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/collection-workbench-contract.json",
+              "pointer": "/pages/1/states"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/collection-workbench-contract.json",
+              "pointer": "/pages/1/states"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "admin",
+      "kind": "form",
+      "path": "/user/manage/article/write",
+      "label": "manage-write",
+      "primary": "main",
+      "screenshotTarget": ".el-task-page-header",
+      "snapshot": true,
+      "critical": true,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "task",
+        "primaryRegion": {
+          "id": "document-content",
+          "ownerId": "document-content-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "document-content-anchor",
+          "regionId": "document-content"
+        },
+        "pageHeadingOwner": {
+          "id": "task-heading-owner",
+          "regionId": "task-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "task-heading",
+            "ownerId": "task-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "authoring-command",
+            "ownerId": "authoring-command-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "authoring-status",
+            "ownerId": "authoring-status-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "document-inspector",
+            "ownerId": "document-inspector-owner",
+            "priority": "secondary",
+            "placement": "overlay"
+          },
+          {
+            "id": "preview-tool",
+            "ownerId": "preview-tool-owner",
+            "priority": "secondary",
+            "placement": "overlay"
+          },
+          {
+            "id": "compare-tool",
+            "ownerId": "compare-tool-owner",
+            "priority": "secondary",
+            "placement": "overlay"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "task-heading",
+          "document-content",
+          "authoring-command",
+          "authoring-status"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "document-content-owner",
+          "primaryActionId": "commit-current-document",
+          "secondaryOwnerIds": [
+            "authoring-command-owner",
+            "authoring-status-owner",
+            "document-inspector-owner",
+            "preview-tool-owner",
+            "compare-tool-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "document-content",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "task-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "authoring-command",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "authoring-status",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "document-inspector",
+            "role": "overlay",
+            "material": "floating",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "preview-tool",
+            "role": "overlay",
+            "material": "floating",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "compare-tool",
+            "role": "overlay",
+            "material": "floating",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [
+            {
+              "parentRegionId": "document-content",
+              "childRegionId": "authoring-command"
+            }
+          ],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "continuous-document-canvas",
+            "predicate": "continuous-document-canvas",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "on-demand-authoring-tools",
+            "predicate": "on-demand-authoring-tools",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "single-save-authority",
+            "predicate": "single-save-authority",
+            "regionId": "document-content",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/article-editor-production-contract.json",
+              "pointer": "/states"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/article-editor-production-contract.json",
+              "pointer": "/states"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/article-editor-production-contract.json",
+              "pointer": "/states"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "success",
+            "family": "success",
+            "dimensionId": "content-state",
+            "value": "success",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/article-editor-production-contract.json",
+              "pointer": "/states"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "partial",
+            "family": "partial",
+            "dimensionId": "content-state",
+            "value": "partial",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/article-editor-production-contract.json",
+              "pointer": "/states"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "admin",
+      "kind": "settings",
+      "path": "/user/manage/settings",
+      "label": "manage-settings",
+      "primary": "main",
+      "screenshotTarget": ".el-task-page-header",
+      "snapshot": true,
+      "critical": true,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "task",
+        "primaryRegion": {
+          "id": "settings-task",
+          "ownerId": "settings-task-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "settings-task-anchor",
+          "regionId": "settings-task"
+        },
+        "pageHeadingOwner": {
+          "id": "task-heading-owner",
+          "regionId": "task-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "task-heading",
+            "ownerId": "task-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "task-sections",
+            "ownerId": "task-sections-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "settings-status",
+            "ownerId": "settings-status-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "settings-risk",
+            "ownerId": "settings-risk-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          },
+          {
+            "id": "brand-assets",
+            "ownerId": "brand-assets-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "upload-preview",
+            "ownerId": "upload-preview-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "search-preview",
+            "ownerId": "search-preview-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "footer-preview",
+            "ownerId": "footer-preview-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "generated-icon-assets",
+            "ownerId": "generated-icon-assets-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "upload-options",
+            "ownerId": "upload-options-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          }
+        ],
+        "contentOrder": [
+          "task-heading",
+          "settings-task",
+          "task-sections",
+          "settings-status",
+          "settings-risk",
+          "brand-assets",
+          "upload-preview",
+          "search-preview",
+          "footer-preview",
+          "generated-icon-assets",
+          "upload-options"
+        ],
+        "actionPriority": {
+          "kind": "exclusive-states",
+          "stateDimensionId": "settings-task-tab",
+          "cases": [
+            {
+              "stateId": "tab-site",
+              "primaryCardinality": 1,
+              "primaryOwnerId": "task-heading-owner",
+              "primaryActionId": "save-site-settings",
+              "secondaryActions": []
+            },
+            {
+              "stateId": "tab-compliance",
+              "primaryCardinality": 1,
+              "primaryOwnerId": "task-heading-owner",
+              "primaryActionId": "save-compliance-settings",
+              "secondaryActions": []
+            },
+            {
+              "stateId": "tab-pages",
+              "primaryCardinality": 1,
+              "primaryOwnerId": "task-heading-owner",
+              "primaryActionId": "publish-page",
+              "secondaryActions": []
+            },
+            {
+              "stateId": "tab-media",
+              "primaryCardinality": 0,
+              "primaryOwnerId": null,
+              "primaryActionId": null,
+              "secondaryActions": [
+                {
+                  "ownerId": "upload-options-owner",
+                  "actionId": "reset-upload-options"
+                }
+              ]
+            }
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "settings-task",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "task-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "task-sections",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "settings-status",
+            "role": "status",
+            "material": "boundary",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "regionId": "settings-risk",
+            "role": "risk",
+            "material": "boundary",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "brand-assets",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "upload-preview",
+            "role": "data-region",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "search-preview",
+            "role": "data-region",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "footer-preview",
+            "role": "data-region",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "generated-icon-assets",
+            "role": "data-region",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "upload-options",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [
+            {
+              "parentRegionId": "settings-task",
+              "childRegionId": "upload-preview"
+            },
+            {
+              "parentRegionId": "settings-task",
+              "childRegionId": "search-preview"
+            },
+            {
+              "parentRegionId": "settings-task",
+              "childRegionId": "footer-preview"
+            },
+            {
+              "parentRegionId": "settings-task",
+              "childRegionId": "generated-icon-assets"
+            },
+            {
+              "parentRegionId": "settings-task",
+              "childRegionId": "upload-options"
+            }
+          ],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "settings-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "settings-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "settings-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "settings-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "settings-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "settings-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "settings-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "single-save-authority",
+            "predicate": "single-save-authority",
+            "regionId": "settings-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "flat-settings-fields",
+            "predicate": "flat-settings-fields",
+            "regionId": "settings-task",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "initial-loading",
+            "family": "loading",
+            "dimensionId": "load-state",
+            "value": "initial-loading",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "loaded",
+            "family": "populated",
+            "dimensionId": "load-state",
+            "value": "loaded",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "save-pending",
+            "family": "pending",
+            "dimensionId": "save-state",
+            "value": "save-pending",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "save-success",
+            "family": "success",
+            "dimensionId": "save-state",
+            "value": "save-success",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "save-failure",
+            "family": "error",
+            "dimensionId": "save-state",
+            "value": "save-failure",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty-values",
+            "family": "empty",
+            "dimensionId": "field-state",
+            "value": "empty-values",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "current-values",
+            "family": "populated",
+            "dimensionId": "field-state",
+            "value": "current-values",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "invalid-values",
+            "family": "error",
+            "dimensionId": "field-state",
+            "value": "invalid-values",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "brand-empty",
+            "family": "empty",
+            "dimensionId": "brand-asset-state",
+            "value": "brand-empty",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/settingsBrandUploadTrigger.ts",
+              "pointer": "source-file"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "brand-preview-loaded",
+            "family": "populated",
+            "dimensionId": "brand-asset-state",
+            "value": "brand-preview-loaded",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/settingsBrandUploadTrigger.ts",
+              "pointer": "source-file"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "brand-preview-failed",
+            "family": "error",
+            "dimensionId": "brand-asset-state",
+            "value": "brand-preview-failed",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/settingsBrandUploadTrigger.ts",
+              "pointer": "source-file"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "brand-uploading",
+            "family": "pending",
+            "dimensionId": "brand-asset-state",
+            "value": "brand-uploading",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/settingsBrandUploadTrigger.ts",
+              "pointer": "source-file"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "brand-disabled",
+            "family": "disabled",
+            "dimensionId": "brand-asset-state",
+            "value": "brand-disabled",
+            "fixtureRef": {
+              "source": "tests/frontend/fixtures/settingsBrandUploadTrigger.ts",
+              "pointer": "source-file"
+            },
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "icon-generation-idle",
+            "family": "populated",
+            "dimensionId": "icon-generation-state",
+            "value": "icon-generation-idle",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "icon-generation-pending",
+            "family": "pending",
+            "dimensionId": "icon-generation-state",
+            "value": "icon-generation-pending",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "icon-generation-partial",
+            "family": "partial",
+            "dimensionId": "icon-generation-state",
+            "value": "icon-generation-partial",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "icon-generation-failed",
+            "family": "error",
+            "dimensionId": "icon-generation-state",
+            "value": "icon-generation-failed",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "icon-generation-complete",
+            "family": "success",
+            "dimensionId": "icon-generation-state",
+            "value": "icon-generation-complete",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "permission-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "tab-site",
+            "family": "task-selection",
+            "dimensionId": "settings-task-tab",
+            "value": "site",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "tab-compliance",
+            "family": "task-selection",
+            "dimensionId": "settings-task-tab",
+            "value": "compliance",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "tab-pages",
+            "family": "task-selection",
+            "dimensionId": "settings-task-tab",
+            "value": "pages",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "tab-media",
+            "family": "task-selection",
+            "dimensionId": "settings-task-tab",
+            "value": "media",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    },
+    {
+      "surface": "admin",
+      "kind": "console",
+      "path": "/user/manage/security/risk-control",
+      "label": "manage-security-console",
+      "primary": "main",
+      "screenshotTarget": ".el-task-page-header",
+      "snapshot": false,
+      "critical": false,
+      "compositionContract": {
+        "schema": "fsusblog.layout-composition-contract.v1",
+        "designSourceRefs": [
+          "fsusui-design",
+          "blog-governance",
+          "blog-surface-profiles",
+          "blog-public-layout",
+          "blog-reading-typography",
+          "blog-task-geometry",
+          "blog-page-title"
+        ],
+        "surfaceProfile": "task",
+        "primaryRegion": {
+          "id": "diagnostic-task",
+          "ownerId": "diagnostic-task-owner"
+        },
+        "primaryVisualAnchor": {
+          "id": "diagnostic-task-anchor",
+          "regionId": "diagnostic-task"
+        },
+        "pageHeadingOwner": {
+          "id": "task-heading-owner",
+          "regionId": "task-heading",
+          "cardinality": 1,
+          "semantics": "page-title",
+          "authorityRef": "blog-page-title"
+        },
+        "allowedSecondaryRegions": [
+          {
+            "id": "task-heading",
+            "ownerId": "task-heading-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "diagnostic-status",
+            "ownerId": "diagnostic-status-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "diagnostic-metrics",
+            "ownerId": "diagnostic-metrics-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "diagnostic-raw-detail",
+            "ownerId": "diagnostic-raw-detail-owner",
+            "priority": "secondary",
+            "placement": "flow"
+          },
+          {
+            "id": "shell-navigation",
+            "ownerId": "shell-navigation-owner",
+            "priority": "secondary",
+            "placement": "chrome"
+          }
+        ],
+        "contentOrder": [
+          "task-heading",
+          "diagnostic-task",
+          "diagnostic-status",
+          "diagnostic-metrics",
+          "diagnostic-raw-detail"
+        ],
+        "actionPriority": {
+          "kind": "exact-one",
+          "primaryOwnerId": "diagnostic-task-owner",
+          "primaryActionId": "perform-current-remediation",
+          "secondaryOwnerIds": [
+            "diagnostic-status-owner",
+            "diagnostic-metrics-owner",
+            "diagnostic-raw-detail-owner"
+          ]
+        },
+        "fixedChromeOwners": [
+          {
+            "id": "shell-navigation-owner",
+            "regionId": "shell-navigation",
+            "responsibility": "navigation",
+            "cardinality": 1,
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "surfaceRoles": [
+          {
+            "regionId": "diagnostic-task",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "task-heading",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "diagnostic-status",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "diagnostic-metrics",
+            "role": "document",
+            "material": "flat",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "diagnostic-raw-detail",
+            "role": "data-region",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          },
+          {
+            "regionId": "shell-navigation",
+            "role": "control-group",
+            "material": "boundary",
+            "authorityRef": "fsusui-design"
+          }
+        ],
+        "allowedSurfaceNesting": {
+          "mode": "explicit-region-pairs",
+          "pairs": [
+            {
+              "parentRegionId": "diagnostic-task",
+              "childRegionId": "diagnostic-raw-detail"
+            }
+          ],
+          "ordinaryFields": "flat",
+          "repeatedItems": "flat",
+          "decorativeShells": "forbidden"
+        },
+        "firstFoldInvariants": [
+          {
+            "id": "single-primary-focus",
+            "predicate": "single-primary-focus",
+            "regionId": "diagnostic-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-content-visible",
+            "predicate": "primary-content-visible",
+            "regionId": "diagnostic-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "primary-anchor-unoccluded",
+            "predicate": "primary-anchor-unoccluded",
+            "regionId": "diagnostic-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "secondary-regions-subordinate",
+            "predicate": "secondary-regions-subordinate",
+            "regionId": "diagnostic-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "content-order-preserved",
+            "predicate": "content-order-preserved",
+            "regionId": "diagnostic-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "border-first-material",
+            "predicate": "border-first-material",
+            "regionId": "diagnostic-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "non-decorative-restraint",
+            "predicate": "non-decorative-restraint",
+            "regionId": "diagnostic-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "diagnostic-before-raw-detail",
+            "predicate": "diagnostic-before-raw-detail",
+            "regionId": "diagnostic-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "no-kpi-wall",
+            "predicate": "no-kpi-wall",
+            "regionId": "diagnostic-task",
+            "authorityRef": "blog-surface-profiles"
+          },
+          {
+            "id": "no-badge-wall",
+            "predicate": "no-badge-wall",
+            "regionId": "diagnostic-task",
+            "authorityRef": "blog-surface-profiles"
+          }
+        ],
+        "requiredStateFixtures": [
+          {
+            "id": "loading",
+            "family": "loading",
+            "dimensionId": "content-state",
+            "value": "loading",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "empty",
+            "family": "empty",
+            "dimensionId": "content-state",
+            "value": "empty",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "error",
+            "family": "error",
+            "dimensionId": "content-state",
+            "value": "error",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "populated",
+            "family": "populated",
+            "dimensionId": "content-state",
+            "value": "populated",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "disabled",
+            "family": "disabled",
+            "dimensionId": "content-state",
+            "value": "disabled",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          },
+          {
+            "id": "permission-denied",
+            "family": "permission",
+            "dimensionId": "content-state",
+            "value": "permission-denied",
+            "fixtureRef": null,
+            "bindingStatus": "pending-current-run",
+            "bindingOwnerIssue": 2099
+          }
+        ],
+        "requiredViewportThemeMatrix": [
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/layout-archetype-matrix.json",
+              "pointer": "/coverage/media"
+            }
+          },
+          {
+            "viewportsRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/viewports"
+            },
+            "themesRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/themes"
+            },
+            "mediaRef": {
+              "source": "tests/frontend/fixtures/ux-viewport-matrix.json",
+              "pointer": "/modes/boundaries/media"
+            }
+          }
+        ],
+        "requiredEvidenceIds": [
+          "composition-contract",
+          "sfc-component-source",
+          "rendered-dom-owners",
+          "browser-geometry-state",
+          "rendered-screenshot",
+          "visual-adjudication"
+        ]
+      }
+    }
+  ],
+  "compositionGovernance": {
+    "schema": "fsusblog.layout-composition-governance.v1",
+    "schemaRef": "config/schemas/layout-composition-contract.schema.json",
+    "matrixRef": "tests/frontend/fixtures/layout-archetype-matrix.json",
+    "ledgerRef": "tests/frontend/fixtures/layout-visual-change-ledger.json",
+    "designSources": [
+      {
+        "id": "fsusui-design",
+        "repository": "FsusUI",
+        "path": "docs/design.md"
+      },
+      {
+        "id": "blog-governance",
+        "repository": "FsusBlog",
+        "path": "docs/design/governance.md"
+      },
+      {
+        "id": "blog-surface-profiles",
+        "repository": "FsusBlog",
+        "path": "docs/design/surface-profiles.md"
+      },
+      {
+        "id": "blog-public-layout",
+        "repository": "FsusBlog",
+        "path": "docs/public-layout-rules.md"
+      },
+      {
+        "id": "blog-reading-typography",
+        "repository": "FsusBlog",
+        "path": "docs/design/reading-typography.md"
+      },
+      {
+        "id": "blog-task-geometry",
+        "repository": "FsusBlog",
+        "path": "docs/design/task-surface-geometry.md"
+      },
+      {
+        "id": "blog-page-title",
+        "repository": "FsusBlog",
+        "path": "docs/design/page-title-scale.md"
+      }
+    ],
+    "capabilityBindings": [
+      {
+        "issue": 1814,
+        "capability": "authoring-product-model",
+        "status": "pending-exact-commit",
+        "sourceCommit": null,
+        "evidenceRefs": []
+      },
+      {
+        "issue": 1895,
+        "capability": "fsusui-control-origin",
+        "status": "pending-exact-commit",
+        "sourceCommit": null,
+        "evidenceRefs": []
+      }
+    ],
+    "fixtureBindingStatus": "requires-current-run-state-binding",
+    "fixtureBindingOwnerIssue": 2099,
+    "fixtureInfrastructureRefs": [
+      {
+        "source": "tests/frontend/e2e/visual/public-visual.spec.ts",
+        "pointer": "source-file"
+      },
+      {
+        "source": "tests/frontend/e2e/visual/console-visual.spec.ts",
+        "pointer": "source-file"
+      }
+    ]
+  }
 }
