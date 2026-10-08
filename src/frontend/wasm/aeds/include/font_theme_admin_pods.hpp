@@ -335,7 +335,7 @@ static_assert(offsetof(ThemeActivationHistoryPod, ActivatedBy) == 116);
 
 #pragma pack(pop)
 
-// Borrowed slices only: no allocation or ownership of the caller's payload.
+// The caller keeps the payload bytes alive for every use of this borrowed view.
 struct PayloadView
 {
     const std::uint8_t* Records;
