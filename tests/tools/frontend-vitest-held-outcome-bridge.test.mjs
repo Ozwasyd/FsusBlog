@@ -190,3 +190,20 @@ test('real event journal refuses tamper, duplicates and cross-source before cons
     assert.throws(() => harvestFrontendVitestNativeMaterial(prepared, outputRoot), /journal tamper/);
     assert.equal(digestCanonical(prepared.blueprint.suites), digestCanonical(prepared.manifest.suites));
 });
+
+test('real timeout before journal creation retains sealed planned blocked cases without inventing execution', async (t) =>
+{
+    const f = fixture(`it('planned', () => { expect(1).toBe(1); });`);
+    t.after(f.dispose);
+    const prepared = await prepare(f);
+    const run = await runFrontendVitestOutcomeAttempts(prepared, attemptInput(f, prepared, { timeoutMs: 1 }));
+    const attempt = run.attempts[0];
+    const artifactRoot = path.join(run.producerRoot, 'attempt-1');
+    assert.equal(fs.existsSync(path.join(artifactRoot, 'native-events.jsonl')), false);
+    assert.throws(() => harvestFrontendVitestNativeMaterial(prepared, artifactRoot), /actual process outcome/);
+    const material = harvestFrontendVitestNativeMaterial(prepared, artifactRoot,
+        { signal: attempt.signal, failureKind: attempt.failureKind, exitCode: attempt.exitCode });
+    assert.equal(material.qualificationEligible, false);
+    assert.equal(material.report, null);
+    assert.deepEqual(material.tests.map((item) => [item.status, item.executed]), [['blocked', false]]);
+});

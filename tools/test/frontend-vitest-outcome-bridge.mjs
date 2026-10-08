@@ -384,7 +384,10 @@ export async function captureFrontendVitestNativeMaterial(prepared, outputRoot)
 export function harvestFrontendVitestNativeMaterial(prepared, outputRoot, processOutcome = null)
 {
     validatePrepared(prepared);
-    const events = readEvents(path.join(outputRoot, 'native-events.jsonl'));
+    const eventFile = path.join(outputRoot, 'native-events.jsonl');
+    requireValue(fs.existsSync(eventFile) || processOutcome?.signal || processOutcome?.failureKind,
+        'missing native journal lacks actual process outcome');
+    const events = fs.existsSync(eventFile) ? readEvents(eventFile) : [];
     const collected = events.filter((item) => item.event === 'collected').map((item) => item.value);
     const canonical = JSON.parse(regular(path.join(path.dirname(prepared.replayPlan.command.args[2]), 'ast-report.json')).toString('utf8'));
     equal(digestCanonical(canonical), prepared.canonicalDigest, 'held original AST report');
