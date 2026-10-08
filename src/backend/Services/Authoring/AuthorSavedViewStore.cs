@@ -1796,7 +1796,14 @@ public sealed class AuthorSavedViewStore(
         }
     }
 
-    private DateTime UtcNow => timeProvider.GetUtcNow().UtcDateTime;
+    private DateTime UtcNow
+    {
+        get
+        {
+            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+            return new DateTime(now.Ticks - now.Ticks % TimeSpan.TicksPerMicrosecond, DateTimeKind.Utc);
+        }
+    }
 }
 
 /// <summary>
