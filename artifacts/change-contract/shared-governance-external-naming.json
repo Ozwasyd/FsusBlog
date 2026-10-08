@@ -6,7 +6,6 @@
             "paths": [
                 "tests/governance/test-lifecycle-registry.json",
                 "config/testing/correctness-attempt-producers.json",
-                "tests/test-retention-replacements.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
