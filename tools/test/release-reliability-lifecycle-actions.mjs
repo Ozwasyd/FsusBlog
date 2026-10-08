@@ -693,6 +693,19 @@ async function runActionProcess({
     let logSinks = null;
     let evidence;
     let error = null;
+    let directCommandSpawned = false;
+    const observeSpawn = (observedExecutable, observedArgs, options) =>
+    {
+        const child = spawnProcess(observedExecutable, observedArgs, options);
+        if (observedExecutable === executable && JSON.stringify(observedArgs) === JSON.stringify(args))
+        {
+            child?.once?.('spawn', () =>
+            {
+                directCommandSpawned = true;
+            });
+        }
+        return child;
+    };
     try
     {
         if (controller.signal.aborted)
@@ -707,7 +720,7 @@ async function runActionProcess({
             signal: controller.signal,
             policy: physicalPolicy,
             residualRoot,
-            spawnProcess,
+            spawnProcess: observeSpawn,
             stdout: logSinks.stdout,
             stderr: logSinks.stderr
         });
@@ -736,8 +749,7 @@ async function runActionProcess({
     const finalCancellation = controller.signal.reason
         ?.releaseReliabilityCancellation ?? cancellation;
     const producerSpawned = evidence?.processInventory?.some(entry => entry.role === 'direct-child') === true
-        || evidence !== null && evidence !== undefined && (error === null
-            || Number.isInteger(error?.exitCode) || Boolean(error?.signal));
+        || directCommandSpawned;
     return {
         startedAtMs,
         finishedAtMs,
@@ -838,6 +850,10 @@ export async function executeRegisteredLifecycleAction({
         });
     }
     let failure = processFailure(outcome);
+    if (failure === null && !outcome.producerSpawned)
+    {
+        failure = 'physical execution did not establish producer spawn';
+    }
     const terminalStatus = outcome.timedOut
         ? 'timed-out'
         : outcome.cancelled

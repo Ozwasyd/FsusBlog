@@ -799,6 +799,47 @@ test('exact-seven admission failure retains its event and never spawns later mem
     }
 });
 
+test('physical status or nonzero exit without command spawn cannot establish a producer', async () =>
+{
+    for (const exitCode of [0, 19])
+    {
+        const fixture = createFixture();
+        try
+        {
+            const catalog = catalogFor(fixture);
+            const result = await executeFixtureScenario(fixture, catalog, {
+                physicalExecution: async options =>
+                {
+                    if (!options.env.FSUSBLOG_RELEASE_RELIABILITY_ACTION_ID.endsWith('-fixture-measurement'))
+                    {
+                        return await fixturePhysicalExecution(options);
+                    }
+                    const evidence = fixtureProcessEvidence(options.policy);
+                    if (exitCode !== 0)
+                    {
+                        throw Object.assign(new Error('structured launch failure'), { exitCode, physicalExecution: evidence });
+                    }
+                    return evidence;
+                }
+            });
+            assert.equal(result.producerSpawned, false);
+            assert.equal(result.authoritativeEvidence, null);
+            assert.equal(result.qualificationEligible, false);
+            assert.equal(createTerminalEvents([
+                ...canonicalIds.filter(id => id !== result.scenarioId).map(id => ({
+                    scenarioId: id, status: 'not-reached', producerSpawned: false,
+                    lifecycle: { actions: [] }, authoritativeEvidence: null,
+                    finishedAt: result.finishedAt
+                })), result
+            ]).find(event => event.scenarioId === result.scenarioId).terminalClassification, 'precondition-failure');
+        }
+        finally
+        {
+            removeFixture(fixture);
+        }
+    }
+});
+
 test('real controlled producer failure and noisy window keep distinct bound terminal evidence', async () =>
 {
     for (const mode of ['product-failure', 'noisy', 'nonzero', 'missing-window'])
