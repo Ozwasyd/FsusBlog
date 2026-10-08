@@ -326,3 +326,21 @@ def test_inline_image_svg_math_captions_and_footnote_links():
     with pymupdf.open(stream=base64.b64decode(result["pdfBase64"])) as pdf:
         assert pdf[0].get_images()
         assert pdf[0].get_links()[0]["kind"] in {pymupdf.LINK_GOTO, pymupdf.LINK_NAMED}
+
+
+def test_unembedded_font_resource_is_rejected_even_alongside_valid_fonts():
+    value = request()
+    data = base64.b64decode(render_in_process(value)["pdfBase64"])
+    with pikepdf.Pdf.open(io.BytesIO(data)) as pdf:
+        font = pdf.make_indirect(
+            pikepdf.Dictionary(
+                Type=pikepdf.Name("/Font"),
+                Subtype=pikepdf.Name("/Type1"),
+                BaseFont=pikepdf.Name("/Helvetica"),
+            )
+        )
+        pdf.pages[0].Resources.Font["/UnregisteredFont"] = font
+        stream = io.BytesIO()
+        pdf.save(stream)
+    with pytest.raises(tool.PdfRejected, match="unembedded-font"):
+        tool.verify_pdf(stream.getvalue(), value)
