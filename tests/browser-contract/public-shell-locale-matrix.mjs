@@ -190,7 +190,6 @@ function negotiationCases(descriptors, defaultCode, disabledDescriptors)
         }
         add('device-explicit-auto', item.code, null, item.code, 'accept-language', item.code,
             { operation: 'explicit-auto', accountMode: null, fixedLocale: null, incomingDeviceCookie: other });
-
     }
     for (const [kind, header] of [['missing', null], ['unknown', 'zz-ZZ'], ['wildcard', '*'], ['invalid', '???;q=oops']])
     {
@@ -198,6 +197,11 @@ function negotiationCases(descriptors, defaultCode, disabledDescriptors)
             locale: kind === 'wildcard' ? descriptors[0].code : defaultCode,
             source: kind === 'wildcard' ? 'accept-language' : 'default',
             matchedRange: kind === 'wildcard' ? '*' : '', preferencePreparation: null });
+    }
+    for (const [kind, cookie] of [['unknown-cookie', 'unsupported-locale'], ['corrupt-cookie', '???']])
+    {
+        cases.push({ id: `default/${kind}`, header: null, cookie, locale: defaultCode,
+            source: 'default', matchedRange: '', preferencePreparation: null });
     }
     return cases;
 }
