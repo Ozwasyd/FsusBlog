@@ -26,7 +26,7 @@ public sealed record AuthorSearchTokenEvaluation(
 /// authority. Transport must not expose its output before current permission/source
 /// revalidation and complete ranking/snippet/result admission are implemented.
 /// </summary>
-public sealed class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSearchIndex index)
+public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSearchIndex index)
 {
     /// <summary>
     /// Computes bounded token candidates. Indexed Allowed facts are never a fresh grant.

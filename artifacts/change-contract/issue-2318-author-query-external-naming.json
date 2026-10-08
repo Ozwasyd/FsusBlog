@@ -10,6 +10,7 @@
                 "src/backend/Services/Authoring/AuthorFullTextSearchIndex.cs",
                 "src/backend/Services/Authoring/AuthorFullTextSearchIndexVerifier.cs",
                 "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQuerySnippets.cs",
                 "src/backend/Services/Authoring/AuthorFullTextSearchQueryGrammar.cs",
                 "src/backend/Services/Authoring/AuthorFullTextSearchTokenizer.cs",
                 "src/backend/Services/Authoring/AuthorFullTextSearchVerifier.cs"

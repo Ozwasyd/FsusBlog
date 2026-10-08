@@ -268,6 +268,280 @@ public sealed class AuthorFullTextSearchQueryEvaluatorTests
         }
     }
 
+    [Theory]
+    [InlineData("\uFEFF# Café\r\n中文 👩‍💻 e\u0301\r\n", "cafe\u0301")]
+    [InlineData("前后中文保留", "中文")]
+    [InlineData("ПРИВЕТ мир", "привет")]
+    [InlineData("العربية محفوظة", "العربية")]
+    [InlineData("👩‍💻 👨‍👩‍👧‍👦", "👩‍💻")]
+    [InlineData("combining e\u0301 unchanged", "é")]
+    public async Task Snippets_Preserve_Original_Bytes_And_Canonical_Range_Identity(string raw, string text)
+    {
+        var source = new Source([new(1, AuthorSearchFieldKind.MarkdownBody, raw)]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query(text);
+        AuthorSearchTokenEvaluation candidates = await evaluator.InspectIndexAsync(query, s_definitions);
+        AuthorSearchSourceSnippetEvidence evidence = Assert.Single((await evaluator.MaterializeSourceSnippetsAsync(
+            query, candidates, s_definitions, source)).Snippets);
+        Assert.Equal(raw, evidence.RawText);
+        Assert.Equal(AuthorFullTextSearchContract.Digest(raw), evidence.RawTextDigest);
+        Assert.Equal(candidates.Candidates[0].Document, evidence.Document);
+        Assert.Equal(source.Parser, evidence.Snippet.Context.ParserVersion);
+        Assert.Equal("fixture-epoch", evidence.Snippet.Context.DocumentEpoch);
+        Assert.Equal(Encoding.UTF8.GetByteCount(raw), evidence.Snippet.Context.Utf8End);
+        Assert.False(evidence.Snippet.TruncatedBefore);
+        Assert.False(evidence.Snippet.TruncatedAfter);
+        Assert.NotEmpty(evidence.Snippet.Highlights);
+        AuthorFullTextSearchContract.ValidateSnippet(evidence.Snippet, evidence.Document, raw,
+            source.Parser, "fixture-epoch");
+    }
+
+    [Fact]
+    public async Task Snippets_Produce_Multiple_Ordered_Contexts_Without_Downloading_The_Body()
+    {
+        string raw = new string('x', 600) + " red " + new string('x', 600) + " red " + new string('x', 600);
+        var source = new Source([new(1, AuthorSearchFieldKind.MarkdownBody, raw)]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query("red");
+        AuthorSearchTokenEvaluation candidates = await evaluator.InspectIndexAsync(query, s_definitions);
+        AuthorSearchSourceSnippetEvaluation result = await evaluator.MaterializeSourceSnippetsAsync(
+            query, candidates, s_definitions, source);
+        Assert.Equal(2, result.Snippets.Length);
+        Assert.True(result.Snippets[0].Snippet.Context.Utf16End < result.Snippets[1].Snippet.Context.Utf16Start);
+        Assert.All(result.Snippets, item =>
+        {
+            Assert.True(item.RawText.Length <= AuthorFullTextSearchQueryEvaluator.MaxSnippetCharacters);
+            Assert.Equal(raw[item.Snippet.Context.Utf16Start..item.Snippet.Context.Utf16End], item.RawText);
+            Assert.True(item.Snippet.TruncatedBefore);
+            Assert.True(item.Snippet.TruncatedAfter);
+            Assert.Single(item.Snippet.Highlights);
+        });
+    }
+
+    [Fact]
+    public async Task Snippets_Keep_Heading_Identity_And_Merge_Overlapping_Phrase_And_Word_Highlights()
+    {
+        var source = new Source([new(1, AuthorSearchFieldKind.Heading, "# red blue red blue")]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query("\"red blue\" red");
+        AuthorSearchTokenEvaluation candidates = await evaluator.InspectIndexAsync(query, s_definitions);
+        AuthorSearchSourceSnippetEvidence result = Assert.Single((await evaluator.MaterializeSourceSnippetsAsync(
+            query, candidates, s_definitions, source)).Snippets);
+        Assert.Equal("heading:1", result.Snippet.HeadingIdentity);
+        Assert.Equal([2, 11], result.Snippet.Highlights.Select(static range => range.Utf16Start));
+        Assert.Equal([10, 19], result.Snippet.Highlights.Select(static range => range.Utf16End));
+    }
+
+    [Fact]
+    public async Task Snippet_Context_Expansion_Does_Not_Split_Original_Graphemes()
+    {
+        string prefix = new string('x', 20) + "👨‍👩‍👧‍👦" + new string('x', 42) + " ";
+        string raw = prefix + "red" + new string('x', 80);
+        var source = new Source([new(1, AuthorSearchFieldKind.MarkdownBody, raw)]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query("red" + new string('x', 80));
+        AuthorSearchTokenEvaluation candidates = await evaluator.InspectIndexAsync(query, s_definitions);
+        AuthorSearchSourceSnippetEvidence result = Assert.Single((await evaluator.MaterializeSourceSnippetsAsync(
+            query, candidates, s_definitions, source)).Snippets);
+        Assert.Equal(20, result.Snippet.Context.Utf16Start);
+        Assert.StartsWith("👨‍👩‍👧‍👦", result.RawText);
+    }
+
+    [Theory]
+    [InlineData("range")]
+    [InlineData("weight")]
+    [InlineData("count")]
+    [InlineData("document")]
+    [InlineData("omitted")]
+    public async Task Snippet_Materialization_Rederives_Candidates_And_Rejects_Tamper_Before_Source_Read(string mutation)
+    {
+        var source = new Source([new(1, AuthorSearchFieldKind.Title, "red blue")]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query("red");
+        AuthorSearchTokenEvaluation result = await evaluator.InspectIndexAsync(query, s_definitions);
+        AuthorSearchTokenCandidate original = Assert.Single(result.Candidates);
+        AuthorSearchTokenCandidate changed = mutation switch
+        {
+            "range" => original with { Ranges = [original.Ranges[0] with { Utf16End = 4 }] },
+            "weight" => original with { FieldWeight = 999 },
+            "count" => original with { MatchedRanges = 2 },
+            "document" => original with
+            {
+                Document = AuthorFullTextSearchContract.SealDocument(original.Document with
+                {
+                    Field = original.Document.Field with
+                    {
+                        ContentDigest = AuthorFullTextSearchContract.Digest("blue")
+                    }
+                })
+            },
+            _ => original
+        };
+        int readsBefore = source.ReadCount;
+        Assert.Equal("author_search_snippet_candidates_tampered",
+            (await Assert.ThrowsAsync<AuthorSearchContractException>(() => evaluator.MaterializeSourceSnippetsAsync(
+                query, result with
+                {
+                    Candidates = mutation == "omitted" ? [] : [changed]
+                }, s_definitions, source))).Message);
+        Assert.Equal(readsBefore, source.ReadCount);
+    }
+
+    [Theory]
+    [InlineData("raw")]
+    [InlineData("parser")]
+    [InlineData("generation")]
+    [InlineData("permission")]
+    public async Task Snippets_Reject_Original_Source_Drift_Without_A_Published_Index_Event(string mutation)
+    {
+        var source = new Source([new(1, AuthorSearchFieldKind.Title, "red")]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query("red");
+        AuthorSearchTokenEvaluation result = await evaluator.InspectIndexAsync(query, s_definitions);
+        switch (mutation)
+        {
+            case "raw":
+                source.Fields = [new(1, AuthorSearchFieldKind.Title, "blue")];
+                break;
+            case "parser":
+                source.ParserOverride = "unrelated-parser";
+                break;
+            case "generation":
+                source.Generation = 2;
+                break;
+            case "permission":
+                source.Permission = AuthorSearchPermissionState.Denied;
+                break;
+        }
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => evaluator.MaterializeSourceSnippetsAsync(
+            query, result, s_definitions, source));
+    }
+
+    [Theory]
+    [InlineData("permission")]
+    [InlineData("generation")]
+    public async Task Snippets_Recheck_Source_After_Materialization_And_Reject_Late_Drift(string mutation)
+    {
+        var source = new Source([new(1, AuthorSearchFieldKind.Title, "red")]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query("red");
+        AuthorSearchTokenEvaluation result = await evaluator.InspectIndexAsync(query, s_definitions);
+        int finalRead = source.ReadCount + 3;
+        source.OnRead = count =>
+        {
+            if (count == finalRead)
+            {
+                if (mutation == "permission")
+                {
+                    source.Permission = AuthorSearchPermissionState.Denied;
+                }
+                else
+                {
+                    source.Generation++;
+                }
+            }
+        };
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => evaluator.MaterializeSourceSnippetsAsync(
+            query, result, s_definitions, source));
+        Assert.Equal(finalRead, source.ReadCount);
+    }
+
+    [Fact]
+    public async Task Snippets_Refuse_An_Excessive_Context_Instead_Of_Truncating_A_Match()
+    {
+        string text = new('a', AuthorFullTextSearchQueryEvaluator.MaxSnippetCharacters + 1);
+        var source = new Source([new(1, AuthorSearchFieldKind.Title, text)]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query(text);
+        AuthorSearchTokenEvaluation result = await evaluator.InspectIndexAsync(query, s_definitions);
+        Assert.Equal("author_search_snippet_context_budget_or_boundary_invalid",
+            (await Assert.ThrowsAsync<AuthorSearchContractException>(() => evaluator.MaterializeSourceSnippetsAsync(
+                query, result, s_definitions, source))).Message);
+    }
+
+    [Fact]
+    public async Task Snippets_Refuse_An_Excessive_Number_Of_Separated_Contexts()
+    {
+        string raw = string.Join(new string(' ', 120), Enumerable.Repeat("red", 101));
+        var source = new Source([new(1, AuthorSearchFieldKind.MarkdownBody, raw)]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query("red");
+        AuthorSearchTokenEvaluation result = await evaluator.InspectIndexAsync(query, s_definitions);
+        Assert.Equal("author_search_snippet_output_budget_exceeded",
+            (await Assert.ThrowsAsync<AuthorSearchContractException>(() => evaluator.MaterializeSourceSnippetsAsync(
+                query, result, s_definitions, source))).Message);
+    }
+
+    [Fact]
+    public async Task Snippets_Cancel_During_Original_Source_Read_And_Do_Not_Return_Late_Text()
+    {
+        var source = new Source([new(1, AuthorSearchFieldKind.Title, "red")]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query("red");
+        AuthorSearchTokenEvaluation result = await evaluator.InspectIndexAsync(query, s_definitions);
+        source.WaitBeforeRead = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        source.ReadEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellation = new CancellationTokenSource();
+        Task<AuthorSearchSourceSnippetEvaluation> materializing = evaluator.MaterializeSourceSnippetsAsync(
+            query, result, s_definitions, source, cancellation.Token);
+        await source.ReadEntered.Task;
+        try
+        {
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => materializing);
+        }
+        finally
+        {
+            source.WaitBeforeRead.SetResult();
+        }
+    }
+
+    [Fact]
+    public async Task Empty_Snippet_Result_Still_Verifies_Original_Source_Twice()
+    {
+        var source = new Source([]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query("red");
+        AuthorSearchTokenEvaluation result = await evaluator.InspectIndexAsync(query, s_definitions);
+        int before = source.ReadCount;
+        Assert.Empty((await evaluator.MaterializeSourceSnippetsAsync(query, result, s_definitions, source)).Snippets);
+        Assert.Equal(before + 2, source.ReadCount);
+    }
+
+    [Fact]
+    public async Task Snippets_Preserve_Candidate_Order_Across_Article_Grouped_Source_Reads()
+    {
+        var source = new Source([new(1, AuthorSearchFieldKind.Title, "red"),
+            new(1, AuthorSearchFieldKind.Summary, "red"), new(2, AuthorSearchFieldKind.Title, "red")]);
+        using AuthorFullTextSearchIndex index = await Build(source);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query("red");
+        AuthorSearchTokenEvaluation candidates = await evaluator.InspectIndexAsync(query, s_definitions);
+        AuthorSearchSourceSnippetEvaluation snippets = await evaluator.MaterializeSourceSnippetsAsync(
+            query, candidates, s_definitions, source);
+        Assert.Equal(candidates.Candidates.Select(static item => item.Document.ContentDigest),
+            snippets.Snippets.Select(static item => item.Document.ContentDigest));
+        int readsBefore = source.ReadCount;
+        Assert.Equal("author_search_snippet_candidates_tampered",
+            (await Assert.ThrowsAsync<AuthorSearchContractException>(() => evaluator.MaterializeSourceSnippetsAsync(
+                query, candidates with
+                {
+                    Candidates = [.. candidates.Candidates.Reverse()]
+                }, s_definitions, source))).Message);
+        Assert.Equal(readsBefore, source.ReadCount);
+    }
+
     private static AuthorSearchQuery Query(string text, int pageSize = 100)
         => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.SchemaVersion,
             AuthorFullTextSearchContract.QuerySchema, AuthorFullTextSearchContract.TokenizerVersion,
@@ -292,6 +566,19 @@ public sealed class AuthorFullTextSearchQueryEvaluatorTests
     {
         public ImmutableArray<Field> Fields { get; set; } = fields;
         public long Sequence { get; set; } = 1;
+        public long Generation { get; set; } = 1;
+        public int ReadCount
+        {
+            get; private set;
+        }
+        public Action<int>? OnRead
+        {
+            get; set;
+        }
+        public string? ParserOverride
+        {
+            get; set;
+        }
         public AuthorSearchPermissionState Permission { get; set; } = AuthorSearchPermissionState.Allowed;
         public TaskCompletionSource? WaitBeforeRead
         {
@@ -301,12 +588,14 @@ public sealed class AuthorFullTextSearchQueryEvaluatorTests
         {
             get; set;
         }
-        public string Parser => "explicit-algorithm-fixture";
+        public string Parser => ParserOverride ?? "explicit-algorithm-fixture";
 
         public async Task<AuthorSearchIndexSourcePage> ReadAsync(int userId, string siteScope, int afterArticleId,
             int pageSize, long? expectedSourceGeneration, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ReadCount++;
+            OnRead?.Invoke(ReadCount);
             if (WaitBeforeRead is not null)
             {
                 ReadEntered!.TrySetResult();
@@ -335,7 +624,7 @@ public sealed class AuthorFullTextSearchQueryEvaluatorTests
                 articles.Add(new(group.Key, Sequence, false, projected.ToImmutable(), s_definitions));
             }
             int last = articles.Count == 0 ? afterArticleId : articles[^1].ArticleId;
-            return new AuthorSearchIndexSourcePage(1, articles.ToImmutable(), grouped.Any(group => group.Key > last));
+            return new AuthorSearchIndexSourcePage(Generation, articles.ToImmutable(), grouped.Any(group => group.Key > last));
         }
     }
 }
