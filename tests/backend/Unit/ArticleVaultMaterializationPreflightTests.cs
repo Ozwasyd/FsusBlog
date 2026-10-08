@@ -32,6 +32,8 @@ public sealed class ArticleVaultMaterializationPreflightTests
         Assert.True(ArticleVaultMaterializationInstructionCodec.VerifyBytes(instruction, source).IsValid);
         Assert.False(ArticleVaultMaterializationInstructionCodec.VerifyBytes(instruction, source.Concat(new byte[] { 32 }).ToArray()).IsValid);
         Assert.Equal(bundle.PlanReference, instruction.PlanReference);
+        Assert.Equal(bundle.RootManifest.ContentSha256, instruction.RootManifestSha256);
+        Assert.Equal(bundle.Plan.Groups[0].Items[0].Local.MetadataManifestSha256, instruction.ExpectedOldMetadataManifestSha256);
         Assert.Equal(server.ResultReference, instruction.ServerResultReference);
         Assert.Equal(server.ContentSha256, instruction.ServerResultSha256);
         Assert.False(preflight.CanCommitBase);
