@@ -901,7 +901,7 @@ function extractPrimaryConstructorDeclarations(code)
     const consumed = Array.from(code, () => false);
     const modifiers = '(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)[ \\t]+)*';
     const pattern = new RegExp(`^[ \\t]*${modifiers}(?:class|struct|record(?:[ \\t]+(?:class|struct))?)[ \\t]+([A-Za-z_]\\w*)[ \\t]*\\(`, 'gmu');
-    let match = null;
+    let match;
     while ((match = pattern.exec(code)) !== null)
     {
         const openIndex = match.index + match[0].lastIndexOf('(');
