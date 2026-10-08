@@ -5,9 +5,18 @@
             "id": "json-wire-key",
             "paths": [
                 "tests/backend/packages.lock.json",
-                "tests/governance/test-lifecycle-registry.json"
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve existing NuGet package/project identifiers and serialized lifecycle registry keys while consuming the exact coordinator-supplied lock and registry prerequisites for the cgroup authority test. This ordinary naming manifest grants no generated-output, compiler, runtime or historical acceptance."
+            "reason": "Preserve existing NuGet identifiers and serialized lifecycle, correctness inventory and closure keys while consuming exact coordinator-supplied prerequisites for the cgroup authority test. This ordinary naming manifest grants no generated-output, compiler, runtime or historical acceptance."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve existing caller-visible process environment names in the exact coordinator-supplied canonical correctness inventory migration prerequisite. This declaration is naming metadata only and does not grant generated repair or runtime admission."
         }
     ]
 }
