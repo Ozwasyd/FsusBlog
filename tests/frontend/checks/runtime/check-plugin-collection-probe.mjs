@@ -15,6 +15,9 @@ const fixture = path.join(root, 'tests/frontend/fixtures/pluginCollectionProbe')
 const require = createRequire(path.join(frontend, 'package.json'));
 const mode = process.argv[2] ?? 'both';
 assert.ok(['local', 'published', 'both'].includes(mode), 'usage: node check-plugin-collection-probe.mjs [local|published|both]');
+const candidateScope = process.argv[3] ?? 'all';
+assert.ok(['all', 'data-list', 'responsive-collection', 'menu'].includes(candidateScope), 'candidate must be all, data-list, responsive-collection or menu');
+const candidates = candidateScope === 'all' ? ['data-list', 'responsive-collection', 'menu'] : [candidateScope];
 const runId = `plugin-collection-${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`;
 const output = path.join(root, '.tmp/chain-1894', runId);
 fs.mkdirSync(output, { recursive: true });
@@ -39,6 +42,7 @@ const report = {
     runId,
     startedAt: new Date().toISOString(),
     qualificationEligible: false,
+    candidateScope,
     source: identity(root),
     sourceFiles: probeFiles.map((file) => ({ path: file, sha256: digest(fs.readFileSync(path.join(root, file))) })),
     expectedTestBaseline: JSON.parse(fs.readFileSync(path.join(root, 'config/testing/fsusui-baseline.json'), 'utf8')),
@@ -120,7 +124,7 @@ async function probeCandidate(context, baseUrl, candidate, modeReport)
     const result = { candidate, checks, matrix: [] };
     modeReport.candidates.push(result);
     const collection = page.getByTestId('collection');
-    const rowRole = candidate === 'menu' ? 'menuitem' : 'listitem';
+    const rowRole = candidate === 'menu' ? 'menuitem' : candidate === 'data-list' ? 'button' : 'listitem';
     const rows = () => collection.getByRole(rowRole);
 
     for (const count of [0, 1, 1000])
@@ -215,6 +219,34 @@ async function probeCandidate(context, baseUrl, candidate, modeReport)
         }
         return observations;
     });
+    if (candidate === 'data-list')
+    {
+        await observe(checks, 'public-disabled-and-loading-negative-controls', async () =>
+        {
+            const observations = [];
+            for (const options of [{ disabled: true }, { disabledKeys: ['plugin-1'] }, { collectionLoading: true }])
+            {
+                await configure(page, candidate, 2, options);
+                const row = rows().nth(1);
+                assert.equal(await row.isDisabled(), true);
+                assert.equal(await row.getAttribute('aria-disabled'), 'true');
+                const box = await row.boundingBox();
+                assert.ok(box);
+                await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+                await row.focus();
+                await page.keyboard.press('Enter');
+                await page.keyboard.press('Space');
+                const prevented = await row.evaluate((node) => !node.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true })));
+                assert.equal(prevented, true, 'synthetic events must also reach the public activation guard');
+                assert.equal((await snapshot(page)).activations.length, 0);
+                observations.push({ options, prevented, state: await snapshot(page) });
+            }
+            await configure(page, candidate, 2);
+            await rows().nth(1).click();
+            assert.equal((await snapshot(page)).selectedId, 'plugin-1');
+            return { observations, recovery: await snapshot(page) };
+        });
+    }
     await observe(checks, 'repeated-mount-global-listener-cleanup', async () =>
     {
         await page.evaluate(() => globalThis.pluginCollectionProbe.unmount());
@@ -272,7 +304,7 @@ async function probeCandidate(context, baseUrl, candidate, modeReport)
     await page.screenshot({ path: path.join(output, `${modeReport.mode}-${candidate}-375-zoom-forced-colors.png`), fullPage: true });
     await page.evaluate(() => globalThis.document.documentElement.style.zoom = '1');
     await configure(page, candidate, 2);
-    await rows().first().focus();
+    await page.keyboard.press('Tab');
     result.focus = await rows().first().evaluate((node) => ({
         focused: node === globalThis.document.activeElement,
         focusVisible: node.matches(':focus-visible'),
@@ -355,14 +387,14 @@ try
             await identityPage.waitForFunction(() => Boolean(globalThis.pluginCollectionProbe));
             modeReport.publicComponents = await identityPage.evaluate(() => globalThis.pluginCollectionProbe.publicComponents);
             await identityPage.close();
-            for (const candidate of ['data-list', 'responsive-collection', 'menu'])
+            for (const candidate of candidates)
             {
                 await probeCandidate(context, `http://127.0.0.1:${address.port}`, candidate, modeReport);
             }
             const touch = await browser.newContext({ viewport: { width: 375, height: 900 }, hasTouch: true });
             try
             {
-                for (const candidate of ['data-list', 'responsive-collection', 'menu'])
+                for (const candidate of candidates)
                 {
                     await observe(modeReport.candidates.find((entry) => entry.candidate === candidate).checks, 'touch-activation', async () =>
                     {
@@ -372,9 +404,26 @@ try
                             await page.goto(`http://127.0.0.1:${address.port}`);
                             await page.waitForFunction(() => Boolean(globalThis.pluginCollectionProbe));
                             await configure(page, candidate, 2);
-                            await page.getByTestId('collection').getByRole(candidate === 'menu' ? 'menuitem' : 'listitem').nth(1).tap();
+                            const role = candidate === 'menu' ? 'menuitem' : candidate === 'data-list' ? 'button' : 'listitem';
+                            await page.getByTestId('collection').getByRole(role).nth(1).tap();
                             assert.equal((await snapshot(page)).selectedId, 'plugin-1');
-                            return await snapshot(page);
+                            const ready = await snapshot(page);
+                            const disabled = [];
+                            if (candidate === 'data-list')
+                            {
+                                for (const options of [{ state: 'loading' }, { disabled: true }, { disabledKeys: ['plugin-0'] }, { collectionLoading: true }])
+                                {
+                                    await configure(page, candidate, 2, options);
+                                    const row = page.getByTestId('collection').getByRole(role).first();
+                                    assert.equal(await row.isDisabled(), true);
+                                    const box = await row.boundingBox();
+                                    assert.ok(box);
+                                    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+                                    assert.equal((await snapshot(page)).activations.length, 0);
+                                    disabled.push({ options, state: await snapshot(page) });
+                                }
+                            }
+                            return { ready, disabled };
                         }
                         finally
                         {

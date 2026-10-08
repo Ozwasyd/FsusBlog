@@ -51,3 +51,10 @@ one new `.tmp/chain-1894/plugin-collection-*` directory per invocation. Exit 1
 means an observed contract failure; exit 2 means a blocked source/runtime.
 These component capability diagnostics do not qualify the authenticated
 PluginAdmin route, the canonical pinned test lanes or independent UX acceptance.
+
+An optional second argument selects `data-list`, `responsive-collection` or
+`menu`; the default `all` keeps the full candidate comparison. For example,
+`node tests/frontend/checks/runtime/check-plugin-collection-probe.mjs local data-list`
+checks the chosen DataList capability without claiming the other candidates
+support single selection. DataList includes public collection/keyed disabling,
+loading, pointer, keyboard, synthetic-click and touch rejection plus recovery.
