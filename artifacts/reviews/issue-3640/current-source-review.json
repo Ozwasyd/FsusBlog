@@ -1,0 +1,77 @@
+{
+    "schema": "fsusblog.source-review-diagnostic.v1",
+    "issue": 3640,
+    "authority": false,
+    "qualificationEligible": false,
+    "reviewCandidateKind": "evidence-only on actual accepted source; implementation already present",
+    "baseCommit": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "testedSourceCommit": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "sourceTree": "19e2dfa5dbabd0b7adcce5577e7663021053b78d",
+    "command": "node --test tests/tools/frontend-style.test.mjs",
+    "node": "official24.16.0",
+    "nodeExecutableSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+    "exitCode": 0,
+    "results": {
+        "tests": 37,
+        "passed": 37,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "durationMs": 122687.572742
+    },
+    "sourceUnchangedAfterRun": true,
+    "files": {
+        "docs/development/frontend-style-enforcement.md": "8cc81624257694eea24b2002c5f45c2611af118ab8c9901b25683ea23c03ab1e",
+        "tools/frontend/check-frontend-style.mjs": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+        "tests/tools/frontend-style.test.mjs": "f4af357aa0fc6bf4dbfab0c48f85b49c405bade82153930dca44f2149ab17484",
+        "config/development/frontend-style-policy.json": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+        "config/development/frontend-style-rule-registry.json": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+        "tools/frontend/style-toolchain/eslint.config.mjs": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+        "tools/frontend/style-toolchain/stylelint.config.mjs": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe",
+        "tools/frontend/style-toolchain/package.json": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+        "tools/frontend/style-toolchain/package-lock.json": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+        "tools/frontend/reviewed-residual-classification.mjs": "d0353f5b4e7c34e18521b3e72a825e24e81d4c0672e055e2419781e494a6d134",
+        "config/development/frontend-style-reviewed-residual.json": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8",
+        "config/development/frontend-style-baseline.json": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+    },
+    "criteria": {
+        "mode semantics documented in current owner": "docs/development/frontend-style-enforcement.md#baseline-and-modes",
+        "original source-state/generatedFrom/source-drift refusals preserved": "original full37 suite executed; original3 refusal cases pass",
+        "clean zero-debt and unchanged binding across every scan mode": "original unchanged-zero-debt and each-clean-binding-drift controls pass",
+        "configuration/source/generatedFrom single and combined drift": "original each-binding, combined-binding and actual-configuration controls pass",
+        "full aggregates each binding diagnostic and all selected file findings": "original combined binding/file findings control passes",
+        "changed and strict-full have no global stale-history blocker": "original mode-boundary controls pass; strict-full exposes original file debt",
+        "update retains growth/equal-count/path/authority refusals": "original full suite updater/correction/residual/pruning cases pass",
+        "candidate norm/policy cannot self-promote": "no norm/checker/baseline/policy edits in this narrow candidate; independent read-only review and any explicit promotion remain separate",
+        "real project/runtime qualification": "NOT CLAIMED; root3640 is diagnostic source contract; downstream3639/3606/3597/3631 retain their own gates"
+    },
+    "log": "artifacts/reviews/issue-3640/original-style-suite.log",
+    "logSha256": "10dc0dc0a1979cb8631f0c06dcc110031ca4bc37357401f14f7232e83db5f232",
+    "initialSetupRed": "Task receipt .tmp/chain-3640-fresh/master-original-style-missing-ajv.log retained; locked cache copied only after manifest/lock equality verification",
+    "lockedToolchain": {
+        "tools/frontend/style-toolchain": {
+            "package.json": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+            "package-lock.json": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+        },
+        "tools/test-matrix/schema-validator": {
+            "package.json": "a2be3670a2f5e3a68e2c392c9f86c693e99567d17760e292d9b0c4bc73013356",
+            "package-lock.json": "52cd746c96d8379ad347ebc3da270f377340aa6f201dd2cdc65cfe45248cb7bf"
+        },
+        "tools/governance/javascript-format-parser": {
+            "package.json": "e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6",
+            "package-lock.json": "d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9"
+        }
+    },
+    "remaining": [
+        "Independent non-author current-source read-only review",
+        "Previous accepted-base trusted contract executed separately against frozen evidence-only commit",
+        "Any future norm/checker promotion remains explicit owner decision; no consumer/runtime acceptance inferred"
+    ],
+    "prohibitionsPreserved": [
+        "No baseline regeneration/debt expansion/count ceiling",
+        "No finding suppression/inline disable/import broadening/digest duplication",
+        "No production resource/destructive migration/fabricated receipt",
+        "No ProjectXML Git replacement-ref remediation",
+        "No API write/merge/issue closure/deployment"
+    ]
+}
