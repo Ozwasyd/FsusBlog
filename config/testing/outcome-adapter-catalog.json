@@ -19,7 +19,45 @@
             "membershipSchema": "#/$defs/backend",
             "normalizationStatus": "data-only-schema",
             "owner": "outcome-contract",
-            "proofTestId": "outcome:domain-profiles"
+            "proofTestId": "outcome:domain-profiles",
+            "producerSources": [
+                {
+                    "role": "native-execution-events",
+                    "path": "tools/test-matrix/outcomes/backend-native-execution-events.mjs",
+                    "sourceCommit": "f388602afde1368df84e466d133a0f153f538f31",
+                    "sourceDigest": "sha256:07b475041b41c8144bfbb0c0859f85286a0ab254cc4e405d24e1ee233f341bbe",
+                    "exports": [
+                        "buildBackendNativeExecutionEvents"
+                    ],
+                    "methods": [],
+                    "documentSchemas": [
+                        "fsusblog.backend-native-execution-events.v1"
+                    ],
+                    "contractPath": "tools/test-matrix/outcomes/backend-test-adapter.design.md",
+                    "admissionStatus": "ordinary-source-only",
+                    "grantsQualification": false
+                },
+                {
+                    "role": "replay-parent",
+                    "path": "tools/test/xunit-replay-adapter.mjs",
+                    "sourceCommit": "f388602afde1368df84e466d133a0f153f538f31",
+                    "sourceDigest": "sha256:fb3c2b58dc917b61bfb3ad737902cff1907c9572356110e2b502516c1f225cdc",
+                    "exports": [
+                        "spawnSlot",
+                        "execute"
+                    ],
+                    "methods": [],
+                    "documentSchemas": [
+                        "fsusblog.xunit-replay-slot-process.v1",
+                        "fsusblog.xunit-replay-process-results.v1",
+                        "fsusblog.xunit-replay-partial-actual.v1",
+                        "fsusblog.backend-native-execution-events.v1"
+                    ],
+                    "contractPath": "tools/test-matrix/outcomes/backend-test-adapter.design.md",
+                    "admissionStatus": "ordinary-source-only",
+                    "grantsQualification": false
+                }
+            ]
         },
         {
             "family": "frontend",
