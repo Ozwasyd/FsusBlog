@@ -5,9 +5,10 @@
             "id": "environment-variable",
             "paths": [
                 "src/backend/Infrastructure/Security/BanStateProjection.cs",
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test-inventory/discovery.mjs"
             ],
-            "reason": "Preserve the registered C# environment-variable surface while correcting only XML documentation of missing authority facts and the concurrent local-state reread. Runtime tokens and signatures are unchanged. Imported prerequisite binding: preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster."
+            "reason": "Preserve the registered C# environment-variable surface while correcting only XML documentation of missing authority facts and the concurrent local-state reread. Runtime tokens and signatures are unchanged. Imported prerequisite binding: preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster and interpreting observed MSBuild separators at the existing bounded Compile projection."
         },
         {
             "id": "json-wire-key",
