@@ -448,6 +448,10 @@ capture its current active generation under its existing lifecycle gate; the
 corrupt receipt cannot select a generation or a different active package mapping.
 After confirming that exact mapping, the same gate protects resource cleanup and
 an attempt to revoke the original grant catalog, including when termination fails.
+If resources settle but grant revocation fails, the original owner retains that
+exact package and generation in revoking custody. Ordinary resource revocation
+cannot discard it; a matching explicit shutdown can retry without issuing a
+receipt or touching a different package.
 That cleanup quarantines the extension, preserves the original receipt refusal
 and separate bounded cleanup diagnostics, and publishes no replacement receipt.
 A missing canonical resource owner or mismatched current package refuses cleanup

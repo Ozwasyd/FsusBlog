@@ -176,6 +176,7 @@ public sealed class AuthoringExtensionLifecycleResources(
                 }
 
                 generation = active.Generation;
+                active.GrantRevocationPending = true;
                 _quarantined[package.Contract.Manifest.Id] = "lifecycle-receipt-invalid";
             }
 
@@ -201,6 +202,21 @@ public sealed class AuthoringExtensionLifecycleResources(
             catch
             {
                 grantFailure = "cleanup-failed";
+            }
+
+            if (grantFailure is null)
+            {
+                lock (_lock)
+                {
+                    if (_active.TryGetValue(package.Contract.Manifest.Id, out ActiveResources? active))
+                    {
+                        active.GrantRevocationPending = false;
+                        if (resourceFailure is null)
+                        {
+                            _active.Remove(package.Contract.Manifest.Id);
+                        }
+                    }
+                }
             }
 
             return (resourceFailure, grantFailure);
@@ -292,7 +308,10 @@ public sealed class AuthoringExtensionLifecycleResources(
         {
             lock (_lock)
             {
-                _active.Remove(extensionId);
+                if (_active.TryGetValue(extensionId, out ActiveResources? resources) && !resources.GrantRevocationPending)
+                {
+                    _active.Remove(extensionId);
+                }
             }
         }
 
@@ -513,6 +532,11 @@ public sealed class AuthoringExtensionLifecycleResources(
         public long Generation { get; set; } = generation;
 
         public string PackageScopeKey { get; } = packageScopeKey;
+
+        public bool GrantRevocationPending
+        {
+            get; set;
+        }
 
         public List<IAuthoringWorkerSandboxInstance> Workers { get; } = [];
 

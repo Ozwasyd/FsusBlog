@@ -294,6 +294,81 @@ public sealed class AuthoringExtensionLifecycleTests
         Assert.Equal(receiptCount, receipts.All.Count);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShutdownAsync_GrantRecoveryRetriesOnlyTheRetainedOwnedPackage(bool uninstall)
+    {
+        VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
+        ImmutableArray<AuthoringExecutionTarget> targets = CreateTargets(package);
+        AuthoringContributionDeclaration contribution = package.Contract.Manifest.Contributions[0];
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var grant = new AuthoringCapabilityGrant(
+            "grant-recovery-1", targets[0].RuntimeIdentity!, package.Contract.Manifest.Id,
+            package.Contract.Manifest.Version, contribution.Id, contribution.ExecutionClass,
+            AuthoringCapability.DocumentRangeRead, "document-1", "site-1", "read-range", null, null,
+            now, now.AddMinutes(1), "approval-1", "request-1", new string('a', 64));
+        var grants = new RecoveringShutdownGrantCatalog(grant);
+        var host = new HostResources();
+        var resources = new AuthoringExtensionLifecycleResources(host);
+        var receipts = new ReceiptStore();
+        var state = new StateStore();
+        var coordinator = new AuthoringExtensionLifecycleCoordinator(
+            resources, new Preflight(true), state, receipts, grants);
+        AuthoringLifecycleReceipt receipt = await coordinator.EnableAsync(package, targets);
+        var worker = new TrackedWorker();
+        var service = new TrackedService();
+        await resources.TrackWorkerAsync(package.Contract.Manifest.Id, receipt.Generation, worker);
+        await resources.TrackServiceAsync(package.Contract.Manifest.Id, receipt.Generation, service);
+        receipts.ReplaceStoredReceipt(receipt with
+        {
+            ReceiptSha256 = new string('0', 64)
+        });
+        int receiptCount = receipts.All.Count;
+
+        async Task<AuthoringExtensionContractException> ShutdownAsync() =>
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            {
+                if (uninstall)
+                {
+                    await coordinator.UninstallAsync(package, CreateScope(package));
+                }
+                else
+                {
+                    await coordinator.DisableAsync(package);
+                }
+            });
+
+        AuthoringExtensionContractException first = await ShutdownAsync();
+        Assert.Contains("Stored lifecycle receipt", first.Message, StringComparison.Ordinal);
+        Assert.Equal("cleanup-failed", first.Data["AuthoringGrantCleanup"]);
+        Assert.True(worker.Terminated);
+        Assert.True(worker.Disposed);
+        Assert.True(service.Terminated);
+        Assert.True(service.Disposed);
+        Assert.Single(await grants.FindActiveAsync(grant.ExtensionId, grant.ContributionId, grant.RuntimeIdentity, CancellationToken.None));
+
+        VerifiedAuthoringPackage otherPackage = CreatePackage("2.0.0", 1);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await coordinator.DisableAsync(otherPackage));
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await resources.ActivateAtomicallyAsync(otherPackage, CreateTargets(otherPackage), receipt.Generation + 1, CancellationToken.None));
+        Assert.Equal(1, grants.RevocationCount);
+        Assert.Equal(1, host.RevocationCount);
+        Assert.True((await resources.RevokeAllAsync(package.Contract.Manifest.Id, receipt.Generation, CancellationToken.None)).IsEmpty);
+
+        AuthoringExtensionContractException second = await ShutdownAsync();
+        Assert.Contains("Stored lifecycle receipt", second.Message, StringComparison.Ordinal);
+        Assert.Null(second.Data["AuthoringGrantCleanup"]);
+        Assert.Equal(2, grants.RevocationCount);
+        Assert.Empty(await grants.FindActiveAsync(grant.ExtensionId, grant.ContributionId, grant.RuntimeIdentity, CancellationToken.None));
+        Assert.Equal(3, host.RevocationCount);
+        Assert.Equal(receiptCount, receipts.All.Count);
+        Assert.False(state.DeleteCalled);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await coordinator.AcceptResultAsync(package.Contract.Manifest.Id, receipt.Generation + 1));
+    }
+
     [Fact]
     public async Task ShutdownAsync_MissingCanonicalResourceOwnerDoesNotInventRevocationAuthority()
     {
@@ -1141,5 +1216,39 @@ public sealed class AuthoringExtensionLifecycleTests
         public ValueTask<int> RevokeRuntimesAsync(
             string extensionId, ImmutableHashSet<string> runtimeIdentities, CancellationToken cancellationToken) =>
             ValueTask.FromResult(0);
+    }
+
+    private sealed class RecoveringShutdownGrantCatalog(AuthoringCapabilityGrant grant) : IAuthoringCapabilityGrantCatalog
+    {
+        private readonly AuthoringCapabilityGrantCatalogStub _catalog = new([grant]);
+
+        public int RevocationCount
+        {
+            get; private set;
+        }
+
+        public ValueTask<ImmutableArray<AuthoringCapabilityGrant>> FindActiveAsync(
+            string extensionId, string contributionId, string runtimeIdentity, CancellationToken cancellationToken) =>
+            _catalog.FindActiveAsync(extensionId, contributionId, runtimeIdentity, cancellationToken);
+
+        public ValueTask<ImmutableArray<AuthoringCapabilityGrant>> FindActiveExactAsync(
+            string extensionId, string extensionVersion, string contributionId, string runtimeIdentity,
+            AuthoringExecutionClass executionClass, string documentId, CancellationToken cancellationToken) =>
+            _catalog.FindActiveExactAsync(extensionId, extensionVersion, contributionId, runtimeIdentity,
+                executionClass, documentId, cancellationToken);
+
+        public ValueTask<int> RevokeExtensionAsync(string extensionId, CancellationToken cancellationToken)
+        {
+            RevocationCount++;
+            if (RevocationCount == 1)
+            {
+                throw new IOException("grant store temporarily unavailable");
+            }
+            return _catalog.RevokeExtensionAsync(extensionId, cancellationToken);
+        }
+
+        public ValueTask<int> RevokeRuntimesAsync(
+            string extensionId, ImmutableHashSet<string> runtimeIdentities, CancellationToken cancellationToken) =>
+            _catalog.RevokeRuntimesAsync(extensionId, runtimeIdentities, cancellationToken);
     }
 }
