@@ -28,7 +28,7 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
 
     const handleShortcut = (event: KeyboardEvent): void =>
     {
-        if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.repeat ||
+        if (event.defaultPrevented || event.isComposing || event.keyCode === 229 ||
             event.altKey || event.shiftKey || event.ctrlKey === event.metaKey ||
             event.key.toLowerCase() !== 'p' || !available.value)
         {
@@ -36,7 +36,10 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
         }
         event.preventDefault();
         event.stopPropagation();
-        open();
+        if (!event.repeat)
+        {
+            open();
+        }
     };
 
     const stopWatching = watch(options.shortcutScope, (scope, _previous, onCleanup) =>
