@@ -3163,3 +3163,54 @@ frozen public projection retention, asset/dependency and rights/privacy policies
 current target and actor permissions, and independent execution qualification.
 The original provider, zero-write runtime, cleanup, interruption and integration
 acceptance gates remain outstanding; this component supplies no synthetic receipt.
+
+## Finite ZIP input for import candidates
+
+`ArticlePackageImportZipCandidateReader.TryReadCandidate` reads actual supplied ZIP
+bytes through the existing official `System.IO.Compression.ZipArchive` library,
+then calls the sole `ArticlePackageImportCandidateBytes` validator. It reuses the
+current Inventory paths, regular-file-only rule, compression ratio `100` and size
+limits. The candidate input ceiling is 128 MiB of archive bytes, 1,002 entries,
+1,000 articles and 64 MiB of decompressed files; assets remain unavailable.
+These are finite intermediate component limits, not a new package schema or a
+replacement for complete large-asset streaming and task-owned staging.
+
+Caller archive storage is copied before inspection. A bounded standard ZIP header
+guard runs before the official reader materializes its Entries collection. It
+checks the actual central-record count and extent, every local/central filename,
+method, flags, size and CRC coordinate, and contiguous nonoverlapping local ranges.
+The nearest end-of-central-directory signature must end exactly at the archive
+boundary. An ambiguous signature inside an archive comment is refused before
+the official reader can select a different directory.
+The guard follows PKWARE APPNOTE sections 4.3.7, 4.3.9, 4.3.12 and 4.3.16; it does
+not implement decompression or a second article-package schema. Only the finite
+classic single-disk stored/deflate profile is currently supported. Standard
+12-byte and signature-prefixed 16-byte data descriptors are checked against their
+central coordinates. Directory, reparse and nonregular UNIX entries are refused.
+
+No package-level acceptance rule exists here for arbitrary ZIP extra fields,
+hardlink metadata, ZIP64, encryption, split archives, other compression methods,
+creator profiles, prefixed executables or unsupported directory records. These
+shapes are refused with `article_package_zip_metadata_unsupported` rather than
+silently ignored, normalized, extracted or accepted as a new format version.
+Both local and central extra fields are refused, including alternate filenames
+and link metadata. Supported timestamps and bounded entry/archive comments remain
+wire metadata only; they cannot supply article lifecycle or permission facts.
+
+The official library reads each supported entry in bounded chunks. Actual length,
+EOF and independently recomputed standard ZIP CRC-32 must match the guarded
+coordinates. Every manifest, checksum and Markdown raw metadata check then uses
+the actual decompressed bytes through the existing sole owners. Any invalid entry
+or cancellation leaves the whole ZIP candidate absent. No file is extracted or
+written. The wrapper exposes only the owned file `Candidate`, actual archive
+`ArchiveByteLength` and `ArchiveSha256`; caller mutations cannot change them.
+Compression, entry order, timestamps or comments may change the archive hash
+without changing the finite file-set digest. This distinction does not qualify a
+full package semantic digest or persistent provenance.
+
+`RequireArchiveAuthority()` always returns
+`article_package_zip_authority_unavailable`. An existing request plan built from
+its file candidate still always refuses execution. This reader supplies no
+permission, zero-write runtime, staging/cleanup, timeout, interrupted-flow or
+independent original-project qualification receipt. The complete authority list
+and all original #2402/#2411 acceptance gates remain required.
