@@ -6,7 +6,6 @@
             "paths": [
                 "config/testing/evidence-location-migration-ledger.json",
                 "config/testing/evidence-locator-registry.json",
-                "tools/release/publish-release-final-bindings.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/test/generate-evidence-location-governance.mjs"
             ],
