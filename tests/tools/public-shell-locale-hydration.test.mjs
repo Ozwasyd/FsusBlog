@@ -11,29 +11,31 @@ const scene = matrix.scenes.find((item) => item.issue === 2084
     && item.viewport.width === 390);
 assert.ok(scene, 'hydration Home scene is missing');
 const copy = await resolvePublicShellLocaleCopy(matrix, scene.id);
-const authKey = 'public.shell.login';
 
 function box(x)
 {
     return { x, y: 0, width: 48, height: 48, overflow: false };
 }
 
-function snapshot(overrides = {})
+function snapshot(overrides = {}, caseScene = scene, caseCopy = copy)
 {
+    const auth = caseScene.authActionContext === 'anonymous' ? 'login'
+        : caseScene.authActionContext === 'admin' ? 'dashboard' : 'account';
+    const authKey = `public.shell.${auth}`;
     return {
-        language: scene.document.language,
-        direction: scene.document.direction,
-        copy: { ...copy },
+        language: caseScene.document.language,
+        direction: caseScene.document.direction,
+        copy: { ...caseCopy },
         metadata: {
-            title: copy['layout.siteHeader.fallbackTitle'],
-            description: copy['layout.siteHeader.fallbackDescription'],
-            openGraphLocale: scene.document.openGraphLocale
+            title: caseCopy['layout.siteHeader.fallbackTitle'],
+            description: caseCopy['layout.siteHeader.fallbackDescription'],
+            openGraphLocale: caseScene.document.openGraphLocale
         },
         selector: {
-            active: scene.locale,
-            items: scene.selectorItems.map((item) => ({ code: item.code, selected: item.selected, hidden: false }))
+            active: caseScene.locale,
+            items: caseScene.selectorItems.map((item) => ({ code: item.code, selected: item.selected, hidden: false }))
         },
-        authAction: { key: authKey, text: copy[authKey] },
+        authAction: { key: authKey, text: caseCopy[authKey] },
         geometry: {
             header: box(0),
             brand: box(48),
@@ -42,21 +44,21 @@ function snapshot(overrides = {})
             selector: box(192),
             hitTargets: [{ name: 'selector', width: 44, height: 44, hidden: false }]
         },
-        accessibleNames: scene.selectorItems.map((item) => item.nativeName),
-        sourceOrder: scene.selectorItems.map((item) => item.code),
+        accessibleNames: caseScene.selectorItems.map((item) => item.nativeName),
+        sourceOrder: caseScene.selectorItems.map((item) => item.code),
         mixedLanguage: false,
         selectorHidden: false,
         ...overrides
     };
 }
 
-function snapshots(mutateStage = null, mutate = null)
+function snapshots(mutateStage = null, mutate = null, caseScene = scene, caseCopy = copy)
 {
     const value = {
-        'first-html': snapshot(),
-        'hydration-start': snapshot(),
-        'interactive-ready': snapshot(),
-        'selector-open': snapshot()
+        'first-html': snapshot({}, caseScene, caseCopy),
+        'hydration-start': snapshot({}, caseScene, caseCopy),
+        'interactive-ready': snapshot({}, caseScene, caseCopy),
+        'selector-open': snapshot({}, caseScene, caseCopy)
     };
     if (mutateStage)
     {
@@ -162,4 +164,39 @@ test('1440px header geometry stays stable and above the desktop hit-area floor',
         }
     });
     assert.equal(evidence.observed.locale, wide.locale);
+});
+
+for (const [index, locale] of matrix.locales.entries())
+{
+    test(`hydration preserves catalog-derived ${locale.code} semantic facts`, async () =>
+    {
+        const route = index % 2 === 0 ? 'Home' : 'ArticleDetail';
+        const auth = ['anonymous', 'authenticated', 'admin'][index % 3];
+        const caseScene = matrix.scenes.find((item) => item.issue === 2084
+            && item.stage === 'interactive-ready' && item.locale === locale.code
+            && item.route === route && item.authActionContext === auth && item.viewport.width === 390);
+        assert.ok(caseScene, 'catalog hydration representative is missing');
+        const caseCopy = await resolvePublicShellLocaleCopy(matrix, caseScene.id);
+        const evidence = assertPublicShellLocaleHydration({ scene: caseScene, copy: caseCopy,
+            snapshots: snapshots(null, null, caseScene, caseCopy) });
+        assert.equal(evidence.observed.locale, locale.code);
+        assert.equal(evidence.qualificationEligible, false);
+    });
+}
+
+for (const field of ['title', 'description'])
+{
+    test(`hydration rejects post-hydration ${field} drift`, () =>
+    {
+        assert.throws(() => assertPublicShellLocaleHydration({ scene, copy,
+            snapshots: snapshots('interactive-ready', (value) => ({ ...value,
+                metadata: { ...value.metadata, [field]: 'wrong-metadata' } })) }), /hydration/u);
+    });
+}
+
+test('hydration rejects unregistered visible-copy facts', () =>
+{
+    assert.throws(() => assertPublicShellLocaleHydration({ scene, copy,
+        snapshots: snapshots('first-html', (value) => ({ ...value,
+            copy: { ...value.copy, 'unregistered.copy': 'wrong-copy' } })) }), /hydration/u);
 });
