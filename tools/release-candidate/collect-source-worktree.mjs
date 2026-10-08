@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 
-import { snapshotRepositorySourceIdentity } from '../test/repository-source-snapshot.mjs';
+const { snapshotRepositorySourceIdentity } = await import(new URL('../test/repository-source-snapshot.mjs', import.meta.url));
 
-export { snapshotRepositorySourceIdentity as collectSourceWorktreeIdentity } from '../test/repository-source-snapshot.mjs';
+export { snapshotRepositorySourceIdentity as collectSourceWorktreeIdentity };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
