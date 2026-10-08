@@ -315,8 +315,21 @@ export class ArticleRenderCache
     public get state(): ArticleRenderState
     {
         const context = this.adapter.context;
+        let retainedResultValid = true;
+        if (this.entry)
+        {
+            try
+            {
+                retainedResultValid = this.entryRequest !== null
+                    && this.producer.verify(this.entryRequest, this.entry.result);
+            }
+            catch
+            {
+                retainedResultValid = false;
+            }
+        }
         if (this.entry && (!validateArticleRenderCacheEntry(this.entry)
-            || !this.entryRequest || !this.producer.verify(this.entryRequest, this.entry.result)
+            || !retainedResultValid
             || !sameDocument(this.entry.context, context) || !identitiesEqual(this.identity, this.entry.identity)
             || this.entry.context.sourceRevision > context.sourceRevision
             || (this.entry.context.sourceRevision === context.sourceRevision
@@ -324,6 +337,11 @@ export class ArticleRenderCache
             || this.clock() - this.entry.createdAt >= this.policy.maxAgeMs))
         {
             this.clearEntry();
+            if (!retainedResultValid)
+            {
+                this.failure = 'render-cache-verification-failed';
+                this.refreshState = this.active?.isCurrent() ? 'running' : 'failed';
+            }
         }
         const stale = this.entry !== null && this.entry.context.sourceRevision < context.sourceRevision;
         return seal({
@@ -389,8 +407,9 @@ export class ArticleRenderCache
         const startedAt = this.clock();
         this.refreshState = 'running';
         this.failure = null;
-        let resolveAbort: (value: null) => void = () => undefined;
-        const canceled = new Promise<null>(resolve =>
+        const cancellation = Symbol('render-canceled');
+        let resolveAbort: (value: typeof cancellation) => void = () => undefined;
+        const canceled = new Promise<typeof cancellation>(resolve =>
         {
             resolveAbort = resolve;
         });
@@ -401,7 +420,7 @@ export class ArticleRenderCache
                 this.active = null;
                 this.refreshState = 'canceled';
             }
-            resolveAbort(null);
+            resolveAbort(cancellation);
         };
         task.signal.addEventListener('abort', onAbort, { once: true });
         let result: ArticleRenderResult | null = null;
@@ -413,15 +432,15 @@ export class ArticleRenderCache
             // Even a producer ignoring AbortSignal cannot hold cancellation open or commit late.
             const produced = Promise.resolve().then(() => this.producer.render(request)).then(value =>
             {
-                if (task.signal.aborted && value.resultRef)
+                if (task.signal.aborted && value && isRef(value.resultRef))
                 {
                     this.producer.release(value.resultRef);
                 }
                 return value;
             });
             const value = await Promise.race([produced, canceled]);
-            uncommittedRef = value && isRef(value.resultRef) ? value.resultRef : null;
-            if (value === null)
+            uncommittedRef = value !== cancellation && value && isRef(value.resultRef) ? value.resultRef : null;
+            if (value === cancellation)
             {
                 status = 'canceled';
                 reason = 'render-canceled';

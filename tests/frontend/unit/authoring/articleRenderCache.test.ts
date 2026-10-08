@@ -232,6 +232,54 @@ describe('ArticleRenderCache (#2245)', () => {
             expect(adapter.activeTaskRefs).toEqual([]);
         }
     });
+    it('rejects a null producer result as invalid rather than treating it as cancellation', async () => {
+        const { cache, producer, adapter } = setup();
+        await cache.refresh();
+        const previous = cache.state.content;
+        vi.mocked(producer.render).mockResolvedValueOnce(null as unknown as ArticleRenderResult);
+        const receipt = await cache.refresh();
+        expect(receipt.status).toBe('rejected');
+        expect(receipt.reason).toBe('render-result-invalid');
+        expect(validateArticleRenderReceipt(receipt)).toBe(true);
+        expect(cache.state.content).toBe(previous);
+        expect(cache.state.refreshState).toBe('failed');
+        expect(adapter.activeTaskRefs).toEqual([]);
+    });
+    it('falls back explicitly when retained-result verification throws and permits retry', async () => {
+        const { cache, producer } = setup();
+        await cache.refresh();
+        const previousRef = cache.state.content!.result.resultRef;
+        vi.mocked(producer.verify).mockImplementationOnce(() => { throw new Error('retained-result-invalid'); });
+        const state = cache.state;
+        expect(state.content).toBeNull();
+        expect(state.fallback).toBe('source');
+        expect(state.failure).toBe('render-cache-verification-failed');
+        expect(state.actionIds).toContain('render-retry');
+        expect(validateArticleRenderState(state)).toBe(true);
+        expect(producer.release).toHaveBeenCalledWith(previousRef);
+        expect((await cache.refresh()).status).toBe('committed');
+    });
+    it('keeps an active refresh cancelable when retained-result verification throws', async () => {
+        const { cache, producer } = setup();
+        await cache.refresh();
+        const late = deferred<ArticleRenderResult>();
+        let request!: ArticleRenderRequest;
+        vi.mocked(producer.render).mockImplementationOnce(input => { request = input; return late.promise; });
+        const pending = cache.refresh();
+        await Promise.resolve();
+        vi.mocked(producer.verify).mockImplementationOnce(() => { throw new Error('retained-result-invalid'); });
+        const state = cache.state;
+        expect(state.content).toBeNull();
+        expect(state.fallback).toBe('loading');
+        expect(state.refreshState).toBe('running');
+        expect(state.actionIds).toEqual(['render-cancel']);
+        expect(validateArticleRenderState(state)).toBe(true);
+        cache.cancel();
+        expect((await pending).status).toBe('canceled');
+        late.resolve(resultFor(request));
+        await vi.waitFor(() => expect(producer.release).toHaveBeenCalledWith(resultFor(request).resultRef));
+        expect(cache.state.content).toBeNull();
+    });
     it.each(['context', 'request', 'feature', 'authority', 'html', 'partial-without-fallback'] as const)(
         'rejects %s mutation without replacing old valid content', async mutation => {
             const { cache, adapter, producer } = setup();
