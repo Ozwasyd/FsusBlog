@@ -1,0 +1,129 @@
+# Browser Contract outcome input contract
+
+`adaptBrowserContractSemanticOutcome({ repositoryRoot, authority })` consumes
+member-level evidence and returns the existing
+`fsusblog.producer-semantic-outcome-candidate.v1`. It uses the existing candidate
+validator, content digest primitive and failure taxonomy. It computes the
+candidate's required semantic payload digest, not a fingerprint or aggregate.
+
+## Held authority
+
+The caller must independently hold all of these fields:
+
+- `identity`: the unchanged candidate identity, with producer ID
+  `browser-contract-semantic-outcome`, source commit, worktree fingerprint,
+  build identity, scheduler run ID, toolchain, execution envelope, replay plan
+  and temporal context digests.
+- `attemptEligibility`: the existing six-field attempt/aggregate binding.
+  A failed or unqualified attempt produces a failed candidate with its actual
+  executed/terminal membership preserved; it can never produce success.
+- `policyDigest`: the exact Browser Contract policy digest.
+- `runtimeIdentities`: unique `{ projectId, browserId, runtimeDigest }` records
+  covering exactly the planned project/browser pairs. The digest must bind the
+  actual browser/runtime observation supplied by its existing owner.
+- `inputAuthorityRefs`: exactly one `{ kind, path, digest }` reference for each
+  of `browser-contract-plan`, `browser-contract-catalog` and
+  `browser-contract-report`. Digests cover raw file bytes, independently of
+  the document's canonical content seal. Paths are relative to the supplied
+  repository root; symlinks, escapes, missing/nonregular files, oversized files
+  and digest mismatches are refused.
+
+No authority or expected digest is inferred from the input document, timestamps,
+file existence, a log, a qualified flag inside the report, or another producer.
+The caller remains responsible for acquiring the real independently verified
+plan, attempt, temporal, envelope and runtime authority. Controlled test fixtures
+exercise this interface; they do not supply that runtime authority.
+
+## Sealed documents
+
+All three documents are closed objects with `schema`, `identity`,
+`attemptEligibility`, `policyDigest`, `runtimeIdentities` and `contentDigest`.
+Every binding must exactly equal the held authority. `contentDigest` uses the
+existing `sealContentDigest` algorithm over all fields except itself.
+
+`fsusblog.browser-contract-outcome-catalog.v1` adds `members`.
+`fsusblog.browser-contract-outcome-plan.v1` adds `members` and `catalogDigest`.
+The plan's complete members equal the catalog's; its catalog digest binds the
+catalog seal. Each planned member has exactly:
+
+```text
+id, projectId, browserId, testId, assertionId, required, artifacts
+```
+
+`required` is boolean. `artifacts` is a list of unique `{ id, kind }` correctness
+assertion declarations; only `dom`, `geometry`, `network` and `screenshot` are
+supported. Full project/browser/test/assertion tuples and member IDs are unique.
+Screenshot declaration is explicit; a failure screenshot or trace snapshot
+cannot become a correctness artifact through mere file presence.
+
+`fsusblog.browser-contract-outcome-report.v1` adds:
+
+```text
+catalogDigest, planDigest, groupStatus, members, artifacts, interruption, diagnostics
+```
+
+Both digests bind the sealed inputs. `groupStatus` is `success` or `failed` and
+must agree with the member results and interruption. It does not authorize or
+overwrite a member result, and cannot override attempt ineligibility.
+
+Each report member has exactly:
+
+```text
+id, projectId, browserId, testId, assertionId, executed, status, artifactIds, failures
+```
+
+IDs and the full tuple must match the plan. `passed` and `failed` require
+`executed: true`; `skipped` and `blocked` require `executed: false` and no semantic
+artifact references. A required skip fails the candidate. Only a skip explicitly
+permitted by the plan's `required: false` can coexist with success.
+
+`failures` contains unique `{ kind, identity }` records. Their kind comes from
+`readOutcomeFailureTaxonomy`; their identity includes the producer and member
+project/browser/test/assertion tuple plus the kind's required held identity.
+For example, `product.assertion` binds that member's assertion ID,
+`infra.browser-crash` binds the held attempt number, `infra.service-readiness`
+and `infra.environment-mismatch` bind the execution envelope, and
+`infra.toolchain-mismatch` binds the toolchain digest. Failure text is never
+used for classification. Failed members require canonical failures; other
+terminals forbid failures.
+
+`interruption` is null or an explicit canonical infrastructure failure with its
+required held identity. After an infrastructure interruption, omitted planned
+members become unexecuted `blocked` members. Explicit blocked members require
+that interruption. Executed members retain their precise results. Missing
+terminals without an interruption, duplicate/extra members, conflicting states
+and forged group success are refused.
+
+Every report artifact has exactly:
+
+```text
+id, memberId, kind, role, path, digest
+```
+
+`role: correctness` requires a planned declaration, matching kind/member,
+exact member reference and verified file bytes. Passed assertions require their
+complete artifact declarations. No orphan or duplicate artifact is admitted.
+`role: diagnostic` permits trace/video/log and diagnostic DOM/geometry/network/
+screenshot artifacts with separate IDs. Declared correctness IDs cannot be
+reclassified as diagnostic. Diagnostic bytes, locations and `diagnostics`
+metadata never enter semantic membership. The report seal still protects all
+these records, so a diagnostic change requires a newly held report reference.
+
+## Candidate and downstream ownership
+
+Membership contains planned project/browser/test/assertion/member ID sets,
+executed and disjoint terminal member sets, exact member records, canonical
+member/interruption failure kinds and correctness artifact content digests.
+Input authority references provide sealed evidence locations separately.
+Changing diagnostic text, timestamps, trace/video/log digests or locations does
+not change the semantic payload; changing correctness bytes does.
+
+The current Browser Contract runner does not yet emit this complete sealed
+member/assertion input set. Its scenario-level receipt alone is insufficient.
+The original runner/report owner must supply the bridge without changing tests,
+projects, workers, retries or assertions, including canonical failure identity
+and explicit correctness artifact disposition. The global outcome registry
+owner must register these candidate membership fields and relations before
+canonical producer analysis can admit this profile. This adapter does not
+modify either shared owner, authorize sealed outcomes, execute browsers,
+compute fingerprints, aggregate results or claim runtime qualification.
