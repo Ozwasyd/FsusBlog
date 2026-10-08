@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-api-field",
+            "paths": [
+                "tools/test-matrix/outcomes/frontend-vitest-adapter.mjs"
+            ],
+            "reason": "Preserve the original candidate-v1, replay-plan, attempt and taxonomy JSON field identities and the externally defined native Vitest testResults/assertionResults/report fields at their adapter boundary; internal helpers retain camelCase. This declares the existing registered surface only and does not add registry authority or change test semantics."
+        }
+    ]
+}
