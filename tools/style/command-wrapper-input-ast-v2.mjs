@@ -150,6 +150,7 @@ function validateMetadataGrammar(owned, bytes, parameters, metadataIds)
         assert.deepEqual(body.inner.map(node => sourceTokens(node, bytes, names)), productions.map(text => tokens(text)),
             `metadata guard/effect production drift: ${name}`);
         const calls = [];
+        const closedDescriptors = [];
         walk(body, node =>
         {
             if (node.kind === 'BinaryOperator' && node.opcode === '=')
@@ -186,6 +187,11 @@ function validateMetadataGrammar(owned, bytes, parameters, metadataIds)
                 assert.ok((descriptor === 'sourceFd' && status === 'sourceStat')
                     || (descriptor === 'aliasFd' && status === 'aliasStat'), 'status descriptor macro semantic drift');
             }
+            if (callee === 'close')
+            {
+                assert.equal(argumentsValue.length, 1, 'metadata close interface drift');
+                closedDescriptors.push(role(argumentsValue[0]));
+            }
             if (callee === 'AddRule')
             {
                 assert.equal(role(argumentsValue[0]), 'rulesetFd', 'metadata ruleset owner drift');
@@ -194,6 +200,8 @@ function validateMetadataGrammar(owned, bytes, parameters, metadataIds)
             }
         });
         assert.deepEqual(calls.sort(), [...expectedCalls.get(name)].sort(), 'metadata effect macro closure drift');
+        assert.deepEqual(closedDescriptors, name === 'AllowOwnedTemporaryAlias' ? ['aliasFd', 'sourceFd'] : [],
+            'metadata close descriptor macro semantic drift');
     }
     const main = owned.find(node => node.name === 'main');
     const body = main.inner.find(node => node.kind === 'CompoundStmt');

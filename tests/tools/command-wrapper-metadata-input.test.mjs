@@ -60,6 +60,12 @@ const ownedCliVariants = [
 
 const aliasSignature = 'static void AllowOwnedTemporaryAlias(';
 const macro = (definition) => ownedCliOriginal.replace('static unsigned long long ParseIdentity', `${definition}\nstatic unsigned long long ParseIdentity`);
+function aliasMacro(definition)
+{
+    const name = definition.split('(')[0].split(' ').at(-1);
+    return ownedCliOriginal.replace(aliasSignature, `${definition}\n${aliasSignature}`)
+        .replace(signature, `#undef ${name}\n${signature}`);
+}
 function renameMetadataLocals(source)
 {
     const begin = source.indexOf('static unsigned long long ParseIdentity');
@@ -72,6 +78,13 @@ function renameMetadataLocals(source)
 }
 
 ownedCliVariants.push(
+    ['metadata-close-source-macro', aliasMacro('#define close(fd) close(sourceFd)'), false],
+    ['metadata-close-constant-macro', aliasMacro('#define close(fd) close(-1)'), false],
+    ['metadata-open-alias-macro', aliasMacro('#define open(filename, flags) open("/tmp", flags)'), false],
+    ['metadata-diagnostic-value-macro', aliasMacro('#define fputs(text, stream) fputs(device, stream)'), false],
+    ['metadata-diagnostic-stream-macro', aliasMacro('#define fputs(text, stream) fputs(text, stdout)'), false],
+    ['metadata-newline-macro', aliasMacro('#define fputc(character, stream) fputc(0, stream)'), false],
+    ['metadata-ruleset-macro', aliasMacro('#define AddRule(fd, rule) AddRule(-1, rule)'), false],
     ['renamed-private-metadata-roles', renameMetadataLocals(ownedCliOriginal), true],
     ['metadata-errno-macro', macro('#undef EACCES\n#define EACCES EINVAL'), false],
     ['unregistered-identical-argv-sink', '#include <unistd.h>\nint main(int argc, char** argv) { (void)argc; execv(argv[1], &argv[1]); return 125; }\n', false],
