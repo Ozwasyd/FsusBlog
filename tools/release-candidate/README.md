@@ -48,3 +48,32 @@ cross-consumer governance also remain with their canonical owners.
 Downstream candidate aggregation requires verified alias/policy/build/fixture/
 execution identities. Missing receipts cannot be filled with SHA-only or manual
 defaults, and this source contract does not create a qualified candidate.
+
+## Cohort contract and storage capability
+
+`cohort-ledger.mjs` independently validates complete candidate payloads, distinct
+run/scheduler/namespace/Fresh-cleanup identities, ordinals, append order, every
+previous/current hash and the terminal seal. It retains failed, cancelled, partial
+and infrastructure outcomes. New runs never replace a failed ordinal. Restarting
+requires an explicitly named new cohort instance; no three-round rule is applied.
+
+`cohort-store.mjs` writes the identity and empty ledger in one staged directory
+rename, then uses an exclusive writer and explicit expected digest for atomic CAS
+updates. The immutable identity root is checked on every read. Inspection always
+requires the externally held expected ledger digest: otherwise a valid historical
+prefix cannot be distinguished from deletion of later records. A crashed writer
+lock is retained and refused; no PID/time-based stealing or repair is supplied.
+
+Creation requires the caller's independent six-fragment identity-plan verifier.
+Appending requires the caller's existing current-run locator and verified
+outcome/Fresh-cleanup/runtime mapping. These mandatory capabilities are injected
+interfaces, not generic `verified: true` fields. Neither production mapping is
+provided in this increment, and bare candidate payloads are not accepted by store
+creation. Unit callbacks exercise the owned storage contract only; they do not
+prove physical runtime receipts or qualification. Full independent inspection
+must additionally revalidate original locator-bound run receipts. Static consumer
+governance and terminal acceptance remain pending their canonical integration.
+
+```bash
+node --test tests/tools/release-candidate-cohort-ledger.test.mjs
+```
