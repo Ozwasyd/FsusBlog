@@ -93,9 +93,18 @@ public sealed class OfflineMigrationPlanTests
     {
         Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         var changed = fixture.Source with { Schema = [new("table.article", "present"), new("column.article.id", "text")] };
-        string message = Assert.Throws<InvalidOperationException>(() => fixture.Registry.Match(changed)).Message;
-        Assert.StartsWith("source_fingerprint_unknown:", message);
-        Assert.Contains("old:schema:changed:column.article.id:expected=uuid:actual=text", message);
+        OfflineMigrationSourceFingerprintException error = Assert.Throws<OfflineMigrationSourceFingerprintException>(
+            () => fixture.Registry.Match(changed));
+        Assert.Equal("source_fingerprint_unknown", error.Code);
+        Assert.Equal(error.Code, error.Message);
+        Assert.Contains(error.Differences, difference =>
+            difference.BaselineIdSha256 == OfflineMigrationSourceFingerprintException.HashText("old")
+            && difference.Category == OfflineMigrationFingerprintCategory.Schema
+            && difference.Kind == OfflineMigrationFingerprintDifferenceKind.Changed
+            && difference.FactNameSha256 == OfflineMigrationSourceFingerprintException.HashText("column.article.id")
+            && difference.ExpectedValueSha256 == OfflineMigrationSourceFingerprintException.HashText("uuid")
+            && difference.ActualValueSha256 == OfflineMigrationSourceFingerprintException.HashText("text"));
+        Assert.DoesNotContain("column.article.id", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -103,9 +112,15 @@ public sealed class OfflineMigrationPlanTests
     {
         Fixture fixture = CreateFixture(CurrentSchemaProviderKind.MySql, true);
         var partial = fixture.Source with { History = ImmutableArray<OfflineMigrationFact>.Empty };
-        Assert.StartsWith("source_fingerprint_unknown:", Assert.Throws<InvalidOperationException>(() => fixture.Registry.Match(partial)).Message);
+        OfflineMigrationSourceFingerprintException partialError = Assert.Throws<OfflineMigrationSourceFingerprintException>(
+            () => fixture.Registry.Match(partial));
+        Assert.Equal("source_fingerprint_unknown", partialError.Code);
+        Assert.Contains(partialError.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.History);
         var combined = fixture.Source with { BusinessShape = [new("article.identity", "legacy"), new("unregistered.column", "present")] };
-        Assert.StartsWith("source_fingerprint_unknown:", Assert.Throws<InvalidOperationException>(() => fixture.Registry.Match(combined)).Message);
+        OfflineMigrationSourceFingerprintException combinedError = Assert.Throws<OfflineMigrationSourceFingerprintException>(
+            () => fixture.Registry.Match(combined));
+        Assert.Equal("source_fingerprint_unknown", combinedError.Code);
+        Assert.Contains(combinedError.Differences, difference => difference.Category == OfflineMigrationFingerprintCategory.Business);
     }
 
     [Fact]
@@ -114,7 +129,14 @@ public sealed class OfflineMigrationPlanTests
         Fixture fixture = CreateFixture(CurrentSchemaProviderKind.Sqlite, true);
         ImmutableArray<OfflineMigrationFingerprintDefinition> definitions = Definitions();
         var ambiguous = new OfflineMigrationSourceRegistry("v1", definitions.Add(definitions[1] with { Id = "duplicate-shape" }));
-        Assert.StartsWith("source_fingerprint_ambiguous:", Assert.Throws<InvalidOperationException>(() => ambiguous.Match(fixture.Source)).Message);
+        OfflineMigrationSourceFingerprintException error = Assert.Throws<OfflineMigrationSourceFingerprintException>(
+            () => ambiguous.Match(fixture.Source));
+        Assert.Equal("source_fingerprint_ambiguous", error.Code);
+        Assert.Equal(error.Code, error.Message);
+        Assert.Empty(error.Differences);
+        Assert.Equal(new[] { "old", "duplicate-shape" }
+            .Select(OfflineMigrationSourceFingerprintException.HashText).Order(StringComparer.Ordinal),
+            error.AmbiguousBaselineIdSha256s);
     }
 
     [Fact]
