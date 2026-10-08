@@ -1,0 +1,18 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/static-atomic/assertion-membership.mjs",
+                "tools/test/static-atomic/compiler-bridge.mjs",
+                "tools/test/static-atomic/declarations.mjs",
+                "tools/test/static-atomic/producer.mjs",
+                "tools/test/static-atomic/summary.mjs",
+                "tools/test/static-atomic/terminal-bridge.mjs",
+                "tools/test/static-atomic/assertion-result.mjs"
+            ],
+            "reason": "Consume the existing FSUSBLOG_ATTEMPT_RESULT_PATH output request and original native attempt-result fields when a unique source assertion actually executes; preserve the original checker commands and identities."
+        }
+    ]
+}

@@ -104,6 +104,25 @@ test('modified canonical settled projection evidence cannot survive a pinned vec
     assert.throws(() => projectCompiledStaticAtomicSummary(projectionOptions(fixture, vector)), /projection evidence outcomes/u);
 });
 
+test('a failed command without a real result retains empty observed IDs instead of planned membership', async t =>
+{
+    const fixture = staticAtomicCanonicalFixture(t, { failures: ['security-network-baseline'], resultSidecars: false });
+    const vector = await fixture.execute();
+    const summary = projectCompiledStaticAtomicSummary(projectionOptions(fixture, vector));
+    assert.equal(summary.status, 'failure');
+    assert.equal(summary.qualificationEligible, false);
+    for (const child of summary.children)
+    {
+        assert.deepEqual(child.observedTestIds, []);
+        assert.ok(child.replayTestIds.length > 0);
+        assert.equal(child.terminalState, 'failed');
+    }
+    const child = summary.children.find(entry => entry.producerId === 'security-network-baseline');
+    const receipt = JSON.parse(fs.readFileSync(child.attemptRef.path, 'utf8'));
+    assert.equal(receipt.failureKind, 'command-exit-nonzero');
+    assert.deepEqual(receipt.executedTestIds, []);
+});
+
 test('required input refusal projects the canonical zero-attempt failure and refuses resealed allocation claims', async t =>
 {
     const fixture = staticAtomicCanonicalFixture(t);

@@ -122,6 +122,7 @@ export function projectCompiledStaticAtomicSummary({ compilation, compilationOpt
         const bound = compilation.binding.producerBindings.find(entry => entry.producerId === id);
         const producer = declarations.producers.find(entry => entry.id === id);
         const replay = resolveAtomicReplayPlan(compilationOptions.authorities.replayPlans, bound.replayPlanRef);
+        let observedTestIds = [];
         if (terminal.attemptRef)
         {
             const producerRoot = path.join(context.evidenceRoot, context.schedulerRunId, id);
@@ -165,7 +166,15 @@ export function projectCompiledStaticAtomicSummary({ compilation, compilationOpt
             same(receipt.contentDigest, terminal.attemptRef.contentDigest, 'attempt digest');
             same(receipt.producerId, id, 'attempt producer');
             same(receipt.command, producer.command, 'original command');
-            same(receipt.executedTestIds, bound.membership.replayTestIds, 'original replay membership');
+            if (aggregate.cleanFirstAttempt)
+            {
+                same(receipt.executedTestIds, bound.membership.replayTestIds, 'complete successful replay observations');
+            }
+            else if (receipt.executedTestIds.some(testId => !bound.membership.replayTestIds.includes(testId))
+                || receipt.failedTestIds.some(testId => !receipt.executedTestIds.includes(testId)))
+            {
+                throw new Error('static atomic terminal failure contains unbound or unobserved test IDs');
+            }
             same(terminal.artifactRefs, receipt.artifactPaths.map(relative => ({
                 path: path.join(producerRoot, 'attempt-1', relative), contentDigest: receipt.artifactDigests[relative]
             })), 'attempt artifact references');
@@ -177,6 +186,7 @@ export function projectCompiledStaticAtomicSummary({ compilation, compilationOpt
                 : receipt.failureKind === 'runner-timeout' ? 'timed-out'
                     : receipt.failureKind === 'runner-cancelled' ? 'cancelled' : 'failed';
             same(terminal.terminalState, actualState, 'attempt outcome');
+            observedTestIds = receipt.executedTestIds;
         }
         else if (terminal.terminalState === 'failed' && terminal.reasonCode === 'required-input-admission-failed')
         {
@@ -224,6 +234,7 @@ export function projectCompiledStaticAtomicSummary({ compilation, compilationOpt
             throw new Error('static atomic terminal unspawned child cannot carry executed attempt artifacts');
         }
         return { ...terminal, replayPlanRef: bound.replayPlanRef, inputClosureRef: bound.inputClosureRef,
+            observedTestIds,
             originalAssertionBindings: bound.membership.originalAssertionBindings,
             legacyPhysicalTestIds: bound.membership.legacyPhysicalTestIds,
             replayTestIds: bound.membership.replayTestIds };
