@@ -31,11 +31,14 @@ class Child:
         env.update(FSUSBLOG_MANAGED_TEST_LISTENER='1', FSUSBLOG_RUNTIME_LISTEN_FD=str(v4.fileno()),
                    FSUSBLOG_RUNTIME_LISTEN_SOCKET=env['RESERVED_INODE'], FSUSBLOG_RUNTIME_LISTEN_PORT=str(port),
                    FSUSBLOG_RUNTIME_PORT_LEASE_ID=token, FSUSBLOG_RUNTIME_LISTEN_ATTEMPT_ID=token,
-                   FSUS_TEST_RUN_ID=token, TEST_NAMESPACE=token, ASPNETCORE_URLS=f'http://127.0.0.1:{port}')
-        missing = {'missing-flag':'FSUSBLOG_MANAGED_TEST_LISTENER', 'missing-run':'FSUS_TEST_RUN_ID',
-                   'missing-namespace':'TEST_NAMESPACE', 'missing-lease':'FSUSBLOG_RUNTIME_PORT_LEASE_ID',
+                   FSUSBLOG_TEST_RUN_ID=token, FSUSBLOG_TEST_NAMESPACE=token, ASPNETCORE_URLS=f'http://127.0.0.1:{port}')
+        missing = {'missing-flag':'FSUSBLOG_MANAGED_TEST_LISTENER', 'missing-run':'FSUSBLOG_TEST_RUN_ID',
+                   'missing-namespace':'FSUSBLOG_TEST_NAMESPACE', 'missing-lease':'FSUSBLOG_RUNTIME_PORT_LEASE_ID',
                    'missing-attempt':'FSUSBLOG_RUNTIME_LISTEN_ATTEMPT_ID'}
         if stage in missing: env.pop(missing[stage])
+        if stage == 'aliases-only':
+            env.pop('FSUSBLOG_TEST_RUN_ID'); env.pop('FSUSBLOG_TEST_NAMESPACE')
+            env.update(FSUS_TEST_RUN_ID=token, TEST_NAMESPACE=token)
         if stage == 'wrong-inode': env['FSUSBLOG_RUNTIME_LISTEN_SOCKET'] = 'socket:[1]'
         if stage == 'wrong-port': env['FSUSBLOG_RUNTIME_LISTEN_PORT'] = str(port+1)
         if stage == 'invalid-fd': env['FSUSBLOG_RUNTIME_LISTEN_FD'] = '99999'
@@ -209,7 +212,7 @@ try:
                 one(role, scenario, repeat)
     partial_failure()
     for role in ['vite-dev', 'vite-preview', 'kestrel']:
-        for stage in ['missing-flag','missing-run','missing-namespace','missing-lease','missing-attempt','wrong-inode','wrong-port','invalid-fd']:
+        for stage in ['missing-flag','missing-run','missing-namespace','missing-lease','missing-attempt','wrong-inode','wrong-port','invalid-fd','aliases-only']:
             admission_negative(role, stage)
     for stage in ['wrong-url','extra-endpoint']:
         admission_negative('kestrel', stage)
