@@ -1664,3 +1664,454 @@ try {
     console.log(JSON.stringify({ result, samples }, null, 2));
     await browser.close();
 }
+
+
+INDEPENDENT EXACT-PAIR REPLAY AFTER CANONICAL FSUSUI PALETTE IME FIX
+All prior first failures and previous-source observations above remain preserved.
+No frozen spec, fixture or config edits; no product producer edits; no content API writes.
+Actual detached Blog checkout HEAD: 17c2153f44b5d04cbecc81ee30c613c327afeee3
+Actual detached FsusUI checkout HEAD: 75f8182f82db9cd9c6d6b038e6a0a9a57b5f2ed2
+FsuUI75 direct parent: 6d89e290659b9c3351cdacc2dac16b34f9cb0958
+Blog path: /tmp/command-focus-qa/FsusBlog-17c-UI75
+FsusUI path: /tmp/command-focus-qa/FsusUI-75f8182f
+Run start: 2026-10-08T08:44:34.644Z; duration94537.51699999999ms; workers3; retries0.
+ACTUAL RESULT: 10 PASS / 0 FAIL / 0 SKIP / 0 FLAKY; Playwright exit0.
+Chromium151.0.7922.173; Playwright1.59.1; Nodev24.19.0.
+Frozen regression source identities:
+tests/frontend/e2e/command-focus/WriterCommandFocusRegression.spec.ts: git-blob4008bfe903ed226273b52a6f285665f68e9e0c83; sha2567f31966dcb1e19f5b6ee4330ae1c16b4e0df646f1be638fd00be0be5739f72a9
+tests/frontend/e2e/command-focus/WriterCommandFocusRegression.fixture.ts: git-blob9c96b603d9483aa0747865be9603c094eeefcbf5; sha256370fce3fcaa76cc440c56f05bfe689b4bbd13b28a113bd51a508679164eb2e0e
+tests/frontend/e2e/command-focus/WriterCommandFocusRegression.config.ts: git-blob823eb0ceb7ee140998994522753983bfab66371c; sha2563021913a1a75a665b6f71c28a7021f479d4915fb84e4c4895c1c28f7e3e7c386
+PASS spec.ts:63 Writer palette command hands focus to the real inspector and Escape restores body selection
+PASS spec.ts:90 repeated shortcut and pointer entry closes with Escape without replacing the dirty editor
+PASS spec.ts:118 body composition and repeated keydown cannot open the palette before composition ends
+PASS spec.ts:153 composing Enter in palette search cannot launch an inspector command
+PASS spec.ts:172 revoked permission disables current palette commands without changing the unsaved body
+PASS spec.ts:194 dirty leave confirmation gates palette entry and cancellation retains the real editor
+PASS spec.ts:218 source compare transitions retain one editor, backward selection and palette focus restoration
+PASS spec.ts:245 palette focus trap and active-descendant identity remain valid before inspector handoff
+PASS spec.ts:267 Escape closes the palette alone while a rail-opened inspector remains active
+PASS spec.ts:294 visible palette entry and touch inspector command remain reachable in the modal host
+
+Actual browser command from /tmp/command-focus-qa/FsusBlog-17c-UI75:
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/tmp/command-focus-qa/FsusUI-75f8182f COMMAND_FOCUS_EVIDENCE_ROOT=/tmp/command-focus-qa/replay-17c-75f8182f-port-ready node src/frontend/node_modules/@playwright/test/cli.js test --config tests/frontend/e2e/command-focus/WriterCommandFocusRegression.config.ts
+
+Exact detached worktrees were created with git worktree add --detach using the two full
+SHAs above. Installed frontend dependencies are linked from saved environment into
+frontend/node_modules and a task-local root/node_modules link for Playwright imports.
+Root dependency link is an execution-only untracked symlink, not a source file or public
+API; removed after the run. All tracked Blog files remain identical to source17c.
+FsusUI dependencies are linked from saved installation; @element-plus workspace links
+resolve to this exact75 checkout. Full/critical CSS, JS bundle and all six native WASM
+assets were rebuilt from75, not copied from prior6d or claimed as published packages.
+Actual commands from /tmp/command-focus-qa/FsusUI-75f8182f (all PASS):
+COREPACK_HOME=/tmp/command-focus-qa/corepack corepack pnpm -C vue/internal/build-utils run stub
+COREPACK_HOME=/tmp/command-focus-qa/corepack corepack pnpm run build:theme
+COREPACK_HOME=/tmp/command-focus-qa/corepack corepack pnpm -C vue/packages/wasm run build
+PATH="/workspace/.setup/dependency-cache/cmake/4.3.3/bin:/workspace/.setup/python-tools/bin:$PATH" PYTHONPATH=/workspace/.setup/python-tools EMSDK=/workspace/.setup/emsdk COREPACK_HOME=/tmp/command-focus-qa/corepack WASM_BUILD_JOBS=4 EMCC_CORES=4 corepack pnpm -C vue/packages/wasm run build:wasm
+
+First attempt replay-17c-75f8182f.log was blocked before execution by occupied port4317.
+Read-only listener inspection identified PID87074 as this task's previous geometry Vite
+server, with original own frontend cwd, old6d source and own geometry-cache directory.
+Only that verified stale task process was terminated; the frozen reuseExistingServer
+false gate, port and all source assertions remained unchanged. Final runner's webServer
+exited normally; ss confirmed no remaining4317 listener. This startup failure was kept
+and is not counted as a product assertion failure or passed execution.
+
+THE THREE ORIGINAL WRITER NEGATIVES NOW PASS ON THIS EXACT PAIR
+Focus spec.ts:63/83: real body selection18..30 backward -> Ctrl+P -> 内容检查 ->
+inspector focus -> Escape restores body focus/value/selection. No forced focus.
+IME spec.ts:153/167–168: compositionstart then Enter/isComposing=true/keyCode229
+leaves real palette visible and does not open inspector; body content unchanged.
+Mobile spec.ts:294/301–316: actual touch-emulated public entry opens palette, inspector
+receives focus, Escape restores focused body and backward selection3..12; same content
+and horizontal overflow<=1px. No force-tap or selection-clear workaround.
+Prior independent public toolbar geometry probe remains a source6d observation; it is
+not relabeled as a75 probe. Mobile frozen assertions and new mobile screenshot run on75.
+
+CANONICAL REPAIR LOCATION (READ, NOT EDITED HERE)
+FsusUI vue/packages/components/markdown-editor/src/markdown-editor.vue:961 now uses
+@keydown.enter="executeActivePaletteItem" instead of unconditional .prevent.
+executeActivePaletteItem:3198 receives KeyboardEvent;3199 returns for event.isComposing,
+keyCode229 or the existing editor isComposing state;3200 prevents only admitted ordinary
+Enter before eligibility/execution. No new public fields or Blog keyboard workaround.
+This frozen run independently verifies its actual composed Writer negative with both
+flags set; the producer's separate8-case IME suite,66-case editor suite and type/lint/docs
+results were not rerun or represented here as independent QA results.
+
+LIMITS
+PASS means only these ten frozen client-composition assertions on actual Write.vue and
+real local source. Synthetic DOM IME and Chromium touch emulation do not establish OS
+IME, real device or screen-reader acceptance. Console health remains FAIL due to Blog
+PoW FACTORY_MISSING and deliberately aborted binary backend calls; messages preserved.
+No successful server receipt, published artifact, full CI/matrix/conformance, metadata
+conflict resolution, search API/lease integration or full-chain completion is asserted.
+Canonical original2246 owns continued production metadata/search work.
+Screenshots for body-focus, palette-composition and mobile cases were inspected; a11y
+snapshots and focus/selection attachments were captured. No full UX acceptance receipt.
+
+NEW CAPTURED ARTIFACT SHA-256
+/tmp/command-focus-qa/replay-17c-75f8182f.log: sha25673ea0ac10a1c74e4844a2703b2b84f247c5b570c682686649fe6fb641a1f06bf
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready.log: sha2561dbf57ecaacc466c694e5dff8d1e0b9cc93586f90a206978e9be370ec7b0d28f
+/tmp/command-focus-qa/ui-75f-build-utils.log: sha256fcd32944d630b00ff123d41a9d62abc7df5b7af370f8baac934746798615965b
+/tmp/command-focus-qa/ui-75f-build-theme.log: sha2567253b759b1b94c9b0cba61352492fdf151328d042bb597554ad027c7b36e988f
+/tmp/command-focus-qa/ui-75f-build-wasm-bundle.log: sha256f98e7faaeb02e677413ecd3258be0799e27492a942e210654727acba2534fb5b
+/tmp/command-focus-qa/ui-75f-build-wasm-native.log: sha2564a330df732b10ef03f356bdc21914a3a5f5e62b047d438ae435395357e8b70cb
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/results.json: sha2564b6e9537106cd338f48b9e92d794d0ba73e3a7002e10e5b530a77a73f38b3374
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/theme-chalk/dist/index.css: sha2564777deff651bb46fd7a420b5dda792d270dc36e14f7dfba39adb06f8e1fc03d1
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/theme-chalk/dist/el-public-shell-critical.css: sha256887b8685174859a35bf1979981027cd505fb9c19cbb82bfc10edc1aa2e12f33c
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/theme-chalk/dist/el-fsus-theme.css: sha256a2ca87ad487bbb0b3fbea08ee7076d6b6ea7f54172c410f65dd2d81e6b12a880
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/wasm/dist/index.mjs: sha256b621482e13cba29137b708afbc86b7f877c2b9635015724ba42197878d3982ae
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/wasm/dist/index.cjs: sha256990ca56286b1a35d6778b312ac5d5f9d7c9eff48509b58b3a7103ca224a6d292
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/wasm/dist/ep_wasm.mjs: sha2566c1b79200b77ebb02a66b51780bb84df7a06fdc5400d0ed169604c99599ed295
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/wasm/dist/ep_wasm.wasm: sha25628d96e86ab15e187a44a71f93e78f89670e137216b22cd5ce652211d1112b68a
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/wasm/dist/markdown_basic.js: sha2563bdc57de918232d07af54451f31268d6233f934408de6d58a7102ae26069bdfd
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/wasm/dist/markdown_basic.wasm: sha256086d869246f5c2dbed308cab7692e4981891c6787093d57133ab8681fa5308dc
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/wasm/dist/markdown_simd.js: sha256b9b84d6402b9fb69461bb4281d746b49ac5e02fad398304a1f89deed44ce56c8
+/tmp/command-focus-qa/FsusUI-75f8182f/vue/packages/wasm/dist/markdown_simd.wasm: sha2563ccd88c3d4f697d3046419328cbbc05761e76e84d79fb2ae9baef55e7b0d1401
+
+PASS CAPTURE: Writer palette command hands focus to the real inspector and Escape restores body selection
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/63/console-and-runtime.txt: sha256da1565b6edaaa394f2958fd953782d51b7c53c70f3db7b84316eb8f5c6558603
+console-and-runtime.txt (verbatim decoded attachment):
+requestfailed: http://127.0.0.1:4317/api/binary/category.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/tag.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/seo net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/compliance net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+error: [Write Init Error] BinaryTransportError: Failed to fetch
+    at executeBinaryRequest (http://127.0.0.1:4317/src/services/binaryTransport.ts:520:16)
+    at async requestBinaryOnlyWithDecoder (http://127.0.0.1:4317/src/services/binaryTransport.ts:484:17)
+    at async requestBinaryOnly (http://127.0.0.1:4317/src/services/binaryTransport.ts:588:49)
+    at async Promise.all (index 0)
+    at async refreshTaxonomy (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1295:28)
+    at async Promise.all (index 0)
+    at async http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1750:5
+    at async Object.run (http://127.0.0.1:4317/src/composables/useAbortableTask.ts:29:19)
+    at async initData (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1749:4)
+error: Failed to load resource: the server responded with a status of 404 (Not Found)
+requestfailed: http://127.0.0.1:4317/wasm/image_codec_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_threads.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_relaxed.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_basic.js net::ERR_ABORTED
+error: [Worker] Initialization Error: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+error: [Worker] PING Failed: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/63/accessibility-tree.txt: sha256234fc42dd342567ed2e79f6e05ee78330892ddbb210d19926c95c0df63f944de
+accessibility-tree.txt (verbatim decoded attachment):
+- main "新建文章":
+  - heading "返回 新建文章 待发布" [level=1]:
+    - button "返回"
+    - text: 新建文章 待发布
+  - button "服务端草稿暂不可用；当前页面仍保留更改，请勿关闭"
+  - button "保存草稿"
+  - button "发布文章"
+  - region "文章文档":
+    - textbox "文章标题":
+      - /placeholder: 写下文章标题
+    - text: 0 / 100
+    - button "文章检查器"
+    - heading "正文" [level=2]
+    - button "打开文章大纲"
+    - region "正文":
+      - region "Markdown 编辑器":
+        - button "heading"
+        - button "bold"
+        - button "italic"
+        - button "link"
+        - button "quote"
+        - button "code"
+        - button "更多命令 (15)": 更多命令 15
+        - textbox "Markdown 源码编辑区":
+          - /placeholder: 从这里开始写正文。
+          - text: "# Integration Unsaved body selection remains here."
+        - text: 已完成
+        - toolbar "选区工具":
+          - button "bold"
+          - button "italic"
+          - button "heading"
+          - button "quote"
+          - button "code"
+          - button "link"
+          - button "插入图片"
+          - button "小节"
+          - button "四级标题"
+          - button "五级标题"
+          - button "六级标题"
+          - button "无序列表"
+          - button "有序列表"
+          - button "任务列表"
+          - button "表格"
+          - button "分割线"
+          - button "代码块"
+          - button "公式"
+          - button "流程图"
+      - status: 正文含 1 个一级标题（第 1 行）。文章标题已是页面唯一 H1；现有正文不会被改写，请将一级标题改为章节（##）。
+    - group "编辑表面与对照工具":
+      - group "编辑表面":
+        - button "实时"
+        - button "源码" [pressed]
+      - button "源码对照"
+  - navigation "文章检查器":
+    - button "发布"
+    - button "版权"
+    - button "检查"
+    - button "预览"
+    - button "版本"
+    - button "资源"
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/63/focus-and-selection.json: sha256db923357a6989dc6b7c99cf676edce46ad64c8d9756d9cdc907dc4ede159f9e1
+focus-and-selection.json (verbatim decoded attachment):
+{
+  "url": "http://127.0.0.1:4317/__writer-command-focus-regression",
+  "focused": {
+    "tag": "TEXTAREA",
+    "id": "article-content",
+    "role": null,
+    "label": "Markdown 源码编辑区",
+    "text": ""
+  },
+  "body": {
+    "value": "# Integration\n\nUnsaved body selection remains here.",
+    "start": 18,
+    "end": 30,
+    "direction": "backward",
+    "focused": true
+  }
+}
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/63/rendered-page.png: sha2568084353e06b4859e51b017368eeb764ba4afbab99be662377cc835cbf1d5b623
+
+PASS CAPTURE: composing Enter in palette search cannot launch an inspector command
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/153/console-and-runtime.txt: sha256da1565b6edaaa394f2958fd953782d51b7c53c70f3db7b84316eb8f5c6558603
+console-and-runtime.txt (verbatim decoded attachment):
+requestfailed: http://127.0.0.1:4317/api/binary/category.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/tag.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/seo net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/compliance net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+error: [Write Init Error] BinaryTransportError: Failed to fetch
+    at executeBinaryRequest (http://127.0.0.1:4317/src/services/binaryTransport.ts:520:16)
+    at async requestBinaryOnlyWithDecoder (http://127.0.0.1:4317/src/services/binaryTransport.ts:484:17)
+    at async requestBinaryOnly (http://127.0.0.1:4317/src/services/binaryTransport.ts:588:49)
+    at async Promise.all (index 0)
+    at async refreshTaxonomy (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1295:28)
+    at async Promise.all (index 0)
+    at async http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1750:5
+    at async Object.run (http://127.0.0.1:4317/src/composables/useAbortableTask.ts:29:19)
+    at async initData (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1749:4)
+error: Failed to load resource: the server responded with a status of 404 (Not Found)
+requestfailed: http://127.0.0.1:4317/wasm/image_codec_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_threads.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_relaxed.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_basic.js net::ERR_ABORTED
+error: [Worker] Initialization Error: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+error: [Worker] PING Failed: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/153/accessibility-tree.txt: sha25611c02e43ffa0d530b774dc788c7ff685d3363827d167bff18b68951a8778d3f0
+accessibility-tree.txt (verbatim decoded attachment):
+- main "新建文章":
+  - heading "返回 新建文章 待发布" [level=1]:
+    - button "返回"
+    - text: 新建文章 待发布
+  - button "服务端草稿暂不可用；当前页面仍保留更改，请勿关闭"
+  - button "保存草稿"
+  - button "发布文章"
+  - region "文章文档":
+    - textbox "文章标题":
+      - /placeholder: 写下文章标题
+    - text: 0 / 100
+    - button "文章检查器"
+    - heading "正文" [level=2]
+    - button "打开文章大纲"
+    - region "正文":
+      - region "Markdown 编辑器":
+        - button "heading"
+        - button "bold"
+        - button "italic"
+        - button "link"
+        - button "quote"
+        - button "code"
+        - button "更多命令 (15)": 更多命令 15
+        - textbox "Markdown 源码编辑区":
+          - /placeholder: 从这里开始写正文。
+          - text: IME command boundary
+    - group "编辑表面与对照工具":
+      - group "编辑表面":
+        - button "实时"
+        - button "源码" [pressed]
+      - button "源码对照"
+  - navigation "文章检查器":
+    - button "发布"
+    - button "版权"
+    - button "检查"
+    - button "预览"
+    - button "版本"
+    - button "资源"
+- dialog "命令面板":
+  - combobox "搜索命令" [expanded]: 检查
+  - listbox:
+    - group "文章检查器":
+      - text: 文章检查器
+      - option "内容检查" [selected]
+  - paragraph: 1 个命令
+- alert: 无法同步远程配置资源
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/153/focus-and-selection.json: sha256c02547f1c17f8fb709f97313862b260815d94f4fc4d3bb1964fa59df40fa441d
+focus-and-selection.json (verbatim decoded attachment):
+{
+  "url": "http://127.0.0.1:4317/__writer-command-focus-regression",
+  "focused": {
+    "tag": "INPUT",
+    "id": "v-1-command-palette-list-search",
+    "role": "combobox",
+    "label": "搜索命令",
+    "text": ""
+  },
+  "body": {
+    "value": "IME command boundary",
+    "start": 20,
+    "end": 20,
+    "direction": "forward",
+    "focused": false
+  }
+}
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/153/rendered-page.png: sha2561f40dfeb4421961abb065542b9e04bb10b7c182b91c305122ab3818dfd095ca2
+
+PASS CAPTURE: visible palette entry and touch inspector command remain reachable in the modal host
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/294/console-and-runtime.txt: sha256151ddc8adad7af249440e9e29897c293e474f081f5986b17a3a33cfa1e572bd7
+console-and-runtime.txt (verbatim decoded attachment):
+requestfailed: http://127.0.0.1:4317/api/binary/category.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/tag.aeds net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/seo net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/system/admin/compliance net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_threads.js net::ERR_ABORTED
+error: [Write Init Error] BinaryTransportError: Failed to fetch
+    at executeBinaryRequest (http://127.0.0.1:4317/src/services/binaryTransport.ts:520:16)
+    at async requestBinaryOnlyWithDecoder (http://127.0.0.1:4317/src/services/binaryTransport.ts:484:17)
+    at async requestBinaryOnly (http://127.0.0.1:4317/src/services/binaryTransport.ts:588:49)
+    at async Promise.all (index 0)
+    at async refreshTaxonomy (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1295:28)
+    at async Promise.all (index 0)
+    at async http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1750:5
+    at async Object.run (http://127.0.0.1:4317/src/composables/useAbortableTask.ts:29:19)
+    at async initData (http://127.0.0.1:4317/src/composables/useAdminArticleWrite.ts:1749:4)
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_relaxed.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/wasm/fsus_pow_basic.js net::ERR_ABORTED
+error: [Worker] Initialization Error: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+error: [Worker] PING Failed: AppError: FACTORY_MISSING: Glue code did not export createPowModule
+    at createAppError (http://127.0.0.1:4317/src/utils/appError.ts:40:9)
+    at getEngine (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:37:10)
+    at async ctx.onmessage (http://127.0.0.1:4317/src/workers/pow.worker.ts?worker_file&type=module:171:4)
+error: Failed to load resource: the server responded with a status of 404 (Not Found)
+requestfailed: http://127.0.0.1:4317/wasm/image_codec_simd.js net::ERR_ABORTED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+requestfailed: http://127.0.0.1:4317/api/binary/author/drafts net::ERR_FAILED
+error: Failed to load resource: net::ERR_FAILED
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/294/accessibility-tree.txt: sha256f74fdce9fc2dfacef8552ae4d2f2ff5db4397a73d538db12d316555ca6508797
+accessibility-tree.txt (verbatim decoded attachment):
+- main "新建文章":
+  - heading "返回 新建文章 待发布" [level=1]:
+    - button "返回"
+    - text: 新建文章 待发布
+  - button "服务端草稿暂不可用；当前页面仍保留更改，请勿关闭"
+  - button "保存草稿"
+  - button "发布文章"
+  - region "文章文档":
+    - textbox "文章标题":
+      - /placeholder: 写下文章标题
+    - button "文章检查器"
+    - heading "正文" [level=2]
+    - button "打开文章大纲"
+    - region "正文":
+      - region "Markdown 编辑器":
+        - button "heading"
+        - button "bold"
+        - button "italic"
+        - button "link"
+        - button "quote"
+        - button "code"
+        - button "更多命令 (15)": 更多命令 15
+        - textbox "Markdown 源码编辑区":
+          - /placeholder: 从这里开始写正文。
+          - text: Touch unsaved editor body
+        - text: 已完成
+        - toolbar "选区工具":
+          - button "bold"
+          - button "italic"
+          - button "heading"
+          - button "quote"
+          - button "code"
+          - button "link"
+          - button "插入图片"
+          - button "小节"
+          - button "四级标题"
+          - button "五级标题"
+          - button "六级标题"
+          - button "无序列表"
+          - button "有序列表"
+          - button "任务列表"
+          - button "表格"
+          - button "分割线"
+          - button "代码块"
+          - button "公式"
+          - button "流程图"
+    - group "编辑表面与对照工具":
+      - group "编辑表面":
+        - button "实时"
+        - button "源码" [pressed]
+      - button "源码对照"
+  - button "打开文章检查器"
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/294/focus-and-selection.json: sha256aef781a28e31fd228d666d0832664974af7e9e43bfa47f25660758c598124f02
+focus-and-selection.json (verbatim decoded attachment):
+{
+  "url": "http://127.0.0.1:4317/__writer-command-focus-regression",
+  "focused": {
+    "tag": "TEXTAREA",
+    "id": "article-content",
+    "role": null,
+    "label": "Markdown 源码编辑区",
+    "text": ""
+  },
+  "body": {
+    "value": "Touch unsaved editor body",
+    "start": 3,
+    "end": 12,
+    "direction": "backward",
+    "focused": true
+  }
+}
+/tmp/command-focus-qa/replay-17c-75f8182f-port-ready/extracted/294/rendered-page.png: sha25692ad17c0077a896517e86c7cdab608e7e63f9a022900a5419422dddec5c05915
+
+First port-occupied attempt (verbatim):
+Error: http://127.0.0.1:4317 is already used, make sure that nothing is running on the port/url or set reuseExistingServer:true in config.webServer.
