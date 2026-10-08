@@ -8,9 +8,14 @@
                 "tools/test-matrix/atomic-failure/conformance.mjs",
                 "tools/test-matrix/atomic-failure/executable-authorities.mjs",
                 "tools/test-matrix/atomic-failure/failure-navigation.mjs",
-                "tools/test-matrix/atomic-failure/projection-contract.mjs"
+                "tools/test-matrix/atomic-failure/projection-contract.mjs",
+                "tools/test-matrix/atomic-producers/compiler.mjs",
+                "tools/test-matrix/atomic-producers/contract.mjs",
+                "tools/test-matrix/atomic-producers/disposition.mjs",
+                "tools/test-matrix/atomic-producers/execution.mjs",
+                "tools/test/bundles/bundle-steps.mjs"
             ],
-            "reason": "preserve externally owned process and replay interfaces while using internal camelCase aliases in isolated atomic failure analysis modules"
+            "reason": "preserve externally owned process/replay interfaces in atomic failure consumers and exact framework653ef38 source consumption; source remains bound to its original owner"
         }
     ]
 }

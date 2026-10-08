@@ -24,8 +24,24 @@ fail-fast, artifact bindings and structured aggregate consumption.
 `ci-plan.jobs[].tiers` projection. It derives the material view without maintaining
 another parent/job map. This API requires the atomic framework source capability
 to be installed; its independently tested dependency is
-`65fac897f0efa039c7b99331b3ef0faeef380ba7`. Missing or ambiguous canonical CI ownership
+`653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0`. The original framework source
+and history are consumed unchanged by a normal merge. Missing or ambiguous canonical CI ownership
 and runtime `stateAccessRef` without its canonical fact bridge are refused.
+
+`collectCompiledAtomicTerminalMaterial` consumes that same verified compiled DAG,
+its original complete terminal vector and explicit expected-vector material. It
+checks complete producer membership, original receipt digests, run/source/worktree
+identity and current-run references. It preserves the original terminal status,
+primary failure refs, blocked dependencies, receipt digests and reference digest
+encoding, including bare SHA-256 join evidence. Unspawned cancellation stays an
+attempt-less original receipt. CI transport bindings remain plans: this read-only
+API neither materializes a file nor claims that its planned receipt path exists.
+Partial selection is refused until the original executor supplies not-selected
+receipts. Explicit repository-relative paths are lexical checks; filesystem reads,
+symlink authentication and original byte verification belong to the authority
+bridge. Expected-vector equality is structural DATA_ONLY validation. It cannot
+promote caller-owned material to semantic evidence or qualification. Interruption
+messages are omitted; the original vector ref preserves their source identity.
 
 The graph input is an extracted **DATA_ONLY view**, not a declaration catalog or
 compiler. Its explicit `graphRef` and `dagDigest` identify the upstream compiled
@@ -72,10 +88,10 @@ closure, graph drift and first-failure replacement are refused. Its result retai
 `terminalAcceptancePending: true`; it is not a terminal acceptance receipt. The
 new conformance tests also invoke the existing `executeWeightedStepDag` with real
 Node children to collect two independent failures and check transitive blocking,
-settled joining and exact-once cleanup. They retain a failing cancellation control:
-when a cancelled primary is followed by cleanup failure, the existing executor
-uses cleanup failure as the aggregate cause. Only the original executor owner may
-repair that precedence defect; this partition does not alter the scheduler.
+settled joining and exact-once cleanup. The original failing cancellation
+control remains unchanged and now passes when consuming the original owner
+correction653ef38. This partition does not independently repair scheduler or
+framework source. Earlier failing evidence stays bound to its original candidate.
 
 All inputs require separate host budgets: `maxDepth`, `maxNodes`, `maxBytes` and
 `maxItems`, each a positive safe integer. Descriptor checks reject getters, proxies,
@@ -87,13 +103,15 @@ for exceptionally wide key enumeration. The caller owns input transport policy.
 
 - The atomic declaration/compiler owners must provide exact current graph bytes,
   compiled identities, declaration-linked source launch facts, attempt bindings and
-  domain migration receipts. These implementations are absent on the starting base.
+  domain migration receipts. The original compiler/executor source is now consumed;
+  complete domain declarations and runtime authority bindings remain pending.
 - The semantic aggregate owner must authenticate original producer/attempt/replay
   refs, retain all first failures and publish through the existing current-run
   locator/checkpoint transaction before verified navigation can exist.
 - The matrix/workflow owner must call these APIs from the canonical CI planner and
   gate, extract actual workflow facts and register the new source tests. No global
-  registry, matrix, inventory, scheduler, workflow or historical ledger is edited.
+  registry, matrix, inventory, workflow or historical ledger is independently edited.
+  The shared bundle correction is consumed byte-for-byte from its sole owner.
 - Full domain migrations, Production Fresh/resume parity, focused physical replay,
   all mutation classes and terminal acceptance remain required. Synthetic component
   evidence cannot satisfy those gates. The parent owns review, integration and any
