@@ -265,7 +265,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         _time.Advance(wall);
         caller.Cancel();
         stop.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting.WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.True(deadline.Token.IsCancellationRequested);
         Assert.Equal(!callerFirst, deadline.DeadlineCancelled);
         if (callerFirst)
