@@ -6,6 +6,8 @@
             "paths": [
                 "src/shared/Contracts/AuthorTypography/AuthorTypographyContracts.cs",
                 "src/shared/Contracts/AuthorTypography/AuthorTypographyContractValidator.cs",
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyCommands.cs",
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyCommandPolicy.cs",
                 "tools/frontend/author-typography-inventory.mjs"
             ],
             "reason": "These source paths are covered by the existing broad process-environment registry. No environment keys are added or renamed; external closed profile IDs remain literal while C# and JavaScript identifiers follow the internal naming map."
