@@ -616,16 +616,11 @@ expectNotMatches(accountLayout, /backdrop-filter:\s*blur\(/, 'AccountLayout.vue 
 expectNotMatches(articleDetail, /ArticleMobileActionBar/, 'ArticleDetail.vue must not render removed mobile action bar');
 
 expectIncludes(lightbox, 'data-article-lightbox="true"', 'ArticleImageLightbox.vue');
-expectIncludes(lightbox, 'data-fsus-material="glass"', 'ArticleImageLightbox.vue');
-expectIncludes(lightbox, 'FsusUiOverlay', 'ArticleImageLightbox.vue');
-expectIncludes(lightbox, "from '@/fsusui/overlay'", 'ArticleImageLightbox.vue');
+expectIncludes(lightbox, 'ElImageViewer', 'ArticleImageLightbox.vue');
+expectIncludes(lightbox, "from '@ozwasyd/element-plus'", 'ArticleImageLightbox.vue');
+expectIncludes(lightbox, ':show-toolbar="false"', 'ArticleImageLightbox.vue');
+expectIncludes(lightbox, '#caption=', 'ArticleImageLightbox.vue');
 expectIncludes(lightbox, 'color: var(--fsusblog-overlay-button-fg)', 'ArticleImageLightbox.vue');
-expectIncludes(lightbox, 'border: 1px solid var(--fsusblog-overlay-button-border)', 'ArticleImageLightbox.vue');
-expectIncludes(lightbox, 'background: var(--fsusblog-overlay-button-bg)', 'ArticleImageLightbox.vue');
-expectIncludes(lightbox, '<FsuTransition', 'ArticleImageLightbox.vue');
-expectIncludes(lightbox, 'fsusBlogMotionPresets.mediaOverlay', 'ArticleImageLightbox.vue');
-expectIncludes(lightbox, 'var(--fsus-safe-area-inset-top)', 'ArticleImageLightbox.vue');
-expectIncludes(lightbox, 'var(--fsus-viewport-block-size)', 'ArticleImageLightbox.vue');
 expectNotMatches(lightbox, /article-lightbox-fade/, 'ArticleImageLightbox.vue must use FsusUI transition instead of local fade CSS');
 expectNotMatches(lightbox, /scale\(/, 'ArticleImageLightbox.vue must not use zoom/scale');
 expectNotMatches(lightbox, /rgb\(/, 'ArticleImageLightbox.vue must use overlay tokens instead of raw rgb()');
@@ -635,7 +630,7 @@ expectNotMatches(lightbox, /background:\s*var\(--fsusblog-overlay-scrim\)/, 'Art
 expectNotMatches(lightbox, /backdrop-filter/, 'ArticleImageLightbox.vue must not own overlay backdrop material');
 expectNotMatches(lightbox, /\b(?:100|80|88)vh\b/, 'ArticleImageLightbox.vue must not use bare vh viewport geometry');
 expectNotMatches(lightbox, /env\(\s*safe-area-inset-/, 'ArticleImageLightbox.vue must consume FsusUI safe-area tokens');
-expectNotMatches(lightbox, /ImageViewer|ElImageViewer/, 'ArticleImageLightbox.vue must not pull full ImageViewer');
+expectNotMatches(lightbox, /<FsusUiOverlay|article-image-lightbox-open/, 'ArticleImageLightbox.vue must not retain a second viewer owner');
 
 expectIncludes(publicShell, '<FsusUiPublicShell', 'PublicBlogLayoutShell.vue FsusUI public shell boundary');
 expectIncludes(publicShell, ':active-nav="activeNav"', 'PublicBlogLayoutShell.vue delegated desktop nav aria-current state');

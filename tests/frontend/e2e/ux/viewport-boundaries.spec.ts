@@ -1132,12 +1132,12 @@ async function openOverlayRiskSurface(page: import('@playwright/test').Page, ope
       await trigger.click()
       const root = visible(page.locator('[data-article-lightbox="true"]')).last()
       await expect(root).toBeVisible()
-      const scrim = visible(page.locator('.el-overlay').filter({ has: page.locator('[data-article-lightbox="true"]') })).last()
+      const scrim = root
       const actions = [
-        visible(page.locator('.article-image-lightbox__close')).last()
+        root.getByRole('button', { name: '关闭大图', exact: true })
       ]
-      const prev = page.locator('.article-image-lightbox__nav--prev')
-      const next = page.locator('.article-image-lightbox__nav--next')
+      const prev = root.getByRole('button', { name: '上一张', exact: true })
+      const next = root.getByRole('button', { name: '下一张', exact: true })
       if (await prev.count()) actions.push(visible(prev).last())
       if (await next.count()) actions.push(visible(next).last())
       return {
@@ -1179,7 +1179,7 @@ async function closeOverlayRiskSurface(page: import('@playwright/test').Page, op
       await cancel.click({ force: true }).catch(() => undefined)
     }
   } else if (open === 'article-image-lightbox') {
-    const close = page.locator('.article-image-lightbox__close')
+    const close = page.getByRole('dialog').getByRole('button', { name: '关闭大图', exact: true })
     if (await close.count()) {
       await close.click({ force: true }).catch(() => undefined)
     }

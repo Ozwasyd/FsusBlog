@@ -14,7 +14,7 @@ Use FsusUI motion primitives for page and interaction presets:
 - Toast surfaces: FsusUI `ElMessage`, tagged by `fsusBlogMotionPresets.toast` (`slide-up`).
 - Article title: public article detail titles render statically; do not use `v-motion` on `[data-fsus-surface='reading']`.
 - Article body images and code blocks: render statically; do not call `useScrollReveal()`; expose only the metadata required for reading governance and interaction enhancement.
-- Media overlay and back-to-top: `mediaOverlay` / `backToTop` (`scale-fade`).
+- Article image overlay: public ImageViewer owns its motion lifecycle. Back-to-top uses `backToTop` (`scale-fade`).
 - Route transitions: the active app host consumes the FsusUI route preset and cleans up through `useMotionRouteCleanup()`. Account-specific route policy is defined only in [Account motion](account-motion.md).
 
 Do not import `@element-plus/motion`, `motion-dom`, or `gsap` directly from FsusBlog business code. If a new surface needs preset motion, add a named mapping to `fsusBlogMotionPresets` and use the FsusUI adapter.
@@ -103,7 +103,7 @@ Article reading aids must not move the article body layout. Reading progress use
 
 Article titles, body images and code blocks appear statically and never use scroll reveal. Copy controls use text feedback plus toast feedback. Runtime code block copy buttons use `blog-motion-reading-control` and a copied state class, so the label change remains visible on touch devices and screen readers.
 
-Lightbox overlay enter/leave uses `--blog-motion-overlay`; the figure uses `--blog-motion-panel`. Reduced motion disables transitions and must not introduce zoom or scale. Mobile reading actions use `blog-motion-mobile-bar`, respect `var(--fsus-safe-area-inset-bottom)`, and limit translate to 4px. Toast viewport-bottom placement also consumes the same FsusUI inset token rather than a direct `env()` read. Hash and comments navigation should call the shared reading target helper so smooth scroll becomes auto under reduced motion and the destination gets a short `blog-motion-reading-target` highlight.
+ArticleImageLightbox composes the public FsusUI ImageViewer. ImageViewer owns overlay motion, focus, background inert, scroll locking and safe-area controls; the article adapter retains localized text, caption, image data and navigation intent. The adapter disables the toolbar so zoom, rotation and dragging are not new article features. Reduced motion follows the viewer’s public contract. Mobile reading actions use `blog-motion-mobile-bar`, respect `var(--fsus-safe-area-inset-bottom)`, and limit translate to 4px. Toast viewport-bottom placement also consumes the same FsusUI inset token rather than a direct `env()` read. Hash and comments navigation should call the shared reading target helper so smooth scroll becomes auto under reduced motion and the destination gets a short `blog-motion-reading-target` highlight.
 
 ## Row State Motion
 
