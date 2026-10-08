@@ -18,8 +18,8 @@ public sealed class PortableDependencyManifestTests
     private static readonly byte[] s_source = [0xef, 0xbb, 0xbf, .. Encoding.UTF8.GetBytes("hello  \r\n")];
     private static readonly ArticleEmbedResolutionBudgetLimits s_budgets = new(8, 100, 1_000_000, 10_000, 100);
     private static readonly VaultDependencyAdmission s_admission = new(ArticleEmbedPermissionStatus.Allowed,
-        VaultDependencyRight.Read | VaultDependencyRight.Reference | VaultDependencyRight.Materialize | VaultDependencyRight.Upload,
-        VaultDependencyRight.Read | VaultDependencyRight.Reference | VaultDependencyRight.Materialize | VaultDependencyRight.Upload,
+        VaultDependencyRights.Read | VaultDependencyRights.Reference | VaultDependencyRights.Materialize | VaultDependencyRights.Upload,
+        VaultDependencyRights.Read | VaultDependencyRights.Reference | VaultDependencyRights.Materialize | VaultDependencyRights.Upload,
         DigestA, DigestA, DigestA);
 
     [Fact]
@@ -201,7 +201,7 @@ public sealed class PortableDependencyManifestTests
         {
             Admission = s_admission with { Permission = ArticleEmbedPermissionStatus.Denied }
         }]).ReasonCode);
-        Assert.False(Verify(manifest, [asset with { Admission = s_admission with { GrantedRights = VaultDependencyRight.Read } }]).IsValid);
+        Assert.False(Verify(manifest, [asset with { Admission = s_admission with { GrantedRights = VaultDependencyRights.Read } }]).IsValid);
         Assert.False(Verify(manifest, [asset], source: [.. s_source, 1]).IsValid);
     }
 

@@ -137,8 +137,8 @@ public sealed class ArticleVaultCommittedUploadObserverTests
 
     private static VaultAssetDependency Dependency()
         => new(new("site-primary", "vault-primary", "article:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-            new(ArticleEmbedPermissionStatus.Allowed, VaultDependencyRight.Read | VaultDependencyRight.Upload,
-                VaultDependencyRight.Read | VaultDependencyRight.Upload, Digest, Digest, Digest),
+            new(ArticleEmbedPermissionStatus.Allowed, VaultDependencyRights.Read | VaultDependencyRights.Upload,
+                VaultDependencyRights.Read | VaultDependencyRights.Upload, Digest, Digest, Digest),
             s_id.Value, Digest, "image/png", ".png", 24, 1, 1, 7, 4);
 
     private static IFileService Service(Result<UploadAssetObservation> result, out ObservationProxy calls)

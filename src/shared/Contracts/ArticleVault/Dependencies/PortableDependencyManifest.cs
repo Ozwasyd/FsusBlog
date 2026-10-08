@@ -24,7 +24,7 @@ public enum VaultDependencySourceSide
 
 /// <summary>Closed permissions required of the canonical dependency authority.</summary>
 [Flags]
-public enum VaultDependencyRight
+public enum VaultDependencyRights
 {
     Read = 1,
     Reference = 2,
@@ -38,8 +38,8 @@ public sealed record VaultDependencyBinding(string SiteIdentity, string VaultIde
 /// <summary>Current permission and rights facts must be reobserved by their existing authority before execution.</summary>
 public sealed record VaultDependencyAdmission(
     ArticleEmbedPermissionStatus Permission,
-    VaultDependencyRight RequiredRights,
-    VaultDependencyRight GrantedRights,
+    VaultDependencyRights RequiredRights,
+    VaultDependencyRights GrantedRights,
     string PermissionSha256,
     string RightsSha256,
     string AuthoritySha256);

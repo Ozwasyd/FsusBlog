@@ -257,8 +257,8 @@ public static class PortableDependencyVerifier
             return Invalid("binding_mismatch");
         }
         VaultDependencyAdmission admission = node.Admission;
-        const VaultDependencyRight KnownRights = VaultDependencyRight.Read | VaultDependencyRight.Reference
-            | VaultDependencyRight.Materialize | VaultDependencyRight.Upload;
+        const VaultDependencyRights KnownRights = VaultDependencyRights.Read | VaultDependencyRights.Reference
+            | VaultDependencyRights.Materialize | VaultDependencyRights.Upload;
         if (admission.Permission != ArticleEmbedPermissionStatus.Allowed
             || admission.RequiredRights == 0 || (admission.RequiredRights & ~KnownRights) != 0
             || (admission.GrantedRights & ~KnownRights) != 0

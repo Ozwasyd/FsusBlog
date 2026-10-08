@@ -211,7 +211,7 @@ public static class PortableDependencyCodec
             MaxDepth = 64
         };
         options.Converters.Add(new ClosedEnumConverter<VaultDependencySourceSide>());
-        options.Converters.Add(new ClosedEnumConverter<VaultDependencyRight>());
+        options.Converters.Add(new ClosedEnumConverter<VaultDependencyRights>());
         options.Converters.Add(new ClosedEnumConverter<VaultDependencyEdgeKind>());
         options.Converters.Add(new ClosedEnumConverter<VaultNewlineStyle>());
         options.Converters.Add(new ClosedEnumConverter<ArticleEmbedPermissionStatus>());

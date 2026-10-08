@@ -91,15 +91,15 @@ public static class ArticleVaultDependencyPlanner
                 {
                     return Failed("portable_dependency_source_side_mismatch");
                 }
-                VaultDependencyRight required = item.Decision switch
+                VaultDependencyRights required = item.Decision switch
                 {
-                    VaultSyncDecision.PullCreate or VaultSyncDecision.PullUpdate => VaultDependencyRight.Read | VaultDependencyRight.Materialize,
-                    VaultSyncDecision.PushCreate or VaultSyncDecision.PushUpdate => VaultDependencyRight.Read | VaultDependencyRight.Reference | VaultDependencyRight.Upload,
-                    _ => VaultDependencyRight.Read
+                    VaultSyncDecision.PullCreate or VaultSyncDecision.PullUpdate => VaultDependencyRights.Read | VaultDependencyRights.Materialize,
+                    VaultSyncDecision.PushCreate or VaultSyncDecision.PushUpdate => VaultDependencyRights.Read | VaultDependencyRights.Reference | VaultDependencyRights.Upload,
+                    _ => VaultDependencyRights.Read
                 };
                 foreach (VaultDependencyNode node in input.Manifest.Nodes)
                 {
-                    VaultDependencyRight nodeRequired = node is VaultAssetDependency ? required : VaultDependencyRight.Read | VaultDependencyRight.Reference;
+                    VaultDependencyRights nodeRequired = node is VaultAssetDependency ? required : VaultDependencyRights.Read | VaultDependencyRights.Reference;
                     if ((node.Admission.RequiredRights & nodeRequired) != nodeRequired)
                     {
                         return Failed("portable_dependency_required_rights_missing");
