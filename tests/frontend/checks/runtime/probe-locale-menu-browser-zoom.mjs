@@ -147,7 +147,7 @@ export async function probeLocaleMenuBrowserZoom({ chromium, expect, url, eviden
             }
             if (variant.forcedColors === 'active')
             {
-                const negativeStyle = await page.addStyleTag({ content: '[data-locale-code="ru-RU"]::after { border-width: 0 !important; }' });
+                const negativeStyle = await page.addStyleTag({ content: '[data-locale-code="ru-RU"]::after { content: none !important; }' });
                 try
                 {
                     observation.focusPaintNegative = await item('ru-RU').evaluate(readFocusPaint);
