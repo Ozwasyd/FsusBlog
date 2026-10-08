@@ -202,7 +202,7 @@ function executeChild({ command, cwd, env, stdoutFile, stderrFile, timeoutMs, si
     });
 }
 
-function failureIdentity(outcome, structuredResult, resultError)
+function failureIdentity(outcome, structuredResult, resultError, requiresTestResult)
 {
     if (resultError)
     {
@@ -233,7 +233,15 @@ function failureIdentity(outcome, structuredResult, resultError)
             }
             : { failureClass: 'product', failureKind: 'command-exit-nonzero' };
     }
-    if (structuredResult?.failureClass !== null || structuredResult?.failureKind !== null)
+    if (structuredResult === null)
+    {
+        // Process-only commands observe no framework test IDs. Declared test
+        // membership still requires the producer's real structured result.
+        return requiresTestResult
+            ? { failureClass: 'runner', failureKind: 'invalid-success-result-sidecar' }
+            : { failureClass: null, failureKind: null };
+    }
+    if (structuredResult.failureClass !== null || structuredResult.failureKind !== null)
     {
         return { failureClass: 'runner', failureKind: 'invalid-success-result-sidecar' };
     }
@@ -334,7 +342,7 @@ async function executeAttempt(options, policy, attemptNumber, producerRoot)
     {
         resultError = error;
     }
-    let failure = failureIdentity(outcome, structuredResult, resultError);
+    let failure = failureIdentity(outcome, structuredResult, resultError, options.expectedTestIds.length > 0);
     const artifacts = artifactTable(
         attemptRoot,
         structuredResult?.artifactPaths ?? [],
@@ -370,7 +378,7 @@ async function executeAttempt(options, policy, attemptNumber, producerRoot)
         failureClass: failure.failureClass,
         failureKind: failure.failureKind,
         failedTestIds: sortedUnique(structuredResult?.failedTestIds),
-        executedTestIds: sortedUnique(structuredResult?.executedTestIds ?? options.expectedTestIds),
+        executedTestIds: sortedUnique(structuredResult?.executedTestIds),
         stdoutPath: 'stdout.log',
         stderrPath: 'stderr.log',
         artifactPaths: artifacts.paths,

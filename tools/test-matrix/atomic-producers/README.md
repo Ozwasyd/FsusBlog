@@ -165,3 +165,24 @@ blocked receipt: no predecessor failure or canonical qualification is invented.
 Coverage consumers must recognize this explicit zero-attempt refusal; their older
 null-attempt branch reports unknown counts. All domain input validation and native
 acceptance remains with its original owners.
+
+The original runner distinguishes process-only invocation from declared test
+membership through `expectedTestIds`. An empty roster permits a normal exit-zero
+command with no result sidecar and records empty executed/failed test IDs; it does
+not create `result.json` or native test telemetry. A nonempty roster still requires
+a real `fsusblog.test-attempt-result.v1` sidecar at
+`FSUSBLOG_ATTEMPT_RESULT_PATH`. Missing required results retain
+`invalid-success-result-sidecar`; supplied sidecars retain the existing parser and
+failure-field checks. Absent results never convert planned IDs into executed IDs.
+With an absent sidecar, existing nonzero, signal, timeout and cancellation
+classification takes precedence over the missing-result check.
+
+The static canonical bridge at
+`ab9a2493c54e1357e4d2b3c74796cb657cd7c34f` binds nonempty replay membership to all
+its physical producers and requires exact observed IDs in terminal projection.
+Those invocations therefore still need their original producer/observer to emit
+a real result sidecar with actual executed IDs (and failed IDs/artifacts, when
+applicable). Emptying replay membership or manufacturing sidecars from the plan
+is not an implementation of that requirement. This repair only supplies ordinary
+process-only behavior and truthful absent-result observations; it cannot qualify
+or complete the thirteen native/static consumer executions.
