@@ -65,8 +65,8 @@ public sealed class PdfDocumentExportJobProvider : IDocumentExportAttemptJobProv
     }
 
     /// <summary>
-    /// Re-runs the canonical renderer for the same frozen article and verifies the
-    /// supplied PDF bytes against it without creating a replacement PDF or state.
+    /// Consumes the original attempt's retained canonical evidence once and
+    /// independently verifies the supplied PDF bytes using the same resource owner.
     /// Verification failures and cancellation propagate to the job owner.
     /// </summary>
     public async Task VerifyAsync(
