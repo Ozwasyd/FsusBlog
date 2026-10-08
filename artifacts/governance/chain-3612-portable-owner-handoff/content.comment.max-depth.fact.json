@@ -1,0 +1,19 @@
+{
+  "compare": "parent.depth + 1 <= maxDepth",
+  "configurationKey": "CommentThreads:MaxDepth",
+  "default": {
+    "unit": "levels",
+    "value": 32
+  },
+  "enforcement": "reject-new-write",
+  "maximum": {
+    "boundary": "inclusive",
+    "unit": "levels",
+    "value": 256
+  },
+  "minimum": {
+    "boundary": "inclusive",
+    "unit": "levels",
+    "value": 2
+  }
+}

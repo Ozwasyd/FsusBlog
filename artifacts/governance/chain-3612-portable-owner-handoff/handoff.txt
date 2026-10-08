@@ -1,0 +1,55 @@
+#3612 portable saved-output handoff to original3576 and release2225
+Diagnostic evidence only; no new SDK run, generation execution or source edit.
+Source candidate: b64c6ad904f284e95104954ebc8612298cbf33a4
+Source branch: codex/chain-3612-census-current
+Worktree fingerprint: a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48
+Bound run: chain-3612-census-current-20261008
+Renderer canonical input: 4c3debe800a97455e92e4ff77db8a2b98056e550
+
+Canonical producer command (exact b64 source and its saved8 receipts only):
+node tools/docs/generate-fact-sections.mjs --generate --receipt .tmp/chain-3533-3536/census-refresh/current-fact-observations/test-asset-audit-fact-extractor.json --receipt .tmp/chain-3533-3536/census-refresh/current-fact-observations/code-intent-fact-extractor.json --receipt .tmp/chain-3533-3536/census-refresh/current-fact-observations/document-lifecycle-fact-extractor.json --receipt .tmp/chain-3533-3536/census-refresh/current-fact-observations/test-matrix-fact-extractor.json --receipt .tmp/chain-3533-3536/census-refresh/current-fact-observations/openapi-aeds-fact-extractor.json --receipt .tmp/chain-3533-3536/census-refresh/current-fact-observations/auth-session-permission-fact-extractor.json --receipt .tmp/chain-3533-3536/census-refresh/current-fact-observations/config-error-security-policy-fact-extractor.json --receipt .tmp/chain-3533-3536/census-refresh/current-fact-observations/content-lifecycle-fact-extractor.json
+
+The same --check command actually exited1 at precisely these3 regions. Do not reuse b64 receipts for another owner source identity; that owner must use its own genuine current observations. No portable payload is a production/generated authority.
+
+Document: docs/architecture/comment-command-boundary.md
+Absolute document: /workspace/FsusBlog-chain-3533-3536/docs/architecture/comment-command-boundary.md
+Section: content.comment.child-limit
+Fact path: facts.comment.thread.child-limit
+Fact receipt content digest: cf2f83bbfa80c24fef9c723bcc43c1bf2d64b9d2bac2bcadd1d8aadc8a0a5ba7
+Fact receipt semantic digest: cda9174657c9965654cdf47273abcc51c707d92906a07430109d5e498e3f9773
+Resolved fact value: {"boundary": "exclusive-upper-on-count", "compare": "childCount < maxChildren", "configurationKey": "CommentThreads:MaxChildrenPerNode", "default": {"unit": "children", "value": 500}, "enforcement": "reject-new-write", "maximum": {"boundary": "inclusive", "unit": "children", "value": 10000}, "minimum": {"boundary": "inclusive", "unit": "children", "value": 1}}
+Actual raw body SHA256: 4d1a366b8b282fe0fe9258f35389bba42df351a2a18c8a199082a911d1760f73
+Expected canonical body SHA256: 0a06df6b53042324cd9d9582ce031e22ee11956144b78a19b30f5a23de9adeac
+Actual: | compare | childCount < maxChildren |
+Expected: | compare | childCount &lt; maxChildren |
+
+Document: docs/architecture/comment-query-boundary.md
+Absolute document: /workspace/FsusBlog-chain-3533-3536/docs/architecture/comment-query-boundary.md
+Section: content.comment.max-depth
+Fact path: facts.comment.thread.max-depth
+Fact receipt content digest: cf2f83bbfa80c24fef9c723bcc43c1bf2d64b9d2bac2bcadd1d8aadc8a0a5ba7
+Fact receipt semantic digest: cda9174657c9965654cdf47273abcc51c707d92906a07430109d5e498e3f9773
+Resolved fact value: {"compare": "parent.depth + 1 <= maxDepth", "configurationKey": "CommentThreads:MaxDepth", "default": {"unit": "levels", "value": 32}, "enforcement": "reject-new-write", "maximum": {"boundary": "inclusive", "unit": "levels", "value": 256}, "minimum": {"boundary": "inclusive", "unit": "levels", "value": 2}}
+Actual raw body SHA256: 1d496a8e9998f492a90a5c993f837eb3b315361a6fc79c45b9e137ebf670b64d
+Expected canonical body SHA256: 241249ced5cc33a9ba10b34faa24280c37373aeb7c9ba7b11145a8b4abe51144
+Actual: | compare | parent.depth + 1 <= maxDepth |
+Expected: | compare | parent.depth + 1 &lt;= maxDepth |
+
+Document: docs/releases/blue-green-deployment-runbook.md
+Absolute document: /workspace/FsusBlog-chain-3533-3536/docs/releases/blue-green-deployment-runbook.md
+Section: release.production-bundle-order
+Fact path: facts.production-fresh.bundle-ordering
+Fact receipt content digest: 02d45ff8880edc11aad23d4fa8f11489b8b311ec7eeba35c74131bac04198137
+Fact receipt semantic digest: d1c07b600504d1fd497ba71303f4f102b0b05fd8f506947523a638950ccb6665
+Resolved fact value: {"bundleIds": ["backend-tests", "build-static", "frontend-tests", "performance-evidence", "runtime-browser"], "edges": ["backend-tests->performance-evidence", "build-static->performance-evidence", "frontend-tests->performance-evidence", "runtime-browser->performance-evidence"], "hasDependencyEdges": true, "profileId": "production", "topoOrderConstraints": ["after:performance-evidence|requires:backend-tests", "after:performance-evidence|requires:build-static", "after:performance-evidence|requires:frontend-tests", "after:performance-evidence|requires:runtime-browser"]}
+Actual raw body SHA256: dc42e224aa3d4095a1c3c78003794a2c5ea03a464fe537ca33e55f746f0119c0
+Expected canonical body SHA256: 169440886e44c5739e34459f6eedf14a964732806678c7b10d354f399c9c135e
+Actual: | edges | ["backend-tests->performance-evidence","build-static->performance-evidence","frontend-tests->performance-evidence","runtime-browser->performance-evidence"] |
+Expected: | edges | ["backend-tests-&gt;performance-evidence","build-static-&gt;performance-evidence","frontend-tests-&gt;performance-evidence","runtime-browser-&gt;performance-evidence"] |
+
+Lint:48 actual inherited diagnostics;0 in exact authored scope,0 in all generated regions. Details and origin commits in authored-lint-ownership.json.
+Exact #3612 prose claim remains line769, operation-status-authority-bound, standalone current37 prose verified. Remaining diagnostics are outside this authored scope; whole-file ownership is not inferred from assigned generated markers.
+321 controls are measured only on3de72226437c9940eef09cc36f833ce3210a292f; b64 measured57 OpenAPI/fact controls,134 ordinary controls and7 compiled self-test groups. Keep measured SHAs distinct.
+No required hunk to reserved config/development/authoritative-development-docs.json.
+Remaining dependencies: original3576 two exact generated products; release2225 release.production-bundle-order; inherited matrix producer-inventory authority; original3610/3611/3534 qualification and independent review/current-master gates; held physical/native authority and original recovery/lease obligations.
+No API content writes or closure; no ProjectXML/native admission restart.

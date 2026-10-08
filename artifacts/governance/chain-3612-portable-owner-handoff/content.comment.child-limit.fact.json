@@ -1,0 +1,20 @@
+{
+  "boundary": "exclusive-upper-on-count",
+  "compare": "childCount < maxChildren",
+  "configurationKey": "CommentThreads:MaxChildrenPerNode",
+  "default": {
+    "unit": "children",
+    "value": 500
+  },
+  "enforcement": "reject-new-write",
+  "maximum": {
+    "boundary": "inclusive",
+    "unit": "children",
+    "value": 10000
+  },
+  "minimum": {
+    "boundary": "inclusive",
+    "unit": "children",
+    "value": 1
+  }
+}

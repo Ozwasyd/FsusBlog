@@ -1,0 +1,9 @@
+| Key | Value |
+| --- | --- |
+| boundary | exclusive-upper-on-count |
+| compare | childCount < maxChildren |
+| configurationKey | CommentThreads:MaxChildrenPerNode |
+| default | 500 children |
+| enforcement | reject-new-write |
+| maximum | 10000 children |
+| minimum | 1 children |
