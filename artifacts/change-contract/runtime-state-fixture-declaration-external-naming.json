@@ -7,10 +7,9 @@
                 "config/testing/correctness-attempt-producers.json",
                 "config/testing/runtime-state-domain-catalog.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/governance/test-lifecycle-registry.json",
-                "tests/test-retention-replacements.json"
+                "tests/governance/test-lifecycle-registry.json"
             ],
-            "reason": "Preserve the existing serialized runtime-state, lifecycle, retention and canonical producer authority field names while consuming the owner-supplied exact source and generated metadata without changing caller contracts."
+            "reason": "Preserve the existing serialized runtime-state, lifecycle and canonical producer authority field names while consuming the owner-supplied exact source and generated metadata without changing caller contracts."
         },
         {
             "id": "environment-variable",
