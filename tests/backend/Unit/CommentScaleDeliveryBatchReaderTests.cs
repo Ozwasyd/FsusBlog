@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Fixtures;
@@ -82,6 +83,21 @@ public sealed class CommentScaleDeliveryBatchReaderTests
         ICommentThreadFixturePort port = Port(Observation);
 
         Assert.Single(await CollectAsync(new CommentScaleDeliveryBatchReader(port).ReadAsync(binding, [Authority(copied, 101)])));
+        AssertOnlyDeliveryReads(port, 1);
+    }
+
+    [Fact]
+    public async Task ReadAsync_AcceptsSessionUsingTheProductionGrammar()
+    {
+        CommentFixturePortBinding binding = Binding() with
+        {
+            TestSession = "not-a-session"
+        };
+        Assert.True(HttpTestSessionKeyScope.IsValidSessionId(binding.TestSession));
+        ICommentThreadFixturePort port = Port(Observation);
+
+        Assert.Single(await CollectAsync(new CommentScaleDeliveryBatchReader(port).ReadAsync(binding, [Authority(binding, 101)])));
+
         AssertOnlyDeliveryReads(port, 1);
     }
 
@@ -228,7 +244,7 @@ public sealed class CommentScaleDeliveryBatchReaderTests
         CommentFixturePortBinding binding = Binding();
         binding = mutation switch
         {
-            "session" => binding with { TestSession = "not-a-session" },
+            "session" => binding with { TestSession = "invalid/session" },
             "profile" => binding with { ProfileId = "" },
             "capabilities" => binding with { Capabilities = [] },
             "provenance-count" => binding with { AuthPrepareReferenceDigests = [] },
@@ -237,6 +253,10 @@ public sealed class CommentScaleDeliveryBatchReaderTests
             "null-provenance" => binding with { AuthPrepareReferenceDigests = null! },
             _ => throw new InvalidOperationException(mutation)
         };
+        if (mutation == "session")
+        {
+            Assert.False(HttpTestSessionKeyScope.IsValidSessionId(binding.TestSession));
+        }
         ICommentThreadFixturePort port = Port(Observation);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => CollectAsync(
