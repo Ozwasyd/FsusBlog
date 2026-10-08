@@ -14,7 +14,11 @@
         "tools/contracts/generate-article-canvas-link-golden.mjs",
         "src/migration/Definitions/ArticleCanvasLinkMigrationDefinitions.cs",
         "src/migration/SchemaMigrationManifest.cs",
-        "src/migration/OfflineMigrationClassificationFacts.cs"
+        "src/migration/OfflineMigrationClassificationFacts.cs",
+        "src/backend/Modules/Endpoints/AuthoringCanvasEndpoints.cs",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticleCanvasLinkRoutes.cs",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+        "tests/frontend/fixtures/cross-stack-contract-matrix.json"
     ],
     "outputs": [
         {
@@ -72,6 +76,18 @@
         {
             "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
             "sha256": "699e9155d7fb18146d68b0d1236d5a357a289283c94c089b2b18c78ba18e6156"
+        },
+        {
+            "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+            "sha256": "cf7646058674592fe204dec95c993242ed44ae2c66e16f6e240ebb9faf536fa9"
+        },
+        {
+            "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+            "sha256": "ac351f4ba4f40298dd5404f89095753800695c40568109127cd502ad1e3e62fc"
+        },
+        {
+            "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+            "sha256": "495116a67a973958ee629689a768e092354efcc6aa70c19a049243388b14c3d6"
         }
     ]
 }
