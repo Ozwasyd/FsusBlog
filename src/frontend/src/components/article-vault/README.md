@@ -21,6 +21,24 @@ component does not generate a plan, confirm execution, save a diff, change
 machine status, recover an operation or qualify evidence.
 
 Product integration belongs to [#2122](https://github.com/Ozwasyd/FsusBlog/issues/2122).
+`VaultResolutionStatus.vue` consumes read-only subsets of the actual `bb49a4c`
+resolution-plan and recovery-journal contracts. It shows immutable proposal
+references, expected effects, atomic groups/dependencies and an explicitly
+requested checkpoint. It never selects the newest checkpoint. A `Complete`
+descriptor is not physical backup, materialization, cleanup or execution proof.
+The only event, `request-current-check`, names the exact operation, plan digest
+and checkpoint identity/digest for the host's canonical verifier.
+
+Each check prop wraps the unchanged canonical `ArticleVaultValidationResult`
+in host correlation metadata (`requested` plus `result`). This wrapper is a
+display envelope, not a new wire validator or admission contract. Checks for
+another plan are hidden as stale; history/recovery checks also require the exact
+requested checkpoint. The host must clear results when current facts change,
+reject stale async responses, and bind the returned canonical result to the
+request it actually verified. This component cannot verify that transport.
+Missing execution/materialization admission remains visible as the canonical
+refusal reason. It offers no execution, confirmation or recovery mutation.
+
 Plan review and receipt-driven execution/recovery must consume the actual
 [#2120](https://github.com/Ozwasyd/FsusBlog/issues/2120) and
 [#2121](https://github.com/Ozwasyd/FsusBlog/issues/2121) capabilities.
