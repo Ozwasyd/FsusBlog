@@ -5417,3 +5417,45 @@ test('sealed scheduler CLI fixture rejects missing finalizer and executable drif
     assert.match(drifted.stderr, /working-tree bytes differ from the repository index/u);
     assert.equal(fs.existsSync(marker), false);
 });
+
+function assertReleaseFinalSourceRefusal(t, linked)
+{
+    const source = createTempDir('scheduler-release-final-source');
+    const fixture = createTempDir('scheduler-release-final-target');
+    t.after(() => fs.rmSync(source, { recursive: true, force: true }));
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+    materializeTestMatrixRunner(root, source);
+    const relative = 'tools/test/lanes/release-final.sh';
+    const asset = path.join(source, relative);
+    const bytes = fs.readFileSync(asset);
+    materializeTestMatrixRunner(source, fixture);
+    fs.rmSync(asset);
+    if (linked)
+    {
+        fs.symlinkSync(path.join(fixture, relative), asset);
+    }
+    for (let attempt = 0; attempt < 2; attempt += 1)
+    {
+        assert.throws(() => materializeTestMatrixRunner(source, fixture), linked
+            ? /runtime asset must be a literal regular file.*release-final\.sh/u
+            : /runtime asset is missing.*release-final\.sh/u);
+        assert.deepEqual(fs.readFileSync(path.join(fixture, relative)), bytes);
+    }
+    if (linked)
+    {
+        fs.rmSync(asset);
+    }
+    fs.writeFileSync(asset, bytes);
+    materializeTestMatrixRunner(source, fixture);
+    assert.deepEqual(fs.readFileSync(path.join(fixture, relative)), bytes);
+}
+
+test('original runner refuses missing release-final source despite an existing fixture copy', (t) =>
+{
+    assertReleaseFinalSourceRefusal(t, false);
+});
+
+test('original runner refuses linked release-final source despite an existing fixture copy', (t) =>
+{
+    assertReleaseFinalSourceRefusal(t, true);
+});
