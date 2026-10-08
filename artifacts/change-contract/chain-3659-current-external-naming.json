@@ -37,6 +37,7 @@
         {
             "id": "environment-variable",
             "paths": [
+                "tools/docs/behavior-document-consistency-final.mjs",
                 "tools/docs/global-claim-exactness-final.mjs",
                 "tools/docs/post-runtime-accepted-claims.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
