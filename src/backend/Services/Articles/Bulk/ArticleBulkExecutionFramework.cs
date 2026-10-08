@@ -1216,10 +1216,9 @@ internal sealed class ArticleBulkExecutionFramework(
             {
                 continue;
             }
-            if (!newExpectedRevisions.TryGetValue(receipt.ArticleId, out string? newRevision)
-                || string.IsNullOrWhiteSpace(newRevision))
+            if (!newExpectedRevisions.TryGetValue(receipt.ArticleId, out string? newRevision))
             {
-                throw new ArticleBulkContractException("article-bulk.retry-revision-required");
+                continue;
             }
             failed.Add((receipt.ArticleId, newRevision));
         }
@@ -1624,7 +1623,8 @@ internal sealed class ArticleBulkExecutionFramework(
                 || current.State == ArticleBulkExecutionState.Cancelling
                     && next == ArticleBulkExecutionState.Cancelled && !current.GroupCommitStarted
                 || current.State == ArticleBulkExecutionState.Executing
-                    && (next is ArticleBulkExecutionState.Completed or ArticleBulkExecutionState.Failed)
+                    && (next is ArticleBulkExecutionState.Completed or ArticleBulkExecutionState.Failed
+                        || next == ArticleBulkExecutionState.Cancelled && !current.GroupCommitStarted)
                     && current.GroupCommitTerminal
                 || current.State == ArticleBulkExecutionState.RecoveryRequired
                     && next is ArticleBulkExecutionState.RecoveryRequired or ArticleBulkExecutionState.Cancelled,
@@ -1650,7 +1650,10 @@ internal sealed class ArticleBulkExecutionFramework(
                 && current.State == ArticleBulkExecutionState.Executing && !current.GroupCommitStarted && next == current.State,
             ArticleBulkJournalEventKind.GroupCommitTerminal => current.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
                 && current.State is ArticleBulkExecutionState.Executing or ArticleBulkExecutionState.RecoveryRequired
-                && current.GroupCommitStarted && !current.GroupCommitTerminal
+                && (current.GroupCommitStarted
+                    || groupOutcome is ArticleBulkGroupCommitOutcome.RejectedZeroWrite
+                        or ArticleBulkGroupCommitOutcome.FailedZeroWrite)
+                && !current.GroupCommitTerminal
                 && next == current.State && groupOutcome is not null
                 && (groupOutcome switch
                 {
