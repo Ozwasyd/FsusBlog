@@ -85,13 +85,23 @@ signals cancel on document/source changes or disposal. Pending insertion plans
 come from FsusUI and carry the current expected revision and document identity.
 Created handles are bounded to 64 and never execute upload IO.
 
-Created-stage handles are not provider completion admission. The current task
-registry cancels their signals on the insertion's source revision. Continuing
-pending items across sibling completion transactions requires the canonical
-document lifecycle subscription and public-map rebase integration. Until that
-integration is available, completion, retry/redo/replace, removed-node denial and
-full attachment lifecycle acceptance remain unfinished; no product input is
-rewired to this created-stage boundary.
+Created-stage handles are not provider completion admission. Insertion cancels
+the created lease and establishes a new anchored provider request. The adapter
+subscribes to the canonical document owner, consumes public transaction maps,
+and renews context-bound leases while preserving each independent provider
+signal. Missing maps, partial deletion, removed nodes and document switches
+reject late completion; undo/redo cannot revive a cancelled request. Resolve,
+remove and replace use public FsusUI plans; retry creates a fresh request and
+signal. Closed lifecycle receipts retain predecessor and transaction identities,
+never file bytes or upload tokens.
+
+`useAdminArticleWrite.authoringAttachmentRuntime` is the controlled entry on the
+existing document binding. It commits accepted public transaction revisions before
+the later model-update event, creates semantic bindings through the public anchor
+map factory, and cancels requests when the bound editor is released. This data
+boundary does not upload files, parse captions, or migrate legacy placeholders.
+Native product input composition, redo successor admission and independent
+full attachment acceptance remain outstanding.
 
 ## Security, Moderation, And Anti-Crawler
 

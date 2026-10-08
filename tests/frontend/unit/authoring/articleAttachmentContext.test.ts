@@ -4,7 +4,7 @@ import { mount } from '@vue/test-utils';
 import { ElMarkdownEditor, type MarkdownEditorDispatchResult, type MarkdownEditorTransaction } from '@ozwasyd/element-plus';
 import { createMarkdownAnchorMap } from '@ozwasyd/element-plus/markdown-runtime';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ArticleAttachmentContextAdapter, validateArticleAttachmentIntent } from '@/services/authoring/articleAttachmentContext';
+import { ArticleAttachmentContextAdapter, validateArticleAttachmentIntent, validateArticleAttachmentLifecycle, type ArticleAttachmentPendingHandle, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
 import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
 
@@ -116,5 +116,200 @@ describe('Article attachment created-stage public boundary (#2256)', () =>
         editor.adapter.dispose();
         expect(handles.every(handle => handle.signal.aborted)).toBe(true);
         expect(editor.adapter.capture(input).status).toBe('rejected');
+    });
+});
+
+function lifecycle()
+{
+    let source = 'paragraph';
+    const owner = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1', editorSessionId: 'session:lifecycle', siteScope: 'site:test', userScope: 'user:test', content: source });
+    const anchors = new ArticleAnchorContextAdapter(owner);
+    const adapter = new ArticleAttachmentContextAdapter(owner, 'article-assets', 'version:1', anchors);
+    const binding = () => ({ document: owner.context, map: createMarkdownAnchorMap({ identity: owner.documentIdentity, source }) });
+    const anchor = () => anchors.capture(binding(), { start: 0, end: 0, direction: 'none' }, { affinity: 'after', viewportOffset: 0, percentage: 0, surface: 'source', tool: 'none' });
+    let commands: { dispatchTransaction(input: MarkdownEditorTransaction): MarkdownEditorDispatchResult; undo(): void; redo(): void; };
+    const port: ArticleAttachmentTransactionPort = { dispatch: transaction => commands.dispatchTransaction(transaction),
+        commitSource: result => { source = result.value; if (owner.context.sourceRevision < result.revision) owner.updateSource(source, result.revision); }, binding };
+    const wrapper = mount(ElMarkdownEditor, { props: { mode: 'source', modelValue: source, documentIdentity: owner.documentIdentity,
+        'onUpdate:modelValue': (value: string) => { source = value; owner.updateSource(value); },
+        onTransaction: (result: MarkdownEditorDispatchResult) => adapter.consumeTransaction(result, port) } });
+    commands = wrapper.vm as unknown as typeof commands;
+    const insert = (files = [file]) =>
+    {
+        const captured = adapter.capture({ source, origin: 'pick', anchor: anchor(), files });
+        if (captured.status !== 'created') throw new Error('capture rejected');
+        return { captured, handles: adapter.commitCreated(captured, port) };
+    };
+    const resolved = (handle: ArticleAttachmentPendingHandle, href = '/asset.png') => ({ status: 'resolved' as const,
+        ...handle.request, payload: { markdownKind: 'image' as const, href, alt: handle.snapshot.intent.candidate.name, mimeType: 'image/png' } });
+    cleanup.push(() => { adapter.dispose(); wrapper.unmount(); });
+    return { owner, anchors, adapter, binding, source: () => source, commands, port, insert, resolved, wrapper };
+}
+
+describe('Article attachment anchored provider lifecycle (#2256) actual public dispatch', () =>
+{
+    it('cancels created leases after an interrupted controlled dispatch without admitting pending work', () =>
+    {
+        const editor = lifecycle();
+        const captured = editor.adapter.capture({ origin: 'paste', source: editor.source(), files: [file],
+            anchor: editor.anchors.capture(editor.binding(), { start: 0, end: 0, direction: 'none' },
+                { affinity: 'after', viewportOffset: 0, percentage: 0, surface: 'source', tool: 'none' }) });
+        if (captured.status !== 'created') throw new Error('capture rejected');
+        expect(() => editor.adapter.commitCreated(captured, { ...editor.port, dispatch: () => { throw new Error('interrupted'); } })).toThrow('attachment-insert-dispatch-failed');
+        expect(captured.handles.every(handle => handle.signal.aborted)).toBe(true);
+        expect(editor.source()).toBe('paragraph');
+        expect(editor.adapter.lifecycleReceipts).toEqual([]);
+        expect(() => editor.adapter.commitCreated(captured, editor.port)).toThrow();
+    });
+
+    it('fails a real disabled-editor completion and retries through a fresh admitted request', async () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        const source = editor.source();
+        await editor.wrapper.setProps({ disabled: true });
+        expect(editor.adapter.complete(handle, editor.resolved(handle), editor.port).state).toBe('failed');
+        expect(handle.signal.aborted).toBe(true);
+        expect(editor.source()).toBe(source);
+        await editor.wrapper.setProps({ disabled: false });
+        const retry = editor.adapter.retry(handle);
+        expect(retry.request.requestId).not.toBe(handle.request.requestId);
+        expect(editor.adapter.complete(retry, editor.resolved(retry), editor.port).state).toBe('transaction-committed');
+    });
+
+    it('denies foreign transaction events without touching the current pending request', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        const result = editor.commands.dispatchTransaction({ changes: [], selection: { ...handle.snapshot.anchor.range, direction: 'none' }, history: 'skip' });
+        expect(editor.adapter.consumeTransaction({ ...result, documentIdentity: { id: 'foreign', epoch: 1 }, value: 'foreign bytes' }, editor.port)).toBe(false);
+        expect(editor.source()).toBe('![one.png]()paragraph');
+        expect(handle.signal.aborted).toBe(false);
+        expect(editor.adapter.complete(handle, editor.resolved(handle), editor.port).state).toBe('transaction-committed');
+    });
+
+    it('transitions through new anchored/pending leases and commits only a public provider plan', () =>
+    {
+        const editor = lifecycle();
+        const { captured, handles } = editor.insert();
+        const handle = handles[0]!;
+        expect(captured.handles[0]!.signal.aborted).toBe(true);
+        expect(handle.signal.aborted).toBe(false);
+        expect(handle.snapshot.state).toBe('provider-pending');
+        expect(handle.snapshot.task.taskRef).not.toBe(captured.handles[0]!.intent.task.taskRef);
+        expect(validateArticleAttachmentLifecycle(handle.snapshot)).toBe(true);
+        const result = editor.adapter.complete(handle, editor.resolved(handle), editor.port);
+        expect(result.state).toBe('transaction-committed');
+        expect(validateArticleAttachmentLifecycle(result)).toBe(true);
+        expect(editor.source()).toBe('![one.png](/asset.png)paragraph');
+        expect(() => editor.adapter.complete(handle, editor.resolved(handle), editor.port)).toThrow('attachment-pending-handle-invalid');
+    });
+
+    it('rebases through a real committed map without cancelling provider intent or manual scroll priority', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        const before = handle.snapshot.anchor.range;
+        editor.anchors.manual('wheel', 'source', Date.now());
+        editor.commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'prefix\n' }], history: 'separate' });
+        expect(handle.signal.aborted).toBe(false);
+        expect(handle.snapshot.anchor.range).toEqual({ start: before.start + 7, end: before.end + 7 });
+        expect(handle.snapshot.anchor.document.sourceRevision).toBe(editor.owner.context.sourceRevision);
+        expect(editor.anchors.userIntent.state).toBe('manual');
+        expect(editor.adapter.complete(handle, editor.resolved(handle), editor.port).state).toBe('transaction-committed');
+        expect(editor.source()).toBe('prefix\n![one.png](/asset.png)paragraph');
+    });
+
+    it('keeps file insertion order when completions arrive in reverse order', () =>
+    {
+        const editor = lifecycle();
+        const handles = editor.insert([file, { ...file, name: 'two.png' }]).handles;
+        editor.adapter.complete(handles[1]!, editor.resolved(handles[1]!, '/two.png'), editor.port);
+        expect(handles[0]!.signal.aborted).toBe(false);
+        editor.adapter.complete(handles[0]!, editor.resolved(handles[0]!, '/one.png'), editor.port);
+        expect(editor.source()).toBe('![one.png](/one.png)\n![two.png](/two.png)paragraph');
+    });
+
+    it('undo deletes a pending node and redo cannot revive the cancelled completion', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        editor.commands.undo();
+        expect(handle.snapshot.state).toBe('removed');
+        expect(handle.signal.aborted).toBe(true);
+        editor.commands.redo();
+        const before = editor.source();
+        expect(() => editor.adapter.complete(handle, editor.resolved(handle), editor.port)).toThrow();
+        expect(editor.source()).toBe(before);
+        expect(() => editor.adapter.retry(handle)).toThrow('attachment-retry-context-invalid');
+    });
+
+    it('partial deletion becomes explicitly stale and external revision without maps cancels', async () =>
+    {
+        const partial = lifecycle();
+        const handle = partial.insert().handles[0]!;
+        partial.commands.dispatchTransaction({ changes: [{ from: 2, to: 3, insert: '' }], history: 'separate' });
+        expect(handle.snapshot.state).toBe('stale');
+        expect(handle.signal.aborted).toBe(true);
+        const external = lifecycle();
+        const second = external.insert().handles[0]!;
+        external.owner.updateSource('external update');
+        await Promise.resolve();
+        expect(second.snapshot.state).toBe('stale');
+        expect(second.signal.aborted).toBe(true);
+    });
+
+    it('epoch change immediately cancels even with identical bytes and cannot be retried', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        editor.owner.switchDocument({ articleId: 2, draftId: 'article:2', content: editor.source() });
+        expect(handle.signal.aborted).toBe(true);
+        expect(handle.snapshot.state).toBe('cancelled');
+        expect(() => editor.adapter.complete(handle, editor.resolved(handle), editor.port)).toThrow();
+        expect(() => editor.adapter.retry(handle)).toThrow();
+    });
+
+    it('rejects unsafe provider results and retries with a fresh request/signal without reviving the old capability', () =>
+    {
+        const editor = lifecycle();
+        const old = editor.insert().handles[0]!;
+        expect(editor.adapter.complete(old, editor.resolved(old, 'javascript:alert(1)'), editor.port).state).toBe('failed');
+        const retry = editor.adapter.retry(old);
+        expect(retry.request.requestId).not.toBe(old.request.requestId);
+        expect(retry.snapshot.attempt).toBe(2);
+        expect(retry.signal).not.toBe(old.signal);
+        old.cancel();
+        expect(retry.signal.aborted).toBe(false);
+        expect(() => editor.adapter.complete(old, editor.resolved(old), editor.port)).toThrow();
+        expect(editor.adapter.complete(retry, editor.resolved(retry), editor.port).state).toBe('transaction-committed');
+    });
+
+    it('remove and replace use real public plans and distinct successor identities', () =>
+    {
+        const editor = lifecycle();
+        const old = editor.insert().handles[0]!;
+        const replacement = editor.adapter.replace(old, { ...file, name: 'new.png' }, editor.port)[0]!;
+        expect(old.signal.aborted).toBe(true);
+        expect(replacement.snapshot.intent.task.taskRef).not.toBe(old.snapshot.intent.task.taskRef);
+        expect(editor.source()).toBe('![new.png]()paragraph');
+        expect(editor.adapter.remove(replacement, editor.port).state).toBe('removed');
+        expect(editor.source()).toBe('paragraph');
+        expect(() => editor.adapter.complete(replacement, editor.resolved(replacement), editor.port)).toThrow();
+    });
+
+    it('rejects copied capabilities and receipt tamper, bounds receipts and releases pending signals', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        expect(() => editor.adapter.complete({ ...handle }, editor.resolved(handle), editor.port)).toThrow();
+        expect(validateArticleAttachmentLifecycle({ ...handle.snapshot, attempt: 100 })).toBe(false);
+        expect(validateArticleAttachmentLifecycle({ ...handle.snapshot, extra: true })).toBe(false);
+        const receipts = editor.adapter.lifecycleReceipts;
+        expect(receipts.length).toBeGreaterThan(0);
+        expect(receipts.every(validateArticleAttachmentLifecycle)).toBe(true);
+        editor.adapter.dispose();
+        expect(handle.signal.aborted).toBe(true);
+        expect(editor.adapter.lifecycleReceipts).toEqual([]);
     });
 });

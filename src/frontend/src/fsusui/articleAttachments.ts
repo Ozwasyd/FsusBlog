@@ -1,6 +1,9 @@
 export {
     captureMarkdownAttachmentInput,
     createMarkdownAttachmentCaptureSession,
+    createMarkdownAttachmentJob,
+    planMarkdownAttachmentResolve,
+    planMarkdownAttachmentRemove,
     planMarkdownAttachmentInsert,
     resolveMarkdownClipboardPaste
 } from '@ozwasyd/element-plus';
@@ -10,6 +13,8 @@ export type {
     MarkdownAttachmentCaptureContext,
     MarkdownAttachmentCaptureResult,
     MarkdownAttachmentInputFile,
+    MarkdownAttachmentJob,
+    MarkdownAttachmentProviderResult,
     MarkdownAttachmentSourceKind,
     MarkdownClipboardTransfer,
     MarkdownEditorTransaction
