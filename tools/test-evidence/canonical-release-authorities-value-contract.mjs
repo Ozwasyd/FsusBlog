@@ -1,5 +1,7 @@
 import path from 'node:path'
 
+import { validateRuntimeRoleCurrentSchemaContract } from '../contracts/lib/runtime-role-current-schema-contract.mjs'
+
 import { validateBehaviorDocStaticAdmissionReceiptV3 } from '../docs/behavior-doc-static-admission-contract.mjs'
 import { verifyReleaseRolloutEvidence } from '../deployment/release-rollout-evidence-receipt-contract.mjs'
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
@@ -50,7 +52,7 @@ function verifyRuntimeRole(relative, plan, repositoryRoot, readJson)
   const deployment = readJson(artifact.deploymentArtifactPath, 'content-addressed deployment observation')
   if (normalized(observation.ref.fileDigest) !== artifact.artifactDigest
     || normalized(deployment.ref.fileDigest) !== artifact.deploymentArtifactDigest
-    || observation.value.schema !== 'fsusblog.runtime-role-observation.v2'
+    || !validateRuntimeRoleCurrentSchemaContract(observation.value, { sourceCommit: plan.sourceState.commit })
     || deployment.value.ownership?.claimEligible !== true
     || observation.value.ownership?.claimEligible !== true
     || observation.value.deploymentAuthority?.observationDigest !== deployment.value.observationDigest
