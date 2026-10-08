@@ -1,15 +1,15 @@
-using Microsoft.AspNetCore.Http;
-
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Shared.Contracts.Outputs;
+
+using Microsoft.AspNetCore.Http;
 
 using NSubstitute;
 

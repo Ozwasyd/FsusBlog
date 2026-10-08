@@ -4,6 +4,8 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 
+using Microsoft.Extensions.Configuration;
+
 using ConfigurationBuilder = Microsoft.Extensions.Configuration.ConfigurationBuilder;
 using IConfiguration = Microsoft.Extensions.Configuration.IConfiguration;
 
@@ -719,7 +721,10 @@ public sealed class SecurityAdminPolicyDefaultsTests
             DateTimeOffset.UtcNow,
             "external",
             "import",
-            original.Options with { Mode = "observe" });
+            original.Options with
+            {
+                Mode = "observe"
+            });
 
         service.ApplyAntiCrawlerPolicySnapshot(externalSnapshot);
 
@@ -739,7 +744,10 @@ public sealed class SecurityAdminPolicyDefaultsTests
             DateTimeOffset.UtcNow,
             "external",
             "import",
-            original.Options with { DefaultDifficulty = 7 });
+            original.Options with
+            {
+                DefaultDifficulty = 7
+            });
 
         service.ApplyPowPolicySnapshot(externalSnapshot);
 
@@ -923,7 +931,10 @@ public sealed class SecurityAdminPolicyDefaultsTests
         var externalSnapshot = original with
         {
             SnapshotId = "external-perception",
-            Options = original.Options with { Enabled = false }
+            Options = original.Options with
+            {
+                Enabled = false
+            }
         };
 
         service.ApplyPerceptionSealedV2PolicySnapshot(externalSnapshot);
