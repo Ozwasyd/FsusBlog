@@ -126,6 +126,15 @@ describe('bounded cooperative graph layout', () => {
         expect(() => runArticleGraphLayoutTask(result, new AbortController().signal, { ...articleGraphLayoutBudget, slices: 1000 })).toThrow('invalid-layout-budget');
     });
 
+    it('seals reduced budgets before the caller can enlarge them between tasks', async () => {
+        const budget = { ...articleGraphLayoutBudget, slices: 1 };
+        const task = runArticleGraphLayoutTask(graphResult(graphRequest, 1000), new AbortController().signal, budget);
+        budget.slices = 10000;
+        budget.cpuMilliseconds = 10000;
+        budget.wallMilliseconds = 10000;
+        expect(await task).toMatchObject({ status: 'blocked', reason: 'slice-budget', layout: null, usage: { slices: 1 } });
+    });
+
     it('keeps normal/reduced-motion settlement identical and drag/reset transient', async () => {
         const motion = vi.fn().mockReturnValue({ matches: false });
         vi.stubGlobal('matchMedia', motion);

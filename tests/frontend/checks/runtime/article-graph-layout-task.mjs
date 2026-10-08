@@ -120,8 +120,9 @@ try {
             const cancelled = await runArticleGraphLayoutTask(graphResult(graphRequest, 1000), controller.signal);
             onPost = undefined;
             check(cancelled.status === 'cancelled' && cancelled.usage.slices > 0 && active.size === 0, 'active cancellation failed');
+            const beforeConstrainedPosts = posts;
             const constrained = await runArticleGraphLayoutTask(graphResult(graphRequest, 1000), new AbortController().signal, { ...articleGraphLayoutBudget, slices: 1 });
-            check(constrained.reason === 'slice-budget' && !constrained.layout && active.size === 0, 'bounded degradation failed');
+            check(constrained.reason === 'slice-budget' && !constrained.layout && active.size === 0 && constrained.usage.slices === 1 && posts - beforeConstrainedPosts === 1, 'bounded degradation failed');
             const session = new ArticleGraphSession({ query: async request => graphResult(request, 1000) });
             await session.open(graphIdentity, 'normal');
             const deterministic = JSON.stringify(session.state.layout);
