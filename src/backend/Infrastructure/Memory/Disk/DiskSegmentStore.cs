@@ -491,10 +491,25 @@ public sealed class DiskSegmentStore : IDisposable
         internal string Name { get; set; } = name;
         internal IDisposable Owner { get; set; } = owner;
         internal List<DiskSegmentEntry> Entries { get; set; } = [];
-        internal long Bytes { get; set; }
-        internal bool Published { get; set; }
-        internal bool Retired { get; set; }
-        internal bool FileExists { get; set; }
-        internal int Leases { get; set; }
+        internal long Bytes
+        {
+            get; set;
+        }
+        internal bool Published
+        {
+            get; set;
+        }
+        internal bool Retired
+        {
+            get; set;
+        }
+        internal bool FileExists
+        {
+            get; set;
+        }
+        internal int Leases
+        {
+            get; set;
+        }
     }
 }
