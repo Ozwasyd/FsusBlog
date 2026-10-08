@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "The supplied canonical NuGet lock prerequisite preserves package-manager graph keys and names; internal naming cannot replace the locked consumer format."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "The supplied canonical lifecycle deduplication preserves the existing externally registered test, fixture-owner and receipt identities; renaming them would break retained evidence bindings."
+        }
+    ]
+}
