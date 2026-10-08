@@ -297,7 +297,6 @@ const {
 </script>
 
 <style scoped>
-@reference "@/assets/main.css";
 
 .register-guidelines-button
  {
