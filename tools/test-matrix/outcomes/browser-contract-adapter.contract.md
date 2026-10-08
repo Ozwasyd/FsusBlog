@@ -170,11 +170,15 @@ The contract tests use the existing original source fixture and readers. Their
 synthetic member documents exercise consumer behavior, not a physical browser
 run, an independently admitted global outcome profile or release qualification.
 The success-path control also exercises the original canonical raw-source
-admission. At the inspected source, its exact Browser v2 field list omits the
-native finalizer's `attemptStatus`, `cleanFirstAttempt` and
-`qualificationEligible` fields. The original verifier refuses that source;
-successful bridge acceptance remains blocked pending the canonical owner's
-tested schema integration. The bridge preserves both the fields and refusal.
+admission. The single registry owner's exact correction
+`54fa4caf4bcafc65685ece847da09c2a3c16944c` registers the native finalizer's
+existing `attemptStatus`, `cleanFirstAttempt` and `qualificationEligible`
+fields in the closed Browser v2 source-field list. Producer, validator and
+other registry data remain unchanged. After consuming this correction, all
+14 ordinary bridge controls pass, including the original success-path control
+and failed/pending/provenance refusals. Earlier failed evidence remains
+separately source-bound. This source-fixture result grants no physical Browser
+or release qualification.
 
 ## Canonical profile and held-input custody composition
 
