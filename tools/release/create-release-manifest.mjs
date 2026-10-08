@@ -104,9 +104,9 @@ try
         const artifacts = releaseIdentityRosterArtifacts(manifest.identity);
         verifyReleaseManifestArtifacts({ manifest, releaseIdContract: RELEASE_ID_CONTRACT,
             trustPolicyReference: options['trust-policy'], trustPolicySha256: options['trust-policy-sha256'],
-            readBytes: reference => readExplicitReleaseArtifact(reference,
-                reference === manifest.currentSchema.receipt.reference ? manifest.currentSchema.receipt.sha256
-                    : artifacts.find(artifact => artifact.reference === reference)?.sha256.replace(/^sha256:/u, ''),
+            readBytes: (reference, expectedDigest) => readExplicitReleaseArtifact(reference,
+                expectedDigest?.replace(/^sha256:/u, '') ?? (reference === manifest.currentSchema.receipt.reference ? manifest.currentSchema.receipt.sha256
+                    : artifacts.find(artifact => artifact.reference === reference)?.sha256.replace(/^sha256:/u, '')),
                 64 * 1024 * 1024) });
     }
     const output = path.resolve(options.output);

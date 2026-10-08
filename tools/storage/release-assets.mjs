@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { isValidReleaseId } from '../release/release-id.mjs';
+import { isValidReleaseId, RELEASE_ID_CONTRACT } from '../release/release-id.mjs';
+import { validateCurrentReleaseAssetInventory } from './release-asset-value-contract.mjs';
 
 export const RELEASE_ASSET_MANIFEST_SCHEMA = 'fsusblog.release-assets.v1';
 export const MATERIALIZATION_REPORT_SCHEMA = 'fsusblog.release-assets.materialization.v1';
@@ -100,7 +101,7 @@ export function buildReleaseAssetManifest({ releaseId, slot, sourceDirectory, co
         : 'public,max-age=31536000,immutable'
     }
   })
-  return {
+  const manifest = {
     schema: RELEASE_ASSET_MANIFEST_SCHEMA,
     releaseId: normalizedReleaseId,
     slot: normalizedSlot,
@@ -108,6 +109,8 @@ export function buildReleaseAssetManifest({ releaseId, slot, sourceDirectory, co
     files,
     compatibilityFile: compatibility ? 'release-compatibility.json' : null
   }
+  if (compatibility === null) validateCurrentReleaseAssetInventory(manifest, normalizedReleaseId, RELEASE_ID_CONTRACT)
+  return manifest
 }
 
 export function materializeReleaseAssets({

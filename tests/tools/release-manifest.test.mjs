@@ -835,6 +835,14 @@ function signingFixture(context)
         }
     }
     populate(input.identity);
+    const assetBytes = Buffer.from('source-only-js');
+    fs.mkdirSync(path.join(directory, 'assets'));
+    fs.writeFileSync(path.join(directory, 'assets/current.js'), assetBytes);
+    const inventory = { schema: 'fsusblog.release-assets.v1', releaseId: input.releaseId, slot: 'blue',
+        frontendBuildId: input.releaseId, compatibilityFile: null, files: [{ path: 'assets/current.js',
+            sha256: `sha256:${crypto.createHash('sha256').update(assetBytes).digest('hex')}`, bytes: assetBytes.length, class: 'immutable-static',
+            releaseUrl: `/release-assets/${input.releaseId}/assets/current.js`, cacheControl: 'public,max-age=31536000,immutable' }] };
+    writeArtifact(input.identity.frontend.assetManifest, Buffer.from(canonicalize(inventory)));
     writeArtifact(input.identity.signing.publicKey, publicKey.export({ type: 'spki', format: 'pem' }));
     const policy = { schema: 'fsusblog.release-signing-trust.v1', version: input.identity.signing.trustPolicy.version,
         allowedKeys: [{ keyId: input.identity.signing.keyId, algorithm: 'ed25519', publicKeySha256: input.identity.signing.publicKey.sha256 }] };
@@ -858,6 +866,7 @@ test('real ephemeral Ed25519 signatures bind current artifacts and independent t
     assert.equal(result.nativeClaimEligible, false);
     assert.equal(result.actualDatabaseObserved, false);
     assert.equal(result.candidateId, fixture.manifest.candidateId);
+    assert.equal(result.currentAssets[0].mediaType, 'text/javascript');
     assert.equal(result.artifacts.length, releaseIdentityRosterArtifacts(fixture.manifest.identity).length + 1);
     assert.deepEqual(verifyReleaseManifestArtifacts(fixture.options), result);
     const manifestFile = path.join(fixture.directory, 'manifest.json');
@@ -1115,4 +1124,57 @@ test('Vite build manifest and full release asset inventory have distinct closed 
         changed.contentDigest = deriveReleaseManifestContentDigest(changed);
         assert.ok(validateReleaseManifest(changed).length > 0);
     }
+});
+
+
+test('signed current inventory rejects coherent stale aliases private paths and asset byte drift', context =>
+{
+    const fixture = signingFixture(context);
+    const reference = fixture.manifest.identity.frontend.assetManifest.reference;
+    const originalBytes = fs.readFileSync(reference);
+    const original = JSON.parse(originalBytes);
+    for (const mutation of [value =>
+    {
+        value.releaseId = '20260711010101-999999999999';
+    }, value =>
+    {
+        value.compatibilityFile = 'release-compatibility.json';
+    }, value =>
+    {
+        value.files.push(structuredClone(value.files[0]));
+    }, value =>
+    {
+        value.files[0].releaseUrl = '/assets/current.js';
+    }, value =>
+    {
+        value.files[0].path = 'api/session.json';
+        value.files[0].releaseUrl = `/release-assets/${value.releaseId}/api/session.json`;
+    }, value =>
+    {
+        value.files[0].path = 'assets/%2e%2e/current.js';
+    }, value =>
+    {
+        value.files[0].bytes += 1;
+    }, value =>
+    {
+        value.files[0].sha256 = `sha256:${'3'.repeat(64)}`;
+    }, value =>
+    {
+        value.files[0].unknown = 'not-admitted';
+    }])
+    {
+        const inventory = structuredClone(original);
+        mutation(inventory);
+        const bytes = Buffer.from(canonicalize(inventory));
+        fs.writeFileSync(reference, bytes);
+        const manifest = structuredClone(fixture.unsigned);
+        manifest.identity.frontend.assetManifest.sha256 = `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+        manifest.candidateId = deriveReleaseCandidateId(manifest);
+        manifest.contentDigest = deriveReleaseManifestContentDigest(manifest);
+        const signed = signReleaseManifest(manifest, fixture.privateKey);
+        assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, manifest: signed }), /current.*inventory/u);
+    }
+    fs.writeFileSync(reference, originalBytes);
+    fs.writeFileSync(path.join(fixture.directory, 'assets/current.js'), 'tampered-current');
+    assert.throws(() => verifyReleaseManifestArtifacts(fixture.options), /inventory asset byte digest or size/u);
 });
