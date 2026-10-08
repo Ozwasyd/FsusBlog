@@ -103,6 +103,17 @@ boundary does not upload files, parse captions, or migrate legacy placeholders.
 Native product input composition, redo successor admission and independent
 full attachment acceptance remain outstanding.
 
+Upload cancellation retains its canonical session and recovery snapshot until
+the server abort API acknowledges cleanup. Failed cleanup blocks replacement
+uploads and remains retryable; late part failures cannot recreate a cancelled
+snapshot. This does not prove cancellation of the underlying conversion worker
+or resolve a lost upload-init acknowledgment.
+
+Private preview generation consumes the same document binding before issuing
+the request and before committing its response. An aborted hash operation,
+newer generation, same-source document switch or source-revision change rejects
+old work. This guard is not attachment eligibility or an AssetId/rights receipt.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:
