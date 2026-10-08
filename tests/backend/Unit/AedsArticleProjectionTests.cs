@@ -23,15 +23,26 @@ public sealed class AedsArticleProjectionTests
         Assert.Equal(canonical.Items[0].Tags[0].Name, projected.Items[0].Tags[0].Name);
     }
 
-    [Fact]
-    public void PublicCardProjection_Legacy56Layout_UsesCanonicalFallback()
+    [Theory]
+    [InlineData(44)]
+    [InlineData(24)]
+    public void PublicCardProjection_RetiredRecordLayouts_FailClosed(int bytesToRemove)
     {
-        byte[] current = BuildCurrentPayload();
-        byte[] legacy = RemoveCurrentRecordTail(current, bytesToRemove: 44);
+        byte[] legacy = RemoveCurrentRecordTail(BuildCurrentPayload(), bytesToRemove);
+        Assert.False(PodBinaryCodec.TryDecodePublicArticleListCardProjection(legacy, out _));
+        Assert.False(PodBinaryCodec.TryDecodeArticlePage(legacy, out _));
+    }
 
-        Assert.True(PodBinaryCodec.TryDecodePublicArticleListCardProjection(legacy, out var projected));
-        Assert.Equal(AedsProjectionDecodePath.CanonicalFallback, projected.DecodePath);
-        Assert.Equal("Projection title", projected.Items[0].Title);
+    [Theory]
+    [InlineData(76, 8)]
+    [InlineData(84, 4)]
+    [InlineData(96, 4)]
+    public void PublicCardProjection_InvalidVersionCoordinates_FailClosed(int offset, int length)
+    {
+        byte[] payload = BuildCurrentPayload();
+        payload.AsSpan(FindRecordOffset(payload) + offset, length).Clear();
+        Assert.False(PodBinaryCodec.TryDecodePublicArticleListCardProjection(payload, out _));
+        Assert.False(PodBinaryCodec.TryDecodeArticlePage(payload, out _));
     }
 
     [Fact]

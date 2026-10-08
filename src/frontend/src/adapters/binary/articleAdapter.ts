@@ -1,13 +1,14 @@
 import { BinaryReader, readBlobText, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readInt64String, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import type { ArticleDetailResponse, ArticleListItemResponse, ArticleRightsResponse, BinaryPageResponse as PageResponse, FeaturedArticleItem, PopularArticleSummaryResponse, RelatedReadingItemResponse, RelatedReadingResponse, TrashClearResponse } from '@/contracts/binaryApi';
+import { ARTICLE_LIST_WIRE } from '@/generated/aedsArticleListWire';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
 import { readArrayEnvelope } from './envelopeReaders';
 import { readCategoryPod, readFeaturedArticleItem, readTagList } from './podReaders';
 import { ARTICLE_LIST_ITEM_POD_SIZE, RELATED_READING_HEADER_POD_SIZE, RELATED_READING_ITEM_POD_SIZE } from './types';
 
-const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046;
-const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 2;
+const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = ARTICLE_LIST_WIRE.cursorMagic;
+const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = ARTICLE_LIST_WIRE.cursorVersion;
 const ARTICLE_DETAIL_V3_MAGIC = 0x41524433;
 const ARTICLE_DETAIL_V3_VERSION = 3;
 const ARTICLE_DETAIL_V4_MAGIC = 0x41524434;
@@ -34,6 +35,33 @@ const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_ATTRIBUTION_TEMPLATE = 1 << 7;
 const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_CANONICAL_URL = 1 << 8;
 const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_URL = 1 << 9;
 const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_STATUS = 1 << 10;
+
+const articleUtf8 = new TextDecoder('utf-8', { fatal: true });
+
+export function readArticleStrictSlice(blob: Uint8Array, slice: { offset: number; length: number; }): string
+{
+    if (slice.offset < 0 || slice.length < 0 || slice.offset > blob.length || slice.length > blob.length - slice.offset)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_payload_slice_invalid');
+    }
+    try
+    {
+        return articleUtf8.decode(blob.subarray(slice.offset, slice.offset + slice.length));
+    }
+    catch
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_payload_utf8_invalid');
+    }
+}
+
+export function validateArticleVersionCoordinates(revisionId: string, revisionNo: number, publicationId: string, publicationNo: number): void
+{
+    if (BigInt(revisionId) <= 0n || revisionNo <= 0 || BigInt(publicationId) < 0n || publicationNo < 0
+        || (publicationId === '0') !== (publicationNo === 0))
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_version_coordinates_invalid');
+    }
+}
 
 export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse>
 {
@@ -86,9 +114,8 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     const count = readCountChecked(reader, 'article_page_count_invalid');
     const tagRecordCount = readCountChecked(reader, 'article_page_tag_count_invalid');
     const blob = reader.readBlob();
-    const itemRecordBytes = reader.remaining() - tagRecordCount * 12;
-    const itemRecordSize = count === 0 ? 100 : itemRecordBytes / count;
-    if (itemRecordBytes < 0 || (count > 0 && itemRecordBytes % count !== 0) || (itemRecordSize !== 56 && itemRecordSize !== 76 && itemRecordSize !== 100))
+    const itemRecordSize = ARTICLE_LIST_WIRE.recordBytes;
+    if (total < 0 || reader.remaining() !== count * itemRecordSize + tagRecordCount * ARTICLE_LIST_WIRE.tagRecordBytes)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_record_layout_invalid');
     }
@@ -110,42 +137,46 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     const statuses = new Int32Array(count);
     const scheduledPublishAtUnixMs = new Float64Array(count);
     const publishedAtUnixMs = new Float64Array(count);
-    const currentRevisionIds: string[] = new Array<string>(count).fill('0');
+    const currentRevisionIds: string[] = new Array<string>(count);
     const revisionNos = new Int32Array(count);
-    const currentPublicationIds: (string | null)[] = new Array<string | null>(count).fill(null);
-    const publicationNos: (number | null)[] = new Array<number | null>(count).fill(null);
-    const hasPublicationTail = itemRecordSize >= 76;
-    const hasVersionCoordinates = itemRecordSize === 100;
+    const currentPublicationIds: (string | null)[] = new Array<string | null>(count);
+    const publicationNos: (number | null)[] = new Array<number | null>(count);
+    const o = ARTICLE_LIST_WIRE.offsets;
 
     for (let i = 0; i < count; i += 1)
     {
         const record = reader.readSpan(itemRecordSize);
-        const categoryName = readSliceRef(record, 20);
-        const title = readSliceRef(record, 28);
-        const summary = readSliceRef(record, 36);
-        ids[i] = readInt32(record, 0);
-        views[i] = readInt32(record, 4);
-        createTimeUnixMs[i] = readInt64Number(record, 8);
-        categoryIds[i] = readInt32(record, 16);
+        const categoryName = readSliceRef(record, o.categoryName);
+        const title = readSliceRef(record, o.title);
+        const summary = readSliceRef(record, o.summary);
+        ids[i] = readInt32(record, o.id);
+        views[i] = readInt32(record, o.views);
+        createTimeUnixMs[i] = readInt64Number(record, o.createTimeUnixMs);
+        categoryIds[i] = readInt32(record, o.categoryId);
         categoryNameOffsets[i] = categoryName.offset;
         categoryNameLengths[i] = categoryName.length;
         titleOffsets[i] = title.offset;
         titleLengths[i] = title.length;
         summaryOffsets[i] = summary.offset;
         summaryLengths[i] = summary.length;
-        tagStarts[i] = readInt32(record, 44);
-        tagCounts[i] = readInt32(record, 48);
-        isDeletedFlags[i] = record[52] ?? 0;
-        hasIsDeletedFlags[i] = record[53] ?? 0;
-        statuses[i] = hasPublicationTail ? readInt32(record, 56) : 2;
-        scheduledPublishAtUnixMs[i] = hasPublicationTail ? readInt64Number(record, 60) : 0;
-        publishedAtUnixMs[i] = hasPublicationTail ? readInt64Number(record, 68) : 0;
-        if (hasVersionCoordinates)
+        tagStarts[i] = readInt32(record, o.tagStart);
+        tagCounts[i] = readInt32(record, o.tagCount);
+        isDeletedFlags[i] = record[o.isDeleted]!;
+        hasIsDeletedFlags[i] = record[o.hasIsDeleted]!;
+        statuses[i] = readInt32(record, o.status);
+        scheduledPublishAtUnixMs[i] = readInt64Number(record, o.scheduledPublishAtUnixMs);
+        publishedAtUnixMs[i] = readInt64Number(record, o.publishedAtUnixMs);
         {
-            currentRevisionIds[i] = readInt64String(record, 76);
-            revisionNos[i] = readInt32(record, 84);
-            const publicationId = readInt64String(record, 88);
-            const publicationNo = readInt32(record, 96);
+            currentRevisionIds[i] = readInt64String(record, o.currentRevisionId);
+            revisionNos[i] = readInt32(record, o.revisionNo);
+            const publicationId = readInt64String(record, o.currentPublicationId);
+            const publicationNo = readInt32(record, o.publicationNo);
+            validateArticleVersionCoordinates(currentRevisionIds[i], revisionNos[i], publicationId, publicationNo);
+            if (tagStarts[i] < 0 || tagCounts[i] < 0 || tagStarts[i] > tagRecordCount || tagCounts[i] > tagRecordCount - tagStarts[i]
+                || isDeletedFlags[i] > 1 || hasIsDeletedFlags[i] > 1 || record[o.reserved0] !== 0 || record[o.reserved1] !== 0)
+            {
+                throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_record_semantics_invalid');
+            }
             currentPublicationIds[i] = publicationId === '0' ? null : publicationId;
             publicationNos[i] = publicationNo > 0 ? publicationNo : null;
         }
@@ -154,10 +185,10 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     const tagRecords: ArticleListItemResponse['tags'] = [];
     for (let i = 0; i < tagRecordCount; i += 1)
     {
-        const record = reader.readSpan(12);
+        const record = reader.readSpan(ARTICLE_LIST_WIRE.tagRecordBytes);
         tagRecords.push({
             id: readInt32(record, 0),
-            name: readSliceText(blob, readSliceRef(record, 4))
+            name: readArticleStrictSlice(blob, readSliceRef(record, 4))
         });
     }
 
@@ -167,30 +198,29 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
         const tags: ArticleListItemResponse['tags'] = new Array<ArticleListItemResponse['tags'][number]>(tagCounts[i] ?? 0);
         for (let tagIndex = 0; tagIndex < tags.length; tagIndex += 1)
         {
-            tags[tagIndex] = tagRecords[(tagStarts[i] ?? 0) + tagIndex] ?? { id: 0, name: '' };
+            tags[tagIndex] = tagRecords[tagStarts[i] + tagIndex]!;
         }
 
         const item: ArticleListItemResponse = {
             id: ids[i] ?? 0,
-            title: readSliceText(blob, { offset: titleOffsets[i] ?? 0, length: titleLengths[i] ?? 0 }),
-            summary: readSliceText(blob, { offset: summaryOffsets[i] ?? 0, length: summaryLengths[i] ?? 0 }),
+            title: readArticleStrictSlice(blob, { offset: titleOffsets[i] ?? 0, length: titleLengths[i] ?? 0 }),
+            summary: readArticleStrictSlice(blob, { offset: summaryOffsets[i] ?? 0, length: summaryLengths[i] ?? 0 }),
             views: views[i] ?? 0,
             createTime: new Date(createTimeUnixMs[i] ?? 0).toISOString(),
             category: {
                 id: categoryIds[i] ?? 0,
-                name: readSliceText(blob, { offset: categoryNameOffsets[i] ?? 0, length: categoryNameLengths[i] ?? 0 })
+                name: readArticleStrictSlice(blob, { offset: categoryNameOffsets[i] ?? 0, length: categoryNameLengths[i] ?? 0 })
             },
             tags,
-            currentRevisionId: currentRevisionIds[i] ?? '0',
-            revisionNo: revisionNos[i] ?? 0,
-            currentPublicationId: currentPublicationIds[i] ?? null,
-            publicationNo: publicationNos[i] ?? null
+            currentRevisionId: currentRevisionIds[i],
+            revisionNo: revisionNos[i],
+            currentPublicationId: currentPublicationIds[i]!,
+            publicationNo: publicationNos[i]!
         };
-        if (hasPublicationTail && hasIsDeletedFlags[i] === 1)
+        if (hasIsDeletedFlags[i] === 1)
         {
             item.isDeleted = isDeletedFlags[i] === 1;
         }
-        if (hasPublicationTail)
         {
             item.status = (statuses[i] ?? 2) as ArticleListItemResponse['status'];
             item.scheduledPublishAt = unixMsToIsoOrNull(scheduledPublishAtUnixMs[i] ?? 0);
@@ -199,6 +229,10 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
         items[i] = item;
     }
 
+    if (reader.remaining() !== 0)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_trailing_bytes');
+    }
     return {
         items,
         total,
