@@ -79,6 +79,8 @@ The gate requires meaningful XML documentation for public declarations in shared
 
 No placeholder SHA is accepted in `.git-blame-ignore-revs`. A formatting commit is ignored only after it exists and has been reviewed as purely mechanical.
 
+The read-only declaration checker extracts a delegate's identifier immediately before its outer parameter list, after the return type and optional generic type parameters. Primitive, qualified, nullable, array, tuple, pointer and ref return types are not declaration names. Multiline declarations and escaped identifiers retain the same PascalCase check; genuinely invalid delegate identifiers are rejected without native-path exemptions. Compilation and Roslyn remain the syntax authority.
+
 The read-only text checker follows the outer method parameter list across lines before extracting parameter identifiers. Parameter attributes, including `MarshalAs(UnmanagedType.LPUTF8Str)` and named attribute arguments, remain metadata; camelCase checks apply to the actual parameter names. This does not execute C# or replace Roslyn, compilation, runtime or release verification.
 
 ## Bounded policy digest rebind
