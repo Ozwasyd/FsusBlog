@@ -466,7 +466,8 @@ try
         ...(observations.consumerVariants.some((variant) => variant.panelOverflow) ? ['consumer-panel-viewport-overflow'] : []),
         ...(observations.linkKeyboardHash !== '#linked-locale' ? ['public-url-command-adapter'] : []),
         ...Object.entries(observations.keyboard).filter(([, passed]) => !passed).map(([key]) => `keyboard-${key}`),
-        ...(!observations.disabledItemIgnored ? ['disabled-item-activation'] : [])
+        ...(!observations.disabledItemIgnored ? ['disabled-item-activation'] : []),
+        ...(observations.realBrowserZoom?.focusPaintFailures ?? [])
     ];
     report.status = report.failures.length ? 'capability-gap' : 'probe-passed';
     process.exitCode = report.failures.length ? 2 : 0;

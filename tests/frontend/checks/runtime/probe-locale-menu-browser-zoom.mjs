@@ -44,7 +44,7 @@ export async function probeLocaleMenuBrowserZoom({ chromium, expect, url, eviden
         }, page.url());
         expect(zoom).toBe(2);
         await expect.poll(() => page.evaluate(() => globalThis.devicePixelRatio)).toBe(before.dpr * 2);
-        report.observations.realBrowserZoom = { method: 'chrome.tabs.setZoom/getZoom', factor: zoom, before, variants: [], qualification: false };
+        report.observations.realBrowserZoom = { method: 'chrome.tabs.setZoom/getZoom', factor: zoom, before, variants: [], focusPaintFailures: [], qualification: false };
         const trigger = page.locator('[data-locale-selector-trigger]');
         const menu = page.locator('[data-locale-selector-menu]');
         const item = (code) => page.locator(`[data-locale-code="${code}"]`);
@@ -94,7 +94,30 @@ export async function probeLocaleMenuBrowserZoom({ chromium, expect, url, eviden
                     }).map((row) => row.getAttribute('data-locale-code'))
                 };
             });
-            report.observations.realBrowserZoom.variants.push({ ...variant, geometry });
+            const focusPaint = await item('ru-RU').evaluate((element) =>
+            {
+                const style = globalThis.getComputedStyle(element);
+                const after = globalThis.getComputedStyle(element, '::after');
+                return {
+                    focusVisible: element.matches(':focus-visible'),
+                    boxShadow: style.boxShadow,
+                    outlineStyle: style.outlineStyle,
+                    outlineWidth: style.outlineWidth,
+                    afterContent: after.content,
+                    afterBorderStyle: after.borderTopStyle,
+                    afterBorderWidth: after.borderTopWidth,
+                    afterBorderColor: after.borderTopColor
+                };
+            });
+            if (variant.forcedColors === 'active' && (!focusPaint.focusVisible || (
+                focusPaint.boxShadow === 'none'
+                && (focusPaint.outlineStyle === 'none' || Number.parseFloat(focusPaint.outlineWidth) === 0)
+                && (focusPaint.afterContent === 'none' || focusPaint.afterBorderStyle === 'none' || Number.parseFloat(focusPaint.afterBorderWidth) === 0)
+            )))
+            {
+                report.observations.realBrowserZoom.focusPaintFailures.push('forced-colors-focus-paint');
+            }
+            report.observations.realBrowserZoom.variants.push({ ...variant, geometry, focusPaint });
             expect(geometry.cssZoom).toBe('1');
             expect(geometry.dpr).toBe(before.dpr * 2);
             expect(geometry.innerWidth).toBeLessThan(variant.width);
