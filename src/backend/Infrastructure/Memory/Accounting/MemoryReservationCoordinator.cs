@@ -20,6 +20,7 @@ public sealed class MemoryReservationCoordinator
     private readonly MemoryResourceTopology _topology;
     private readonly int _entryLimit;
     private readonly MemoryAccountingEvent?[] _events;
+    private readonly HashSet<ResourceDomainId> _existingPhysicalDomains;
     private Dictionary<string, long> _used = new(StringComparer.Ordinal);
     private readonly HashSet<MemoryReservation> _reservations = [];
     private readonly Dictionary<AllocationId, MemoryAllocationCharge> _allocations = [];
@@ -31,7 +32,8 @@ public sealed class MemoryReservationCoordinator
     internal MemoryResourceTopology Topology => _topology;
 
     public MemoryReservationCoordinator(MemoryResourceTopology topology, IEnumerable<MemoryResourceLimit> limits,
-        ulong policyRevision, int entryLimit, int eventCapacity)
+        ulong policyRevision, int entryLimit, int eventCapacity,
+        IEnumerable<ResourceDomainId>? existingPhysicalDomains = null)
     {
         ArgumentNullException.ThrowIfNull(topology);
         if (policyRevision == 0 || entryLimit <= 0 || eventCapacity <= 0)
@@ -39,6 +41,13 @@ public sealed class MemoryReservationCoordinator
             throw new ArgumentOutOfRangeException(nameof(policyRevision), "Revision and bounded metadata limits must be positive.");
         }
         _topology = topology;
+        ResourceDomainId[] persistent = existingPhysicalDomains?.Take(topology.DomainCount + 1).ToArray() ?? [];
+        _existingPhysicalDomains = new HashSet<ResourceDomainId>(persistent);
+        if (persistent.Length > topology.DomainCount || persistent.Length != _existingPhysicalDomains.Count
+            || persistent.Any(domain => topology.Unit(domain) is not (MemoryResourceUnit.Bytes or MemoryResourceUnit.Inodes)))
+        {
+            throw new ArgumentException("Existing ownership requires distinct registered physical byte/inode domains.", nameof(existingPhysicalDomains));
+        }
         _entryLimit = entryLimit;
         _caps = NormalizeLimits(limits);
         _events = new MemoryAccountingEvent[eventCapacity];
@@ -191,6 +200,96 @@ public sealed class MemoryReservationCoordinator
             var charge = new MemoryAllocationCharge(this, allocation, actual, vector, reservation.TokenId, descriptor);
             MemoryAccountingEvent next = PrepareEvent("committed", delta, reservation.TokenId, allocation);
             _allocations.Add(allocation, charge);
+            _reservations.Remove(reservation);
+            reservation.State = 1;
+            Apply(delta);
+            Record(next);
+            return MemoryOperationResult<IMemoryAllocationCharge>.Success(charge);
+        }
+    }
+
+    // ACCOUNTING: Observe pre-existing ownership, never grant permission to create backing.
+    // The persistent storage owner verifies object identity and holds it through adoption.
+    // New host/index resources still require this reservation; live over-cap bytes remain visible.
+    internal MemoryOperationResult<IMemoryAllocationCharge> CommitObservedExisting(MemoryReservation reservation,
+        MemoryAllocationDescriptor descriptor, IReadOnlyList<MemoryResourceCharge> existingCharges,
+        IReadOnlyList<MemoryResourceCharge> newlyAdmittedCharges, ulong observedPolicyRevision)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        IReadOnlyList<MemoryResourceCharge> existing = Freeze(existingCharges);
+        IReadOnlyList<MemoryResourceCharge> newlyAdmitted = Freeze(newlyAdmittedCharges);
+        Dictionary<string, long>? existingVector;
+        Dictionary<string, long>? newVector;
+        try
+        {
+            existingVector = NormalizeCharges(existing);
+            newVector = newlyAdmitted.Count == 0 ? new(StringComparer.Ordinal) : NormalizeCharges(newlyAdmitted);
+        }
+        catch (KeyNotFoundException)
+        {
+            return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.TierUnavailable);
+        }
+        if (existingVector is null || newVector is null || observedPolicyRevision == 0
+            || !existing.Any(charge => charge.Domain == descriptor.Domain && charge.Unit == MemoryResourceUnit.Bytes
+                && charge.Amount == descriptor.Layout.CapacityBytes))
+        {
+            return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.BoundsViolation);
+        }
+        if (existing.Any(charge => !_existingPhysicalDomains.Contains(charge.Domain))
+            || newlyAdmitted.Any(charge => _existingPhysicalDomains.Contains(charge.Domain))
+            || existingVector.Keys.Intersect(newVector.Keys, StringComparer.Ordinal).Any())
+        {
+            return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.OwnershipViolation);
+        }
+        IReadOnlyList<MemoryResourceCharge> actual = Freeze(existing.Concat(newlyAdmitted));
+        lock (_gate)
+        {
+            if (_faulted || reservation.State != 0 || !_reservations.Contains(reservation)
+                || observedPolicyRevision != _policyRevision)
+            {
+                return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.OwnershipViolation);
+            }
+            if (_allocations.ContainsKey(descriptor.Allocation))
+            {
+                _faulted = true;
+                return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.OwnershipViolation);
+            }
+            if (existingVector.Keys.Any(key => !_caps.ContainsKey(key)))
+            {
+                return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.TierUnavailable);
+            }
+            if (newVector.Any(entry => !reservation.Vector.TryGetValue(entry.Key, out long admitted) || entry.Value > admitted))
+            {
+                return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.BudgetRejected);
+            }
+            var vector = new Dictionary<string, long>(existingVector, StringComparer.Ordinal);
+            foreach ((string key, long amount) in newVector)
+            {
+                vector.Add(key, amount);
+            }
+            var delta = new Dictionary<string, long>(vector, StringComparer.Ordinal);
+            foreach ((string key, long amount) in reservation.Vector)
+            {
+                delta[key] = delta.GetValueOrDefault(key) - amount;
+            }
+            try
+            {
+                foreach ((string key, long amount) in delta)
+                {
+                    if (checked(_used.GetValueOrDefault(key) + amount) < 0)
+                    {
+                        return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.OwnershipViolation);
+                    }
+                }
+            }
+            catch (OverflowException)
+            {
+                return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.BoundsViolation);
+            }
+            EnsureEventSpace();
+            var charge = new MemoryAllocationCharge(this, descriptor.Allocation, actual, vector, reservation.TokenId, descriptor);
+            MemoryAccountingEvent next = PrepareEvent("existing-registered", delta, reservation.TokenId, descriptor.Allocation);
+            _allocations.Add(descriptor.Allocation, charge);
             _reservations.Remove(reservation);
             reservation.State = 1;
             Apply(delta);
@@ -363,6 +462,16 @@ public sealed class MemoryReservation : IMemoryReservation
         ArgumentNullException.ThrowIfNull(descriptor);
         return _coordinator.Commit(this, descriptor.Allocation, actualCharges, descriptor);
     }
+    /// <summary>
+    /// Adopt storage-owner-verified existing backing in registered persistent domains.
+    /// Does not allocate, qualify content, or authorize file creation. The owner must
+    /// reject replaced objects before calling and release only after actual deletion.
+    /// </summary>
+    public MemoryOperationResult<IMemoryAllocationCharge> CommitObservedExisting(MemoryAllocationDescriptor descriptor,
+        IReadOnlyList<MemoryResourceCharge> observedExistingPhysicalCharges,
+        IReadOnlyList<MemoryResourceCharge> newlyAdmittedCharges, ulong observedPolicyRevision)
+        => _coordinator.CommitObservedExisting(this, descriptor, observedExistingPhysicalCharges,
+            newlyAdmittedCharges, observedPolicyRevision);
     public void Dispose() => _coordinator.Release(this);
 }
 

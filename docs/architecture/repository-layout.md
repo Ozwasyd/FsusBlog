@@ -163,6 +163,19 @@ This contract has no probe, driver, publication or readiness side effects and do
 not qualify a controller's supplied facts; production activation and safe draining
 remain with the common capability controller and the existing resource owners.
 
+The coordinator's optional `existingPhysicalDomains` roster declares internal
+persistent byte/inode accounting roles, not a user enable switch. The storage
+owner must verify and retain an already-existing object before calling
+`MemoryReservation.CommitObservedExisting`; this API does not create backing or
+qualify its content. It records that occupancy even above a reduced current cap
+and reports OverTarget. Only newly retained host/index resources can consume the
+existing scratch reservation, and overlapping persistent/new capacity, stale
+policy revision, descriptor mismatch, duplicate identity and arithmetic overflow
+are rejected without partially adopting the object. New disk growth still uses
+ordinary hard admission. Failed deletion leaves the physical owner charged; final
+disposal is legal only after the existing storage owner actually relinquishes the
+backing. Object replacement checks and namespace coordination stay with that owner.
+
 The current backend, Core, Shared, and Migration projects target `net10.0`. A .NET target
 or an available local toolchain does not establish product platform support. The catalog distinguishes the Dockerfile's `linux-musl-x64` shipping default from
 additional candidate targets and binds each row's source and required offline closure.

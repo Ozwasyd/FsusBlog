@@ -2135,7 +2135,7 @@
             "producer": "MemoryReservationCoordinator request normalization and immutable accounting-event snapshots",
             "consumers": "Reservation and allocation charge tokens plus snapshot/event-window/allocation-observation callers; physical descriptors stay immutable metadata, not owning leases",
             "releaseEvent": "Reservation disposal or allocation-owner final disposal releases its resource vector; ring slot replacement drops only that event reference; snapshot caller references remain managed",
-            "capacityModel": "Finite entryLimit/eventCapacity/domain roster and at most entryLimit immutable physical descriptors; caller charge amounts describe resource constraints, not exact CLR metadata object sizes; disk physical policy retains one immutable owner-supplied bound and time provider, not filesystem capacity qualification",
+            "capacityModel": "Finite entryLimit/eventCapacity/domain roster and at most entryLimit immutable physical descriptors; caller charge amounts describe resource constraints, not exact CLR metadata object sizes; disk physical policy retains one immutable owner-supplied bound and time provider, not filesystem capacity qualification; existingPhysicalDomains is a copied roster bounded by domain count, and atomic existing ownership reconciliation retains observed over-target bytes/inodes without granting new allocation credit.",
             "frequency": "Per vector admission, commit, release and explicit diagnostic snapshot",
             "asyncEscape": "Tokens can escape asynchronously; a converted reservation never releases its allocation charge; actual backing lifetime is delegated to its final owner",
             "classification": "ephemeral-scratch",
