@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/run-comment-fixture-simulated-runtime.mjs"
+            ],
+            "reason": "Preserve the existing caller-visible process-environment and serialized model receipt field spellings in the sole changed registered collector surface. This records naming ownership only and grants no production runtime or native execution authority."
+        }
+    ]
+}
