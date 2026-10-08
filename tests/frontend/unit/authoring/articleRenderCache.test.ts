@@ -216,6 +216,22 @@ describe('ArticleRenderCache (#2245)', () => {
         expect(cache.state.content).toBeNull();
         expect(producer.release).toHaveBeenCalled();
     });
+    it('releases a produced reference if verification throws or invalidates the task before commit', async () => {
+        for (const mode of ['throw', 'switch'] as const)
+        {
+            const { cache, adapter, producer } = setup();
+            vi.mocked(producer.verify).mockImplementationOnce(() => {
+                if (mode === 'throw') throw new Error('verification-failed');
+                adapter.updateSource('# next');
+                return true;
+            });
+            const receipt = await cache.refresh();
+            expect(receipt.status).not.toBe('committed');
+            expect(cache.state.content).toBeNull();
+            expect(producer.release).toHaveBeenCalledTimes(1);
+            expect(adapter.activeTaskRefs).toEqual([]);
+        }
+    });
     it.each(['context', 'request', 'feature', 'authority', 'html', 'partial-without-fallback'] as const)(
         'rejects %s mutation without replacing old valid content', async mutation => {
             const { cache, adapter, producer } = setup();

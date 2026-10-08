@@ -405,6 +405,7 @@ export class ArticleRenderCache
         };
         task.signal.addEventListener('abort', onAbort, { once: true });
         let result: ArticleRenderResult | null = null;
+        let uncommittedRef: string | null = null;
         let status: ArticleRenderReceipt['status'] = 'rejected';
         let reason: string | null = 'render-result-invalid';
         try
@@ -419,6 +420,7 @@ export class ArticleRenderCache
                 return value;
             });
             const value = await Promise.race([produced, canceled]);
+            uncommittedRef = value && isRef(value.resultRef) ? value.resultRef : null;
             if (value === null)
             {
                 status = 'canceled';
@@ -445,7 +447,6 @@ export class ArticleRenderCache
                     {
                         status = 'failed';
                         reason = 'cache-size-limit';
-                        this.producer.release(value.resultRef!);
                         task.complete();
                     }
                     else if (task.accept(result).accepted)
@@ -458,10 +459,6 @@ export class ArticleRenderCache
                     }
                 }
             }
-            else if (value.resultRef && !task.signal.aborted)
-            {
-                this.producer.release(value.resultRef);
-            }
         }
         catch
         {
@@ -471,6 +468,10 @@ export class ArticleRenderCache
         finally
         {
             task.signal.removeEventListener('abort', onAbort);
+            if (uncommittedRef !== null && status !== 'committed')
+            {
+                this.producer.release(uncommittedRef);
+            }
         }
         if (task.envelope.status === 'running')
         {
