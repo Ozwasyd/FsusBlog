@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Measurement consumer JSON formatting for #1690.
+bc318f2634f556e55de61d195cfff2cd2f541ba9

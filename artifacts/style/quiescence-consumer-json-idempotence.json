@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "bc318f2634f556e55de61d195cfff2cd2f541ba9",
+    "formatter": {
+        "identity": "native-tooling-style",
+        "version": "v1",
+        "command": "node tools/style/check-native-tooling-style.mjs --operation format --mode changed --domain scripts --write --file config/testing/measurement-quiescence-consumers.json"
+    },
+    "paths": [
+        "config/testing/measurement-quiescence-consumers.json"
+    ],
+    "firstPassTreeSha256": "53f582d3258e9a4c607aee5e8b2ac457bab84ad7ae44b960ad37aa151bb72340",
+    "secondPassTreeSha256": "53f582d3258e9a4c607aee5e8b2ac457bab84ad7ae44b960ad37aa151bb72340",
+    "idempotent": true
+}
