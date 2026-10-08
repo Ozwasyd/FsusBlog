@@ -319,6 +319,21 @@ for (const relativePath of [
         {
             writeOverlay(overlay, relativePath, 'unclassified migration input');
 
+            if (relativePath === 'config/dependencies/fsusui-public-npm-migration.patch')
+            {
+                const manifest = readManifest();
+                assert.ok(!manifest.nonSourceExtensions.includes('.patch'));
+                const fixture = manifest.pathClassifications.find((entry) => entry.id === 'fixture');
+                fixture.patterns.push(relativePath);
+                writeManifest(overlay, manifest);
+                const registeredFixture = runChecker(overlay);
+                assert.equal(registeredFixture.status, 0, output(registeredFixture));
+
+                // Preserve the classified raw-patch positive, then isolate the packed-input negative.
+                fixture.patterns = fixture.patterns.filter((pattern) => pattern !== relativePath);
+                writeManifest(overlay, manifest);
+            }
+
             const result = runChecker(overlay);
             assert.notEqual(result.status, 0);
             assert.ok(
@@ -328,6 +343,74 @@ for (const relativePath of [
         });
     });
 }
+
+const strykerPatchPaths = [
+    'tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
+    'tools/mutation/patches/stryker-net-4.14.2-expression-tree.patch'
+];
+
+test('authoritative development documentation assigns only the two original Stryker patches to the vendor owner', () =>
+{
+    const manifest = readManifest();
+    const vendor = manifest.pathClassifications.find((entry) => entry.id === 'vendor');
+    assert.equal(vendor.owner, 'DependencyOwner');
+    assert.ok(!manifest.nonSourceExtensions.includes('.patch'));
+    assert.deepEqual(vendor.patterns.filter((pattern) => pattern.endsWith('.patch')), strykerPatchPaths);
+    assert.ok(!vendor.patterns.includes('tools/mutation/patches/**'));
+    withOverlay((overlay) =>
+    {
+        const result = runChecker(overlay);
+        assert.equal(result.status, 0, output(result));
+    });
+});
+
+for (const patch of strykerPatchPaths)
+{
+    test(`authoritative development documentation rejects the original patch without its registration: ${patch}`, () =>
+    {
+        withOverlay((overlay) =>
+        {
+            const manifest = readManifest();
+            const vendor = manifest.pathClassifications.find((entry) => entry.id === 'vendor');
+            vendor.patterns = vendor.patterns.filter((pattern) => pattern !== patch);
+            writeManifest(overlay, manifest);
+            const result = runChecker(overlay);
+            assert.notEqual(result.status, 0);
+            assert.ok(output(result).includes(`${patch} has no style owner or non-source classification`), output(result));
+            const otherPatch = strykerPatchPaths.find((entry) => entry !== patch);
+            assert.ok(!output(result).includes(`${otherPatch} has no style owner or non-source classification`), output(result));
+        });
+    });
+}
+
+for (const relativePath of [
+    'tools/mutation/patches/unregistered.patch',
+    'tools/mutation/patches/nested/stryker-net-4.14.2-candidate-validity.patch',
+    'config/dependencies/stryker-net-4.14.2-expression-tree.patch',
+    'src/backend/unclassified.patch'
+])
+{
+    test(`authoritative development documentation rejects an unregistered patch neighbor: ${relativePath}`, () =>
+    {
+        withOverlay((overlay) =>
+        {
+            writeOverlay(overlay, relativePath, 'unclassified migration input\n');
+            const result = runChecker(overlay);
+            assert.notEqual(result.status, 0);
+            assert.ok(output(result).includes(`${relativePath} has no style owner or non-source classification`), output(result));
+        });
+    });
+}
+
+test('authoritative development documentation retains patches under the existing explicit fixture owner', () =>
+{
+    withOverlay((overlay) =>
+    {
+        writeOverlay(overlay, 'tests/fixtures/patch-classification/raw.patch', 'intentional fixture input\n');
+        const result = runChecker(overlay);
+        assert.equal(result.status, 0, output(result));
+    });
+});
 
 test('authoritative development documentation checker rejects browserconfig XML without its style owner', () =>
 {
