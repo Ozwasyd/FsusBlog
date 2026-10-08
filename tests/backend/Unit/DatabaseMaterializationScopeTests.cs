@@ -3,6 +3,7 @@ using System.Data.Common;
 
 using FsusBlog.Server.Infrastructure.Memory.Contracts;
 using FsusBlog.Server.Infrastructure.Memory.Transient;
+using FsusBlog.Server.Tests.Helpers;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -11,7 +12,7 @@ public sealed class DatabaseMaterializationScopeTests
     [Fact]
     public async Task AdmissionRejectedBeforeTheQueryCallbackOrMaterialization()
     {
-        var (ledger, host, operations) = TransientBufferPoolTests.CreateLedger(64);
+        var (ledger, host, operations) = TransientMemoryTestLedger.Create(64);
         using var cancellation = new CancellationTokenSource();
         int calls = 0;
         var result = await DatabaseMaterializationScope.RunAsync(ledger, host, operations,
@@ -29,7 +30,7 @@ public sealed class DatabaseMaterializationScopeTests
     [Fact]
     public async Task RowFrameAndWorkspaceBoundsFailBeforeTheNextAllocation()
     {
-        var (ledger, host, operations) = TransientBufferPoolTests.CreateLedger(128);
+        var (ledger, host, operations) = TransientMemoryTestLedger.Create(128);
         using var cancellation = new CancellationTokenSource();
         DatabaseMaterializationScope? captured = null;
         var result = await DatabaseMaterializationScope.RunAsync(ledger, host, operations,
@@ -52,7 +53,7 @@ public sealed class DatabaseMaterializationScopeTests
     [Fact]
     public async Task StringLengthIsProbedBeforeAllocatingOrReadingOversizeCharacters()
     {
-        var (ledger, host, operations) = TransientBufferPoolTests.CreateLedger(128);
+        var (ledger, host, operations) = TransientMemoryTestLedger.Create(128);
         using var cancellation = new CancellationTokenSource();
         using var table = new DataTable();
         table.Columns.Add("text", typeof(string));
@@ -77,7 +78,7 @@ public sealed class DatabaseMaterializationScopeTests
     [Fact]
     public async Task CancellationOfOuterWaitRetainsWorkspaceUntilUnderlyingQueryEnds()
     {
-        var (ledger, host, operations) = TransientBufferPoolTests.CreateLedger(128);
+        var (ledger, host, operations) = TransientMemoryTestLedger.Create(128);
         using var cancellation = new CancellationTokenSource();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
