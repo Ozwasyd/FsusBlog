@@ -1,0 +1,159 @@
+{
+  "base": "a96047c3a281df6f0ae035f27fc471ad4a645173",
+  "head": "b175646477294e2d765607c8c6701ad41cd5d248",
+  "tree": "fc16ad89542ba291a3eac9d4877457b17152b8d0",
+  "status": "",
+  "changedPaths": [
+    ".changeset/dropdown-controlled-radio-items.md",
+    ".changeset/dropdown-forced-colors-focus.md",
+    ".changeset/dropdown-forced-colors-surface.md",
+    "docs/avalonia/vue-public-api-baseline.md",
+    "docs/components/dropdown.md",
+    "docs/design.md",
+    "spec/baselines/vue-current.json",
+    "spec/components/contracts/v2/contract-v2.json",
+    "vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts",
+    "vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts",
+    "vue/packages/components/dropdown/src/dropdown-item-impl.vue",
+    "vue/packages/components/dropdown/src/dropdown-item.vue",
+    "vue/packages/components/dropdown/src/dropdown-menu.vue",
+    "vue/packages/components/dropdown/src/dropdown.ts",
+    "vue/packages/components/dropdown/src/dropdown.vue",
+    "vue/packages/components/dropdown/src/tokens.ts",
+    "vue/packages/components/dropdown/src/viewport-modifiers.ts",
+    "vue/packages/theme-chalk/src/dropdown.scss"
+  ],
+  "unexpected": [],
+  "unchangedOwned": [
+    {
+      "path": ".changeset/dropdown-controlled-radio-items.md",
+      "sameBlob": true
+    },
+    {
+      "path": ".changeset/dropdown-forced-colors-focus.md",
+      "sameBlob": true
+    },
+    {
+      "path": ".changeset/dropdown-forced-colors-surface.md",
+      "sameBlob": true
+    },
+    {
+      "path": "docs/components/dropdown.md",
+      "sameBlob": true
+    },
+    {
+      "path": "docs/design.md",
+      "sameBlob": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts",
+      "sameBlob": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts",
+      "sameBlob": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown-item-impl.vue",
+      "sameBlob": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown-item.vue",
+      "sameBlob": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown-menu.vue",
+      "sameBlob": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown.ts",
+      "sameBlob": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown.vue",
+      "sameBlob": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/tokens.ts",
+      "sameBlob": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/viewport-modifiers.ts",
+      "sameBlob": true
+    },
+    {
+      "path": "vue/packages/theme-chalk/src/dropdown.scss",
+      "sameBlob": true
+    }
+  ],
+  "generatedViaOfficialProducers": [
+    "docs/avalonia/vue-public-api-baseline.md",
+    "spec/baselines/vue-current.json",
+    "spec/components/contracts/v2/contract-v2.json"
+  ],
+  "prerequisiteSourceCommitsConsumed": [],
+  "artifactInspection": {
+    "id": "wasm",
+    "sourceHash": "743a7500a128f6e662b48cfb5e2a0bae88ebb9e17d4b839851a5c9e0f16aa020",
+    "fingerprints": [
+      {
+        "id": "bundle",
+        "fingerprintPath": "vue/packages/wasm/dist/.artifact-fingerprint",
+        "files": [
+          "scripts/ensure-wasm-artifacts.mjs",
+          "scripts/prepare-test-artifacts.mjs",
+          "scripts/test-artifact-cache.mjs",
+          "vue/packages/wasm/build.config.ts",
+          "vue/packages/wasm/index.ts",
+          "vue/packages/wasm/markdown-feature-output-gateway.ts",
+          "vue/packages/wasm/markdown-runtime.ts",
+          "vue/packages/wasm/markdown.ts",
+          "vue/packages/wasm/package.json",
+          "vue/packages/wasm/runtime/assets.ts",
+          "vue/packages/wasm/runtime/emscripten.ts",
+          "vue/packages/wasm/runtime/serialized.ts",
+          "vue/packages/wasm/runtime/utf8.ts"
+        ],
+        "currentFingerprint": "598047d6346003e6d33a1cc3c8d5ebac8c3e46014ab13e1df65ae24a804fe984",
+        "cachedFingerprint": "598047d6346003e6d33a1cc3c8d5ebac8c3e46014ab13e1df65ae24a804fe984",
+        "cachedArtifactDigest": "146cec9c6402f353fb1c83490f628b99032e4d450d5ae17883928e00e70d0cf8",
+        "currentArtifactDigest": "146cec9c6402f353fb1c83490f628b99032e4d450d5ae17883928e00e70d0cf8",
+        "missingArtifacts": [],
+        "staleReasons": [],
+        "fresh": true
+      },
+      {
+        "id": "native",
+        "fingerprintPath": "vue/packages/wasm/dist/.native-artifact-fingerprint",
+        "files": [
+          "scripts/ensure-wasm-artifacts.mjs",
+          "scripts/prepare-test-artifacts.mjs",
+          "scripts/run-wasm-build.mjs",
+          "scripts/test-artifact-cache.mjs",
+          "vue/packages/wasm/CMakeLists.txt",
+          "vue/packages/wasm/build.sh",
+          "vue/packages/wasm/markdown/CMakeLists.txt",
+          "vue/packages/wasm/markdown/include/markdown_contract.hpp",
+          "vue/packages/wasm/markdown/src/markdown_contract.cpp",
+          "vue/packages/wasm/markdown/src/markdown_exports.cpp",
+          "vue/packages/wasm/markdown/src/markdown_latex.cpp",
+          "vue/packages/wasm/markdown/src/markdown_latex.hpp",
+          "vue/packages/wasm/markdown/src/markdown_mermaid.cpp",
+          "vue/packages/wasm/markdown/src/markdown_mermaid.hpp",
+          "vue/packages/wasm/markdown/src/markdown_syntax_export.cpp",
+          "vue/packages/wasm/src/ep_wasm.cpp"
+        ],
+        "currentFingerprint": "d9ab11dbb005141eb3cee174624c0952412c858ab93b84c77d4f1b76e2d46c96",
+        "cachedFingerprint": "d9ab11dbb005141eb3cee174624c0952412c858ab93b84c77d4f1b76e2d46c96",
+        "cachedArtifactDigest": null,
+        "currentArtifactDigest": null,
+        "missingArtifacts": [],
+        "staleReasons": [],
+        "fresh": true
+      }
+    ],
+    "staleReasons": [],
+    "fresh": true
+  },
+  "fullDiffSha256": "3a9f45533906dc4f5bf4b21aaad1590fbf1417aa1e6948c34f094a4a158dffaf"
+}

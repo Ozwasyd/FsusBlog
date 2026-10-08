@@ -1,0 +1,180 @@
+{
+  "baseline": "a96047c3a281df6f0ae035f27fc471ad4a645173",
+  "broadPreserved": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+  "selection": "exact owned file blobs; no broad-branch merge/cherry-pick",
+  "paths": [
+    {
+      "path": ".changeset/dropdown-controlled-radio-items.md",
+      "baselineBlob": null,
+      "sourceBlob": "cfa328573e88a91e15903151ebd03e3ae6678cc0",
+      "sourceSha256": "d9ee320afb204e13e0d9e8695ca18e84210ad26af00b770afc58ecdf5d889ad9",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "2f3707e6453abebcfd6579683e5685f97a17c9ac feat(dropdown): add explicit multiline content and viewport bounds",
+        "fcdd66adf4783b3d68cae55ea784b7f4c20d59d7 feat(dropdown): expose consumer-controlled radio items"
+      ]
+    },
+    {
+      "path": ".changeset/dropdown-forced-colors-focus.md",
+      "baselineBlob": null,
+      "sourceBlob": "7dcc5d117255f1a6a14cc5268b3ac6e2340af03f",
+      "sourceSha256": "1af96d7c3e9c3b798049493ec5feafd24f492019356e53c15a9a128f6d869199",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "08eb2c3b191985e8bef041b9e5f06bf99cc32aa2 fix(dropdown): preserve forced-colors keyboard focus rings"
+      ]
+    },
+    {
+      "path": ".changeset/dropdown-forced-colors-surface.md",
+      "baselineBlob": null,
+      "sourceBlob": "adac2e0320c5b3a38ea5509455b1d67333e4b97d",
+      "sourceSha256": "27fb460aafc5436369a11ad9c7c7e19b34e2bd68b7c0de579e5e5617e88a7acc",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360 fix(dropdown): keep forced-colors popup surface opaque"
+      ]
+    },
+    {
+      "path": "docs/components/dropdown.md",
+      "baselineBlob": "4b7657bd2fe6c2c2d9ead180b85977863da6ab87",
+      "sourceBlob": "3307710a4cb2220931db5fc7b7bc3d47e290af25",
+      "sourceSha256": "463fce37800fa382f9b43f99d7e98d5bfa40c132ce9a9d4847cc21ed1f6dee9f",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360 fix(dropdown): keep forced-colors popup surface opaque",
+        "08eb2c3b191985e8bef041b9e5f06bf99cc32aa2 fix(dropdown): preserve forced-colors keyboard focus rings",
+        "2f3707e6453abebcfd6579683e5685f97a17c9ac feat(dropdown): add explicit multiline content and viewport bounds",
+        "fcdd66adf4783b3d68cae55ea784b7f4c20d59d7 feat(dropdown): expose consumer-controlled radio items"
+      ]
+    },
+    {
+      "path": "docs/design.md",
+      "baselineBlob": "cb6d8a77e4aa51dc8ae3ac651c141f2fb1eedc5a",
+      "sourceBlob": "8a2efdd29a2f52f776f728be04585c1d718e545c",
+      "sourceSha256": "6fe0f02f1217d1a5430dac505a5a1ae06072fb0fc6487011841e5b0fc6a7df55",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "2f3707e6453abebcfd6579683e5685f97a17c9ac feat(dropdown): add explicit multiline content and viewport bounds"
+      ]
+    },
+    {
+      "path": "vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts",
+      "baselineBlob": null,
+      "sourceBlob": "4d2345cf4114b54b1de1c9ba2635d72ef341bdf1",
+      "sourceSha256": "665027be8534d1c98301d56da79413341eb872d762be702ba1bdf1865f1a876b",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "2f3707e6453abebcfd6579683e5685f97a17c9ac feat(dropdown): add explicit multiline content and viewport bounds"
+      ]
+    },
+    {
+      "path": "vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts",
+      "baselineBlob": null,
+      "sourceBlob": "e90d516a487dccf38ac63a4462b409c18a5a5e5b",
+      "sourceSha256": "f72ec2ef91557d8e43a869bde981876a9cf0527d693c2f8ad72ec4101576d515",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "377d0a884087d22a2346489c84e7115a5e76c110 fix(dropdown): close pointer-opened menus on trigger Escape",
+        "781a211875f6fdda775d461ea7673c5c2d09ef80 fix(dropdown): preserve checked-item keyboard entry and Escape focus",
+        "fcdd66adf4783b3d68cae55ea784b7f4c20d59d7 feat(dropdown): expose consumer-controlled radio items"
+      ]
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown-item-impl.vue",
+      "baselineBlob": "d6655d9bf67d98507e0cc44c2aaa498db215282c",
+      "sourceBlob": "8df76007cbdcd118383c60e6555ee4c425fcd4ad",
+      "sourceSha256": "46052f7c4b516d23cb768bd2ee6eb13fe6b9809a854f52bd2b2ff2715edede00",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "2f3707e6453abebcfd6579683e5685f97a17c9ac feat(dropdown): add explicit multiline content and viewport bounds",
+        "fcdd66adf4783b3d68cae55ea784b7f4c20d59d7 feat(dropdown): expose consumer-controlled radio items"
+      ]
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown-item.vue",
+      "baselineBlob": "c0d77451c534ba189c048c2187019679095c3fc3",
+      "sourceBlob": "0cf31943ccbfd08faf2a7b04a2ccad17ef3a0ffb",
+      "sourceSha256": "8a9f3bc3a7edcac58260ada229fc6d0280ff0f6bfdee1716ca25cca80fe92e10",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "2f3707e6453abebcfd6579683e5685f97a17c9ac feat(dropdown): add explicit multiline content and viewport bounds",
+        "781a211875f6fdda775d461ea7673c5c2d09ef80 fix(dropdown): preserve checked-item keyboard entry and Escape focus",
+        "fcdd66adf4783b3d68cae55ea784b7f4c20d59d7 feat(dropdown): expose consumer-controlled radio items"
+      ]
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown-menu.vue",
+      "baselineBlob": "6ade038f4f9f7e6583b75679b0f800113c6ad75c",
+      "sourceBlob": "8b328f807766f4c57a3363481e0ac923cd17e4d1",
+      "sourceSha256": "e8b10bae00a0f4aec7ad45a8cb22768e5757fe765dcc6dd2405ab235eb3b2077",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "d4c9162e34ff002a0a34b491d4aea86d46ec2e4c fix(dropdown): record Escape through the native menu keyboard owner"
+      ]
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown.ts",
+      "baselineBlob": "970acbd0546cf255ac8555da16f407002b7a34be",
+      "sourceBlob": "dbd56ba79fc88c6f53012598bd7964eec5f3113a",
+      "sourceSha256": "39ad8850e5a034dce036020a07591425d1c02c77f07f54070d9ce16bec1be5c8",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "2f3707e6453abebcfd6579683e5685f97a17c9ac feat(dropdown): add explicit multiline content and viewport bounds",
+        "fcdd66adf4783b3d68cae55ea784b7f4c20d59d7 feat(dropdown): expose consumer-controlled radio items"
+      ]
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown.vue",
+      "baselineBlob": "c3b8dde3f5e19fecf0b6a372bb239f60aa93aa88",
+      "sourceBlob": "50844e6b0f0de21f4df35a70b11a5d6ea5cf8c7c",
+      "sourceSha256": "85315c148c0fd375af3f3ff40028627a7e2d8f6a52b725d3ed24aa2a2f3908c3",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "2f3707e6453abebcfd6579683e5685f97a17c9ac feat(dropdown): add explicit multiline content and viewport bounds",
+        "d4c9162e34ff002a0a34b491d4aea86d46ec2e4c fix(dropdown): record Escape through the native menu keyboard owner",
+        "377d0a884087d22a2346489c84e7115a5e76c110 fix(dropdown): close pointer-opened menus on trigger Escape",
+        "781a211875f6fdda775d461ea7673c5c2d09ef80 fix(dropdown): preserve checked-item keyboard entry and Escape focus",
+        "fcdd66adf4783b3d68cae55ea784b7f4c20d59d7 feat(dropdown): expose consumer-controlled radio items"
+      ]
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/tokens.ts",
+      "baselineBlob": "e14e9adce4f48232e87c36e520a2b43de66186cc",
+      "sourceBlob": "fb7cff55dd2738e13e28efaf8ea803d9e0011265",
+      "sourceSha256": "eadbd22b8b9ca12c15a89af6dd6076f620e36a1ee04689e2887ef061bedf92bb",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "d4c9162e34ff002a0a34b491d4aea86d46ec2e4c fix(dropdown): record Escape through the native menu keyboard owner"
+      ]
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/viewport-modifiers.ts",
+      "baselineBlob": null,
+      "sourceBlob": "1541f3b18c00e16c7234621fd20d050685e81358",
+      "sourceSha256": "b47dc1525a3bc309f631f0fc44d588b526f97fd609fff2d7741f218bdd9fdeda",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "2f3707e6453abebcfd6579683e5685f97a17c9ac feat(dropdown): add explicit multiline content and viewport bounds"
+      ]
+    },
+    {
+      "path": "vue/packages/theme-chalk/src/dropdown.scss",
+      "baselineBlob": "6e296dd02ad0f0e5c9608c514837066342fb5aca",
+      "sourceBlob": "d1a4e5abdd2c5d719c6405ceed61db997c1b2f95",
+      "sourceSha256": "2fdcb52e8190fdd2a0efd8f4affb06200e7609f42ab49933040ac5326b072e8f",
+      "sourceHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+      "sourceCommits": [
+        "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360 fix(dropdown): keep forced-colors popup surface opaque",
+        "08eb2c3b191985e8bef041b9e5f06bf99cc32aa2 fix(dropdown): preserve forced-colors keyboard focus rings",
+        "2f3707e6453abebcfd6579683e5685f97a17c9ac feat(dropdown): add explicit multiline content and viewport bounds"
+      ]
+    }
+  ],
+  "excluded": [
+    "MarkdownRenderer production/tests/docs/changeset",
+    "Icons index/changeset",
+    "Historical InteractionTraceFixture/type fix already byte-identical in main",
+    "Trace-policy stale test repair",
+    "Broad generated public baseline/contract outputs; producer regeneration only if current gates require it"
+  ]
+}

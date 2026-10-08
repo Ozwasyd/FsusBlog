@@ -1,0 +1,17 @@
+[
+  {
+    "name": "api",
+    "script": "avalonia:baseline:check",
+    "exitCode": 0
+  },
+  {
+    "name": "contract",
+    "script": "contract-v2:check",
+    "exitCode": 0
+  },
+  {
+    "name": "public",
+    "script": "test:vue-public-api-contract",
+    "exitCode": 254
+  }
+]

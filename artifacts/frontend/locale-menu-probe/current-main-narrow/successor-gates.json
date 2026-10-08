@@ -1,0 +1,54 @@
+[
+  {
+    "name": "api",
+    "command": [
+      "pnpm",
+      "avalonia:baseline:check"
+    ],
+    "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+    "exitCode": 0
+  },
+  {
+    "name": "contract",
+    "command": [
+      "pnpm",
+      "contract-v2:check"
+    ],
+    "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+    "exitCode": 0
+  },
+  {
+    "name": "public",
+    "command": [
+      "pnpm",
+      "conformance:v2:vue-public"
+    ],
+    "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+    "exitCode": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "pnpm",
+      "exec",
+      "prettier",
+      "--check",
+      ".changeset/dropdown-controlled-radio-items.md",
+      ".changeset/dropdown-forced-colors-focus.md",
+      ".changeset/dropdown-forced-colors-surface.md",
+      "docs/components/dropdown.md",
+      "vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts",
+      "vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts",
+      "vue/packages/components/dropdown/src/dropdown-item-impl.vue",
+      "vue/packages/components/dropdown/src/dropdown-item.vue",
+      "vue/packages/components/dropdown/src/dropdown-menu.vue",
+      "vue/packages/components/dropdown/src/dropdown.ts",
+      "vue/packages/components/dropdown/src/dropdown.vue",
+      "vue/packages/components/dropdown/src/tokens.ts",
+      "vue/packages/components/dropdown/src/viewport-modifiers.ts",
+      "vue/packages/theme-chalk/src/dropdown.scss"
+    ],
+    "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+    "exitCode": 0
+  }
+]

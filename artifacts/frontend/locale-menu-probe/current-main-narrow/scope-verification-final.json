@@ -1,0 +1,151 @@
+{
+  "baseline": "a96047c3a281df6f0ae035f27fc471ad4a645173",
+  "candidate": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+  "tree": "935fc421c45de317fae0eff16bfd3645abdb739e",
+  "status": "clean",
+  "changedPaths": [
+    ".changeset/dropdown-controlled-radio-items.md",
+    ".changeset/dropdown-forced-colors-focus.md",
+    ".changeset/dropdown-forced-colors-surface.md",
+    "docs/avalonia/vue-public-api-baseline.md",
+    "docs/components/dropdown.md",
+    "docs/design.md",
+    "spec/baselines/vue-current.json",
+    "spec/components/contracts/v2/contract-v2.json",
+    "vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts",
+    "vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts",
+    "vue/packages/components/dropdown/src/dropdown-item-impl.vue",
+    "vue/packages/components/dropdown/src/dropdown-item.vue",
+    "vue/packages/components/dropdown/src/dropdown-menu.vue",
+    "vue/packages/components/dropdown/src/dropdown.ts",
+    "vue/packages/components/dropdown/src/dropdown.vue",
+    "vue/packages/components/dropdown/src/tokens.ts",
+    "vue/packages/components/dropdown/src/viewport-modifiers.ts",
+    "vue/packages/theme-chalk/src/dropdown.scss"
+  ],
+  "unexpectedPaths": [],
+  "selectedSource": [
+    {
+      "path": ".changeset/dropdown-controlled-radio-items.md",
+      "candidateBlob": "cfa328573e88a91e15903151ebd03e3ae6678cc0",
+      "broadBlob": "cfa328573e88a91e15903151ebd03e3ae6678cc0",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": ".changeset/dropdown-forced-colors-focus.md",
+      "candidateBlob": "7dcc5d117255f1a6a14cc5268b3ac6e2340af03f",
+      "broadBlob": "7dcc5d117255f1a6a14cc5268b3ac6e2340af03f",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": ".changeset/dropdown-forced-colors-surface.md",
+      "candidateBlob": "adac2e0320c5b3a38ea5509455b1d67333e4b97d",
+      "broadBlob": "adac2e0320c5b3a38ea5509455b1d67333e4b97d",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": "docs/components/dropdown.md",
+      "candidateBlob": "3307710a4cb2220931db5fc7b7bc3d47e290af25",
+      "broadBlob": "3307710a4cb2220931db5fc7b7bc3d47e290af25",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": "docs/design.md",
+      "candidateBlob": "8a2efdd29a2f52f776f728be04585c1d718e545c",
+      "broadBlob": "8a2efdd29a2f52f776f728be04585c1d718e545c",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": "vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts",
+      "candidateBlob": "4d2345cf4114b54b1de1c9ba2635d72ef341bdf1",
+      "broadBlob": "4d2345cf4114b54b1de1c9ba2635d72ef341bdf1",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": "vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts",
+      "candidateBlob": "72b50582fff8d0619cdc01c686b5f7f6d2911967",
+      "broadBlob": "e90d516a487dccf38ac63a4462b409c18a5a5e5b",
+      "exactBroadBytes": false,
+      "onlyRepositoryFormatting": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown-item-impl.vue",
+      "candidateBlob": "8df76007cbdcd118383c60e6555ee4c425fcd4ad",
+      "broadBlob": "8df76007cbdcd118383c60e6555ee4c425fcd4ad",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown-item.vue",
+      "candidateBlob": "0cf31943ccbfd08faf2a7b04a2ccad17ef3a0ffb",
+      "broadBlob": "0cf31943ccbfd08faf2a7b04a2ccad17ef3a0ffb",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown-menu.vue",
+      "candidateBlob": "e41a33e571219216d341e26b363728630d289b1b",
+      "broadBlob": "8b328f807766f4c57a3363481e0ac923cd17e4d1",
+      "exactBroadBytes": false,
+      "onlyRepositoryFormatting": true
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown.ts",
+      "candidateBlob": "dbd56ba79fc88c6f53012598bd7964eec5f3113a",
+      "broadBlob": "dbd56ba79fc88c6f53012598bd7964eec5f3113a",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/dropdown.vue",
+      "candidateBlob": "50844e6b0f0de21f4df35a70b11a5d6ea5cf8c7c",
+      "broadBlob": "50844e6b0f0de21f4df35a70b11a5d6ea5cf8c7c",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/tokens.ts",
+      "candidateBlob": "fb7cff55dd2738e13e28efaf8ea803d9e0011265",
+      "broadBlob": "fb7cff55dd2738e13e28efaf8ea803d9e0011265",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": "vue/packages/components/dropdown/src/viewport-modifiers.ts",
+      "candidateBlob": "1541f3b18c00e16c7234621fd20d050685e81358",
+      "broadBlob": "1541f3b18c00e16c7234621fd20d050685e81358",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    },
+    {
+      "path": "vue/packages/theme-chalk/src/dropdown.scss",
+      "candidateBlob": "d1a4e5abdd2c5d719c6405ceed61db997c1b2f95",
+      "broadBlob": "d1a4e5abdd2c5d719c6405ceed61db997c1b2f95",
+      "exactBroadBytes": true,
+      "onlyRepositoryFormatting": false
+    }
+  ],
+  "generatedPaths": [
+    "docs/avalonia/vue-public-api-baseline.md",
+    "spec/baselines/vue-current.json",
+    "spec/components/contracts/v2/contract-v2.json"
+  ],
+  "consumedPrerequisiteCommits": [],
+  "runtimeTestHead": "27400297308912df12d109cbd8d756fe7cd98230",
+  "successorChanges": [
+    "docs/avalonia/vue-public-api-baseline.md",
+    "spec/baselines/vue-current.json",
+    "spec/components/contracts/v2/contract-v2.json"
+  ],
+  "runtimeSourceIdenticalAcrossSuccessor": true,
+  "fullDiffSha256": "edd76a8dea1b83f021f8c49ba792582eabc146303ced154efd88c22320c3645f",
+  "fullDiffStat": " .changeset/dropdown-controlled-radio-items.md      |  10 ++\n .changeset/dropdown-forced-colors-focus.md         |   5 +\n .changeset/dropdown-forced-colors-surface.md       |   5 +\n docs/avalonia/vue-public-api-baseline.md           |   8 +-\n docs/components/dropdown.md                        | 190 +++++++++++++++++----\n docs/design.md                                     |   1 +\n spec/baselines/vue-current.json                    |  59 ++++++-\n spec/components/contracts/v2/contract-v2.json      | 110 +++++++++++-\n .../dropdown/__tests__/dropdown-multiline.test.ts  |  79 +++++++++\n .../dropdown/__tests__/dropdown-radio.test.ts      | 185 ++++++++++++++++++++\n .../components/dropdown/src/dropdown-item-impl.vue |  47 +++--\n .../components/dropdown/src/dropdown-item.vue      |  14 +-\n .../components/dropdown/src/dropdown-menu.vue      |  73 ++++----\n vue/packages/components/dropdown/src/dropdown.ts   |   6 +\n vue/packages/components/dropdown/src/dropdown.vue  |  61 ++++++-\n vue/packages/components/dropdown/src/tokens.ts     |   1 +\n .../components/dropdown/src/viewport-modifiers.ts  | 127 ++++++++++++++\n vue/packages/theme-chalk/src/dropdown.scss         |  63 ++++++-\n 18 files changed, 941 insertions(+), 103 deletions(-)\n",
+  "preservedBroadUiHead": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+  "preservedBroadBlogHead": "a42dffa1512d9933b90a99fffaf317547cec8e8c"
+}

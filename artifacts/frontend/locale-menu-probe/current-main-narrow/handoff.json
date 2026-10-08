@@ -1,0 +1,188 @@
+{
+  "schema": "fsusblog.locale-menu-current-main-source-handoff.v1",
+  "recordedAt": "2026-10-08T11:11:40.507518+00:00",
+  "uiBaseline": "a96047c3a281df6f0ae035f27fc471ad4a645173",
+  "uiCandidate": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+  "uiRuntimeTestHead": "27400297308912df12d109cbd8d756fe7cd98230",
+  "blogHarnessHead": "09802dd34e902122672ee6b72fb42ea0d17061b5",
+  "productSourceHead": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6",
+  "uiRemoteBranch": "task/830-dropdown-current-main",
+  "blogEvidenceBranch": "task/1891-current-main-narrow-evidence",
+  "newIndependentSourceReview": "requested; not performed by this implementation",
+  "qualified": false,
+  "issues": {
+    "1891": "OPEN/WIP; local migration exercised; published parity, independent screen-reader/UX and product runtime acceptance outstanding",
+    "830": "OPEN/WIP; public Dropdown source/API tested; canonical affected visual preparation and published identity outstanding"
+  },
+  "currentGates": [
+    {
+      "name": "api",
+      "command": [
+        "pnpm",
+        "avalonia:baseline:check"
+      ],
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+      "exitCode": 0
+    },
+    {
+      "name": "contract",
+      "command": [
+        "pnpm",
+        "contract-v2:check"
+      ],
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+      "exitCode": 0
+    },
+    {
+      "name": "public",
+      "command": [
+        "pnpm",
+        "conformance:v2:vue-public"
+      ],
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+      "exitCode": 0
+    },
+    {
+      "name": "format",
+      "command": [
+        "pnpm",
+        "exec",
+        "prettier",
+        "--check",
+        ".changeset/dropdown-controlled-radio-items.md",
+        ".changeset/dropdown-forced-colors-focus.md",
+        ".changeset/dropdown-forced-colors-surface.md",
+        "docs/components/dropdown.md",
+        "vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts",
+        "vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts",
+        "vue/packages/components/dropdown/src/dropdown-item-impl.vue",
+        "vue/packages/components/dropdown/src/dropdown-item.vue",
+        "vue/packages/components/dropdown/src/dropdown-menu.vue",
+        "vue/packages/components/dropdown/src/dropdown.ts",
+        "vue/packages/components/dropdown/src/dropdown.vue",
+        "vue/packages/components/dropdown/src/tokens.ts",
+        "vue/packages/components/dropdown/src/viewport-modifiers.ts",
+        "vue/packages/theme-chalk/src/dropdown.scss"
+      ],
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "pnpm",
+        "tokens:check"
+      ],
+      "exitCode": 0,
+      "log": "successor-tokens-check.log",
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+    },
+    {
+      "command": [
+        "pnpm",
+        "interactions:check"
+      ],
+      "exitCode": 0,
+      "log": "successor-interactions-check.log",
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+    },
+    {
+      "command": [
+        "pnpm",
+        "check:fsusui-design-conformance"
+      ],
+      "exitCode": 0,
+      "log": "successor-check-fsusui-design-conformance.log",
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+    },
+    {
+      "command": [
+        "pnpm",
+        "check:documentation-architecture"
+      ],
+      "exitCode": 0,
+      "log": "successor-check-documentation-architecture.log",
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+    },
+    {
+      "command": [
+        "pnpm",
+        "check:design-source-drift"
+      ],
+      "exitCode": 0,
+      "log": "successor-check-design-source-drift.log",
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+    },
+    {
+      "command": [
+        "pnpm",
+        "check:anti-ai-visual"
+      ],
+      "exitCode": 0,
+      "log": "successor-check-anti-ai-visual.log",
+      "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+    }
+  ],
+  "sourceTests": [
+    {
+      "command": "pnpm exec vitest run --config vue/vitest.config.ts vue/packages/components/dropdown/__tests__ vue/packages/hooks/__tests__/use-popper.test.tsx vue/packages/components/popper/__tests__ vue/packages/components/check-tag/__tests__ vue/packages/components/focus-trap/__tests__",
+      "source": "27400297308912df12d109cbd8d756fe7cd98230",
+      "exitCode": 0,
+      "result": "82 tests / 12 files passed",
+      "log": "final-focused.log"
+    },
+    {
+      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-dropdown-current-main node node_modules/vitest/vitest.mjs run --config vitest.config.ts ../../tests/frontend/unit/components/LocaleSelector.test.ts ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts",
+      "source": "27400297308912df12d109cbd8d756fe7cd98230",
+      "blogSource": "09802dd34e902122672ee6b72fb42ea0d17061b5",
+      "exitCode": 0,
+      "result": "33 tests / 3 files passed",
+      "log": "final-blog-unit.log"
+    },
+    {
+      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-dropdown-current-main FSUSBLOG_LOCALE_PROBE_REAL_ZOOM=1 PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI-dropdown-current-main EVIDENCE_ROOT",
+      "source": "27400297308912df12d109cbd8d756fe7cd98230",
+      "blogSource": "09802dd34e902122672ee6b72fb42ea0d17061b5",
+      "exitCode": 0,
+      "runId": "locale-menu-local-2026-10-08T11:06:30.760Z",
+      "log": "final-consumer.log",
+      "report": "final-consumer/probe.json",
+      "qualification": false
+    },
+    {
+      "command": "pnpm typecheck:web:no-cache; pnpm typecheck:vitest:no-cache",
+      "source": "27400297308912df12d109cbd8d756fe7cd98230",
+      "metadataSuccessorAtCompletion": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0",
+      "exitCodes": [
+        0,
+        0
+      ],
+      "logs": [
+        "final-web-uncached.log",
+        "final-vitest-uncached.log"
+      ]
+    }
+  ],
+  "blocked": [
+    {
+      "command": "pnpm test:visual:affected -- --base=a96047c3a281df6f0ae035f27fc471ad4a645173",
+      "source": "b175646477294e2d765607c8c6701ad41cd5d248",
+      "exitCode": 1,
+      "log": "affected-visual.log",
+      "stage": "before browser suites",
+      "reason": "Cold setup first generated five unowned icons aliases and then failed with missing emcc. SDK/CMake subsequently enabled and real native build passed; task-generated unowned index restored. Canonical icons source prerequisite still needed; no final candidate visual qualification."
+    },
+    {
+      "command": "node tests/frontend/checks/runtime/probe-locale-menu.mjs published /workspace/FsusBlog/src/frontend EVIDENCE_ROOT",
+      "blogSource": "09802dd34e902122672ee6b72fb42ea0d17061b5",
+      "exitCode": 3,
+      "report": "final-published/probe.json",
+      "reason": "Locked @ozwasyd/element-plus package unavailable (ENOENT); no fallback."
+    }
+  ],
+  "notRun": [
+    "full visual profile on narrow candidate",
+    "native contract counters, performance and release/package qualification on narrow candidate",
+    "production backend path and independent screen-reader/UX acceptance"
+  ],
+  "excludedHistoricalEvidence": "Earlier broad full-profile and native failures remain preserved diagnostics, not narrow acceptance. Initial local consumer reports are explicitly invalid as narrow evidence because resolver ignored the root override."
+}

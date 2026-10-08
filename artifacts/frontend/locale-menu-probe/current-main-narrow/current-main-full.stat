@@ -1,0 +1,19 @@
+ .changeset/dropdown-controlled-radio-items.md      |  10 ++
+ .changeset/dropdown-forced-colors-focus.md         |   5 +
+ .changeset/dropdown-forced-colors-surface.md       |   5 +
+ docs/avalonia/vue-public-api-baseline.md           |   8 +-
+ docs/components/dropdown.md                        | 190 +++++++++++++++++----
+ docs/design.md                                     |   1 +
+ spec/baselines/vue-current.json                    |  59 ++++++-
+ spec/components/contracts/v2/contract-v2.json      | 110 +++++++++++-
+ .../dropdown/__tests__/dropdown-multiline.test.ts  |  79 +++++++++
+ .../dropdown/__tests__/dropdown-radio.test.ts      | 185 ++++++++++++++++++++
+ .../components/dropdown/src/dropdown-item-impl.vue |  47 +++--
+ .../components/dropdown/src/dropdown-item.vue      |  14 +-
+ .../components/dropdown/src/dropdown-menu.vue      |  73 ++++----
+ vue/packages/components/dropdown/src/dropdown.ts   |   6 +
+ vue/packages/components/dropdown/src/dropdown.vue  |  61 ++++++-
+ vue/packages/components/dropdown/src/tokens.ts     |   1 +
+ .../components/dropdown/src/viewport-modifiers.ts  | 127 ++++++++++++++
+ vue/packages/theme-chalk/src/dropdown.scss         |  63 ++++++-
+ 18 files changed, 941 insertions(+), 103 deletions(-)

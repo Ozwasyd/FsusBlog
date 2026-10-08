@@ -1,0 +1,86 @@
+{
+  "source": "d3ba8a265f6c2381decd594feb0687a1ed940c8c",
+  "checks": [
+    {
+      "name": "api",
+      "command": [
+        "pnpm",
+        "avalonia:baseline:check"
+      ],
+      "exitCode": 1,
+      "log": "api-before.log"
+    },
+    {
+      "name": "contract",
+      "command": [
+        "pnpm",
+        "contract-v2:check"
+      ],
+      "exitCode": 0,
+      "log": "contract-before.log"
+    },
+    {
+      "name": "vue-public",
+      "command": [
+        "pnpm",
+        "conformance:v2:vue-public"
+      ],
+      "exitCode": 0,
+      "log": "vue-public-before.log"
+    },
+    {
+      "name": "tokens",
+      "command": [
+        "pnpm",
+        "tokens:check"
+      ],
+      "exitCode": 0,
+      "log": "tokens-before.log"
+    },
+    {
+      "name": "interactions",
+      "command": [
+        "pnpm",
+        "interactions:check"
+      ],
+      "exitCode": 0,
+      "log": "interactions-before.log"
+    },
+    {
+      "name": "design",
+      "command": [
+        "pnpm",
+        "check:fsusui-design-conformance"
+      ],
+      "exitCode": 0,
+      "log": "design-before.log"
+    },
+    {
+      "name": "docs",
+      "command": [
+        "pnpm",
+        "check:documentation-architecture"
+      ],
+      "exitCode": 0,
+      "log": "docs-before.log"
+    },
+    {
+      "name": "source-drift",
+      "command": [
+        "pnpm",
+        "check:design-source-drift"
+      ],
+      "exitCode": 0,
+      "log": "source-drift-before.log"
+    },
+    {
+      "name": "anti-ai",
+      "command": [
+        "pnpm",
+        "check:anti-ai-visual"
+      ],
+      "exitCode": 0,
+      "log": "anti-ai-before.log"
+    }
+  ]
+}

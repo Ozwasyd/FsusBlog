@@ -1,0 +1,56 @@
+[
+  {
+    "command": [
+      "pnpm",
+      "tokens:check"
+    ],
+    "exitCode": 0,
+    "log": "successor-tokens-check.log",
+    "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+  },
+  {
+    "command": [
+      "pnpm",
+      "interactions:check"
+    ],
+    "exitCode": 0,
+    "log": "successor-interactions-check.log",
+    "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+  },
+  {
+    "command": [
+      "pnpm",
+      "check:fsusui-design-conformance"
+    ],
+    "exitCode": 0,
+    "log": "successor-check-fsusui-design-conformance.log",
+    "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+  },
+  {
+    "command": [
+      "pnpm",
+      "check:documentation-architecture"
+    ],
+    "exitCode": 0,
+    "log": "successor-check-documentation-architecture.log",
+    "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+  },
+  {
+    "command": [
+      "pnpm",
+      "check:design-source-drift"
+    ],
+    "exitCode": 0,
+    "log": "successor-check-design-source-drift.log",
+    "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+  },
+  {
+    "command": [
+      "pnpm",
+      "check:anti-ai-visual"
+    ],
+    "exitCode": 0,
+    "log": "successor-check-anti-ai-visual.log",
+    "source": "ee05723abce8c5e7f39b1895bc3c3044e998a6b0"
+  }
+]

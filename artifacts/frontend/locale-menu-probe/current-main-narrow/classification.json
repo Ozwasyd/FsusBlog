@@ -1,0 +1,101 @@
+{
+  "schema": "fsusui-design-conformance.ui-ux-classification-receipt.v2",
+  "ownerRepository": "Ozwasyd/FsusUI",
+  "affectedSurfaces": [
+    "Current-main public Dropdown radio interaction, multiline/viewport and forced-colors focus/paper surface"
+  ],
+  "uiDecisionClass": "bounded-composition",
+  "verificationClass": "ux-local",
+  "requiredAuthorities": [
+    {
+      "id": "docs/index.md",
+      "path": "docs/index.md",
+      "digest": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18"
+    },
+    {
+      "id": "docs/design.md",
+      "path": "docs/design.md",
+      "digest": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039"
+    },
+    {
+      "id": "docs/design/governance.md",
+      "path": "docs/design/governance.md",
+      "digest": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104"
+    },
+    {
+      "id": "docs/design/change-classification.md",
+      "path": "docs/design/change-classification.md",
+      "digest": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e"
+    },
+    {
+      "id": "docs/workflows/visual-change.md",
+      "path": "docs/workflows/visual-change.md",
+      "digest": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042"
+    },
+    {
+      "id": "docs/consumers/design-integration.md",
+      "path": "docs/consumers/design-integration.md",
+      "digest": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b"
+    },
+    {
+      "id": "docs/components/dropdown.md",
+      "path": "docs/components/dropdown.md",
+      "digest": "e80d0905aab113bc5fcc4b2e51483b21f07c7415602aaa39f8d73aad5f5f2b3f"
+    },
+    {
+      "id": "docs/api-stability.md",
+      "path": "docs/api-stability.md",
+      "digest": "cfc1acd37ea205d7bc94784747e211e6238ca4efd0afe10728a1679ea52cb85f"
+    },
+    {
+      "id": "docs/theme/tokens.md",
+      "path": "docs/theme/tokens.md",
+      "digest": "427a399416b901d39dc4545bd8337b153378cdeeb5ceff73419b61d308b5a0dd"
+    },
+    {
+      "id": "spec/tokens/tokens.json",
+      "path": "spec/tokens/tokens.json",
+      "digest": "c97d4b2f3ffcf311fb060b21e12e13367763fb4ca9ba9c8fa4cacf6f72d381d1"
+    },
+    {
+      "id": "spec/platform-overrides/README.md",
+      "path": "spec/platform-overrides/README.md",
+      "digest": "f40dec14403a77985b234eb23b8d011188a4696fc6f6785c004e507f49ce1cf3"
+    }
+  ],
+  "requiredSkillDigests": [
+    "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+  ],
+  "activeBaselineIdentity": {
+    "repository": "Ozwasyd/FsusUI",
+    "revision": "a96047c3a281df6f0ae035f27fc471ad4a645173",
+    "skillDigest": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+    "authorityDigest": "de418b789c427c88a41ccc5f82a5b69f7ecefa05fe739012a4c43509bb81d8ad",
+    "dirtyFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "candidateSha": "a96047c3a281df6f0ae035f27fc471ad4a645173",
+  "candidateDigest": "b9bc99076ef0c06ad0a747ad74abfeda548b2d63b147fcb723eeb88f5435f37b",
+  "stateEvidenceMatrix": [
+    {
+      "state": "Narrow unchanged owned Dropdown source from reviewed broad candidate; rerun real current-main alias and all owned controls",
+      "viewport": "375/1440 and narrow/wide variants, real browser200% zoom",
+      "theme": "both",
+      "evidenceDigest": "45c2240a07d146736a529bf017a69c8e1870797f4893805abaefd1fed7a1020a"
+    }
+  ],
+  "inScope": [
+    "Only Dropdown production/tests/docs/changesets, including its single authority sentence in docs/design.md",
+    "Preserve current-main shared Dialog/focus/type/fixture and all unrelated source",
+    "Regenerate only required owning Dropdown public API/contract inventory via official producers if drift is demonstrated",
+    "Actual source/type/static gates and radio/multiline/viewport/forced-colors/zoom controls"
+  ],
+  "outOfScope": [
+    "Markdown renderer/theme producer increments and historical icon changes unless a strictly necessary published prerequisite is demonstrated",
+    "Another reviewed head, shared theme/focus/Input/Dialog implementation",
+    "Package publication, PR/comments, merge or acceptance waivers"
+  ],
+  "classificationEvidenceDigest": "45c2240a07d146736a529bf017a69c8e1870797f4893805abaefd1fed7a1020a",
+  "domainPolicyDigest": "620c4f746c1f259e3b640044975ad2878b7913806038706f7991bee9d72104d3",
+  "status": "frozen",
+  "receiptDigest": "a0c4f909951e09543a43a0091acf4533b23c4eb1359a02737b24922c3153d291"
+}
