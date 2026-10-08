@@ -30,3 +30,6 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 
 # Authoring extension RPC/execution whitespace formatting for #3654 and #1688.
 6f7621cb0336f8a775d13334c9be6f49cdcbc0cc
+
+# Reserved three-file formatter replay in #1688 source integration.
+89d5e00817bcf60ee96d3cd7b3ab228fe3810aa2
