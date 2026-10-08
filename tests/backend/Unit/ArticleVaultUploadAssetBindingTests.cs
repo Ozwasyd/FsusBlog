@@ -167,6 +167,7 @@ public sealed class ArticleVaultUploadAssetBindingTests
     [InlineData("rights")]
     [InlineData("ledger")]
     [InlineData("article-permission")]
+    [InlineData("principal-late")]
     [InlineData("expiry")]
     [InlineData("cancel")]
     public async Task Observe_RefusesChangesDuringOriginalReads(string mutation)
@@ -200,6 +201,10 @@ public sealed class ArticleVaultUploadAssetBindingTests
                     PermissionFingerprint = new('f', 64)
                 };
             }
+            if (mutation == "principal-late")
+            {
+                ((ClaimsIdentity)setup.Principal.Identity!).RemoveClaim(setup.Principal.FindFirst("admin_id")!);
+            }
             if (mutation == "expiry")
             {
                 setup.Clock.Now = DateTimeOffset.FromUnixTimeMilliseconds(1_800_000_060_001);
@@ -214,7 +219,11 @@ public sealed class ArticleVaultUploadAssetBindingTests
             await Assert.ThrowsAnyAsync<OperationCanceledException>(setup.ReadAsync);
         }
         else
-            await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(setup.ReadAsync);
+        {
+            var refusal = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(setup.ReadAsync);
+            Assert.Equal(mutation == "expiry" ? "article_vault_upload_asset_plan_expired_or_cancelled"
+                : "article_vault_upload_asset_current_facts_changed", refusal.ReasonCode);
+        }
     }
 
     internal static Setup Create(IFileService? actualFiles = null, UploadSessionAccess? actualSession = null, string? actualSha256 = null)
