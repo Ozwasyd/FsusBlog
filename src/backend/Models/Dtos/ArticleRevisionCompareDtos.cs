@@ -1,7 +1,9 @@
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Text.Json.Serialization;
 
 using FsusBlog.Core.Services.Articles;
+using FsusBlog.Server.Services.Authoring;
 
 namespace FsusBlog.Server.Models.Dtos;
 
@@ -102,7 +104,63 @@ public sealed record ArticleRevisionComparePlanReceipt(
 
 public sealed record ArticleRevisionCompareResponse(
     ArticleRevisionComparePlanReceipt PlanReceipt,
-    RevisionSourceDiffResult SourceDiff);
+    RevisionSourceDiffResult SourceDiff,
+    ArticleRevisionMetadataDiffResponse? MetadataDiff = null)
+{
+    public static ArticleRevisionCompareResponse From(ArticleRevisionComparePlanReceipt receipt,
+        RevisionSourceDiffResult source, RevisionMetadataDiffResult? metadata)
+        => new(receipt, source, ArticleRevisionMetadataDiffResponse.From(metadata));
+}
+
+// Semantic receipts stay unchanged. Only transport values that exceed JavaScript's
+// exact integer range become decimal strings; raw packages and readers stay private.
+public sealed record ArticleRevisionMetadataDiffValue(
+    RevisionMetadataDiffValueKind Kind,
+    string? Text,
+    string? Number,
+    bool? Boolean,
+    ImmutableArray<int> Ids)
+{
+    public static ArticleRevisionMetadataDiffValue From(RevisionMetadataDiffValue value)
+        => new(value.Kind, value.Text, value.Number?.ToString(CultureInfo.InvariantCulture), value.Boolean, value.Ids);
+}
+
+public sealed record ArticleRevisionMetadataDiffField(
+    string FieldId,
+    string BeforePackageDigest,
+    string AfterPackageDigest,
+    string Authority,
+    string Normalization,
+    string DisplayFormat,
+    bool Sensitive,
+    ArticleRevisionMetadataDiffValue Before,
+    ArticleRevisionMetadataDiffValue After,
+    RevisionMetadataDiffChangeKind Change,
+    ImmutableArray<int> AddedIds,
+    ImmutableArray<int> RemovedIds)
+{
+    public static ArticleRevisionMetadataDiffField From(RevisionMetadataDiffField value)
+        => new(value.FieldId, value.BeforePackageDigest, value.AfterPackageDigest, value.Authority,
+            value.Normalization, value.DisplayFormat, value.Sensitive,
+            ArticleRevisionMetadataDiffValue.From(value.Before), ArticleRevisionMetadataDiffValue.From(value.After),
+            value.Change, value.AddedIds, value.RemovedIds);
+}
+
+public sealed record ArticleRevisionMetadataDiffTiming(string ElapsedTicks, string Frequency);
+
+public sealed record ArticleRevisionMetadataDiffResponse(
+    RevisionMetadataDiffReceipt Receipt,
+    ImmutableArray<ArticleRevisionMetadataDiffField> Fields,
+    ArticleRevisionMetadataDiffTiming Timing,
+    bool IsSuccess,
+    bool IsReviewable)
+{
+    public static ArticleRevisionMetadataDiffResponse? From(RevisionMetadataDiffResult? result)
+        => result is null ? null : new(result.Receipt,
+            [.. result.Fields.Select(ArticleRevisionMetadataDiffField.From)],
+            new(result.Timing.ElapsedTicks.ToString(CultureInfo.InvariantCulture), result.Timing.Frequency.ToString(CultureInfo.InvariantCulture)),
+            result.IsSuccess, result.IsReviewable);
+}
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleRevisionCompareDraftCoordinateRequest(

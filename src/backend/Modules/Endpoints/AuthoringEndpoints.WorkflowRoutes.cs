@@ -270,26 +270,67 @@ public static partial class AuthoringEndpoints
             {
                 return AedsJsonResults.BadRequest(aeds, "article_revision_compare_request_invalid");
             }
-            AuthoringRevisionCompareResult result = await service.CompareAsync(request, cancellationToken);
-            if (!result.IsSuccess || result.Plan.Bundle is null || result.Diff is null)
+            using var timeout = new CancellationTokenSource(request.Budgets.TimeoutMilliseconds);
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
+            try
             {
-                // Failed requests do not expose partial package references, sizes, or content.
+                AuthoringRevisionCompareResult result = await service.CompareAsync(request, linked.Token).WaitAsync(linked.Token);
+                if (!result.IsReviewable || result.Plan?.Bundle is null || result.Diff is null
+                    || (!request.Options.MetadataFields.IsEmpty && result.MetadataDiff is null))
+                {
+                    // Failed requests do not expose partial package references, sizes, or content.
+                    return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+                }
+                RevisionComparePlanBundle bundle = result.Plan.Bundle;
+                long metadataOutput = result.MetadataDiff is null ? 0 : RevisionMetadataDiffEngine.EstimateOutputBytes(
+                    result.MetadataDiff.Receipt, result.MetadataDiff.Fields, linked.Token);
+                long heldSourceMemory = result.Diff.Receipt.EstimatedMemoryBytes + AuthoringRevisionCompareService.TransportOutputReserveBytes;
+                long metadataMemory = result.MetadataDiff is null ? 0
+                    : RevisionMetadataDiffEngine.EstimateInputReserveBytes(bundle, linked.Token) + metadataOutput * 2;
+                // Preserve the original workers' logical storage/workspace gate.
+                // Actual JSON publication bytes have their separate gate below.
+                if (metadataOutput > request.Budgets.MaxOutputBytes - result.Diff.Receipt.EstimatedOutputBytes
+                    - AuthoringRevisionCompareService.TransportOutputReserveBytes
+                    || metadataMemory > request.Budgets.MaxMemoryBytes - heldSourceMemory)
+                {
+                    return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+                }
+                // The combined service pipeline independently verifies both workers
+                // within its shared memory reservation. Source-only requests retain
+                // their original endpoint verification before final authorization.
+                if (result.MetadataDiff is null && !await new RevisionSourceDiffResultVerifier(structureAuthority)
+                    .VerifyAsync(bundle, result.Diff, linked.Token).WaitAsync(linked.Token))
+                {
+                    return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+                }
+                linked.Token.ThrowIfCancellationRequested();
+                if (AedsJsonResults.SerializationMemoryReserveBytes > request.Budgets.MaxMemoryBytes - heldSourceMemory - metadataMemory)
+                {
+                    return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+                }
+                ArticleRevisionCompareResponse response = ArticleRevisionCompareResponse.From(
+                    ArticleRevisionComparePlanReceipt.From(result.Plan.Receipt), result.Diff, result.MetadataDiff);
+                // The original AEDS JSON writer measures the complete wire object
+                // with a bounded discard buffer; logical source storage estimates
+                // cannot substitute for its actual publication-byte gate.
+                AedsJsonOutputBudgetResult wire = AedsJsonResults.MeasureOutput(response, request.Budgets.MaxOutputBytes, linked.Token);
+                if (!AedsJsonResults.MemoryWithinBudget(wire, checked(heldSourceMemory + metadataMemory), request.Budgets.MaxMemoryBytes))
+                {
+                    return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+                }
+                RevisionComparePlanVerification publication = await planVerifier.VerifyAsync(
+                    bundle, timeProvider.GetUtcNow(), linked.Token).WaitAsync(linked.Token);
+                if (!publication.Valid || result.Plan.Receipt != bundle.Receipt)
+                {
+                    return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+                }
+                linked.Token.ThrowIfCancellationRequested();
+                return Ok(context, aeds, response);
+            }
+            catch (OperationCanceledException)
+            {
                 return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
             }
-            var verifier = new RevisionSourceDiffResultVerifier(structureAuthority);
-            if (!await verifier.VerifyAsync(result.Plan.Bundle, result.Diff, cancellationToken))
-            {
-                return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
-            }
-            RevisionComparePlanVerification publication = await planVerifier.VerifyAsync(
-                result.Plan.Bundle, timeProvider.GetUtcNow(), cancellationToken);
-            if (!publication.Valid || result.Plan.Receipt != result.Plan.Bundle.Receipt)
-            {
-                return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
-            }
-            cancellationToken.ThrowIfCancellationRequested();
-            return Ok(context, aeds, new ArticleRevisionCompareResponse(
-                ArticleRevisionComparePlanReceipt.From(result.Plan.Receipt), result.Diff));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 

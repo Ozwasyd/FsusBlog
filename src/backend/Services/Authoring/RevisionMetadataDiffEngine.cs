@@ -22,10 +22,13 @@ public sealed class RevisionMetadataDiffEngine(RevisionComparePlanVerifier planV
     public async Task<RevisionMetadataDiffResult> ComputeAsync(
         RevisionComparePlanBundle bundle,
         DateTimeOffset observedAtUtc,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        long reservedMemoryBytes = 0)
     {
         ArgumentNullException.ThrowIfNull(bundle);
         long started = Stopwatch.GetTimestamp();
+        if (reservedMemoryBytes < 0 || reservedMemoryBytes > bundle.Plan.Budgets.MaxMemoryBytes)
+            return Failure(RevisionMetadataDiffStatus.BudgetExceeded, "metadata_diff_memory_reservation_invalid", started);
         if (cancellationToken.IsCancellationRequested)
         {
             return Failure(RevisionMetadataDiffStatus.Cancelled, "metadata_diff_cancelled", started);
@@ -47,7 +50,7 @@ public sealed class RevisionMetadataDiffEngine(RevisionComparePlanVerifier planV
             }
             CheckExpiry(bundle);
             RevisionMetadataDiffResult result = await Task.Run(
-                () => ComputeVerified(bundle, linked.Token, started), linked.Token).ConfigureAwait(false);
+                () => ComputeVerified(bundle, linked.Token, started, reservedMemoryBytes), linked.Token).ConfigureAwait(false);
             linked.Token.ThrowIfCancellationRequested();
             CheckExpiry(bundle);
             // Revocation, draft epoch changes and current-pointer changes during worker
@@ -80,25 +83,10 @@ public sealed class RevisionMetadataDiffEngine(RevisionComparePlanVerifier planV
     }
 
     private static RevisionMetadataDiffResult ComputeVerified(
-        RevisionComparePlanBundle bundle, CancellationToken token, long started)
+        RevisionComparePlanBundle bundle, CancellationToken token, long started, long heldMemoryBytes)
     {
         RevisionCompareBudgets budgets = bundle.Plan.Budgets;
-        long inputBytes = 0;
-        foreach (RevisionComparePackage package in new[] { bundle.BasePackage, bundle.ComparePackage })
-        {
-            foreach (RevisionCompareMetadataValue value in package.Metadata)
-            {
-                token.ThrowIfCancellationRequested();
-                inputBytes += Encoding.UTF8.GetByteCount(value.CanonicalValue) + 256L;
-            }
-            foreach (RevisionCompareSnapshot snapshot in package.Snapshots)
-            {
-                inputBytes += snapshot.Payload.Length;
-            }
-        }
-        // Reserve payload copies, JSON parser/DTO strings, both projections, result
-        // values and hashing workspace before parsing any snapshot.
-        long reservedMemory = inputBytes * 24L + 65_536L + bundle.Plan.Admission.InitialEstimatedMemoryBytes;
+        long reservedMemory = EstimateInputReserveBytes(bundle, token) + heldMemoryBytes;
         if (reservedMemory > budgets.MaxMemoryBytes)
         {
             throw new MetadataDiffRefusal(RevisionMetadataDiffStatus.BudgetExceeded, "metadata_diff_memory_budget");
@@ -152,20 +140,12 @@ public sealed class RevisionMetadataDiffEngine(RevisionComparePlanVerifier planV
                 bundle.ComparePackage.PackageDigest, descriptor.Authority,
                 descriptor.Normalization, descriptor.DisplayFormat, descriptor.Sensitive,
                 oldValue, newValue, change, added, removed);
-            outputBytes += 1_024L + ((long)(oldValue.Text?.Length ?? 0) + (newValue.Text?.Length ?? 0)) * 6L
-                + ((long)oldValue.Ids.Length + newValue.Ids.Length + added.Length + removed.Length) * 12L;
+            outputBytes += EstimateFieldOutputBytes(field);
             if (outputBytes > budgets.MaxOutputBytes || reservedMemory + outputBytes > budgets.MaxMemoryBytes)
             {
                 throw new MetadataDiffRefusal(RevisionMetadataDiffStatus.BudgetExceeded, "metadata_diff_output_budget");
             }
             fields.Add(field);
-        }
-        // Receipt identifiers, references and missing-authority reasons are output
-        // too; reserve them before hashing or publishing a reviewable result.
-        outputBytes += 2_048L + missing.Sum(static reason => reason.Length * 6L);
-        if (outputBytes > budgets.MaxOutputBytes || reservedMemory + outputBytes > budgets.MaxMemoryBytes)
-        {
-            throw new MetadataDiffRefusal(RevisionMetadataDiffStatus.BudgetExceeded, "metadata_diff_output_budget");
         }
         var receipt = new RevisionMetadataDiffReceipt(EngineVersion, ProjectionVersion,
             RegistryDigest(), RevisionMetadataDiffStatus.PartialMissingAuthority,
@@ -173,12 +153,62 @@ public sealed class RevisionMetadataDiffEngine(RevisionComparePlanVerifier planV
             bundle.Plan.ContentDigest, bundle.BasePackage.PackageDigest, bundle.ComparePackage.PackageDigest,
             fields.Count, [.. missing], string.Empty);
         ImmutableArray<RevisionMetadataDiffField> frozen = fields.MoveToImmutable();
+        // All field/receipt identifiers, decimal numbers, JSON escaping, missing
+        // reasons and the eventual digest are reserved before hashing/publication.
+        outputBytes = EstimateOutputBytes(receipt, frozen, token);
+        if (outputBytes > budgets.MaxOutputBytes || reservedMemory + outputBytes > budgets.MaxMemoryBytes)
+            throw new MetadataDiffRefusal(RevisionMetadataDiffStatus.BudgetExceeded, "metadata_diff_output_budget");
         receipt = receipt with
         {
             ContentDigest = Digest(receipt, frozen, token)
         };
         return new RevisionMetadataDiffResult(receipt, frozen, Timing(started));
     }
+
+    internal static long EstimateInputReserveBytes(RevisionComparePlanBundle bundle, CancellationToken token = default)
+    {
+        long inputBytes = 0;
+        foreach (RevisionComparePackage package in new[] { bundle.BasePackage, bundle.ComparePackage })
+        {
+            foreach (RevisionCompareMetadataValue value in package.Metadata)
+            {
+                token.ThrowIfCancellationRequested();
+                inputBytes += Encoding.UTF8.GetByteCount(value.CanonicalValue) + 256L;
+            }
+            foreach (RevisionCompareSnapshot snapshot in package.Snapshots)
+            {
+                token.ThrowIfCancellationRequested();
+                inputBytes += snapshot.Payload.Length;
+            }
+        }
+        // Payload copies, parser/DTO strings, both projections and hash workspace.
+        return inputBytes * 24L + 65_536L + bundle.Plan.Admission.InitialEstimatedMemoryBytes;
+    }
+
+    internal static long EstimateOutputBytes(RevisionMetadataDiffReceipt receipt,
+        ImmutableArray<RevisionMetadataDiffField> fields, CancellationToken token = default)
+    {
+        long bytes = 2_048L + 6L * (receipt.EngineVersion.Length + receipt.ProjectionVersion.Length
+            + receipt.RegistryDigest.Length + receipt.Reason.Length + (receipt.PlanDigest?.Length ?? 0)
+            + (receipt.BasePackageDigest?.Length ?? 0) + (receipt.ComparePackageDigest?.Length ?? 0) + 64);
+        foreach (string reason in receipt.MissingAuthorities)
+        {
+            token.ThrowIfCancellationRequested();
+            bytes += reason.Length * 6L + 2;
+        }
+        foreach (RevisionMetadataDiffField field in fields)
+        {
+            token.ThrowIfCancellationRequested();
+            bytes += EstimateFieldOutputBytes(field);
+        }
+        return bytes;
+    }
+
+    private static long EstimateFieldOutputBytes(RevisionMetadataDiffField field)
+        => 1_024L + 6L * (field.FieldId.Length + field.BeforePackageDigest.Length + field.AfterPackageDigest.Length
+            + field.Authority.Length + field.Normalization.Length + field.DisplayFormat.Length
+            + (field.Before.Text?.Length ?? 0) + (field.After.Text?.Length ?? 0))
+            + ((long)field.Before.Ids.Length + field.After.Ids.Length + field.AddedIds.Length + field.RemovedIds.Length) * 12L;
 
     private static void Project(RevisionComparePackage package, ImmutableArray<string> requested,
         SortedDictionary<string, ProjectedMetadataField> fields, CancellationToken token)
@@ -393,10 +423,11 @@ internal sealed class MetadataDiffRefusal(RevisionMetadataDiffStatus status, str
 public sealed class RevisionMetadataDiffVerifier(RevisionMetadataDiffEngine engine)
 {
     public async Task<bool> VerifyAsync(RevisionComparePlanBundle bundle, RevisionMetadataDiffResult result,
-        DateTimeOffset observedAtUtc, CancellationToken cancellationToken = default)
+        DateTimeOffset observedAtUtc, CancellationToken cancellationToken = default, long reservedMemoryBytes = 0)
     {
         if (bundle is null || result is null || result.Receipt is null || result.Fields.IsDefault
             || result.Receipt.MissingAuthorities.IsDefault || cancellationToken.IsCancellationRequested
+            || reservedMemoryBytes < 0 || reservedMemoryBytes > bundle.Plan.Budgets.MaxMemoryBytes
             || !RevisionComparePlanVerifier.LocalBundleValid(bundle))
             return false;
         using var timeout = new CancellationTokenSource(bundle.Plan.Budgets.TimeoutMilliseconds);
@@ -405,7 +436,11 @@ public sealed class RevisionMetadataDiffVerifier(RevisionMetadataDiffEngine engi
         {
             if (!CandidateShapeValid(bundle, result, linked.Token))
                 return false;
-            RevisionMetadataDiffResult reread = await engine.ComputeAsync(bundle, observedAtUtc, linked.Token)
+            long candidateBytes = RevisionMetadataDiffEngine.EstimateOutputBytes(result.Receipt, result.Fields, linked.Token);
+            if (candidateBytes > bundle.Plan.Budgets.MaxMemoryBytes - reservedMemoryBytes)
+                return false;
+            RevisionMetadataDiffResult reread = await engine.ComputeAsync(bundle, observedAtUtc, linked.Token,
+                    reservedMemoryBytes + candidateBytes)
                 .WaitAsync(linked.Token).ConfigureAwait(false);
             linked.Token.ThrowIfCancellationRequested();
             return reread.IsReviewable
@@ -468,7 +503,9 @@ public sealed class RevisionMetadataDiffVerifier(RevisionMetadataDiffEngine engi
                 return false;
             previous = field.FieldId;
         }
-        return size <= budgets.MaxOutputBytes && size + bundle.Plan.Admission.InitialEstimatedMemoryBytes <= budgets.MaxMemoryBytes;
+        long exactUpperBound = RevisionMetadataDiffEngine.EstimateOutputBytes(receipt, result.Fields, token);
+        return exactUpperBound <= budgets.MaxOutputBytes
+            && exactUpperBound + bundle.Plan.Admission.InitialEstimatedMemoryBytes <= budgets.MaxMemoryBytes;
     }
 
     private static bool WithinBudget(RevisionMetadataDiffValue? value, RevisionCompareBudgets budgets)

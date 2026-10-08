@@ -255,10 +255,8 @@ public sealed class RevisionMetadataDiffEngineTests
         RevisionMetadataDiffResult measured = await new RevisionMetadataDiffEngine(new RevisionComparePlanVerifier(initialReader))
             .ComputeAsync(initial, DateTimeOffset.UtcNow);
         Assert.True(measured.IsReviewable);
-        long boundary = 2_048L + measured.Receipt.MissingAuthorities.Sum(static reason => reason.Length * 6L)
-            + measured.Fields.Sum(static field => 1_024L
-                + ((long)(field.Before.Text?.Length ?? 0) + (field.After.Text?.Length ?? 0)) * 6L
-                + ((long)field.Before.Ids.Length + field.After.Ids.Length + field.AddedIds.Length + field.RemovedIds.Length) * 12L);
+        long boundary = RevisionMetadataDiffEngine.EstimateOutputBytes(measured.Receipt, measured.Fields);
+        Assert.True(JsonSerializer.SerializeToUtf8Bytes(measured).Length <= boundary);
         foreach (int offset in new[] { -1, 0 })
         {
             (RevisionComparePlanBundle bundle, MutableReader reader) = await Plan(before, after,
@@ -278,6 +276,38 @@ public sealed class RevisionMetadataDiffEngineTests
                 Assert.True(result.IsReviewable);
                 Assert.True(await new RevisionMetadataDiffVerifier(engine).VerifyAsync(bundle, result, DateTimeOffset.UtcNow));
             }
+        }
+    }
+
+    [Fact]
+    public async Task ComputeAsync_ReservationRejectsNegativeAndOverflowBeforeReadingAuthority()
+    {
+        (RevisionComparePlanBundle bundle, MutableReader reader) = await Plan(Package(11), Package(12));
+        var engine = new RevisionMetadataDiffEngine(new RevisionComparePlanVerifier(reader));
+        foreach (long reservation in new[] { -1L, long.MaxValue })
+        {
+            reader.Reads = 0;
+            RevisionMetadataDiffResult result = await engine.ComputeAsync(bundle, DateTimeOffset.UtcNow,
+                reservedMemoryBytes: reservation);
+            Refused(result, RevisionMetadataDiffStatus.BudgetExceeded);
+            Assert.Equal("metadata_diff_memory_reservation_invalid", result.Receipt.Reason);
+            Assert.Equal(0, reader.Reads);
+        }
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ReservesHeldCandidateAndSourceBeforeIndependentWorker()
+    {
+        (RevisionComparePlanBundle bundle, MutableReader reader) = await Plan(Package(11), Package(12));
+        var engine = new RevisionMetadataDiffEngine(new RevisionComparePlanVerifier(reader));
+        RevisionMetadataDiffResult result = await engine.ComputeAsync(bundle, DateTimeOffset.UtcNow);
+        var verifier = new RevisionMetadataDiffVerifier(engine);
+        foreach (long reservation in new[] { -1L, long.MaxValue, bundle.Plan.Budgets.MaxMemoryBytes })
+        {
+            reader.Reads = 0;
+            Assert.False(await verifier.VerifyAsync(bundle, result, DateTimeOffset.UtcNow,
+                reservedMemoryBytes: reservation));
+            Assert.Equal(0, reader.Reads);
         }
     }
 
