@@ -10,6 +10,7 @@ import {
     resolveRootSeed,
     validateCanonicalTestId
 } from './execution-replay-contract.mjs';
+import { createRandomExecutionJournal } from './random-execution-journal.mjs';
 
 export const randomStreamInventorySchema = 'fsusblog.random-stream-consumers.v1';
 export const randomStreamReceiptSchema = 'fsusblog.random-stream-receipt.v1';
@@ -186,13 +187,76 @@ export function createRandomExecutionRecorder({ canonicalTestId, streamId, envir
     const derivedSeed = seeds[`${canonicalTestId}\u0000${streamId}`];
     assert(/^seed256:[a-f0-9]{64}$/u.test(derivedSeed ?? ''), 'child execution stream is missing');
     const caseIdentities = [];
+    const identity = { canonicalTestId, streamId, derivedSeed,
+        runId: environment.FSUSBLOG_RANDOM_EXECUTION_RUN ?? null,
+        attemptId: environment.FSUSBLOG_RANDOM_EXECUTION_ATTEMPT ?? null,
+        replayPlanDigest: environment.FSUSBLOG_REPLAY_PLAN_DIGEST ?? null };
+    const journal = createRandomExecutionJournal({ directory: environment.FSUSBLOG_RANDOM_EXECUTION_DIR, streamId, identity });
+    let generatedCases = 0;
+    let pendingCases = 0;
+    let firstFailure = null;
+    journal.record('execution-opened', {});
     return {
         record(value)
         {
-            caseIdentities.push(deterministicCaseIdentity({ derivedSeed, caseIndex: caseIdentities.length, value }));
+            const caseIndex = caseIdentities.length;
+            const caseIdentity = deterministicCaseIdentity({ derivedSeed, caseIndex, value });
+            caseIdentities.push(caseIdentity);
+            generatedCases += 1;
+            journal.record('case-observed', { caseIndex, caseIdentity, outcome: 'passed', origin: 'legacy-post-oracle' });
+        },
+        observe(value, oracle)
+        {
+            const caseIndex = generatedCases++;
+            const caseIdentity = deterministicCaseIdentity({ derivedSeed, caseIndex, value });
+            pendingCases += 1;
+            journal.record('case-generated', { caseIndex, caseIdentity,
+                sampleSerialization: canonicalJson(value), inputDigest: canonicalDigest(value) });
+            const passed = (result) =>
+            {
+                pendingCases -= 1;
+                caseIdentities.push(caseIdentity);
+                journal.record('case-outcome', { caseIndex, caseIdentity, outcome: 'passed' });
+                return result;
+            };
+            const failed = (error) =>
+            {
+                pendingCases -= 1;
+                const failure = { caseIndex, caseIdentity };
+                firstFailure ??= failure;
+                try
+                {
+                    Object.assign(failure, { exceptionType: error instanceof Error ? error.name : null,
+                        message: error instanceof Error ? error.message : String(error),
+                        stackTrace: error instanceof Error ? error.stack : null });
+                    journal.record('case-outcome', { caseIndex, caseIdentity, failure, outcome: 'failed', firstFailure });
+                }
+                catch
+                {
+                    journal.record('case-outcome', { caseIndex, caseIdentity, failure, outcome: 'failed', firstFailure,
+                        diagnosticMetadataUnavailable: true });
+                }
+                journal.close();
+                throw error;
+            };
+            let result;
+            try
+            {
+                result = oracle();
+            }
+            catch (error)
+            {
+                return failed(error);
+            }
+            if (result && typeof result.then === 'function')
+            {
+                return Promise.resolve(result).then(passed, failed);
+            }
+            return passed(result);
         },
         complete()
         {
+            assert(firstFailure === null && pendingCases === 0, 'failed or incomplete random execution cannot complete');
             assert(/^[a-z0-9-]+$/u.test(streamId), 'child execution stream filename is invalid');
             const document = {
                 canonicalTestId, streamId, derivedSeed,
@@ -204,6 +268,8 @@ export function createRandomExecutionRecorder({ canonicalTestId, streamId, envir
             assert(sha256Pattern.test(document.replayPlanDigest ?? ''), 'child replay plan is missing');
             writeFileSync(path.join(environment.FSUSBLOG_RANDOM_EXECUTION_DIR, `${streamId}.json`),
                 `${JSON.stringify(document)}\n`, { flag: 'wx' });
+            journal.record('execution-completed', { outcome: 'passed', observedCases: caseIdentities.length });
+            journal.close();
         }
     };
 }

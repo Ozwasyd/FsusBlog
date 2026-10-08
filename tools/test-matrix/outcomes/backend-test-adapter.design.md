@@ -116,9 +116,9 @@ this adapter computes neither an outcome fingerprint nor an aggregate.
 ## Integration gaps and rollback
 
 The bounded native bridge below consumes actual xUnit v2 reporter material.
-The original randomized TRX parser admits passing results only: failed property,
-model and fuzz assertion/input/shrink/transition observations still require their
-execution owner's emitter. #1601 actual all-producer temporal observations and
+The original randomized TRX parser still admits passing complete results only.
+The property sample prefix emitter below retains actual failure/cancel observations;
+canonical per-assertion identities and model/fuzz/shrink observations remain unmet. #1601 actual all-producer temporal observations and
 #1602 envelope tracking retain their original unfinished acceptance. Source
 adapter controls use explicitly identified in-memory verifier doubles. Native
 bridge controls execute the original reporter and real assertions, while preserving
@@ -339,21 +339,10 @@ actual callback API; the held semantic adapter continues to refuse without them.
   identify an assertion site or establish #2020 canonical failure identity.
   The existing test-only `ReporterMaterialTests.ObserveEqual` provides an explicit
   assertion ID only for that isolated fixture, not for native product tests.
-- `tests/backend/Unit/BackendPropertyTests.cs::RecordCase` is currently called
-  only after all assertions for that sample pass. Its `PublishExecution` runs
-  only on success. The original property owner must emit a flushed generated-case
-  callback before those unchanged assertions, using its actual stream seed,
-  current index and original sample serialization/hash algorithm; then emit actual
-  per-assertion success/failure and first-failure records while preserving rethrow.
-  The record must retain original run/attempt/plan inputs from the child environment.
-  The parent can then join the retained prefix to its actual terminal without
-  reconstructing a failed input from messages or post-success case lists.
-- `tools/test/run-replay-qualification.mjs::runRandomizedProducer` currently
-  rejects nonzero/signal results before retaining its process result and
-  `parseProcessEvidence` admits passing random observations only. Its original
-  owner must expose the actual failure/cancel process terminal plus retained
-  property callback references before throwing. This shared owner source is not
-  changed here; the native parent is not substituted for its `dotnet test` lane.
+- Property generation and random process retention are now implemented through
+  the transferred original sources described below. Their incremental events are
+  unqualified observations; an accepted partial semantic consumer still requires
+  the independent assertion and original attempt authority inputs above.
 - No shrink execution callback exists in the actual backend generator: its three
   configured streams have `shrinks=0`. `createFuzzCaseReceipt` accepts a supplied
   `failure.shrinkSequence` but does not execute or observe shrinking. A real fuzz
@@ -365,3 +354,75 @@ Canonical catalog/profile APIs remain usable from the pinned provider; actual
 attempt/runtime authorities, canonical assertion emission and held partial
 semantic acceptance remain with their original owners. No held substitution,
 forgery, cross-candidate or tampering audits are run to bypass the existing hold.
+
+
+## Original property and random process publication
+
+After sole writer transfer, `BackendPropertyTests.cs` observes each original
+roundtrip/truncation/bit-flip sample before its unchanged oracle runs. The existing
+`RecordCase`, successful `PublishExecution`, loops, seeds and assertions remain
+unchanged. `BackendPropertyExecutionJournal.Open(canonicalTestId,streamId)` reads
+only the existing child environment. `Observe(sampleSerialization,caseIndex,oracle)`
+flushes the generated sample, invokes the original action, records its actual
+outcome/first failure and rethrows the original exception. `Complete(observedCases)`
+runs only after the existing successful publication. A killed process leaves its
+already flushed prefix with no inferred failure or completion.
+
+The sibling `<streamId>.events.jsonl` uses
+`fsusblog.random-execution-event.v1`, with `qualificationEligible=false`, actual
+`processId`, copied original `identity`, zero-based `sequence`, `kind` and `payload`.
+Identity retains canonical method/stream, derived seed and original run/attempt/plan
+inputs; missing values remain null. Events are `execution-opened`, `case-generated`,
+`case-outcome` and `execution-completed`. A generated event contains actual index,
+case identity, original sample serialization and input digest. Native case identity
+keeps SHA256 of UTF8 `index:original-value`; its input digest hashes the original
+value alone. Failure events retain actual exception metadata and first failed case,
+without a canonical assertion ID/class/kind. Shrink/transitions are absent.
+
+The shared `createRandomExecutionRecorder` adds `observe(value,oracle)` for sync
+or async oracles. It retains the existing JS deterministic identity algorithm and
+canonical sample serialization, records before invocation, and settles on the real
+result. Failure rethrows the same error and prevents successful completion.
+Existing `record(value)` remains an explicit post-oracle observation; legacy callers
+are not claimed to expose failure-before samples. The existing complete JSON shape,
+case count and success-only budget validator remain unchanged. A completed fixture
+control is validated through that same original API, with case identities obtained
+from actual callbacks rather than the declared minimum budget.
+
+Both journals use create-new private files and flush each complete event. Caps are
+16 MiB, 128 KiB per event and 100000 events. Unavailable/stopped IO is diagnosed;
+it cannot manufacture completed observations or change original oracle failure.
+A stopped prefix is insufficient semantic proof. Partial trailing bytes are not
+callbacks. These events grant no replay, attempt, envelope or temporal authority.
+
+The existing `runRandomizedProducer` calls its exported
+`executeRandomizedCommand({command,environment,evidenceDirectory,context,ordinal,
+observationStreams})`, which uses its original `spawnCommand`. Before evaluating
+process success, it retains `process-<ordinal>.json.running.json` and
+`process-<ordinal>.json`: actual PID/code/signal, original executable/argv/cwd,
+times, spawn error and available journal paths/raw digests (or explicit absence/IO
+errors). Original source/run/producer, complete in-memory sealed plan, actual attempt
+string and caller `inputReferences` are copied into context. There was no original
+plan file reference in this lane; no path or attempt authority is invented.
+New process records use `fsusblog.randomized-command-process.v1` and are unqualified.
+The caller still throws its original failure for nonzero/signal, after publication.
+Successful evidence parsing, reopen and complete-budget validation stay unchanged.
+The existing source identity API is exported unchanged for exact ordinary controls.
+
+`tests/tools/random-execution-publication.test.mjs` runs six small actual JS/native
+success/failure/cancel controls. Native controls link the actual production journal
+source into the already-owned isolated fixture and use the original xUnit parent;
+the fixture's actual owner plan supplies its canonical identity. JS controls use
+an actual task plan sealed by the original API for the real child source and command.
+Task plans/attempt labels are diagnostic controls, never accepted runtime authority.
+No original product assertion is weakened or added. The native production project
+locked restore currently refuses its unchanged project-reference dependency lock
+with NU1004; that gate is preserved, so full-product compile/runtime acceptance is
+unmet. Isolated helper compilation and ordinary controls do not replace it.
+
+Remaining steps require explicit canonical per-assertion emission and independent
+attempt/temporal/envelope authorities, the retained partial-semantic review boundary,
+actual fuzz/model/shrink callbacks outside the transferred files, and the original
+lock owner repair. No additional non-conflicting owned runtime step has those inputs
+at this checkpoint. Shared inventories/catalog/retention/history and
+`fuzz-random-stream.mjs` remain unchanged.

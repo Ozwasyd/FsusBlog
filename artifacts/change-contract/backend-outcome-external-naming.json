@@ -6,7 +6,10 @@
             "paths": [
                 "tools/test-matrix/outcomes/backend-test-adapter.mjs",
                 "tools/test-matrix/outcomes/backend-held-evidence-bridge.mjs",
-                "tools/test/xunit-replay-adapter.mjs"
+                "tools/test/xunit-replay-adapter.mjs",
+                "tools/test/random-streams.mjs",
+                "tools/test/run-replay-qualification.mjs",
+                "tests/backend/Unit/BackendPropertyExecutionJournal.cs"
             ],
             "reason": "preserve the canonical execution owner's externally supplied replay, attempt and framework observation spellings while adapting them within the backend outcome authority"
         },
