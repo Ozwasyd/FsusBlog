@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
 
@@ -66,8 +67,8 @@ public static partial class BinaryEndpoints
             (DocumentExportTask task, DocumentExportFrozenInput input) =
                 await binding.FreezeRequestAsync(context, actor, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            if (task.UserId != actor.UserId || task.SiteId != actor.SiteId
-                || input.UserId != actor.UserId || input.SiteId != actor.SiteId
+            if (task.UserId != actor.UserId || !string.Equals(task.SiteScope, actor.SiteScope, StringComparison.Ordinal)
+                || input.UserId != actor.UserId || !string.Equals(input.SiteScope, actor.SiteScope, StringComparison.Ordinal)
                 || task.Status != DocumentExportTaskStatus.Queued)
             {
                 throw new DocumentExportJobDeniedException();
@@ -183,7 +184,15 @@ public static partial class BinaryEndpoints
                 throw new DocumentExportJobDeniedException();
             }
             DocumentExportJobActor actor = await binding.ResolveActorAsync(context, cancellationToken);
-            if (actor.UserId != principal.AdminPrincipalId || actor.SiteId <= 0
+            IConfiguration? configuration = context.RequestServices?.GetService<IConfiguration>();
+            if (configuration is null)
+            {
+                throw new DocumentExportJobDeniedException();
+            }
+            DocumentExportContractValidator.RequireOwnerScope(actor.UserId, actor.SiteScope);
+            string siteScope = SqlAuthorRecentArticleHistoryPermissionAuthority.ResolveSiteScope(configuration);
+            if (actor.UserId != principal.AdminPrincipalId
+                || !string.Equals(actor.SiteScope, siteScope, StringComparison.Ordinal)
                 || !string.Equals(actor.SessionId, sessionId, StringComparison.Ordinal))
             {
                 throw new DocumentExportJobDeniedException();
@@ -193,6 +202,12 @@ public static partial class BinaryEndpoints
         }
         catch (DocumentExportJobDeniedException)
         {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "导出不可用"), encoder);
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidDataException)
+        {
+            // Strict canonical version/scope refusal never repairs old numeric
+            // identities or discloses a frozen source/decoder failure.
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "导出不可用"), encoder);
         }
     }
