@@ -209,9 +209,9 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
         }, provider: SchemaProviderKind.PostgreSql), effects));
         foreach (SchemaProviderKind provider in new[] { SchemaProviderKind.MySql, SchemaProviderKind.Sqlite })
         {
-            IReadOnlyList<string> differences = PgCurrentSchemaControlShape.CompareApplyJournal(
-                new(new Dictionary<string, SchemaTableModel> { [control.Name] = control }, provider: provider), effects);
-            Assert.Contains($"provider mismatch expected={SchemaProviderKind.PostgreSql} actual={provider}", differences);
+            Assert.Equal("current_schema_owned_native_expression_context_unknown", Assert.Throws<InvalidOperationException>(
+                () => PgCurrentSchemaControlShape.CompareApplyJournal(
+                    new(new Dictionary<string, SchemaTableModel> { [control.Name] = control }, provider: provider), effects)).Message);
         }
         Assert.Equal("current_schema_control_provider_unavailable", Assert.Throws<InvalidOperationException>(
             () => CurrentSchemaControlShape.ProjectApplyJournal(SchemaProviderKind.Semantic)).Message);
