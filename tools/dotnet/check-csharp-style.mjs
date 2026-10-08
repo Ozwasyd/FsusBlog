@@ -55,6 +55,11 @@ function parseArgs(argv)
             parsed.rebindBaselinePolicy = true;
             continue;
         }
+        if (argument === '--rebind-access-baseline-policy')
+        {
+            parsed.rebindAccessBaselinePolicy = true;
+            continue;
+        }
         if (argument === '--update-baseline')
         {
             parsed.updateBaseline = true;
@@ -1507,11 +1512,13 @@ function writeBaseline(violations)
     console.log(`[csharp-style] baseline updated violations=${violations.length} path=${policy.baseline}`);
 }
 
-// This one-time producer admits only the original reviewed baseline and the
-// issue-3650 Miss suffix extension. It never rescans or increases allowed debt.
+// The two explicit operations have separate immutable authorities. The original
+// Miss operation stays Miss-only; Access starts from its merged baseline.
+// Neither operation rescans source or increases allowed debt.
 function rebindBaselinePolicy(args)
 {
-    if (args.fix || args.updateBaseline || args.mode !== 'full' || args.files.length > 0 || args.base)
+    if (args.fix || args.updateBaseline || args.mode !== 'full' || args.files.length > 0 || args.base
+        || (args.rebindBaselinePolicy && args.rebindAccessBaselinePolicy))
     {
         throw new Error('policy rebind cannot be mixed with fix, update-baseline or file selection; use full mode');
     }
@@ -1535,7 +1542,10 @@ function rebindBaselinePolicy(args)
     }
     requireRegularInput(defaultPolicyPath);
     requireRegularInput('config/development/csharp-style-baseline.json');
-    const authority = 'b19b3dc715691b871f0e3cab598ec5da8f27633c';
+    const accessRebind = args.rebindAccessBaselinePolicy === true;
+    const authority = accessRebind
+        ? 'b9c076e4b763130075218ff9d50f9a6c36784f59'
+        : 'b19b3dc715691b871f0e3cab598ec5da8f27633c';
     function authorityBlob(relativePath, objectId, digest)
     {
         const result = spawnSync('git', ['-C', defaultRoot, 'ls-tree', authority, '--', relativePath], {
@@ -1555,17 +1565,20 @@ function rebindBaselinePolicy(args)
         return blob.stdout.toString('utf8');
     }
     const originalPolicy = authorityBlob(defaultPolicyPath,
-        '5cc03bb337ddcba71cb049e8f9ca47637d7ecb26',
-        '29f9d010d5221b393164526fc6203dc555f453b83e26b77552617a13beb23200');
+        accessRebind ? 'bd9f1fef0fbc4c1cca02037df7800f0bddd31f21' : '5cc03bb337ddcba71cb049e8f9ca47637d7ecb26',
+        accessRebind ? 'b341da309ee50cdc61626212053b8a5b2548309294051bf59e9e6927b4baf292'
+            : '29f9d010d5221b393164526fc6203dc555f453b83e26b77552617a13beb23200');
     const originalBaseline = authorityBlob('config/development/csharp-style-baseline.json',
-        '44931fca7b3950cbaa54ba0a8f13097174c8cd42',
-        '0ab4b1ebfecbba054015209fcb30f62dbd6395a1390da67a87b9e9fd057fd011');
+        accessRebind ? '17ff74d0e03920f582c59ae1e870311d9d5105fd' : '44931fca7b3950cbaa54ba0a8f13097174c8cd42',
+        accessRebind ? '4351155657a6f448d27f2e7eb54dfd430d2a9246b8e0b4f463f5143ace6b204e'
+            : '0ab4b1ebfecbba054015209fcb30f62dbd6395a1390da67a87b9e9fd057fd011');
     const expectedPolicy = JSON.parse(originalPolicy);
-    expectedPolicy.enumNaming.acceptedSingularSuffixes.push('Miss');
+    const suffix = accessRebind ? 'Access' : 'Miss';
+    expectedPolicy.enumNaming.acceptedSingularSuffixes.push(suffix);
     const policyBytes = fs.readFileSync(policyFile, 'utf8');
     if (policyBytes !== `${JSON.stringify(expectedPolicy, null, 4)}\n`)
     {
-        throw new Error('policy rebind permits only the canonical Miss suffix extension');
+        throw new Error(`policy rebind permits only the canonical ${suffix} suffix extension`);
     }
     const target = path.join(root, expectedPolicy.baseline);
     const rebound = originalBaseline.replace(JSON.parse(originalBaseline).policySha256, sha256(policyBytes));
@@ -1692,7 +1705,7 @@ function main()
         return null;
     }
     validatePolicy();
-    if (args.rebindBaselinePolicy)
+    if (args.rebindBaselinePolicy || args.rebindAccessBaselinePolicy)
     {
         if (failures.length > 0)
         {
