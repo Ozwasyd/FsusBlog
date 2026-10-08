@@ -3629,6 +3629,75 @@
                     "anchor": "class GpuNativeLoadPolicy"
                 }
             ]
+        },
+        {
+            "id": "memory-capability-plan-metadata",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicyPlan.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "MemoryCapabilityPolicyPlan immutable bounded catalog and normalized revision",
+            "producer": "Policy construction and per-operation qualified candidate selection",
+            "consumers": "Existing configuration/control owners for policy metadata; explicit operation owners for transient buffers. No independent content/security/publication authority.",
+            "releaseEvent": "Policy metadata expires with its immutable plan/call; transient borrower disposal returns a buffer only after real operation and pin holds end; explicit allocator relinquishment releases retained charge.",
+            "capacityModel": "maximumCapabilities 1..4096 bounds the roster and each dependency list; per-call collections are bounded by that roster. CLR metadata capacity remains process observation, not an exact payload charge.",
+            "frequency": "Per vector admission, commit, release and explicit diagnostic snapshot",
+            "asyncEscape": "Tokens can escape asynchronously; a converted reservation never releases its allocation charge; actual backing lifetime is delegated to its final owner",
+            "classification": "ephemeral-scratch",
+            "eligibilityOwner": "Existing content and configuration owners; bounded internal control structures are not transferable public payload eligibility.",
+            "migrationDisposition": "No payload tier migration permission granted.",
+            "exclusionReason": "Source contracts and development fixtures do not qualify backend activation or arbitrary data migration.",
+            "observationHeadroom": "Include roster/string/list/object/pin overhead in process headroom without treating retained buffers as reclaimed. Preserve current transient T41 and database-reader failures as unresolved.",
+            "testOwner": "tests/backend/Unit/MemoryCapabilityPolicyPlanTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicyPlan.cs",
+                    "anchor": "public sealed class MemoryCapabilityPolicyPlan"
+                }
+            ]
+        },
+        {
+            "id": "admitted-transient-buffer-backing",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Transient/TransientBufferPool.cs",
+                "src/backend/Infrastructure/Memory/Transient/TransientBufferLease.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "TransientBufferPool and operation/pin-owned leases",
+            "producer": "Admitted pool buckets, explicit trim and final actual pin/operation completion",
+            "consumers": "Existing configuration/control owners for policy metadata; explicit operation owners for transient buffers. No independent content/security/publication authority.",
+            "releaseEvent": "Policy metadata expires with its immutable plan/call; transient borrower disposal returns a buffer only after real operation and pin holds end; explicit allocator relinquishment releases retained charge.",
+            "capacityModel": "Finite bucket capacities, retained buffer and lease limits govern actual byte[] capacity. GC pin overhead and CLR metadata remain separately observed; no product Auto or physical reclamation qualification.",
+            "frequency": "Per vector admission, commit, release and explicit diagnostic snapshot",
+            "asyncEscape": "Tokens can escape asynchronously; a converted reservation never releases its allocation charge; actual backing lifetime is delegated to its final owner",
+            "classification": "ephemeral-scratch",
+            "eligibilityOwner": "Existing content and configuration owners; bounded internal control structures are not transferable public payload eligibility.",
+            "migrationDisposition": "No payload tier migration permission granted.",
+            "exclusionReason": "Source contracts and development fixtures do not qualify backend activation or arbitrary data migration.",
+            "observationHeadroom": "Include roster/string/list/object/pin overhead in process headroom without treating retained buffers as reclaimed. Preserve current transient T41 and database-reader failures as unresolved.",
+            "testOwner": "tests/backend/Unit/TransientBufferPoolTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Transient/TransientBufferPool.cs",
+                    "anchor": "public sealed class TransientBufferPool"
+                }
+            ]
         }
     ],
     "syntaxObserver": {

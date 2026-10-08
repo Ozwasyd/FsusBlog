@@ -740,6 +740,28 @@
             "claimLevel": "S",
             "status": "structural-only",
             "structuralBoundary": "A sealed native index transfers its initial ownership once to a counted holder; readers retain the old physical allocation through retirement. This is an internal ownership holder, not an additional product publication authority or measured performance claim."
+        },
+        {
+            "id": "notification-admitted-memory-transfer",
+            "sourcePaths": [
+                "src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs"
+            ],
+            "intentKinds": [
+                "ownership",
+                "lifetime",
+                "disposal"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "FromOwnedMemory",
+                    "maxLineDistance": 32
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "The internal admitted adapter transfers the memory owner into the existing counted notification frame. Per-recipient holds and actual completion retain that owner. This registration does not certify successful shutdown cleanup, physical reclamation, or transient product acceptance; the current T41 failure remains open."
         }
     ]
 }

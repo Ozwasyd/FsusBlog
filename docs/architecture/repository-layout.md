@@ -150,6 +150,19 @@ existing policy owner must establish a qualified bound before enabling physical
 admission. The current source-compatible disk path without a physical policy remains
 unqualified for Auto. No new setting or per-host enable authority is introduced.
 
+`MemoryCapabilityPolicyPlan` validates a complete bounded registration roster and
+policy revision before it can be consumed by the existing configuration owner.
+Omitted modes normalize to Auto; unknown keys, dependency cycles, transitive
+Required/Disabled conflicts and competing Required backends reject the revision.
+The dependency order is deterministic and copied inputs cannot mutate the plan.
+Backend selection requires current-revision online, release and runtime facts for
+the candidate and its dependencies, plus that candidate's qualified workload and
+operation admission. A budget rejection leaves online facts intact. A required
+unavailable backend cannot silently select another member of its exclusive group.
+This contract has no probe, driver, publication or readiness side effects and does
+not qualify a controller's supplied facts; production activation and safe draining
+remain with the common capability controller and the existing resource owners.
+
 The current backend, Core, Shared, and Migration projects target `net10.0`. A .NET target
 or an available local toolchain does not establish product platform support. The catalog distinguishes the Dockerfile's `linux-musl-x64` shipping default from
 additional candidate targets and binds each row's source and required offline closure.
