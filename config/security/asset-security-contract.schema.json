@@ -1,0 +1,85 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schemaVersion", "owner", "storageOwner", "roots", "assetServiceSources", "staticMappings", "gateway", "composeSources", "policy", "identity", "rules"],
+    "properties": {
+        "schemaVersion": { "const": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "storageOwner": { "const": "FsusBlog.Server.Infrastructure.Storage.ReleaseStoragePaths" },
+        "roots": {
+            "type": "array", "minItems": 4, "maxItems": 4,
+            "items": {
+                "type": "object", "additionalProperties": false,
+                "required": ["property", "classification", "proofId"],
+                "properties": {
+                    "property": { "type": "string", "minLength": 1 },
+                    "classification": { "enum": ["public", "private", "session", "commit"] },
+                    "proofId": { "type": "string", "minLength": 1 }
+                }
+            }
+        },
+        "assetServiceSources": { "$ref": "#/$defs/sourceList" },
+        "staticMappings": {
+            "type": "array", "minItems": 1,
+            "items": {
+                "type": "object", "additionalProperties": false,
+                "required": ["id", "rootClassification", "source", "member", "api", "count", "owner", "proofId"],
+                "properties": {
+                    "id": { "type": "string", "minLength": 1 },
+                    "rootClassification": { "enum": ["public", "immutable", "derived", "webroot-entry", "development-client"] },
+                    "source": { "$ref": "#/$defs/source" },
+                    "member": { "type": "string", "minLength": 1 },
+                    "api": { "enum": ["UseStaticFiles", "PhysicalFileProvider"] },
+                    "count": { "const": 1 },
+                    "owner": { "type": "string", "minLength": 1 },
+                    "proofId": { "type": "string", "minLength": 1 }
+                }
+            }
+        },
+        "gateway": {
+            "type": "object", "additionalProperties": false,
+            "required": ["source", "publicLocation", "privateExternalLocation", "privateInternalLocation", "privateInternalAlias", "owner", "proofId"],
+            "properties": {
+                "source": { "$ref": "#/$defs/source" },
+                "publicLocation": { "type": "string", "pattern": "^/" },
+                "privateExternalLocation": { "type": "string", "pattern": "^/" },
+                "privateInternalLocation": { "type": "string", "pattern": "^/" },
+                "privateInternalAlias": { "type": "string", "pattern": "^/" },
+                "owner": { "type": "string", "minLength": 1 },
+                "proofId": { "type": "string", "minLength": 1 }
+            }
+        },
+        "composeSources": { "$ref": "#/$defs/sourceList" },
+        "policy": {
+            "type": "object", "additionalProperties": false,
+            "required": ["input", "schema", "generator", "outputs", "owner", "proofId"],
+            "properties": {
+                "input": { "$ref": "#/$defs/source" },
+                "schema": { "$ref": "#/$defs/source" },
+                "generator": { "$ref": "#/$defs/source" },
+                "outputs": { "$ref": "#/$defs/sourceList" },
+                "owner": { "type": "string", "minLength": 1 },
+                "proofId": { "type": "string", "minLength": 1 }
+            }
+        },
+        "identity": {
+            "type": "object", "additionalProperties": false,
+            "required": ["canonicalTables", "referenceTable", "retiredTables", "retiredSymbols", "owner", "proofId"],
+            "properties": {
+                "canonicalTables": { "$ref": "#/$defs/names", "type": "array", "minItems": 3, "maxItems": 3 },
+                "referenceTable": { "type": "string", "minLength": 1 },
+                "retiredTables": { "$ref": "#/$defs/names", "type": "array", "minItems": 4, "maxItems": 4 },
+                "retiredSymbols": { "$ref": "#/$defs/names", "type": "array", "minItems": 3, "maxItems": 3 },
+                "owner": { "type": "string", "minLength": 1 },
+                "proofId": { "type": "string", "minLength": 1 }
+            }
+        },
+        "rules": { "$ref": "#/$defs/names" }
+    },
+    "$defs": {
+        "source": { "type": "string", "pattern": "^(src|ops|tools|config|docs)/[A-Za-z0-9_./-]+$" },
+        "sourceList": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/source" } },
+        "names": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+    }
+}

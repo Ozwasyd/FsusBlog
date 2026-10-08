@@ -153,6 +153,7 @@
                         正文
                     </h2>
                     <div
+                        ref="authorCommandShortcutScope"
                         class="write-editor-panel"
                         data-editor-panel="true"
                     >
@@ -161,6 +162,7 @@
                                 ref="articleEditorRef"
                                 v-model="articleForm.content"
                                 :command-surfaces="authoringCommandSurfaces"
+                                :authoring-commands="inspectorCommands"
                                 :article-identity="authoringDocumentIdentity.id"
                                 :document-identity="authoringDocumentIdentity"
                                 :loading="pageLoading"
@@ -169,7 +171,14 @@
                                 @draft-save="saveDraftNow"
                                 @submit="requestSubmit"
                                 @upload-img="handleUploadImg"
-                            />
+                            >
+                                <template #secondary-action>
+                                    <ArticleAuthorCommandEntry
+                                        :palette="authorCommandPalette"
+                                        :label="authorCommandLabel"
+                                    />
+                                </template>
+                            </ArticleWriteEditor>
                         </ElFormItem>
                     </div>
                 </section>
@@ -751,6 +760,7 @@ import { useRoute } from 'vue-router';
 import { ArticlePublishStatus } from '@/api/article';
 import type { AssetLibraryItemResponse } from '@/api/authoring';
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue';
+import ArticleAuthorCommandEntry from '@/components/admin/article/ArticleAuthorCommandEntry.vue';
 import { focusFirstArticleValidationError } from '@/components/admin/article/articleEditorAccessibility';
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue';
 import ArticleRevisionPanel from '@/components/admin/article/ArticleRevisionPanel.vue';
@@ -763,21 +773,25 @@ import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitle
 import FsusDialog from '@/components/ui/FsusDialog.vue';
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue';
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
+import { useArticleAuthorCommandPalette } from '@/composables/useArticleAuthorCommandPalette';
 import {
     useArticleWriteInspector,
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
+import { useArticleWriteInspectorCommands } from '@/composables/useArticleWriteInspectorCommands';
 import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
+import { translate } from '@/locales';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
 import {
     articleWorkspaceTabRouter,
-    createArticleWorkspaceOpenInput,
-    type ArticleWorkspaceStatusSummary
+    createArticleWorkspaceOpenInput
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import type {
     ArticleDocumentContextRef,
-    ArticleDocumentIdentity
+    ArticleDocumentIdentity,
+    ArticleWorkspaceStatusSummary
 } from '@/services/authoring/openArticleDocumentRegistry';
+import { useAdminStore } from '@/store/admin';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 defineOptions({ name: 'ArticleWriteView' });
@@ -838,6 +852,7 @@ const {
     seoChecking,
     seoStatusText,
     articleForm,
+    authoringDocumentContext,
     authoringDocumentIdentity,
     currentRevisionId,
     currentRevisionNo,
@@ -1011,7 +1026,10 @@ const syncWorkspaceTab = async (): Promise<void> =>
 
 watch(
     [workspaceCanRegister, workspaceIdentity],
-    () => { void syncWorkspaceTab(); },
+    () =>
+    {
+        void syncWorkspaceTab();
+    },
     { immediate: true, deep: true }
 );
 watch(
@@ -1047,19 +1065,23 @@ const quickTagName = ref('');
 const quickCategoryInputRef = ref<{ focus?: () => void; } | null>(null);
 const quickTagInputRef = ref<{ focus?: () => void; } | null>(null);
 const coverInputRef = ref<HTMLInputElement | null>(null);
-const articleEditorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean; } | null>(null);
+const articleEditorRef = ref<{
+    insertMarkdownAtCursor?: (markdown: string) => boolean;
+    openCommandPalette: () => void;
+} | null>(null);
+const authorCommandShortcutScope = ref<HTMLElement | null>(null);
 const submitConfirmDialog = ref(false);
 const leaveConfirmDialog = ref(false);
-const {
-    activeInspector,
-    open: openInspector,
-    switchTo: switchInspector,
-    close: closeInspector,
-    registerTrigger: registerInspectorTrigger,
-    registerScrollContainer: registerInspectorScrollContainer,
-    updateScroll: updateInspectorScroll,
-    restoreFocus: restoreInspectorFocus
-} = useArticleWriteInspector({
+const authoringModalActive = computed(() => quickCreateCategoryDialog.value || quickCreateTagDialog.value ||
+    submitConfirmDialog.value || leaveConfirmDialog.value);
+const authorCommandLabel = computed(() => translate('admin.articleInspector.commandGroup'));
+const authorCommandPalette = useArticleAuthorCommandPalette({
+    editor: articleEditorRef,
+    shortcutScope: authorCommandShortcutScope,
+    enabled: computed(() => authoringDocumentContext.value !== null && !pageLoading.value &&
+        !submitting.value && !authoringModalActive.value)
+});
+const inspectorOwner = useArticleWriteInspector({
     initialInspector: route.query.preview === 'private' ? 'preview' : null,
     loadView: {
         resources: () => refreshAssetLibrary()
@@ -1073,6 +1095,24 @@ const {
                 showErrorToast(error, '历史版本刷新失败');
             })
     }
+});
+const {
+    activeInspector,
+    open: openInspector,
+    switchTo: switchInspector,
+    close: closeInspector,
+    registerTrigger: registerInspectorTrigger,
+    registerScrollContainer: registerInspectorScrollContainer,
+    updateScroll: updateInspectorScroll,
+    restoreFocus: restoreInspectorFocus
+} = inspectorOwner;
+const { commands: inspectorCommands } = useArticleWriteInspectorCommands({
+    inspector: inspectorOwner,
+    admin: useAdminStore(),
+    documentContext: authoringDocumentContext,
+    loading: pageLoading,
+    saving: submitting,
+    modalActive: authoringModalActive
 });
 
 const triggerCoverInput = (): void =>

@@ -1,5 +1,5 @@
-/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
-import { digestCanonical, freezeDeep, plainObject } from '../test-fixtures/receipt/canonical.mjs';
+
+const { digestCanonical, freezeDeep, plainObject } = await import(new URL('../test-fixtures/receipt/canonical.mjs', import.meta.url));
 
 import { normalizeRuntimeIdentity, requireDigest, sealDocument } from './contract.mjs';
 import { validateRuntimeResetBarrierReceipt } from './reset-barrier.mjs';
@@ -317,3 +317,19 @@ export function validateRuntimeOrderEquivalenceReceipt(receipt, expected = {})
     }
     return true;
 }
+
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['equivalent']),
+    describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeOwnerReceipt(receipt, {
+        identity: { namespace: 'namespace', runId: 'runId', sourceCommit: 'source.commit', worktreeFingerprint: 'source.fingerprint' },
+        status: 'status', contentDigest: 'receiptDigest'
+    }),
+    async verify({ receipt, context })
+    {
+        const { verifiedOwnerResult } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        validateRuntimeOrderEquivalenceReceipt(receipt, { sourceCommit: context.sourceCommit,
+            sourceFingerprint: context.worktreeFingerprint.replace(/^sha256:/u, '') });
+        return verifiedOwnerResult({ schema: receipt.schema, receiptDigest: receipt.receiptDigest });
+    }
+});

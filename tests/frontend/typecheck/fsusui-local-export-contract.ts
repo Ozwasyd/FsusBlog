@@ -50,3 +50,9 @@ export const fsusUiLocalExportContract = {
 }
 
 export type { LocalTypePreservingAdapterContract }
+
+// The feature consumer must compile against the real pinned public contracts.
+export { ArticleAnchorContextAdapter } from '../../../src/frontend/src/services/authoring/articleAnchorContext'
+export { ArticleAttachmentContextAdapter } from '../../../src/frontend/src/services/authoring/articleAttachmentContext'
+export type * from './article-editor-continuity'
+export { bindArticleEditorRuntime } from '../../../src/frontend/src/services/authoring/articleEditorRuntimeBinding'

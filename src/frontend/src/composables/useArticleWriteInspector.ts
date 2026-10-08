@@ -67,7 +67,12 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
 
         requestedViews.add(view);
         const loader = options.loadView?.[view];
-        const request = Promise.resolve(loader?.())
+        const request = Promise.resolve().then(() => loader?.())
+            .catch((error: unknown) =>
+            {
+                requestedViews.delete(view);
+                throw error;
+            })
             .finally(() =>
             {
                 pendingLoads.delete(view);
@@ -180,6 +185,25 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
         closingInspector = null;
     };
 
+    const focusActiveView = async (
+        view: ArticleWriteInspectorView,
+        signal?: AbortSignal
+    ): Promise<boolean> =>
+    {
+        await nextTick();
+        if (signal?.aborted || activeInspector.value !== view)
+        {
+            return false;
+        }
+        const target = scrollContainers.get(view);
+        if (!target?.isConnected)
+        {
+            return false;
+        }
+        target.focus({ preventScroll: true });
+        return target.ownerDocument.activeElement === target;
+    };
+
     if (activeInspector.value)
     {
         void ensureLoaded(activeInspector.value);
@@ -197,6 +221,7 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
         registerTrigger,
         registerScrollContainer,
         updateScroll,
+        focusActiveView,
         restoreFocus
     };
 }

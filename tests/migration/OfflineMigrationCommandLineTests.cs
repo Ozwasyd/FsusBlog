@@ -45,7 +45,8 @@ public sealed class OfflineMigrationCommandLineTests
     private static string[] PlanArguments()
         => ["plan", "--provider", "postgresql", "--instance-id", "instance", "--database-id", "database",
             "--env-file", "source.env", "--backup-package", "backup.fsbenc", "--backup-manifest", "manifest.json",
-            "--restore-drill", "drill.json", "--restore-env-file", "restore.env", "--output", "plan.json"];
+            "--restore-drill", "drill.json", "--restore-env-file", "restore.env", "--output", "plan.json",
+            "--timeout-seconds", "120"];
 
     [Fact]
     public void Parse_Expand()
@@ -101,6 +102,35 @@ public sealed class OfflineMigrationCommandLineTests
 
         Assert.Equal(OfflineMigrationPhase.Contract, options.Phase);
         Assert.True(options.ConfirmDestructive);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ContractWithoutOriginalBackupOwnerRefusesBeforeDatabaseAccess(bool dryRun)
+    {
+        OfflineMigrationCommandOptions options = new(
+            OfflineMigrationPhase.Contract, null, null, null, "/missing/evidence.json", true, dryRun);
+
+        OfflineMigrationExecutionResult result = await OfflineMigrationExecutor.RunAsync(
+            options, "invalid connection string", "dev-offline", CancellationToken.None);
+
+        Assert.Equal("failed", result.Status);
+        Assert.Equal(OfflineMigrationPhase.Contract, result.Phase);
+        Assert.Empty(result.MigrationIds);
+        Assert.Equal(["schema_offline_contract_not_supported"], result.Codes);
+    }
+
+    [Fact]
+    public async Task ContractRefusalHonorsCancellationBeforeDatabaseAccess()
+    {
+        OfflineMigrationCommandOptions options = new(
+            OfflineMigrationPhase.Contract, null, null, null, "/missing/evidence.json", true, false);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => OfflineMigrationExecutor.RunAsync(
+            options, "invalid connection string", "dev-offline", cancellation.Token));
     }
 
     [Fact]

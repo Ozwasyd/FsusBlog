@@ -4,9 +4,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ArticleWriteCommandBar from '@/components/admin/article/ArticleWriteCommandBar.vue'
+import { ElMarkdownEditor, type MarkdownEditorTransactionEvent, type MarkdownEditorTransaction, type MarkdownEditorDispatchResult } from '@ozwasyd/element-plus'
 import { ArticlePublishStatus } from '@/api/article'
 import { BinaryTransportError } from '@/services/binaryTransport'
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite'
+import { calculateOpenArticleDocumentDigest as digest } from '@/services/authoring/openArticleDocumentRegistry'
 
 const mocks = vi.hoisted(() => ({
   createArticle: vi.fn(),
@@ -23,7 +25,8 @@ const mocks = vi.hoisted(() => ({
   getAdminSiteComplianceConfig: vi.fn(),
   routerPush: vi.fn(),
   routeParams: {} as Record<string, string>,
-  routeQuery: {} as Record<string, string>
+  routeQuery: {} as Record<string, string>,
+  principalId: 'admin-1'
 }))
 
 vi.mock('vue-router', () => ({
@@ -95,7 +98,7 @@ vi.mock('@/api/system', () => ({
 vi.mock('@/store/admin', () => ({
   useAdminStore: () => ({
     setPageTitle: vi.fn(),
-    adminPrincipal: { id: 'admin-1', username: 'admin' }
+    adminPrincipal: { id: mocks.principalId, username: 'admin' }
   })
 }))
 
@@ -187,6 +190,7 @@ describe('useAdminArticleWrite authoring gates and draft isolation', () => {
     vi.clearAllMocks()
     mocks.routeParams = {}
     mocks.routeQuery = {}
+    mocks.principalId = 'admin-1'
     mocks.createArticle.mockReset()
     mocks.updateArticle.mockReset()
     mocks.getAdminArticleById.mockReset()
@@ -208,6 +212,150 @@ describe('useAdminArticleWrite authoring gates and draft isolation', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('binds continuity, actual cache and attachment ports to the same writer and public editor', async () => {
+    mocks.principalId = 'admin-runtime-binding'
+    const { wrapper, authoring } = await mountAuthoring()
+    type Session = ReturnType<typeof authoring.authoringEditorRuntime.bindEditor>
+    let session: Session | null = null
+    const editor = mount(ElMarkdownEditor, { props: {
+      mode: 'source', modelValue: authoring.articleForm.content,
+      documentIdentity: authoring.authoringDocumentIdentity.value,
+      'onUpdate:modelValue': (value: string) => { authoring.articleForm.content = value },
+      onTransaction: (event: MarkdownEditorTransactionEvent) => session?.binding.consumeTransaction(event)
+    } })
+    const commands = editor.vm as unknown as { dispatchTransaction(transaction: MarkdownEditorTransaction): MarkdownEditorDispatchResult }
+    const options = { surface: 'source' as const, configuration: { allowLatex: true, allowMermaid: true, baseUrl: null },
+      identity: { themeDigest: digest({ theme: 'test' }), locale: 'zh-CN' },
+      cachePolicy: { maxEntryBytes: 65536, maxAgeMs: 60000, maxReceipts: 16 } }
+    session = authoring.authoringEditorRuntime.bindEditor(commands, options)
+    const runtime = session.binding
+    expect(runtime.initialize()).toBe(true)
+    expect(() => authoring.authoringEditorRuntime.bindEditor(commands, options)).toThrow('article-editor-runtime-already-bound')
+    commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'abcdef' }], history: 'separate',
+      selection: { start: 1, end: 4, direction: 'backward' } })
+    const capture = { affinity: 'after' as const, viewportOffset: 0, percentage: 0, surface: 'source' as const, tool: 'none' as const }
+    const restore = { origin: 'surface' as const, now: 100, viewportHeight: 500, reducedMotion: true }
+    const before = runtime.continuity.capture(runtime.positionBinding(), capture)
+    expect(before.document.contextDigest).toBe(authoring.authoringDocumentContext.value.contextDigest)
+    expect(before.anchor.range).toEqual({ start: 1, end: 4 })
+    expect(before.anchor.direction).toBe('backward')
+    const opened = runtime.continuity.toolLifecycle('publish-preview-open', runtime.positionBinding(), capture, restore)
+    expect(opened.status).toBe('captured')
+    const lease = runtime.beginToolTask('publish-preview')
+    expect(lease.isCurrent()).toBe(true)
+    expect(lease.envelope.context.contextDigest).toBe(runtime.context.contextDigest)
+    const closed = runtime.continuity.toolLifecycle('publish-preview-close', runtime.positionBinding(), capture, restore)
+    expect(runtime.continuity.apply(closed.requestRef).status).toBe('awaiting-ack')
+    expect(runtime.continuity.cancelRestoration(closed.requestRef)?.status).toBe('rejected')
+    runtime.cancelToolTask()
+    expect(lease.signal.aborted).toBe(true)
+    expect(runtime.continuity.capture(runtime.positionBinding(), capture).historyRef).toBe(before.historyRef)
+    const refreshed = await runtime.autoRefresh()
+    expect(refreshed?.status).toBe('failed')
+    expect(runtime.renderState).toMatchObject({ content: null, fallback: 'source', refreshState: 'failed' })
+    expect(runtime.retainedRender).toBeNull()
+    const attachment = authoring.authoringAttachmentRuntime
+    const pending = attachment.commitCreated(attachment.capture({ origin: 'pick', anchor: attachment.captureAnchor({ start: 0, end: 0, direction: 'none' }, capture),
+      files: [{ name: 'image.png', mimeType: 'image/png', byteLength: 3 }] }))[0]!
+    expect(runtime.attachmentTaskLeases[0]!.taskRef).toBe(pending.snapshot.task.taskRef)
+    session.release()
+    session.release()
+    expect(pending.signal.aborted).toBe(true)
+    expect(runtime.attachmentTaskLeases).toEqual([])
+    expect(() => runtime.beginToolTask('source-compare')).toThrow('article-editor-runtime-binding-disposed')
+    expect(runtime.consumeSelection({ documentIdentity: authoring.authoringDocumentIdentity.value, revision: 0,
+      selection: { start: 0, end: 0, direction: 'none' } })).toBe(false)
+    editor.unmount()
+    wrapper.unmount()
+  })
+
+  it('shares the actual article owner through controlled attachment transactions and releases its editor lease', async () => {
+    mocks.principalId = 'admin-attachment-owner'
+    const { wrapper, authoring } = await mountAuthoring()
+    const runtime = authoring.authoringAttachmentRuntime
+    const initial = authoring.authoringDocumentContext.value
+    const editor = mount(ElMarkdownEditor, { props: {
+      mode: 'source', modelValue: authoring.articleForm.content,
+      documentIdentity: authoring.authoringDocumentIdentity.value,
+      'onUpdate:modelValue': (value: string) => { authoring.articleForm.content = value },
+      onTransaction: (event: MarkdownEditorTransactionEvent) => runtime.consumeTransaction(event)
+    } })
+    const commands = editor.vm as unknown as { dispatchTransaction(transaction: MarkdownEditorTransaction): MarkdownEditorDispatchResult }
+    const release = runtime.bindEditor({ dispatch: transaction => commands.dispatchTransaction(transaction) })
+    expect(() => runtime.bindEditor({ dispatch: transaction => commands.dispatchTransaction(transaction) })).toThrow()
+    const anchor = runtime.captureAnchor({ start: 0, end: 0, direction: 'none' },
+      { surface: 'source', tool: 'none', affinity: 'after', viewportOffset: 0, percentage: 0 })
+    const capture = runtime.capture({ origin: 'drop', anchor,
+      files: [{ name: 'image.png', mimeType: 'image/png', byteLength: 5 }] })
+    expect(capture.status).toBe('created')
+    const pending = runtime.commitCreated(capture)[0]!
+    expect(authoring.articleForm.content).toBe('![image.png]()')
+    expect(authoring.authoringDocumentContext.value.documentId).toBe(initial.documentId)
+    expect(authoring.authoringDocumentContext.value.documentEpoch).toBe(initial.documentEpoch)
+    expect(pending.snapshot.anchor.document.contextDigest).toBe(authoring.authoringDocumentContext.value.contextDigest)
+    const transaction = commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'prefix\n' }], history: 'separate' })
+    expect(runtime.consumeTransaction(transaction)).toBe(true)
+    expect(runtime.consumeTransaction({ ...transaction, value: 'tampered bytes' })).toBe(false)
+    expect(authoring.articleForm.content).toBe('prefix\n![image.png]()')
+    expect(pending.signal.aborted).toBe(false)
+    const completed = runtime.complete(pending, { ...pending.request, status: 'resolved',
+      payload: { markdownKind: 'image', href: '/asset.png', alt: 'image', mimeType: 'image/png' } })
+    expect(completed.state).toBe('transaction-committed')
+    expect(authoring.articleForm.content).toBe('prefix\n![image](/asset.png)')
+    expect(pending.signal.aborted).toBe(true)
+    const nextAnchor = runtime.captureAnchor({ start: 0, end: 0, direction: 'none' },
+      { surface: 'source', tool: 'none', affinity: 'after', viewportOffset: 0, percentage: 0 })
+    const next = runtime.commitCreated(runtime.capture({ origin: 'pick', anchor: nextAnchor,
+      files: [{ name: 'other.png', mimeType: 'image/png', byteLength: 6 }] }))[0]!
+    release()
+    release()
+    expect(next.signal.aborted).toBe(true)
+    expect(() => runtime.complete(next, { ...next.request, status: 'resolved',
+      payload: { markdownKind: 'image', href: '/late.png' } })).toThrow()
+    editor.unmount()
+    wrapper.unmount()
+    expect(runtime.receipts).toEqual([])
+  })
+
+  it('rejects a new public editor at revision zero against a retained advanced owner without resetting its epoch', async () => {
+    mocks.principalId = 'admin-remount-boundary'
+    const first = await mountAuthoring()
+    const editor = mount(ElMarkdownEditor, { props: { mode: 'source', modelValue: first.authoring.articleForm.content,
+      documentIdentity: first.authoring.authoringDocumentIdentity.value,
+      'onUpdate:modelValue': (value: string) => { first.authoring.articleForm.content = value },
+      onTransaction: (result: MarkdownEditorTransactionEvent) => first.authoring.authoringAttachmentRuntime.consumeTransaction(result) } })
+    const commands = editor.vm as unknown as { dispatchTransaction(transaction: MarkdownEditorTransaction): MarkdownEditorDispatchResult }
+    const release = first.authoring.authoringAttachmentRuntime.bindEditor({ dispatch: transaction => commands.dispatchTransaction(transaction) })
+    commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'advanced' }], history: 'separate' })
+    const before = first.authoring.authoringDocumentContext.value
+    expect(before.sourceRevision).toBeGreaterThan(0)
+    release()
+    editor.unmount()
+    first.wrapper.unmount()
+    const second = await mountAuthoring()
+    const freshEditor = mount(ElMarkdownEditor, { props: { mode: 'source', modelValue: second.authoring.articleForm.content,
+      documentIdentity: second.authoring.authoringDocumentIdentity.value } })
+    const freshCommands = freshEditor.vm as unknown as typeof commands
+    const session = second.authoring.authoringEditorRuntime.bindEditor(freshCommands, {
+      surface: 'source', configuration: { allowLatex: true, allowMermaid: true, baseUrl: null },
+      identity: { themeDigest: digest({ theme: 'test' }), locale: 'zh-CN' },
+      cachePolicy: { maxEntryBytes: 65536, maxAgeMs: 60000, maxReceipts: 16 }
+    })
+    const retained = second.authoring.authoringDocumentContext.value
+    expect(retained.sourceRevision).toBeGreaterThanOrEqual(before.sourceRevision)
+    expect(session.binding.initialize()).toBe(false)
+    expect(second.authoring.authoringDocumentContext.value.contextDigest).toBe(retained.contextDigest)
+    expect(second.authoring.authoringDocumentContext.value.documentId).toBe(before.documentId)
+    expect(second.authoring.authoringDocumentContext.value.documentEpoch).toBe(before.documentEpoch)
+    expect(second.authoring.authoringDocumentContext.value.sourceRevision).toBe(retained.sourceRevision)
+    expect(() => session.binding.continuity.capture(session.binding.positionBinding(), {
+      surface: 'source', tool: 'none', affinity: 'after', viewportOffset: 0, percentage: 0
+    })).toThrow()
+    session.release()
+    freshEditor.unmount()
+    second.wrapper.unmount()
   })
 
   it('edit -> autosave/draft save only calls draft owner and never calls prepublish or publish APIs', async () => {

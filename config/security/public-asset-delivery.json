@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "routePrefix": "/uploads/illustration",
+    "methods": ["GET", "HEAD"],
+    "mediaTypes": {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".ico": "image/x-icon"
+    },
+    "maxFileBytes": 20971520,
+    "kestrel": { "permitLimit": 600, "windowSeconds": 60, "queueLimit": 0 },
+    "gateway": { "requestsPerSecond": 10, "burst": 30, "connectionsPerIp": 20, "rateAfterBytes": 1048576, "rateBytesPerSecond": 8388608 },
+    "headers": {
+        "Cache-Control": "public,max-age=31536000,immutable",
+        "Cross-Origin-Resource-Policy": "same-origin",
+        "X-Content-Type-Options": "nosniff",
+        "Accept-Ranges": "none"
+    }
+}

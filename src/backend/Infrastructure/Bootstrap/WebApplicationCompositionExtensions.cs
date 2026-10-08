@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Storage;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -29,6 +30,7 @@ public static class WebApplicationCompositionExtensions
         new("forwarded-headers", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseForwardedHeaders()),
         new("security-headers", PublicHotReadPipelineStageClassification.CrossCuttingControl, "release-and-security-headers", static app => app.UseFsusSecurityHeaders()),
         new("deployment-request-tracking", PublicHotReadPipelineStageClassification.CrossCuttingControl, "deployment-request-tracking", static app => app.UseMiddleware<DeploymentRequestTrackingMiddleware>()),
+        new("public-assets", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseFsusPublicAssets(app.Services.GetRequiredService<ReleaseStoragePaths>())),
         new("core-middlewares", PublicHotReadPipelineStageClassification.CrossCuttingControl, "shield-exception-binary-boundary", static app => app.UseFsusCoreMiddlewares()),
         new("test-session-validation", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseFsusTestSessionValidation()),
         new("observability-correlation", PublicHotReadPipelineStageClassification.CrossCuttingControl, "observability-correlation", static app => app.UseMiddleware<ObservabilityCorrelationMiddleware>()),

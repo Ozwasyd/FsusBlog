@@ -304,6 +304,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Public Preview Quality](assets/visual-evidence/public-preview-quality.json) - owner `frontend`; issues #2753; producer `tools/docs/public-preview-quality-publication.mjs`
 - [Backend configuration reference (generated)](configuration/backend-configuration-reference.generated.md) - owner `backend`; producer `tools/configuration/check-backend-configuration-contract.mjs`
 - [Behavior Contract Index](development/behavior-contracts.generated.md) - owner `governance`; issues #1737; producer `tools/contracts/generate-behavior-contract-catalog.mjs`
+- [Public Asset Delivery Policy.generated](security/public-asset-delivery-policy.generated.md) - owner `security`; issues #1780; producer `tools/security/public-asset-policy.mjs`
 - [Generated Test Matrix](testing.generated.md) - owner `release`; producer `tools/docs/generate-testing-docs.mjs`
 - [Fixture capability catalog](testing/fixture-capability-catalog.md) - owner `release`; issues #1707; producer `tools/testing/generate-fixture-catalog-artifacts.mjs`
 

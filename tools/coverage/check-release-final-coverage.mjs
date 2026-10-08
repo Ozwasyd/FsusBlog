@@ -184,7 +184,7 @@ function criticalBranchCoverage(summary)
     return Math.min(...values);
 }
 
-function validate({ coverageRoot = defaultCoverageRoot, policyText = fs.readFileSync(policyPath, 'utf8') } = {})
+function validate({ coverageRoot = defaultCoverageRoot, policyText = fs.readFileSync(policyPath, 'utf8'), summaries = null } = {})
 {
     const policy = loadPolicy(policyText);
     const errors = [];
@@ -192,7 +192,7 @@ function validate({ coverageRoot = defaultCoverageRoot, policyText = fs.readFile
     const frontendFile = path.join(coverageRoot, 'frontend/Summary.json');
     const changedFile = path.join(coverageRoot, 'changed-code/Summary.json');
 
-    for (const file of [backendFile, frontendFile, changedFile])
+    for (const file of summaries ? [] : [backendFile, frontendFile, changedFile])
     {
         if (!fs.existsSync(file))
         {
@@ -204,9 +204,9 @@ function validate({ coverageRoot = defaultCoverageRoot, policyText = fs.readFile
         return errors;
     }
 
-    const backend = readJson(backendFile);
-    const frontend = readJson(frontendFile);
-    const changed = readJson(changedFile);
+    const backend = summaries?.backend ?? readJson(backendFile);
+    const frontend = summaries?.frontend ?? readJson(frontendFile);
+    const changed = summaries?.changed ?? readJson(changedFile);
 
     checkMetric(errors, policy, 'backend line coverage', metric(backend, 'linecoverage'), policy.backend.line);
     checkMetric(errors, policy, 'backend branch coverage', metric(backend, 'branchcoverage'), policy.backend.branch);
@@ -317,16 +317,44 @@ function runSelfTest()
     console.log('[release-final-coverage] self-test ok');
 }
 
-if (process.argv.includes('--self-test'))
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    runSelfTest();
-}
-else
-{
-    const errors = validate();
-    if (errors.length > 0)
+    if (process.argv.includes('--self-test'))
     {
-        fail(errors);
+        runSelfTest();
     }
-    console.log('[release-final-coverage] ok');
+    else
+    {
+        const errors = validate();
+        if (errors.length > 0)
+        {
+            fail(errors);
+        }
+        console.log('[release-final-coverage] ok');
+    }
+
 }
+
+export function validateReleaseFinalCoverageSummaries(summaries, policyText)
+{
+    if (!summaries?.backend || !summaries.frontend || !summaries.changed || typeof policyText !== 'string')
+    {
+        throw new Error('three explicit coverage summaries and policy text are required');
+    }
+    return validate({ summaries, policyText });
+}
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['success']), describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeJobEvidence(receipt),
+    async verify({ domainInputs, repositoryRoot, context })
+    {
+        const { readOwnerEvidenceReference } = await import(new URL('../release/required-evidence-owner-input.mjs', import.meta.url));
+        const { verifiedOwnerResult, requireOwnerChecks } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        const inputs = Object.fromEntries(['backend', 'frontend', 'changed'].map((key) =>
+            [key, readOwnerEvidenceReference(domainInputs?.[key], { repositoryRoot, context })]));
+        const policyText = fs.readFileSync(path.join(repositoryRoot, 'tests/coverage-policy.yml'), 'utf8');
+        requireOwnerChecks(validateReleaseFinalCoverageSummaries(Object.fromEntries(
+            Object.entries(inputs).map(([key, value]) => [key, value.receipt])), policyText));
+        return verifiedOwnerResult({ summaryDigests: Object.fromEntries(
+            Object.entries(inputs).map(([key, value]) => [key, value.digest])) });
+    }
+});

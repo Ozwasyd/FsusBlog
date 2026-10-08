@@ -3,7 +3,7 @@
     "catalogSchema": "fsusblog.required-evidence-catalog.v1",
     "source": "tests/fixtures/test-matrix/release-final-evidence-inputs.json",
     "version": 1,
-    "contentDigest": "sha256:4c1a57654bb596b1bd2f0c0dfc3d4bbadb21b77ab0c489a4d0f71dc9898ec270",
+    "contentDigest": "sha256:bbc9513b6e9fa7fd74c902e5b92d0ad53fce170857582376eba8de94962dedeb",
     "entries": [
         {
             "authorityId": "behavior-document-consistency-final",
@@ -26,9 +26,9 @@
             "localProducerCommand": "bash tools/test/bundles/behavior-document-consistency-final.sh",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.behavior-document-consistency-final",
-            "producerVerifier": "tools/docs/behavior-document-consistency-final.mjs",
-            "contentDigest": "sha256:7c544f17a933e22e747d1e88799e0c96ad34b65c0608e4ed97683c9cd481faec",
-            "producerDigest": "sha256:e7d4f7189847646de9049cec640194c10ef0e663061df933c58ef749daf19d37"
+            "producerVerifier": "tools/docs/behavior-document-consistency-final.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:58bcb67365b57ccb4504edc6ab8ea0cf7175430616b61ab33421f53bdb52d35f",
+            "producerDigest": "sha256:69e948864b91e88f103f3e253316a509401a481cc5213993d124110ecdeb0876"
         },
         {
             "authorityId": "behavior-evidence-post-runtime",
@@ -51,9 +51,9 @@
             "localProducerCommand": "bash tools/test/bundles/behavior-evidence-post-runtime.sh",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.behavior-evidence-post-runtime",
-            "producerVerifier": "tools/test-matrix/behavior-evidence-post-runtime.mjs",
-            "contentDigest": "sha256:602afb4bc74b97d403e3341a94418368d58ea3e157a344cd25c9be70e9627e93",
-            "producerDigest": "sha256:017c5b17a4bdef2a6dc5b97a6b6d730a21441473a1d25f8604fc67a4d03fcf2e"
+            "producerVerifier": "tools/test-matrix/behavior-evidence-post-runtime.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:51729fc043e7a5f630bdab1ee58b93cd6944d008e8095bca6a4e1ebc59e1ac69",
+            "producerDigest": "sha256:7c5a619649ecbe851f7a698509cf65b79e3a749e50e0883bd0287f51c5860f42"
         },
         {
             "authorityId": "behavior-evidence-pre-runtime",
@@ -76,9 +76,9 @@
             "localProducerCommand": "bash tools/test/bundles/behavior-evidence-pre-runtime.sh",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.behavior-evidence-pre-runtime",
-            "producerVerifier": "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
-            "contentDigest": "sha256:20ce82916e2b471ab0e55921dc85a7b79d3adc3814300b6eb4bfce20ca8451d6",
-            "producerDigest": "sha256:8d1042ab7285291b4160e34aa1e656f22a922e0464b0f67dd63fb9643ceffcbc"
+            "producerVerifier": "tools/test-matrix/behavior-evidence-pre-runtime.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:bc8d2bfa9800c7936fcd67f6ca966324a1efc455f9234f402c8c407bbae67914",
+            "producerDigest": "sha256:46442cb32635ba76fe0066b86444475ccd83cca08b87b9bdd4f6ce7a3b77e8a7"
         },
         {
             "authorityId": "browser-contract",
@@ -101,9 +101,9 @@
             "localProducerCommand": "bash tools/test/lanes/browser-contract.sh",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.browser-contract",
-            "producerVerifier": "tools/release/check-release-final.mjs",
-            "contentDigest": "sha256:196e7f48535449a1ae4a815abd2e0bcdfcc0d85e456c5437411ed87889d38770",
-            "producerDigest": "sha256:e161f957525fbe044ff34ac647e76501741c9dbd29d000e8b07e28bb1c3e011c"
+            "producerVerifier": "tools/release/browser-contract-receipt-contract.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:c41f48f7f6de0e63209407b7f6a1c70f1969d3a316e8395e272a7119dd7f6000",
+            "producerDigest": "sha256:93c3b83b7b9e3bec096fe1d8dfe19b79e19ca22506681fb1bcc58fe5cd803bb4"
         },
         {
             "authorityId": "coverage-gate-strict",
@@ -126,9 +126,9 @@
             "localProducerCommand": "tools/test/lanes/coverage-gate-strict.sh",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.coverage-gate-strict",
-            "producerVerifier": "tools/release/check-release-final.mjs",
-            "contentDigest": "sha256:8aa1372bc0b438b3668c5db8f5cb07d067db287f43a0bd103dad4f5c92a644c1",
-            "producerDigest": "sha256:aa5d99bee92f1fa4dbdefee87b4a75488da8ce081e0260f28dc8e982236259ed"
+            "producerVerifier": "tools/coverage/check-release-final-coverage.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:64361258bc04fffacf76a9cecac51f2270c4ab1b952232826758576a1c3779e0",
+            "producerDigest": "sha256:4001e8e78d25047c65bd36978e29ed6ce7eeeb7b584bf58b5d6d87bcb2e55eb9"
         },
         {
             "authorityId": "native-fuzz-sanitizer",
@@ -151,9 +151,9 @@
             "localProducerCommand": "node tools/test/run-native-tests.mjs --profile fuzz-sanitizer",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.native-fuzz-sanitizer",
-            "producerVerifier": "tools/test/run-native-tests.mjs",
-            "contentDigest": "sha256:b04a4a9bc2bb0fdead500af94fa6c4c1d50d501fc1222451fc216d9e742b986e",
-            "producerDigest": "sha256:bc8a0c9015cce3c72e8b4f338fccb7edee72c4a86b8cd9dd9de53e950e451139"
+            "producerVerifier": "tools/test/native-test-receipt.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:f7e607be4c29b675ffcb8573a6a295e5b8f0b76d96d0c34156cda2216424555b",
+            "producerDigest": "sha256:4a4df289033da9a7a0e70b55bca739333608c5cc0e8201c6912a5d1d1ae81f8f"
         },
         {
             "authorityId": "perception-character-v3-release-gate",
@@ -176,9 +176,9 @@
             "localProducerCommand": "tools/test/lanes/perception-character-v3-release-gate.sh",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.perception-character-v3-release-gate",
-            "producerVerifier": "tools/release/check-release-final.mjs",
-            "contentDigest": "sha256:275c5cf9bfb798dc1340a8b985a205e4f3678101c14a0bbc1be3a79c0fde393f",
-            "producerDigest": "sha256:2840545854b49125a2596366b544a48527126d160d311d8cff85f0e0896f5d9e"
+            "producerVerifier": "tools/security/run-perception-character-v3-release-gate.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:5546176276de210ec1b811a2a3cc870937423b96df43741e546b13f20c63fbe3",
+            "producerDigest": "sha256:1ef024c348ee9c5a7b0799ff619720fb102baf22a3bd692d8d8b9c64b61db95e"
         },
         {
             "authorityId": "production-correctness",
@@ -201,9 +201,9 @@
             "localProducerCommand": "tools/test/lanes/production-correctness-receipt.sh",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.production-correctness",
-            "producerVerifier": "tools/release/check-release-final.mjs",
-            "contentDigest": "sha256:536da8187369820688dfd94ded7a83b3f90c3e48610073c26dd3fa47dd300798",
-            "producerDigest": "sha256:2922f85edc56e1208df8ad62716b2dd9e20e392ad29c2ba9520464cbfbb62046"
+            "producerVerifier": "tools/release/test-evidence-receipts.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:5c58450a2157e89316c19ed09730673771a83167ba15e8c3d3b997edb15219bc",
+            "producerDigest": "sha256:ea6e3b91628fae2efe320b9a0c0c82e80dd93b31ade588059fb4e6a82c4d9209"
         },
         {
             "authorityId": "production-xss-release",
@@ -226,9 +226,9 @@
             "localProducerCommand": "tools/test/lanes/production-xss-release.sh",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.production-xss-release",
-            "producerVerifier": "tools/release/check-release-final.mjs",
-            "contentDigest": "sha256:07f600f55a07db5dc8cbf8a16674816519157c493f873cee41540f499e2f285f",
-            "producerDigest": "sha256:d17d68e8ebeca1e00a45de1cb496b9d20a67041ff4902163cfcf51d1a3185b30"
+            "producerVerifier": "tools/security/production-xss-evidence.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:64ab271ee00e7eae2a7b503744c63366dd75935adb417024c060fe755100f29b",
+            "producerDigest": "sha256:2e55e4a6d98c238f2783988849d614a564754229462a7e96a33dd2591ebdef77"
         },
         {
             "authorityId": "release-admin-console",
@@ -262,9 +262,9 @@
             "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-admin-console.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-admin-console.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
             "exactness": "test-id-exact",
             "outputBindingKey": "release-domain.projection.release-admin-console",
-            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
-            "contentDigest": "sha256:bcec7fee14b90b93986c3640c8b14e0f496b9e5ce691902d27ec9479801ea8ac",
-            "producerDigest": "sha256:d4a5fd2559ed53d8b242e8a50b05e0433fbbcf73037d878bd86b96272fbe8aa2"
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:d3afe1b7ec097e59e4f2840fe5d4c8e57381af5d3d933b22d1273485382d2553",
+            "producerDigest": "sha256:4df240cb03b111c3c62bae34f477442915d3ebcebe4e37e5c90af49dbe6881d5"
         },
         {
             "authorityId": "release-aot-generation",
@@ -296,9 +296,9 @@
             "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-aot-generation.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-aot-generation.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
             "exactness": "test-id-exact",
             "outputBindingKey": "release-domain.projection.release-aot-generation",
-            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
-            "contentDigest": "sha256:17e7c48b3b982ef037e1ef74116e9b3dccd88594da8823bc253afa6c49cb2633",
-            "producerDigest": "sha256:eed81f2d5508abd1df9e0ed7d48fab3a9798ca1032aaa6f689733299d1e910ee"
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:1530545cd10759d6f8b50150280cc2a5790f09103cfe3da250661976e31fef0f",
+            "producerDigest": "sha256:cb6f4310bc0be778f7f38915abcee1f12b33afcee69f8d2fb317716f16b3302c"
         },
         {
             "authorityId": "release-auth-flow",
@@ -329,9 +329,9 @@
             "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-auth-flow.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-auth-flow.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
             "exactness": "test-id-exact",
             "outputBindingKey": "release-domain.projection.release-auth-flow",
-            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
-            "contentDigest": "sha256:6e899bc05d6324ddd138586a077c2a50764f42603c6ca45ff347fc7376ac027f",
-            "producerDigest": "sha256:00c1eeab2a6df4e1b05f9a58acaed94637733075ffb2c35ac850c6f0c2d8b239"
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:7137b625b2e5afabde64713549f610d2f1e0145ff9d110f2ecd6afee6a71475b",
+            "producerDigest": "sha256:15e0971ffcaca2bcc6625a9ecd1dd23ba25919d3120ddb1e82005273bcaa3980"
         },
         {
             "authorityId": "release-authoring-flow",
@@ -365,9 +365,9 @@
             "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-authoring-flow.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-authoring-flow.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
             "exactness": "test-id-exact",
             "outputBindingKey": "release-domain.projection.release-authoring-flow",
-            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
-            "contentDigest": "sha256:d890020d1c2293704184f43d487fb382c21a910a7f21eb6a6baf3579160c5707",
-            "producerDigest": "sha256:7708acb5328d8171a0cd95eb8fe41e9ceee33a97ae7940abbdfea6ef10a17736"
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:cf1b27d90172c2b647814c2812ac95b9089c6548c3499d322050381d15937c18",
+            "producerDigest": "sha256:d9a986a6847068dcd6309ff81a472c101d3a9ba5c51d26544932957d3bd28dcc"
         },
         {
             "authorityId": "release-closeout",
@@ -390,9 +390,9 @@
             "localProducerCommand": "tools/test/lanes/release-closeout.sh",
             "exactness": "process-boundary-exact",
             "outputBindingKey": "release-final.release-closeout",
-            "producerVerifier": "tools/release/check-release-final.mjs",
-            "contentDigest": "sha256:3ae8bb1c0d07f707b25f2789f91288e92b292f97883aa46c75dc49c032148f50",
-            "producerDigest": "sha256:339c7966faada42785e9eafc30afe3f922f90ae30205a2b28ed4326e7be88e0e"
+            "producerVerifier": "tools/operations/check-release-evidence-manifest.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:7892ee889875c37f431ee02eba9665f1ef93e12a7d6d6b062133c4400616cee9",
+            "producerDigest": "sha256:7e7383ef49edc058935fa5eb437cebf6e3bdc04ffbe96cf85456a9c77c7df2dc"
         },
         {
             "authorityId": "release-error-boundary",
@@ -426,9 +426,9 @@
             "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-error-boundary.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-error-boundary.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
             "exactness": "test-id-exact",
             "outputBindingKey": "release-domain.projection.release-error-boundary",
-            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
-            "contentDigest": "sha256:613a6d1e88fbc5ba39b599c386f50e6afcea4bc276be3c27f2cba2882611669d",
-            "producerDigest": "sha256:54b925f3cb08387f816bdc57862d19830ff61c841b59907abc504a4f92be071f"
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:98efa3da5192c27346bb6997aac289c0a097f1c5996883ecbc556d10301008dc",
+            "producerDigest": "sha256:5acde8fe22464795ae63c7fa7525b58553bec069c9a1e2b723ca111a17cf3eb2"
         },
         {
             "authorityId": "release-final-flaky-governance",
@@ -451,9 +451,9 @@
             "localProducerCommand": "node tools/ci/check-flaky-registry.mjs --release-final",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.release-final-flaky-governance",
-            "producerVerifier": "tools/ci/check-flaky-registry.mjs",
-            "contentDigest": "sha256:f0b595846c5fde3122d2e04bcf93191bb15736c2bd62fcbf5a0317308d4e627e",
-            "producerDigest": "sha256:92df3ebe4a918c490f635d18e4f3b9f47c89e1e03303719f879467e7cf6da14f"
+            "producerVerifier": "tools/ci/check-flaky-registry.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:928f7cf905985cab7e0ab7165e3e48b00f0a1ca78073efb3c78030765c329c05",
+            "producerDigest": "sha256:23f90179b1f86637c8d79f8fc424a83ac16f6eefad4c6530dbd5ed762c3fb547"
         },
         {
             "authorityId": "release-final-shard-completeness",
@@ -476,9 +476,9 @@
             "localProducerCommand": "node tools/ci/check-job-summaries.mjs --require-plan --tier production --strict-shards",
             "exactness": "process-boundary-exact",
             "outputBindingKey": "release-final.release-final-shard-completeness",
-            "producerVerifier": "tools/ci/check-job-summaries.mjs",
-            "contentDigest": "sha256:e4244ca785fb52131c95b89ddb44991c958d38dba3b04381737efc36e1dd5be9",
-            "producerDigest": "sha256:9a7732bace3268c1926ef3b1a455bc9302ad49e58c529f401cb6b63e6f3876fc"
+            "producerVerifier": "tools/ci/check-job-summaries.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:7ee0a20aab79cb9d6942118daff5a001a81dfd95b4b848beb828f951161c3045",
+            "producerDigest": "sha256:835e261484587001cef3c699c247911144dcfda279f761472830ce0db6465f9d"
         },
         {
             "authorityId": "release-private-preview",
@@ -510,9 +510,9 @@
             "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-private-preview.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-private-preview.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
             "exactness": "test-id-exact",
             "outputBindingKey": "release-domain.projection.release-private-preview",
-            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
-            "contentDigest": "sha256:f20988e9de7ec5594057e542e333831c0e717b36b5cb4e149626508bc883b531",
-            "producerDigest": "sha256:d3ba99b72e3289c60ffa5caf274b8a5219d01ab146955fdede4d7a98b8d47dd3"
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:7bb4c40376dc1284af4a0468aaf604a8c45adcbd7dcd9a9ae3e8d744d7e4d3eb",
+            "producerDigest": "sha256:9c0016c0caa90056c6735dcf7d61aef9a4ba25ec9c4bdf8ecfe4cd32312c0534"
         },
         {
             "authorityId": "release-reliability-fresh",
@@ -538,9 +538,9 @@
             "localProducerCommand": "tools/test/run-release-reliability-qualified-local.sh",
             "exactness": "exact-one-authority",
             "outputBindingKey": "release-final.release-reliability-fresh",
-            "producerVerifier": "tools/test/verify-release-reliability-receipt.mjs",
-            "contentDigest": "sha256:42a5c22a6afd54d892171bc7215eddce7ada9e8c19c873a45768671f586b4bc5",
-            "producerDigest": "sha256:6387d1f9d2305940975c402774c3db1fafa6a066241b441125385c4a84a5b50d"
+            "producerVerifier": "tools/test/verify-release-reliability-receipt.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:93b00ac75473df19e43896dbb0c23aa1084f15561969e334a91f2c0ef1ab094c",
+            "producerDigest": "sha256:b861dc7d1d5e840604fbd9563bc1e89b57d20efba9be74b98b3338b807c883dc"
         },
         {
             "authorityId": "release-static-asset-digest-coherence",
@@ -572,9 +572,9 @@
             "localProducerCommand": "node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-static-asset-digest-coherence.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-static-asset-digest-coherence.json --root . --commit \"$FSUSBLOG_TEST_SOURCE_COMMIT\" --worktree-fingerprint \"$FSUSBLOG_TEST_SOURCE_FINGERPRINT\" --run-id \"$FSUSBLOG_TEST_RUN_ID\" --namespace \"$FSUSBLOG_TEST_NAMESPACE\"",
             "exactness": "test-id-exact",
             "outputBindingKey": "release-domain.projection.release-static-asset-digest-coherence",
-            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs",
-            "contentDigest": "sha256:16c2eb49dcee4f29231ba56398b5ac472880bd1b88067d8c714223a8e8f53314",
-            "producerDigest": "sha256:1f6c39a678176cc2e88232cd84e003608d5a442d69d2f9cd94b01941863fdf36"
+            "producerVerifier": "tools/test-matrix/release-domain-projection-receipt.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:136f97178cef2824cbe90ec32d4bd183cdfe501977a9f373dafc8448dc21d76a",
+            "producerDigest": "sha256:18eb2beff5fdcb295874ddbabcdc3d2b6b72cf10e31fbdbb894c7a70e5b8df70"
         },
         {
             "authorityId": "runtime-order-equivalence",
@@ -597,9 +597,9 @@
             "localProducerCommand": "node tools/test/run-runtime-order-equivalence.mjs --all-required-schedules --output .tmp/release-evidence/runtime-order-equivalence.json",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.runtime-order-equivalence",
-            "producerVerifier": "tools/test-runtime/order-equivalence.mjs",
-            "producerDigest": "sha256:910ef5a6a6e426b02214f7ba42351d6ab84c9ba5e46377950c66ee800c7b9806",
-            "contentDigest": "sha256:8f6acd669d5b6c61dd6899f5d311aaf0733753ddd62001d89b1b12150562eaad"
+            "producerVerifier": "tools/test-runtime/order-equivalence.mjs:requiredEvidenceVerifier",
+            "producerDigest": "sha256:9246690f639800b1c3ba316e0053fda2c37197772ee8af9562a53747e9a4b62a",
+            "contentDigest": "sha256:2ca397affc21e9f080d921586d2c98195690c7410029c4fc66d7e9d15ee60488"
         },
         {
             "authorityId": "test-quality-lint",
@@ -622,9 +622,9 @@
             "localProducerCommand": "tools/test/lanes/test-quality-lint.sh",
             "exactness": "artifact-set-exact",
             "outputBindingKey": "release-final.test-quality-lint",
-            "producerVerifier": "tools/release/check-release-final.mjs",
-            "contentDigest": "sha256:3c41fb0b59c60359a7739b20ae1d94daebfe6b3cf14bf02b5077409ee6f6faa4",
-            "producerDigest": "sha256:6a5548cdbc9c61041dda4c29050b82260ae100d46d1ff1c6970fdaff3a950762"
+            "producerVerifier": "tools/test-quality/artifact.mjs:requiredEvidenceVerifier",
+            "contentDigest": "sha256:65bf49bafef2bdb9282a74a00f6b774738b30d4e86ac7fa8fc8c0994293278f2",
+            "producerDigest": "sha256:aa0453df4f9fa2f346eb9ff5d85e0fa4cc1ac805104985276d023a6fd0cc9244"
         }
     ]
 }

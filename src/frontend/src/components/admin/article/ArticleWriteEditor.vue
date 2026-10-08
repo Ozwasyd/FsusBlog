@@ -77,6 +77,7 @@
             >
                 源码对照
             </button>
+            <slot name="secondary-action" />
         </div>
     </div>
 </template>

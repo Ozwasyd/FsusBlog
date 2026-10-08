@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "routePrefix", "methods", "mediaTypes", "maxFileBytes", "kestrel", "gateway", "headers"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "routePrefix": { "const": "/uploads/illustration" },
+    "methods": { "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true, "items": { "enum": ["GET", "HEAD"] } },
+    "mediaTypes": {
+      "type": "object", "minProperties": 1, "additionalProperties": false,
+      "properties": {
+        ".png": { "const": "image/png" }, ".jpg": { "const": "image/jpeg" },
+        ".jpeg": { "const": "image/jpeg" }, ".gif": { "const": "image/gif" },
+        ".webp": { "const": "image/webp" }, ".ico": { "const": "image/x-icon" }
+      }
+    },
+    "maxFileBytes": { "type": "integer", "minimum": 1, "maximum": 1073741824 },
+    "kestrel": {
+      "type": "object", "additionalProperties": false, "required": ["permitLimit", "windowSeconds", "queueLimit"],
+      "properties": {
+        "permitLimit": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "windowSeconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "queueLimit": { "const": 0 }
+      }
+    },
+    "gateway": {
+      "type": "object", "additionalProperties": false,
+      "required": ["requestsPerSecond", "burst", "connectionsPerIp", "rateAfterBytes", "rateBytesPerSecond"],
+      "properties": {
+        "requestsPerSecond": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "burst": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "connectionsPerIp": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "rateAfterBytes": { "type": "integer", "minimum": 1, "maximum": 1099511627776 },
+        "rateBytesPerSecond": { "type": "integer", "minimum": 1, "maximum": 1099511627776 }
+      }
+    },
+    "headers": {
+      "type": "object", "additionalProperties": false,
+      "required": ["Cache-Control", "Cross-Origin-Resource-Policy", "X-Content-Type-Options", "Accept-Ranges"],
+      "properties": {
+        "Cache-Control": { "const": "public,max-age=31536000,immutable" },
+        "Cross-Origin-Resource-Policy": { "const": "same-origin" },
+        "X-Content-Type-Options": { "const": "nosniff" },
+        "Accept-Ranges": { "const": "none" }
+      }
+    }
+  }
+}

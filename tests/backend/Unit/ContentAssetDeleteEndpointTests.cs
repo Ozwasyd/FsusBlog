@@ -283,6 +283,12 @@ public sealed class ContentAssetUploadLedgerIntegrationTests(PostgresSchemaMigra
             Assert.Equal(41, asset.OwnerAdminPrincipalId);
             Assert.Equal(ContentAssetStates.Active, asset.State);
 
+            Result<UploadCompleteDto> differentBytes = await service.CompleteUploadAsync(access, new string('0', 64));
+            Assert.False(differentBytes.IsSuccess);
+            string committedPath = Path.Combine(ReleaseStorageTestPaths.Create(root).PublicAssetRoot, asset.StorageKey);
+            Assert.Equal(png, await File.ReadAllBytesAsync(committedPath));
+            Assert.Equal(sha256, Assert.Single(db.Queryable<ContentAsset>().ToList()).Sha256);
+
             var references = new ArticleAssetReferenceStore(db);
             var transaction = await db.Ado.UseTranAsync(
                 async () =>

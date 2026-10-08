@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
+const { validatePerceptionCharacterRetirement } = await import(new URL('../contracts/check-perception-character-v3-retirement.mjs', import.meta.url));
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -91,14 +91,10 @@ function writeJson(file, value)
     fs.renameSync(temporary, file);
 }
 
-function main()
+export function buildIndependentReview({ implementation, poolManifest, corpus, benchmark, migration,
+    repositoryRoot: reviewRoot = repositoryRoot, evidenceReader = null })
 {
-    const options = parse(process.argv.slice(2));
-    const implementation = readJson(options['implementation-receipt']);
-    const poolManifest = readJson(options['pool-manifest']);
-    const corpus = readJson(options['corpus-report']);
-    const benchmark = readJson(options['benchmark-report']);
-    const migration = readJson(options['migration-receipt']);
+    const repositoryRoot = reviewRoot;
     for (const document of [implementation, corpus, benchmark, migration])
     {
         scanKeys(document);
@@ -112,7 +108,7 @@ function main()
         'implementation receipt fingerprint is invalid');
     for (const entry of Object.values(implementation.evidence))
     {
-        requireCondition(evidenceDigest(entry) === entry.sha256, `evidence drift: ${entry.path}`);
+        requireCondition((evidenceReader ? evidenceReader(entry) : evidenceDigest(entry)) === entry.sha256, `evidence drift: ${entry.path}`);
     }
     requireCondition(implementation.pool.generationId === poolManifest.generationId,
         'pool generation differs from implementation receipt');
@@ -126,12 +122,8 @@ function main()
         && migration.second.idempotent === true,
     'migration differs from implementation receipt');
 
-    const retirement = spawnSync(
-        process.execPath,
-        [path.join(repositoryRoot, 'tools/contracts/check-perception-character-v3-retirement.mjs')],
-        { cwd: repositoryRoot, encoding: 'utf8' }
-    );
-    requireCondition(retirement.status === 0, retirement.stderr || retirement.stdout);
+    const retirement = validatePerceptionCharacterRetirement(repositoryRoot);
+    requireCondition(retirement.length === 0, retirement.join('; '));
     const runtimeRouteSources = [
         'src/backend/Program.cs',
         'src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs',
@@ -185,8 +177,22 @@ function main()
         ...receiptWithoutFingerprint,
         receiptFingerprint: sha256(JSON.stringify(receiptWithoutFingerprint))
     };
+    return receipt;
+}
+
+function main()
+{
+    const options = parse(process.argv.slice(2));
+    const receipt = buildIndependentReview({
+        implementation: readJson(options['implementation-receipt']),
+        poolManifest: readJson(options['pool-manifest']), corpus: readJson(options['corpus-report']),
+        benchmark: readJson(options['benchmark-report']), migration: readJson(options['migration-receipt'])
+    });
     writeJson(path.resolve(options.output), receipt);
     process.stdout.write(`[perception-v3-independent-review] ${receipt.receiptFingerprint}\n`);
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+{
+    main();
+}
