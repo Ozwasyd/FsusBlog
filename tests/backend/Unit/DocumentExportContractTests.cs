@@ -685,8 +685,12 @@ public sealed class DocumentExportContractTests
         DocumentExportContractValidator.Validate(warningReceipt, task, input, provider);
         foreach (DocumentExportProviderResultStatus status in Enum.GetValues<DocumentExportProviderResultStatus>())
         {
+            DocumentExportProviderReceipt statusReceipt = DocumentExportContractValidator.Seal(warningReceipt with
+            {
+                Status = status
+            });
             DocumentExportContractValidator.Validate(
-                DocumentExportContractValidator.Seal(warningReceipt with { Status = status }),
+                statusReceipt,
                 task,
                 input,
                 provider);
