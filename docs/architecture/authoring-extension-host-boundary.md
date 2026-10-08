@@ -7,6 +7,65 @@ plugin system. The C# declarations under
 not a stable shared ABI. This boundary adds no HTTP route, AEDS frame, browser API,
 or `src/shared/Contracts/` authority.
 
+## Architecture decision and contribution ownership
+
+The architecture decision in [the authoring extension design issue](https://github.com/Ozwasyd/FsusBlog/issues/1873)
+is Hybrid by capability class: checked-in trusted host adapters, isolated
+Worker/Wasm extension logic, and an out-of-process service for explicit I/O or
+heavy compute. These are fixed authority boundaries, not deployment choices.
+Third-party code never runs in the Vue or Server main process. Pure computation
+uses Worker/Wasm; explicit I/O uses an exact host broker grant. The package cannot
+select a different class at runtime or fall back to a more privileged class after
+failure. A trusted host adapter is host-owned reviewed code, not a plugin-supplied
+function or component.
+
+A single in-process runtime, a single Worker/Wasm runtime, and a single service
+runtime are rejected alternatives: none replaces the capability-class mapping.
+Iframe, WebView, Shadow DOM, and a worker name alone do not prove isolation. The
+runtime, broker, lifecycle, and terminal matrix owners must demonstrate their
+actual boundaries before a contribution can become stable support.
+
+All nine categories have the fixed disposition `allowed-with-adapter`:
+
+| Category | Disposition | Implementation owner |
+| --- | --- | --- |
+| Author commands | `allowed-with-adapter` | #1915 |
+| Command palette metadata | `allowed-with-adapter` | #1915 |
+| Read-only article inspector | `allowed-with-adapter` | #1916 (#2505) |
+| Article library and saved-view filters | `allowed-with-adapter` | #1916 (#2507) |
+| Article property types and validators | `allowed-with-adapter` | #1917 |
+| Import and export providers | `allowed-with-adapter` | #1918 (#2513, #2515) |
+| Prepublish diagnostics | `allowed-with-adapter` | #1918 (#2517) |
+| Markdown features and providers | `allowed-with-adapter` | #1919 |
+| Workspace panels | `allowed-with-adapter` | #1916 (#2509) |
+
+The table groups import/export as one category; the closed contribution enum
+retains their two distinct kinds. This owner map documents the existing decision,
+and does not create another runtime registry. `allowed-with-adapter` means closed,
+versioned, identity-bound declarations or typed requests/results. The host owns
+permission, lifecycle, rendering, query, transaction, stale rejection, broker, and
+resource enforcement. No category has direct access. Missing adapter authority
+leaves that category blocked or partial; it cannot justify arbitrary Vue, HTML,
+CSS, private selectors, editor instances, database objects, or generic payloads.
+New categories require a closed-registry and architecture change plus #1920
+conformance rather than a generic `register(any)` entrypoint.
+
+The implementation DAG has one host owner (#1914, with #2137–#2145 children), then
+the category owners #1915–#1919, and the final #1920 conformance owner. Tracking
+#1916 aggregates inspector/filter/panel children and #1918 aggregates
+import/export/diagnostic children; they do not create parallel host authorities.
+Each child consumes the exact implemented upstream capability while preserving
+any unfinished acceptance gates. Source integration or an open upstream alone is
+neither proof of stable support nor a reason to invent a second owner.
+
+The design requires a minimal read-only diagnostic and transaction-command
+prototype. The current command projection fixture and package/contract tests
+provide bounded component evidence; they do not establish a current end-to-end
+prototype across isolated execution, the canonical document transaction, and the
+diagnostic adapter. That prototype remains unqualified until those original
+owners supply actual current-candidate execution evidence. It must remain
+test-only and must not become a production loader or fallback.
+
 ## Closed contract registry
 
 `AuthoringExtensionManifest` schema version 1 is the only authoring-extension
