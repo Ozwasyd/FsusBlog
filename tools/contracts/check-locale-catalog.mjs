@@ -3,6 +3,9 @@ import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Reuse the canonical closed loader parser and exactness rules.
+import { validateLocaleDomainLoaderMap } from '../frontend/check-locale-domain-static.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const catalog = JSON.parse(await readFile(path.join(root, 'src/shared/Contracts/Localization/locale-catalog.json'), 'utf8'));
 const expectedKeys = new Set(catalog.locales.filter((locale) => locale.status === 'enabled').map((locale) => locale.code));
@@ -66,47 +69,10 @@ const extractLocaleDomains = (source) =>
 
 const assertLocaleDomainLoaders = (source, expectedDomainList) =>
 {
-    const expectedDomains = new Set(expectedDomainList);
-    const localeKeys = [...source.matchAll(/^\s*'([^']+)':\s*loadersFor\('\1',\s*\{/gmu)].map((item) => item[1]);
-    assertExactKeys('locale domain loader', localeKeys);
-    if (localeKeys.length !== expectedKeys.size)
+    const diagnostics = validateLocaleDomainLoaderMap(source, [...expectedKeys], expectedDomainList);
+    if (diagnostics.length > 0)
     {
-        throw new Error(`locale domain loader count drift: expected=${expectedKeys.size} actual=${localeKeys.length}`);
-    }
-    for (const locale of localeKeys)
-    {
-        const start = source.indexOf(`'${locale}': loadersFor('${locale}', {`);
-        const end = source.indexOf('\n  })', start);
-        if (start < 0 || end < 0)
-        {
-            throw new Error(`cannot locate locale domain loaders: ${locale}`);
-        }
-        const block = source.slice(start, end);
-        const domains = [...block.matchAll(/^\s{4}([a-z]+):\s*\(\)\s*=>\s*import\('\.\/([^/]+)\/([^']+)'\)/gmu)];
-        const actualDomains = new Set(domains.map((item) => item[1]));
-        const missing = [...expectedDomains].filter((domain) => !actualDomains.has(domain));
-        const extra = [...actualDomains].filter((domain) => !expectedDomains.has(domain));
-        if (missing.length || extra.length || domains.length !== expectedDomainList.length)
-        {
-            throw new Error(`locale domain loader drift for ${locale}: missing=[${missing}] extra=[${extra}]`);
-        }
-        for (const [, domain, importLocale, importDomain] of domains)
-        {
-            if (locale !== importLocale || domain !== importDomain)
-            {
-                throw new Error(`locale domain loader identity drift: ${locale}/${domain} -> ${importLocale}/${importDomain}`);
-            }
-        }
-    }
-    const pairCount = localeKeys.length * expectedDomainList.length;
-    const importCount = [...source.matchAll(/\(\)\s*=>\s*import\('\.\/[^/]+\/[^']+'\)/gu)].length;
-    if (importCount !== pairCount)
-    {
-        throw new Error(`locale domain import count drift: expected=${pairCount} actual=${importCount}`);
-    }
-    if (/import\('\.\/[^/'"]+'\)/u.test(source))
-    {
-        throw new Error('whole-locale dynamic import is forbidden');
+        throw new Error(`locale domain loader contract rejected: ${JSON.stringify(diagnostics)}`);
     }
 };
 
