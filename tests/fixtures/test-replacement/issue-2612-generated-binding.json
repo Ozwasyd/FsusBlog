@@ -15,7 +15,7 @@
     "outputs": [
         {
             "path": "tests/test-retention-replacements.json",
-            "sha256": "8f73f924cf95b53d88cbebdfd6adab0f8a75891766c91b3637eaf5d0d0b198c5"
+            "sha256": "0a27fb19e4fbb7574726e5fc2ff73123b518b43f1effd0a21e1b4a977d0d3d66"
         },
         {
             "path": "tests/test-replacement-transactions/issue-2612.json",
