@@ -351,6 +351,7 @@ try
         await page.keyboard.press('ArrowDown');
         await expect(item('ru-RU')).toBeFocused();
         await expect(page.getByRole('menuitemradio')).toHaveCount(10);
+        report.observations.consumerAccessibilitySnapshot = await menu.ariaSnapshot();
         await page.keyboard.press('Home');
         await expect(item('zh-CN')).toBeFocused();
         await page.keyboard.press('End');
@@ -369,6 +370,28 @@ try
         await expect(menu).not.toBeAttached();
     }
     report.observations.consumerComposition = true;
+    await page.evaluate(() => { globalThis.document.documentElement.style.zoom = '1'; });
+    await consumer('compact').click();
+    await expect(trigger).toContainText('ru-RU');
+    await trigger.click();
+    await expect(page.getByRole('menuitemradio')).toHaveCount(10);
+    await page.keyboard.press('Escape');
+    await expect(menu).not.toBeAttached();
+    const touchContext = await browser.newContext({ viewport: { width: 375, height: 900 }, hasTouch: true, isMobile: true });
+    const touchPage = await touchContext.newPage();
+    touchPage.on('pageerror', (error) => report.errors.push(`touch-browser: ${error.message}`));
+    await touchPage.goto(`${server.resolvedUrls.local[0]}?consumer`);
+    await touchPage.locator('[data-locale-selector-trigger]').tap();
+    await expect(touchPage.getByRole('menuitemradio')).toHaveCount(10);
+    await touchPage.locator('[data-locale-code="ja-JP"]').tap();
+    await expect(touchPage.locator('[data-locale-selector-menu]')).toBeVisible();
+    await expect(touchPage.locator('[data-locale-code="zh-CN"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(touchPage.locator('[data-locale-selector-item-pending]')).toBeVisible();
+    await touchPage.locator('[data-locale-selector-menu]').evaluate(async () => Promise.allSettled(globalThis.document.getAnimations().map((animation) => animation.finished)));
+    await touchPage.locator('[data-consumer="outside"]').tap();
+    await expect(touchPage.locator('[data-locale-selector-menu]')).not.toBeAttached();
+    report.observations.consumerTouchPendingOutside = true;
+    await touchContext.close();
     await browser.close();
     browser = null;
     const observations = report.observations;

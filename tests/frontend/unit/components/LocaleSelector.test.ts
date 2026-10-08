@@ -328,6 +328,8 @@ describe('LocaleSelector source isolation', () => {
     expect(source).not.toMatch(/@\/router|vue-router|localStorage|sessionStorage|document\.cookie/u)
     expect(source).not.toMatch(/@\/api\/|@\/store\/|@\/services\/localePreference/u)
     expect(source).not.toMatch(/\bv-show\b/u)
+    expect(source).not.toMatch(/itemRefs|activeMenuIndex|document\.addEventListener|handleItemKeydown|handleTriggerKeydown/u)
+    expect(source).not.toMatch(/\.el-|@ozwasyd\/element-plus\/(?:es|lib|packages)\//u)
     const deprecatedLocaleResiduePattern = [
       'Locale' + 'Toggle',
       'toggle' + 'Locale',
