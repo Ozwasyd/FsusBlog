@@ -70,6 +70,15 @@ internal interface IArticleBulkPreflightAuthority
         CancellationToken cancellationToken);
 }
 
+/// <summary>Server-authority observation decision; never a business command or rollback receipt.</summary>
+internal sealed record ArticleBulkItemExecutionDecision(
+    string PlanDigest,
+    string ArticleId,
+    string FrozenItemDigest,
+    string CurrentItemDigest,
+    string? RejectionReasonCode,
+    string ContentDigest);
+
 internal enum ArticleBulkPlanItemStatus
 {
     Eligible,
@@ -336,36 +345,56 @@ internal sealed class ArticleBulkPlanAuthority(
         ArticleBulkPlan plan,
         CancellationToken cancellationToken = default)
     {
+        ImmutableArray<ArticleBulkItemExecutionDecision> decisions = await ReadCurrentItemExecutionDecisionsAsync(
+            plan, cancellationToken).ConfigureAwait(false);
+        if (decisions.Any(static decision => decision.FrozenItemDigest != decision.CurrentItemDigest))
+        {
+            throw new ArticleBulkContractException("article-bulk.execution-article-drift");
+        }
+    }
+
+    internal async Task<ImmutableArray<ArticleBulkItemExecutionDecision>> ReadCurrentItemExecutionDecisionsAsync(
+        ArticleBulkPlan plan,
+        CancellationToken cancellationToken = default)
+    {
         ValidateForExecution(plan);
         ArticleBulkOperation operation = ArticleBulkOperationRegistry.Get(plan.OperationId);
         ArticleBulkPlanItem[] expected = [.. plan.Items];
-        int observed = 0;
+        var decisions = ImmutableArray.CreateBuilder<ArticleBulkItemExecutionDecision>(expected.Length);
         await foreach (ArticleBulkArticleObservation observation in preflightAuthority
-            .ObserveAsync(
-                expected.Select(static item => item.ArticleId).ToArray(),
-                operation,
-                plan.NormalizedParameters,
-                plan.Actor,
-                cancellationToken)
+            .ObserveAsync(expected.Select(static item => item.ArticleId).ToArray(), operation,
+                plan.NormalizedParameters, plan.Actor, cancellationToken)
             .WithCancellation(cancellationToken).ConfigureAwait(false))
         {
-            if (observed >= expected.Length || observation.ArticleId != expected[observed].ArticleId)
+            if (decisions.Count >= expected.Length || observation.ArticleId != expected[decisions.Count].ArticleId)
             {
                 throw new ArticleBulkContractException("article-bulk.execution-article-order-drift");
             }
-
+            ArticleBulkPlanItem frozen = expected[decisions.Count];
+            // SealItem checks observation integrity and masks absent, cross-site and denied identities.
             ArticleBulkPlanItem current = SealItem(observation, operation, plan.NormalizedParameters, plan.Actor);
-            if (current.ContentDigest != expected[observed].ContentDigest)
+            string? reason = null;
+            if (frozen.Status == ArticleBulkPlanItemStatus.Eligible && current.ContentDigest != frozen.ContentDigest)
             {
-                throw new ArticleBulkContractException("article-bulk.execution-article-drift");
+                reason = !observation.Exists || !observation.Permitted || observation.SiteId != plan.Actor.SiteId
+                    ? "article-inaccessible"
+                    : observation.PermissionDigest != frozen.PermissionDigest ? "permission-conflict"
+                    : observation.Revision != frozen.ExpectedRevision ? "revision-conflict"
+                    : current.Status == ArticleBulkPlanItemStatus.Blocked ? current.ReasonCode
+                    : "precondition-conflict";
             }
-            observed++;
+            var unsigned = new ArticleBulkItemExecutionDecision(plan.ContentDigest, frozen.ArticleId,
+                frozen.ContentDigest, current.ContentDigest, reason, string.Empty);
+            decisions.Add(unsigned with
+            {
+                ContentDigest = ArticleBulkDigest.Of(unsigned)
+            });
         }
-
-        if (observed != expected.Length)
+        if (decisions.Count != expected.Length)
         {
             throw new ArticleBulkContractException("article-bulk.execution-preflight-incomplete");
         }
+        return decisions.ToImmutable();
     }
 
     internal void ValidateIntegrity(ArticleBulkPlan plan)

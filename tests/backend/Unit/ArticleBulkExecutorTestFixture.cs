@@ -40,6 +40,11 @@ internal sealed class ArticleBulkExecutorTestFixture
     {
         get; init;
     }
+    internal required PreflightDouble Preflight
+    {
+        get; init;
+    }
+
     internal required TimeProvider Time
     {
         get; init;
@@ -50,7 +55,8 @@ internal sealed class ArticleBulkExecutorTestFixture
         ImmutableArray<string> ids = [.. Enumerable.Range(0, count).Select(static index => $"article-{index:D5}")];
         var selection = new SelectionDouble(ids);
         var time = new FixedTime();
-        var planner = new ArticleBulkPlanAuthority(selection, new PreflightDouble(), time);
+        var preflight = new PreflightDouble();
+        var planner = new ArticleBulkPlanAuthority(selection, preflight, time);
         ArticleBulkOperation operation = ArticleBulkOperationRegistry.Get(operationId);
         Dictionary<string, JsonElement> parameters = operation.Parameters.ToDictionary(
             static field => field.Name,
@@ -85,6 +91,7 @@ internal sealed class ArticleBulkExecutorTestFixture
         return new ArticleBulkExecutorTestFixture
         {
             Plan = plan,
+            Preflight = preflight,
             Input = new ArticleBulkExecutionInput(
                 confirmation, "plan-store:one", "attempt-1", "idempotency-1",
                 plan.Actor, plan.Source, plan.PolicyDigest, plan.PermissionPolicyDigest),
@@ -154,8 +161,17 @@ internal sealed class ArticleBulkExecutorTestFixture
         }
     }
 
-    private sealed class PreflightDouble : IArticleBulkPreflightAuthority
+    internal sealed class PreflightDouble : IArticleBulkPreflightAuthority
     {
+        internal Func<ArticleBulkArticleObservation, ArticleBulkArticleObservation>? Transform
+        {
+            get; set;
+        }
+        internal int Calls
+        {
+            get; private set;
+        }
+
         public async IAsyncEnumerable<ArticleBulkArticleObservation> ObserveAsync(
             IReadOnlyList<string> orderedArticleIds,
             ArticleBulkOperation operation,
@@ -163,12 +179,14 @@ internal sealed class ArticleBulkExecutorTestFixture
             ArticleBulkActor actor,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
+            Calls++;
             foreach (string id in orderedArticleIds)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                yield return new ArticleBulkArticleObservation(
+                var observation = new ArticleBulkArticleObservation(
                     id, true, actor.SiteId, $"revision-{id}", operation.ExpectedArticleStates[0], true, true,
                     ArticleBulkDigest.Of("permission"), ArticleBulkDigest.Of("state"), []);
+                yield return Transform?.Invoke(observation) ?? observation;
             }
             await Task.CompletedTask;
         }

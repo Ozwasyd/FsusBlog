@@ -283,7 +283,10 @@ internal sealed record ArticleBulkAdmission(
     ArticleBulkJournalHead Head,
     ArticleBulkJournalAppendReceipt? AppendReceipt,
     ArticleBulkAggregateReceipt? ExistingTerminalReceipt,
-    bool IsExisting);
+    bool IsExisting)
+{
+    internal ImmutableArray<ArticleBulkItemExecutionDecision> ItemDecisions { get; init; } = [];
+}
 
 internal sealed record ArticleBulkRetryRequest(
     string PreviousAttemptId,
@@ -391,7 +394,16 @@ internal sealed class ArticleBulkExecutionFramework(
         ArticleBulkExecutionAuthoritySnapshot authoritySnapshot = await executionAuthority
             .ReadCurrentAsync(plan, cancellationToken).ConfigureAwait(false);
         ValidateExecutionAuthoritySnapshot(plan, authoritySnapshot);
-        await planAuthority.ValidateCurrentArticlesForExecutionAsync(plan, cancellationToken).ConfigureAwait(false);
+        ImmutableArray<ArticleBulkItemExecutionDecision> itemDecisions = [];
+        if (plan.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated)
+        {
+            itemDecisions = await planAuthority.ReadCurrentItemExecutionDecisionsAsync(plan, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            await planAuthority.ValidateCurrentArticlesForExecutionAsync(plan, cancellationToken).ConfigureAwait(false);
+        }
         // Authority I/O can cross the expiry boundary after its initial clock check.
         planAuthority.ValidateForExecution(plan);
         request = request with
@@ -504,7 +516,10 @@ internal sealed class ArticleBulkExecutionFramework(
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             immediateTerminalReceipt = blockedReceipt;
         }
-        return new ArticleBulkAdmission(request, head, appendReceipt, immediateTerminalReceipt, false);
+        return new ArticleBulkAdmission(request, head, appendReceipt, immediateTerminalReceipt, false)
+        {
+            ItemDecisions = itemDecisions
+        };
     }
 
     private async Task<ArticleBulkAdmission> BindExistingAdmissionAsync(

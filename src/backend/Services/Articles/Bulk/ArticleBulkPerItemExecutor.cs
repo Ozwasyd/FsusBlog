@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 
 namespace FsusBlog.Server.Services.Articles.Bulk;
@@ -81,6 +82,14 @@ internal sealed class ArticleBulkPerItemExecutor(
             return new ArticleBulkExecutionResult(admission.Request, admission.Head, admission.ExistingTerminalReceipt);
         }
 
+        if (admission.ItemDecisions.IsDefault || admission.ItemDecisions.Length != plan.Impact.SelectedCount
+            || !admission.ItemDecisions.Select(static decision => decision.ArticleId)
+                .SequenceEqual(plan.Items.Select(static item => item.ArticleId), StringComparer.Ordinal))
+        {
+            throw new ArticleBulkContractException("article-bulk.item-decision-set-inexact");
+        }
+        FrozenDictionary<string, ArticleBulkItemExecutionDecision> decisions = admission.ItemDecisions
+            .ToFrozenDictionary(static decision => decision.ArticleId, StringComparer.Ordinal);
         ArticleBulkJournalHead head = await ArticleBulkExecutorProtocol.StartAsync(
             framework,
             plan,
@@ -145,7 +154,10 @@ internal sealed class ArticleBulkPerItemExecutor(
             ArticleBulkItemReceipt receipt;
             try
             {
-                receipt = await commandAuthority.ExecuteAsync(command, boundaryToken).ConfigureAwait(false);
+                ArticleBulkItemExecutionDecision decision = decisions[item.ArticleId];
+                receipt = decision.RejectionReasonCode is not null
+                    ? ArticleBulkExecutorProtocol.RejectedBeforeCanonicalCommand(admission.Request, plan, item, decision)
+                    : await commandAuthority.ExecuteAsync(command, boundaryToken).ConfigureAwait(false);
             }
             catch (Exception)
             {

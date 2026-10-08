@@ -219,7 +219,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task AdmissionRereadsCurrentRevisionPermissionAndPolicyBeforeJournalCreation()
+    public async Task AdmissionRereadsGlobalAuthorityAndPolicyBeforeJournalCreation()
     {
         string[] ids = ["article-1"];
         var time = new MutableTimeProvider(s_now);
@@ -237,38 +237,6 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             executionAuthority,
             time);
 
-        preflight.RevisionPrefix = "changed-revision";
-        Assert.Equal(
-            "article-bulk.execution-article-drift",
-            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
-                plan,
-                Confirmation(plan),
-                "plan-store:revision-drift",
-                "attempt-revision-drift",
-                "idempotency-revision-drift",
-                plan.Actor,
-                plan.Source,
-                plan.PolicyDigest,
-                plan.PermissionPolicyDigest))).Code);
-        Assert.Empty(journal.Events);
-
-        preflight.RevisionPrefix = "revision";
-        preflight.PermissionPrefix = "changed-permission";
-        Assert.Equal(
-            "article-bulk.execution-article-drift",
-            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
-                plan,
-                Confirmation(plan),
-                "plan-store:permission-drift",
-                "attempt-permission-drift",
-                "idempotency-permission-drift",
-                plan.Actor,
-                plan.Source,
-                plan.PolicyDigest,
-                plan.PermissionPolicyDigest))).Code);
-        Assert.Empty(journal.Events);
-
-        preflight.PermissionPrefix = "permission";
         executionAuthority.PermissionPolicyDigestOverride = Digest("changed-current-permission-policy");
         Assert.Equal(
             "article-bulk.execution-authority-drift",
