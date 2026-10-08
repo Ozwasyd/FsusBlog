@@ -219,7 +219,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task AdmissionRereadsCurrentRevisionPermissionAndPolicyBeforeJournalCreation()
+    public async Task AdmissionRereadsGlobalAuthorityAndPolicyBeforeJournalCreation()
     {
         string[] ids = ["article-1"];
         var time = new MutableTimeProvider(s_now);
@@ -237,38 +237,6 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             executionAuthority,
             time);
 
-        preflight.RevisionPrefix = "changed-revision";
-        Assert.Equal(
-            "article-bulk.execution-article-drift",
-            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
-                plan,
-                Confirmation(plan),
-                "plan-store:revision-drift",
-                "attempt-revision-drift",
-                "idempotency-revision-drift",
-                plan.Actor,
-                plan.Source,
-                plan.PolicyDigest,
-                plan.PermissionPolicyDigest))).Code);
-        Assert.Empty(journal.Events);
-
-        preflight.RevisionPrefix = "revision";
-        preflight.PermissionPrefix = "changed-permission";
-        Assert.Equal(
-            "article-bulk.execution-article-drift",
-            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
-                plan,
-                Confirmation(plan),
-                "plan-store:permission-drift",
-                "attempt-permission-drift",
-                "idempotency-permission-drift",
-                plan.Actor,
-                plan.Source,
-                plan.PolicyDigest,
-                plan.PermissionPolicyDigest))).Code);
-        Assert.Empty(journal.Events);
-
-        preflight.PermissionPrefix = "permission";
         executionAuthority.PermissionPolicyDigestOverride = Digest("changed-current-permission-policy");
         Assert.Equal(
             "article-bulk.execution-authority-drift",
@@ -515,13 +483,15 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             fixture.Journal.ItemReceipts["article-00001"].ExecutionStatus);
         await fixture.Framework.VerifyExecutionAsync(fixture.Journal.Request!, fixture.Plan, resumed);
 
-        ArticleBulkRetryAdmission retry = await fixture.Framework.CreateRetryAsync(
-            fixture.Journal.Request!,
-            fixture.Plan,
-            resumed,
-            "attempt-recovery-retry",
-            new Dictionary<string, string> { ["article-00000"] = "revision-recovered" });
-        Assert.Equal("article-00000", Assert.Single(retry.Request.FailedItems).ArticleId);
+        ArticleBulkContractException retry = await Assert.ThrowsAsync<ArticleBulkContractException>(() =>
+            fixture.Framework.CreateRetryAsync(
+                fixture.Journal.Request!,
+                fixture.Plan,
+                resumed,
+                "attempt-recovery-retry",
+                new Dictionary<string, string> { ["article-00000"] = "revision-recovered" }));
+        Assert.Equal("article-bulk.retry-not-eligible", retry.Code);
+        Assert.False(fixture.Journal.TerminalReceipt!.RetryEligible);
     }
 
     [Fact]
@@ -625,9 +595,13 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             beforeCommit.Journal.Request!,
             beforeCommit.Plan,
             cancellable);
-        Assert.Equal(ArticleBulkExecutionState.Cancelled, cancellable.State);
+        // A cancel marker proves neither preparation release nor canonical zero writes.
+        Assert.Equal(ArticleBulkExecutionState.RecoveryRequired, cancellable.State);
+        Assert.Null(beforeCommit.Journal.TerminalReceipt!.ZeroWriteProofDigest);
+        Assert.Equal(ArticleBulkGroupCommitOutcome.UnknownRecovery,
+            beforeCommit.Journal.TerminalReceipt.GroupCommitOutcome);
         Assert.All(beforeCommit.Journal.ItemReceipts.Values,
-            static receipt => Assert.Equal(ArticleBulkItemStatus.Cancelled, receipt.ExecutionStatus));
+            static receipt => Assert.Equal(ArticleBulkItemStatus.RecoveryRequired, receipt.ExecutionStatus));
         Assert.Equal(2, beforeCommit.Journal.ItemReceipts.Count);
     }
 
@@ -693,7 +667,8 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         await fixture.Framework.VerifyExecutionAsync(fixture.Journal.Request!, fixture.Plan, head);
         Assert.Equal(commitSucceeds ? 2 : 0, head.SucceededCount);
         Assert.Equal(commitSucceeds ? 0 : 2, head.FailedCount);
-        Assert.Equal(1, fixture.ExecutionAuthority.GroupOutcomeValidationCalls);
+        // Validate once at admission of the group conclusion and again during independent verification.
+        Assert.Equal(2, fixture.ExecutionAuthority.GroupOutcomeValidationCalls);
     }
 
     [Fact]
