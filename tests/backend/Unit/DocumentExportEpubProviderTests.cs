@@ -356,6 +356,32 @@ public sealed class DocumentExportEpubProviderTests
         Assert.Equal(0, adapter.Calls);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task JobAdapterPreCancellationDoesNotResolveFrozenMetadataOrRender(bool verify)
+    {
+        var renderer = new RefusingAdapter();
+        var resources = new RefusingResourceVerifier();
+        var provider = new DocumentExportEpubProvider(renderer, resources);
+        int metadataCalls = 0;
+        string digest = DocumentExportDigest.ComputeBytes("unused-test-tool"u8);
+        var tool = new DocumentExportToolContract("canonical-markdown-renderer", "current-v1",
+            "/unused-test-tool", digest, "/unused-test-runtime", digest, []);
+        var job = new EpubDocumentExportJobProvider(provider, _ =>
+        {
+            metadataCalls++;
+            throw new InvalidOperationException("Cancelled jobs must not resolve metadata.");
+        }, tool, digest, resources);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => verify
+            ? job.VerifyAsync(null!, null!, null!, cancellation.Token)
+            : job.ExportAsync(null!, null!, cancellation.Token));
+        Assert.Equal(0, metadataCalls);
+        Assert.Equal(0, renderer.Calls);
+    }
+
     internal static EpubPublicationMetadata Metadata() => new("frozen-title", "zh-Hant", "ltr", ["Published author"],
         "urn:uuid:9797a920-befb-4e76-83f6-6b296a7a611a", "2026-10-08T00:00:00Z");
 

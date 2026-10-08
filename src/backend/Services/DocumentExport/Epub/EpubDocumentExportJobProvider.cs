@@ -31,11 +31,15 @@ public sealed class EpubDocumentExportJobProvider : IDocumentExportJobProvider
 
     public Task<DocumentExportProviderResult> ExportAsync(DocumentExportTask task,
         DocumentExportFrozenInput input, CancellationToken cancellationToken)
-        => _provider.ExportAsync(task, input, _frozenMetadata(input), cancellationToken);
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return _provider.ExportAsync(task, input, _frozenMetadata(input), cancellationToken);
+    }
 
     public Task VerifyAsync(DocumentExportProviderResult result, DocumentExportTask task,
         DocumentExportFrozenInput input, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         DocumentExportEpubProvider.ValidateResult(result, task, input, _frozenMetadata(input),
             _tool, _hostBuildDigest, _resources, cancellationToken);
         return Task.CompletedTask;
