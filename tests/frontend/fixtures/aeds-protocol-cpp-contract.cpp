@@ -376,6 +376,14 @@ int main(int argc, char** argv)
                     return 16;
                 }
             }
+            else if (frame_type >= 270 && frame_type <= 271)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::AuthoringWorkspaceSnapshotPayloadInvalid)
+                {
+                    std::cerr << "workspace snapshot empty payload accepted for " << frame_type << '\n';
+                    return 1;
+                }
+            }
             else if (frame_type == 269)
             {
                 if (decoded.error_code != FsusBlog::Aeds::ErrorCode::ArticlePropertyValueReadPayloadInvalid)

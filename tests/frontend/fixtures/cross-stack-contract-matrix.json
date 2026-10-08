@@ -2943,6 +2943,41 @@
           "operationId": "binary_author_article_property_values_read"
         }
       ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/AuthoringEndpoints.WorkspaceSnapshotRoutes.cs",
+      "frontendWrapper": "src/frontend/src/api/authoringWorkspaceSnapshotHttpTransport.ts",
+      "frontendAdapter": "src/frontend/src/codecs/binary/authoringWorkspaceSnapshotWire.generated.ts",
+      "id": "authoring-workspace-snapshot",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/author/workspace/default",
+          "auth": "admin",
+          "pow": false,
+          "responseFrame": "AuthoringWorkspaceSnapshotResponse",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_workspace_snapshot_read"
+        },
+        {
+          "method": "POST",
+          "path": "/author/workspace/default",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "AuthoringWorkspaceSnapshotRequest",
+          "requestType": "FsusBlog.Shared.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotRequest",
+          "requestEncoding": "binary-layout",
+          "responseFrame": "AuthoringWorkspaceSnapshotResponse",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_workspace_snapshot_mutate"
+        }
+      ]
     }
   ],
   "coherenceProfiles": [

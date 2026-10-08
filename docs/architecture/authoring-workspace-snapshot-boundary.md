@@ -4,6 +4,45 @@ This source capability implements #2302–#2305 domain code under #1856. It is n
 terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
 migration registration, article/session/router/group owners and the live shell.
 
+## Root source integration
+
+The runtime composition now registers one scoped PostgreSQL persistence, snapshot
+store and typed transport, using the existing `TimeProvider`. Registration performs
+no reads, writes, DDL, bootstrap or default reset. A singleton
+`AuthoringWorkspaceSnapshotSourceIdentity` hashes the closed source contract/schema
+version, the Server's real nonzero `FsusBlog.SourceCommit` assembly metadata, and
+the actual Server and Shared assembly artifacts using streaming SHA-256. There is
+no client, configuration or fixture source override. Missing source metadata or
+on-disk artifacts fails closed; this adapter makes no single-file/AOT qualification
+claim. The official SDK build must receive `FsusBlogCommitSha` from its actual frozen
+source commit, with the resulting artifacts and run identity recorded together.
+
+The root typed GET/POST source integration uses AEDS request/response frames
+270/271, active authenticated admin sessions, the existing article-write permission,
+server-derived owner/site scope and no-store responses. POST retains PoW and checks
+the request's expected source digest before write/reset CAS. These are source
+boundaries pending executable endpoint/authentication acceptance. The transferred
+default still opens the outline, conflicting with #1805's collapsed default. Reset
+therefore refuses with `default_layout_unqualified`; registration never invokes it,
+and the transport never silently changes a signed layout.
+
+The additive offline migration
+`20261008-post-authoring-workspace-snapshot` owns the PostgreSQL table. The bounded
+single-row SQL offer is checked against that descriptor and the generated required
+runtime recipe. The same-day `current-20261008-authoring` catalog composes the
+unchanged property descriptor with the workspace descriptor in stable execution
+order. Its metadata classifies only additive DDL as non-destructive Expand with
+compatible-code rollback; it does not grant runtime or migration qualification.
+No request or serve startup provisions this table.
+
+A Server or Shared rebuild changes the source digest. Older source-bound rows
+remain blocked by the retained store's closed parser, including before reset; no
+background repair, overwrite or removal occurs. A separate accepted migration or
+reset owner is required to address them. The fresh stamped SDK build, database and
+HTTP receipts, #1805 default alignment, actual permission-batch authority, live
+router/group/shell wiring and retirement of the legacy preference API remain
+explicit acceptance gates. Source integration alone does not complete #2306.
+
 `AuthoringWorkspaceSnapshotContract` owns the closed reference-only schema:
 `default`, authenticated user/site scope, 100 tabs, two groups, 64 KiB, and
 integer splitter permille from 200 to 800. Snapshot numbers stay within JavaScript

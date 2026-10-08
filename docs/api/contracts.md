@@ -948,6 +948,8 @@ authority；本 slice 不实现 Markdown parser、relation producer/rebuild、in
 或 UI 行为。后续实现必须消费这些 closed contracts，并在上游 source/editor 与 relation lifecycle
 依赖完成且取得对应真实运行时证据后分别验收。
 
+`Seal` 在摘要计算前对 relation set、candidate targets 与 receipt 的 digest collections 做有界脱离复制：先读取一次 Count 并检查现有 100,000 / 10,000 上限，再以有界枚举确认实际数量；越界或数量漂移拒绝，枚举器始终释放。封存后的只读集合不再引用调用方可变 list。合法输入顺序和原摘要编码保持一致；此步骤不是 semantic acceptance，unknown state、actor mismatch、unknown lifecycle bits 等仍可重新 seal 后由 `Validate` 拒绝。
+
 ### `ArticleListItemResponse`
 
 ```json
@@ -2893,6 +2895,20 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:END api.security-cache-policies -->
 
 ## Private authoring canvas contracts
+
+`GET /api/binary/author/workspace/default` reads the single authenticated
+administrator's reference-only workspace using `AuthoringWorkspaceSnapshotResponse`
+(271). The matching POST accepts `AuthoringWorkspaceSnapshotRequest` (270),
+requires `ArticleWrite`, the existing admin session and PoW, and preserves
+private/no-store and unified `ApiError` behavior. Payloads never select user/site:
+the current single-site Server binds the authenticated administrator to its
+existing `primary-site` namespace. The request source digest must match the
+actual compiled Server/Shared artifacts before CAS writes. There is no JSON
+transport or local authority. Current snapshot defaults conflict with #1805's
+collapsed outline policy; reset fails with `default_layout_unqualified` until
+the original owner provides a consistent default. Real permission/draft/session
+restore, legacy preference retirement and authenticated HTTP acceptance remain
+separate gates, described in `docs/architecture/authoring-workspace-snapshot-boundary.md`.
 
 The AEDS-only `/api/binary/author/canvases` routes use the existing
 `IAuthoringCanvasDocumentStore`, operation engine and reference resolver.

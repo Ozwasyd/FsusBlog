@@ -18,6 +18,7 @@ import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAc
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
 import { decodeArticleCanvasLinkReceipt, decodeArticleCanvasLinkHistoryResponse } from '@/codecs/binary/articleCanvasLinkWire.generated';
 import { decodeArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadWire.generated';
+import { decodeAuthoringWorkspaceSnapshotResponse } from '@/codecs/binary/authoringWorkspaceSnapshotWire.generated';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
@@ -40,6 +41,7 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.ArticleCanvasLinkReceipt,
     FrameType.ArticleCanvasLinkHistoryResponse,
     FrameType.ArticlePropertyValueReadResponse,
+    FrameType.AuthoringWorkspaceSnapshotResponse,
     FrameType.HumanReadChallengeResponse,
     FrameType.HumanReadSubmitResponse,
     FrameType.TrashClearResponse,
@@ -382,7 +384,8 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.MutationId, mapMutationIdFromPayload],
     [FrameType.ArticleCanvasLinkReceipt, decodeArticleCanvasLinkReceipt],
     [FrameType.ArticleCanvasLinkHistoryResponse, decodeArticleCanvasLinkHistoryResponse],
-    [FrameType.ArticlePropertyValueReadResponse, decodeArticlePropertyValueReadResponse]
+    [FrameType.ArticlePropertyValueReadResponse, decodeArticlePropertyValueReadResponse],
+    [FrameType.AuthoringWorkspaceSnapshotResponse, decodeAuthoringWorkspaceSnapshotResponse]
 ] as const satisfies readonly BinaryFrameDecoderRegistration[]);
 
 export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(

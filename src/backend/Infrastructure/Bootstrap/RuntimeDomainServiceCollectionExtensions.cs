@@ -151,6 +151,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
 
     private static IServiceCollection AddGeneralDomainServices(this IServiceCollection services)
     {
+        services.AddAuthoringWorkspaceSnapshotServices();
         services.AddScoped<SystemService>();
         services.AddSingleton<IReadAnalyticsPrivacyPolicy, ReadAnalyticsPrivacyPolicy>();
         services.AddScoped<StatsService>();

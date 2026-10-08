@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "5dfa11b4defb3316582716ccc0361647ff5013cbf5bf5cb31ad1381cc6be534f",
+    "contentDigest": "130356ad37ebe410a7d612c662c51c941b1cba9dcda1f7c334bf0f9c8ed22008",
     "operations": [
         {
             "method": "DELETE",
@@ -3163,6 +3163,28 @@
             "requestType": null,
             "requestEncoding": null,
             "responseFrame": "ArticlePropertyValueReadResponse",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/workspace/default",
+            "operationId": "binary_author_workspace_snapshot_read",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "AuthoringWorkspaceSnapshotResponse",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/workspace/default",
+            "operationId": "binary_author_workspace_snapshot_mutate",
+            "requestFrame": "AuthoringWorkspaceSnapshotRequest",
+            "requestType": "FsusBlog.Shared.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "AuthoringWorkspaceSnapshotResponse",
             "errorFrame": "ApiError",
             "successStatus": 200
         }

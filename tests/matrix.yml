@@ -3767,6 +3767,7 @@ tiers:
           - tools/governance/check-article-relations.mjs
           - tests/tools/article-relations.test.mjs
           - tests/backend/Unit/ArticleRelationContractTests.cs
+          - tests/backend/Unit/ArticleRelationCaptureTests.cs
           - src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs
           - src/shared/Contracts/ArticleRelations/ArticleRelationCatalog.cs
           - src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs

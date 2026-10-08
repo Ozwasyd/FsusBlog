@@ -1,0 +1,1 @@
+AuthoringWorkspaceSnapshotContract.ValidateScope(value);

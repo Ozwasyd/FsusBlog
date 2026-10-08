@@ -49,6 +49,7 @@ public static partial class AuthoringEndpoints
         AuthoringCanvasEndpoints.MapAuthoringCanvasRoutes(group);
         MapArticleCanvasLinkRoutes(group);
         MapArticlePropertyValueRoutes(group);
+        MapWorkspaceSnapshotRoutes(group);
         return app;
     }
 
