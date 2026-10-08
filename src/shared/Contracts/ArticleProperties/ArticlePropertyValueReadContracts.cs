@@ -7,7 +7,12 @@ public sealed record ArticlePropertyValueReadResponse(
     long PropertyRevision,
     ArticlePropertyValuePersistedSnapshot? Current,
     IReadOnlyList<ArticlePropertyDefinitionReadDescriptor> Definitions,
-    IReadOnlyList<ArticlePropertyValueReconciliationRead> Reconciliation);
+    IReadOnlyList<ArticlePropertyValueReconciliationRead> Reconciliation,
+    ArticlePropertyValueReadScope Scope);
+
+/// <summary>Authoritative definition owner/site/schema echo, including empty reads; null owner means site ownership.</summary>
+public sealed record ArticlePropertyValueReadScope(
+    long? DefinitionOwnerUserId, string SiteScope, int DefinitionSchemaVersion);
 
 /// <summary>Closed numeric statuses are generated from the sole Server reconciliation enum.</summary>
 public sealed record ArticlePropertyValueReconciliationRead(
@@ -46,8 +51,10 @@ public sealed record ArticlePropertyDefinitionReadDescriptor(
     DateTime UpdatedAtUtc,
     string ContentDigest);
 
+/// <summary>A bounded localized display label; identity remains the stable definition or option ID.</summary>
 public sealed record ArticlePropertyReadLocalizedName(string Locale, string Value);
 
+/// <summary>Stable option identity with bounded display projections and definition-owned status.</summary>
 public sealed record ArticlePropertyReadOption(
     Guid OptionId,
     string Label,
@@ -55,11 +62,13 @@ public sealed record ArticlePropertyReadOption(
     byte Status,
     IReadOnlyList<ArticlePropertyReadLocalizedName> LocalizedLabels);
 
+/// <summary>Closed definition-owned policies for missing, null and empty values.</summary>
 public sealed record ArticlePropertyReadPresencePolicy(byte Missing, byte Null, byte Empty);
 
 /// <summary>Default payload uses the same closed eight variants as actual article values.</summary>
 public sealed record ArticlePropertyReadDefaultValue(byte Kind, ArticlePropertyTypedValue? Value);
 
+/// <summary>Typed optional length, numeric, UTC-date and cardinality bounds from the canonical definition.</summary>
 public sealed record ArticlePropertyReadConstraints(
     int? MinLength,
     int? MaxLength,
@@ -70,6 +79,7 @@ public sealed record ArticlePropertyReadConstraints(
     int? MinItems,
     int? MaxItems);
 
+/// <summary>Definition-owned reference cardinality and permission/lifecycle policy flags.</summary>
 public sealed record ArticlePropertyReadReferencePolicy(
     byte Cardinality,
     byte Permission,
@@ -79,6 +89,7 @@ public sealed record ArticlePropertyReadReferencePolicy(
     bool AllowSelfReference,
     bool AllowCycles);
 
+/// <summary>Definition-owned allowed schemes, URL bounds and normalization policy.</summary>
 public sealed record ArticlePropertyReadUrlPolicy(
     IReadOnlyList<string> AllowedSchemes,
     bool AllowRelative,
@@ -86,9 +97,10 @@ public sealed record ArticlePropertyReadUrlPolicy(
     int MaxLength,
     byte Normalization);
 
+/// <summary>Strict transport version and bounded payload/item budgets, separate from persisted snapshot schema.</summary>
 public static class ArticlePropertyValueReadWireContract
 {
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
     public const int MaxPayloadBytes = 8 * 1024 * 1024;
     public const int MaxAggregateItems = 40_000;
 }

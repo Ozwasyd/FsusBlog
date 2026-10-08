@@ -30,7 +30,7 @@ test('all current typed cross-stack witnesses round-trip or reject actual malfor
 
 test('independent empty root proves LE int64 beyondJS precision and absent persisted snapshot', () =>
 {
-    assert.equal(bytesOf('current-0').toString('hex'), '010700000001000000000020000000000000000000000000000000000000');
+    assert.equal(bytesOf('current-0').toString('hex'), '020700000001000000000020000000000000000000000000000000000000012a000000000000000c0000007072696d6172792d7369746501000000');
     const value = witness('current-0');
     assert.equal(value.currentArticleRevisionId, '9007199254740993');
     assert.equal(value.current, null);
@@ -131,8 +131,11 @@ test('primitive lower-case digests, closed enums, null/default provenance and co
 test('read-only API passes canonical IDs, admin scope and no-store through existing transport', async () =>
 {
     const calls = [];
-    const transportUrl = moduleUrl('export function requestBinaryOnly(request) { globalThis.__propertyReadCalls.push(request); return Promise.resolve({ articleId: 7 }); }');
+    const transportUrl = moduleUrl('export function requestBinaryOnly(request) { globalThis.__propertyReadCalls.push(request); return Promise.resolve(globalThis.__propertyReadResponses.shift()); }');
     globalThis.__propertyReadCalls = calls;
+    const user = witness('current-0');
+    user.scope.definitionOwnerUserId = '9007199254740993';
+    globalThis.__propertyReadResponses = [user, witness('empty-site-owner')];
     const apiSource = readFileSync(path.join(root, 'src/frontend/src/api/articlePropertyValues.ts'), 'utf8')
         .replace("'@/composition/binaryTransport'", JSON.stringify(transportUrl))
         .replace("'@wasm/protocol/frame'", JSON.stringify(moduleUrl('export const FrameType = { ArticlePropertyValueReadResponse: 269 };')));
@@ -147,12 +150,49 @@ test('read-only API passes canonical IDs, admin scope and no-store through exist
     assert.deepEqual(calls[0].requestOptions, { method: 'GET', cache: 'no-store' });
     for (const owner of ['01', '+1', '0', '1e2', '9223372036854775808', 9007199254740992])
     {
-        assert.throws(() => articlePropertyValuesApi.read(7, owner));
+        await assert.rejects(() => articlePropertyValuesApi.read(7, owner));
     }
     for (const article of [0, -1, 1.1, 2147483648])
     {
-        assert.throws(() => articlePropertyValuesApi.read(article));
+        await assert.rejects(() => articlePropertyValuesApi.read(article));
     }
     assert.equal(calls.length, 2);
     delete globalThis.__propertyReadCalls;
+    delete globalThis.__propertyReadResponses;
+});
+
+
+test('v2 empty scope is authoritative for user/site ownership without actor or host substitution', () =>
+{
+    const user = witness('current-0');
+    assert.deepEqual(user.scope, { definitionOwnerUserId: '42', siteScope: 'primary-site', definitionSchemaVersion: 1 });
+    assert.equal(user.current, null);
+    assert.equal(user.definitions.length, 0);
+    const site = witness('empty-site-owner');
+    assert.equal(site.scope.definitionOwnerUserId, null);
+    assert.equal(site.scope.siteScope, 'primary-site');
+    assert.deepEqual(witness('empty-other-owner-site').scope, { definitionOwnerUserId: '9223372036854775807', siteScope: 'secondary-site', definitionSchemaVersion: 1 });
+    assert.equal(witness('current-site-owner').current.snapshot.coordinates.definitionOwnerUserId, null);
+    for (const scope of [null, { ...user.scope, definitionOwnerUserId: '0' }, { ...user.scope, definitionSchemaVersion: 2 }, { ...user.scope, siteScope: '' }])
+    {
+        assert.throws(() => wire.encodeArticlePropertyValueReadResponse({ ...user, scope }));
+    }
+});
+
+test('v2 scope must match every definition and current coordinates; all v1 bytes remain rejected', () =>
+{
+    const value = witness('current-8');
+    for (const change of [{ definitionOwnerUserId: null }, { definitionOwnerUserId: '43' }, { siteScope: 'secondary-site' }, { definitionSchemaVersion: 2 }])
+    {
+        assert.throws(() => wire.encodeArticlePropertyValueReadResponse({ ...value, scope: { ...value.scope, ...change } }));
+    }
+    const last = structuredClone(value);
+    last.definitions.at(-1).definitionOwnerUserId = '43';
+    assert.throws(() => wire.encodeArticlePropertyValueReadResponse(last), 'Compare every definition, not just the first');
+    const coordinates = structuredClone(value);
+    coordinates.current.snapshot.coordinates.siteScope = 'secondary-site';
+    assert.throws(() => wire.encodeArticlePropertyValueReadResponse(coordinates));
+    const retired = golden.cases.filter(item => item.name.startsWith('retired-v1-'));
+    assert.equal(retired.length, 35);
+    for (const item of retired) assert.throws(() => wire.decodeArticlePropertyValueReadResponse(Buffer.from(item.payloadHex, 'hex')));
 });

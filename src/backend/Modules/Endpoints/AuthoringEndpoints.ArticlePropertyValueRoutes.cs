@@ -39,10 +39,11 @@ public static partial class AuthoringEndpoints
             }
             try
             {
+                var owner = new ArticlePropertyDefinitionOwner(ownerUserId, "primary-site");
                 ArticlePropertyValueReadModel model = await authority.ReadAsync(
-                    ResolveRequiredAdminPrincipalId(context), new(ownerUserId, "primary-site"),
+                    ResolveRequiredAdminPrincipalId(context), owner,
                     articleId, cancellationToken).ConfigureAwait(false);
-                ArticlePropertyValueReadResponse response = ToPropertyReadResponse(model);
+                ArticlePropertyValueReadResponse response = ToPropertyReadResponse(model, owner);
                 return BinaryResults.Frame(aeds, AedsFrameType.ArticlePropertyValueReadResponse,
                     destination => PodBinaryCodec.WriteArticlePropertyValueReadResponse(response, destination));
             }
@@ -72,11 +73,13 @@ public static partial class AuthoringEndpoints
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
     }
 
-    private static ArticlePropertyValueReadResponse ToPropertyReadResponse(ArticlePropertyValueReadModel model)
+    private static ArticlePropertyValueReadResponse ToPropertyReadResponse(
+        ArticlePropertyValueReadModel model, ArticlePropertyDefinitionOwner authorizedOwner)
         => new(model.ArticleId, model.ArticleRevisionId, model.PropertyRevision, model.Current,
             Array.AsReadOnly(model.Definitions.Select(ToPropertyDefinitionReadDescriptor).ToArray()),
             Array.AsReadOnly(model.Reconciliation.Select(static item => new ArticlePropertyValueReconciliationRead(
-                item.DefinitionId, (byte)item.Status, item.ReasonCode)).ToArray()));
+                item.DefinitionId, (byte)item.Status, item.ReasonCode)).ToArray()),
+            new(authorizedOwner.UserId, authorizedOwner.SiteScope, ArticlePropertyDefinitionContract.SchemaVersion));
 
     private static ArticlePropertyDefinitionReadDescriptor ToPropertyDefinitionReadDescriptor(ArticlePropertyDefinition definition)
         => new(definition.SchemaVersion, definition.DefinitionId, definition.Owner.UserId,

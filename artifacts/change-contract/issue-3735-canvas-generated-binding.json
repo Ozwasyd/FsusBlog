@@ -7,6 +7,7 @@
         "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePropertyValueRoutes.cs",
         "src/backend/Modules/Endpoints/AuthoringEndpoints.WorkspaceSnapshotRoutes.cs",
         "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+        "src/backend/Services/Authoring/ArticlePropertyDefinitionContracts.cs",
         "src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs",
         "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs",
         "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
@@ -33,6 +34,7 @@
         "src/shared/Contracts/Validation/article-property-value-read-wire.json",
         "src/shared/Contracts/Validation/authoring-canvas-wire.json",
         "src/shared/Contracts/Validation/authoring-workspace-snapshot-wire.json",
+        "tests/fixtures/protocol/article-property-value-read-wire-v1-retired.json",
         "tests/frontend/fixtures/cross-stack-contract-matrix.json",
         "tools/contracts/format-generated-property-value-read-typescript.mjs",
         "tools/contracts/generate-article-canvas-link-golden.mjs",
@@ -104,7 +106,7 @@
         },
         {
             "path": "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
-            "sha256": "d953ea3a9e8d56317b0e0444838861b28171c3cb2cf0526adebf739eb7abd1d2"
+            "sha256": "e3411b72b1b1a64825f49eda1cff16a686f027508d45e5b42b27816b77dec62a"
         },
         {
             "path": "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
@@ -120,7 +122,7 @@
         },
         {
             "path": "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
-            "sha256": "353217a845ff5c0f077f863e28aafab60f0cbbdc8bcc15e5ab9c8f04955b23c5"
+            "sha256": "64299b80fbdad2399aea6301f288c11e58f54e61d7c89ed6e96bf1104e142cbf"
         },
         {
             "path": "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
@@ -132,7 +134,7 @@
         },
         {
             "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
-            "sha256": "6f70d79d38ca8a4b7525ac1217794dc232a2b58e0dfc88efa9732b0e64aaa9ae"
+            "sha256": "6b2caac8274b502744a286e911c5e2eda3e2c953de6fbd28fe82cc65a3276811"
         },
         {
             "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
@@ -152,7 +154,7 @@
         },
         {
             "path": "src/frontend/wasm/aeds/include/property_value_read.generated.hpp",
-            "sha256": "545a449f6a37fc185a72c1a2b81d4dde82e4f8e4c5afba8f02bb564375ed1d6e"
+            "sha256": "78382f66ae4ed4aceaa9825204622eccdc55ba7d2afcdbe8cf51b0d98a590a54"
         },
         {
             "path": "src/frontend/wasm/web/protocol/frame.ts",
@@ -168,7 +170,7 @@
         },
         {
             "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
-            "sha256": "f18b3be3924587bebb3aad64908f20db67dd79c9eda4965201afb649897bdc8d"
+            "sha256": "1c6f5d8784cf43d9d4feccdd3d42f7fe9d05c40bbe77c2a77dd4499d60ee882a"
         },
         {
             "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
@@ -180,7 +182,7 @@
         },
         {
             "path": "tests/fixtures/protocol/article-property-value-read-wire-golden.json",
-            "sha256": "79b49c3292661708ce2d9c4e7366ff5643a1371ff3f9fddda533814ec2382141"
+            "sha256": "09b118fa82045961448b5744bc22fffdb85cd61adad87c17a01ec4ebcb74ba28"
         },
         {
             "path": "tests/fixtures/protocol/authoring-workspace-snapshot-wire-golden.json",
@@ -188,7 +190,7 @@
         },
         {
             "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
-            "sha256": "60f3730be161225c5427cc8a40acead909b369c51063d689f7a7a6574ca5f0b2"
+            "sha256": "3f1c45501870c8b9ad7232210557e64dc7640e5d44dcec89d3d021883e610bb7"
         }
     ]
 }

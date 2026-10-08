@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using FsusBlog.Core.Cache;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.ArticleProperties;
 
@@ -77,6 +78,42 @@ public sealed class ArticlePropertyValueReadWireTests
             {
                 Snapshot = snapshot
             }
+        }));
+    }
+
+    [Fact]
+    public void EmptyScopeAndEveryFact_AreBoundWithoutActorOrHostFallback()
+    {
+        ArticlePropertyValueReadResponse empty = ReadWitness("current-0");
+        Assert.Null(empty.Current);
+        Assert.Empty(empty.Definitions);
+        Assert.Equal(42L, empty.Scope.DefinitionOwnerUserId);
+        Assert.Equal("primary-site", empty.Scope.SiteScope);
+        Assert.Equal(ArticlePropertyDefinitionContract.SchemaVersion, empty.Scope.DefinitionSchemaVersion);
+        Assert.Null(ReadWitness("empty-site-owner").Scope.DefinitionOwnerUserId);
+        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodeArticlePropertyValueReadResponse(empty with
+        {
+            Scope = empty.Scope with
+            {
+                SiteScope = ""
+            }
+        }));
+        ArticlePropertyValueReadResponse current = ReadWitness("current-8");
+        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodeArticlePropertyValueReadResponse(current with
+        {
+            Scope = current.Scope with
+            {
+                DefinitionOwnerUserId = null
+            }
+        }));
+        var definitions = current.Definitions.ToArray();
+        definitions[^1] = definitions[^1] with
+        {
+            SiteScope = "secondary-site"
+        };
+        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodeArticlePropertyValueReadResponse(current with
+        {
+            Definitions = definitions
         }));
     }
 

@@ -56,7 +56,8 @@ function response(count)
                 articleId: 7, propertyRevision: '1', articleRevisionId: '9007199254740993',
                 draftId: null, draftServerRevision: null, publicationId: null }, values, contentDigest: digest },
             auditReference: guid, auditChainId: '00112233445566778899aabbccddeeff', auditRecordHash: digest },
-        definitions: Array.from({ length: count }, (_, index) => definition(index)), reconciliation: [] };
+        definitions: Array.from({ length: count }, (_, index) => definition(index)), reconciliation: [],
+        scope: { definitionOwnerUserId: '42', siteScope: 'primary-site', definitionSchemaVersion: 1 } };
 }
 const cases = [];
 function add(name, bytes, valid, note)
@@ -69,7 +70,8 @@ for (const count of [0, 1, 8, 1000])
 }
 const zero = encode(response(0));
 // Independently specified LE layout, with revision greater than JS MAX_SAFE_INTEGER.
-const independentZero = '01' + '07000000' + '0100000000002000' + '0000000000000000' + '00' + '00000000' + '00000000';
+const independentZero = '02' + '07000000' + '0100000000002000' + '0000000000000000' + '00' + '00000000' + '00000000'
+    + '01' + '2a00000000000000' + '0c000000' + '7072696d6172792d73697465' + '01000000';
 if (Buffer.from(zero).toString('hex') !== independentZero)
 {
     throw new Error('property_value_read_zero_layout_drift');
@@ -113,7 +115,7 @@ const bytes = encode(single);
 add('truncated', bytes.subarray(0, bytes.length - 1), false);
 add('trailing', Buffer.concat([bytes, Buffer.from([0])]), false);
 const version = bytes.slice();
-version[0] = 2;
+version[0] = 3;
 add('unknown-version', version, false);
 const negative = zero.slice();
 negative.fill(255, 5, 13);
@@ -164,7 +166,61 @@ const dateOffset = Buffer.from(dateBytes).indexOf(valuePrefix) + valuePrefix.len
 const badDate = dateBytes.slice();
 new DataView(badDate.buffer).setBigInt64(dateOffset + 1, 3155378976000000000n, true);
 add('date-out-of-range', badDate, false);
-const out = JSON.stringify({ schemaVersion: 1, generatedBy: 'tools/contracts/generate-article-property-value-read-golden.mjs',
+const emptySite = response(0);
+emptySite.scope.definitionOwnerUserId = null;
+add('empty-site-owner', encode(emptySite), true, 'Null means site owner; never substitute actor.');
+const siteOwned = response(1);
+siteOwned.scope.definitionOwnerUserId = null;
+siteOwned.definitions[0].definitionOwnerUserId = null;
+siteOwned.current.snapshot.coordinates.definitionOwnerUserId = null;
+add('current-site-owner', encode(siteOwned), true);
+const emptyOther = response(0);
+emptyOther.scope = { definitionOwnerUserId: '9223372036854775807', siteScope: 'secondary-site', definitionSchemaVersion: 1 };
+add('empty-other-owner-site', encode(emptyOther), true);
+// Scope is trailing; mutate an independently located exact suffix, leaving all facts untouched.
+const scopeSuffix = Buffer.from('01' + '2a00000000000000' + '0c000000' + '7072696d6172792d73697465' + '01000000', 'hex');
+const scopedSingle = Buffer.from(encode(single));
+const scopeOffset = scopedSingle.length - scopeSuffix.length;
+if (!scopedSingle.subarray(scopeOffset).equals(scopeSuffix)) throw new Error('property_value_read_scope_suffix_drift');
+for (const [name, patch] of [
+    ['scope-owner-mismatch', b => b.writeBigInt64LE(43n, scopeOffset + 1)],
+    ['scope-site-mismatch', b => b[scopeOffset + 13] = 0x78],
+    ['scope-schema-unknown', b => b.writeInt32LE(2, b.length - 4)],
+    ['scope-owner-zero', b => b.writeBigInt64LE(0n, scopeOffset + 1)],
+    ['scope-owner-negative', b => b.writeBigInt64LE(-1n, scopeOffset + 1)],
+    ['scope-owner-presence-unknown', b => b[scopeOffset] = 2],
+    ['scope-site-leading-space', b => b[scopeOffset + 13] = 0x20],
+    ['scope-site-control', b => b[scopeOffset + 13] = 0x00],
+    ['scope-site-malformed-utf8', b => b[scopeOffset + 13] = 0xff]
+])
+{
+    const corrupt = Buffer.from(scopedSingle); patch(corrupt); add(name, corrupt, false);
+}
+add('scope-missing', scopedSingle.subarray(0, scopeOffset), false);
+const noDefinitions = response(1);
+noDefinitions.definitions = [];
+noDefinitions.current.snapshot.values = [];
+const noDefinitionBytes = Buffer.from(encode(noDefinitions));
+add('current-no-definitions', noDefinitionBytes, true, 'Scope binds existing snapshot coordinates even without definition descriptors.');
+const coordinatePrefix = Buffer.from('01' + '2a00000000000000' + '0c000000' + '7072696d6172792d73697465' + '07000000', 'hex');
+const coordinateOffset = noDefinitionBytes.indexOf(coordinatePrefix);
+if (coordinateOffset < 0) throw new Error('scope-coordinate-prefix-missing');
+const coordinateOwner = Buffer.from(noDefinitionBytes);
+coordinateOwner.writeBigInt64LE(43n, coordinateOffset + 1);
+add('snapshot-only-owner-mismatch', coordinateOwner, false);
+const coordinateSite = Buffer.from(noDefinitionBytes);
+coordinateSite[coordinateOffset + 13] = 0x78;
+add('snapshot-only-site-mismatch', coordinateSite, false);
+const manyDefinitions = Buffer.from(encode(response(8)));
+const lastDefinitionPrefix = Buffer.concat([Buffer.from('01000000', 'hex'), Buffer.from(id(7).replaceAll('-', ''), 'hex'), scopeSuffix.subarray(0, scopeSuffix.length - 4)]);
+const lastDefinitionOffset = manyDefinitions.indexOf(lastDefinitionPrefix);
+if (lastDefinitionOffset < 0) throw new Error('scope-last-definition-prefix-missing');
+manyDefinitions.writeBigInt64LE(43n, lastDefinitionOffset + 21);
+add('last-definition-owner-mismatch', manyDefinitions, false);
+
+const retired = JSON.parse(readFileSync(path.join(root, 'tests/fixtures/protocol/article-property-value-read-wire-v1-retired.json'), 'utf8'));
+for (const sample of retired.cases) add(`retired-v1-${sample.name}`, Buffer.from(sample.payloadHex, 'hex'), false, 'Exact former v1 witness retained; v2 rejects without permissive fallback.');
+const out = JSON.stringify({ schemaVersion: 2, generatedBy: 'tools/contracts/generate-article-property-value-read-golden.mjs',
     note: 'Synthetic wire-only fixtures: lowercase digests are shape witnesses, not authentic persisted receipts or HTTP qualification. Current-1000 is modest descriptor/option distribution, not1000x1000options admission.', independentZero, cases }, null, 2) + '\n';
 const target = path.join(root, 'tests/fixtures/protocol/article-property-value-read-wire-golden.json');
 if (process.argv.includes('--check'))

@@ -77372,6 +77372,1198 @@
                 "x-fsus-source-identity": "HTTP: GET /api/binary/author/taxonomy/tags"
             }
         },
+        "/api/binary/author/workspace/default": {
+            "get": {
+                "operationId": "binary_author_workspace_snapshot_read",
+                "tags": [
+                    "Binary"
+                ],
+                "summary": "/author/workspace/default",
+                "responses": {
+                    "200": {
+                        "description": "AuthoringWorkspaceSnapshotResponse AEDS frame",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "ApiError AEDS error frame (401)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "ApiError AEDS error frame (403)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "406": {
+                        "description": "ApiError AEDS error frame (406)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "description": "ApiError AEDS error frame (423)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "ApiError AEDS error frame (500)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-fsus-protocol": "AEDS",
+                "x-fsus-aeds-version": 2,
+                "x-fsus-request-frame": null,
+                "x-fsus-response-frame": "AuthoringWorkspaceSnapshotResponse",
+                "x-fsus-error-frame": "ApiError",
+                "x-fsus-auth": "admin",
+                "x-fsus-pow": false,
+                "x-fsus-content-type": "application/octet-stream",
+                "x-fsus-success-status": 200,
+                "x-fsus-cache": "no-store",
+                "x-fsus-rate-limit": "none",
+                "x-fsus-permission": "article.write",
+                "x-fsus-request-contract": {
+                    "Direction": "request",
+                    "Source": "none",
+                    "SchemaRef": null,
+                    "Encoding": "none",
+                    "Required": false,
+                    "Nullable": false,
+                    "RequiredFields": [],
+                    "Parameters": [],
+                    "Properties": {},
+                    "Definitions": {},
+                    "OneOf": [],
+                    "Discriminator": null,
+                    "Bounds": {},
+                    "FieldSetState": "not-applicable",
+                    "BoundsState": "not-applicable",
+                    "UnionState": "not-applicable",
+                    "SchemaDigest": null,
+                    "SourceTypes": [],
+                    "ReaderIdentities": []
+                },
+                "x-fsus-response-contracts": [
+                    {
+                        "Status": 200,
+                        "Kind": "success",
+                        "SchemaRef": "aeds://frame/AuthoringWorkspaceSnapshotResponse",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": null
+                    },
+                    {
+                        "Status": 401,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+                    },
+                    {
+                        "Status": 403,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+                    },
+                    {
+                        "Status": 406,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+                    },
+                    {
+                        "Status": 423,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+                    },
+                    {
+                        "Status": 500,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+                    }
+                ],
+                "x-fsus-public-error-refs": [
+                    "configuration-error-security-policy:error-transport-mappings:401",
+                    "configuration-error-security-policy:error-transport-mappings:403",
+                    "configuration-error-security-policy:error-transport-mappings:406",
+                    "configuration-error-security-policy:error-transport-mappings:423",
+                    "configuration-error-security-policy:error-transport-mappings:500"
+                ],
+                "x-fsus-public-error-statuses": [
+                    401,
+                    403,
+                    406,
+                    423,
+                    500
+                ],
+                "x-fsus-public-error-status-evidence": {
+                    "401": [
+                        "compiled-authorization:deny-anonymous"
+                    ],
+                    "403": [
+                        "compiled-authorization:claim-requirement"
+                    ],
+                    "406": [
+                        "compiled-middleware:ApiBinaryResponseMiddleware.accept"
+                    ],
+                    "423": [
+                        "compiled-middleware:BannedUserMiddleware"
+                    ],
+                    "500": [
+                        "compiled-middleware:GlobalExceptionMiddleware"
+                    ]
+                },
+                "x-fsus-public-error-ref-state": "operation-status-authority-bound",
+                "x-fsus-error-authority-behavior": "configuration-error-security-policy",
+                "x-fsus-result-placement": "aeds.frame.payload",
+                "x-fsus-protocol-state": "active-aeds-only",
+                "x-fsus-source-identity": "HTTP: GET /api/binary/author/workspace/default"
+            },
+            "post": {
+                "operationId": "binary_author_workspace_snapshot_mutate",
+                "tags": [
+                    "Binary"
+                ],
+                "summary": "/author/workspace/default",
+                "responses": {
+                    "200": {
+                        "description": "AuthoringWorkspaceSnapshotResponse AEDS frame",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "ApiError AEDS error frame (400)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "ApiError AEDS error frame (401)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "ApiError AEDS error frame (403)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "406": {
+                        "description": "ApiError AEDS error frame (406)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "415": {
+                        "description": "ApiError AEDS error frame (415)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "description": "ApiError AEDS error frame (423)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "ApiError AEDS error frame (500)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-fsus-protocol": "AEDS",
+                "x-fsus-aeds-version": 2,
+                "x-fsus-request-frame": "AuthoringWorkspaceSnapshotRequest",
+                "x-fsus-response-frame": "AuthoringWorkspaceSnapshotResponse",
+                "x-fsus-error-frame": "ApiError",
+                "x-fsus-auth": "admin",
+                "x-fsus-pow": true,
+                "x-fsus-content-type": "application/octet-stream",
+                "x-fsus-success-status": 200,
+                "x-fsus-cache": "no-store",
+                "x-fsus-rate-limit": "none",
+                "x-fsus-permission": "article.write",
+                "x-fsus-request-contract": {
+                    "Direction": "request",
+                    "Source": "aeds-frame-body",
+                    "SchemaRef": "aeds://request-schema/binary_author_workspace_snapshot_mutate",
+                    "Encoding": "binary-layout",
+                    "Required": true,
+                    "Nullable": false,
+                    "RequiredFields": [
+                        "action",
+                        "expectedRevision",
+                        "layout",
+                        "resetConfirmationDigest",
+                        "sourceDigest"
+                    ],
+                    "Parameters": [
+                        {
+                            "Name": "X-Fsus-Pow-Proof",
+                            "Direction": "request",
+                            "Source": "header",
+                            "SchemaRef": "header://string",
+                            "Required": true,
+                            "Nullable": false,
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            },
+                            "Evidence": [
+                                "compiled-endpoint-filter:FsusBlog.Server.Infrastructure.Filters.RequiresPowFilter"
+                            ]
+                        }
+                    ],
+                    "Properties": {
+                        "action": {
+                            "Name": "action",
+                            "Type": "string",
+                            "Required": true,
+                            "Nullable": false,
+                            "Format": null,
+                            "SchemaRef": null,
+                            "ItemType": null,
+                            "ItemSchemaRef": null,
+                            "Item": null,
+                            "EnumValues": [],
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            }
+                        },
+                        "expectedRevision": {
+                            "Name": "expectedRevision",
+                            "Type": "integer",
+                            "Required": true,
+                            "Nullable": false,
+                            "Format": null,
+                            "SchemaRef": null,
+                            "ItemType": null,
+                            "ItemSchemaRef": null,
+                            "Item": null,
+                            "EnumValues": [],
+                            "Bounds": {
+                                "Minimum": "-9223372036854775808",
+                                "Maximum": "9223372036854775807",
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            }
+                        },
+                        "layout": {
+                            "Name": "layout",
+                            "Type": "object",
+                            "Required": true,
+                            "Nullable": true,
+                            "Format": null,
+                            "SchemaRef": "clr://FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotLayout",
+                            "ItemType": null,
+                            "ItemSchemaRef": null,
+                            "Item": null,
+                            "EnumValues": [],
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            }
+                        },
+                        "resetConfirmationDigest": {
+                            "Name": "resetConfirmationDigest",
+                            "Type": "string",
+                            "Required": true,
+                            "Nullable": true,
+                            "Format": null,
+                            "SchemaRef": null,
+                            "ItemType": null,
+                            "ItemSchemaRef": null,
+                            "Item": null,
+                            "EnumValues": [],
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            }
+                        },
+                        "sourceDigest": {
+                            "Name": "sourceDigest",
+                            "Type": "string",
+                            "Required": true,
+                            "Nullable": false,
+                            "Format": null,
+                            "SchemaRef": null,
+                            "ItemType": null,
+                            "ItemSchemaRef": null,
+                            "Item": null,
+                            "EnumValues": [],
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            }
+                        }
+                    },
+                    "Definitions": {
+                        "FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotGroup": {
+                            "TypeIdentity": "FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotGroup",
+                            "RequiredFields": [
+                                "activeTabId",
+                                "groupId",
+                                "tabIds"
+                            ],
+                            "Properties": {
+                                "activeTabId": {
+                                    "Name": "activeTabId",
+                                    "Type": "string",
+                                    "Required": true,
+                                    "Nullable": true,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "groupId": {
+                                    "Name": "groupId",
+                                    "Type": "string",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "tabIds": {
+                                    "Name": "tabIds",
+                                    "Type": "array",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": "string",
+                                    "ItemSchemaRef": null,
+                                    "Item": {
+                                        "Type": "string",
+                                        "Nullable": false,
+                                        "Format": null,
+                                        "SchemaRef": null,
+                                        "Item": null,
+                                        "EnumValues": [],
+                                        "Bounds": {
+                                            "Minimum": null,
+                                            "Maximum": null,
+                                            "MinLength": null,
+                                            "MaxLength": null,
+                                            "MinItems": null,
+                                            "MaxItems": null,
+                                            "MinProperties": null,
+                                            "MaxProperties": null
+                                        }
+                                    },
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                }
+                            },
+                            "OneOf": [],
+                            "Discriminator": null,
+                            "Bounds": {}
+                        },
+                        "FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotIdentity": {
+                            "TypeIdentity": "FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotIdentity",
+                            "RequiredFields": [
+                                "articleId",
+                                "documentId",
+                                "draftId"
+                            ],
+                            "Properties": {
+                                "articleId": {
+                                    "Name": "articleId",
+                                    "Type": "integer",
+                                    "Required": true,
+                                    "Nullable": true,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": "-2147483648",
+                                        "Maximum": "2147483647",
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "documentId": {
+                                    "Name": "documentId",
+                                    "Type": "string",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "draftId": {
+                                    "Name": "draftId",
+                                    "Type": "string",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                }
+                            },
+                            "OneOf": [],
+                            "Discriminator": null,
+                            "Bounds": {
+                                "articleId": {
+                                    "Minimum": "-2147483648",
+                                    "Maximum": "2147483647",
+                                    "MinLength": null,
+                                    "MaxLength": null,
+                                    "MinItems": null,
+                                    "MaxItems": null,
+                                    "MinProperties": null,
+                                    "MaxProperties": null
+                                }
+                            }
+                        },
+                        "FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotLayout": {
+                            "TypeIdentity": "FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotLayout",
+                            "RequiredFields": [
+                                "activeGroupId",
+                                "groups",
+                                "shell",
+                                "splitRatioPermille",
+                                "tabs"
+                            ],
+                            "Properties": {
+                                "activeGroupId": {
+                                    "Name": "activeGroupId",
+                                    "Type": "string",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "groups": {
+                                    "Name": "groups",
+                                    "Type": "array",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": "object",
+                                    "ItemSchemaRef": "clr://FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotGroup",
+                                    "Item": {
+                                        "Type": "object",
+                                        "Nullable": false,
+                                        "Format": null,
+                                        "SchemaRef": "clr://FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotGroup",
+                                        "Item": null,
+                                        "EnumValues": [],
+                                        "Bounds": {
+                                            "Minimum": null,
+                                            "Maximum": null,
+                                            "MinLength": null,
+                                            "MaxLength": null,
+                                            "MinItems": null,
+                                            "MaxItems": null,
+                                            "MinProperties": null,
+                                            "MaxProperties": null
+                                        }
+                                    },
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "shell": {
+                                    "Name": "shell",
+                                    "Type": "object",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": "clr://FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotShell",
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "splitRatioPermille": {
+                                    "Name": "splitRatioPermille",
+                                    "Type": "integer",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": "-2147483648",
+                                        "Maximum": "2147483647",
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "tabs": {
+                                    "Name": "tabs",
+                                    "Type": "array",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": "object",
+                                    "ItemSchemaRef": "clr://FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotTab",
+                                    "Item": {
+                                        "Type": "object",
+                                        "Nullable": false,
+                                        "Format": null,
+                                        "SchemaRef": "clr://FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotTab",
+                                        "Item": null,
+                                        "EnumValues": [],
+                                        "Bounds": {
+                                            "Minimum": null,
+                                            "Maximum": null,
+                                            "MinLength": null,
+                                            "MaxLength": null,
+                                            "MinItems": null,
+                                            "MaxItems": null,
+                                            "MinProperties": null,
+                                            "MaxProperties": null
+                                        }
+                                    },
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                }
+                            },
+                            "OneOf": [],
+                            "Discriminator": null,
+                            "Bounds": {
+                                "splitRatioPermille": {
+                                    "Minimum": "-2147483648",
+                                    "Maximum": "2147483647",
+                                    "MinLength": null,
+                                    "MaxLength": null,
+                                    "MinItems": null,
+                                    "MaxItems": null,
+                                    "MinProperties": null,
+                                    "MaxProperties": null
+                                }
+                            }
+                        },
+                        "FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotShell": {
+                            "TypeIdentity": "FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotShell",
+                            "RequiredFields": [
+                                "inspectorOpen",
+                                "inspectorView",
+                                "libraryOpen",
+                                "libraryView",
+                                "outlineOpen"
+                            ],
+                            "Properties": {
+                                "inspectorOpen": {
+                                    "Name": "inspectorOpen",
+                                    "Type": "boolean",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "inspectorView": {
+                                    "Name": "inspectorView",
+                                    "Type": "string",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "libraryOpen": {
+                                    "Name": "libraryOpen",
+                                    "Type": "boolean",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "libraryView": {
+                                    "Name": "libraryView",
+                                    "Type": "string",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "outlineOpen": {
+                                    "Name": "outlineOpen",
+                                    "Type": "boolean",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                }
+                            },
+                            "OneOf": [],
+                            "Discriminator": null,
+                            "Bounds": {}
+                        },
+                        "FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotTab": {
+                            "TypeIdentity": "FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotTab",
+                            "RequiredFields": [
+                                "identity",
+                                "isPinned",
+                                "isPreview",
+                                "tabId"
+                            ],
+                            "Properties": {
+                                "identity": {
+                                    "Name": "identity",
+                                    "Type": "object",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": "clr://FsusBlog.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotIdentity",
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "isPinned": {
+                                    "Name": "isPinned",
+                                    "Type": "boolean",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "isPreview": {
+                                    "Name": "isPreview",
+                                    "Type": "boolean",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                },
+                                "tabId": {
+                                    "Name": "tabId",
+                                    "Type": "string",
+                                    "Required": true,
+                                    "Nullable": false,
+                                    "Format": null,
+                                    "SchemaRef": null,
+                                    "ItemType": null,
+                                    "ItemSchemaRef": null,
+                                    "Item": null,
+                                    "EnumValues": [],
+                                    "Bounds": {
+                                        "Minimum": null,
+                                        "Maximum": null,
+                                        "MinLength": null,
+                                        "MaxLength": null,
+                                        "MinItems": null,
+                                        "MaxItems": null,
+                                        "MinProperties": null,
+                                        "MaxProperties": null
+                                    }
+                                }
+                            },
+                            "OneOf": [],
+                            "Discriminator": null,
+                            "Bounds": {}
+                        }
+                    },
+                    "OneOf": [],
+                    "Discriminator": null,
+                    "Bounds": {
+                        "expectedRevision": {
+                            "Minimum": "-9223372036854775808",
+                            "Maximum": "9223372036854775807",
+                            "MinLength": null,
+                            "MaxLength": null,
+                            "MinItems": null,
+                            "MaxItems": null,
+                            "MinProperties": null,
+                            "MaxProperties": null
+                        }
+                    },
+                    "FieldSetState": "closed",
+                    "BoundsState": "closed",
+                    "UnionState": "none",
+                    "SchemaDigest": "3cd031e39184d6fea4289dccb2771c7078d30d2794b2685d6a3128d5e8147ada",
+                    "SourceTypes": [
+                        "FsusBlog.Shared.Contracts.AuthoringWorkspace.AuthoringWorkspaceSnapshotRequest"
+                    ],
+                    "ReaderIdentities": [
+                        "FsusBlog.Core.Cache.PodBinaryCodec.TryDecodeAuthoringWorkspaceSnapshotRequest"
+                    ]
+                },
+                "x-fsus-response-contracts": [
+                    {
+                        "Status": 200,
+                        "Kind": "success",
+                        "SchemaRef": "aeds://frame/AuthoringWorkspaceSnapshotResponse",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": null
+                    },
+                    {
+                        "Status": 400,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:400"
+                    },
+                    {
+                        "Status": 401,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+                    },
+                    {
+                        "Status": 403,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+                    },
+                    {
+                        "Status": 406,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+                    },
+                    {
+                        "Status": 415,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:415"
+                    },
+                    {
+                        "Status": 423,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+                    },
+                    {
+                        "Status": 500,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+                    }
+                ],
+                "x-fsus-public-error-refs": [
+                    "configuration-error-security-policy:error-transport-mappings:400",
+                    "configuration-error-security-policy:error-transport-mappings:401",
+                    "configuration-error-security-policy:error-transport-mappings:403",
+                    "configuration-error-security-policy:error-transport-mappings:406",
+                    "configuration-error-security-policy:error-transport-mappings:415",
+                    "configuration-error-security-policy:error-transport-mappings:423",
+                    "configuration-error-security-policy:error-transport-mappings:500"
+                ],
+                "x-fsus-public-error-statuses": [
+                    400,
+                    401,
+                    403,
+                    406,
+                    415,
+                    423,
+                    500
+                ],
+                "x-fsus-public-error-status-evidence": {
+                    "400": [
+                        "compiled-filter:RequiresPowFilter"
+                    ],
+                    "401": [
+                        "compiled-authorization:deny-anonymous",
+                        "compiled-filter:RequiresPowFilter"
+                    ],
+                    "403": [
+                        "compiled-authorization:claim-requirement",
+                        "compiled-filter:RequiresPowFilter"
+                    ],
+                    "406": [
+                        "compiled-middleware:ApiBinaryResponseMiddleware.accept"
+                    ],
+                    "415": [
+                        "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
+                    ],
+                    "423": [
+                        "compiled-middleware:BannedUserMiddleware"
+                    ],
+                    "500": [
+                        "compiled-middleware:GlobalExceptionMiddleware"
+                    ]
+                },
+                "x-fsus-public-error-ref-state": "operation-status-authority-bound",
+                "x-fsus-error-authority-behavior": "configuration-error-security-policy",
+                "x-fsus-result-placement": "aeds.frame.payload",
+                "x-fsus-protocol-state": "active-aeds-only",
+                "x-fsus-source-identity": "HTTP: POST /api/binary/author/workspace/default"
+            }
+        },
         "/api/binary/category": {
             "get": {
                 "operationId": "binary_get_category",
@@ -99462,7 +100654,7 @@
         "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
         "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
     },
-    "x-fsus-observation-digest": "1632732e8644fde247d3d95fbadd4f7ca00e602c103d84fed151115a61488603",
+    "x-fsus-observation-digest": "636dd72801146ca1258c3023197eaf4615ab2e9f375aab63632909ba553000bc",
     "x-fsus-protocol-states": {
         "SupportedVersions": [
             2
@@ -99554,6 +100746,8 @@
             "AuthoringCanvasResolveRequest",
             "AuthoringCanvasUndoRedoRequest",
             "AuthoringCanvasWriteReceipt",
+            "AuthoringWorkspaceSnapshotRequest",
+            "AuthoringWorkspaceSnapshotResponse",
             "BackupStatus",
             "BlindCredentialIssueRequest",
             "BlindCredentialIssueResponse",
