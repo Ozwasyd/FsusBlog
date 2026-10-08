@@ -60,6 +60,12 @@ FsusBlog uses layered cache behavior:
 
 Cache invalidation is part of the application contract. Article, taxonomy, public shell, and admin-side mutations must invalidate the matching public and internal caches instead of relying on stale TTL behavior alone.
 
+Article authoring current-context admission belongs to the canonical
+`ArticleDocumentContextAdapter`. Disposing that owner retires every snapshot from
+current-context admission, including its last snapshot with unchanged bytes and
+digest. The historical readonly context remains available for lifecycle evidence;
+consumers must use the owner predicate rather than infer currentness from it.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:
