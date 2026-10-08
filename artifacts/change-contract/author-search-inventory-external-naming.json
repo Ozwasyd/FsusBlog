@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/author-search-inventory.mjs"
+            ],
+            "reason": "The trusted registry classifies tools/**/*.mjs as a process-environment naming surface. The inventory preserves Git child-process environment and adds no environment keys; internal variables remain camelCase."
+        }
+    ]
+}
