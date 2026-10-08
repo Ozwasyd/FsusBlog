@@ -387,8 +387,8 @@ export function adaptBackendTestSemanticOutcome({
     {
         membership[field].sort();
     }
-    membership.assertions.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
-    membership.caseIdentities.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+    membership.assertions.sort((left, right) => Buffer.compare(Buffer.from(JSON.stringify(left), 'utf8'), Buffer.from(JSON.stringify(right), 'utf8')));
+    membership.caseIdentities.sort((left, right) => Buffer.compare(Buffer.from(JSON.stringify(left), 'utf8'), Buffer.from(JSON.stringify(right), 'utf8')));
     membership.coverageIds = [...coverageIds].sort();
     for (const [field, ids] of [['artifactSemanticDigests', artifactIds], ['stateSemanticDigests', stateIds]])
     {

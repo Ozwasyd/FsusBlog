@@ -593,3 +593,13 @@ test('state failures use canonical semantic identities and reject orphan execute
         v.attempt.failureKind = 'product.state-mismatch';
     }, { failure: true });
 });
+
+test('framework observation order does not change semantic membership', () =>
+{
+    const first = fixture().adapt();
+    const reversed = fixture();
+    reversed.values.report.tests.reverse();
+    reversed.refresh();
+    assert.deepEqual(reversed.adapt().outcome.membership, first.outcome.membership);
+    assert.equal(reversed.adapt().outcome.semanticPayloadDigest, first.outcome.semanticPayloadDigest);
+});
