@@ -8,6 +8,7 @@ import {
     TemporalContractError,
     validateTemporalContext
 } from './temporal-context.mjs';
+import { createTemporalEntityBatchReceipt, createTemporalEntityStreamReceipt, verifyResolvedTemporalEntityBatch, verifyResolvedTemporalEntityStream } from './temporal-entity-stream.mjs';
 import {
     readTemporalShapeCatalog,
     resolveTemporalEntityShape,
@@ -19,6 +20,7 @@ export const POSTGRES_TEMPORAL_ROLES_SCHEMA = 'fsusblog.postgres-temporal-roles.
 export const DOTNET_TEMPORAL_ROLES_SCHEMA = 'fsusblog.dotnet-temporal-roles.v1';
 export const BROWSER_TEMPORAL_ROLES_SCHEMA = 'fsusblog.browser-temporal-roles.v1';
 export const TEMPORAL_DOMAIN_PRODUCER_RECEIPT_SCHEMA = 'fsusblog.temporal-domain-producer-receipt.v1';
+export const TEMPORAL_ENTITY_PRODUCER_RECEIPT_SCHEMA = 'fsusblog.temporal-entity-producer-receipt.v1';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const producerInventoryPath = path.join(
@@ -403,8 +405,13 @@ export function resolveTemporalRolesForProducer({
 
 export function readTemporalDomainProducerInventory()
 {
-    const inventory = JSON.parse(readFileSync(producerInventoryPath, 'utf8'));
-    if (inventory.schema !== 'fsusblog.temporal-domain-producer-inventory.v1'
+    return validateTemporalDomainProducerInventory(JSON.parse(readFileSync(producerInventoryPath, 'utf8')));
+}
+
+/** Validate source field registrations without turning explicitly unsupported fields into bindings. */
+export function validateTemporalDomainProducerInventory(inventory, { catalogState = readTemporalShapeCatalog() } = {})
+{
+    if (!plainObject(inventory) || inventory.schema !== 'fsusblog.temporal-domain-producer-inventory.v1'
       || inventory.catalog !== 'config/testing/temporal-shape-catalog.json'
       || inventory.resolvedArtifactSchema !== 'config/testing/resolved-temporal-roles.schema.json'
       || !Array.isArray(inventory.producerBindings))
@@ -426,6 +433,7 @@ export function readTemporalDomainProducerInventory()
         {
             fail('temporal.producer-inventory-invalid', `${binding.producerId} inventory is incomplete`);
         }
+        let permittedRoles;
         if (binding.resolutionMode !== undefined)
         {
             if (binding.resolutionMode !== 'entity-plan' || !Array.isArray(binding.requiredRoleIds)
@@ -433,12 +441,24 @@ export function readTemporalDomainProducerInventory()
             {
                 fail('temporal.producer-inventory-invalid', 'entity producer requires exact resolution and role closure declarations');
             }
-            const shape = resolveTemporalEntityShape(binding.shapeId).shape;
+            const shape = resolveTemporalEntityShape(binding.shapeId, { catalog: catalogState }).shape;
             const required = [...new Set(shape.entityKinds.flatMap((kind) => kind.roles.map((role) => role.roleId)))];
             if (digestCanonical([...binding.requiredRoleIds].sort()) !== digestCanonical(required.sort()))
             {
                 fail('temporal.producer-inventory-invalid', 'entity producer must bind the complete canonical role closure');
             }
+            if (!Array.isArray(binding.unsupportedFields)
+                || new Set(binding.scalarRoleIds).size !== binding.scalarRoleIds.length
+                || binding.scalarRoleIds.some((roleId) => !catalogState.roleIds.has(roleId)))
+            {
+                fail('temporal.producer-inventory-invalid', 'entity producer requires explicit unsupported fields and canonical scalar roles');
+            }
+            permittedRoles = new Set([...required, ...binding.scalarRoleIds]);
+        }
+        else
+        {
+            permittedRoles = new Set(resolveTemporalShape(binding.shapeId, { catalog: catalogState }).shape.timestampRoles
+                .map((role) => role.roleId));
         }
         const fields = new Set();
         for (const mapping of binding.fieldMappings)
@@ -446,11 +466,35 @@ export function readTemporalDomainProducerInventory()
             stableIdentity(mapping?.field, `${binding.producerId}.field`);
             stableIdentity(mapping?.roleId, `${binding.producerId}.roleId`);
             stableIdentity(mapping?.consumer, `${binding.producerId}.consumer`);
+            if (!catalogState.roleIds.has(mapping.roleId))
+            {
+                fail('temporal.producer-inventory-invalid', `${binding.producerId}.${mapping.field} references an unknown canonical role`);
+            }
+            if (!permittedRoles.has(mapping.roleId))
+            {
+                fail('temporal.producer-inventory-invalid', `${binding.producerId}.${mapping.field} is outside its declared temporal shape`);
+            }
             if (fields.has(mapping.field))
             {
                 fail('temporal.producer-inventory-invalid', `${binding.producerId} has duplicate field ${mapping.field}`);
             }
             fields.add(mapping.field);
+        }
+        const unsupportedFields = new Set();
+        for (const unsupported of binding.unsupportedFields ?? [])
+        {
+            if (!plainObject(unsupported) || Object.keys(unsupported).sort().join(',') !== 'field,reason,roleId')
+            {
+                fail('temporal.producer-inventory-invalid', 'unsupported source field requires exact field, roleId and reason');
+            }
+            stableIdentity(unsupported.field, `${binding.producerId}.unsupportedField`);
+            stableIdentity(unsupported.roleId, `${binding.producerId}.unsupportedRole`);
+            if (!catalogState.roleIds.has(unsupported.roleId) || typeof unsupported.reason !== 'string' || !unsupported.reason.trim()
+                || fields.has(unsupported.field) || unsupportedFields.has(unsupported.field))
+            {
+                fail('temporal.producer-inventory-invalid', 'unsupported source field cannot be mapped, duplicated or missing its canonical role/reason');
+            }
+            unsupportedFields.add(unsupported.field);
         }
     }
     return Object.freeze(inventory);
@@ -485,6 +529,14 @@ function exactRoleDocument(role, baseEpochMilliseconds, shapeRole)
 
 export function verifyResolvedTemporalArtifact(artifact, { temporalContext } = {})
 {
+    if (['fsusblog.resolved-temporal-entity-stream.v1', 'fsusblog.resolved-temporal-entity-stream.v2'].includes(artifact?.schema))
+    {
+        return verifyResolvedTemporalEntityStream(artifact, { temporalContext });
+    }
+    if (['fsusblog.resolved-temporal-entity-batch.v1', 'fsusblog.resolved-temporal-entity-batch.v2'].includes(artifact?.schema))
+    {
+        return verifyResolvedTemporalEntityBatch(artifact, { temporalContext });
+    }
     if (artifact?.schema === 'fsusblog.resolved-temporal-entities.v1')
     {
         if (!temporalContext)
@@ -799,35 +851,76 @@ function entityHistoryRelations(entities, shape, catalog)
         }
         revisionTimes.set(identity, time);
     }
-    return entities.map((entity) =>
+    return entities.map((entity) => resolveTemporalEntityRelations(entity, { shape, catalog,
+        revisionLookup: (identity, revisionNumber) => revisions.get(`${JSON.stringify(['article', identity])}:${revisionNumber}`) }));
+}
+
+/** Apply the same canonical per-entity invariants with an explicitly supplied historical revision lookup. */
+export function resolveTemporalEntityRelations(entity, { shape, catalog, revisionLookup })
+{
+    const kind = shape.entityKinds.find((candidate) => candidate.kind === entity.coordinate.entityKind);
+    const roles = new Map(entity.roles.map((role) => [role.roleId, role]));
+    return kind.invariantIds.map((id) =>
     {
-        const kind = shape.entityKinds.find((candidate) => candidate.kind === entity.coordinate.entityKind);
-        const roles = new Map(entity.roles.map((role) => [role.roleId, role]));
-        return kind.invariantIds.map((id) =>
+        const invariant = catalog.invariants.find((candidate) => candidate.id === id);
+        const values = invariant.roles.map((roleId) => roles.get(roleId));
+        if (id === 'article-lifecycle' && entity.coordinate.publicationNumber !== null)
         {
-            const invariant = catalog.invariants.find((candidate) => candidate.id === id);
-            const values = invariant.roles.map((roleId) => roles.get(roleId));
-            if (id === 'article-lifecycle' && entity.coordinate.publicationNumber !== null)
+            const revision = revisionLookup(entity.coordinate.semanticIdentity, entity.coordinate.publicationRevisionNumber);
+            if (!revision)
             {
-                const revision = revisions.get(`${entityIdentity(entity.coordinate)}:${entity.coordinate.publicationRevisionNumber}`);
-                if (!revision)
-                {
-                    fail('temporal.entity-facts-invalid', 'publication requires its explicitly referenced revision coordinate');
-                }
-                values[1] = revision;
+                fail('temporal.entity-facts-invalid', 'publication requires its explicitly referenced revision coordinate');
             }
-            const present = values.map((value, index) => ({ value, index })).filter(({ value }) => value.applicability === 'instant');
-            for (let index = 1; index < present.length; index++)
-            {
-                const previous = present[index - 1];
-                const current = present[index];
-                const operator = invariant.operators.slice(previous.index, current.index).includes('<') ? '<' : '<=';
-                verifyRelation(operator, previous.value.epochMilliseconds, current.value.epochMilliseconds);
-            }
-            return { id, roleIds: [...invariant.roles], status: present.length === values.length ? 'verified' : 'state-bound',
-                nullRoleIds: values.filter((value) => value.applicability !== 'instant').map((value) => value.roleId) };
-        });
+            values[1] = revision;
+        }
+        const present = values.map((value, index) => ({ value, index })).filter(({ value }) => value.applicability === 'instant');
+        for (let index = 1; index < present.length; index++)
+        {
+            const previous = present[index - 1];
+            const current = present[index];
+            const operator = invariant.operators.slice(previous.index, current.index).includes('<') ? '<' : '<=';
+            verifyRelation(operator, previous.value.epochMilliseconds, current.value.epochMilliseconds);
+        }
+        return { id, roleIds: [...invariant.roles], status: present.length === values.length ? 'verified' : 'state-bound',
+            nullRoleIds: values.filter((value) => value.applicability !== 'instant').map((value) => value.roleId) };
     });
+}
+
+/** Resolve local role closure only; full plan distribution/history validation remains mandatory. */
+export function resolveTemporalEntityRecord(entity, { shape, businessEpochMilliseconds })
+{
+    entityKeys(entity, ['coordinate', 'state', 'stateFacts', 'facts'], 'entity');
+    const coordinate = entity.coordinate;
+    entityKeys(coordinate, ['entityKind', 'semanticIdentity', 'operationIdentity', 'ordinal', 'revisionNumber',
+        'publicationNumber', 'publicationRevisionNumber', 'articleIdentity'], 'entity coordinate');
+    explicitEntityIdentity(coordinate.semanticIdentity, 'semanticIdentity');
+    explicitEntityIdentity(coordinate.operationIdentity, 'operationIdentity');
+    boundedInteger(coordinate.ordinal, 0, 'ordinal');
+    const kind = shape.entityKinds.find((candidate) => candidate.kind === coordinate.entityKind);
+    if (!kind || !kind.states.includes(entity.state))
+    {
+        fail('temporal.entity-facts-invalid', 'entity kind/state is unsupported by the canonical shape');
+    }
+    entityKeys(entity.stateFacts, kind.stateFacts, 'stateFacts');
+    const hasRevision = kind.revisionRequired && entity.stateFacts.hasRevision === true;
+    if (hasRevision ? !Number.isSafeInteger(coordinate.revisionNumber) || coordinate.revisionNumber < 1
+        : coordinate.revisionNumber !== null)
+    {
+        fail('temporal.entity-facts-invalid', 'revision coordinate must match the entity kind');
+    }
+    const published = coordinate.publicationNumber !== null;
+    if (published && (!kind.publicationAllowed || !Number.isSafeInteger(coordinate.publicationNumber)
+        || coordinate.publicationNumber < 1 || !Number.isSafeInteger(coordinate.publicationRevisionNumber)
+        || coordinate.publicationRevisionNumber < 1 || coordinate.publicationRevisionNumber > coordinate.revisionNumber)
+        || !published && coordinate.publicationRevisionNumber !== null
+        || coordinate.entityKind === 'article' && (entity.stateFacts.hasPublication !== published || published && !hasRevision
+            || entity.state === 'published' && !published || entity.state === 'draft' && published)
+        || (coordinate.entityKind === 'comment' ? typeof coordinate.articleIdentity !== 'string' : coordinate.articleIdentity !== null))
+    {
+        fail('temporal.entity-facts-invalid', 'publication/state/article coordinates are inconsistent');
+    }
+    return { coordinate: { ...coordinate }, state: entity.state, stateFacts: { ...entity.stateFacts },
+        roles: entityRoleFacts(entity, kind, businessEpochMilliseconds) };
 }
 
 /** Resolve explicit producer entity/history facts; missing distribution or nullable role closure is refused. */
@@ -847,41 +940,8 @@ export function resolveTemporalEntityRoles({ temporalContext, fixtureIdentity, s
     }
     const loaded = readTemporalShapeCatalog();
     const { shape, shapeDigest } = resolveTemporalEntityShape(shapeId, { catalog: loaded });
-    const entities = entityPlan.entities.map((entity) =>
-    {
-        entityKeys(entity, ['coordinate', 'state', 'stateFacts', 'facts'], 'entity');
-        const coordinate = entity.coordinate;
-        entityKeys(coordinate, ['entityKind', 'semanticIdentity', 'operationIdentity', 'ordinal', 'revisionNumber',
-            'publicationNumber', 'publicationRevisionNumber', 'articleIdentity'], 'entity coordinate');
-        explicitEntityIdentity(coordinate.semanticIdentity, 'semanticIdentity');
-        explicitEntityIdentity(coordinate.operationIdentity, 'operationIdentity');
-        boundedInteger(coordinate.ordinal, 0, 'ordinal');
-        const kind = shape.entityKinds.find((candidate) => candidate.kind === coordinate.entityKind);
-        if (!kind || !kind.states.includes(entity.state))
-        {
-            fail('temporal.entity-facts-invalid', 'entity kind/state is unsupported by the canonical shape');
-        }
-        entityKeys(entity.stateFacts, kind.stateFacts, 'stateFacts');
-        const hasRevision = kind.revisionRequired && entity.stateFacts.hasRevision === true;
-        if (hasRevision ? !Number.isSafeInteger(coordinate.revisionNumber) || coordinate.revisionNumber < 1
-            : coordinate.revisionNumber !== null)
-        {
-            fail('temporal.entity-facts-invalid', 'revision coordinate must match the entity kind');
-        }
-        const published = coordinate.publicationNumber !== null;
-        if (published && (!kind.publicationAllowed || !Number.isSafeInteger(coordinate.publicationNumber)
-            || coordinate.publicationNumber < 1 || !Number.isSafeInteger(coordinate.publicationRevisionNumber)
-            || coordinate.publicationRevisionNumber < 1 || coordinate.publicationRevisionNumber > coordinate.revisionNumber)
-            || !published && coordinate.publicationRevisionNumber !== null
-            || coordinate.entityKind === 'article' && (entity.stateFacts.hasPublication !== published || published && !hasRevision
-                || entity.state === 'published' && !published || entity.state === 'draft' && published)
-            || (coordinate.entityKind === 'comment' ? typeof coordinate.articleIdentity !== 'string' : coordinate.articleIdentity !== null))
-        {
-            fail('temporal.entity-facts-invalid', 'publication/state/article coordinates are inconsistent');
-        }
-        return { coordinate: { ...coordinate }, state: entity.state, stateFacts: { ...entity.stateFacts },
-            roles: entityRoleFacts(entity, kind, Date.parse(context.businessEpochUtc)) };
-    });
+    const entities = entityPlan.entities.map((entity) => resolveTemporalEntityRecord(entity,
+        { shape, businessEpochMilliseconds: Date.parse(context.businessEpochUtc) }));
     validateEntityDistribution(entityPlan.distribution, entities, shape, context.producerId);
     const relations = entityHistoryRelations(entities, shape, loaded.catalog);
     const commentLinks = new Map(entityPlan.distribution.rootNested.map((link) => [link.commentIdentity, link]));
@@ -961,9 +1021,42 @@ export function requireResolvedTemporalEntityRole(artifact, coordinate, roleId, 
     return role;
 }
 
-export function createTemporalDomainProducerReceipt(artifact)
+export function createTemporalDomainProducerReceipt(artifact, { temporalContext } = {})
 {
-    verifyResolvedTemporalArtifact(artifact);
+    if (['fsusblog.resolved-temporal-entity-stream.v1', 'fsusblog.resolved-temporal-entity-stream.v2'].includes(artifact?.schema))
+    {
+        return createTemporalEntityStreamReceipt(artifact, { temporalContext });
+    }
+    if (['fsusblog.resolved-temporal-entity-batch.v1', 'fsusblog.resolved-temporal-entity-batch.v2'].includes(artifact?.schema))
+    {
+        return createTemporalEntityBatchReceipt(artifact, { temporalContext });
+    }
+    verifyResolvedTemporalArtifact(artifact, { temporalContext });
+    if (artifact.schema === 'fsusblog.resolved-temporal-entities.v1')
+    {
+        const receipt = {
+            schema: TEMPORAL_ENTITY_PRODUCER_RECEIPT_SCHEMA,
+            qualificationEligible: false,
+            fixtureIdentity: structuredClone(artifact.fixtureIdentity),
+            temporalContext: structuredClone(validateTemporalContext(temporalContext)),
+            contextIdentity: structuredClone(artifact.contextIdentity),
+            catalog: structuredClone(artifact.catalog),
+            shape: structuredClone(artifact.shape),
+            plan: { schema: artifact.entityPlan.schema, sourcePlanDigest: artifact.entityPlan.sourcePlanDigest,
+                contentDigest: artifact.entityPlanDigest, distribution: structuredClone(artifact.entityPlan.distribution) },
+            entities: artifact.entities.map((entity) =>
+            {
+                const value = structuredClone(entity);
+                return { ...value, contentDigest: digestCanonical(value) };
+            }),
+            scalarRolesPurpose: artifact.scalarRolesPurpose,
+            scalarRoles: artifact.scalarRoles === null ? null : createTemporalDomainProducerReceipt(artifact.scalarRoles),
+            unsupportedFields: structuredClone(artifact.unsupportedFields),
+            semanticDigest: artifact.semanticDigest,
+            resolvedArtifactDigest: artifact.contentDigest
+        };
+        return Object.freeze({ ...receipt, contentDigest: digestCanonical(receipt) });
+    }
     const receipt = {
         schema: TEMPORAL_DOMAIN_PRODUCER_RECEIPT_SCHEMA,
         producerId: artifact.fixtureIdentity.producerId,
@@ -982,6 +1075,35 @@ export function createTemporalDomainProducerReceipt(artifact)
         resolvedArtifactDigest: artifact.contentDigest
     };
     return Object.freeze({ ...receipt, contentDigest: digestCanonical(receipt) });
+}
+
+/** Reconstruct the ordinary receipt from the original complete plan and context; no execution is implied. */
+export function verifyTemporalDomainProducerReceipt(receipt, { artifact, temporalContext } = {})
+{
+    const expected = createTemporalDomainProducerReceipt(artifact, { temporalContext });
+    if (digestCanonical(expected) !== digestCanonical(receipt))
+    {
+        fail('temporal.producer-receipt-mismatch', 'producer receipt differs from the original resolved plan/context');
+    }
+    return Object.freeze({ schema: expected.schema, contentDigest: expected.contentDigest,
+        resolvedArtifactDigest: expected.resolvedArtifactDigest,
+        ...(expected.qualificationEligible === false ? { qualificationEligible: false } : {}) });
+}
+
+/** Prepare the existing producer file/env carriers without declaring generation or runtime acceptance. */
+export function createTemporalEntityTransport({ artifact, temporalContext })
+{
+    if (!['fsusblog.resolved-temporal-entities.v1', 'fsusblog.resolved-temporal-entity-batch.v1', 'fsusblog.resolved-temporal-entity-batch.v2'].includes(artifact?.schema))
+    {
+        fail('temporal.resolver-input-invalid', 'entity transport requires the ordinary entity artifact');
+    }
+    const receipt = createTemporalDomainProducerReceipt(artifact, { temporalContext });
+    return Object.freeze({ schema: 'fsusblog.temporal-entity-transport.v1', qualificationEligible: false,
+        receiptFileName: 'temporal-domain-producer-receipt.json', receipt,
+        artifactDigest: artifact.contentDigest, receiptDigest: receipt.contentDigest,
+        environment: Object.freeze({ FSUSBLOG_TEMPORAL_CONTEXT_JSON: JSON.stringify(receipt.temporalContext),
+            FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON: JSON.stringify(artifact),
+            FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST: artifact.contentDigest }) });
 }
 
 export function projectTemporalRolesForPostgres(artifact)

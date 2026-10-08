@@ -412,11 +412,6 @@
                     "consumer": "entity-lifecycle"
                 },
                 {
-                    "field": "profile.created-at",
-                    "roleId": "profile.created",
-                    "consumer": "profile-source-meaning-unresolved"
-                },
-                {
                     "field": "audit.occurred-at",
                     "roleId": "audit.occurred",
                     "consumer": "entity-lifecycle"
@@ -453,11 +448,6 @@
                 "tools/data-scale/seed.sh"
             ],
             "fieldMappings": [
-                {
-                    "field": "row.created-at",
-                    "roleId": "scale.row-created",
-                    "consumer": "unsupported-source-field"
-                },
                 {
                     "field": "article.createtime",
                     "roleId": "article.created",

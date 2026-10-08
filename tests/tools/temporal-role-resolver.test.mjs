@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 const {defaultTimeoutPolicyDigest, qualificationTemporalContext, semanticOutcomeDigest} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
-const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, requireResolvedTemporalRole, requireResolvedTemporalEntityRole, resolveTemporalEntityRoles, resolveTemporalRoles, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
+const {createTemporalEntityTransport, verifyTemporalDomainProducerReceipt, createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, readTemporalDomainProducerInventory, requireResolvedTemporalRole, requireResolvedTemporalEntityRole, resolveTemporalEntityRoles, resolveTemporalRoles, resolveTemporalRolesForProducer, validateTemporalDomainProducerInventory, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const sourceCommit = 'a'.repeat(40);
 const sourceFingerprint = `sha256:${'b'.repeat(64)}`;
@@ -563,4 +563,125 @@ test('entity original demo and scale chronology conflicts remain refused without
     nested.distribution.stateCounts.comment.approved = 2;
     nested.distribution.rootNested.push({ commentIdentity: 'nested-comment', parentIdentity: 'root-comment', rootIdentity: 'root-comment' });
     assert.throws(() => resolveOrdinaryEntityPlan(nested), /cross-field invariant/u);
+});
+
+test('entity registrations keep undefined source fields unbound and validate exact canonical closure', () =>
+{
+    const inventory = readTemporalDomainProducerInventory();
+    assert.equal(inventory.producerBindings.length, 6);
+    for (const producerId of ['development-demo', 'scale-data'])
+    {
+        const binding = inventory.producerBindings.find((producer) => producer.producerId === producerId);
+        assert.ok(binding.unsupportedFields.every((unsupported) => !binding.fieldMappings.some((mapping) => mapping.field === unsupported.field)));
+    }
+    const change = (mutate, pattern) =>
+    {
+        const invalid = structuredClone(inventory);
+        const binding = invalid.producerBindings.find((producer) => producer.producerId === 'scale-data');
+        mutate(binding);
+        assert.throws(() => validateTemporalDomainProducerInventory(invalid), pattern);
+    };
+    change((binding) => binding.fieldMappings.push({ field: binding.unsupportedFields[0].field,
+        roleId: 'article.created', consumer: 'entity-lifecycle' }), /cannot be mapped/u);
+    change((binding) => binding.unsupportedFields.push(structuredClone(binding.unsupportedFields[0])), /duplicated/u);
+    change((binding) =>
+    {
+        binding.unsupportedFields[0].reason = '';
+    }, /canonical role\/reason/u);
+    change((binding) =>
+    {
+        binding.unsupportedFields[0].roleId = 'unknown.role';
+    }, /canonical role\/reason/u);
+    change((binding) =>
+    {
+        binding.unsupportedFields[0].observed = true;
+    }, /exact field, roleId and reason/u);
+    change((binding) =>
+    {
+        binding.scalarRoleIds = ['unknown.role'];
+    }, /canonical scalar roles/u);
+    change((binding) =>
+    {
+        binding.fieldMappings[0].roleId = 'unknown.role';
+    }, /unknown canonical role/u);
+    change((binding) =>
+    {
+        binding.fieldMappings[0].roleId = 'session.authenticated';
+    }, /outside its declared temporal shape/u);
+    change((binding) =>
+    {
+        binding.requiredRoleIds.pop();
+    }, /complete canonical role closure/u);
+});
+
+test('minimal scale xs source plan is schema valid and refuses its real historical ordering conflict', () =>
+{
+    // Exact dates/distribution from the supplied producer source. Coordinate strings below
+    // are isolated test inputs, not exported production identities or runtime observations.
+    const instant = (instantUtc) => ({ applicability: 'instant', instantUtc });
+    const entityPlan = {
+        schema: 'fsusblog.temporal-entity-plan.v1', sourcePlanDigest: sourceFingerprint,
+        distribution: { kind: 'scale', tier: 'scale-xs', ordinalBase: 1,
+            counts: { article: 1, comment: 0, audit: 0 },
+            stateCounts: { article: { draft: 0, scheduled: 0, published: 1, archived: 0, deleted: 0 },
+                comment: { approved: 0, pending: 0, rejected: 0, deleted: 0 }, audit: { recorded: 0 } },
+            rootNested: [] },
+        entities: [{ coordinate: { entityKind: 'article', semanticIdentity: 'controlled-source-article',
+            operationIdentity: 'controlled-source-operation', ordinal: 1, revisionNumber: 1,
+            publicationNumber: 1, publicationRevisionNumber: 1, articleIdentity: null },
+        state: 'published', stateFacts: { hasRevision: true, hasPublication: true },
+        facts: { 'article.created': instant('2024-02-29T23:59:58.000Z'),
+            'article.revision': instant('2024-02-29T23:59:59.000Z'),
+            'article.metadata-updated': instant('2024-02-29T23:59:59.000Z'),
+            'article.publication': instant('2024-02-28T23:59:59.000Z'),
+            'article.published': instant('2024-02-28T23:59:59.000Z') } }]
+    };
+    const schema = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/testing/resolved-temporal-roles.schema.json'), 'utf8'));
+    assert.deepEqual(validateJsonSchema(entityPlan, { $ref: '#/$defs/entityPlan', $defs: schema.$defs }), []);
+    assert.throws(() => resolveOrdinaryEntityPlan(entityPlan, 'scale-data'),
+        (error) => error.reasonCode === 'temporal.invariant-mismatch');
+});
+
+test('ordinary entity receipt transport binds exact histories context and unsupported source fields', () =>
+{
+    const temporalContext = context('development-demo');
+    const artifact = resolveOrdinaryEntityPlan();
+    const receipt = createTemporalDomainProducerReceipt(artifact, { temporalContext });
+    assert.equal(receipt.schema, 'fsusblog.temporal-entity-producer-receipt.v1');
+    assert.equal(receipt.qualificationEligible, false);
+    assert.equal(receipt.plan.contentDigest, artifact.entityPlanDigest);
+    assert.equal(receipt.entities[2].roles.find((role) => role.roleId === 'article.publication').applicability, 'not-generated');
+    assert.equal(receipt.entities[3].roles.find((role) => role.roleId === 'comment.edited').applicability, 'null');
+    assert.deepEqual(receipt.unsupportedFields, artifact.unsupportedFields);
+    const schema = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/testing/temporal-domain-producer-receipt.schema.json'), 'utf8'));
+    assert.deepEqual(validateJsonSchema(receipt, schema), []);
+    assert.equal(verifyTemporalDomainProducerReceipt(receipt, { artifact, temporalContext }).qualificationEligible, false);
+    const transport = createTemporalEntityTransport({ artifact, temporalContext });
+    assert.equal(transport.receiptFileName, 'temporal-domain-producer-receipt.json');
+    assert.equal(JSON.parse(transport.environment.FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON).contentDigest, artifact.contentDigest);
+    assert.equal(JSON.parse(transport.environment.FSUSBLOG_TEMPORAL_CONTEXT_JSON).producerId, 'development-demo');
+    for (const mutate of [
+        (value) =>
+        {
+            value.qualificationEligible = true;
+        },
+        (value) =>
+        {
+            value.entities[3].roles[1].applicability = 'not-generated';
+        },
+        (value) =>
+        {
+            value.plan.contentDigest = `sha256:${'0'.repeat(64)}`;
+        },
+        (value) =>
+        {
+            value.contextIdentity.sourceCommit = '0'.repeat(40);
+        }
+    ])
+    {
+        const invalid = structuredClone(receipt);
+        mutate(invalid);
+        assert.throws(() => verifyTemporalDomainProducerReceipt(invalid, { artifact, temporalContext }), /producer receipt differs/u);
+    }
+    assert.throws(() => createTemporalDomainProducerReceipt(artifact), /requires its original temporal context/u);
 });
