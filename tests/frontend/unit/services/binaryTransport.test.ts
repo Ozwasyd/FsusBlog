@@ -8,6 +8,7 @@ vi.mock('@/workers/wasmDecode.worker.ts?worker&url', () => ({
 }))
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 import { AppErrorCode } from '@/utils/appError'
+import { ARTICLE_LIST_ACCESS } from '@/generated/aedsAccessProfiles'
 import { encodeAedsFrame } from '@/api/binaryFrame'
 
 const { mockBinaryRequest } = vi.hoisted(() => {
@@ -807,8 +808,19 @@ describe('binaryTransport ApiError mapping', () => {
     }])
   })
 
+  it('refuses cursor v1 through the current ArticleList transport', async () => {
+    const currentFrame = currentArticleListFrame()
+    const payload = new Uint8Array(currentFrame, AEDS_HEADER_LENGTH).slice()
+    new DataView(payload.buffer).setInt32(4, 1, true)
+    mockBinaryRequest.mockResolvedValue(encodeAedsFrame(FrameType.ArticleList, payload))
+    await expect(requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_article_list_home_page_size_aeds', params: { page: 1, size: 10 } },
+      frameType: FrameType.ArticleList
+    })).rejects.toMatchObject({ kind: 'decode_failed', message: 'article_page_cursor_version_invalid' })
+  })
+
   it('maps an ArticleList frame into the expected page response', async () => {
-    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-list-frame.hex'))
+    mockBinaryRequest.mockResolvedValue(currentArticleListFrame())
 
     await expect(requestBinaryOnly<{
       total: number;
@@ -838,11 +850,11 @@ describe('binaryTransport ApiError mapping', () => {
         {
           id: 11,
 
-          currentRevisionId: '0',
+          currentRevisionId: '101',
 
           currentPublicationId: null,
 
-          revisionNo: 0,
+          revisionNo: 1,
 
           publicationNo: null,
 
@@ -1516,6 +1528,53 @@ describe('private request generation leases', () => {
     privateLease.release()
   })
 })
+
+// A current transport fixture; the cross-stack golden exporter remains owned by #1764.
+function currentArticleListFrame(): ArrayBuffer {
+  const slices: Uint8Array[] = []
+  let blobLength = 0
+  const addText = (text: string) => {
+    const bytes = new TextEncoder().encode(text)
+    const slice = { offset: blobLength, length: bytes.byteLength }
+    slices.push(bytes)
+    blobLength += bytes.byteLength
+    return slice
+  }
+  const items = [
+    { id: 11, views: 42, time: '2026-05-12T12:34:56.000Z', categoryId: 3, category: addText('Protocol'),
+      title: addText('Intro AEDS'), summary: addText('Binary protocol basics'), tagStart: 0, tagCount: 2, revisionId: 101n },
+    { id: 12, views: 7, time: '2026-05-13T08:00:00.000Z', categoryId: 4, category: addText('Frontend'),
+      title: addText('Hydration Fixes'), summary: addText(''), tagStart: 2, tagCount: 1, revisionId: 102n }
+  ]
+  const tags = [{ id: 9, name: addText('binary') }, { id: 10, name: addText('contract') }, { id: 11, name: addText('vue') }]
+  const payload = new Uint8Array(29 + blobLength + items.length * 100 + tags.length * 12)
+  const view = new DataView(payload.buffer)
+  view.setInt32(0, ARTICLE_LIST_ACCESS.cursorMagic, true)
+  view.setInt32(4, 2, true)
+  view.setInt32(9, 17, true)
+  view.setInt32(13, 0, true)
+  view.setInt32(17, items.length, true)
+  view.setInt32(21, tags.length, true)
+  view.setInt32(25, blobLength, true)
+  let offset = 29
+  for (const text of slices) { payload.set(text, offset); offset += text.byteLength }
+  const writeSlice = (at: number, slice: { offset: number; length: number }) => {
+    view.setInt32(at, slice.offset, true); view.setInt32(at + 4, slice.length, true)
+  }
+  for (const item of items) {
+    view.setInt32(offset, item.id, true); view.setInt32(offset + 4, item.views, true)
+    view.setBigInt64(offset + 8, BigInt(Date.parse(item.time)), true)
+    view.setInt32(offset + 16, item.categoryId, true)
+    writeSlice(offset + 20, item.category); writeSlice(offset + 28, item.title); writeSlice(offset + 36, item.summary)
+    view.setInt32(offset + 44, item.tagStart, true); view.setInt32(offset + 48, item.tagCount, true)
+    payload[offset + 53] = 1
+    view.setInt32(offset + 56, 2, true)
+    view.setBigInt64(offset + 76, item.revisionId, true); view.setInt32(offset + 84, 1, true)
+    offset += 100
+  }
+  for (const tag of tags) { view.setInt32(offset, tag.id, true); writeSlice(offset + 4, tag.name); offset += 12 }
+  return encodeAedsFrame(FrameType.ArticleList, payload)
+}
 
 function readProtocolFixtureBuffer(fileName: string): ArrayBuffer {
   const fixturePath = fileURLToPath(new URL(`../../../fixtures/protocol/${fileName}`, import.meta.url))
