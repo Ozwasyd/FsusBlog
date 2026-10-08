@@ -104,7 +104,22 @@ export async function probeLocaleMenuBrowserZoom({ chromium, expect, url, eviden
             expect(geometry.panel.right).toBeLessThanOrEqual(geometry.innerWidth + 1);
             expect(geometry.panel.top).toBeGreaterThanOrEqual(-1);
             expect(geometry.panel.bottom).toBeLessThanOrEqual(geometry.innerHeight + 1);
-            await page.screenshot({ path: path.join(evidenceRoot, `consumer-${variant.width}-${variant.theme}-real-browser-zoom2-${variant.forcedColors}.png`), fullPage: true });
+            // Capture the physical viewport without Playwright's full-page resize at tab zoom.
+            const session = await context.newCDPSession(page);
+            try
+            {
+                const capture = await session.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+                const png = Buffer.from(capture.data, 'base64');
+                expect(png.readUInt32BE(16)).toBe(variant.width);
+                expect(png.readUInt32BE(20)).toBe(900);
+                await fs.writeFile(path.join(evidenceRoot, `consumer-${variant.width}-${variant.theme}-real-browser-zoom2-${variant.forcedColors}.png`), png);
+                const afterCapture = await page.evaluate(() => ({ innerWidth: globalThis.innerWidth, dpr: globalThis.devicePixelRatio }));
+                expect(afterCapture).toEqual({ innerWidth: geometry.innerWidth, dpr: geometry.dpr });
+            }
+            finally
+            {
+                await session.detach();
+            }
             await page.keyboard.press('Escape');
             await expect(trigger).toBeFocused();
             await expect(menu).not.toBeAttached();
