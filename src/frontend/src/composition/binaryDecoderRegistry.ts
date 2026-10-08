@@ -18,10 +18,10 @@ import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAc
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
 import { decodeArticleCanvasLinkReceipt, decodeArticleCanvasLinkHistoryResponse } from '@/codecs/binary/articleCanvasLinkWire.generated';
 import { decodeArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadWire.generated';
-import { decodeAuthoringWorkspaceSnapshotResponse } from '@/codecs/binary/authoringWorkspaceSnapshotWire.generated';
-import { decodeWritingAidPreferenceReceipt, decodeWritingAidPreferenceSnapshot } from '@/codecs/binary/writingAidPreferenceWire.generated';
 import { decodeAuthorArticleSelectionRevalidationResponse } from '@/codecs/binary/authorArticleSelectionWire.generated';
+import { decodeAuthoringWorkspaceSnapshotResponse } from '@/codecs/binary/authoringWorkspaceSnapshotWire.generated';
 import { decodeDocumentExportJobResponse, decodeDocumentExportPageResponse } from '@/codecs/binary/documentExportWire.generated';
+import { decodeWritingAidPreferenceReceipt, decodeWritingAidPreferenceSnapshot } from '@/codecs/binary/writingAidPreferenceWire.generated';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
