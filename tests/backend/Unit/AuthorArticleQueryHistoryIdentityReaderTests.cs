@@ -98,7 +98,7 @@ public sealed class AuthorArticleQueryHistoryIdentityReaderTests
             {
                 var entry = new AuthorRecentArticleHistoryEntry(id, id * 10L,
                     new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMinutes(id), null, null,
-                    "open", id, string.Empty);
+                    "open", id, Hash($"entry:{id}"));
                 return entry with
                 {
                     ContentDigest = AuthorRecentArticleHistoryContract.ComputeEntryDigest(s_owner, entry)
