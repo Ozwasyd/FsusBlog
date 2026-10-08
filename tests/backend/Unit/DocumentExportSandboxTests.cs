@@ -55,6 +55,22 @@ public sealed class DocumentExportSandboxTests : IDisposable
             _fixture.Tool,
             _fixture.HostBuildDigest,
             result.OutputBytes);
+
+        DocumentExportSandboxResult temporaryResult = await _fixture.CreateSandbox().ExecuteAsync(
+            task,
+            input,
+            _fixture.Tool,
+            DocumentExportTestToolFixture.RequestBytes(input, "tmp-control"));
+        DocumentExportSandboxRuntime.ValidateReceipt(
+            temporaryResult.Receipt,
+            temporaryResult.Plan,
+            task,
+            input,
+            _fixture.Tool,
+            _fixture.HostBuildDigest,
+            temporaryResult.OutputBytes);
+        Assert.NotEqual(result.Receipt.RunId, temporaryResult.Receipt.RunId);
+        Assert.Empty(Directory.EnumerateDirectories(_fixture.RunsRoot));
     }
 
     [Fact]
@@ -289,12 +305,19 @@ public sealed class DocumentExportSandboxTests : IDisposable
         => AssertBudget("stderr-budget", "stderr-budget");
 
     [Fact]
-    public Task FileCountBudgetTerminatesAndSealsFailureReceipt()
-        => AssertBudget("file-count-budget", "file-count-budget");
+    public async Task FileCountBudgetTerminatesAndSealsFailureReceipt()
+    {
+        await AssertBudget("file-count-budget", "file-count-budget");
+        await AssertBudget("tmp-file-count-budget", "file-count-budget");
+    }
 
     [Fact]
-    public Task FileBytesBudgetTerminatesAndSealsFailureReceipt()
-        => AssertBudget("file-bytes-budget", "file-bytes-budget");
+    public async Task FileBytesBudgetTerminatesAndSealsFailureReceipt()
+    {
+        await AssertBudget("file-bytes-budget", "file-bytes-budget");
+        await AssertBudget("tmp-file-bytes-budget", "file-bytes-budget");
+        await AssertBudget("tmp-aggregate-bytes-budget", "file-bytes-budget");
+    }
 
     [Fact]
     public async Task InputAndMessageBudgetsRejectBeforeRunAdmission()
@@ -585,6 +608,11 @@ public sealed class DocumentExportSandboxTests : IDisposable
         Assert.Equal("/usr/bin/bwrap", start.FileName);
         Assert.Contains("--clearenv", start.ArgumentList);
         Assert.DoesNotContain("PATH", start.ArgumentList);
+        int temporaryMountIndex = start.ArgumentList.IndexOf("/tmp");
+        Assert.True(temporaryMountIndex >= 2);
+        Assert.Equal("--bind", start.ArgumentList[temporaryMountIndex - 2]);
+        Assert.Equal(Path.Combine(runRoot, "work"), start.ArgumentList[temporaryMountIndex - 1]);
+        Assert.DoesNotContain("--tmpfs", start.ArgumentList);
     }
 
     [Theory]

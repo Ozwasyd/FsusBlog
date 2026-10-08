@@ -103,6 +103,11 @@ and failure receipt admission bind that identity to the plan, including failures
 before a process starts. Resealing a different run's unit or cgroup identity does
 not authorize the receipt.
 
+The sandbox mounts the same run-owned work root at `/tmp` and `/sandbox/work`.
+Temporary files enter the existing file-count, per-file and aggregate-byte
+observations once and share the original run-root cleanup. No host temporary
+root or separate execution authority is exposed.
+
 Cgroup drain requires both an observed zero business-process count and an unpopulated cgroup. Finalization reobserves a still-positive count within the existing bounded cleanup polling schedule even when population is already empty; authority cleanup refuses either nonempty signal and never substitutes a synthetic zero count.
 
 Each export transient service belongs to one exact run-private accounting slice under `app.slice`. The same authority binds the service, run and slice before accepting any counters, refuses direct parent processes or foreign child cgroups, and reads the parent's retained native pids peak/events after the service cgroup retires. Service hard limits still apply before `ExecStart`; no keeper process or larger budget is introduced. Physical cleanup removes both the service and its private accounting cgroup. A terminal service without its exact retained accounting owner cannot qualify process accounting.

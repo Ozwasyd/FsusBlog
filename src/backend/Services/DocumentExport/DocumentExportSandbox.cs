@@ -1136,10 +1136,12 @@ public sealed class DocumentExportSandboxRuntime
             UseShellExecute = false,
             WorkingDirectory = runRoot
         };
+        // Both aliases mount the stable run-owned work root: temporary files
+        // cannot detach a child source directory and are budgeted once with work files.
         AddArguments(startInfo,
             "--unshare-all", "--new-session", "--clearenv",
             "--proc", "/proc", "--dev", "/dev",
-            "--tmpfs", "/tmp",
+            "--bind", workRoot, "/tmp",
             "--dir", "/broker",
             "--ro-bind", brokerExecutablePath, SandboxExecutable,
             "--ro-bind", brokerRuntimeRoot, "/tool",
