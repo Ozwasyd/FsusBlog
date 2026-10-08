@@ -195,7 +195,7 @@ describe('global search canonical reveal presentation (#2319)', () =>
         }
     });
 
-    it.each(['evaluation', 'candidate', 'raw-range'] as const)(
+    it.each(['evaluation', 'candidate', 'raw-range', 'snippet-evaluation', 'snippet-evidence'] as const)(
         'does not promote unadmitted internal index %s evidence to an exact source reveal', kind =>
         {
             const state = open();
@@ -203,8 +203,9 @@ describe('global search canonical reveal presentation (#2319)', () =>
             const receipts = state.anchor.receipts;
             const context = state.owner.context;
             // Untrusted boundary samples, not a production response or a wire codec.
-            // Record names follow AuthorFullTextSearchQueryEvaluator at ac85bda.
+            // Record names follow the original evaluator/snippet stage at aa67f03.
             const privateEpoch = 'PRIVATE_INTERNAL_SOURCE_EPOCH';
+            const privateText = 'PRIVATE_INTERNAL_SNIPPET_TEXT';
             const range = {
                 Authority: 'fsusui.markdown-source-coordinate-map', ParserVersion: 'explicit-algorithm-fixture',
                 DocumentEpoch: privateEpoch, SourceRevision: 1, SourceDigest: `sha256:${'0'.repeat(64)}`,
@@ -218,13 +219,32 @@ describe('global search canonical reveal presentation (#2319)', () =>
                 QueryDigest: `sha256:${'1'.repeat(64)}`, IndexGeneration: 1, SourceGeneration: 1,
                 SnapshotDigest: `sha256:${'2'.repeat(64)}`, Candidates: [candidate]
             };
-            const input = kind === 'evaluation' ? evaluation : kind === 'candidate' ? candidate : range;
+            const snippetEvidence = {
+                Document: candidate.Document,
+                Snippet: {
+                    DocumentDigest: `sha256:${'3'.repeat(64)}`, SourceDigest: range.SourceDigest,
+                    Field: 2, HeadingIdentity: null, Context: range, Highlights: [range],
+                    TruncatedBefore: true, TruncatedAfter: true
+                },
+                RawText: privateText, RawTextDigest: `sha256:${'4'.repeat(64)}`
+            };
+            const snippetEvaluation = {
+                QueryDigest: evaluation.QueryDigest, IndexGeneration: evaluation.IndexGeneration,
+                SourceGeneration: evaluation.SourceGeneration, SnapshotDigest: evaluation.SnapshotDigest,
+                Snippets: [snippetEvidence]
+            };
+            const inputs = {
+                evaluation, candidate, 'raw-range': range,
+                'snippet-evaluation': snippetEvaluation, 'snippet-evidence': snippetEvidence
+            };
+            const input = inputs[kind];
             const result = projectArticleSearchReveal(input, state.runtime, lease);
             expect(result).toEqual({
                 status: 'rejected', precision: null, exact: false, approximate: false,
                 reason: 'search-reveal-command-invalid', commandDigest: null
             });
             expect(JSON.stringify(result)).not.toContain(privateEpoch);
+            expect(JSON.stringify(result)).not.toContain(privateText);
             expect(state.owner.context).toBe(context);
             expect(state.anchor.receipts).toEqual(receipts);
             expect(lease.isCurrent()).toBe(true);
@@ -323,18 +343,21 @@ describe('global search canonical reveal presentation (#2319)', () =>
     {
         const state = open();
         const secret = 'PRIVATE_INTERNAL_QUERY_PAYLOAD';
-        const presentation = projectArticleSearchReveal({ Candidates: [secret] }, state.runtime, state.lease());
-        const view = mount(ArticleSearchRevealStatus, {
-            props: {
-                ...revealLabels, presentation, label: '原文定位',
-                statusLabels: { ...revealLabels.statusLabels, rejected: '<img src=x onerror=alert(1)> 无法定位' }
-            }
-        });
-        cleanup.push(() => view.unmount());
-        expect(view.get('output').attributes('aria-label')).toBe('原文定位');
-        expect(view.text()).toContain('<img src=x onerror=alert(1)> 无法定位');
-        expect(view.find('img').exists()).toBe(false);
-        expect(view.html()).not.toContain(secret);
-        expect(view.text()).not.toContain(presentation.reason);
+        for (const evidence of [{ Candidates: [secret] }, { Snippets: [{ RawText: secret }] }])
+        {
+            const presentation = projectArticleSearchReveal(evidence, state.runtime, state.lease());
+            const view = mount(ArticleSearchRevealStatus, {
+                props: {
+                    ...revealLabels, presentation, label: '原文定位',
+                    statusLabels: { ...revealLabels.statusLabels, rejected: '<img src=x onerror=alert(1)> 无法定位' }
+                }
+            });
+            cleanup.push(() => view.unmount());
+            expect(view.get('output').attributes('aria-label')).toBe('原文定位');
+            expect(view.text()).toContain('<img src=x onerror=alert(1)> 无法定位');
+            expect(view.find('img').exists()).toBe(false);
+            expect(view.html()).not.toContain(secret);
+            expect(view.text()).not.toContain(presentation.reason);
+        }
     });
 });
