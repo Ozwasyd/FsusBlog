@@ -1,0 +1,10 @@
+{
+    "number": 3900,
+    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "draft": true,
+    "title": "feat(contracts): add coordinate-bound Vault readers and conflict classification",
+    "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "remoteSourceHead": "c830db41795f78b8442772f2df895c186547bb97",
+    "bodySha256": "0c561a969497e841b377e8b3bb3eeef792412505304348043c83b9d220c230ea",
+    "contentWritesQueued": true
+}

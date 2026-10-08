@@ -1,0 +1,55 @@
+{
+    "productionSource": "c830db41795f78b8442772f2df895c186547bb97",
+    "supplementaryTestSource": "69f1c59b87c6a8ff4298cbab7f484228ec6d16ef",
+    "latestFetchedMaster": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+    "branch": "codex/chain-3582-current-acceptance-20261008",
+    "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "backend": {
+        "passed": 327,
+        "failed": 0,
+        "skipped": 0,
+        "realPostgresCases": 36
+    },
+    "frontend": {
+        "passed": 27,
+        "failed": 0
+    },
+    "supplementaryJournal": {
+        "passed": 53,
+        "journalCases": 13
+    },
+    "prototype": {
+        "scenarios": 10,
+        "reportSha256": "3da51821b0b7e80d1718cc8e1e27d5b238c981700708a94544082bbcfdc6f6c8",
+        "syntheticOnly": true
+    },
+    "gates": {
+        "lockedSdkBackend": 0,
+        "openapiOriginalProducer": 0,
+        "frontendLocalFsusUITypecheckAt2c": 0,
+        "aedsOriginalProducer": 0,
+        "documentLifecycle": 0,
+        "sourceScannerOriginalTests": 0,
+        "matrix": 1,
+        "convergence": 1,
+        "remotePrContract": 1,
+        "ownNewCommitRange": 0,
+        "repositorySources": 0,
+        "masterMergePreview": 0
+    },
+    "notQualified": [
+        "dedicated recovery key/protection provider",
+        "native backup capture, conditional write, final readback and base",
+        "current conflict decision/candidate execution admission",
+        "IPC handoff/runtime integration",
+        "production migration/restore",
+        "real cookie/browser/product terminal flow",
+        "whole assignment acceptance"
+    ],
+    "phaseBarrier": {
+        "merged": false,
+        "closed": false,
+        "deployed": false,
+        "accepted": false
+    }
+}

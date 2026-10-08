@@ -1,0 +1,55 @@
+{
+    "candidate": "69f1c59b87c6a8ff4298cbab7f484228ec6d16ef",
+    "productionSourceCandidate": "c830db41795f78b8442772f2df895c186547bb97",
+    "productionChangesSinceSource": [],
+    "exitCode": 0,
+    "counts": {
+        "total": "53",
+        "executed": "53",
+        "passed": "53",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "times": {
+        "creation": "2026-10-08T11:51:55.6444547+00:00",
+        "queuing": "2026-10-08T11:51:55.6444547+00:00",
+        "start": "2026-10-08T11:51:53.9972181+00:00",
+        "finish": "2026-10-08T11:51:56.9701319+00:00"
+    },
+    "classCounts": {
+        "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests": 37,
+        "FsusBlog.ArticleVault.Linux.Tests.ArticleVaultRecoveryJournalTests": 13,
+        "FsusBlog.Server.Tests.Unit.ArticleVaultOperationAuthorityTests": 3
+    },
+    "command": [
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--configuration",
+        "Release",
+        "-p:RestoreLockedMode=true",
+        "--filter",
+        "FullyQualifiedName~ArticleVaultRecoveryJournalTests|FullyQualifiedName~ArticleVaultExecutionTests|FullyQualifiedName~ArticleVaultOperationAuthorityTests",
+        "--logger",
+        "trx;LogFileName=journal-394-current.trx",
+        "--results-directory",
+        ".tmp/chain-3582-expanded/journal-394-results"
+    ],
+    "nativeOrProductQualified": false,
+    "assemblyHashes": {
+        "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "bcf0e8ed165f46d0169c04e4690e7e421ddd7311c370f0e7acca623d9eeba9b8",
+        "tests/backend/bin/Release/net10.0/FsusBlog.Server.dll": "211c8ce299d477a4295f2f5cbf2b04957e11df670417306fdebcc9329e53ef4f",
+        "tests/backend/bin/Release/net10.0/FsusBlog.Shared.dll": "7dc3d99eab83e6395e7f82505c712780845d69e18bb0e78b52abaa32e2d3e92b"
+    }
+}

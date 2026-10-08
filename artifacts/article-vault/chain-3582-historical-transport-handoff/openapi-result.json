@@ -1,0 +1,15 @@
+{
+    "candidate": "c830db41795f78b8442772f2df895c186547bb97",
+    "endCandidate": "c830db41795f78b8442772f2df895c186547bb97",
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "startedAt": "2026-10-08T11:47:59.191217+00:00",
+    "endedAt": "2026-10-08T11:48:23.263450+00:00",
+    "command": [
+        "node",
+        "tools/contracts/check-openapi-sync.mjs"
+    ],
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/chain-3582-expanded/stage-394-frozen/openapi.log",
+    "nativeOrProductQualified": false
+}

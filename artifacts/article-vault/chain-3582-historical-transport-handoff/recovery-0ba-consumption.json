@@ -1,0 +1,106 @@
+{
+    "canonical": "0ba8e8eca81798f07540aaec232e1abaffb7e2b2",
+    "files": [
+        {
+            "path": "src/backend/Services/ArticleVault/PostgresArticleVaultResolutionProposalStore.cs",
+            "canonicalSha256": "091ef1a2beb97e6de9f1c88cc6b74b8bcac90ed4f90ae54a6b2d859e609e3723",
+            "previousSha256": null
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryStorage.cs",
+            "canonicalSha256": "23dbe4a8d90fb14703a1cc92fe4ffc98b1b0ffcf640a6dbdc7afc77bde18c473",
+            "previousSha256": null
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryStoredProposalReader.cs",
+            "canonicalSha256": "9b256a68b2df7ba0b2dd29dae1f37f6c5658bc2383052ca4d09e8049d4d27896",
+            "previousSha256": null
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/PostgresArticleVaultRecoveryStorage.cs",
+            "canonicalSha256": "775cb9acab4e00684154c72153ed87f5a2cc04851f6d28b7e91cf2e8d035dccc",
+            "previousSha256": null
+        },
+        {
+            "path": "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
+            "canonicalSha256": "01fc0cc5e3c9e0ca7db7e4401a991329cdad682cf24e0fae9b5cc72bff38f56e",
+            "previousSha256": "d25a0d0ef6c404f4a6fbb2e1a647d4588fe30d8dcbcf8a2554fecd35cd6e05f7"
+        },
+        {
+            "path": "src/migration/Definitions/ArticleVaultRecoveryStorageMigrationDefinitions.cs",
+            "canonicalSha256": "72a6fba619dbb551d1346abe28a37adcfb3cb87085862b3570c473e727db135d",
+            "previousSha256": null
+        },
+        {
+            "path": "src/migration/Definitions/ArticleVaultResolutionProposalMigrationDefinitions.cs",
+            "canonicalSha256": "79023352d27c4fb80b9c163c5487ce8ac96b231dfd7c35f305b2ce19558f9b3f",
+            "previousSha256": null
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryStorageContracts.cs",
+            "canonicalSha256": "1b3b72c0aaef5daf8dbadab342bb78ef53f0b6c79ef4926011c469f189fafd5b",
+            "previousSha256": null
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultResolutionOperationPlan.cs",
+            "canonicalSha256": "6cbc59d6bb036e1693e85e0e6b549d4bad35476079c24ca6386cb6d5f9e421b3",
+            "previousSha256": null
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs",
+            "canonicalSha256": "c0b4251bc8277617093f5fc82cace5555e917b19a653951cd9765a2915b6cbfe",
+            "previousSha256": "35a6f7b661d4d8fdaff5ee601c1102d3b117a7822ba9bc1bf979e0ec126bdb35"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryJournal.cs",
+            "canonicalSha256": "e1c88147cd7ee335cfff18c78ec0cfeb3b214c50b737f4eaa5e8640e6867d569",
+            "previousSha256": "e8a5cc83461bd16722ae75bd31c6565c99ebb5929ec966b41dde300a54821064"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleVault/ArticleVaultOperationVerifier.cs",
+            "canonicalSha256": "1f856efbd1714321c95b0e1c5db99c95709261e1ecdd69a1461425b3111ed23b",
+            "previousSha256": "222e96f03693c7265d8d820110d717986b13cc033266616257482b87ffb90251"
+        },
+        {
+            "path": "tests/backend/Helpers/TestInfrastructure/ArticleVaultResolutionProposalFixture.cs",
+            "canonicalSha256": "73bcb7143fb21551acdc2ccb5f9753dbfa82724f01bc52fa35192814cc1dadea",
+            "previousSha256": null
+        },
+        {
+            "path": "tests/backend/Integration/ArticleVaultRecoveryStoragePostgresTests.cs",
+            "canonicalSha256": "f37013f19014c84f758d03e848664257dc7a76372a257d4d6b2a8b4165a7d183",
+            "previousSha256": null
+        },
+        {
+            "path": "tests/backend/Integration/ArticleVaultResolutionProposalPostgresTests.cs",
+            "canonicalSha256": "07da6405bcb6f144f3629af22393bcda12ccc70663b6d37f20f17b818df2e730",
+            "previousSha256": null
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryStorageContractTests.cs",
+            "canonicalSha256": "c73aa6c62db04f7109a99401be2d222b8c0b46c3542b4a4597cb8650aba4210b",
+            "previousSha256": null
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryStoredProposalReaderTests.cs",
+            "canonicalSha256": "b96a62dd82282ac16787c0882df2471aa1f12028aa69998168da19188c3d323f",
+            "previousSha256": null
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultResolutionOperationPlanTests.cs",
+            "canonicalSha256": "50d01cf11c7a2f6affab91adfec275b44d926309836616dba0513287c512b939",
+            "previousSha256": null
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultResolutionProposalStorageTests.cs",
+            "canonicalSha256": "ff7a0a0cb32d71d5e8ddbfd3cdbc49e59692de3b0d6c0b06de5589bbd3463efe",
+            "previousSha256": null
+        },
+        {
+            "path": "tests/backend/Unit/ArticleVaultRecoveryCheckpointReaderTests.cs",
+            "canonicalSha256": "fa742c99cb2c235a65ae46a322d714b513a1b87ed150d7f66b42db8de1beec99",
+            "previousSha256": "2f147835bceb52e431587a2369c402286aa75adf440b694e0611cd54f1339977"
+        }
+    ],
+    "ordinaryConflictResolution": "resolution plan differs only by the sole owner TryDeserialize; consume exact owner blob. No deletion of root or sibling additions."
+}
