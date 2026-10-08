@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const source = fs.readFileSync(new URL('./check-frontend-style.mjs', import.meta.url), 'utf8');
+const authorityRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const { parse } = createRequire(new URL('./style-toolchain/package.json', import.meta.url))('espree');
 const declaration = parse(source, { ecmaVersion: 'latest', sourceType: 'module' }).body
     .find((node) => node.type === 'ExportNamedDeclaration' && node.declaration?.id?.name === 'materializeSourceDiffBase')
@@ -17,7 +18,7 @@ const declaration = parse(source, { ecmaVersion: 'latest', sourceType: 'module' 
 assert.ok(declaration, 'the actual checker must contain the materializer');
 // Execute only the actual pure-data helper body, never the checker main or an imported repository module.
 const materialize = new vm.Script(`(${source.slice(declaration.start, declaration.end)})`).runInNewContext({
-    fs, path, spawnSync, createRequire, Buffer,
+    fs, path, spawnSync, createRequire, Buffer, authorityRoot,
     sha256: (value) => crypto.createHash('sha256').update(value).digest('hex'),
     gitBlobDigest: (value) => crypto.createHash('sha1').update(`blob ${value.length}\0`).update(value).digest('hex')
 });
@@ -28,7 +29,7 @@ function importContext(root)
     const node = parse(source, { ecmaVersion: 'latest', sourceType: 'module' }).body
         .find((candidate) => candidate.type === 'FunctionDeclaration' && candidate.id.name === 'sourceDiffImportContext');
     return new vm.Script(`(${source.slice(node.start, node.end)})`).runInNewContext({
-        root, fs, path, createRequire, process,
+        root, authorityRoot, fs, path, createRequire, process,
         toPosix: (value) => value.split(path.sep).join('/'),
         command: (args) => spawnSync(args[0], args.slice(1), { cwd: root, encoding: 'utf8' }),
         sha256: (value) => crypto.createHash('sha256').update(value).digest('hex'),
