@@ -32,9 +32,7 @@ public sealed class CommentAnonymousFixtureProviderTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ASPNETCORE_ENVIRONMENT"] = "Development",
-                ["AnonymousIdentity:ZkProd:Enabled"] = "false",
-                ["AnonymousIdentity:ZkProd:CredentialReady"] = "false",
-                ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "false"
+                ["AnonymousIdentity:ZkCommentPolicy:Enabled"] = "false",
             })
             .Build();
 
@@ -45,9 +43,9 @@ public sealed class CommentAnonymousFixtureProviderTests
         Assert.True(simulation.GetValue<bool>("AnonymousIdentity:ZkVerifier:Enabled"));
         Assert.True(simulation.GetValue<bool>("AnonymousIdentity:ZkVerifier:LocalDevFixture:Enabled"));
         Assert.Equal(LocalDevZkProofBackend.BackendName, simulation["AnonymousIdentity:ZkVerifier:Backend"]);
-        Assert.False(simulation.GetValue<bool>("AnonymousIdentity:ZkProd:Enabled"));
-        Assert.False(simulation.GetValue<bool>("AnonymousIdentity:ZkProd:CredentialReady"));
-        Assert.False(simulation.GetValue<bool>("AnonymousIdentity:ZkProd:TrustedSetupVerified"));
+        Assert.False(simulation.GetValue<bool>("AnonymousIdentity:ZkCommentPolicy:Enabled"));
+        Assert.DoesNotContain(simulation.GetSection("AnonymousIdentity:ZkCommentPolicy").GetChildren(),
+            static key => key.Key is "CredentialReady" or "TrustedSetupVerified");
     }
 
     [Fact]
@@ -79,9 +77,9 @@ public sealed class CommentAnonymousFixtureProviderTests
             CancellationToken.None);
 
         Assert.True(result.Verified);
-        Assert.True(simulation.CurrentZkProdPolicy.Enabled);
-        Assert.True(simulation.CurrentZkProdPolicy.CredentialRequired);
-        Assert.Empty(simulation.CurrentZkProdPolicy.UnavailableReason);
+        Assert.True(simulation.CurrentZkCommentPolicy.Enabled);
+        Assert.True(simulation.CurrentZkCommentPolicy.CredentialRequired);
+        Assert.Empty(simulation.CurrentZkCommentPolicy.UnavailableReason);
         await inner.Received(1).VerifyCommentProofAsync(request, CancellationToken.None);
     }
 

@@ -48,12 +48,12 @@ const configuration = configPaths
     .map((file) => readJsonc(resolveRepoPath(file)))
     .reduce((merged, current) => deepMerge(merged, current), {});
 
-const zkProd = readSection(configuration, ['AnonymousIdentity', 'ZkProd']);
+const zkCommentPolicy = readSection(configuration, ['AnonymousIdentity', 'ZkCommentPolicy']);
 const zkVerifier = readSection(configuration, ['AnonymousIdentity', 'ZkVerifier']);
 const credentialIssuer = readSection(configuration, ['AnonymousCredentialIssuer', 'BlindRsa']);
 
-const enabled = readBoolEnv('FSUSBLOG_ZK_PROD_ENABLED')
-  ?? readBool(zkProd.Enabled)
+const enabled = readBoolEnv('FSUSBLOG_ZK_COMMENT_POLICY_ENABLED')
+  ?? readBool(zkCommentPolicy.Enabled)
   ?? false;
 const requireEnabled = Boolean(args.requireEnabled);
 
@@ -62,8 +62,22 @@ if (requireEnabled && !enabled)
     errors.push('ZkProd must be enabled for this release gate invocation.');
 }
 
-checkFalse('AnonymousIdentity:ZkProd:AllowDevVerifier', zkProd.AllowDevVerifier);
-checkFalse('AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous', zkProd.FallbackToLegacyAnonymous);
+if (Object.hasOwn(configuration.AnonymousIdentity ?? {}, 'ZkProd'))
+{
+    errors.push('AnonymousIdentity:ZkProd is a retired configuration section.');
+}
+for (const key of Object.keys(zkCommentPolicy))
+{
+    if (!['Enabled', 'RequireCredential', 'RequireTrustedSetupVerified'].includes(key))
+    {
+        errors.push(`AnonymousIdentity:ZkCommentPolicy:${key} is unknown or forbidden.`);
+    }
+}
+if (Object.hasOwn(zkVerifier.NativeGroth16 ?? {}, 'VerifyingKeyHash') ||
+    Object.hasOwn(zkVerifier.NativeGroth16 ?? {}, 'VerifyingKeySha256'))
+{
+    errors.push('AnonymousIdentity:ZkVerifier:NativeGroth16 duplicate verifying-key hash is forbidden.');
+}
 checkRollbackDocument();
 checkCommentPrivacyCredentialVault();
 
@@ -72,7 +86,7 @@ if (!enabled && !requireEnabled)
     checks.push({
         id: 'zk-prod-disabled-safe-baseline',
         status: 'ok',
-        detail: 'ZkProd is disabled; production anonymous comment crypto remains fail-closed and legacy comment paths are unchanged.'
+        detail: 'ZkProd is disabled; production anonymous comment crypto remains fail-closed.'
     });
 }
 else
@@ -107,16 +121,13 @@ console.log(`[privacy-zk-prod-release] ok summary=${toRepoRelative(summaryPath)}
 
 function checkEnabledProductionReadiness()
 {
-    checkTrue('AnonymousIdentity:ZkProd:RequireNativeVerifier', zkProd.RequireNativeVerifier);
-    checkTrue('AnonymousIdentity:ZkProd:RequireTrustedSetupVerified', zkProd.RequireTrustedSetupVerified);
-    checkTrue('AnonymousIdentity:ZkProd:RequireCredential', zkProd.RequireCredential);
-    checkTrue('AnonymousIdentity:ZkProd:TrustedSetupVerified', zkProd.TrustedSetupVerified);
-    checkTrue('AnonymousIdentity:ZkProd:CredentialReady', zkProd.CredentialReady);
+    checkTrue('AnonymousIdentity:ZkCommentPolicy:RequireTrustedSetupVerified', zkCommentPolicy.RequireTrustedSetupVerified);
+    checkTrue('AnonymousIdentity:ZkCommentPolicy:RequireCredential', zkCommentPolicy.RequireCredential);
 
-    const backend = normalizeString(zkProd.VerifierBackend ?? zkVerifier.Backend);
+    const backend = normalizeString(zkVerifier.Backend);
     if (backend !== 'native_groth16')
     {
-        errors.push('AnonymousIdentity:ZkProd:VerifierBackend must be native_groth16 when ZkProd is enabled.');
+        errors.push('AnonymousIdentity:ZkVerifier:Backend must be native_groth16 when ZkProd is enabled.');
     }
     else
     {
@@ -125,25 +136,22 @@ function checkEnabledProductionReadiness()
 
     const nativeLibraryPath = normalizeString(
         process.env.FSUSBLOG_ZK_NATIVE_VERIFIER_LIB
-      ?? zkVerifier.NativeLibraryPath
-      ?? zkVerifier.NativeGroth16?.LibraryPath
-      ?? zkProd.NativeVerifierLibraryPath);
+      ?? zkVerifier.NativeGroth16?.LibraryPath);
     checkNativeVerifierLibrary(nativeLibraryPath);
 
     const trustedSetupPath = normalizeString(
         args.trustedSetupManifest
       ?? process.env.FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST
-      ?? zkProd.TrustedSetupManifestPath
+      ?? zkVerifier.TrustedSetupManifestPath
       ?? DEFAULT_TRUSTED_SETUP);
     const setup = checkTrustedSetupManifest(trustedSetupPath);
 
     const expectedVkHash = normalizeString(
         process.env.FSUSBLOG_ZK_VERIFYING_KEY_HASH
-      ?? zkProd.VerifyingKeyHash
       ?? zkVerifier.VerifyingKeyHash);
     if (!expectedVkHash)
     {
-        errors.push('AnonymousIdentity:ZkProd:VerifyingKeyHash or AnonymousIdentity:ZkVerifier:VerifyingKeyHash is required.');
+        errors.push('AnonymousIdentity:ZkVerifier:VerifyingKeyHash is required.');
     }
     else if (setup?.verifying_key_hash && setup.verifying_key_hash !== expectedVkHash)
     {
@@ -152,6 +160,20 @@ function checkEnabledProductionReadiness()
     else
     {
         checks.push({ id: 'verifying-key-hash-bound', status: 'ok', detail: expectedVkHash });
+    }
+
+    const verifyingKeyManifestPath = normalizeString(zkVerifier.VerifyingKeyManifestPath);
+    if (!verifyingKeyManifestPath || !existsSync(resolveRepoPath(verifyingKeyManifestPath)))
+    {
+        errors.push('AnonymousIdentity:ZkVerifier:VerifyingKeyManifestPath must identify an existing production manifest.');
+    }
+    else
+    {
+        const manifest = readJsonc(resolveRepoPath(verifyingKeyManifestPath));
+        if (manifest.production_usable !== true || manifest.verifying_key_hash !== expectedVkHash)
+        {
+            errors.push('verifying-key manifest must be production_usable and match the sole verifier hash.');
+        }
     }
 
     const issuerPublicKeyHash = normalizeString(
@@ -170,14 +192,12 @@ function checkEnabledProductionReadiness()
     const smokeEvidencePath = normalizeString(
         args.smokeEvidence
       ?? process.env.FSUSBLOG_ZK_PROD_SMOKE_EVIDENCE
-      ?? zkProd.SmokeEvidencePath
       ?? DEFAULT_SMOKE_EVIDENCE);
     checkSmokeEvidence(smokeEvidencePath, expectedVkHash, setup);
 
     const rootBootstrapEvidencePath = normalizeString(
         args.rootBootstrapEvidence
       ?? process.env.FSUSBLOG_ZK_ROOT_BOOTSTRAP_EVIDENCE
-      ?? zkProd.RootBootstrapEvidencePath
       ?? DEFAULT_ROOT_BOOTSTRAP_EVIDENCE);
     checkRootBootstrapEvidence(rootBootstrapEvidencePath, expectedVkHash, setup);
 
@@ -206,17 +226,6 @@ function checkNativeVerifierLibrary(rawPath)
     }
 
     return checkExistingFile('native-verifier-library', rawPath);
-}
-
-function checkFalse(key, value)
-{
-    if (readBool(value) === true)
-    {
-        errors.push(`${key} must be false for production ZK release.`);
-        return;
-    }
-
-    checks.push({ id: key, status: 'ok', detail: 'false' });
 }
 
 function checkTrue(key, value)
@@ -606,7 +615,7 @@ function checkRollbackDocument()
         .map((file) => readFileSync(resolveRepoPath(file), 'utf8'))
         .join('\n');
     const hasRollback = content.includes('check:privacy-zk-prod-release') &&
-    content.includes('AnonymousIdentity:ZkProd:Enabled=false') &&
+    content.includes('AnonymousIdentity:ZkCommentPolicy:Enabled=false') &&
     content.includes('不删除已写入的匿名评论');
     if (!hasRollback)
     {

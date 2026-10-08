@@ -40,10 +40,8 @@ describe('comment policy readiness contract', () => {
         [{ zkProdUnavailableReason: 'native_backend_required' }, CommentPolicyReadiness.VerifierMissing],
         [{ zkProdTrustedSetupVerified: false, zkProdUnavailableReason: 'trusted_setup_unverified' }, CommentPolicyReadiness.TrustedSetupUnverified],
         [{ zkProdCredentialRootReady: false, zkProdUnavailableReason: 'credential_root_unavailable' }, CommentPolicyReadiness.CredentialRootMissing],
-        [{ zkProdUnavailableReason: 'credential_unready' }, CommentPolicyReadiness.CredentialRootMissing],
         [{ zkProdUnavailableReason: 'credential_issuer_unavailable' }, CommentPolicyReadiness.CredentialRootMissing],
         [{ zkProdCredentialRequired: false, zkProdUnavailableReason: '' }, CommentPolicyReadiness.PolicyUnavailable],
-        [{ zkProdUnavailableReason: 'dev_verifier_disallowed' }, CommentPolicyReadiness.PolicyUnavailable]
     ] as const)('fails closed for a non-ready production state (%j -> %s)', (changes, expected) => {
         const policy = finalizeCommentPolicySnapshot({ ...readySnapshot, ...changes })
 
@@ -53,6 +51,9 @@ describe('comment policy readiness contract', () => {
 
     it.each([
         { zkProdUnavailableReason: 'future_unknown_reason' },
+        { zkProdUnavailableReason: 'dev_verifier_disallowed' },
+        { zkProdUnavailableReason: 'legacy_fallback_disallowed' },
+        { zkProdUnavailableReason: 'credential_unready' },
         { zkProdEnabled: 'true' },
         { snapshotHash: '' },
         { supportedDisplayLanguages: 'zh-CN' }

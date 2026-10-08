@@ -67,7 +67,7 @@ public static partial class BinaryEndpoints
             }
             CommentPolicySnapshotCoreModel snapshot = ToCommentPolicyCore(
                 policy,
-                zkProofService.CurrentZkProdPolicy);
+                zkProofService.CurrentZkCommentPolicy);
             return BinaryResults.Frame(
                 aeds,
                 AedsFrameType.CommentPolicySnapshot,
@@ -904,7 +904,7 @@ public static partial class BinaryEndpoints
         IZkAnonymousProofService zkProofService,
         CancellationToken cancellationToken)
     {
-        if (!IsZkProdTicketReady(zkProofService.CurrentZkProdPolicy))
+        if (!IsZkProdTicketReady(zkProofService.CurrentZkCommentPolicy))
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.InfraFailure, "anonymous_comment_ticket_unavailable"),
@@ -936,7 +936,7 @@ public static partial class BinaryEndpoints
             : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.PublicMessage), aeds);
     }
 
-    private static bool IsZkProdTicketReady(ZkProdPolicySnapshot policy)
+    private static bool IsZkProdTicketReady(ZkCommentPolicySnapshot policy)
         => policy.Enabled &&
             policy.NativeVerifierConfigured &&
             policy.TrustedSetupVerified &&
@@ -964,7 +964,7 @@ public static partial class BinaryEndpoints
                 aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
         }
 
-        if (!IsZkProdTicketReady(zkProofService.CurrentZkProdPolicy))
+        if (!IsZkProdTicketReady(zkProofService.CurrentZkCommentPolicy))
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.InfraFailure, "anonymous_comment_submit_unavailable"),
@@ -1263,7 +1263,7 @@ public static partial class BinaryEndpoints
 
     private static CommentPolicySnapshotCoreModel ToCommentPolicyCore(
         AnonymousCommentPolicySnapshot snapshot,
-        ZkProdPolicySnapshot zkProd)
+        ZkCommentPolicySnapshot zkProd)
         => new(
             snapshot.AnonymousCommentsEnabled,
             snapshot.PublicCommentsEnabled,

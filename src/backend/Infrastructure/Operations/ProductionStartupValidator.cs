@@ -217,7 +217,7 @@ public static class ProductionStartupValidator
     internal static IReadOnlyList<string> ValidateCore(
         IConfiguration configuration,
         bool enforceProductionRules,
-        ZkProdRuntimeReadiness zkProdReadiness)
+        ZkCommentRuntimeReadiness zkProdReadiness)
         => CreateValidationReport(configuration, enforceProductionRules, zkProdReadiness).Errors;
 
     internal static bool HasSecurityCriticalStartupError(IReadOnlyList<string> errors)
@@ -256,7 +256,7 @@ public static class ProductionStartupValidator
     internal static ProductionStartupValidationReport CreateValidationReport(
         IConfiguration configuration,
         bool enforceProductionRules,
-        ZkProdRuntimeReadiness? zkProdReadiness = null)
+        ZkCommentRuntimeReadiness? zkProdReadiness = null)
     {
         List<string> errors = [];
         List<ProductionStartupValidationRequirement> requirements = new(s_requiredSettings.Length);
@@ -403,7 +403,7 @@ public static class ProductionStartupValidator
         ValidateCrawlerRangeUrls(configuration, enforceProductionRules, errors);
         ValidateReleaseIdentity(configuration, enforceProductionRules, errors);
         ValidateActiveReleaseFenceSettings(configuration, enforceProductionRules, errors);
-        ValidateZkProdSettings(configuration, enforceProductionRules, zkProdReadiness ?? ZkProdRuntimeReadiness.Missing, errors);
+        ValidateZkProdSettings(configuration, enforceProductionRules, zkProdReadiness ?? ZkCommentRuntimeReadiness.Missing, errors);
 
         return new ProductionStartupValidationReport(SchemaVersion, enforceProductionRules, requirements, errors);
     }
@@ -1158,58 +1158,45 @@ public static class ProductionStartupValidator
     private static void ValidateZkProdSettings(
         IConfiguration configuration,
         bool enforceProductionRules,
-        ZkProdRuntimeReadiness readiness,
+        ZkCommentRuntimeReadiness readiness,
         List<string> errors)
     {
-        if (!enforceProductionRules)
+        ZkCommentPolicyOptions options;
+        try
         {
+            options = ZkCommentPolicyOptions.FromConfiguration(configuration);
+            _ = ZkVerifierOptions.FromConfiguration(configuration);
+        }
+        catch (InvalidOperationException exception)
+        {
+            errors.Add(exception.Message);
             return;
         }
 
-        ZkProdOptions options = ZkProdOptions.FromConfiguration(configuration);
-        if (options.AllowDevVerifier)
+        if (!enforceProductionRules || !options.Enabled) return;
+        if (!readiness.NativeBackendConfigured)
         {
-            errors.Add("AnonymousIdentity:ZkProd:AllowDevVerifier must be false in production.");
+            errors.Add("AnonymousIdentity:ZkVerifier:Backend must be native_groth16 for ZK comments in production.");
         }
 
-        if (options.FallbackToLegacyAnonymous)
+        if (!readiness.NativeVerifierConfigured)
         {
-            errors.Add("AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous must be false in production.");
+            errors.Add("AnonymousIdentity:ZkCommentPolicy:Enabled requires a configured native verifier in production.");
         }
 
-        if (!options.Enabled)
+        if (options.RequireTrustedSetupVerified && !readiness.TrustedSetupVerified)
         {
-            return;
+            errors.Add("AnonymousIdentity:ZkCommentPolicy:Enabled requires verified trusted setup and verifying-key manifests and a verifying key hash in production.");
         }
 
-        if (options.RequireNativeVerifier && !ZkProdOptions.IsNativeVerifierBackend(options.VerifierBackend))
+        if (options.RequireCredential && !readiness.CredentialIssuerConfigured)
         {
-            errors.Add("AnonymousIdentity:ZkProd:VerifierBackend must be native_groth16 when native verifier is required.");
-        }
-
-        if (options.RequireNativeVerifier && !readiness.NativeVerifierConfigured)
-        {
-            errors.Add("AnonymousIdentity:ZkProd:Enabled requires a configured native verifier in production.");
-        }
-
-        if (options.RequireTrustedSetupVerified && !ZkProdPolicySnapshotFactory.IsTrustedSetupVerified(options, configuration))
-        {
-            errors.Add("AnonymousIdentity:ZkProd:Enabled requires trusted setup verification and a verifying key hash in production.");
-        }
-
-        if (options.RequireCredential && !options.CredentialReady)
-        {
-            errors.Add("AnonymousIdentity:ZkProd:Enabled requires blind credential readiness in production.");
-        }
-
-        if (options.RequireCredential && options.CredentialReady && !readiness.CredentialIssuerConfigured)
-        {
-            errors.Add("AnonymousIdentity:ZkProd:CredentialReady requires a configured RFC 9474 blind issuer in production.");
+            errors.Add("AnonymousIdentity:ZkCommentPolicy:Enabled requires a configured RFC 9474 blind issuer in production.");
         }
 
         if (!readiness.CredentialRootReady)
         {
-            errors.Add("AnonymousIdentity:ZkProd:Enabled requires an anonymous credential root snapshot in production.");
+            errors.Add("AnonymousIdentity:ZkCommentPolicy:Enabled requires an anonymous credential root snapshot in production.");
         }
     }
 
@@ -1228,7 +1215,9 @@ public static class ProductionStartupValidator
             || error.Contains("CORS_ALLOWED_HOSTS origin must use HTTPS", StringComparison.Ordinal)
             || error.Contains("Seo:BaseUrl must use HTTPS", StringComparison.Ordinal)
             || error.Contains("Fido2:Origins origin must use HTTPS", StringComparison.Ordinal)
-            || error.Contains("AnonymousIdentity:ZkProd:", StringComparison.Ordinal)
+            || error.Contains("AnonymousIdentity:ZkCommentPolicy", StringComparison.Ordinal)
+            || error.Contains("AnonymousIdentity:ZkVerifier", StringComparison.Ordinal)
+            || error.Contains("AnonymousIdentity:ZkProd", StringComparison.Ordinal)
             || error.Contains("ActiveReleaseFence:", StringComparison.Ordinal);
 
     private static string ComputeSecretHash(string value)
@@ -1271,7 +1260,7 @@ public static class ProductionStartupValidator
 internal sealed class ProductionStartupValidationHostedService(
     IConfiguration configuration,
     IWebHostEnvironment environment,
-    IZkProofVerifier zkProofVerifier,
+    IZkVerifierReadiness zkVerifierReadiness,
     IAnonymousCredentialRootReader rootReader,
     IRfc9474BlindCredentialSigner credentialIssuer,
     IBlindCredentialRuntimeGate blindCredentialRuntimeGate,
@@ -1292,10 +1281,12 @@ internal sealed class ProductionStartupValidationHostedService(
         ProductionStartupValidationReport report = ProductionStartupValidator.CreateValidationReport(
             configuration,
             enforceProductionRules: true,
-            new ZkProdRuntimeReadiness(
-                zkProofVerifier.IsConfigured,
+            new ZkCommentRuntimeReadiness(
+                zkVerifierReadiness.Current.NativeVerifierConfigured,
                 HasReadyCredentialRoot(rootReader),
-                credentialIssuer.IsConfigured && blindCredentialRuntimeGate.IsEnabled));
+                credentialIssuer.IsConfigured && blindCredentialRuntimeGate.IsEnabled,
+                zkVerifierReadiness.Current.TrustedSetupVerified,
+                zkVerifierReadiness.Current.NativeBackendConfigured));
         if (report.Errors.Count == 0)
         {
             runtimeState.ReportStartupTask(TaskName, "completed", "生产启动校验通过");

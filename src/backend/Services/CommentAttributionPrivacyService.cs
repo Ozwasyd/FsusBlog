@@ -104,7 +104,7 @@ public sealed class CommentAttributionPrivacyService(
         string normalizedContent,
         CancellationToken cancellationToken)
     {
-        if (policy is null || zkProofs is null || !IsZkSubmissionReady(zkProofs.CurrentZkProdPolicy))
+        if (policy is null || zkProofs is null || !IsZkSubmissionReady(zkProofs.CurrentZkCommentPolicy))
         {
             return null;
         }
@@ -168,7 +168,7 @@ public sealed class CommentAttributionPrivacyService(
         AnonymousCommentPolicySnapshot current = await policy.GetCurrentAsync(cancellationToken);
         if (!current.AnonymousCommentsEnabled
             || !current.ZkAnonymousEnabled
-            || !IsZkSubmissionReady(zkProofs.CurrentZkProdPolicy))
+            || !IsZkSubmissionReady(zkProofs.CurrentZkCommentPolicy))
         {
             return null;
         }
@@ -241,7 +241,7 @@ public sealed class CommentAttributionPrivacyService(
             && content.Length <= policySnapshot.CommentMaxChars
             && Encoding.UTF8.GetByteCount(content) <= policySnapshot.CommentMaxUtf8Bytes;
 
-    private static bool IsZkSubmissionReady(ZkProdPolicySnapshot policySnapshot)
+    private static bool IsZkSubmissionReady(ZkCommentPolicySnapshot policySnapshot)
         => policySnapshot.Enabled
             && policySnapshot.NativeVerifierConfigured
             && policySnapshot.TrustedSetupVerified

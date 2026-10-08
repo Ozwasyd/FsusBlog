@@ -5,12 +5,9 @@ export { commentPolicyWireFields };
 export const zkProdServerUnavailableReasons = [
     '',
     'disabled',
-    'dev_verifier_disallowed',
-    'legacy_fallback_disallowed',
     'native_backend_required',
     'native_verifier_unavailable',
     'trusted_setup_unverified',
-    'credential_unready',
     'credential_issuer_unavailable',
     'credential_root_unavailable'
 ] as const;

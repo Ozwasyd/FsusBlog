@@ -291,7 +291,7 @@ public sealed class CommentMutationOutboxAnonymousPostgresTests(PostgresSchemaMi
         var policyService = Substitute.For<IAnonymousCommentPolicyService>();
         policyService.GetCurrentAsync(Arg.Any<CancellationToken>()).Returns(policy);
         var proofService = Substitute.For<IZkAnonymousProofService>();
-        proofService.CurrentZkProdPolicy.Returns(new ZkProdPolicySnapshot(
+        proofService.CurrentZkCommentPolicy.Returns(new ZkCommentPolicySnapshot(
             Enabled: true,
             NativeVerifierConfigured: true,
             TrustedSetupVerified: true,

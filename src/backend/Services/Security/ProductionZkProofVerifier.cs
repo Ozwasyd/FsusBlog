@@ -87,7 +87,6 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
     private const string SectionName = "AnonymousIdentity:ZkVerifier";
     private const string CommentActionContext = "comment.create";
     private const int DefaultMaxProofBytes = 16 * 1024;
-    private static readonly TimeSpan s_defaultBackendTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan s_backendCancellationObservationWindow = TimeSpan.FromMilliseconds(100);
 
     private readonly ProductionZkProofVerifierOptions _options;
@@ -254,36 +253,16 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
 
     private static ProductionZkProofVerifierOptions ResolveOptions(IConfiguration configuration)
     {
-        string circuitId = NormalizeToken(configuration[$"{SectionName}:CircuitId"], 128);
-        string verifyingKeyHash = NormalizeToken(configuration[$"{SectionName}:VerifyingKeyHash"], 128);
-        string backend = NormalizeToken(configuration[$"{SectionName}:Backend"], 64);
-        ushort layoutVersion = ResolveUShort(configuration, $"{SectionName}:PublicInputLayoutVersion");
-        int maxProofBytes = configuration.GetValue($"{SectionName}:MaxProofBytes", DefaultMaxProofBytes);
-        if (maxProofBytes <= 0)
-        {
-            maxProofBytes = DefaultMaxProofBytes;
-        }
-
-        int timeoutMs = configuration.GetValue($"{SectionName}:BackendTimeoutMs", (int)s_defaultBackendTimeout.TotalMilliseconds);
-        timeoutMs = Math.Clamp(timeoutMs, 1, 30_000);
-        int maxConcurrent = configuration.GetValue($"{SectionName}:MaxConcurrentVerifications", Math.Max(1, Environment.ProcessorCount / 2));
-        maxConcurrent = Math.Clamp(maxConcurrent, 1, 64);
-
+        ZkVerifierOptions options = ZkVerifierOptions.FromConfiguration(configuration);
         return new ProductionZkProofVerifierOptions(
-            configuration.GetValue($"{SectionName}:Enabled", false),
-            circuitId,
-            verifyingKeyHash,
-            layoutVersion,
-            maxProofBytes,
-            backend,
-            TimeSpan.FromMilliseconds(timeoutMs),
-            maxConcurrent);
-    }
-
-    private static ushort ResolveUShort(IConfiguration configuration, string key)
-    {
-        int value = configuration.GetValue(key, 0);
-        return value <= 0 ? (ushort)0 : (ushort)Math.Min(value, ushort.MaxValue);
+            options.Enabled,
+            NormalizeToken(options.CircuitId, 128),
+            NormalizeToken(options.VerifyingKeyHash, 128),
+            options.PublicInputLayoutVersion <= 0 ? (ushort)0 : (ushort)Math.Min(options.PublicInputLayoutVersion, ushort.MaxValue),
+            options.MaxProofBytes > 0 ? options.MaxProofBytes : DefaultMaxProofBytes,
+            NormalizeToken(options.Backend, 64),
+            TimeSpan.FromMilliseconds(Math.Clamp(options.BackendTimeoutMs, 1, 30_000)),
+            Math.Clamp(options.MaxConcurrentVerifications, 1, 64));
     }
 
     private static bool IsScope(string value)

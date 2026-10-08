@@ -1386,9 +1386,9 @@ public sealed class ConfigurationHealthSnapshot(
         Refresh();
     }
 
-    private ZkProdRuntimeReadiness ResolveZkProdReadiness()
+    private ZkCommentRuntimeReadiness ResolveZkProdReadiness()
     {
-        IZkProofVerifier? verifier = serviceProvider.GetService<IZkProofVerifier>();
+        ZkVerifierReadinessSnapshot verifier = serviceProvider.GetService<IZkVerifierReadiness>()?.Current ?? default;
         IAnonymousCredentialRootReader? rootReader = serviceProvider.GetService<IAnonymousCredentialRootReader>();
         IRfc9474BlindCredentialSigner? credentialSigner = serviceProvider.GetService<IRfc9474BlindCredentialSigner>();
         IBlindCredentialRuntimeGate? credentialGate = serviceProvider.GetService<IBlindCredentialRuntimeGate>();
@@ -1400,10 +1400,12 @@ public sealed class ConfigurationHealthSnapshot(
             !string.IsNullOrWhiteSpace(root.IssuerPublicKeyHash) &&
             (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
              string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal))) == true;
-        return new ZkProdRuntimeReadiness(
-            verifier?.IsConfigured == true,
+        return new ZkCommentRuntimeReadiness(
+            verifier.NativeVerifierConfigured,
             rootReady,
-            credentialSigner?.IsConfigured == true && credentialGate?.IsEnabled == true);
+            credentialSigner?.IsConfigured == true && credentialGate?.IsEnabled == true,
+            verifier.TrustedSetupVerified,
+            verifier.NativeBackendConfigured);
     }
 }
 

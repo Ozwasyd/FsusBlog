@@ -974,7 +974,7 @@ public sealed class ProductionStartupValidatorTests
         var service = new ProductionStartupValidationHostedService(
             configuration,
             new TestWebHostEnvironment(Environments.Production),
-            new StaticZkProofVerifier(configured: false),
+            new ZkVerifierReadiness(ZkVerifierOptions.FromConfiguration(configuration), new StaticZkProofVerifier(configured: false)),
             new StaticRootReader(rootReady: false),
             new UnavailableRfc9474BlindCredentialSigner(configuration),
             new StaticBlindCredentialRuntimeGate(false),
@@ -1003,7 +1003,7 @@ public sealed class ProductionStartupValidatorTests
         var service = new ProductionStartupValidationHostedService(
             configuration,
             new TestWebHostEnvironment(Environments.Production),
-            new StaticZkProofVerifier(configured: false),
+            new ZkVerifierReadiness(ZkVerifierOptions.FromConfiguration(configuration), new StaticZkProofVerifier(configured: false)),
             new StaticRootReader(rootReady: false),
             new UnavailableRfc9474BlindCredentialSigner(configuration),
             new StaticBlindCredentialRuntimeGate(false),
@@ -1393,7 +1393,7 @@ public sealed class ProductionStartupValidatorTests
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
             configuration,
             enforceProductionRules: true,
-            new ZkProdRuntimeReadiness(
+            new ZkCommentRuntimeReadiness(
                 NativeVerifierConfigured: false,
                 CredentialRootReady: false));
 
@@ -1409,7 +1409,7 @@ public sealed class ProductionStartupValidatorTests
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
             configuration,
             enforceProductionRules: true,
-            new ZkProdRuntimeReadiness(
+            new ZkCommentRuntimeReadiness(
                 NativeVerifierConfigured: false,
                 CredentialRootReady: true));
 
@@ -1422,13 +1422,13 @@ public sealed class ProductionStartupValidatorTests
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
         {
-            ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "false"
+            ["AnonymousIdentity:ZkVerifier:TrustedSetupManifestPath"] = "missing-manifest.json"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
             configuration,
             enforceProductionRules: true,
-            new ZkProdRuntimeReadiness(
+            new ZkCommentRuntimeReadiness(
                 NativeVerifierConfigured: true,
                 CredentialRootReady: true));
 
@@ -1441,18 +1441,21 @@ public sealed class ProductionStartupValidatorTests
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
         {
-            ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c",
-            ["AnonymousIdentity:ZkProd:TrustedSetupManifestPath"] = "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
-            ["AnonymousIdentity:ZkProd:VerifyingKeyManifestPath"] = "config/zk/anonymous-comment-v5-verifying-key.manifest.json"
+            ["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"] = "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c",
+            ["AnonymousIdentity:ZkVerifier:TrustedSetupManifestPath"] = "security/zk/provenance/comment-v5-trusted-setup.manifest.json",
+            ["AnonymousIdentity:ZkVerifier:VerifyingKeyManifestPath"] = "config/zk/anonymous-comment-v5-verifying-key.manifest.json"
         });
 
+        var verifierReadiness = new ZkVerifierReadiness(ZkVerifierOptions.FromConfiguration(configuration), new StaticZkProofVerifier(true));
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
             configuration,
             enforceProductionRules: true,
-            new ZkProdRuntimeReadiness(
+            new ZkCommentRuntimeReadiness(
                 NativeVerifierConfigured: true,
                 CredentialRootReady: true,
-                CredentialIssuerConfigured: true));
+                CredentialIssuerConfigured: true,
+                TrustedSetupVerified: verifierReadiness.Current.TrustedSetupVerified,
+                NativeBackendConfigured: verifierReadiness.Current.NativeBackendConfigured));
 
         Assert.Contains(errors, static error => error.Contains("trusted setup", StringComparison.OrdinalIgnoreCase));
     }
@@ -1466,7 +1469,7 @@ public sealed class ProductionStartupValidatorTests
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
             configuration,
             enforceProductionRules: true,
-            new ZkProdRuntimeReadiness(
+            new ZkCommentRuntimeReadiness(
                 NativeVerifierConfigured: true,
                 CredentialRootReady: false));
 
@@ -1479,17 +1482,17 @@ public sealed class ProductionStartupValidatorTests
     {
         IConfiguration configuration = CreateZkProdProductionConfiguration(new Dictionary<string, string?>
         {
-            ["AnonymousIdentity:ZkProd:CredentialReady"] = "false"
+            ["AnonymousIdentity:ZkCommentPolicy:RequireCredential"] = "true"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
             configuration,
             enforceProductionRules: true,
-            new ZkProdRuntimeReadiness(
+            new ZkCommentRuntimeReadiness(
                 NativeVerifierConfigured: true,
                 CredentialRootReady: true));
 
-        Assert.Contains(errors, static error => error.Contains("blind credential", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(errors, static error => error.Contains("blind issuer", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -1503,7 +1506,7 @@ public sealed class ProductionStartupValidatorTests
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
             configuration,
             enforceProductionRules: true,
-            new ZkProdRuntimeReadiness(
+            new ZkCommentRuntimeReadiness(
                 NativeVerifierConfigured: true,
                 CredentialRootReady: true));
 
@@ -1519,12 +1522,14 @@ public sealed class ProductionStartupValidatorTests
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
             configuration,
             enforceProductionRules: true,
-            new ZkProdRuntimeReadiness(
+            new ZkCommentRuntimeReadiness(
                 NativeVerifierConfigured: true,
                 CredentialRootReady: true,
-                CredentialIssuerConfigured: true));
+                CredentialIssuerConfigured: true,
+                TrustedSetupVerified: true,
+                NativeBackendConfigured: true));
 
-        Assert.DoesNotContain(errors, static error => error.Contains("AnonymousIdentity:ZkProd", StringComparison.Ordinal));
+        Assert.DoesNotContain(errors, static error => error.Contains("AnonymousIdentity:Zk", StringComparison.Ordinal));
     }
 
     private static IConfiguration CreateConfiguration(Dictionary<string, string?> values)
@@ -1611,16 +1616,11 @@ public sealed class ProductionStartupValidatorTests
     {
         Dictionary<string, string?> values = new(StringComparer.Ordinal)
         {
-            ["AnonymousIdentity:ZkProd:Enabled"] = "true",
-            ["AnonymousIdentity:ZkProd:RequireNativeVerifier"] = "true",
-            ["AnonymousIdentity:ZkProd:RequireCredential"] = "true",
-            ["AnonymousIdentity:ZkProd:RequireTrustedSetupVerified"] = "true",
-            ["AnonymousIdentity:ZkProd:AllowDevVerifier"] = "false",
-            ["AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous"] = "false",
-            ["AnonymousIdentity:ZkProd:VerifierBackend"] = "native_groth16",
-            ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
-            ["AnonymousIdentity:ZkProd:CredentialReady"] = "true",
-            ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c"
+            ["AnonymousIdentity:ZkCommentPolicy:Enabled"] = "true",
+            ["AnonymousIdentity:ZkCommentPolicy:RequireCredential"] = "true",
+            ["AnonymousIdentity:ZkCommentPolicy:RequireTrustedSetupVerified"] = "true",
+            ["AnonymousIdentity:ZkVerifier:Backend"] = "native_groth16",
+            ["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"] = "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c"
         };
 
         foreach ((string key, string? value) in overrides)
