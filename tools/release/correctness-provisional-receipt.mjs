@@ -141,11 +141,11 @@ export function verifyCorrectnessDependencyClosure(context)
         reference(entry.reference, context, `${label}.reference`);
         const value = entry.receipt;
         if (!value || typeof value.schema !== 'string' || !value.schema
-            || value.schema !== context.dependencyReceiptSchemas[entry.reference.targetTierId]
             || value.status !== 'success' || value.contentDigest !== digestValue(value))
         {
             fail(label, 'requires a content-validated terminal success receipt');
         }
+        equal(value.schema, context.dependencyReceiptSchemas[entry.reference.targetTierId], `${label}.schema`);
         equal(entry.reference.digest, value.contentDigest, `${label}.digest`);
         for (const field of ['runId', 'targetTierId', 'targetAttemptId'])
         {

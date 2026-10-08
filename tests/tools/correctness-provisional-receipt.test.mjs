@@ -110,7 +110,7 @@ test('provisional closure refuses absent failed unknown and tampered dependencie
     const unknown = fixture();
     unknown.dependencyTerminalReceipts[0].receipt.schema = 'unknown.v1';
     reseal(unknown.dependencyTerminalReceipts[0].receipt);
-    assert.throws(() => createCorrectnessProvisionalReceipt(unknown), /terminal success receipt/u);
+    assert.throws(() => createCorrectnessProvisionalReceipt(unknown), /\.schema/u);
 });
 
 test('provisional closure binds exact dependency roster and current dependency attempts', () =>
