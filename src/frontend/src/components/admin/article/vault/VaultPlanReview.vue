@@ -4,9 +4,9 @@
             role="status"
             aria-live="polite"
         >
-            当前计划验证与执行命令尚不可用。此审查不能确认、执行或恢复同步。
+            当前无法确认计划是否仍然有效；执行与恢复同步尚不可用。
         </p>
-        <p v-if="!plan">未提供 exact immutable plan；状态未知。</p>
+        <p v-if="!plan">尚未提供指定的不可变计划；状态未知。</p>
         <template v-else-if="presentation">
             <h2>{{ presentation.directionLabel }}</h2>
             <dl>
@@ -19,7 +19,7 @@
                 <dt>有效期（Unix 毫秒）</dt>
                 <dd>{{ plan.createdAtUnixMs }} → {{ plan.expiresAtUnixMs }}</dd>
                 <dt>计划报告状态</dt>
-                <dd>{{ plan.status }}（未经 current verification）</dd>
+                <dd>{{ plan.status }}（尚未验证是否仍然有效）</dd>
                 <dt>取消边界</dt>
                 <dd>仅执行前可取消；已提交服务端记录不能在此撤销。</dd>
             </dl>
@@ -30,11 +30,11 @@
                     :key="count.decision"
                 >{{ count.label }}：{{ count.count }}</li>
             </ul>
-            <p>权限、生命周期、依赖物化与磁盘范围必须经 machine authority 重新验证；当前 DTO 不提供完整 scope 或 confirmation policy。</p>
+            <p>权限、生命周期、依赖物化与磁盘范围需要重新验证。当前缺少完整范围与确认要求，不能执行。</p>
             <p
                 v-if="!presentation.orderAvailable"
                 role="alert"
-            >Operation order 缺失、重复或错配；不能展示可执行顺序。</p>
+            >操作顺序缺失、重复或错配；不能展示可执行顺序。</p>
             <label>
                 筛选 article / operation identity
                 <ElInput
@@ -68,7 +68,7 @@
                     :key="`${conflict.groupIdentity}:${conflict.portableArticleIdentity}:${conflict.reasonCode}`"
                 >
                     {{ conflict.groupIdentity }} / {{ conflict.portableArticleIdentity }}：{{ conflict.reasonCode }}
-                    （实际 conflict/recovery 目标尚未注册）
+                    （冲突与恢复入口当前不可用）
                 </li>
             </ul>
         </template>
