@@ -2395,6 +2395,11 @@ authorized query response、verified history projection 或 receipt，也不暴�
 和完整 projection digest，再经原 `TryValidateProjectionPage` 重算每个 entry 和完整有序集合。失败时不返回 ordinal；
 成功仅交付 server history identity/ordinal，不签发 query receipt，也不把 history server revision 冒充当前文章 revision。
 
+独立 `AuthorArticleQueryCursorCodec` 使用专属 Data Protection purpose，绑定原 request ID/sequence、user/site、
+normalized query/status/bucket/locale/collation/limit identity、source/history/permission digests、permission/site/session
+revisions 和完整 rank tuple。scope 或当前 authority 改变时返回 stale，篡改或其他 cursor purpose 返回 invalid。
+codec 不证明输入 binding 的来源；完整 source adapter 尚不能提供必需 slug，因此当前没有 query route 发行该 cursor。
+
 ### Admin Author Workbench
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：
