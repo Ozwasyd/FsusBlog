@@ -135,6 +135,22 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
         .toBe(copy.translate('public.shell.search'))
       expect(html).not.toMatch(/\sstyle=/u)
 
+      const themeControls = [...rendered.querySelectorAll('[data-theme-mode-visibility]')]
+      expect(themeControls.map((control) => control.getAttribute('data-theme-mode-visibility')))
+        .toEqual(['desktop', 'mobile'])
+      for (const control of themeControls) {
+        for (const mode of ['light', 'dark', 'system'] as const) {
+          const option = control.querySelector(`[data-theme-mode="${mode}"]`)
+          expect(option?.textContent?.trim()).toBe(copy.translate(`public.shell.${mode}`))
+          if (option?.getAttribute('aria-checked') === 'true') {
+            const trigger = control.querySelector('[aria-haspopup="menu"]')
+            expect(trigger?.textContent?.trim()).toBe(copy.translate(`public.shell.${mode}Short`))
+            expect(trigger?.getAttribute('aria-label'))
+              .toBe(`${copy.translate('layout.themeMode.label')}: ${copy.translate(`public.shell.${mode}`)}`)
+          }
+        }
+      }
+
       const menus = [...rendered.querySelectorAll('[data-locale-selector-menu]')]
       expect(menus).toHaveLength(2)
       for (const menu of menus) {
