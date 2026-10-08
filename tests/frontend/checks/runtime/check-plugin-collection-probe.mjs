@@ -551,7 +551,7 @@ finally
     report.finishedAt = new Date().toISOString();
     report.sourceAfter = identity(root);
     report.sourceUnchanged = JSON.stringify(report.source) === JSON.stringify(report.sourceAfter);
-    report.artifacts = fs.readdirSync(output).filter((file) => file !== 'report.json').map((file) => ({
+    report.artifacts = fs.readdirSync(output).filter((file) => file !== 'report.json' && fs.lstatSync(path.join(output, file)).isFile()).map((file) => ({
         path: file,
         sha256: digest(fs.readFileSync(path.join(output, file)))
     }));
