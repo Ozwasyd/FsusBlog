@@ -22,11 +22,15 @@ export interface ArticleFsusUiRenderConfiguration {
     readonly baseUrl: string | null;
 }
 
+interface RetainedFsusUiPair {
+    readonly render: MarkdownSafeRenderResult;
+    readonly projection: MarkdownEditorProjectionResult;
+}
+
 interface RetainedFsusUiResult {
     readonly request: ArticleRenderRequest;
     readonly result: ArticleRenderResult;
-    readonly render: MarkdownSafeRenderResult;
-    readonly projection: MarkdownEditorProjectionResult;
+    readonly pair: Readonly<RetainedFsusUiPair>;
 }
 
 const freezeProjection = <T extends object>(value: T): T =>
@@ -136,7 +140,7 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
         {
             return failure('fsusui-result-invalid');
         }
-        this.results.set(resultRef, { request, result, render: rendered.value, projection });
+        this.results.set(resultRef, { request, result, pair: Object.freeze({ render: rendered.value, projection }) });
         return result;
     }
 
@@ -153,18 +157,18 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
         }
         const retained = this.results.get(result.resultRef);
         return retained?.request === request && digest(retained.result) === digest(result)
-            && result.resultDigest === digest({ render: retained.render, projection: retained.projection });
+            && result.resultDigest === digest(retained.pair);
     }
 
-    public resolve(result: ArticleRenderResult): Readonly<Pick<RetainedFsusUiResult, 'render' | 'projection'>> | null
+    public resolve(result: ArticleRenderResult): Readonly<RetainedFsusUiPair> | null
     {
         const retained = result.resultRef ? this.results.get(result.resultRef) : null;
         if (!retained || digest(retained.result) !== digest(result)
-            || result.resultDigest !== digest({ render: retained.render, projection: retained.projection }))
+            || result.resultDigest !== digest(retained.pair))
         {
             return null;
         }
-        return Object.freeze({ render: retained.render, projection: retained.projection });
+        return retained.pair;
     }
 
     public release(resultRef: string): void
