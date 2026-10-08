@@ -72,6 +72,7 @@ public sealed class ArticleVaultCompiledAuthorityScannerTests
     [InlineData(typeof(WatcherDispatch), "vault_watcher_or_import_side_path")]
     [InlineData(typeof(DirectArticleMutation), "vault_direct_article_service_mutation")]
     [InlineData(typeof(DirectOrmMutation), "vault_direct_business_orm_mutation")]
+    [InlineData(typeof(MisnamedOrmMutation), "vault_direct_business_orm_mutation")]
     [InlineData(typeof(LatestReceiptQuery), "vault_latest_result_query")]
     [InlineData(typeof(ReflectedFileWrite), "vault_dynamic_dispatch_side_path")]
     [InlineData(typeof(NativeFileMutation), "vault_backend_native_side_path")]
@@ -187,6 +188,17 @@ public sealed class ArticleVaultCompiledAuthorityScannerTests
     {
         public static void Read(ISqlSugarClient db) => GC.KeepAlive(db.Queryable<ArticleVaultExecutionResultEntity>()
             .OrderBy(static item => item.CreatedAtUtc, OrderByType.Desc).First());
+    }
+
+    private static class MisnamedOrmMutation
+    {
+        public static void Write(ISqlSugarClient db) => GC.KeepAlive(db.Insertable(new ArticleVaultMisnamedEntity()));
+    }
+
+    [SugarTable("article")]
+    private sealed class ArticleVaultMisnamedEntity
+    {
+        public int Id { get; set; }
     }
 
     private static class ReflectedFileWrite

@@ -2,9 +2,13 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Migration;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Shared.Contracts.ArticleVault;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -21,6 +25,7 @@ internal static class ArticleVaultCompiledAuthorityScanner
     {
         Type[] types = authorityTypes.Distinct().ToArray();
         var violations = new List<Violation>();
+        HashSet<string> receiptTables = CanonicalReceiptTables();
         MethodInfo[] planners = types.SelectMany(static type => type.GetMethods(
                 BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly))
             .Where(static method => method.ReturnType == typeof(ArticleVaultPlanBuildResult)
@@ -92,7 +97,8 @@ internal static class ArticleVaultCompiledAuthorityScanner
                         Type[] arguments = member is MethodInfo method && method.IsGenericMethod
                             ? method.GetGenericArguments()
                             : owner.IsGenericType ? owner.GetGenericArguments() : [];
-                        if (arguments.Any(static argument => !argument.Name.StartsWith("ArticleVault", StringComparison.Ordinal)))
+                        if (arguments.Length == 0 || arguments.Any(argument =>
+                            PhysicalTable(argument) is not { } table || !receiptTables.Contains(table)))
                         {
                             violations.Add(new("vault_direct_business_orm_mutation", identity));
                         }
@@ -104,6 +110,34 @@ internal static class ArticleVaultCompiledAuthorityScanner
         return violations.Distinct().OrderBy(static violation => violation.Code, StringComparer.Ordinal)
             .ThenBy(static violation => violation.TypeIdentity, StringComparer.Ordinal).ToArray();
     }
+
+    private static string? PhysicalTable(Type entity)
+    {
+        CustomAttributeData? mapping = entity.GetCustomAttributesData()
+            .SingleOrDefault(static attribute => attribute.AttributeType == typeof(SugarTable));
+        if (mapping is null)
+        {
+            return null;
+        }
+
+        CustomAttributeNamedArgument named = mapping.NamedArguments
+            .FirstOrDefault(static argument => argument.MemberName == "TableName");
+        return named.TypedValue.Value as string
+            ?? (mapping.ConstructorArguments.Count > 0 ? mapping.ConstructorArguments[0].Value as string : null);
+    }
+
+    // Obtain physical receipt table identities from the existing migration producer. Entity
+    // naming is not authority, and this scanner must not maintain another table roster.
+    private static HashSet<string> CanonicalReceiptTables()
+        => new[]
+        {
+            ArticleVaultExecutionMigrationDefinitions.BuildMigration(),
+            ArticleVaultOperationMigrationDefinitions.BuildMigration()
+        }.SelectMany(static descriptor => descriptor.Steps.OfType<RawSqlStep>())
+            .SelectMany(static step => Regex.Matches(step.Sql,
+                @"\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?<table>[a-z0-9_]+)",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Select(static match => match.Groups["table"].Value))
+            .ToHashSet(StringComparer.Ordinal);
 
     private static void RequireSoleImplementation<TContract, TOwner>(Type[] types, List<Violation> violations)
         where TOwner : TContract
