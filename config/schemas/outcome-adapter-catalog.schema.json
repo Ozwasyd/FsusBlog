@@ -135,7 +135,10 @@
                         "native-reporter",
                         "native-runner",
                         "native-execution-events",
-                        "replay-parent"
+                        "replay-parent",
+                        "random-execution-journal",
+                        "random-execution-recorder",
+                        "randomized-parent"
                     ]
                 },
                 "path": {
@@ -196,7 +199,14 @@
                     "type": "array",
                     "minItems": 1,
                     "items": {
-                        "$ref": "#/$defs/nativeReporterSource"
+                        "anyOf": [
+                            {
+                                "$ref": "#/$defs/nativeReporterSource"
+                            },
+                            {
+                                "$ref": "#/$defs/nativePropertySource"
+                            }
+                        ]
                     }
                 }
             }
@@ -255,6 +265,64 @@
                 "documentSchemas": {
                     "type": "array",
                     "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^fsusblog\\.[a-z0-9.-]+\\.v[1-9][0-9]*$"
+                    }
+                }
+            }
+        },
+        "nativePropertySource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "role",
+                "path",
+                "sourceCommit",
+                "sourceDigest",
+                "typeName",
+                "methods",
+                "documentSchemas"
+            ],
+            "properties": {
+                "role": {
+                    "enum": [
+                        "native-property-journal",
+                        "native-property-caller"
+                    ]
+                },
+                "path": {
+                    "enum": [
+                        "tests/backend/Unit/BackendPropertyExecutionJournal.cs",
+                        "tests/backend/Unit/BackendPropertyTests.cs"
+                    ]
+                },
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "sourceDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "typeName": {
+                    "enum": [
+                        "FsusBlog.Server.Tests.Unit.BackendPropertyExecutionJournal",
+                        "FsusBlog.Server.Tests.Unit.BackendPropertyTests"
+                    ]
+                },
+                "methods": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "documentSchemas": {
+                    "type": "array",
                     "uniqueItems": true,
                     "items": {
                         "type": "string",

@@ -93,6 +93,92 @@
                             ]
                         }
                     ]
+                },
+                {
+                    "role": "random-execution-journal",
+                    "path": "tools/test/random-execution-journal.mjs",
+                    "sourceCommit": "db5af32baf1095177c8c68122926aa96d559ae14",
+                    "sourceDigest": "sha256:de8b144f80416d1d7ca12240387f5044c0db198ff550252240da89c98aa8a9f0",
+                    "exports": [
+                        "createRandomExecutionJournal"
+                    ],
+                    "methods": [
+                        "record",
+                        "close"
+                    ],
+                    "documentSchemas": [
+                        "fsusblog.random-execution-event.v1"
+                    ],
+                    "contractPath": "tools/test-matrix/outcomes/backend-test-adapter.design.md",
+                    "admissionStatus": "ordinary-source-only",
+                    "grantsQualification": false
+                },
+                {
+                    "role": "random-execution-recorder",
+                    "path": "tools/test/random-streams.mjs",
+                    "sourceCommit": "db5af32baf1095177c8c68122926aa96d559ae14",
+                    "sourceDigest": "sha256:3eba89acf48e73a8c32364dbc5440026e93fdb97d281bb0dd4a4cc1a47a872b0",
+                    "exports": [
+                        "createRandomExecutionRecorder"
+                    ],
+                    "methods": [
+                        "record",
+                        "observe",
+                        "complete"
+                    ],
+                    "documentSchemas": [],
+                    "contractPath": "tools/test-matrix/outcomes/backend-test-adapter.design.md",
+                    "admissionStatus": "ordinary-source-only",
+                    "grantsQualification": false
+                },
+                {
+                    "role": "randomized-parent",
+                    "path": "tools/test/run-replay-qualification.mjs",
+                    "sourceCommit": "db5af32baf1095177c8c68122926aa96d559ae14",
+                    "sourceDigest": "sha256:94bab554b4660272973ef10d0de6b334a7d44dd5d763390a65b91ec9006a9808",
+                    "exports": [
+                        "executeRandomizedCommand",
+                        "runRandomizedProducer",
+                        "qualificationSourceIdentity"
+                    ],
+                    "methods": [],
+                    "documentSchemas": [
+                        "fsusblog.randomized-command-process.v1"
+                    ],
+                    "contractPath": "tools/test-matrix/outcomes/backend-test-adapter.design.md",
+                    "admissionStatus": "ordinary-source-only",
+                    "grantsQualification": false,
+                    "sourceDependencies": [
+                        {
+                            "role": "native-property-journal",
+                            "path": "tests/backend/Unit/BackendPropertyExecutionJournal.cs",
+                            "sourceCommit": "db5af32baf1095177c8c68122926aa96d559ae14",
+                            "sourceDigest": "sha256:82b0675db16a637f31d0dd783efb2be6b64d6409969cb6cc8d792b7073d477fd",
+                            "typeName": "FsusBlog.Server.Tests.Unit.BackendPropertyExecutionJournal",
+                            "methods": [
+                                "Open",
+                                "Observe",
+                                "Complete",
+                                "Dispose"
+                            ],
+                            "documentSchemas": [
+                                "fsusblog.random-execution-event.v1"
+                            ]
+                        },
+                        {
+                            "role": "native-property-caller",
+                            "path": "tests/backend/Unit/BackendPropertyTests.cs",
+                            "sourceCommit": "db5af32baf1095177c8c68122926aa96d559ae14",
+                            "sourceDigest": "sha256:fcbd809fc15bbcaf8a76ab2e4e872fcced09f36144e81b364d02c58ba3faa92d",
+                            "typeName": "FsusBlog.Server.Tests.Unit.BackendPropertyTests",
+                            "methods": [
+                                "AedsRoundTripProperty_PreservesPayloadAndFrameType",
+                                "AedsTruncationProperty_ReturnsProtocolFailureInsteadOfThrowing",
+                                "AedsBitFlipProperty_DetectsPayloadCorruption"
+                            ],
+                            "documentSchemas": []
+                        }
+                    ]
                 }
             ]
         },
