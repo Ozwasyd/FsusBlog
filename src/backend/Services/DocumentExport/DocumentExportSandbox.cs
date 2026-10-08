@@ -704,7 +704,7 @@ public sealed class DocumentExportSandboxRuntime
             }
             catch (Exception exception)
             {
-                if (failure is null)
+                if (failure is null && !cancellationToken.IsCancellationRequested)
                 {
                     failure = exception;
                     failureCode = ClassifyFailure(exception);
@@ -731,7 +731,7 @@ public sealed class DocumentExportSandboxRuntime
             Exception? resourceFailure = resourceStage.Complete(failure is null && !cancellationToken.IsCancellationRequested
                 && processTreeTerminated && removed && finalProcessesRemaining == 0
                 && !finalCgroupPopulated && unitRemoved && cgroupRemoved);
-            if (failure is null && resourceFailure is not null)
+            if (failure is null && resourceFailure is not null && !cancellationToken.IsCancellationRequested)
             {
                 failure = resourceFailure;
                 failureCode = ClassifyFailure(resourceFailure);
@@ -739,7 +739,7 @@ public sealed class DocumentExportSandboxRuntime
         }
         catch (Exception exception)
         {
-            if (failure is null)
+            if (failure is null && !cancellationToken.IsCancellationRequested)
             {
                 failure = exception;
                 failureCode = ClassifyFailure(exception);
