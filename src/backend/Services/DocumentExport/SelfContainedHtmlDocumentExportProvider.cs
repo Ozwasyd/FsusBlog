@@ -311,7 +311,7 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
 
-    private static byte[] ComposeDocument(
+    internal static byte[] ComposeDocument(
         string title,
         DocumentExportFrozenInput input,
         ReadOnlySpan<byte> fragmentBytes,
@@ -322,10 +322,9 @@ public sealed class SelfContainedHtmlDocumentExportProvider
             input.ThemeProfile,
             maximumBytes);
         string styleHash = Convert.ToBase64String(SHA256.HashData(styleBytes));
-        string direction = input.Locale.StartsWith("ar", StringComparison.OrdinalIgnoreCase)
-            || input.Locale.StartsWith("he", StringComparison.OrdinalIgnoreCase)
-                ? "rtl"
-                : "ltr";
+        string direction = System.Globalization.CultureInfo.GetCultureInfo(input.Locale).TextInfo.IsRightToLeft
+            ? "rtl"
+            : "ltr";
         string escapedTitle = System.Net.WebUtility.HtmlEncode(title);
         string escapedLocale = System.Net.WebUtility.HtmlEncode(input.Locale);
         string csp = DocumentExportHtmlVerifier.BuildCsp(styleHash);

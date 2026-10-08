@@ -139,7 +139,16 @@ internal static class DocumentExportHtmlSanitizer
                         WriteStartElement(reader, writer, images, seenImages, ids, anchorReferences, svgScope);
                         if (reader.IsEmptyElement)
                         {
-                            writer.WriteEndElement();
+                            if (reader.NamespaceURI == XhtmlNamespace && reader.LocalName is not ("img" or "br" or "hr"))
+                            {
+                                // HTML5 ignores the self-closing flag on ordinary HTML
+                                // elements. Preserve the renderer's empty-node semantics.
+                                writer.WriteFullEndElement();
+                            }
+                            else
+                            {
+                                writer.WriteEndElement();
+                            }
                             CloseSvgElement(reader, ref svgScope);
                         }
                         break;
@@ -217,7 +226,7 @@ internal static class DocumentExportHtmlSanitizer
         }
 
         if (attributes.TryGetValue("id", out string? id)
-            && (!IsIdentifier(id) || !ids.Add(id)))
+            && (!(svg ? IsIdentifier(id) : IsHtmlIdentifier(id)) || !ids.Add(id)))
         {
             throw new InvalidDataException("HTML ids must be non-empty, unique, and canonical.");
         }
@@ -238,7 +247,7 @@ internal static class DocumentExportHtmlSanitizer
                 }
             }
         }
-        ValidateScalarAttributes(attributes, svg ? svgScope!.References : anchorReferences);
+        ValidateScalarAttributes(attributes, svg ? svgScope!.References : anchorReferences, svg);
         ValidateDiagramAttributes(attributes, svgScope);
         if (name == "a")
         {
@@ -351,7 +360,7 @@ internal static class DocumentExportHtmlSanitizer
         if (href.StartsWith('#'))
         {
             string target = href[1..];
-            if (!IsIdentifier(target) || attributes.ContainsKey("target") || attributes.ContainsKey("rel"))
+            if (!IsHtmlIdentifier(target) || attributes.ContainsKey("target") || attributes.ContainsKey("rel"))
             {
                 throw new InvalidDataException("Internal links must target one local canonical id.");
             }
@@ -387,7 +396,8 @@ internal static class DocumentExportHtmlSanitizer
 
     private static void ValidateScalarAttributes(
         IReadOnlyDictionary<string, string> attributes,
-        ISet<string> localReferences)
+        ISet<string> localReferences,
+        bool svg)
     {
         if (attributes.Any(attribute => attribute.Value.Any(char.IsControl)))
         {
@@ -418,7 +428,7 @@ internal static class DocumentExportHtmlSanitizer
             }
             foreach (string reference in references.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
-                if (!IsIdentifier(reference))
+                if (!(svg ? IsIdentifier(reference) : IsHtmlIdentifier(reference)))
                 {
                     throw new InvalidDataException($"HTML attribute '{referenceAttribute}' contains a malformed id reference.");
                 }
@@ -446,6 +456,26 @@ internal static class DocumentExportHtmlSanitizer
         => value.Length is > 0 and <= 160
             && value.All(character => char.IsAsciiLetterOrDigit(character)
                 || character is '-' or '_' or ':' or '.');
+
+    private static bool IsHtmlIdentifier(string value)
+    {
+        if (value.Length is not (> 0 and <= 160))
+        {
+            return false;
+        }
+        foreach (Rune character in value.EnumerateRunes())
+        {
+            if (!Rune.IsLetterOrDigit(character)
+                && Rune.GetUnicodeCategory(character) is not (UnicodeCategory.LetterNumber
+                    or UnicodeCategory.OtherNumber or UnicodeCategory.NonSpacingMark
+                    or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark)
+                && character.Value is not ('-' or '_' or ':' or '.'))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 
     private sealed class SequenceTextReader(params TextReader[] readers) : TextReader
     {

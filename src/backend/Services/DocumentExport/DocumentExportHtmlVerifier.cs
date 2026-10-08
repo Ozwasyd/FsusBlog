@@ -38,10 +38,9 @@ internal static class DocumentExportHtmlVerifier
         byte[] expectedStyleDigest = SHA256.HashData(expectedStyle);
         string expectedStyleHash = Convert.ToBase64String(expectedStyleDigest);
         string expectedCsp = BuildCsp(expectedStyleHash);
-        string expectedDirection = input.Locale.StartsWith("ar", StringComparison.OrdinalIgnoreCase)
-            || input.Locale.StartsWith("he", StringComparison.OrdinalIgnoreCase)
-                ? "rtl"
-                : "ltr";
+        string expectedDirection = System.Globalization.CultureInfo.GetCultureInfo(input.Locale).TextInfo.IsRightToLeft
+            ? "rtl"
+            : "ltr";
 
         XmlReaderSettings settings = new()
         {
@@ -168,6 +167,11 @@ internal static class DocumentExportHtmlVerifier
     private static void VerifyElement(XmlReader reader)
     {
         string name = reader.LocalName;
+        if (reader.IsEmptyElement && reader.NamespaceURI != "http://www.w3.org/2000/svg"
+            && name is not ("meta" or "img" or "br" or "hr"))
+        {
+            throw new InvalidDataException("Non-void HTML elements require explicit closing tags for HTML5 semantics.");
+        }
         if (name is "script" or "link" or "base" or "iframe" or "frame" or "object" or "embed"
             or "form" or "input" or "button" or "textarea" or "select" or "audio" or "video" or "source")
         {
