@@ -273,7 +273,7 @@ test('static governance rejects a second scenario table private offsets and all-
     }
 });
 
-test('current temporal domain producers have zero private clock residue', () =>
+test('bound temporal producers have zero residue while five unbound domains prevent qualification', () =>
 {
     const result = verifyTemporalShapeGovernance();
     assert.deepEqual(result, {
@@ -282,8 +282,17 @@ test('current temporal domain producers have zero private clock residue', () =>
         roleCount: 64,
         shapeCount: 15,
         secondAuthorityCount: 0,
-        residualPrivateClockCount: 0
+        residualPrivateClockCount: 0,
+        residualScope: 'bound-producers-only',
+        unboundProducerIds: ['audit-records', 'comment-moderation', 'development-demo', 'public-content', 'scale-data'],
+        qualificationEligible: false
     });
+    assert.throws(() => verifyTemporalShapeGovernance({ requireCompleteCoverage: true }),
+        /unbound temporal business producers: audit-records, comment-moderation, development-demo, public-content, scale-data/u);
+    const producerInventory = clone(readTemporalDomainProducerInventory());
+    producerInventory.producerBindings[0].fieldMappings[0].roleId = 'article.created';
+    assert.throws(() => verifyTemporalShapeGovernance({ producerInventory }),
+        /is not resolved by shape/u);
 });
 
 test('producer governance rejects literal business dates while retaining resolved role conversions', () =>

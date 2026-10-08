@@ -55,7 +55,8 @@ export function verifyTemporalShapeGovernance({
     temporalProducerBindings = readJson(temporalProducerBindingsPath),
     configFiles = jsonFiles(testingConfigRoot),
     sourceOverrides = new Map(),
-    temporalLedger = readTemporalLedger().document
+    temporalLedger = readTemporalLedger().document,
+    requireCompleteCoverage = false
 } = {})
 {
     const catalogAuthorities = [];
@@ -110,11 +111,20 @@ export function verifyTemporalShapeGovernance({
         {
             fail(`${producer.producerId} lacks the canonical semantic role carriers`);
         }
+        const shape = catalogState.catalog.shapes.find((candidate) => candidate.id === producer.shapeId);
+        if (!shape)
+        {
+            fail(`${producer.producerId} references an unknown temporal shape ${producer.shapeId}`);
+        }
         for (const mapping of producer.fieldMappings)
         {
             if (!knownRoles.has(mapping.roleId))
             {
                 fail(`${producer.producerId}.${mapping.field} references unknown role ${mapping.roleId}`);
+            }
+            if (!shape.timestampRoles.some((role) => role.roleId === mapping.roleId))
+            {
+                fail(`${producer.producerId}.${mapping.field} is not resolved by shape ${producer.shapeId}`);
             }
         }
         for (const source of producer.implementations)
@@ -206,19 +216,31 @@ export function verifyTemporalShapeGovernance({
         fail('temporal resolver configuration must not create a second resolver authority');
     }
 
+    const boundProducerIds = new Set(producerInventory.producerBindings.map((binding) => binding.producerId));
+    const unboundProducerIds = temporalProducerBindings.producerBindings
+        .map((binding) => binding.producerId)
+        .filter((producerId) => !boundProducerIds.has(producerId))
+        .sort();
+    if (requireCompleteCoverage && unboundProducerIds.length > 0)
+    {
+        fail(`unbound temporal business producers: ${unboundProducerIds.join(', ')}`);
+    }
     return Object.freeze({
         catalogDigest: catalogState.catalogDigest,
         producerCount: producerInventory.producerBindings.length,
         roleCount: catalogState.roleIds.size,
         shapeCount: catalogState.shapeIds.size,
         secondAuthorityCount: 0,
-        residualPrivateClockCount: 0
+        residualPrivateClockCount: 0,
+        residualScope: 'bound-producers-only',
+        unboundProducerIds,
+        qualificationEligible: unboundProducerIds.length === 0
     });
 }
 
 if (process.argv[1]
   && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    const result = verifyTemporalShapeGovernance();
+    const result = verifyTemporalShapeGovernance({ requireCompleteCoverage: true });
     process.stdout.write(`${JSON.stringify(result)}\n`);
 }
