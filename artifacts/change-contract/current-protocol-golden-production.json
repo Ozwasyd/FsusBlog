@@ -2,7 +2,7 @@
     "schema": "fsusblog.task-current-protocol-golden-production.v1",
     "testedCommit": "cddbd39b967ce947556a76d7fce1bd57e9aaebd9",
     "testedTree": "fe14d5896566520080216e6f279d76bbe61a80b1",
-    "runIdentity": "chain-3657-current-comment-20261008",
+    "runIdentity": "chain-3657-20261008-lock-handoff/current-comment-risk-and-original-golden-producers-full40",
     "runWindowUtc": [
         "2026-10-08T05:17:42Z",
         "2026-10-08T05:20:50Z"
