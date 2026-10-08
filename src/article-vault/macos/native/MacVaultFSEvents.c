@@ -1,6 +1,4 @@
-#include <CoreServices/CoreServices.h>
 #include <dirent.h>
-#include <dispatch/dispatch.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -8,10 +6,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+#include <CoreServices/CoreServices.h>
+#include <dispatch/dispatch.h>
 #include <sys/attr.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 typedef struct stat MacVaultFileInformation;
 typedef struct statfs MacVaultMountInformation;
