@@ -9,7 +9,9 @@ const { controlledSchedulerCandidate, writeCanonicalSchedulerFixture } = await i
 const { commitSchedulerCheckpointCAS, readCanonicalSchedulerCheckpoint } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 const { finalizeSchedulerCorrectness } = await import(new URL('../../tools/test-matrix/scheduler-correctness-finalizer.mjs', import.meta.url));
 const { acquireSchedulerRunLock, schedulerCandidateIdentityDigest } = await import(new URL('../../tools/test-matrix/scheduler-run-owner.mjs', import.meta.url));
-const { readFixtureSwitchSchedulerObservation } = await import(new URL('../../tools/test-matrix/fixture-switch-scheduler-adapter.mjs', import.meta.url));
+const { bindFixtureSwitchSchedulerSourceEvidence, readFixtureSwitchSchedulerObservation } = await import(new URL('../../tools/test-matrix/fixture-switch-scheduler-adapter.mjs', import.meta.url));
+const { switchMaterials } = await import(new URL('./support/fixture-matrix-evidence-fixture.mjs', import.meta.url));
+const { buildFixtureSwitchEvidence } = await import(new URL('../../tools/test-matrix/fixture-switch-evidence.mjs', import.meta.url));
 
 // Real owner/store/CAS APIs with controlled domain inputs. These controls do not qualify a provider runtime.
 function setup(t)
@@ -94,4 +96,30 @@ test('an unfinished current attempt remains unavailable for terminal consumption
     const current = setup(t);
     await assert.rejects(readFixtureSwitchSchedulerObservation({ checkpointFile: current.checkpointFile,
         expected: current.expected(), requireTerminal: true }), /current-seal-unqualified/u);
+});
+
+test('links recomputed source sequence materials to actual canonical source references without admitting lifecycle phases', async (t) =>
+{
+    const inputs = switchMaterials();
+    const context = inputs.plan.context;
+    const sourceState = { commit: context.source.commit,
+        worktreeFingerprint: context.source.worktreeFingerprint.slice('sha256:'.length) };
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fixture-switch-source-binding-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const checkpointFile = path.join(root, context.runId, 'checkpoint.json');
+    const { store } = writeCanonicalSchedulerFixture(checkpointFile, { runId: context.runId, sourceState,
+        releaseCandidateIdentity: controlledSchedulerCandidate(sourceState, context.buildDigest),
+        correctnessAttempt: { targetAttemptId: 'switch-source-attempt' } });
+    const canonical = readCanonicalSchedulerCheckpoint(checkpointFile);
+    const expected = { runId: context.runId, sourceState, buildReceiptDigest: context.buildDigest,
+        targetAttemptId: 'switch-source-attempt', checkpointDigest: canonical.checkpointDigest,
+        lastSequence: canonical.lastSequence };
+    const sequence = store.readJournal().length;
+    const observation = await readFixtureSwitchSchedulerObservation({ checkpointFile, expected });
+    const evidence = buildFixtureSwitchEvidence(inputs);
+    const binding = await bindFixtureSwitchSchedulerSourceEvidence({ observation, evidence, inputs });
+    assert.equal(binding.schedulerObservationDigest, observation.contentDigest);
+    assert.equal(binding.switchEvidenceDigest, evidence.contentDigest);
+    assert.equal(binding.qualificationEligible, false);
+    assert.equal(store.readJournal().length, sequence);
 });
