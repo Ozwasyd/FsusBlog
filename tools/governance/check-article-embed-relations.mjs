@@ -230,7 +230,7 @@ export function checkArticleEmbedRelationSources(sources)
     for (const guard of [
         [
             "authoring source re-verification",
-            "ArticleEmbedAuthoringVerifier.Verify"
+            "ArticleEmbedDependencyGraphVerifier.Verify"
         ],
         [
             "publication source re-verification",
@@ -320,7 +320,7 @@ export function checkArticleEmbedRelationSources(sources)
         }
     }
     for (const expectation of [
-        "ArticleEmbedAuthoringVerifier.Verify",
+        "ArticleEmbedDependencyGraphVerifier.Verify",
         "ArticleEmbedPublicationVerifier.Verify",
         "ArticleEmbedRelationContractValidator.Validate",
         "ArticleEmbedRelationDigest.ComputeEdgeIdentity",

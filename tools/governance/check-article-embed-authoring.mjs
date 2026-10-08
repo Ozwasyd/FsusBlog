@@ -14,13 +14,18 @@ const contractsFile = `${authoringDirectory}/ArticleEmbedAuthoringContracts.cs`;
 const validatorFile = `${authoringDirectory}/ArticleEmbedAuthoringContractValidator.cs`;
 const resolverFile = `${authoringDirectory}/ArticleEmbedAuthoringResolver.cs`;
 const verifierFile = `${authoringDirectory}/ArticleEmbedAuthoringVerifier.cs`;
+const graphDirectory = "src/shared/Contracts/ArticleEmbeds/Graph";
+const graphPlannerFile = `${graphDirectory}/ArticleEmbedDependencyGraphPlanner.cs`;
+const graphVerifierFile = `${graphDirectory}/ArticleEmbedDependencyGraphVerifier.cs`;
 const digestFile = `${authoringDirectory}/ArticleEmbedAuthoringDigest.cs`;
 const requiredFiles = [
     contractsFile,
     validatorFile,
     resolverFile,
     verifierFile,
-    digestFile
+    digestFile,
+    graphPlannerFile,
+    graphVerifierFile
 ];
 
 function toPosix(value)
@@ -205,27 +210,64 @@ export function checkArticleEmbedAuthoringSources(sources)
     }
 
     const resolverSource = withoutCSharpComments(sources.get(resolverFile));
-    for (const guard of [
-        ["closed depth budget", "MaxDepth"],
-        ["closed expanded-node budget", "MaxExpandedNodes"],
-        ["closed source-byte budget", "MaxSourceBytes"],
-        ["closed elapsed-time budget", "MaxElapsedMilliseconds"],
-        ["closed authority-message budget", "MaxAuthorityMessages"],
-        ["cycle detection on the expansion path", "path.Contains"],
-        ["stale cancellation observation", "IsCancellationRequested"],
-        [
-            "authoring scope enforcement",
-            "RequestedScope != ArticleEmbedRequestedScope.Authoring"
-        ],
-        ["host source binding", "snapshot.HostSourceDigest"],
-        ["permission context binding", "snapshot.Actor"],
-        ["provider runtime binding", "snapshot.Runtime"]
+    const graphSource = withoutCSharpComments(sources.get(graphPlannerFile));
+    for (const [relative, source, guards] of [
+        [resolverFile, resolverSource, [
+            ["closed expanded-node budget", "MaxExpandedNodes"],
+            ["closed source-byte budget", "MaxSourceBytes"],
+            ["closed elapsed-time budget", "MaxElapsedMilliseconds"],
+            ["closed authority-message budget", "MaxAuthorityMessages"],
+            ["stale cancellation observation", "IsCancellationRequested"],
+            ["authoring scope enforcement", "RequestedScope != ArticleEmbedRequestedScope.Authoring"],
+            ["host source binding", "snapshot.HostSourceDigest"],
+            ["permission context binding", "snapshot.Actor"],
+            ["provider runtime binding", "snapshot.Runtime"]
+        ]],
+        [graphPlannerFile, graphSource, [
+            ["closed depth budget", "MaxDepth"],
+            ["closed expanded-node budget", "MaxExpandedNodes"],
+            ["closed elapsed-time budget", "MaxElapsedMilliseconds"],
+            ["cycle detection on the expansion path", "path.Contains"],
+            ["stale cancellation observation", "IsCancellationRequested"],
+            ["projection stage re-verification", "ArticleEmbedAuthoringVerifier.Verify"],
+            ["sole current projection owner", "ArticleEmbedAuthoringResolver.ProjectCurrent"]
+        ]]
     ])
     {
-        if (!resolverSource.includes(guard[1]))
+        for (const [label, token] of guards)
         {
-            violations.push(`${resolverFile}: missing ${guard[0]}`);
+            if (!source.includes(token))
+            {
+                violations.push(`${relative}: missing ${label}`);
+            }
         }
+    }
+    if (/ResolveNode|ResolveNested|OrderedNested|path\.Contains|\.NestedDirectives/u.test(resolverSource))
+    {
+        violations.push(`${resolverFile}: recursive or nested dependency expansion is forbidden in the projection provider stage`);
+    }
+    for (const [relative, name] of [
+        [graphPlannerFile, "ArticleEmbedDependencyGraphPlanner"],
+        [graphVerifierFile, "ArticleEmbedDependencyGraphVerifier"]
+    ])
+    {
+        const matches = declarations(sources, new RegExp(`\\bclass\\s+([A-Za-z0-9_]*${name}[A-Za-z0-9_]*)\\b`, "gu"));
+        if (matches.length !== 1 || matches[0] !== `${relative}:${name}`)
+        {
+            violations.push(`expected exact-one dependency graph stage ${relative}:${name}`);
+        }
+    }
+    const graphVerifierSource = withoutCSharpComments(sources.get(graphVerifierFile));
+    for (const token of ["ArticleEmbedAuthoringContractValidator.Validate", "ArticleEmbedTargetCodec.TryDecode", "VerifyChildren", "path.Contains", "root_cycle_without_host_ancestor", "root_depth_failure_unjustified"])
+    {
+        if (!graphVerifierSource.includes(token))
+        {
+            violations.push(`${graphVerifierFile}: independent complete-graph verification missing ${token}`);
+        }
+    }
+    if (graphVerifierSource.includes("ArticleEmbedDependencyGraphPlanner.Expand") || graphVerifierSource.includes("ArticleEmbedAuthoringResolver.Resolve"))
+    {
+        violations.push(`${graphVerifierFile}: graph verifier must not call the production stages it verifies`);
     }
 
     const validatorSource = withoutCSharpComments(sources.get(validatorFile));

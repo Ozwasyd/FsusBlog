@@ -101,14 +101,17 @@ public enum ArticleEmbedErrorCode : byte
 }
 
 /// <summary>Preserves the parser-provided half-open UTF-16 range in the host Markdown source.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedSourceRange(int Start, int End);
 
 /// <summary>Identifies the host document and the epoch that invalidates replaced documents.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedDocumentIdentity(string Id, long Epoch);
 
 /// <summary>
 /// Stable target identity. Route, slug, title, URL, display text and raw database IDs are deliberately absent.
 /// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedTargetIdentity(
     string PortableArticleIdentity,
     ArticleEmbedTargetKind Kind,
@@ -118,6 +121,7 @@ public sealed record ArticleEmbedTargetIdentity(
 /// <summary>
 /// Exact projection emitted by the FsusUI #290 parser. Blog never reconstructs it from Markdown source.
 /// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedDirectiveProjection(
     string ParserContract,
     string TargetToken,
@@ -125,12 +129,14 @@ public sealed record ArticleEmbedDirectiveProjection(
     ArticleEmbedSourceRange RawRange);
 
 /// <summary>Binds resolution to the actor, site and permission snapshot supplied by the caller.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedActorContext(
     string ActorIdentity,
     string SiteIdentity,
     string PermissionContextDigest);
 
 /// <summary>Binds a result to the exact provider implementation and runtime digest.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedRuntimeContext(
     string ProviderId,
     int ProviderVersion,
@@ -138,6 +144,7 @@ public sealed record ArticleEmbedRuntimeContext(
     string RuntimeDigest);
 
 /// <summary>Defines the complete immutable input accepted by an article embed provider.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedProviderRequest(
     string Schema,
     int SchemaVersion,
@@ -155,12 +162,14 @@ public sealed record ArticleEmbedProviderRequest(
     [property: JsonIgnore] CancellationToken AbortSignal);
 
 /// <summary>Reference to controlled Markdown or a renderer-owned safe projection; never HTML or a UI object.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedSafeProjectionReference(
     ArticleEmbedProjectionKind Kind,
     string ProjectionIdentity,
     string ContentDigest);
 
 /// <summary>Provides safe display attribution tied to the resolved source revision.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedAttribution(
     string SourcePortableArticleIdentity,
     long SourceRevision,
@@ -168,6 +177,7 @@ public sealed record ArticleEmbedAttribution(
     string AttributionDigest);
 
 /// <summary>Records the bounded depth, node, byte and elapsed-time cost of resolution.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedBudgetObservation(
     int Depth,
     int Nodes,
@@ -177,6 +187,7 @@ public sealed record ArticleEmbedBudgetObservation(
 /// <summary>
 /// Shared dependency coordinate consumed by relation, package and export contracts. Its digest excludes routes and labels.
 /// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedDependencyCoordinate(
     string Schema,
     int SchemaVersion,
@@ -188,11 +199,13 @@ public sealed record ArticleEmbedDependencyCoordinate(
     string DependencyDigest);
 
 /// <summary>Pairs a closed machine-readable error with a non-sensitive provider reason code.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedError(
     ArticleEmbedErrorCode Code,
     string SafeReasonCode);
 
 /// <summary>Returns either one fully bound safe projection coordinate or one classified failure.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ArticleEmbedProviderResult(
     string Schema,
     int SchemaVersion,
