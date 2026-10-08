@@ -3,6 +3,11 @@
         <summary>Vault：状态未知</summary>
         <p role="status">当前无法取得已验证的 Vault 状态与操作授权。</p>
         <p>服务端文章编辑、保存、发布和恢复仍可使用。Vault 本地变更是否已同步尚未验证。</p>
+        <VaultAgentLifecycleDetail
+            v-if="lifecycleReport"
+            :report="lifecycleReport"
+            :expected-scope="lifecycleScope ?? null"
+        />
         <VaultAgentLeaseDetail
             v-if="leaseReport"
             :report="leaseReport"
@@ -24,12 +29,16 @@
 
 <script setup lang="ts">
 import VaultAgentLeaseDetail from '@/components/admin/article/vault/VaultAgentLeaseDetail.vue';
+import VaultAgentLifecycleDetail from '@/components/admin/article/vault/VaultAgentLifecycleDetail.vue';
 import VaultRecoveryCheckpointDetail from '@/components/admin/article/vault/VaultRecoveryCheckpointDetail.vue';
 import type { VaultAgentLeaseReport, VaultAgentLeaseScope } from '@/services/articleVault/agentLeasePresentation';
+import type { VaultAgentLifecycleReport } from '@/services/articleVault/agentLifecyclePresentation';
 import type { VaultRecoveryCheckpointDisplayScope, VaultRecoveryCheckpointDocument } from '@/services/articleVault/recoveryCheckpointPresentation';
 
 // Supplied reports stay unverified; no connection, lifecycle or recovery state is derived here.
 defineProps<{
+    lifecycleReport?: VaultAgentLifecycleReport | null;
+    lifecycleScope?: VaultAgentLeaseScope | null;
     leaseReport?: VaultAgentLeaseReport | null;
     leaseScope?: VaultAgentLeaseScope | null;
     recoveryJournal?: VaultRecoveryCheckpointDocument | null;

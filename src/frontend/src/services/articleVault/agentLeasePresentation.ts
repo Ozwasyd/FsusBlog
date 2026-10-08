@@ -47,7 +47,7 @@ function isDigest(value: unknown): value is string
     return typeof value === 'string' && /^[0-9a-f]{64}$/u.test(value);
 }
 
-function isDisplayScope(scope: VaultAgentLeaseScope): boolean
+export function isVaultAgentDisplayScope(scope: VaultAgentLeaseScope): boolean
 {
     return identityFields.every(field => typeof scope[field] === 'string' && /^[A-Za-z0-9-]{1,64}$/u.test(scope[field]))
         && digestFields.every(field => isDigest(scope[field]))
@@ -55,6 +55,12 @@ function isDisplayScope(scope: VaultAgentLeaseScope): boolean
         && scope.agentVersion.length <= 32
         && /^\d+(?:\.\d+){1,3}$/u.test(scope.agentVersion)
         && Number.isSafeInteger(scope.protocolVersion);
+}
+
+/** Display isolation only; matching fields do not verify a binding or native capability. */
+export function matchesVaultAgentDisplayScope(left: VaultAgentLeaseScope, right: VaultAgentLeaseScope): boolean
+{
+    return scopeFields.every(field => left[field] === right[field]);
 }
 
 /** Scope equality and display safety never establish canonical receipt validity. */
@@ -67,13 +73,13 @@ export function presentVaultAgentLease(
     {
         return { availability: 'unavailable', rows: [] };
     }
-    if (scopeFields.some(field => report.binding[field] !== expectedScope[field]))
+    if (!matchesVaultAgentDisplayScope(report.binding, expectedScope))
     {
         return { availability: 'scope-mismatch', rows: [] };
     }
     // This whitelist avoids echoing unsafe display values; it does not reproduce
     // the canonical verifier's hash chain, session binding, or machine authority.
-    if (!isDisplayScope(report.binding)
+    if (!isVaultAgentDisplayScope(report.binding)
         || report.schema !== 'fsusblog.article-vault.writer-lease.v1'
         || !Object.hasOwn(stateLabels, report.state)
         || !Number.isSafeInteger(report.generation) || report.generation < 1
