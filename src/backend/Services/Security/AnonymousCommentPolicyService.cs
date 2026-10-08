@@ -174,7 +174,7 @@ public sealed class AnonymousCommentPolicyService(
             DateTime.UtcNow);
     }
 
-    private static CommentAuthorModeDecision EvaluateAuthorMode(
+    public static CommentAuthorModeDecision EvaluateAuthorMode(
         AnonymousCommentPolicySnapshot policy,
         string? requestedAuthorMode,
         bool publicSendExplicitlySelected)
