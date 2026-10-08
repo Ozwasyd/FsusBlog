@@ -13,6 +13,10 @@
         "./evidence-publication": "./tools/test/current-run-evidence-publication.mjs",
         "./evidence-location-contract": "./tools/test/evidence-location-contract.mjs",
         "./playwright-browser-identity": "./tools/test/playwright-browser-identity.mjs",
-        "./visual-producer-admission": "./tests/frontend/support/layout/visualProducerAdmission.mjs"
+        "./visual-producer-admission": "./tests/frontend/support/layout/visualProducerAdmission.mjs",
+        "./composition-analyzer": "./tests/frontend/support/layout/compositionAnalyzer.mjs",
+        "./composition-source": "./tests/frontend/support/layout/compositionSource.mjs",
+        "./composition-dom": "./tests/frontend/support/layout/compositionDom.mjs",
+        "./composition-routes": "./tests/frontend/support/layout/compositionRoutes.mjs"
     }
 }

@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 
 import { loadCompositionInputs } from '@fsusblog/layout-governance/composition-contracts';
 import { createLayoutAggregationPlan } from '@fsusblog/layout-governance/layout-aggregation';
+import { checkLayoutComposition } from './check-layout-composition.mjs';
 
 const root = process.cwd();
 const srcDir = join(root, 'src');
@@ -59,6 +60,15 @@ function walkSourceFiles(dir, output = [])
 const componentFacingFiles = Array.from(new Set(componentFacingDirs.flatMap((dir) => walkSourceFiles(dir))));
 const hardViolations = [];
 const softViolations = [];
+try
+{
+    const composition = checkLayoutComposition(resolve(root, '../..'));
+    hardViolations.push(...composition.errors.map((error) => `composition ${error.archetype ?? 'router'}: ${error.reason} ${error.file ?? error.path ?? ''}`));
+}
+catch (error)
+{
+    hardViolations.push(`composition: ${error.message}`);
+}
 
 const legacyComponentApiPatterns = [
     { pattern: /:contract\s*=/, label: 'legacy :contract component API' },
