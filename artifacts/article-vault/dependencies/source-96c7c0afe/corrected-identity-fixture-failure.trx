@@ -1,0 +1,1295 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="c4829301-0c6f-4592-b6f7-c3918d14209e" name="@661a1fc038ba 2026-10-08 09:34:19" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-08T09:34:19.1157812+00:00" queuing="2026-10-08T09:34:19.1157812+00:00" start="2026-10-08T09:34:16.7779733+00:00" finish="2026-10-08T09:34:19.1978137+00:00" />
+  <TestSettings name="default" id="4a9affd5-5f2e-4a1f-b7af-619d756e1413">
+    <Deployment runDeploymentRoot="_661a1fc038ba_2026-10-08_09_34_19" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="a197344e-b3ce-4c9c-a318-11a932094e43" testId="cd22f979-e0ce-3112-6401-35db2a926885" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealedDependencyExtensionCannotSubstituteItemOrGroup(change: &quot;item&quot;)" computerName="661a1fc038ba" duration="00:00:00.0007661" startTime="2026-10-08T09:34:19.1129115+00:00" endTime="2026-10-08T09:34:19.1129704+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a197344e-b3ce-4c9c-a318-11a932094e43">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealedDependencyExtensionCannotSubstituteItemOrGroup(String change) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 125
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5d4e11f5-9173-49f4-954a-271426ed9d22" testId="b0ecbee0-6042-e5fe-360c-5d6e83d753d5" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;article&quot;)" computerName="661a1fc038ba" duration="00:00:00.0006186" startTime="2026-10-08T09:34:19.1019214+00:00" endTime="2026-10-08T09:34:19.1020104+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5d4e11f5-9173-49f4-954a-271426ed9d22">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="378f2720-5603-4590-a666-454a6e1f7d70" testId="cc3aa6d3-11cb-9cf8-4a0f-fc4157ebd27c" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;permission&quot;, afterRead: True, reason: &quot;portable_dependency_permission_or_rights_invalid&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005913" startTime="2026-10-08T09:34:19.1066606+00:00" endTime="2026-10-08T09:34:19.1067147+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="378f2720-5603-4590-a666-454a6e1f7d70">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 213
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e9188b7a-9670-4126-b10b-d157e567d2c5" testId="6a876d92-3766-bf02-6062-176c6839f7f5" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;rights&quot;, afterRead: True, reason: &quot;portable_dependency_authority_drift&quot;)" computerName="661a1fc038ba" duration="00:00:00.0006914" startTime="2026-10-08T09:34:19.1072015+00:00" endTime="2026-10-08T09:34:19.1073120+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e9188b7a-9670-4126-b10b-d157e567d2c5">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 213
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="fd7f8177-d5d7-42cb-99a9-b088e8a8053a" testId="9cd98865-a250-e680-0efa-8f602f9dd8af" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: &quot;asset-revision&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005657" startTime="2026-10-08T09:34:19.1142739+00:00" endTime="2026-10-08T09:34:19.1143199+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fd7f8177-d5d7-42cb-99a9-b088e8a8053a">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 376
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="86d1431c-71bb-45e3-a43f-c9b2444424f9" testId="574d9e84-56c3-f22f-f33a-6eb5620a6fbd" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.WholeOperationIdentityCannotStandInForItemIdentity" computerName="661a1fc038ba" duration="00:00:00.0010898" startTime="2026-10-08T09:34:19.1308870+00:00" endTime="2026-10-08T09:34:19.1309310+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="86d1431c-71bb-45e3-a43f-c9b2444424f9">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.WholeOperationIdentityCannotStandInForItemIdentity() in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 84
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d6689ece-20fc-40a9-94d8-0939d61999a7" testId="b6e24699-340e-a0fa-807d-469f782b2c27" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;dependency-plan&quot;)" computerName="661a1fc038ba" duration="00:00:00.0008099" startTime="2026-10-08T09:34:19.0892899+00:00" endTime="2026-10-08T09:34:19.0893396+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d6689ece-20fc-40a9-94d8-0939d61999a7">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1617b8c0-fc20-4ce6-a64d-e62a27bacf8c" testId="594ec561-1966-7ea5-166d-b0c3eecb4eb6" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(field: &quot;ledger&quot;)" computerName="661a1fc038ba" duration="00:00:00.0013195" startTime="2026-10-08T09:34:19.1212531+00:00" endTime="2026-10-08T09:34:19.1212940+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1617b8c0-fc20-4ce6-a64d-e62a27bacf8c">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 407
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="98051397-35fe-4aeb-97a0-0efde92cc2ab" testId="a59cf683-9b10-1340-609c-11ec7051789f" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffBindsWholeOperationAndExactItemGroupArticleAndAsset" computerName="661a1fc038ba" duration="00:00:00.0012038" startTime="2026-10-08T09:34:19.1181193+00:00" endTime="2026-10-08T09:34:19.1182046+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="98051397-35fe-4aeb-97a0-0efde92cc2ab">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffBindsWholeOperationAndExactItemGroupArticleAndAsset() in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 60
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="93e4585d-1fe5-4ccb-b91d-a9e89270a809" testId="e648facf-55ec-392d-ce80-7b11c7e14e7e" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;identity&quot;, afterRead: True, reason: &quot;portable_dependency_authority_drift&quot;)" computerName="661a1fc038ba" duration="00:00:00.0012431" startTime="2026-10-08T09:34:19.1038966+00:00" endTime="2026-10-08T09:34:19.1039397+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="93e4585d-1fe5-4ccb-b91d-a9e89270a809">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 213
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a4b4d5b6-0ba3-4fe7-bd8d-d196ced1f4a6" testId="939cdc1c-c17c-5766-a12f-0f40a4afc318" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;version&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005530" startTime="2026-10-08T09:34:19.0905647+00:00" endTime="2026-10-08T09:34:19.0906100+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a4b4d5b6-0ba3-4fe7-bd8d-d196ced1f4a6">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="47424e6d-4270-4f7a-8864-e8c1372a74aa" testId="35c31730-4d2d-6618-2185-6b120d34108c" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: &quot;plan&quot;, reason: &quot;article_vault_asset_stage_plan_missing&quot;)" computerName="661a1fc038ba" duration="00:00:00.0007871" startTime="2026-10-08T09:34:19.1192084+00:00" endTime="2026-10-08T09:34:19.1192554+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="47424e6d-4270-4f7a-8864-e8c1372a74aa">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(String change, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 100
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a7ebe268-abb4-43e7-aff5-f973066bf440" testId="b1b456a0-be15-37ee-56f5-26db9e385ff2" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealedDependencyExtensionCannotSubstituteItemOrGroup(change: &quot;group&quot;)" computerName="661a1fc038ba" duration="00:00:00.0012338" startTime="2026-10-08T09:34:19.1126332+00:00" endTime="2026-10-08T09:34:19.1126776+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a7ebe268-abb4-43e7-aff5-f973066bf440">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealedDependencyExtensionCannotSubstituteItemOrGroup(String change) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 125
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="21601d7e-c882-4cd7-af78-f7d21980d18a" testId="f35d0462-6102-6b24-e8d8-6183ee8ac28e" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;operation&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005316" startTime="2026-10-08T09:34:19.1015145+00:00" endTime="2026-10-08T09:34:19.1015752+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="21601d7e-c882-4cd7-af78-f7d21980d18a">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="4a0c55f4-b842-4892-a419-73fc02a10d45" testId="b517cb41-7e7d-fdd9-ffca-652ed8e741ca" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;asset&quot;)" computerName="661a1fc038ba" duration="00:00:00.0006172" startTime="2026-10-08T09:34:19.0912759+00:00" endTime="2026-10-08T09:34:19.0913196+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4a0c55f4-b842-4892-a419-73fc02a10d45">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="fcb048a2-a5ac-4f22-8cc8-3d05a0e3a103" testId="28d4a50f-76b5-f7fe-cffa-78b4782bc81b" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: &quot;operation-seal&quot;, reason: &quot;article_vault_operation_identity_invalid&quot;)" computerName="661a1fc038ba" duration="00:00:00.0012260" startTime="2026-10-08T09:34:19.1189420+00:00" endTime="2026-10-08T09:34:19.1189825+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fcb048a2-a5ac-4f22-8cc8-3d05a0e3a103">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(String change, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 100
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="8467b3d5-ffb1-469f-834a-03455b2a37cb" testId="31872b7c-7490-bd16-1123-5337b1934b3d" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: &quot;article&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005307" startTime="2026-10-08T09:34:19.1175036+00:00" endTime="2026-10-08T09:34:19.1175564+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8467b3d5-ffb1-469f-834a-03455b2a37cb">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 376
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6c7d4e90-e6af-4bb2-bb77-09800230412b" testId="329e3991-7af7-330b-06b8-05dd35dd0b5f" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(boundary: &quot;upload-read&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005654" startTime="2026-10-08T09:34:19.1099628+00:00" endTime="2026-10-08T09:34:19.1100127+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6c7d4e90-e6af-4bb2-bb77-09800230412b">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(String boundary) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 264
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a43090e1-7b1f-4867-972f-08e2e2decf7b" testId="c237d814-6c32-d8b5-1f28-b8445d84c1b6" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;rights&quot;, afterRead: False, reason: &quot;portable_dependency_authority_drift&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005240" startTime="2026-10-08T09:34:19.1075121+00:00" endTime="2026-10-08T09:34:19.1075532+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a43090e1-7b1f-4867-972f-08e2e2decf7b">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 213
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3c65e5ac-cab2-4177-8b77-0d61592d51bb" testId="2899c09c-2f67-ecf7-0573-447df45f6a87" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: &quot;principal&quot;, reason: &quot;article_vault_asset_stage_principal_or_plan_mismat&quot;···)" computerName="661a1fc038ba" duration="00:00:00.0005614" startTime="2026-10-08T09:34:19.1195844+00:00" endTime="2026-10-08T09:34:19.1196485+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3c65e5ac-cab2-4177-8b77-0d61592d51bb">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(String change, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 100
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d895af1a-57e7-4e80-9c45-8351dbffbb8b" testId="89abc97a-b127-0cc7-5012-24f0a02445b1" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;ledger&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005637" startTime="2026-10-08T09:34:19.1027688+00:00" endTime="2026-10-08T09:34:19.1028135+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d895af1a-57e7-4e80-9c45-8351dbffbb8b">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="fe060b36-f777-4688-aa48-3a80ee260447" testId="8fc03367-b668-01b6-f505-a6160cc719a6" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;permission&quot;, afterRead: False, reason: &quot;portable_dependency_permission_or_rights_invalid&quot;)" computerName="661a1fc038ba" duration="00:00:00.0009366" startTime="2026-10-08T09:34:19.1041996+00:00" endTime="2026-10-08T09:34:19.1042409+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fe060b36-f777-4688-aa48-3a80ee260447">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 213
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d4eeac95-da6f-434f-9c01-8042afe0733c" testId="405f2ae5-265e-6745-e1b8-6965483c087d" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ExactDeadlineBoundaryIsWithinTheSealedOperationWindow" computerName="661a1fc038ba" duration="00:00:00.0010454" startTime="2026-10-08T09:34:19.1221101+00:00" endTime="2026-10-08T09:34:19.1262817+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d4eeac95-da6f-434f-9c01-8042afe0733c">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ExactDeadlineBoundaryIsWithinTheSealedOperationWindow() in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 466
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="7a252637-b069-4224-bf00-d8a5b9e77c2a" testId="d4d75de1-4b63-82ab-b556-9c22da143f93" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.UnknownAssetCannotBeSelectedByMatchingContentDigest" computerName="661a1fc038ba" duration="00:00:00.0010036" startTime="2026-10-08T09:34:19.1108044+00:00" endTime="2026-10-08T09:34:19.1108441+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7a252637-b069-4224-bf00-d8a5b9e77c2a">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.UnknownAssetCannotBeSelectedByMatchingContentDigest() in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 156
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="15bf0ecb-7bde-4ad4-bd26-716deacf295d" testId="b2be95ca-1dbe-8b02-f1f6-49609fb3c55e" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(field: &quot;references&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005348" startTime="2026-10-08T09:34:19.1218806+00:00" endTime="2026-10-08T09:34:19.1219204+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="15bf0ecb-7bde-4ad4-bd26-716deacf295d">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 407
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e466bbfc-21ee-4598-ad8c-f82a7a78c8b0" testId="c69498fd-701d-01ef-71ec-4e7c72b61ef8" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: &quot;site&quot;, reason: &quot;article_vault_asset_stage_binding_invalid&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005685" startTime="2026-10-08T09:34:19.1198370+00:00" endTime="2026-10-08T09:34:19.1198772+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e466bbfc-21ee-4598-ad8c-f82a7a78c8b0">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(String change, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 100
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="4b7a74ee-8672-4ebd-bf27-1909e047c306" testId="4720efe2-22b0-8368-1efb-0315773bf5c9" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff(afterRead: False)" computerName="661a1fc038ba" duration="00:00:00.0013334" startTime="2026-10-08T09:34:19.1269333+00:00" endTime="2026-10-08T09:34:19.1269759+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4b7a74ee-8672-4ebd-bf27-1909e047c306">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff(Boolean afterRead) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 292
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="76bb0214-7b9d-4976-9e7c-43bf766b2212" testId="087892b7-0518-1d89-fe71-dd37c7f35241" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ReturnedReferenceSnapshotSurvivesMutationOfOriginalObserverList" computerName="661a1fc038ba" duration="00:00:00.0012600" startTime="2026-10-08T09:34:19.1209393+00:00" endTime="2026-10-08T09:34:19.1209929+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="76bb0214-7b9d-4976-9e7c-43bf766b2212">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ReturnedReferenceSnapshotSurvivesMutationOfOriginalObserverList() in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 429
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="03f477de-6a87-4564-8b6b-688f3ebe2ea2" testId="b5d65763-d807-e7f2-db92-6a28efdc93ff" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;preparation&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005458" startTime="2026-10-08T09:34:19.0929142+00:00" endTime="2026-10-08T09:34:19.0929574+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="03f477de-6a87-4564-8b6b-688f3ebe2ea2">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="02bb90fc-de57-43b5-a461-21b0d48b84d4" testId="af8b60f3-d2f5-3d6c-a2f1-b9c7c726905d" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;source&quot;, afterRead: True, reason: &quot;article_vault_source_bytes_mismatch&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005456" startTime="2026-10-08T09:34:19.1077197+00:00" endTime="2026-10-08T09:34:19.1077591+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="02bb90fc-de57-43b5-a461-21b0d48b84d4">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 213
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="c571194b-af7b-4f5c-840b-5756282a05b4" testId="a2d08607-3a4b-3ebc-ecc3-ddc09c1853a0" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;owner&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005777" startTime="2026-10-08T09:34:19.0921010+00:00" endTime="2026-10-08T09:34:19.0921667+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c571194b-af7b-4f5c-840b-5756282a05b4">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b19ac37d-c46e-4a2f-8180-34a61bda9208" testId="0eec65fd-cf33-037e-7d49-343113377b89" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.OriginalObservationExceptionIsNotReplacedWithSuccessOrAnotherError" computerName="661a1fc038ba" duration="00:00:00.0011022" startTime="2026-10-08T09:34:19.1323127+00:00" endTime="2026-10-08T09:34:19.1323642+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b19ac37d-c46e-4a2f-8180-34a61bda9208">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.OriginalObservationExceptionIsNotReplacedWithSuccessOrAnotherError() in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 248
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6b8ad4f4-2d5d-411e-944d-a4f2adae461d" testId="d1d40e88-850c-f67b-fb2f-eb8142b6a150" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;seal&quot;)" computerName="661a1fc038ba" duration="00:00:00.0021296" startTime="2026-10-08T09:34:19.0879978+00:00" endTime="2026-10-08T09:34:19.0880788+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6b8ad4f4-2d5d-411e-944d-a4f2adae461d">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f549d869-e4ef-4258-8363-af916a376035" testId="87833a7d-6e7a-fbaf-0e0b-f96ea8244ba1" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead(afterRead: False)" computerName="661a1fc038ba" duration="00:00:00.0007605" startTime="2026-10-08T09:34:19.1186957+00:00" endTime="2026-10-08T09:34:19.1187390+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f549d869-e4ef-4258-8363-af916a376035">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead(Boolean afterRead) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 447
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3e5b1435-99bc-4434-adb5-9c382f112a83" testId="879ddb29-8c2e-dc64-8037-4da0d3651c0b" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;owner&quot;, afterRead: True, reason: &quot;portable_dependency_authority_drift&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005997" startTime="2026-10-08T09:34:19.1044271+00:00" endTime="2026-10-08T09:34:19.1044712+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3e5b1435-99bc-4434-adb5-9c382f112a83">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 213
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="152cce89-0e04-4a37-b04e-c7e307a5344e" testId="8fc17fee-3743-c21e-52aa-339e416257a2" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;owner&quot;, afterRead: False, reason: &quot;portable_dependency_authority_drift&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005584" startTime="2026-10-08T09:34:19.1069172+00:00" endTime="2026-10-08T09:34:19.1069845+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="152cce89-0e04-4a37-b04e-c7e307a5344e">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 213
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="c7eec2e4-8d2e-4a03-ae6c-d62b49b9268f" testId="860221d7-049a-66d0-5d39-8e67bf99962d" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;source&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005687" startTime="2026-10-08T09:34:19.0898648+00:00" endTime="2026-10-08T09:34:19.0899131+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c7eec2e4-8d2e-4a03-ae6c-d62b49b9268f">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="34542f7e-0c61-4a83-a00a-9d9bdf42ad47" testId="fd20e02c-8a3d-e3dd-bf80-99d2cd594097" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(boundary: &quot;store-read&quot;)" computerName="661a1fc038ba" duration="00:00:00.0007870" startTime="2026-10-08T09:34:19.1087940+00:00" endTime="2026-10-08T09:34:19.1088338+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="34542f7e-0c61-4a83-a00a-9d9bdf42ad47">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(String boundary) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 264
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="01190cd5-73c9-4fae-9ff3-edf83ffda818" testId="d468d89a-459c-aefa-8c09-5b465e7f9ede" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;rights&quot;)" computerName="661a1fc038ba" duration="00:00:00.0006896" startTime="2026-10-08T09:34:19.1023013+00:00" endTime="2026-10-08T09:34:19.1023444+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="01190cd5-73c9-4fae-9ff3-edf83ffda818">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ce379a69-c8cb-41b9-a346-7bdc24132ca7" testId="924eba97-9e3b-2949-f070-5b563f037443" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff(afterRead: True)" computerName="661a1fc038ba" duration="00:00:00.0009667" startTime="2026-10-08T09:34:19.1273922+00:00" endTime="2026-10-08T09:34:19.1305305+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ce379a69-c8cb-41b9-a346-7bdc24132ca7">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff(Boolean afterRead) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 292
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="114f970e-a800-458a-9137-4c90cf2ad1c2" testId="cc0b39e6-a8df-97f1-e038-efd6c27a858d" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;group&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005976" startTime="2026-10-08T09:34:19.0916668+00:00" endTime="2026-10-08T09:34:19.0917098+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="114f970e-a800-458a-9137-4c90cf2ad1c2">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="391ab1b5-a870-4b94-ba17-75ad3ef2fedc" testId="e20a2914-2a6e-c289-552e-d194390d1cad" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead(afterRead: True)" computerName="661a1fc038ba" duration="00:00:00.0010539" startTime="2026-10-08T09:34:19.1184211+00:00" endTime="2026-10-08T09:34:19.1184632+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="391ab1b5-a870-4b94-ba17-75ad3ef2fedc">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead(Boolean afterRead) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 447
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="571c70c2-55c5-4d46-be4e-71bbccee524a" testId="2674143c-5c34-87ca-f40f-db785f6b01d3" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationDuringPostReadCurrentVerificationCannotReturnHandoff" computerName="661a1fc038ba" duration="00:00:00.1262216" startTime="2026-10-08T09:34:18.9688667+00:00" endTime="2026-10-08T09:34:19.0736155+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="571c70c2-55c5-4d46-be4e-71bbccee524a">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationDuringPostReadCurrentVerificationCannotReturnHandoff() in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 315
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="83670ae6-8f88-4880-ad27-8ba409d5c4a9" testId="177cb47f-3bc3-5af7-11d9-e2f90768ad93" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.DeterministicRetryAndRevalidationRereadOriginalSessionWithoutWriting" computerName="661a1fc038ba" duration="00:00:00.0015973" startTime="2026-10-08T09:34:19.1083503+00:00" endTime="2026-10-08T09:34:19.1083918+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="83670ae6-8f88-4880-ad27-8ba409d5c4a9">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.DeterministicRetryAndRevalidationRereadOriginalSessionWithoutWriting() in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 36
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="abf8a5ca-ee13-4b15-aa66-d8b1ac54bd66" testId="18d740d5-c77a-57be-c48f-50b1c2ebbee1" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;item&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005351" startTime="2026-10-08T09:34:19.1030395+00:00" endTime="2026-10-08T09:34:19.1035737+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="abf8a5ca-ee13-4b15-aa66-d8b1ac54bd66">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 342
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="9ef4e33f-d26d-4a71-9d02-f2ff0fba5d2e" testId="a98886bd-89eb-8bae-d1e1-65e485132b72" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(boundary: &quot;before&quot;)" computerName="661a1fc038ba" duration="00:00:00.0012410" startTime="2026-10-08T09:34:19.1085915+00:00" endTime="2026-10-08T09:34:19.1086317+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9ef4e33f-d26d-4a71-9d02-f2ff0fba5d2e">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(String boundary) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 264
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="9f8dbb77-2d96-4632-a3c2-bc80741d02d0" testId="a628c7a5-6014-7841-22e9-ca93bda3465d" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.NoOpAndPullItemsCannotPrepareUploadHandoff(decision: PullUpdate)" computerName="661a1fc038ba" duration="00:00:00.0010004" startTime="2026-10-08T09:34:19.1102728+00:00" endTime="2026-10-08T09:34:19.1103136+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9f8dbb77-2d96-4632-a3c2-bc80741d02d0">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.NoOpAndPullItemsCannotPrepareUploadHandoff(VaultSyncDecision decision) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 170
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1099fcea-5408-48a1-9f8a-816cff05e407" testId="d3442976-bef9-acf9-df14-3dacc4406431" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: &quot;group&quot;)" computerName="661a1fc038ba" duration="00:00:00.0013154" startTime="2026-10-08T09:34:19.1132289+00:00" endTime="2026-10-08T09:34:19.1132701+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1099fcea-5408-48a1-9f8a-816cff05e407">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 376
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ef139322-ccf7-4fed-9358-3bd465a3b189" testId="bcacb09e-b9e6-0d45-533f-87957e255930" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.OriginalObservationFailureRetainsCodeDetailsAndTrace" computerName="661a1fc038ba" duration="00:00:00.0011800" startTime="2026-10-08T09:34:19.1110299+00:00" endTime="2026-10-08T09:34:19.1110687+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ef139322-ccf7-4fed-9358-3bd465a3b189">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.OriginalObservationFailureRetainsCodeDetailsAndTrace() in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 232
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b0ab64a8-aed7-4e28-937c-67625bb28932" testId="ce0fbc27-a8be-ac6c-93a3-f880696da7ee" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.NoOpAndPullItemsCannotPrepareUploadHandoff(decision: NoOp)" computerName="661a1fc038ba" duration="00:00:00.0009046" startTime="2026-10-08T09:34:19.1105490+00:00" endTime="2026-10-08T09:34:19.1105915+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b0ab64a8-aed7-4e28-937c-67625bb28932">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.NoOpAndPullItemsCannotPrepareUploadHandoff(VaultSyncDecision decision) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 170
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="7f380a5c-89df-45c4-89f5-389ce8d91754" testId="2e1ea3d9-e671-7adf-1c27-8cfed0e067ff" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.SameDigestRetainsIndependentAssetOwnerAndRightsNodes" computerName="661a1fc038ba" duration="00:00:00.0021793" startTime="2026-10-08T09:34:19.1266411+00:00" endTime="2026-10-08T09:34:19.1266857+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7f380a5c-89df-45c4-89f5-389ce8d91754">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.SameDigestRetainsIndependentAssetOwnerAndRightsNodes() in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 181
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="51cd48f7-d124-4090-89d6-a60d793f3635" testId="2c3270a1-2cc0-6d21-5e55-bc378ff2a56f" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;identity&quot;, afterRead: False, reason: &quot;portable_dependency_authority_drift&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005528" startTime="2026-10-08T09:34:19.1079372+00:00" endTime="2026-10-08T09:34:19.1080770+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="51cd48f7-d124-4090-89d6-a60d793f3635">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 213
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="40f76d59-38df-44b4-aa91-afaf7c6bacef" testId="431d2d86-8cdf-f86d-4040-cc6375bf55b2" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: &quot;source&quot;)" computerName="661a1fc038ba" duration="00:00:00.0007566" startTime="2026-10-08T09:34:19.1134849+00:00" endTime="2026-10-08T09:34:19.1135254+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="40f76d59-38df-44b4-aa91-afaf7c6bacef">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 376
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d789f41a-1f0d-4dd2-8355-2c903924c783" testId="3f2bf43b-07cc-8436-805f-7ac0cf2f9382" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(field: &quot;version&quot;)" computerName="661a1fc038ba" duration="00:00:00.0007841" startTime="2026-10-08T09:34:19.1215816+00:00" endTime="2026-10-08T09:34:19.1216831+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d789f41a-1f0d-4dd2-8355-2c903924c783">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(String field) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 407
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="c14298ee-5d5a-4383-9519-b1422cda83a4" testId="df11b3c7-e092-8c46-76b7-74c46f25322d" testName="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;source&quot;, afterRead: False, reason: &quot;article_vault_source_bytes_mismatch&quot;)" computerName="661a1fc038ba" duration="00:00:00.0005257" startTime="2026-10-08T09:34:19.1046717+00:00" endTime="2026-10-08T09:34:19.1047119+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c14298ee-5d5a-4383-9519-b1422cda83a4">
+      <Output>
+        <ErrorInfo>
+          <Message>article_vault_article_reference_invalid</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 583
+   at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason) in /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs:line 213
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;group&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="cc0b39e6-a8df-97f1-e038-efd6c27a858d">
+      <Execution id="114f970e-a800-458a-9137-4c90cf2ad1c2" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(field: &quot;ledger&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="594ec561-1966-7ea5-166d-b0c3eecb4eb6">
+      <Execution id="1617b8c0-fc20-4ce6-a64d-e62a27bacf8c" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="RevalidationRejectsChangedOriginalObservation" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: &quot;site&quot;, reason: &quot;article_vault_asset_stage_binding_invalid&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="c69498fd-701d-01ef-71ec-4e7c72b61ef8">
+      <Execution id="e466bbfc-21ee-4598-ad8c-f82a7a78c8b0" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(boundary: &quot;store-read&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="fd20e02c-8a3d-e3dd-bf80-99d2cd594097">
+      <Execution id="34542f7e-0c61-4a83-a00a-9d9bdf42ad47" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;permission&quot;, afterRead: False, reason: &quot;portable_dependency_permission_or_rights_invalid&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="8fc03367-b668-01b6-f505-a6160cc719a6">
+      <Execution id="fe060b36-f777-4688-aa48-3a80ee260447" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;source&quot;, afterRead: True, reason: &quot;article_vault_source_bytes_mismatch&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="af8b60f3-d2f5-3d6c-a2f1-b9c7c726905d">
+      <Execution id="02bb90fc-de57-43b5-a461-21b0d48b84d4" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.WholeOperationIdentityCannotStandInForItemIdentity" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="574d9e84-56c3-f22f-f33a-6eb5620a6fbd">
+      <Execution id="86d1431c-71bb-45e3-a43f-c9b2444424f9" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="WholeOperationIdentityCannotStandInForItemIdentity" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: &quot;source&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="431d2d86-8cdf-f86d-4040-cc6375bf55b2">
+      <Execution id="40f76d59-38df-44b4-aa91-afaf7c6bacef" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="ResealingHandoffCannotReplacePlanBoundFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;version&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="939cdc1c-c17c-5766-a12f-0f40a4afc318">
+      <Execution id="a4b4d5b6-0ba3-4fe7-bd8d-d196ced1f4a6" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.OriginalObservationExceptionIsNotReplacedWithSuccessOrAnotherError" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="0eec65fd-cf33-037e-7d49-343113377b89">
+      <Execution id="b19ac37d-c46e-4a2f-8180-34a61bda9208" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="OriginalObservationExceptionIsNotReplacedWithSuccessOrAnotherError" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealedDependencyExtensionCannotSubstituteItemOrGroup(change: &quot;item&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="cd22f979-e0ce-3112-6401-35db2a926885">
+      <Execution id="a197344e-b3ce-4c9c-a318-11a932094e43" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="ResealedDependencyExtensionCannotSubstituteItemOrGroup" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(boundary: &quot;before&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="a98886bd-89eb-8bae-d1e1-65e485132b72">
+      <Execution id="9ef4e33f-d26d-4a71-9d02-f2ff0fba5d2e" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: &quot;plan&quot;, reason: &quot;article_vault_asset_stage_plan_missing&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="35c31730-4d2d-6618-2185-6b120d34108c">
+      <Execution id="47424e6d-4270-4f7a-8864-e8c1372a74aa" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealedDependencyExtensionCannotSubstituteItemOrGroup(change: &quot;group&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="b1b456a0-be15-37ee-56f5-26db9e385ff2">
+      <Execution id="a7ebe268-abb4-43e7-aff5-f973066bf440" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="ResealedDependencyExtensionCannotSubstituteItemOrGroup" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.OriginalObservationFailureRetainsCodeDetailsAndTrace" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="bcacb09e-b9e6-0d45-533f-87957e255930">
+      <Execution id="ef139322-ccf7-4fed-9358-3bd465a3b189" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="OriginalObservationFailureRetainsCodeDetailsAndTrace" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.NoOpAndPullItemsCannotPrepareUploadHandoff(decision: NoOp)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="ce0fbc27-a8be-ac6c-93a3-f880696da7ee">
+      <Execution id="b0ab64a8-aed7-4e28-937c-67625bb28932" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="NoOpAndPullItemsCannotPrepareUploadHandoff" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.NoOpAndPullItemsCannotPrepareUploadHandoff(decision: PullUpdate)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="a628c7a5-6014-7841-22e9-ca93bda3465d">
+      <Execution id="9f8dbb77-2d96-4632-a3c2-bc80741d02d0" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="NoOpAndPullItemsCannotPrepareUploadHandoff" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: &quot;operation-seal&quot;, reason: &quot;article_vault_operation_identity_invalid&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="28d4a50f-76b5-f7fe-cffa-78b4782bc81b">
+      <Execution id="fcb048a2-a5ac-4f22-8cc8-3d05a0e3a103" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;asset&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="b517cb41-7e7d-fdd9-ffca-652ed8e741ca">
+      <Execution id="4a0c55f4-b842-4892-a419-73fc02a10d45" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;article&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="b0ecbee0-6042-e5fe-360c-5d6e83d753d5">
+      <Execution id="5d4e11f5-9173-49f4-954a-271426ed9d22" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;operation&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="f35d0462-6102-6b24-e8d8-6183ee8ac28e">
+      <Execution id="21601d7e-c882-4cd7-af78-f7d21980d18a" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;rights&quot;, afterRead: True, reason: &quot;portable_dependency_authority_drift&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="6a876d92-3766-bf02-6062-176c6839f7f5">
+      <Execution id="e9188b7a-9670-4126-b10b-d157e567d2c5" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff(afterRead: False)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="4720efe2-22b0-8368-1efb-0315773bf5c9">
+      <Execution id="4b7a74ee-8672-4ebd-bf27-1909e047c306" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ExactDeadlineBoundaryIsWithinTheSealedOperationWindow" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="405f2ae5-265e-6745-e1b8-6965483c087d">
+      <Execution id="d4eeac95-da6f-434f-9c01-8042afe0733c" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="ExactDeadlineBoundaryIsWithinTheSealedOperationWindow" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead(afterRead: False)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="87833a7d-6e7a-fbaf-0e0b-f96ea8244ba1">
+      <Execution id="f549d869-e4ef-4258-8363-af916a376035" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead(afterRead: True)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="e20a2914-2a6e-c289-552e-d194390d1cad">
+      <Execution id="391ab1b5-a870-4b94-ba17-75ad3ef2fedc" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.DeterministicRetryAndRevalidationRereadOriginalSessionWithoutWriting" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="177cb47f-3bc3-5af7-11d9-e2f90768ad93">
+      <Execution id="83670ae6-8f88-4880-ad27-8ba409d5c4a9" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="DeterministicRetryAndRevalidationRereadOriginalSessionWithoutWriting" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;source&quot;, afterRead: False, reason: &quot;article_vault_source_bytes_mismatch&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="df11b3c7-e092-8c46-76b7-74c46f25322d">
+      <Execution id="c14298ee-5d5a-4383-9519-b1422cda83a4" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;preparation&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="b5d65763-d807-e7f2-db92-6a28efdc93ff">
+      <Execution id="03f477de-6a87-4564-8b6b-688f3ebe2ea2" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;owner&quot;, afterRead: True, reason: &quot;portable_dependency_authority_drift&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="879ddb29-8c2e-dc64-8037-4da0d3651c0b">
+      <Execution id="3e5b1435-99bc-4434-adb5-9c382f112a83" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(field: &quot;references&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="b2be95ca-1dbe-8b02-f1f6-49609fb3c55e">
+      <Execution id="15bf0ecb-7bde-4ad4-bd26-716deacf295d" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="RevalidationRejectsChangedOriginalObservation" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;owner&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="a2d08607-3a4b-3ebc-ecc3-ddc09c1853a0">
+      <Execution id="c571194b-af7b-4f5c-840b-5756282a05b4" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;permission&quot;, afterRead: True, reason: &quot;portable_dependency_permission_or_rights_invalid&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="cc3aa6d3-11cb-9cf8-4a0f-fc4157ebd27c">
+      <Execution id="378f2720-5603-4590-a666-454a6e1f7d70" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff(afterRead: True)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="924eba97-9e3b-2949-f070-5b563f037443">
+      <Execution id="ce379a69-c8cb-41b9-a346-7bdc24132ca7" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: &quot;article&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="31872b7c-7490-bd16-1123-5337b1934b3d">
+      <Execution id="8467b3d5-ffb1-469f-834a-03455b2a37cb" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="ResealingHandoffCannotReplacePlanBoundFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;dependency-plan&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="b6e24699-340e-a0fa-807d-469f782b2c27">
+      <Execution id="d6689ece-20fc-40a9-94d8-0939d61999a7" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffBindsWholeOperationAndExactItemGroupArticleAndAsset" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="a59cf683-9b10-1340-609c-11ec7051789f">
+      <Execution id="98051397-35fe-4aeb-97a0-0efde92cc2ab" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffBindsWholeOperationAndExactItemGroupArticleAndAsset" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;owner&quot;, afterRead: False, reason: &quot;portable_dependency_authority_drift&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="8fc17fee-3743-c21e-52aa-339e416257a2">
+      <Execution id="152cce89-0e04-4a37-b04e-c7e307a5344e" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;identity&quot;, afterRead: False, reason: &quot;portable_dependency_authority_drift&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="2c3270a1-2cc0-6d21-5e55-bc378ff2a56f">
+      <Execution id="51cd48f7-d124-4090-89d6-a60d793f3635" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;identity&quot;, afterRead: True, reason: &quot;portable_dependency_authority_drift&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="e648facf-55ec-392d-ce80-7b11c7e14e7e">
+      <Execution id="93e4585d-1fe5-4ccb-b91d-a9e89270a809" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: &quot;group&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="d3442976-bef9-acf9-df14-3dacc4406431">
+      <Execution id="1099fcea-5408-48a1-9f8a-816cff05e407" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="ResealingHandoffCannotReplacePlanBoundFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;rights&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="d468d89a-459c-aefa-8c09-5b465e7f9ede">
+      <Execution id="01190cd5-73c9-4fae-9ff3-edf83ffda818" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;item&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="18d740d5-c77a-57be-c48f-50b1c2ebbee1">
+      <Execution id="abf8a5ca-ee13-4b15-aa66-d8b1ac54bd66" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;ledger&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="89abc97a-b127-0cc7-5012-24f0a02445b1">
+      <Execution id="d895af1a-57e7-4e80-9c45-8351dbffbb8b" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(field: &quot;version&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="3f2bf43b-07cc-8436-805f-7ac0cf2f9382">
+      <Execution id="d789f41a-1f0d-4dd2-8355-2c903924c783" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="RevalidationRejectsChangedOriginalObservation" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationDuringPostReadCurrentVerificationCannotReturnHandoff" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="2674143c-5c34-87ca-f40f-db785f6b01d3">
+      <Execution id="571c70c2-55c5-4d46-be4e-71bbccee524a" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CancellationDuringPostReadCurrentVerificationCannotReturnHandoff" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;source&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="860221d7-049a-66d0-5d39-8e67bf99962d">
+      <Execution id="c7eec2e4-8d2e-4a03-ae6c-d62b49b9268f" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: &quot;principal&quot;, reason: &quot;article_vault_asset_stage_principal_or_plan_mismat&quot;···)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="2899c09c-2f67-ecf7-0573-447df45f6a87">
+      <Execution id="3c65e5ac-cab2-4177-8b77-0d61592d51bb" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: &quot;rights&quot;, afterRead: False, reason: &quot;portable_dependency_authority_drift&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="c237d814-6c32-d8b5-1f28-b8445d84c1b6">
+      <Execution id="a43090e1-7b1f-4867-972f-08e2e2decf7b" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ReturnedReferenceSnapshotSurvivesMutationOfOriginalObserverList" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="087892b7-0518-1d89-fe71-dd37c7f35241">
+      <Execution id="76bb0214-7b9d-4976-9e7c-43bf766b2212" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="ReturnedReferenceSnapshotSurvivesMutationOfOriginalObserverList" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.UnknownAssetCannotBeSelectedByMatchingContentDigest" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="d4d75de1-4b63-82ab-b556-9c22da143f93">
+      <Execution id="7a252637-b069-4224-bf00-d8a5b9e77c2a" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="UnknownAssetCannotBeSelectedByMatchingContentDigest" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: &quot;seal&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="d1d40e88-850c-f67b-fb2f-eb8142b6a150">
+      <Execution id="6b8ad4f4-2d5d-411e-944d-a4f2adae461d" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="HandoffSealTamperRejectsBeforeReacquiringOriginalFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: &quot;asset-revision&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="9cd98865-a250-e680-0efa-8f602f9dd8af">
+      <Execution id="fd7f8177-d5d7-42cb-99a9-b088e8a8053a" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="ResealingHandoffCannotReplacePlanBoundFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(boundary: &quot;upload-read&quot;)" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="329e3991-7af7-330b-06b8-05dd35dd0b5f">
+      <Execution id="6c7d4e90-e6af-4bb2-bb77-09800230412b" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.SameDigestRetainsIndependentAssetOwnerAndRightsNodes" storage="/tmp/issues-2124-2125/canonical/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="2e1ea3d9-e671-7adf-1c27-8cfed0e067ff">
+      <Execution id="7f380a5c-89df-45c4-89f5-389ce8d91754" />
+      <TestMethod codeBase="/tmp/issues-2124-2125/canonical/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests" name="SameDigestRetainsIndependentAssetOwnerAndRightsNodes" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="cd22f979-e0ce-3112-6401-35db2a926885" executionId="a197344e-b3ce-4c9c-a318-11a932094e43" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b0ecbee0-6042-e5fe-360c-5d6e83d753d5" executionId="5d4e11f5-9173-49f4-954a-271426ed9d22" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cc3aa6d3-11cb-9cf8-4a0f-fc4157ebd27c" executionId="378f2720-5603-4590-a666-454a6e1f7d70" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6a876d92-3766-bf02-6062-176c6839f7f5" executionId="e9188b7a-9670-4126-b10b-d157e567d2c5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9cd98865-a250-e680-0efa-8f602f9dd8af" executionId="fd7f8177-d5d7-42cb-99a9-b088e8a8053a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="574d9e84-56c3-f22f-f33a-6eb5620a6fbd" executionId="86d1431c-71bb-45e3-a43f-c9b2444424f9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b6e24699-340e-a0fa-807d-469f782b2c27" executionId="d6689ece-20fc-40a9-94d8-0939d61999a7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="594ec561-1966-7ea5-166d-b0c3eecb4eb6" executionId="1617b8c0-fc20-4ce6-a64d-e62a27bacf8c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a59cf683-9b10-1340-609c-11ec7051789f" executionId="98051397-35fe-4aeb-97a0-0efde92cc2ab" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e648facf-55ec-392d-ce80-7b11c7e14e7e" executionId="93e4585d-1fe5-4ccb-b91d-a9e89270a809" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="939cdc1c-c17c-5766-a12f-0f40a4afc318" executionId="a4b4d5b6-0ba3-4fe7-bd8d-d196ced1f4a6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="35c31730-4d2d-6618-2185-6b120d34108c" executionId="47424e6d-4270-4f7a-8864-e8c1372a74aa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b1b456a0-be15-37ee-56f5-26db9e385ff2" executionId="a7ebe268-abb4-43e7-aff5-f973066bf440" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f35d0462-6102-6b24-e8d8-6183ee8ac28e" executionId="21601d7e-c882-4cd7-af78-f7d21980d18a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b517cb41-7e7d-fdd9-ffca-652ed8e741ca" executionId="4a0c55f4-b842-4892-a419-73fc02a10d45" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="28d4a50f-76b5-f7fe-cffa-78b4782bc81b" executionId="fcb048a2-a5ac-4f22-8cc8-3d05a0e3a103" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="31872b7c-7490-bd16-1123-5337b1934b3d" executionId="8467b3d5-ffb1-469f-834a-03455b2a37cb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="329e3991-7af7-330b-06b8-05dd35dd0b5f" executionId="6c7d4e90-e6af-4bb2-bb77-09800230412b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c237d814-6c32-d8b5-1f28-b8445d84c1b6" executionId="a43090e1-7b1f-4867-972f-08e2e2decf7b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2899c09c-2f67-ecf7-0573-447df45f6a87" executionId="3c65e5ac-cab2-4177-8b77-0d61592d51bb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="89abc97a-b127-0cc7-5012-24f0a02445b1" executionId="d895af1a-57e7-4e80-9c45-8351dbffbb8b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8fc03367-b668-01b6-f505-a6160cc719a6" executionId="fe060b36-f777-4688-aa48-3a80ee260447" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="405f2ae5-265e-6745-e1b8-6965483c087d" executionId="d4eeac95-da6f-434f-9c01-8042afe0733c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d4d75de1-4b63-82ab-b556-9c22da143f93" executionId="7a252637-b069-4224-bf00-d8a5b9e77c2a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b2be95ca-1dbe-8b02-f1f6-49609fb3c55e" executionId="15bf0ecb-7bde-4ad4-bd26-716deacf295d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c69498fd-701d-01ef-71ec-4e7c72b61ef8" executionId="e466bbfc-21ee-4598-ad8c-f82a7a78c8b0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4720efe2-22b0-8368-1efb-0315773bf5c9" executionId="4b7a74ee-8672-4ebd-bf27-1909e047c306" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="087892b7-0518-1d89-fe71-dd37c7f35241" executionId="76bb0214-7b9d-4976-9e7c-43bf766b2212" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b5d65763-d807-e7f2-db92-6a28efdc93ff" executionId="03f477de-6a87-4564-8b6b-688f3ebe2ea2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="af8b60f3-d2f5-3d6c-a2f1-b9c7c726905d" executionId="02bb90fc-de57-43b5-a461-21b0d48b84d4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a2d08607-3a4b-3ebc-ecc3-ddc09c1853a0" executionId="c571194b-af7b-4f5c-840b-5756282a05b4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0eec65fd-cf33-037e-7d49-343113377b89" executionId="b19ac37d-c46e-4a2f-8180-34a61bda9208" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d1d40e88-850c-f67b-fb2f-eb8142b6a150" executionId="6b8ad4f4-2d5d-411e-944d-a4f2adae461d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="87833a7d-6e7a-fbaf-0e0b-f96ea8244ba1" executionId="f549d869-e4ef-4258-8363-af916a376035" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="879ddb29-8c2e-dc64-8037-4da0d3651c0b" executionId="3e5b1435-99bc-4434-adb5-9c382f112a83" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8fc17fee-3743-c21e-52aa-339e416257a2" executionId="152cce89-0e04-4a37-b04e-c7e307a5344e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="860221d7-049a-66d0-5d39-8e67bf99962d" executionId="c7eec2e4-8d2e-4a03-ae6c-d62b49b9268f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fd20e02c-8a3d-e3dd-bf80-99d2cd594097" executionId="34542f7e-0c61-4a83-a00a-9d9bdf42ad47" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d468d89a-459c-aefa-8c09-5b465e7f9ede" executionId="01190cd5-73c9-4fae-9ff3-edf83ffda818" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="924eba97-9e3b-2949-f070-5b563f037443" executionId="ce379a69-c8cb-41b9-a346-7bdc24132ca7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cc0b39e6-a8df-97f1-e038-efd6c27a858d" executionId="114f970e-a800-458a-9137-4c90cf2ad1c2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e20a2914-2a6e-c289-552e-d194390d1cad" executionId="391ab1b5-a870-4b94-ba17-75ad3ef2fedc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2674143c-5c34-87ca-f40f-db785f6b01d3" executionId="571c70c2-55c5-4d46-be4e-71bbccee524a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="177cb47f-3bc3-5af7-11d9-e2f90768ad93" executionId="83670ae6-8f88-4880-ad27-8ba409d5c4a9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="18d740d5-c77a-57be-c48f-50b1c2ebbee1" executionId="abf8a5ca-ee13-4b15-aa66-d8b1ac54bd66" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a98886bd-89eb-8bae-d1e1-65e485132b72" executionId="9ef4e33f-d26d-4a71-9d02-f2ff0fba5d2e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a628c7a5-6014-7841-22e9-ca93bda3465d" executionId="9f8dbb77-2d96-4632-a3c2-bc80741d02d0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d3442976-bef9-acf9-df14-3dacc4406431" executionId="1099fcea-5408-48a1-9f8a-816cff05e407" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bcacb09e-b9e6-0d45-533f-87957e255930" executionId="ef139322-ccf7-4fed-9358-3bd465a3b189" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ce0fbc27-a8be-ac6c-93a3-f880696da7ee" executionId="b0ab64a8-aed7-4e28-937c-67625bb28932" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2e1ea3d9-e671-7adf-1c27-8cfed0e067ff" executionId="7f380a5c-89df-45c4-89f5-389ce8d91754" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2c3270a1-2cc0-6d21-5e55-bc378ff2a56f" executionId="51cd48f7-d124-4090-89d6-a60d793f3635" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="431d2d86-8cdf-f86d-4040-cc6375bf55b2" executionId="40f76d59-38df-44b4-aa91-afaf7c6bacef" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3f2bf43b-07cc-8436-805f-7ac0cf2f9382" executionId="d789f41a-1f0d-4dd2-8355-2c903924c783" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="df11b3c7-e092-8c46-76b7-74c46f25322d" executionId="c14298ee-5d5a-4383-9519-b1422cda83a4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="55" executed="55" passed="0" failed="55" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.46]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:01.63]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:01.68]   Starting:    FsusBlog.Server.Tests
+[xUnit.net 00:00:01.85]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.85]       Stack Trace:
+[xUnit.net 00:00:01.85]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.85]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(315,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationDuringPostReadCurrentVerificationCannotReturnHandoff()
+[xUnit.net 00:00:01.85]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.86]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.86]       Stack Trace:
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.86]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.86]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.86]       Stack Trace:
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.86]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.86]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.86]       Stack Trace:
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.86]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.86]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.86]       Stack Trace:
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.86]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.86]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.86]       Stack Trace:
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.86]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.86]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.86]       Stack Trace:
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.86]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.86]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.86]       Stack Trace:
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.86]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.86]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.87]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.87]       Stack Trace:
+[xUnit.net 00:00:01.87]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.87]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.87]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.87]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.87]       Stack Trace:
+[xUnit.net 00:00:01.87]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.87]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.87]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.87]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.87]       Stack Trace:
+[xUnit.net 00:00:01.87]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.87]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.87]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.87]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.87]       Stack Trace:
+[xUnit.net 00:00:01.87]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.87]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.87]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(342,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(String field)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(213,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(213,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(213,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(213,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(213,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(213,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(213,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(213,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(213,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(213,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(String change, Boolean afterRead, String reason)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(36,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.DeterministicRetryAndRevalidationRereadOriginalSessionWithoutWriting()
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(264,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(String boundary)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(264,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(String boundary)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(264,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(String boundary)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(170,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.NoOpAndPullItemsCannotPrepareUploadHandoff(VaultSyncDecision decision)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(170,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.NoOpAndPullItemsCannotPrepareUploadHandoff(VaultSyncDecision decision)
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(156,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.UnknownAssetCannotBeSelectedByMatchingContentDigest()
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(232,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.OriginalObservationFailureRetainsCodeDetailsAndTrace()
+[xUnit.net 00:00:01.88]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.88]       Stack Trace:
+[xUnit.net 00:00:01.88]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(125,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealedDependencyExtensionCannotSubstituteItemOrGroup(String change)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(125,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealedDependencyExtensionCannotSubstituteItemOrGroup(String change)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(376,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(String field)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(376,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(String field)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(376,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(String field)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(376,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(String field)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(60,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffBindsWholeOperationAndExactItemGroupArticleAndAsset()
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(447,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead(Boolean afterRead)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(447,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead(Boolean afterRead)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(100,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(String change, String reason)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(100,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(String change, String reason)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(100,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(String change, String reason)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(100,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(String change, String reason)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(429,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ReturnedReferenceSnapshotSurvivesMutationOfOriginalObserverList()
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(407,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(String field)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(407,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(String field)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.89]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.89]       Stack Trace:
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.89]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(407,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(String field)
+[xUnit.net 00:00:01.89]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.90]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.90]       Stack Trace:
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(466,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ExactDeadlineBoundaryIsWithinTheSealedOperationWindow()
+[xUnit.net 00:00:01.90]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.90]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.90]       Stack Trace:
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(181,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.SameDigestRetainsIndependentAssetOwnerAndRightsNodes()
+[xUnit.net 00:00:01.90]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.90]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.90]       Stack Trace:
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(292,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff(Boolean afterRead)
+[xUnit.net 00:00:01.90]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.90]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.90]       Stack Trace:
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(292,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff(Boolean afterRead)
+[xUnit.net 00:00:01.90]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.90]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.90]       Stack Trace:
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(84,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.WholeOperationIdentityCannotStandInForItemIdentity()
+[xUnit.net 00:00:01.90]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.90]       article_vault_article_reference_invalid
+[xUnit.net 00:00:01.90]       Stack Trace:
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(583,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CreateFixture(VaultSyncDecision decision, Boolean twoAssets)
+[xUnit.net 00:00:01.90]         /tmp/issues-2124-2125/canonical/tests/backend/Unit/ArticleVaultAssetStagingAdapterTests.cs(248,0): at FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.OriginalObservationExceptionIsNotReplacedWithSuccessOrAnotherError()
+[xUnit.net 00:00:01.90]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.91]   Finished:    FsusBlog.Server.Tests
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.0786492+00:00">
+        <Text>[xUnit.net 00:00:01.85]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationDuringPostReadCurrentVerificationCannotReturnHandoff [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.0886938+00:00">
+        <Text>[xUnit.net 00:00:01.86]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "seal") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.0895251+00:00">
+        <Text>[xUnit.net 00:00:01.86]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "dependency-plan") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.0900714+00:00">
+        <Text>[xUnit.net 00:00:01.86]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "source") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.0908379+00:00">
+        <Text>[xUnit.net 00:00:01.86]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "version") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.0915247+00:00">
+        <Text>[xUnit.net 00:00:01.86]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "asset") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.0918509+00:00">
+        <Text>[xUnit.net 00:00:01.86]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "group") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.0926597+00:00">
+        <Text>[xUnit.net 00:00:01.86]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "owner") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.0930949+00:00">
+        <Text>[xUnit.net 00:00:01.87]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "preparation") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1255685+00:00">
+        <Text>[xUnit.net 00:00:01.87]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "operation") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1256674+00:00">
+        <Text>[xUnit.net 00:00:01.87]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "article") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1256801+00:00">
+        <Text>[xUnit.net 00:00:01.87]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "rights") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1256936+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "ledger") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1257047+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffSealTamperRejectsBeforeReacquiringOriginalFacts(field: "item") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1257268+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: "identity", afterRead: True, reason: "portable_dependency_authority_drift") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1257541+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: "permission", afterRead: False, reason: "portable_dependency_permission_or_rights_invalid") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1257811+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: "owner", afterRead: True, reason: "portable_dependency_authority_drift") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1257923+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: "source", afterRead: False, reason: "article_vault_source_bytes_mismatch") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1260540+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: "permission", afterRead: True, reason: "portable_dependency_permission_or_rights_invalid") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1260716+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: "owner", afterRead: False, reason: "portable_dependency_authority_drift") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1260846+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: "rights", afterRead: True, reason: "portable_dependency_authority_drift") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1260960+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: "rights", afterRead: False, reason: "portable_dependency_authority_drift") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1261067+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: "source", afterRead: True, reason: "article_vault_source_bytes_mismatch") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1261244+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CurrentSourceAndAuthorityDriftRejectBeforeAndAfterOriginalRead(change: "identity", afterRead: False, reason: "portable_dependency_authority_drift") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1274881+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.DeterministicRetryAndRevalidationRereadOriginalSessionWithoutWriting [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1275044+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(boundary: "before") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1275232+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(boundary: "store-read") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1287916+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.CancellationAtReadBoundariesReturnsNoHandoffAndPerformsNoWrites(boundary: "upload-read") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1288119+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.NoOpAndPullItemsCannotPrepareUploadHandoff(decision: PullUpdate) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1288253+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.NoOpAndPullItemsCannotPrepareUploadHandoff(decision: NoOp) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1288377+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.UnknownAssetCannotBeSelectedByMatchingContentDigest [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1288582+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.OriginalObservationFailureRetainsCodeDetailsAndTrace [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1288732+00:00">
+        <Text>[xUnit.net 00:00:01.88]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealedDependencyExtensionCannotSubstituteItemOrGroup(change: "group") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1288849+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealedDependencyExtensionCannotSubstituteItemOrGroup(change: "item") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1288960+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: "group") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1289094+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: "source") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1290928+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: "asset-revision") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1291137+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ResealingHandoffCannotReplacePlanBoundFacts(field: "article") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1291245+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.HandoffBindsWholeOperationAndExactItemGroupArticleAndAsset [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1291348+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead(afterRead: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1291889+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.TrustedTimeRejectsExpiredDeadlineBeforeAndAfterOriginalRead(afterRead: False) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1292051+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: "operation-seal", reason: "article_vault_operation_identity_invalid") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1292151+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: "plan", reason: "article_vault_asset_stage_plan_missing") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1292266+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: "principal", reason: "article_vault_asset_stage_principal_or_plan_mismat"···) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1292369+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RejectsGlobalOperationPlanAndPrincipalMismatchBeforeUploadRead(change: "site", reason: "article_vault_asset_stage_binding_invalid") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1370099+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ReturnedReferenceSnapshotSurvivesMutationOfOriginalObserverList [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1370326+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(field: "ledger") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1370427+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(field: "version") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1370576+00:00">
+        <Text>[xUnit.net 00:00:01.89]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationRejectsChangedOriginalObservation(field: "references") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1370746+00:00">
+        <Text>[xUnit.net 00:00:01.90]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.ExactDeadlineBoundaryIsWithinTheSealedOperationWindow [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1370850+00:00">
+        <Text>[xUnit.net 00:00:01.90]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.SameDigestRetainsIndependentAssetOwnerAndRightsNodes [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1370941+00:00">
+        <Text>[xUnit.net 00:00:01.90]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff(afterRead: False) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1371054+00:00">
+        <Text>[xUnit.net 00:00:01.90]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.RevalidationCancellationCannotReturnPreviouslySuccessfulHandoff(afterRead: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1371229+00:00">
+        <Text>[xUnit.net 00:00:01.90]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.WholeOperationIdentityCannotStandInForItemIdentity [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="661a1fc038ba" outcome="Error" timestamp="2026-10-08T09:34:19.1373250+00:00">
+        <Text>[xUnit.net 00:00:01.90]     FsusBlog.Server.Tests.Unit.ArticleVaultAssetStagingAdapterTests.OriginalObservationExceptionIsNotReplacedWithSuccessOrAnotherError [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>
