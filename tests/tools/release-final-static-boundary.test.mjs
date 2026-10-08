@@ -611,6 +611,129 @@ test('shell execution closure distinguishes code-bearing argv from data and fail
     }
 });
 
+test('format parser runtime require admits only the exact reviewed owner and sealed parser inputs', async (t) =>
+{
+    const owner = 'tools/governance/javascript-format-equivalence.mjs';
+    const indexPath = 'config/testing/release-final-execution-authority-index.json';
+    const parserInputs = [
+        'tools/governance/javascript-format-parser/package.json',
+        'tools/governance/javascript-format-parser/package-lock.json'
+    ];
+    const source = readFileSync(path.join(root, owner), 'utf8');
+    const index = JSON.parse(readFileSync(path.join(root, indexPath), 'utf8'));
+    const bindings = index.runtimeDynamicImports.filter((entry) => entry.owner === owner);
+    assert.equal(bindings.length, 1);
+    assert.deepEqual(bindings[0], {
+        owner,
+        sourceDigest: digestText(source),
+        expressionDigest: digestText('requireParser(entry)'),
+        kind: 'runtime-require-path',
+        dependencies: parserInputs
+    });
+
+    for (const variant of [
+        'exact', 'absent', 'wrong-owner', 'wrong-source', 'wrong-expression', 'wrong-kind',
+        'foreign-owner', 'source-drift', 'unknown-load', 'symlink-owner', 'symlink-parser-input',
+        'missing-parser-input'
+    ])
+    {
+        await t.test(variant, (context) =>
+        {
+            const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-format-parser-'));
+            context.after(() => rmSync(fixtureRoot, { recursive: true, force: true }));
+            const fixtureIndex = structuredClone(index);
+            const binding = fixtureIndex.runtimeDynamicImports.find((entry) => entry.owner === owner);
+            let target = owner;
+            let fixtureSource = source;
+            if (variant === 'absent')
+            {
+                fixtureIndex.runtimeDynamicImports = fixtureIndex.runtimeDynamicImports.filter((entry) => entry.owner !== owner);
+            }
+            else if (variant === 'wrong-owner')
+            {
+                binding.owner = 'tools/governance/foreign-format-equivalence.mjs';
+            }
+            else if (variant === 'wrong-source')
+            {
+                binding.sourceDigest = digest('0');
+            }
+            else if (variant === 'wrong-expression')
+            {
+                binding.expressionDigest = digest('0');
+            }
+            else if (variant === 'wrong-kind')
+            {
+                binding.kind = 'runtime-module-path';
+            }
+            else if (variant === 'foreign-owner')
+            {
+                target = 'tools/governance/foreign-format-equivalence.mjs';
+            }
+            else if (variant === 'source-drift')
+            {
+                fixtureSource += '\n// changed parser authority source\n';
+            }
+            else if (variant === 'unknown-load')
+            {
+                fixtureSource += '\nrequireParser(unknownParserEntry);\n';
+                binding.sourceDigest = digestText(fixtureSource);
+            }
+            for (const input of parserInputs)
+            {
+                if (variant === 'missing-parser-input' && input === parserInputs[1])
+                {
+                    continue;
+                }
+                const destination = path.join(fixtureRoot, input);
+                mkdirSync(path.dirname(destination), { recursive: true });
+                if (variant === 'symlink-parser-input' && input === parserInputs[0])
+                {
+                    symlinkSync(path.join(root, input), destination);
+                }
+                else
+                {
+                    copyFileSync(path.join(root, input), destination);
+                }
+            }
+            const fixtureOwner = path.join(fixtureRoot, target);
+            mkdirSync(path.dirname(fixtureOwner), { recursive: true });
+            if (variant === 'symlink-owner')
+            {
+                symlinkSync(path.join(root, owner), fixtureOwner);
+            }
+            else
+            {
+                writeFileSync(fixtureOwner, fixtureSource);
+            }
+            const fixtureIndexPath = path.join(fixtureRoot, indexPath);
+            mkdirSync(path.dirname(fixtureIndexPath), { recursive: true });
+            writeFileSync(fixtureIndexPath, `${JSON.stringify(fixtureIndex, null, 4)}\n`);
+            const inspection = inspectReleaseFinalCommandTarget({
+                repositoryRoot: fixtureRoot,
+                target,
+                additionalTargets: [indexPath]
+            });
+            if (variant === 'exact')
+            {
+                assert.deepEqual(inspection.errors, []);
+                assert.deepEqual(inspection.dependencyClosure.map((entry) => entry.path),
+                    [indexPath, ...parserInputs].sort());
+                for (const input of [indexPath, ...parserInputs])
+                {
+                    const dependency = inspection.dependencyClosure.find((entry) => entry.path === input);
+                    assert.equal(dependency.contentDigest, digestText(readFileSync(path.join(fixtureRoot, input))));
+                }
+            }
+            else
+            {
+                assert.ok(inspection.errors.length > 0, `${variant} must not admit the parser load`);
+                assert.match(inspection.errors.join('\n'),
+                    /unresolved dynamic require|symlink|symbolic|not a regular|unresolved|canonical/u);
+            }
+        });
+    }
+});
+
 test('Node closure resolves immutable aliases, package imports, and conditional self exports', () =>
 {
     const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'release-final-node-resolution-'));
