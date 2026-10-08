@@ -196,6 +196,9 @@ producer IDs remain explicit; no lane membership is invented. This read-only
 DATA_ONLY index invokes no executor or receipt writer. It is usable operator
 material, while original domain terminal authentication and semantic navigation
 publication remain pending with their owners.
+The original `primaryFailureRefs` can include settled-join dependency refs; these
+are preserved verbatim and are not reclassified as failed producers. Use the
+explicit `terminalStates` lists for each producer's actual terminal disposition.
 
 The graph input is an extracted **DATA_ONLY view**, not a declaration catalog or
 compiler. Its explicit `graphRef` and `dagDigest` identify the upstream compiled

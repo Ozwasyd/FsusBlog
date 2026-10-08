@@ -670,7 +670,8 @@ test('canonical lane terminal collection preserves coverage failure and blocked 
     const frontend = result.laneCollections.find((lane) => lane.kind === 'frontend');
     assert.deepEqual(coverage.terminalStates.failed, ['coverage-backend']);
     assert.ok(coverage.terminalStates.blocked.includes('coverage-merge'));
-    assert.deepEqual(coverage.primaryFailureRefs, ['coverage-backend']);
+    // The original vector retains settled-join dependency refs as well as the failed producer.
+    assert.deepEqual(coverage.primaryFailureRefs, ['coverage-backend', 'coverage-frontend', 'coverage-merge']);
     assert.ok(coverage.blockedBy.includes('coverage-backend'));
     assert.deepEqual(frontend.terminalStates.success, frontend.producerIds);
     assert.deepEqual(frontend.primaryFailureRefs, []);
