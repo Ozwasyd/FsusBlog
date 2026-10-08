@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { scanWritingAidLegacyInventory, verifyWritingAidLegacyInventory } from '../../tools/frontend/writing-aid-legacy-inventory.mjs';
+import { scanWritingAidLegacyInventory, verifyWritingAidLegacyInventory } from './writing-aid-legacy-inventory.mjs';
 
 function fixture(t, files)
 {
