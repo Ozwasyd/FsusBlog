@@ -70,7 +70,7 @@ internal sealed class DocumentExportEndpointBinding(
     {
         using BinaryRequestPayload payload = await requestContext.ReadFrameAsync(context,
             context.RequestServices.GetRequiredService<IAedsEncoder>(),
-            RequireRegisteredFrame("DocumentExportRequest"), cancellationToken, 16 * 1024);
+            RequireRegisteredFrame("DocumentExportRequest"), cancellationToken, PodBinaryCodec.MaximumDocumentExportRequestFrameBytes);
         if (!payload.IsSuccess || !PodBinaryCodec.TryDecodeDocumentExportRequest(payload.Payload, out var request))
         {
             throw new DocumentExportJobDeniedException();
@@ -87,7 +87,7 @@ internal sealed class DocumentExportEndpointBinding(
     {
         using BinaryRequestPayload payload = await requestContext.ReadFrameAsync(context,
             context.RequestServices.GetRequiredService<IAedsEncoder>(),
-            RequireRegisteredFrame("DocumentExportTaskRequest"), cancellationToken, 1024);
+            RequireRegisteredFrame("DocumentExportTaskRequest"), cancellationToken, PodBinaryCodec.MaximumDocumentExportTaskRequestFrameBytes);
         if (!payload.IsSuccess || !PodBinaryCodec.TryDecodeDocumentExportTaskRequest(payload.Payload, out var request))
         {
             throw new DocumentExportJobDeniedException();

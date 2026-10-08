@@ -11,7 +11,24 @@ namespace FsusBlog.Core.Cache;
 /// </summary>
 public static partial class PodBinaryCodec
 {
-    public const int MaximumDocumentExportPayloadBytes = 4 * 1024 * 1024;
+    /// <summary>Admission frame budget includes the canonical sixteen-byte AEDS header.</summary>
+    public const int MaximumDocumentExportRequestFrameBytes = 16 * 1024;
+    /// <summary>Opaque task frame budget includes the canonical AEDS header.</summary>
+    public const int MaximumDocumentExportTaskRequestFrameBytes = 1024;
+    /// <summary>Admission payload budget excludes the canonical AEDS header.</summary>
+    public const int MaximumDocumentExportRequestPayloadBytes = MaximumDocumentExportRequestFrameBytes - AedsFrameHeader.Size;
+    /// <summary>Opaque task payload budget excludes the canonical AEDS header.</summary>
+    public const int MaximumDocumentExportTaskRequestPayloadBytes = MaximumDocumentExportTaskRequestFrameBytes - AedsFrameHeader.Size;
+    /// <summary>Bounded single-job response payload budget, excluding the outer header.</summary>
+    public const int MaximumDocumentExportJobResponsePayloadBytes = 32 * 1024;
+    /// <summary>Bounded fifty-job response payload budget, excluding the outer header.</summary>
+    public const int MaximumDocumentExportPageResponsePayloadBytes = 2 * 1024 * 1024;
+    /// <summary>Single-job response frame budget includes its outer AEDS header.</summary>
+    public const int MaximumDocumentExportJobResponseFrameBytes = MaximumDocumentExportJobResponsePayloadBytes + AedsFrameHeader.Size;
+    /// <summary>Page response frame budget includes its outer AEDS header.</summary>
+    public const int MaximumDocumentExportPageResponseFrameBytes = MaximumDocumentExportPageResponsePayloadBytes + AedsFrameHeader.Size;
+    /// <summary>Largest root budget; each decoder additionally enforces its narrower family budget.</summary>
+    public const int MaximumDocumentExportPayloadBytes = MaximumDocumentExportPageResponsePayloadBytes;
     public const int MaximumDocumentExportPageSize = 50;
     private const int DocumentExportPayloadVersion = 1;
     private const int DocumentExportIdentifierLength = 192;
@@ -46,7 +63,7 @@ public static partial class PodBinaryCodec
     {
         value = null!;
         var reader = new BinaryPodReader(source.Span);
-        if (!TryReadDocumentExportVersion(ref reader, source.Length)
+        if (!TryReadDocumentExportVersion(ref reader, source.Length, MaximumDocumentExportRequestPayloadBytes)
             || !TryReadDocumentExportText(ref reader, out string requestId)
             || !TryReadDocumentExportText(ref reader, out string idempotencyKey)
             || !TryReadDocumentExportSource(ref reader, out DocumentExportSourceCoreModel coordinate)
@@ -88,7 +105,7 @@ public static partial class PodBinaryCodec
     {
         value = default;
         var reader = new BinaryPodReader(source.Span);
-        if (!TryReadDocumentExportVersion(ref reader, source.Length)
+        if (!TryReadDocumentExportVersion(ref reader, source.Length, MaximumDocumentExportTaskRequestPayloadBytes)
             || !TryReadDocumentExportText(ref reader, out string taskId) || !reader.IsConsumed)
         {
             return false;
@@ -119,7 +136,7 @@ public static partial class PodBinaryCodec
     {
         value = null!;
         var reader = new BinaryPodReader(source.Span);
-        if (!TryReadDocumentExportVersion(ref reader, source.Length)
+        if (!TryReadDocumentExportVersion(ref reader, source.Length, MaximumDocumentExportJobResponsePayloadBytes)
             || !TryReadDocumentExportJob(ref reader, out DocumentExportJobResponseCoreModel decoded) || !reader.IsConsumed)
         {
             return false;
@@ -157,7 +174,7 @@ public static partial class PodBinaryCodec
     {
         value = null!;
         var reader = new BinaryPodReader(source.Span);
-        if (!TryReadDocumentExportVersion(ref reader, source.Length)
+        if (!TryReadDocumentExportVersion(ref reader, source.Length, MaximumDocumentExportPageResponsePayloadBytes)
             || !reader.TryReadInt32(out int offset) || offset < 0
             || !reader.TryReadInt32(out int limit) || limit is < 1 or > MaximumDocumentExportPageSize
             || !TryReadDocumentExportBoolean(ref reader, out bool hasMore)
@@ -182,8 +199,8 @@ public static partial class PodBinaryCodec
         return true;
     }
 
-    private static bool TryReadDocumentExportVersion(ref BinaryPodReader reader, int length)
-        => length <= MaximumDocumentExportPayloadBytes && reader.TryReadInt32(out int version)
+    private static bool TryReadDocumentExportVersion(ref BinaryPodReader reader, int length, int maximum)
+        => length <= maximum && reader.TryReadInt32(out int version)
             && version == DocumentExportPayloadVersion;
 
     private static bool ValidDocumentExportRequest(DocumentExportRequestCoreModel value)

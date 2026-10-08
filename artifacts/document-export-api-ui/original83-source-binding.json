@@ -1,0 +1,120 @@
+{
+  "kind": "original execution source/DLL/PDB evidence, no acceptance or runtime authorization receipt",
+  "sourceCommit": "29f89672ef8aa456bd36dca5118fd1a9101adbf5",
+  "compilerSourceBinding": "The final source bytes were fixed before invocation; source commit was made during the run. PDB checksums of all seven owned C# documents equal that final source commit, and each PDB matches its DLL CodeView identity. Do not infer HEAD metadata was29f at compiler invocation.",
+  "compilerGitHeadAtInvocation": "81f9e8a14aba3bf39d6f231dd9f91bc4109cd88f",
+  "sdkVersion": "10.0.401",
+  "sdkAssemblySha256": "bf8844d3d50869c1c05ff4aaf1908a81ca657106bed52be1388a8323690f5049",
+  "command": "DOTNET_CLI_HOME=/workspace/export2436-evidence/dotnet-home NUGET_PACKAGES=/workspace/.setup/nuget /workspace/.setup/dotnet/dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --configuration Release --filter FullyQualifiedName~DocumentExportEndpointsTests|FullyQualifiedName~DocumentExportBinaryCodecTests|FullyQualifiedName~DocumentExportEndpointBindingTests --logger trx;LogFileName=wire-domain-final.trx --results-directory /workspace/export2436-evidence/wire-tests-final",
+  "exitCode": 0,
+  "times": {
+    "creation": "2026-10-08T11:12:11.7745595+00:00",
+    "queuing": "2026-10-08T11:12:11.7745595+00:00",
+    "start": "2026-10-08T11:12:09.7283847+00:00",
+    "finish": "2026-10-08T11:12:12.1769910+00:00"
+  },
+  "counters": {
+    "total": "83",
+    "executed": "83",
+    "passed": "83",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "artifacts": {
+    "original83-results.trx": {
+      "sha256": "860f8aa725daa5a14c75e3d08056b61ab12b18705a7c106f817c55ffe009b6f5",
+      "bytes": 121372
+    },
+    "original83-execution.log": {
+      "sha256": "35cf46c6c39c0d30f528adeffeca8fa784b90c126bb383a85d247ab6eb0095b0",
+      "bytes": 135279
+    }
+  },
+  "dllAndPdbBindings": [
+    {
+      "assembly": "src/core/bin/Release/net10.0/FsusBlog.Core.dll",
+      "dllSha256": "1d7cbcbbb4e38ab3a7f3531bd7fa275777617ee70af7e6a671e5861e2b5bd02f",
+      "pdbSha256": "d5855be9e2cab12c34c845738590862457194b2d1b8a1c4f58bb6cbba63b89f4",
+      "pdbMatchesDllCodeView": true,
+      "documents": [
+        {
+          "path": "src/core/Cache/PodBinaryCodec.DocumentExport.cs",
+          "hashAlgorithm": "8829d00f-11b8-4213-878b-770e8597ac16",
+          "pdbChecksum": "538804485f90890bae630a7a3c2e50069dc69c5464be4efa3a5b6fb429c86795",
+          "actualSourceSha256": "538804485f90890bae630a7a3c2e50069dc69c5464be4efa3a5b6fb429c86795",
+          "match": true
+        },
+        {
+          "path": "src/core/Mapping/Models/DocumentExportModels.cs",
+          "hashAlgorithm": "8829d00f-11b8-4213-878b-770e8597ac16",
+          "pdbChecksum": "3d311922d3a4e3b972392903435132265ca10c3b6762e2d4dd8046bdf41699b4",
+          "actualSourceSha256": "3d311922d3a4e3b972392903435132265ca10c3b6762e2d4dd8046bdf41699b4",
+          "match": true
+        }
+      ]
+    },
+    {
+      "assembly": "src/backend/bin/Release/net10.0/FsusBlog.Server.dll",
+      "dllSha256": "f6b1c988bd8d6e3a654355f33ec756a28090f83f316bb9ff6be1a11c304838f4",
+      "pdbSha256": "03e4dc700da9b4cd962aff9e82e84ea3c1b0cc6fe878bbe8c7aebb1aa288589e",
+      "pdbMatchesDllCodeView": true,
+      "documents": [
+        {
+          "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.DocumentExport.cs",
+          "hashAlgorithm": "8829d00f-11b8-4213-878b-770e8597ac16",
+          "pdbChecksum": "a7df716c24f036b20a772a3484678d6560cfeb51ff85c6606c8508133198437b",
+          "actualSourceSha256": "a7df716c24f036b20a772a3484678d6560cfeb51ff85c6606c8508133198437b",
+          "match": true
+        },
+        {
+          "path": "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs",
+          "hashAlgorithm": "8829d00f-11b8-4213-878b-770e8597ac16",
+          "pdbChecksum": "67bb70bebef9a7665a8d1a32c1c0f3a1a60eebbc2947511534df203ed1c54a48",
+          "actualSourceSha256": "67bb70bebef9a7665a8d1a32c1c0f3a1a60eebbc2947511534df203ed1c54a48",
+          "match": true
+        }
+      ]
+    },
+    {
+      "assembly": "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "dllSha256": "184aff30e382c1ec4d7f70d9eb63edef91a83c858cea29458abef5c1f8a813e7",
+      "pdbSha256": "2ff588072cd9038d69bb594a7bb3494fe7e7d783deafc3cc9b5e3610012ec041",
+      "pdbMatchesDllCodeView": true,
+      "documents": [
+        {
+          "path": "tests/backend/Unit/DocumentExportBinaryCodecTests.cs",
+          "hashAlgorithm": "8829d00f-11b8-4213-878b-770e8597ac16",
+          "pdbChecksum": "37007737ec69d596d84181f28ccdbbb72ed35c5d060451b55e1de14c0feab388",
+          "actualSourceSha256": "37007737ec69d596d84181f28ccdbbb72ed35c5d060451b55e1de14c0feab388",
+          "match": true
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportEndpointBindingTests.cs",
+          "hashAlgorithm": "8829d00f-11b8-4213-878b-770e8597ac16",
+          "pdbChecksum": "5bb6146dc36348110130d99091842d9d81df7c93b5c57a7439170d3298a219a4",
+          "actualSourceSha256": "5bb6146dc36348110130d99091842d9d81df7c93b5c57a7439170d3298a219a4",
+          "match": true
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportEndpointsTests.cs",
+          "hashAlgorithm": "8829d00f-11b8-4213-878b-770e8597ac16",
+          "pdbChecksum": "c86f7e4278b5d5345ad68b29b3c218e659227630c594be1c7995ffe83a25ad15",
+          "actualSourceSha256": "c86f7e4278b5d5345ad68b29b3c218e659227630c594be1c7995ffe83a25ad15",
+          "match": true
+        }
+      ]
+    }
+  ],
+  "qualification": "Original83managed tests only; native frame/type registry, production auth/freezer/DI/routes/renderer/download NOT RUN. This evidence does not replace Shared reviewer execution or acceptance."
+}
