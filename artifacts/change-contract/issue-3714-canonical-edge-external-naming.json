@@ -1,0 +1,52 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/canonical-digest-edge.json",
+                "config/development/frontend-style-policy.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/test-execution-envelope-applicability.json",
+                "config/schemas/test-execution-envelope-applicability.schema.json",
+                "config/testing/content-field-contracts.generated.json"
+            ],
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/frontend-style-enforcement.md"
+            ],
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
+                "tools/frontend/style-toolchain/eslint.config.mjs",
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "Preserve the declared DOTNET_ROOT and FSUSBLOG_CONTENT_FIELD_DOTNET process input spellings in the exact original matrix-governance caller; no arbitrary environment inheritance is added."
+        }
+    ]
+}
