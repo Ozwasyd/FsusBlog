@@ -62,7 +62,8 @@ public static class PgCurrentSchemaCatalogObserver
         foreach (DataRow row in tableRows.Rows)
         {
             string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
-            if (tableScope is not null && tableName != tableScope) continue;
+            if (tableScope is not null && tableName != tableScope)
+                continue;
             if (tableName == CurrentSchemaControlShape.ApplyJournalTableName)
             {
                 CurrentSchemaControlTableFacts control = CurrentSchemaControlShape.DescribeApplyJournalFacts();
@@ -301,7 +302,8 @@ public static class PgCurrentSchemaCatalogObserver
                 if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
                     && (!Convert.ToBoolean(row["is_valid"]) || !Convert.ToBoolean(row["is_ready"]) || !Convert.ToBoolean(row["is_live"])))
                     throw new InvalidOperationException("current_schema_control_index_unavailable");
-                if (Convert.ToBoolean(row["is_primary"])) primaryIndexes.Add(tableName + "." + indexName);
+                if (Convert.ToBoolean(row["is_primary"]))
+                    primaryIndexes.Add(tableName + "." + indexName);
                 bool hasExpressions = Convert.ToBoolean(row["has_expressions"]);
                 IReadOnlyList<SchemaIndexKeyModel> keys = ParsePostgresIndexKeys(
                     Convert.ToString(row["keys"]),
@@ -498,11 +500,13 @@ public static class PgCurrentSchemaCatalogObserver
         foreach ((string tableName, SchemaTableModel table) in tables.ToArray())
         {
             // Control constraints must be actual pg_constraint rows, not inferred unique indexes.
-            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName) continue;
+            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName)
+                continue;
             var constraints = (Dictionary<string, SchemaConstraintModel>)table.Constraints;
             foreach (SchemaIndexModel index in table.IndexDefinitions.Values.Where(static index => index.IsUnique))
             {
-                if (primaryIndexes.Contains(tableName + "." + index.Name)) continue;
+                if (primaryIndexes.Contains(tableName + "." + index.Name))
+                    continue;
                 constraints.TryAdd(index.Name, new SchemaConstraintModel(
                     index.Name,
                     "unique",
