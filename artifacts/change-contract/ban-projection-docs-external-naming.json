@@ -5,9 +5,10 @@
             "id": "environment-variable",
             "paths": [
                 "src/backend/Infrastructure/Security/BanStateProjection.cs",
+                "src/migration/Properties/AssemblyInfo.cs",
                 "tools/test/correctness-attempt-migration.mjs"
             ],
-            "reason": "Preserve the registered C# environment-variable surface while correcting only XML documentation of missing authority facts and the concurrent local-state reread. Runtime tokens and signatures are unchanged. Imported prerequisite binding: preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster. The SDK Compile discovery capability is already in accepted master and is not a changed naming surface in this candidate."
+            "reason": "Preserve the registered C# environment-variable surface while correcting only XML documentation of missing authority facts and the concurrent local-state reread. Projection runtime tokens and signatures are unchanged. Preserve the existing DynamicProxyGenAssembly2 framework assembly spelling while consuming the canonical internal-port test visibility capability; the migration port stays internal. Imported prerequisite binding: preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster. The SDK Compile discovery capability is already in accepted master and is not a changed naming surface in this candidate."
         },
         {
             "id": "json-wire-key",
