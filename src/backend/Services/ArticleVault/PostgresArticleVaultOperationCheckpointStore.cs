@@ -96,19 +96,19 @@ public sealed class PostgresArticleVaultOperationCheckpointStore(
                 checkpoint.PreviousCheckpointSha256 ?? string.Empty));
         }
 
-        ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateAppend(identity, plan, previous, checkpoint));
+        ArticleVaultValidationResult appendValidation = ArticleVaultOperationVerifier.ValidateAppend(identity, plan, previous, checkpoint);
+        if (appendValidation.ReasonCode == "article_vault_operation_resume_capability_missing")
+        {
+            throw Rejected(appendValidation.ReasonCode);
+        }
+
+        ArticleVaultOperationVerifier.Require(appendValidation);
         long nowUnixMs = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
         if (checkpoint.RecordedAtUnixMs > nowUnixMs
             || nowUnixMs > identity.DeadlineUnixMs
                 && checkpoint.State is not (VaultOperationState.Cancelled or VaultOperationState.RecoveryRequired or VaultOperationState.Blocked))
         {
             throw Rejected("article_vault_operation_current_deadline_invalid");
-        }
-
-        if (previous?.State == VaultOperationState.RecoveryRequired
-            && checkpoint.State == VaultOperationState.MaterializingLocal)
-        {
-            throw Rejected("article_vault_operation_resume_capability_missing");
         }
 
         if (checkpoint.ServerResult is not null)

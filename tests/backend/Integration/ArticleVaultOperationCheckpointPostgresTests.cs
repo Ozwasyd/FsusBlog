@@ -130,6 +130,73 @@ public sealed class ArticleVaultOperationCheckpointPostgresTests(PostgresSchemaM
                 VaultServerCommitDisposition.Accepted, materializing.ServerResult)));
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task RecoveryReconciliation_PersistsExactAcceptedResultWithoutAdmittingResumeOrChangingBase(
+        bool expired, bool cancelled)
+    {
+        await using NpgsqlDataSource dataSource = await CreateStoreDatabaseAsync();
+        ArticleVaultSealedExecutionBundle bundle = ArticleVaultOperationFixture.Bundle("body\r\n"u8.ToArray());
+        ArticleVaultExecutionResult result = ArticleVaultOperationFixture.NoOpResult(bundle);
+        IArticleVaultExecutionStore executorStore = Substitute.For<IArticleVaultExecutionStore>();
+        executorStore.LoadSealedAsync(bundle.PlanReference, bundle.PlanSha256, Arg.Any<CancellationToken>()).Returns(bundle);
+        executorStore.LoadResultAsync(result.ResultReference, Arg.Any<CancellationToken>()).Returns(result);
+        var clock = new FixtureTimeProvider();
+        var first = new PostgresArticleVaultOperationCheckpointStore(dataSource, executorStore, clock);
+        var second = new PostgresArticleVaultOperationCheckpointStore(dataSource, executorStore, clock);
+        ArticleVaultSyncPlan plan = bundle.Plan;
+        ArticleVaultOperationIdentity identity = ArticleVaultOperationFixture.Identity(plan);
+        await first.RegisterAsync(identity, plan);
+        ArticleVaultOperationCheckpoint planned = ArticleVaultOperationFixture.Checkpoint(identity, plan);
+        ArticleVaultOperationCheckpoint validating = ArticleVaultOperationFixture.Checkpoint(
+            identity, plan, planned, VaultOperationState.Validating);
+        ArticleVaultOperationCheckpoint executing = ArticleVaultOperationFixture.Checkpoint(
+            identity, plan, validating, VaultOperationState.ExecutingServer, VaultServerCommitDisposition.Unknown);
+        await first.AppendAsync(identity, plan, planned);
+        await first.AppendAsync(identity, plan, validating);
+        await first.AppendAsync(identity, plan, executing);
+        clock.NowUnixMs = expired ? identity.DeadlineUnixMs + 1 : executing.RecordedAtUnixMs + 1;
+        ArticleVaultOperationCheckpoint recovery = ArticleVaultOperationFixture.Checkpoint(
+            identity, plan, executing, VaultOperationState.RecoveryRequired, VaultServerCommitDisposition.Unknown,
+            reason: "server_outcome_unknown", cancelled: cancelled, time: clock.NowUnixMs);
+        await first.AppendAsync(identity, plan, recovery);
+        clock.NowUnixMs++;
+        ArticleVaultOperationCheckpoint accepted = ArticleVaultOperationFixture.Checkpoint(
+            identity, plan, recovery, VaultOperationState.RecoveryRequired, VaultServerCommitDisposition.Accepted,
+            new VaultOperationStageReference(result.ResultReference, result.ContentSha256),
+            reason: "local_materialization_pending", cancelled: cancelled, time: clock.NowUnixMs);
+        ArticleVaultOperationCheckpoint corrupt = ArticleVaultOperationFixture.Seal(accepted with
+        {
+            ServerResult = accepted.ServerResult! with { ContentSha256 = ArticleVaultOperationFixture.DigestA }
+        });
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => first.AppendAsync(identity, plan, corrupt));
+        await Task.WhenAll(first.AppendAsync(identity, plan, accepted), second.AppendAsync(identity, plan, accepted));
+
+        clock.NowUnixMs++;
+        ArticleVaultOperationCheckpoint resume = ArticleVaultOperationFixture.Checkpoint(
+            identity, plan, accepted, VaultOperationState.MaterializingLocal, VaultServerCommitDisposition.Accepted,
+            accepted.ServerResult, cancelled: cancelled, time: clock.NowUnixMs);
+        ArticleVaultExecutionRejectedException rejection = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(
+            () => second.AppendAsync(identity, plan, resume));
+        Assert.Equal("article_vault_operation_resume_capability_missing", rejection.Message);
+        var restarted = new PostgresArticleVaultOperationCheckpointStore(dataSource, executorStore, clock);
+        IReadOnlyList<ArticleVaultOperationCheckpoint> history = await restarted.ReadThroughAsync(
+            identity, plan, accepted.Sequence, accepted.ContentSha256);
+        Assert.Equal(5, history.Count);
+        Assert.Equal(ArticleVaultOperationCodec.Serialize(accepted), ArticleVaultOperationCodec.Serialize(history[^1]));
+        Assert.Equal(recovery.ContentSha256, (await restarted.ReadThroughAsync(
+            identity, plan, recovery.Sequence, recovery.ContentSha256))[^1].ContentSha256);
+        Assert.All(history.SelectMany(static checkpoint => checkpoint.Articles),
+            static article => Assert.Equal(article.BaseBeforeSha256, article.BaseAfterSha256));
+        await Assert.ThrowsAsync<InvalidDataException>(() => restarted.ReadThroughAsync(
+            identity, plan, resume.Sequence, resume.ContentSha256));
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync();
+        await using var count = new NpgsqlCommand("SELECT count(*) FROM article_vault_operation_checkpoint", connection);
+        Assert.Equal(5L, await count.ExecuteScalarAsync());
+    }
+
     private async Task<NpgsqlDataSource> CreateStoreDatabaseAsync()
     {
         string database = await fixture.CreateDatabaseAsync();

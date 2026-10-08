@@ -158,6 +158,36 @@ public sealed class ArticleVaultOperationProtocolTests
     }
 
     [Fact]
+    public void RecoveryHistory_CannotAdmitResumeFromHashLinkedAcceptedResultAlone()
+    {
+        ArticleVaultSyncPlan plan = ArticleVaultOperationFixture.Plan();
+        ArticleVaultOperationIdentity identity = ArticleVaultOperationFixture.Identity(plan);
+        ArticleVaultOperationCheckpoint planned = ArticleVaultOperationFixture.Checkpoint(identity, plan);
+        ArticleVaultOperationCheckpoint validating = ArticleVaultOperationFixture.Checkpoint(
+            identity, plan, planned, VaultOperationState.Validating);
+        ArticleVaultOperationCheckpoint executing = ArticleVaultOperationFixture.Checkpoint(
+            identity, plan, validating, VaultOperationState.ExecutingServer, VaultServerCommitDisposition.Unknown);
+        ArticleVaultOperationCheckpoint recovery = ArticleVaultOperationFixture.Checkpoint(
+            identity, plan, executing, VaultOperationState.RecoveryRequired, VaultServerCommitDisposition.Unknown,
+            reason: "server_outcome_unknown");
+        ArticleVaultOperationCheckpoint accepted = ArticleVaultOperationFixture.Checkpoint(
+            identity, plan, recovery, VaultOperationState.RecoveryRequired, VaultServerCommitDisposition.Accepted,
+            new VaultOperationStageReference(plan.ResultCandidateIdentity, ArticleVaultOperationFixture.DigestA),
+            reason: "local_materialization_pending");
+        ArticleVaultOperationCheckpoint resume = ArticleVaultOperationFixture.Checkpoint(
+            identity, plan, accepted, VaultOperationState.MaterializingLocal, VaultServerCommitDisposition.Accepted,
+            accepted.ServerResult);
+
+        Assert.True(ArticleVaultOperationVerifier.VerifyHistory(identity, plan,
+            [planned, validating, executing, recovery, accepted], accepted.Sequence, accepted.ContentSha256).IsValid);
+        Assert.Equal("article_vault_operation_resume_capability_missing",
+            ArticleVaultOperationVerifier.ValidateAppend(identity, plan, accepted, resume).ReasonCode);
+        Assert.Equal("article_vault_operation_resume_capability_missing",
+            ArticleVaultOperationVerifier.VerifyHistory(identity, plan,
+                [planned, validating, executing, recovery, accepted, resume], resume.Sequence, resume.ContentSha256).ReasonCode);
+    }
+
+    [Fact]
     public void ClosedCodec_RejectsUnknownFieldsAndNumericStateRatherThanWarning()
     {
         ArticleVaultSyncPlan plan = ArticleVaultOperationFixture.Plan();
