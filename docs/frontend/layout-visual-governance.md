@@ -182,3 +182,61 @@ node --test tests/tools/layout-composition-contracts.test.mjs
 
 These are synthetic contract mutations against the actual loaded definitions;
 they are not product-source mutations or evidence that a page renders correctly.
+
+## Aggregation preflight and mutation admission
+
+The existing `check:views-constraints` core dependency owns the aggregation
+preflight. Set `FSUSBLOG_LAYOUT_AGGREGATION_PREFLIGHT=1` on that command to inspect
+its declared coverage. The preflight reports `not-executed`,
+`qualificationEligible: false` and exit 1. The default command retains its
+existing static checks; a static pass does not qualify full visual acceptance.
+There is no second layout runner or selectable verification callback.
+
+`tests/frontend/support/layout/layoutAggregation.mjs` derives demands from every
+representative and required state in the sole archetype matrix and its referenced
+viewport/theme/media sources, for both local and published modes. It preserves
+literal dimension values and their source references. Symbolic desktop/mobile,
+high-contrast and zoom descriptors are not silently converted into browser
+scenes. Actual viewport, native zoom, forced-colors, state readiness and fixture
+admission remain the browser producer's authority. Derived demands are temporary
+contract data, not a second maintained matrix or proof of scene execution.
+
+`config/schemas/layout-aggregation-request.schema.json` owns the strict preflight
+request, receipt-reference cardinality, 25 mutation observation IDs and ten
+success counters. The IDs represent the required 18 controls plus seven extra
+runner/matrix/ledger/pixel/mode/lane/job downgrade controls. Each observation
+retains not-executed, killed or survived and evidence references. A caller's
+claimed kill cannot certify that a product mutation was executed or rejected.
+The current self-tests check this interface and downgrade refusal only; product
+mutations awaiting source/browser/adjudication producers remain unexecuted.
+
+`inspectLayoutReceiptCoverage` checks exact-one references per declared demand
+and evidence kind. `inspectLayoutAggregation` additionally checks current
+source/worktree/run/attempt, local/published composition identities freshly
+derived from the supplied current baseline/source and consumed inputs, exact artifact bytes and mutation-reference
+shape. Every diagnostic remains ineligible for qualification. Reference deficits
+are reported separately and cannot prove archetype coverage
+or evidence freshness. Only the current contract validation counter can be
+zero; all nine remaining success counters stay `null` until canonical producers
+independently verify them. Unknown is never zero.
+
+`requireFullLayoutAggregate` rejects focused/static-only/not-executed requests,
+incomplete coverage and finally unavailable canonical producer adapters. Even
+complete references, opaque bytes and all claimed kills cannot issue a full
+receipt. The current implementation has no release-final authority or CI
+transport registration; those integrations must consume actual producer APIs
+and the existing current-run locator, transport and required-evidence owners.
+Job success, artifact names, URLs, old receipts and published fallback to local
+cannot replace that authority.
+
+Run the non-qualifying interface tests with the locked packages installed:
+
+```bash
+node --test tests/tools/layout-aggregation.test.mjs
+FSUSBLOG_LAYOUT_AGGREGATION_PREFLIGHT=1 npm --prefix src/frontend run check:views-constraints
+```
+
+The second command is deliberately blocked before subsequent static dependencies
+run. It does not weaken their normal execution or overwrite any prior failure
+artifacts. Keep each failed attempt and subsequent rerun under distinct run-bound
+artifact paths; this preflight is not an attempt/failure evidence producer.
