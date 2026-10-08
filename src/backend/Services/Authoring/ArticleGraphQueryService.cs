@@ -69,6 +69,18 @@ public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection sou
     }
 
     private static ArticleGraphResult Empty(ArticleGraphRequest request, ArticleGraphStatus status, string reason)
-        => ArticleGraphContract.Seal(request, new(request.Identity, request.RequestedDepth ?? 1, 0, status, reason,
+    {
+        if (ArticleGraphContract.Validate(request) is not null)
+        {
+            // Refusal must not serialize an invalid, potentially unbounded request back to the caller.
+            request = request with
+            {
+                SchemaVersion = 0,
+                SessionId = "invalid-request",
+                Identity = new(new("invalid", "invalid", ""), "invalid", "invalid", "invalid", "invalid")
+            };
+        }
+        return ArticleGraphContract.Seal(request, new(request.Identity, request.RequestedDepth ?? 1, 0, status, reason,
             Array.Empty<ArticleGraphNode>(), Array.Empty<ArticleGraphEdge>(), new(0, 0, 0, 0), ""));
+    }
 }

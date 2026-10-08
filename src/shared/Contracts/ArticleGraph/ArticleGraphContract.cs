@@ -107,7 +107,7 @@ public static class ArticleGraphContract
 
     public static ArticleGraphResult Seal(ArticleGraphRequest request, ArticleGraphProjection projection)
     {
-        ArticleGraphResult unsigned = new(Version, request.SessionId, request.Sequence, projection, "");
+        ArticleGraphResult unsigned = new(Version, request.SessionId, request.Sequence, ComputeRequestDigest(request), projection, "");
         return unsigned with
         {
             ContentDigest = ComputeDigest(unsigned)
@@ -119,6 +119,11 @@ public static class ArticleGraphContract
         {
             ContentDigest = ""
         })));
+
+    public static string ComputeRequestDigest(ArticleGraphRequest request)
+        => Validate(request) is null
+            ? Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request)))
+            : "";
 
     private static bool ValidIdentity(ArticleGraphIdentity identity)
         => ValidId(identity.Actor.ActorIdentity) && ValidId(identity.Actor.SiteIdentity)

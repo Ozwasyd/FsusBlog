@@ -71,6 +71,7 @@ export interface ArticleGraphResult {
     readonly nodes: readonly ArticleGraphNode[];
     readonly edges: readonly ArticleGraphEdge[];
     readonly sourceDigest: string;
+    readonly requestDigest: string;
     readonly contentDigest: string;
 }
 
@@ -95,7 +96,7 @@ export function sameArticleGraphIdentity(left: ArticleGraphIdentity, right: Arti
 export function unavailableArticleGraphResult(request: ArticleGraphRequest, status: ArticleGraphStatus = 'unavailable', reason = 'relation-api-unavailable'): ArticleGraphResult
 {
     return Object.freeze({ schemaVersion: 1, identity: request.identity, sessionId: request.sessionId, sequence: request.sequence,
-        requestedDepth: request.requestedDepth, effectiveDepth: 0, status, reason, nodes: Object.freeze([]), edges: Object.freeze([]), sourceDigest: '', contentDigest: '' });
+        requestedDepth: request.requestedDepth, effectiveDepth: 0, status, reason, nodes: Object.freeze([]), edges: Object.freeze([]), sourceDigest: '', requestDigest: '', contentDigest: '' });
 }
 
 export const unavailableArticleGraphHost: ArticleGraphQueryHost = {
@@ -111,7 +112,7 @@ export function admitArticleGraphResult(request: ArticleGraphRequest, result: Ar
     const digest = /^[a-f0-9]{64}$/u;
     const id = /^[a-zA-Z0-9._:-]{1,128}$/u;
     const closed = (value: object, keys: readonly string[]): boolean => Object.keys(value).length === keys.length && Object.keys(value).every(key => keys.includes(key));
-    if (!closed(result, ['schemaVersion', 'identity', 'sessionId', 'sequence', 'requestedDepth', 'effectiveDepth', 'status', 'reason', 'nodes', 'edges', 'sourceDigest', 'contentDigest'])
+    if (!closed(result, ['schemaVersion', 'identity', 'sessionId', 'sequence', 'requestedDepth', 'effectiveDepth', 'status', 'reason', 'nodes', 'edges', 'sourceDigest', 'requestDigest', 'contentDigest'])
         || !closed(result.identity, ['actor', 'site', 'permissionDigest', 'rootArticle', 'rootRevision', 'documentEpoch', 'indexGeneration']))
     {
         throw new Error('unknown-field');
@@ -137,7 +138,7 @@ export function admitArticleGraphResult(request: ArticleGraphRequest, result: Ar
         }
         return unavailableArticleGraphResult(request, result.status, result.status === 'unavailable' ? 'relation-api-unavailable' : result.status);
     }
-    if (!digest.test(result.contentDigest) || !digest.test(result.sourceDigest)
+    if (!digest.test(result.contentDigest) || !digest.test(result.sourceDigest) || !digest.test(result.requestDigest)
         || result.effectiveDepth < 1 || result.effectiveDepth > result.requestedDepth
         || result.status === 'complete' && (result.reason !== null || result.effectiveDepth !== result.requestedDepth)
         || result.status === 'truncated' && !['node-budget', 'edge-budget', 'payload-budget', 'index-budget', 'time-budget'].includes(result.reason ?? ''))
