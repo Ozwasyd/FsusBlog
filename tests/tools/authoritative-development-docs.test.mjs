@@ -377,7 +377,7 @@ test('authoritative development documentation preserves the exact dependency ove
     const owners = manifest.pathClassifications
         .filter((entry) => entry.patterns.includes(archivePath))
         .map((entry) => ({ id: entry.id, owner: entry.owner }));
-    assert.deepEqual(owners, [{ id: 'vendor', owner: 'DependencyOwner' }]);
+    assert.deepEqual(owners, [{ id: 'dependency-migration-archive', owner: 'DependencyOwner' }]);
     assert.ok(!manifest.nonSourceExtensions.includes('.gz'));
     const archive = readFileSync(path.join(root, archivePath));
     assert.equal(createHash('sha256').update(archive).digest('hex'), dependencyOverlayArchive.sha256);
@@ -396,8 +396,8 @@ test('authoritative development documentation rejects the dependency overlay arc
     withOverlay((overlay) =>
     {
         const manifest = readManifest();
-        const vendor = manifest.pathClassifications.find((entry) => entry.id === 'vendor');
-        vendor.patterns = vendor.patterns.filter((entry) => entry !== dependencyOverlayArchive.path);
+        const archiveOwner = manifest.pathClassifications.find((entry) => entry.id === 'dependency-migration-archive');
+        archiveOwner.patterns = archiveOwner.patterns.filter((entry) => entry !== dependencyOverlayArchive.path);
         writeManifest(overlay, manifest);
         const result = runChecker(overlay);
         assert.notEqual(result.status, 0);
