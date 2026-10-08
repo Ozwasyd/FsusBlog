@@ -1,0 +1,108 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "5e375e81b36df3813938afb6cca08dc9518b8fca",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.302-servicing.26329.109+35b593bebfcba58f8e78298cef14c2761f5d86c6",
+        "command": "/tmp/fsusblog-3654-content-shape-dotnet/dotnet format whitespace /tmp/fsusblog-3654-exact-decimal-format --folder --include /tmp/fsusblog-3654-exact-decimal-format/src/shared/Algorithms/ExactDecimalLiteral.cs --verbosity quiet"
+    },
+    "paths": [
+        "src/shared/Algorithms/ExactDecimalLiteral.cs"
+    ],
+    "firstPassTreeSha256": "dc2016b6e0d2ae0e435fc9690add94e21f795bbb5a68817af4269f53970aa40a",
+    "secondPassTreeSha256": "dc2016b6e0d2ae0e435fc9690add94e21f795bbb5a68817af4269f53970aa40a",
+    "idempotent": true,
+    "executionEvidenceSourceRevision": "09f69c4636b06d3a65452f4502d6a3ed98d72c20",
+    "executionEvidenceMetadataHead": "415c50da174b3a25035aa15e4c3a86a0bfeb4acd",
+    "originalEvidence": "artifacts/style/issue-1688-decimal-upstream-format.json",
+    "originalEvidenceSha256": "9760d9fc17dea125b9fce853911d32f90ad8de010e911c5a09aca988242414c4",
+    "sourceConsumerByteEqualityVerified": true,
+    "sourceConsumerGitBlob": "8a772d49907b4602ca2d66814cba92c632a0b403",
+    "formatterExecutedInConsumer": false,
+    "actualConsumerRoslynEquivalence": {
+        "schema": "fsusblog.roslyn-format-equivalence.v1",
+        "parserAssemblyVersion": "5.9.0.0",
+        "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
+        "paths": [
+            {
+                "path": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+                "tokenCount": 8188,
+                "beforeTokenSha256": "b6d40de1af17d15c8e250f96e407af385ac31372727acd128df905c53e65588b",
+                "afterTokenSha256": "b6d40de1af17d15c8e250f96e407af385ac31372727acd128df905c53e65588b",
+                "beforeAnchoredTriviaSha256": "c870d942e33f69e2d6b282be4cc648adda5f72401b09d4658307046e76e0fe5a",
+                "afterAnchoredTriviaSha256": "c870d942e33f69e2d6b282be4cc648adda5f72401b09d4658307046e76e0fe5a",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/backend/Program.cs",
+                "tokenCount": 1029,
+                "beforeTokenSha256": "99bb4d7041c4e962a7ad1d701aeb0e9b51176fbe4db962f745e3481798f75c66",
+                "afterTokenSha256": "99bb4d7041c4e962a7ad1d701aeb0e9b51176fbe4db962f745e3481798f75c66",
+                "beforeAnchoredTriviaSha256": "bc0355c767a6ac4e0773d38b14c34892ed196818f49c43b84c9eb1550d9ad9d1",
+                "afterAnchoredTriviaSha256": "bc0355c767a6ac4e0773d38b14c34892ed196818f49c43b84c9eb1550d9ad9d1",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/backend/Services/SystemService.cs",
+                "tokenCount": 5646,
+                "beforeTokenSha256": "38f2bf986fd02355399eb40e027da5955b22f75226a483287801e9b8e2e940a7",
+                "afterTokenSha256": "38f2bf986fd02355399eb40e027da5955b22f75226a483287801e9b8e2e940a7",
+                "beforeAnchoredTriviaSha256": "ba477407e116d32a173c1a6a4bf756eea0d22e39c57cd44d8325dc25e4c309da",
+                "afterAnchoredTriviaSha256": "ba477407e116d32a173c1a6a4bf756eea0d22e39c57cd44d8325dc25e4c309da",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+                "tokenCount": 3117,
+                "beforeTokenSha256": "d563af1f4caf39c5adfc5409f4674751a7cbab2adedaf868cb728bf51f537da5",
+                "afterTokenSha256": "d563af1f4caf39c5adfc5409f4674751a7cbab2adedaf868cb728bf51f537da5",
+                "beforeAnchoredTriviaSha256": "dbedf91420cf0e339a1102f9bd4d837ac5364942adbca2437e31cee6ed8babb5",
+                "afterAnchoredTriviaSha256": "dbedf91420cf0e339a1102f9bd4d837ac5364942adbca2437e31cee6ed8babb5",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+                "tokenCount": 6523,
+                "beforeTokenSha256": "d74ed934c79d1b3625c5264c1d767af42510db0d5efebc25e050dfb3f071a7e9",
+                "afterTokenSha256": "d74ed934c79d1b3625c5264c1d767af42510db0d5efebc25e050dfb3f071a7e9",
+                "beforeAnchoredTriviaSha256": "e196e88d55e6920c1088a4b59fff4858601f3b3dbdeecbba322ba17e421295e0",
+                "afterAnchoredTriviaSha256": "e196e88d55e6920c1088a4b59fff4858601f3b3dbdeecbba322ba17e421295e0",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs",
+                "tokenCount": 3229,
+                "beforeTokenSha256": "77bb1c009d11cda3a048de04189c76f37e56987efb99d4ad3d34d60b16cc7a04",
+                "afterTokenSha256": "77bb1c009d11cda3a048de04189c76f37e56987efb99d4ad3d34d60b16cc7a04",
+                "beforeAnchoredTriviaSha256": "6cec453c3baf22d548039d4dcce96f8431eda77b0e1318875b65c0d06d0541df",
+                "afterAnchoredTriviaSha256": "6cec453c3baf22d548039d4dcce96f8431eda77b0e1318875b65c0d06d0541df",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/shared/Algorithms/ExactDecimalLiteral.cs",
+                "tokenCount": 298,
+                "beforeTokenSha256": "bcda39fabe3ef4787b4a23f058e01daa872fdd7b0bc5a6193f01d82e60a932b9",
+                "afterTokenSha256": "bcda39fabe3ef4787b4a23f058e01daa872fdd7b0bc5a6193f01d82e60a932b9",
+                "beforeAnchoredTriviaSha256": "d20eadf7af66fbc1ebb6d4540b09917bd1ecbbcda13fbb051812f604a45a9039",
+                "afterAnchoredTriviaSha256": "d20eadf7af66fbc1ebb6d4540b09917bd1ecbbcda13fbb051812f604a45a9039",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            }
+        ],
+        "equivalent": true
+    },
+    "qualificationEligible": false
+}

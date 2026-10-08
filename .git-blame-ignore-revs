@@ -33,3 +33,6 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 
 # Reserved three-file formatter replay in #1688 source integration.
 89d5e00817bcf60ee96d3cd7b3ab228fe3810aa2
+
+# Exact-source decimal formatter consumer for #1688; original proof is retained.
+5e375e81b36df3813938afb6cca08dc9518b8fca
