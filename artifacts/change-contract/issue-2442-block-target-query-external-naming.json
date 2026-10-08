@@ -7,6 +7,8 @@
                 "src/backend/Services/Authoring/ArticleBlockRelationIndexSource.cs",
                 "src/backend/Services/Authoring/ArticleBlockRelationProducer.cs",
                 "src/backend/Services/Authoring/ArticleBlockRelationProducerContracts.cs",
+                "src/backend/Services/Authoring/ArticleBlockTargetQueryService.cs",
+                "src/backend/Services/Authoring/ArticleBlockTargetQuerySourceContracts.cs",
                 "src/backend/Services/Authoring/ArticleRelationIndex.cs",
                 "src/backend/Services/Authoring/ArticleRelationIndexContracts.cs",
                 "src/backend/Services/Authoring/ArticleRelationIndexEmbedAdmission.cs",

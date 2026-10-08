@@ -248,3 +248,41 @@ adapters, durable storage, runtime/publication/device qualification and all rema
 query/impact/package acceptance gates stay separate. Integration must consume upstream
 `1194ee450` together with the exact canonical block validator offer; consuming only the
 embed pipeline's older link validator does not provide canonical block-link admission.
+
+## Article and heading query service
+
+`ArticleBlockTargetQueryService.QueryArticlesAsync(request, cursor, cancellationToken)`
+and `QueryHeadingsAsync` produce the existing `BlockTargetArticleQueryPage` and
+`BlockTargetHeadingQueryPage`. They require independently observed source authority
+facts through the owned `IArticleBlockTargetQuerySource` read port. Its observation
+call receives actor/scope only, never the client's expected coordinate. Actual
+`PermissionRevision`, `QueryRevision`, `IndexRevision` and `RouteRevision` must be
+observed independently; none is inferred from `InspectTarget`. The index lease
+generation is a separate field and can differ from the observed index revision.
+
+Each read binds the complete observation and actual index source/generation/actor.
+Candidate metadata must match an exact indexed source revision/content digest.
+The service uses the sole index's actual `InspectTarget` and `RevalidateSourceAsync`,
+then reobserves every authority field before returning a page. Stale observations,
+index/source drift, conflicting frames, malformed/duplicate/reordered/oversized rows,
+invalid lookahead and source errors refuse the whole page. Cancelled and unavailable
+pages contain no items, cursor or diagnostic/existence details. Permission filtering
+must precede search and limit at the actual source. Public scope requires a current
+published target; target edit rights are separately required for authoring scope.
+
+Article reads contain metadata only. Heading inventory is read only after exact
+selected-article authorization and source validation, and must come from the unique
+canonical parser with actual portable heading/node identities. Source ranges are
+bounded by that inventory's original UTF-16 source length. Authorized global parse
+diagnostics block every result. There is no source/DOM scan or title/hash-based
+identity synthesis. Metadata and projection pages use at most limit+1 rows (101),
+ordinal stable-identity ordering, bounded labels and exact request-bound cursors.
+
+The new service and read port are usable algorithm/source-consumption APIs, not an
+observed production provider or permission receipt. Production registration still
+requires actual canonical portable article/revision mappings, authenticated rights,
+independent revision observations, bounded metadata reads and original heading
+inventory. The current DB article ID, history permission digest and structure
+`IdentityDigest` cannot fill these fields. There is no default provider or invented
+upstream method. Source/provider timing and bounded cached-fact revalidation require
+real runtime qualification; the controlled 10,000-row fixtures are not such evidence.
