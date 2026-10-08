@@ -9,12 +9,18 @@
         "tools/ci/check-job-summaries.mjs",
         "tools/test-matrix/scheduler.mjs",
         "tools/test/lanes/static-governance.sh",
-        "tests/tools/required-evidence-dependencies.test.mjs"
+        "tests/tools/required-evidence-dependencies.test.mjs",
+        "tools/test/generate-correctness-attempt-producers.mjs",
+        "tools/test/correctness-attempt-producers.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
             "sha256": "3d9220020a7884d20639bc19d6300f95019622058df62076228c77d0b1c28705"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
         }
     ]
 }
