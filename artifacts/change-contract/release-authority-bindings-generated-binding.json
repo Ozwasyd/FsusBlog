@@ -2,7 +2,7 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "tools/test/generate-evidence-location-governance.mjs",
-        "tools/test/generate-current-run-evidence-location-acceptance.mjs"
+        "config/testing/required-evidence-authority-ledger.json"
     ],
     "outputs": [
         {
