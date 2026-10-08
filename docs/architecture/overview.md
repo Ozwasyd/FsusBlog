@@ -233,8 +233,10 @@ render: enum-set
 - `behavior-doc-static-admission->soak-long-evidence-import`
 - `behavior-doc-static-admission->soak-long-scheduled`
 - `behavior-doc-static-admission->static-governance`
+- `behavior-doc-static-admission->test-inventory`
 - `behavior-doc-static-admission->test-quality-lint`
 - `behavior-doc-static-admission->ux-viewport-plan-progress`
+- `behavior-doc-static-admission->validate-matrix`
 - `behavior-doc-static-admission->wasm-build-artifacts`
 - `behavior-evidence-post-runtime->behavior-document-consistency-final`
 - `behavior-evidence-pre-runtime->behavior-evidence-post-runtime`
@@ -313,6 +315,7 @@ render: enum-set
 - `perception-v2-test-matrix->release-evidence`
 - `performance-evidence-summary->release-evidence`
 - `pr-smart-gate-plan->backend-mutation-changed-critical`
+- `pr-smart-gate-plan->source-governance`
 - `privacy-zk-comment-matrix->release-evidence`
 - `production-build-artifacts->browser-contract`
 - `production-build-artifacts->browser-diagnostics-manual`
@@ -359,12 +362,12 @@ render: enum-set
 - `test-inventory->test-quality-lint`
 - `ux-viewport-plan-progress->production-correctness`
 - `ux-viewport-plan-progress->release-evidence`
+- `validate-declarations->behavior-doc-static-admission`
+- `validate-declarations->pr-smart-gate-plan`
 - `validate-matrix->app-config-local-tuning`
-- `validate-matrix->behavior-doc-static-admission`
 - `validate-matrix->behavior-test-evidence`
 - `validate-matrix->native-fuzz-sanitizer`
 - `validate-matrix->native-smoke`
-- `validate-matrix->pr-smart-gate-plan`
 - `validate-matrix->public-hydration-fast`
 - `validate-matrix->public-hydration-nightly`
 - `validate-matrix->release-final-flaky-governance`
