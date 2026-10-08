@@ -524,6 +524,34 @@ for (const [name, mutate] of [
     });
 }
 
+for (const field of ['sql', 'secondCatalog', 'actual'])
+{
+    test(`closed input schema rejects top-level ${field} before dropping unknown fields`, () =>
+    {
+        const fixture = syntheticFixture();
+        fixture.projections[field] = {};
+        const result = rejects(fixture, 'closed-input-schema');
+        assert.ok(result.violations.every((violation) => violation.ruleId === 'closed-input-schema'));
+        assert.ok(result.violations.some((violation) => violation.detail.includes(`/${field}`)));
+    });
+}
+
+for (const value of [null, undefined, [], '', 'synthetic', 0, true])
+{
+    test(`malformed current inputs ${JSON.stringify(value)} return a closed failure without throwing`, () =>
+    {
+        const { catalog } = syntheticFixture();
+        let result;
+        assert.doesNotThrow(() =>
+        {
+            result = validateExpectedQueryCaseCatalog(catalog, value);
+        });
+        assert.equal(result.status, 'failed');
+        assert.ok(result.violations.length > 0);
+        assert.ok(result.violations.every((violation) => violation.ruleId === 'closed-input-schema'));
+    });
+}
+
 for (const value of [null, undefined, {}, [], '', 0, { cases: [] }])
 {
     test(`malformed catalog ${JSON.stringify(value)} returns a closed failure without throwing`, () =>

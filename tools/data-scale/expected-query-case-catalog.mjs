@@ -84,12 +84,7 @@ function exactCases(rows, violations, label)
  * The intake is a validator contract, not an implementation of missing graph,
  * distribution or query-owner exporters. Missing projections always fail.
  */
-export function validateExpectedQueryCaseCatalog(catalog, {
-    authorityRefs,
-    queryOwners,
-    inputRoles,
-    scenarios
-} = {})
+export function validateExpectedQueryCaseCatalog(catalog, currentInputs = {})
 {
     const violations = validateJsonSchema(catalog, catalogSchema)
         .map((detail) => ({ ruleId: 'closed-schema', caseId: null, detail }));
@@ -97,13 +92,12 @@ export function validateExpectedQueryCaseCatalog(catalog, {
     {
         return { status: 'failed', violations };
     }
-    const projections = { authorityRefs, queryOwners, inputRoles, scenarios };
     const projectionSchema = {
         $schema: catalogSchema.$schema,
         $defs: catalogSchema.$defs,
         $ref: '#/$defs/currentInputs'
     };
-    const projectionErrors = validateJsonSchema(projections, projectionSchema);
+    const projectionErrors = validateJsonSchema(currentInputs, projectionSchema);
     if (projectionErrors.length)
     {
         return {
@@ -111,6 +105,7 @@ export function validateExpectedQueryCaseCatalog(catalog, {
             violations: projectionErrors.map((detail) => ({ ruleId: 'closed-input-schema', caseId: null, detail }))
         };
     }
+    let { authorityRefs, queryOwners, inputRoles, scenarios } = currentInputs;
     if (catalog.schemaDigest !== schemaDigest)
     {
         add(violations, 'stale-schema', 'catalog is not bound to current closed schema bytes');
