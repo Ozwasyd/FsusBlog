@@ -8,7 +8,7 @@ namespace FsusBlog.Server.Services.Authoring;
 /// server request. Session validation remains with the existing authentication middleware;
 /// storage, dependency validation, revisions and idempotency remain with the unique store.
 /// </summary>
-public sealed class AuthorSavedViewApplicationFacade(
+public sealed partial class AuthorSavedViewApplicationFacade(
     IAuthorSavedViewStore store,
     IHttpContextAccessor httpContextAccessor,
     IConfiguration configuration)

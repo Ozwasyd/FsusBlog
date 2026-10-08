@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs"
+            ],
+            "reason": "Making the existing facade partial preserves its SITE_BASEURL consumption through ResolveSiteScope. Request bindings introduce no client ownership or new process settings; the authenticated request remains the sole user/site boundary."
+        }
+    ]
+}
