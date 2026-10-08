@@ -2,7 +2,7 @@
 
 import { mount } from '@vue/test-utils';
 import { ElButton, ElInput } from '@ozwasyd/element-plus';
-import { defineComponent, h, nextTick, ref } from 'vue';
+import { defineComponent, h, nextTick, reactive, ref, watch, type Ref } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import ArticleMetadataPropertyList from '@/components/admin/article/ArticleMetadataPropertyList.vue';
@@ -58,9 +58,37 @@ function render(overrides: Partial<typeof baseProps> = {})
     return wrapper;
 }
 
-function button(wrapper: ReturnType<typeof render>, text: string)
+function button(wrapper: Pick<ReturnType<typeof mount>, 'findAllComponents'>, text: string)
 {
     return wrapper.findAllComponents(ElButton).find((control) => control.text() === text)!;
+}
+
+function renderPageRace(mutate: (state: typeof baseProps, visible: Ref<boolean>) => void)
+{
+    const state = reactive({ ...baseProps, showAll: true, hasNextPage: true });
+    const visible = ref(true);
+    const Host = defineComponent({
+        setup()
+        {
+            watch(() => state.pageKey, (pageKey) =>
+            {
+                if (pageKey === 'page-2')
+                {
+                    mutate(state, visible);
+                }
+            }, { flush: 'post' });
+            return () => h('div', [
+                h(ElInput, { modelValue: state.query, 'aria-label': 'owner-filter' }),
+                visible.value ? h(ArticleMetadataPropertyList, {
+                    ...state,
+                    onPage: () => { state.pageKey = 'page-2'; }
+                }) : null
+            ]);
+        }
+    });
+    const wrapper = mount(Host, { attachTo: document.body });
+    wrappers.push(wrapper);
+    return { wrapper, state, visible };
 }
 
 afterEach(() =>
@@ -136,7 +164,16 @@ describe('ArticleMetadataPropertyList presentation boundary', () =>
             }
             const fields = wrapper.findAll('[data-definition-id]');
             expect(fields).toHaveLength(20);
-            observed.push(...fields.map((field) => field.attributes('data-definition-id')));
+            for (const field of fields)
+            {
+                const definitionId = field.attributes('data-definition-id');
+                expect(definitionId).toBeTypeOf('string');
+                if (typeof definitionId !== 'string')
+                {
+                    throw new Error('expected a stable definition identity');
+                }
+                observed.push(definitionId);
+            }
         }
         expect(observed).toEqual(identities);
         expect(button(wrapper, labels.next).attributes('disabled')).toBeDefined();
@@ -215,6 +252,62 @@ describe('ArticleMetadataPropertyList presentation boundary', () =>
             await nextTick();
             expect(document.activeElement).toBe(activeElement);
         }
+    });
+
+    it.each([
+        ['query', { query: 'new-filter' }],
+        ['compact selection', { showAll: false }],
+        ['document', { contextKey: 'article-b' }],
+        ['page generation', { pageKey: 'page-3' }],
+        ['permission', { available: false }],
+        ['stale state', { stale: true }],
+        ['loading state', { loading: true }]
+    ])('cancels pagination focus when the owner changes %s during the post-render flush', async (_name, changed) =>
+    {
+        const { wrapper } = renderPageRace((state) => { Object.assign(state, changed); });
+        const filter = wrapper.get<HTMLInputElement>('input[aria-label="owner-filter"]');
+        filter.element.focus();
+        const list = wrapper.getComponent(ArticleMetadataPropertyList);
+        await button(list, labels.next).trigger('click');
+        await nextTick();
+        expect(document.activeElement).toBe(filter.element);
+        for (const [key, value] of Object.entries(changed))
+        {
+            expect(list.props(key as keyof typeof baseProps)).toBe(value);
+        }
+    });
+
+    it('cancels an awaited pagination focus callback when the owner unmounts the list', async () =>
+    {
+        const { wrapper } = renderPageRace((_state, visible) => { visible.value = false; });
+        const filter = wrapper.get<HTMLInputElement>('input[aria-label="owner-filter"]');
+        filter.element.focus();
+        const list = wrapper.getComponent(ArticleMetadataPropertyList);
+        const focus = vi.spyOn(list.get<HTMLElement>('[role="status"]').element, 'focus');
+        await button(list, labels.next).trigger('click');
+        await nextTick();
+        expect(wrapper.findComponent(ArticleMetadataPropertyList).exists()).toBe(false);
+        expect(focus).not.toHaveBeenCalled();
+        expect(document.activeElement).toBe(filter.element);
+    });
+
+    it('cancels superseded focus callbacks while allowing the next requested page to restore focus', async () =>
+    {
+        const { wrapper, state } = renderPageRace(() =>
+        {
+            document.querySelector<HTMLButtonElement>('nav[aria-label="属性分页"] button:last-child')?.click();
+        });
+        const filter = wrapper.get<HTMLInputElement>('input[aria-label="owner-filter"]');
+        filter.element.focus();
+        const list = wrapper.getComponent(ArticleMetadataPropertyList);
+        await button(list, labels.next).trigger('click');
+        await nextTick();
+        expect(list.emitted('page')).toEqual([['next'], ['next']]);
+        expect(document.activeElement).toBe(filter.element);
+        state.pageKey = 'page-3';
+        await nextTick();
+        await nextTick();
+        expect(document.activeElement).toBe(list.get('[role="status"]').element);
     });
 
     it('does not fetch, persist or emit metadata values; has no secondary inspector or database surface', async () =>
