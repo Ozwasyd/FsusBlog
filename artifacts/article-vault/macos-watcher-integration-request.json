@@ -50,7 +50,8 @@
                     "src/article-vault/macos/native/MacVaultFSEvents.c",
                     "tools/test/check-macos-vault-observer-source.mjs",
                     "tools/test/build-macos-vault-native.mjs",
-                    "tests/tools/macos-vault-observer-source.test.mjs"
+                    "tests/tools/macos-vault-observer-source.test.mjs",
+                    "src/article-vault/macos/MacVaultObservationAdapter.cs"
                 ],
                 "assertionType": "contract",
                 "failClosedRule": "Reject source reads outside the fixed control manifest, writer/planner/polling/log additions, omitted ordered native teardown, queue bound removal and hidden overflow.",
@@ -99,7 +100,8 @@
                     "src/article-vault/macos/native/MacVaultFSEvents.c",
                     "tools/test/check-macos-vault-observer-source.mjs",
                     "tools/test/build-macos-vault-native.mjs",
-                    "tests/tools/macos-vault-observer-source.test.mjs"
+                    "tests/tools/macos-vault-observer-source.test.mjs",
+                    "src/article-vault/macos/MacVaultObservationAdapter.cs"
                 ],
                 "requiresBootstrap": "none",
                 "requiresNode": true,
@@ -126,7 +128,8 @@
                     "src/article-vault/macos/native/MacVaultFSEvents.c",
                     "tools/test/check-macos-vault-observer-source.mjs",
                     "tools/test/build-macos-vault-native.mjs",
-                    "tests/tools/macos-vault-observer-source.test.mjs"
+                    "tests/tools/macos-vault-observer-source.test.mjs",
+                    "src/article-vault/macos/MacVaultObservationAdapter.cs"
                 ],
                 "ciJob": "fast-static-governance",
                 "localOnly": false,
@@ -144,7 +147,8 @@
                     "src/article-vault/macos/native/MacVaultFSEvents.c",
                     "tools/test/check-macos-vault-observer-source.mjs",
                     "tools/test/build-macos-vault-native.mjs",
-                    "tests/tools/macos-vault-observer-source.test.mjs"
+                    "tests/tools/macos-vault-observer-source.test.mjs",
+                    "src/article-vault/macos/MacVaultObservationAdapter.cs"
                 ],
                 "triggerReason": "macOS observer source mutations are diagnostic and confer no native or full-agent qualification"
             }
@@ -174,7 +178,7 @@
     "generatedBindings": "Integration owner regenerates existing execution authority/coverage bindings after source and registration review; this proposal grants none.",
     "missingCapability": {
         "owner": 2112,
-        "request": "actual callable verified rescan admission bound to immutable watch identity/native event cut/root manifest/pending queue-loss obligations; no self-acknowledgement"
+        "request": "native terminal verification after canonical structural AwaitingNativeVerification, bound to watch identity/event cut/root manifest/verified actual snapshot/pending queue-loss obligations; no self-acknowledgement"
     },
     "nativeAcceptanceStillOpen": [
         "real macOS/APFS compile and focused execution",
@@ -183,5 +187,6 @@
         "native resource-leak evidence",
         "exclusive lease/control-tree owner from #2113"
     ],
-    "evidenceOnly2674": "No qualification manifest or receipt created without real OS/APFS/agent/protocol/root/current-source values and all actual producers."
+    "evidenceOnly2674": "No qualification manifest or receipt created without real OS/APFS/agent/protocol/root/current-source values and all actual producers.",
+    "observationCapability": "e1b4ffba4781bf6729e38b240df8c7647f19768e"
 }

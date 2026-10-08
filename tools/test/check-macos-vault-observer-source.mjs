@@ -7,6 +7,7 @@ const managedSources = [
     'FSEventsNative.cs',
     'MacVaultRawFactBuffer.cs',
     'MacVaultRawFactCodec.cs',
+    'MacVaultObservationAdapter.cs',
     'MacVaultRootPathScope.cs',
     'MacVaultWatchContracts.cs',
     'MacVaultWatcherSession.cs',
