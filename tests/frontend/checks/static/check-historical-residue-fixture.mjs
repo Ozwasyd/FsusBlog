@@ -13,6 +13,20 @@ const runtimeBridgeMethod = ['BridgeToLegacy', 'Authoring', 'EndpointAsync'].joi
 
 const violationCases = [
     {
+        name: 'retired JSON comment writer behind a canonical function name',
+        expected: 'old comment-create V1 residue detected',
+        files: {
+            'src/frontend/src/api/comment.ts': `export function createComment(dto) { return fetch('/api/Comment', { method: 'POST', body: JSON.stringify(dto) }); }`
+        }
+    },
+    {
+        name: 'versioned current comment alias',
+        expected: 'old comment-create V1 residue detected',
+        files: {
+            'src/frontend/src/api/comment.ts': 'export type CommentCreateV2Dto = CommentCreateDto;'
+        }
+    },
+    {
         name: 'legacy runtime bridge names',
         expected: 'legacy runtime bridge residue detected',
         files: {
@@ -768,7 +782,7 @@ internal static class NotificationStreamDrillEndpoints
 }
 `,
     'src/frontend/src/api/comment.ts': `
-export const createCommentV2 = () => undefined
+export const createComment = () => undefined
 export const createPublicComment = () => undefined
 `,
     'src/frontend/src/public-renderers/publicRouteRegistry.ts': `

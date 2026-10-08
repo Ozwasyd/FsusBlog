@@ -43,7 +43,7 @@ Create a Recovery Key and verify that the plaintext is shown once. Use it throug
 
 ### anonymous default comment submission
 
-Submit a comment without selecting public sending. Confirm the request uses `CommentCreateV2Request`, `authorMode=anonymous`, `publicSendExplicitlySelected=false`, and the stored comment has nullable `user_id` plus a server-generated anonymous author view.
+Submit a comment without selecting public sending. Confirm the request uses `CommentCreateRequest`, `authorMode=anonymous`, `publicSendExplicitlySelected=false`, and the stored comment has nullable `user_id` plus a server-generated anonymous author view.
 
 Verify localized display names for both supported languages:
 

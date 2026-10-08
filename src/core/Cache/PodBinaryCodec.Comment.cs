@@ -193,33 +193,32 @@ public static partial class PodBinaryCodec
     }
 
     /// <summary>
-    /// Writes the <c>CommentCreateV2Request</c> contract to the supplied binary destination.
+    /// Writes the <c>CommentCreateRequest</c> contract to the supplied binary destination.
     /// </summary>
-    public static void WriteCommentCreateV2Request(CommentCreateV2RequestCoreModel request, IBufferWriter<byte> destination)
+    public static void WriteCommentCreateRequest(CommentCreateRequestCoreModel request, IBufferWriter<byte> destination)
     {
-        CommentCreateV2RequestPod pod = CreateCommentCreateV2RequestPod(request, out ReadOnlyMemory<byte> payload);
+        CommentCreateRequestPod pod = CreateCommentCreateRequestPod(request, out ReadOnlyMemory<byte> payload);
         var writer = new BinaryPodWriter(destination);
         writer.WritePod(pod);
         writer.WriteBytes(payload.Span);
     }
 
     /// <summary>
-    /// Encodes the <c>CommentCreateV2Request</c> contract into a new binary payload.
+    /// Encodes the <c>CommentCreateRequest</c> contract into a new binary payload.
     /// </summary>
-    public static byte[] EncodeCommentCreateV2Request(CommentCreateV2RequestCoreModel request)
-        => EncodeToArray(640 + (request.Content?.Length ?? 0) + (request.ZkProof?.Length ?? 0), writer => WriteCommentCreateV2Request(request, writer));
+    public static byte[] EncodeCommentCreateRequest(CommentCreateRequestCoreModel request)
+        => EncodeToArray(640 + (request.Content?.Length ?? 0) + (request.ZkProof?.Length ?? 0), writer => WriteCommentCreateRequest(request, writer));
 
     /// <summary>
-    /// Attempts to decode the <c>CommentCreateV2Request</c> contract from a binary payload.
+    /// Attempts to decode the <c>CommentCreateRequest</c> contract from a binary payload.
     /// </summary>
-    public static bool TryDecodeCommentCreateV2Request(ReadOnlyMemory<byte> bytes, out CommentCreateV2RequestCoreModel request)
+    public static bool TryDecodeCommentCreateRequest(ReadOnlyMemory<byte> bytes, out CommentCreateRequestCoreModel request)
     {
         var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadPod(out CommentCreateV2RequestPod pod) ||
+        if (!reader.TryReadPod(out CommentCreateRequestPod pod) ||
             pod.HasParentId > 1 ||
             pod.HasRootId > 1 ||
             pod.HasReplyToCommentId > 1 ||
-            pod.HasReplyToUserId > 1 ||
             pod.PublicSendExplicitlySelected > 1 ||
             !TryDecodeCommentAuthorMode(pod.AuthorMode, out string authorMode) ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
@@ -228,18 +227,37 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        request = new CommentCreateV2RequestCoreModel(
+        if (!reader.IsConsumed || pod.AnonymousScope.Offset != 0
+            || pod.DisplayLanguage.Offset != pod.AnonymousScope.Length
+            || pod.ProofToken.Offset != pod.DisplayLanguage.Offset + pod.DisplayLanguage.Length
+            || pod.ZkProof.Offset != pod.ProofToken.Offset + pod.ProofToken.Length
+            || pod.Content.Offset != pod.ZkProof.Offset + pod.ZkProof.Length
+            || pod.Content.Length != payload.Length - pod.Content.Offset
+            || !TryReadStrictSlice(pod.AnonymousScope, payload, out string anonymousScope)
+            || !TryReadStrictSlice(pod.DisplayLanguage, payload, out string displayLanguage)
+            || !TryReadStrictSlice(pod.ProofToken, payload, out string proofToken)
+            || !TryReadStrictSlice(pod.Content, payload, out string content)
+            || pod.ZkProof.Offset < 0 || pod.ZkProof.Length < 0 || pod.ZkProof.Offset > payload.Length
+            || pod.ZkProof.Length > payload.Length - pod.ZkProof.Offset
+            || (pod.HasParentId == 0 ? pod.ParentId != 0 : pod.ParentId <= 0)
+            || (pod.HasRootId == 0 ? pod.RootId != 0 : pod.RootId <= 0)
+            || (pod.HasReplyToCommentId == 0 ? pod.ReplyToCommentId != 0 : pod.ReplyToCommentId <= 0))
+        {
+            request = default;
+            return false;
+        }
+
+        request = new CommentCreateRequestCoreModel(
             pod.ArticleId,
-            PodProjector.ReadSlice(pod.Content, payload),
+            content,
             pod.HasParentId == 1 ? pod.ParentId.ToString() : null,
             pod.HasRootId == 1 ? pod.RootId.ToString() : null,
             pod.HasReplyToCommentId == 1 ? pod.ReplyToCommentId.ToString() : null,
-            pod.HasReplyToUserId == 1 ? pod.ReplyToUserId : null,
             authorMode,
             pod.PublicSendExplicitlySelected == 1,
-            NullCommentFieldIfEmpty(PodProjector.ReadSlice(pod.AnonymousScope, payload)),
-            NullCommentFieldIfEmpty(PodProjector.ReadSlice(pod.DisplayLanguage, payload)),
-            NullCommentFieldIfEmpty(PodProjector.ReadSlice(pod.ProofToken, payload)),
+            NullCommentFieldIfEmpty(anonymousScope),
+            NullCommentFieldIfEmpty(displayLanguage),
+            NullCommentFieldIfEmpty(proofToken),
             ReadBytes(pod.ZkProof, payload));
         return reader.IsConsumed;
     }
@@ -1593,8 +1611,8 @@ public static partial class PodBinaryCodec
             author.Badge,
             author.ScopeLabel);
 
-    private static CommentCreateV2RequestPod CreateCommentCreateV2RequestPod(
-        CommentCreateV2RequestCoreModel request,
+    private static CommentCreateRequestPod CreateCommentCreateRequestPod(
+        CommentCreateRequestCoreModel request,
         out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(512);
@@ -1602,17 +1620,14 @@ public static partial class PodBinaryCodec
         bool hasRootId = TryParsePositive(request.RootId, out long rootId);
         bool hasReplyToCommentId = TryParsePositive(request.ReplyToCommentId, out long replyToCommentId);
         ReadOnlySpan<byte> zkProof = request.ZkProof ?? Array.Empty<byte>();
-        var mutable = new MutableCommentCreateV2RequestPod
+        var mutable = new CommentCreateRequestPod
         {
             ArticleId = request.ArticleId,
-            ReplyToUserId = 0,
             HasParentId = hasParentId ? (byte)1 : (byte)0,
             HasRootId = hasRootId ? (byte)1 : (byte)0,
             HasReplyToCommentId = hasReplyToCommentId ? (byte)1 : (byte)0,
-            HasReplyToUserId = 0,
             AuthorMode = EncodeCommentAuthorMode(request.AuthorMode),
             PublicSendExplicitlySelected = request.PublicSendExplicitlySelected ? (byte)1 : (byte)0,
-            Reserved0 = 0,
             ParentId = parentId,
             RootId = rootId,
             ReplyToCommentId = replyToCommentId,
@@ -1624,7 +1639,7 @@ public static partial class PodBinaryCodec
         };
 
         payload = bytes.WrittenMemory;
-        return MemoryMarshal.Read<CommentCreateV2RequestPod>(MemoryMarshal.AsBytes(new MutableCommentCreateV2RequestPod[] { mutable }));
+        return MemoryMarshal.Read<CommentCreateRequestPod>(MemoryMarshal.AsBytes(new CommentCreateRequestPod[] { mutable }));
     }
 
     private static bool TryParsePositive(string? value, out long parsed)
@@ -1802,28 +1817,6 @@ public static partial class PodBinaryCodec
         public int CommentMaxChars;
         public int CommentMaxUtf8Bytes;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SupportedDisplayLanguages;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableCommentCreateV2RequestPod
-    {
-        public int ArticleId;
-        public int ReplyToUserId;
-        public byte HasParentId;
-        public byte HasRootId;
-        public byte HasReplyToCommentId;
-        public byte HasReplyToUserId;
-        public byte AuthorMode;
-        public byte PublicSendExplicitlySelected;
-        public ushort Reserved0;
-        public long ParentId;
-        public long RootId;
-        public long ReplyToCommentId;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousScope;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef DisplayLanguage;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ProofToken;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ZkProof;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Content;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

@@ -122,7 +122,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `74`: HumanReadSubmitRequest
 - `75`: RumMetricBatchRequest
 - `76`: RumMetricIngestResponse
-- `166`: CommentCreateV2Request
+- `166`: CommentCreateRequest
 - `177`: reserved; no decoder or compatibility path
 - `178`: reserved; no decoder or compatibility path
 - `179`: AnonymousCredentialRootSnapshot
@@ -192,7 +192,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `CategoryWriteRequest` / `TagWriteRequest` payload: current requests use a 136-byte `TaxonomyMetadataMutationRequestPod` (`Utf8Fixed128 Name`, `Utf8SliceRef Description`) followed by the standard `int32 blobByteLength` and UTF-8 description blob. During migration, the backend also accepts the exact legacy 128-byte `NameMutationRequestPod`; legacy create interprets description as null and legacy update preserves the stored description. New-format description input is trimmed, whitespace-only input becomes null, and values over 500 Unicode scalar values are rejected before persistence.
 - `SeoConfigUpdateRequest` payload: same layout as `SeoConfig`.
 - `PageContentUpdateRequest` payload: same layout as `PageContent`.
-- `CommentCreateV2Request` payload: `CommentCreateV2RequestPod` followed by shared blob payload for anonymous scope, display language, proof token, ZK proof bytes, and comment content. The legacy `replyToUserId` compatibility slot at POD offset 4 and its presence flag at offset 11 are reserved and MUST be encoded as `0/0`; reply targets are identified by `replyToCommentId`.
+- `CommentCreateRequest` payload: `CommentCreateRequestPod` followed by shared blob payload for anonymous scope, display language, proof token, ZK proof bytes, and comment content. The legacy `replyToUserId` compatibility slot at POD offset 4 and its presence flag at offset 11 are reserved and MUST be encoded as `0/0`; reply targets are identified by `replyToCommentId`.
 - `FileDeleteRequest` payload: `StringMutationRequestPod` followed by blob payload for image URL.
 - `AdminChangeUserStatusRequest` payload: `AdminChangeUserStatusRequestPod` with `accountId`, status, and blob payload for reason.
 - Retired legacy admin password reset slot (`40`) has no payload contract. Decoders, AEDS catalogs, OpenAPI, frontend frame mirrors, and production endpoints must not expose it.

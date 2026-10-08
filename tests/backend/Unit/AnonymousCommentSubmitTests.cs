@@ -1470,7 +1470,7 @@ public sealed class AnonymousCommentSubmitTests(
         }
 
         public Task<bool> CreateCommentAsync(int userId, CommentDto dto) => throw new NotSupportedException();
-        public Task<bool> CreateAttributablePublicCommentAsync(AccountPrincipalContext account, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null) => throw new NotSupportedException();
+        public Task<bool> CreateAttributablePublicCommentAsync(AccountPrincipalContext account, CommentCreateRequestCoreModel request, RegionModerationDecision? regionDecision = null) => throw new NotSupportedException();
         public Task<CursorResponse<CommentThreadItemDto>> GetCommentThreadsByCursorAsync(int articleId, CursorPageRequest<long> request, int previewLimit = 3, string viewerRegion = "GLOBAL") => throw new NotSupportedException();
         public Task<CursorResponse<CommentReplyItemDto>> GetThreadRepliesByCursorAsync(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion = "GLOBAL") => throw new NotSupportedException();
         public Task<bool> DeleteCommentAsAccountAsync(long id, int accountId, string reason = "违反社区管理条例") => throw new NotSupportedException();

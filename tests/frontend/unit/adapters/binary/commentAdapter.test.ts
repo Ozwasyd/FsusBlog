@@ -1,3 +1,4 @@
+import { COMMENT_CREATE_POD_BYTES, COMMENT_CREATE_OFFSETS } from '@/generated/commentCreateWire'
 import { describe, it, expect } from 'vitest'
 import {
   mapAnonymousCommentTicketResponseFromPayload,
@@ -28,7 +29,7 @@ import {
 import {
   CommentPolicyReadiness
 } from '@/contracts/commentPolicy'
-import { encodeCommentCreateV2Request as encodeSupportCommentCreateV2Request } from '../../../support/aeds-envelope.mjs'
+import { encodeCommentCreateRequest as encodeSupportCommentCreateRequest } from '../../../support/aeds-envelope.mjs'
 
 function writeInt32(b: Uint8Array, off: number, v: number): void {
   b[off] = v & 0xff; b[off + 1] = (v >>> 8) & 0xff
@@ -302,23 +303,21 @@ describe('mapCommentCursorFromPodPayload', () => {
 })
 
 describe('comment create binary request compatibility slots', () => {
-  it('keeps replyToUserId out of the support encoder POD payload', () => {
-    const payload = encodeSupportCommentCreateV2Request({
+  it('uses the compact current support encoder with a sole reply comment target', () => {
+    const payload = encodeSupportCommentCreateRequest({
       articleId: 9,
       content: 'reply through comment id',
       parentId: '100',
       rootId: '90',
       replyToCommentId: '80',
-      replyToUserId: 7,
       authorMode: 'zk_anonymous',
       publicSendExplicitlySelected: false
     })
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
 
     expect(view.getInt32(0, true)).toBe(9)
-    expect(view.getInt32(4, true)).toBe(0)
-    expect(payload[11]).toBe(0)
-    expect(view.getBigInt64(32, true)).toBe(80n)
+    expect(COMMENT_CREATE_POD_BYTES).toBeLessThan(80)
+    expect(view.getBigInt64(COMMENT_CREATE_OFFSETS.replyToCommentId, true)).toBe(80n)
   })
 
 })

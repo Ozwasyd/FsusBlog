@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "7b3aaf27afb5065115afcf1f4116fe11b0c34df295af11393612d998b64ecaa9",
+    "contentDigest": "f4e7bb9a4af4042776c9c8ba716231e499305944f8fa7160710c7a19d42e38f8",
     "operations": [
         {
             "method": "DELETE",
@@ -2521,8 +2521,8 @@
             "method": "POST",
             "path": "/api/binary/comment",
             "operationId": "binary_post_comment",
-            "requestFrame": "CommentCreateV2Request",
-            "requestType": "FsusBlog.Core.Mapping.Models.CommentCreateV2RequestCoreModel",
+            "requestFrame": "CommentCreateRequest",
+            "requestType": "FsusBlog.Core.Mapping.Models.CommentCreateRequestCoreModel",
             "requestEncoding": "binary-layout",
             "responseFrame": "CommentCreateResult",
             "errorFrame": "ApiError",

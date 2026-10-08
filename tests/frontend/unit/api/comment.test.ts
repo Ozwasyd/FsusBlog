@@ -1,3 +1,4 @@
+import { COMMENT_CREATE_POD_BYTES, COMMENT_CREATE_OFFSETS } from '@/generated/commentCreateWire'
 import { buildFsusBinaryRoute, fsusBinaryRouteDescriptors } from '@/generated/fsusBinaryRoutes'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
@@ -9,7 +10,7 @@ vi.mock('@/composition/binaryTransport', () => ({
 import { requestBinaryOnly } from '@/composition/binaryTransport'
 import {
   createAnonymousComment,
-  createCommentV2,
+  createComment,
   createPublicComment,
   getAnonymousCredentialCircuitSnapshot,
   getAnonymousCredentialRootSnapshot,
@@ -47,7 +48,7 @@ describe('comment API', () => {
     mockBinary.mockResolvedValue({} as never)
   })
 
-  it('createCommentV2 sends CommentCreateV2 binary mutation frame', async () => {
+  it('createComment sends CommentCreate binary mutation frame', async () => {
     const dto = {
       clientMutationId: '018ff005-1234-7abc-8def-0123456789ab',
       articleId: 1,
@@ -56,7 +57,7 @@ describe('comment API', () => {
       publicSendExplicitlySelected: true,
       displayLanguage: 'zh-CN'
     } as const
-    await createCommentV2(dto)
+    await createComment(dto)
     const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
@@ -69,11 +70,11 @@ describe('comment API', () => {
         body: expect.any(ArrayBuffer)
       })
     }))
-    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
+    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateRequest)
   })
 
-  it('createCommentV2 rejects a non-canonical mutation identity before transport', async () => {
-    expect(() => createCommentV2({
+  it('createComment rejects a non-canonical mutation identity before transport', async () => {
+    expect(() => createComment({
       clientMutationId: 'comment-42-retry',
       articleId: 42,
       content: 'same draft retry',
@@ -99,9 +100,9 @@ describe('comment API', () => {
       message: 'response lost'
     })
 
-    await expect(createCommentV2(dto)).rejects.toMatchObject({ kind: 'network' })
+    await expect(createComment(dto)).rejects.toMatchObject({ kind: 'network' })
     mockBinary.mockResolvedValueOnce({ commentId: '101' } as never)
-    await createCommentV2(dto)
+    await createComment(dto)
 
     expect(mockBinary).toHaveBeenCalledTimes(2)
     expect(mockBinary.mock.calls.map(call => call[0].requestOptions?.headers)).toEqual([
@@ -110,7 +111,7 @@ describe('comment API', () => {
     ])
   })
 
-  it('createCommentV2 keeps retired anonymous wire slots empty for public writes', async () => {
+  it('createComment keeps retired anonymous wire slots empty for public writes', async () => {
     const dto = {
       articleId: 9,
       content: 'Hello anonymous mode',
@@ -125,33 +126,31 @@ describe('comment API', () => {
       answer: 1
     }
 
-    await createCommentV2(dto)
+    await createComment(dto)
 
     const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
-    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
+    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateRequest)
     const payload = readAedsPayload(body)
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
     expect(view.getInt32(0, true)).toBe(9)
-    expect(view.getInt32(4, true)).toBe(0)
-    expect(payload[8]).toBe(1)
-    expect(payload[9]).toBe(1)
-    expect(payload[10]).toBe(1)
-    expect(payload[11]).toBe(0)
-    expect(payload[12]).toBe(3)
-    expect(payload[13]).toBe(1)
-    expect(view.getBigInt64(16, true)).toBe(100n)
-    expect(view.getBigInt64(24, true)).toBe(90n)
-    expect(view.getBigInt64(32, true)).toBe(80n)
-    const blob = payload.subarray(84)
-    expect(readSliceText(payload, blob, 40)).toBe('')
-    expect(readSliceText(payload, blob, 48)).toBe('zh-CN')
-    expect(readSliceText(payload, blob, 56)).toBe('')
-    expect([...readSliceBytes(payload, blob, 64)]).toEqual([])
-    expect(readSliceText(payload, blob, 72)).toBe('Hello anonymous mode')
+    expect(payload[COMMENT_CREATE_OFFSETS.hasParentId]).toBe(1)
+    expect(payload[COMMENT_CREATE_OFFSETS.hasRootId]).toBe(1)
+    expect(payload[COMMENT_CREATE_OFFSETS.hasReplyToCommentId]).toBe(1)
+    expect(payload[COMMENT_CREATE_OFFSETS.authorMode]).toBe(3)
+    expect(payload[COMMENT_CREATE_OFFSETS.publicSendExplicitlySelected]).toBe(1)
+    expect(view.getBigInt64(COMMENT_CREATE_OFFSETS.parentId, true)).toBe(100n)
+    expect(view.getBigInt64(COMMENT_CREATE_OFFSETS.rootId, true)).toBe(90n)
+    expect(view.getBigInt64(COMMENT_CREATE_OFFSETS.replyToCommentId, true)).toBe(80n)
+    const blob = payload.subarray(COMMENT_CREATE_POD_BYTES + 4)
+    expect(readSliceText(payload, blob, COMMENT_CREATE_OFFSETS.anonymousScope)).toBe('')
+    expect(readSliceText(payload, blob, COMMENT_CREATE_OFFSETS.displayLanguage)).toBe('zh-CN')
+    expect(readSliceText(payload, blob, COMMENT_CREATE_OFFSETS.proofToken)).toBe('')
+    expect([...readSliceBytes(payload, blob, COMMENT_CREATE_OFFSETS.zkProof)]).toEqual([])
+    expect(readSliceText(payload, blob, COMMENT_CREATE_OFFSETS.content)).toBe('Hello anonymous mode')
   })
 
-  it('createCommentV2 always sends public-send and author-mode fields', async () => {
-    await createCommentV2({
+  it('createComment always sends public-send and author-mode fields', async () => {
+    await createComment({
       articleId: 10,
       content: 'Public comment with explicit consent',
       authorMode: 'public',
@@ -160,15 +159,15 @@ describe('comment API', () => {
     })
 
     const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
-    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
+    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateRequest)
     const payload = readAedsPayload(body)
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
     expect(view.getInt32(0, true)).toBe(10)
-    expect(payload[12]).toBe(3)
-    expect(payload[13]).toBe(1)
-    const blob = payload.subarray(84)
-    expect(readSliceText(payload, blob, 40)).toBe('')
-    expect(readSliceText(payload, blob, 48)).toBe('en')
+    expect(payload[COMMENT_CREATE_OFFSETS.authorMode]).toBe(3)
+    expect(payload[COMMENT_CREATE_OFFSETS.publicSendExplicitlySelected]).toBe(1)
+    const blob = payload.subarray(COMMENT_CREATE_POD_BYTES + 4)
+    expect(readSliceText(payload, blob, COMMENT_CREATE_OFFSETS.anonymousScope)).toBe('')
+    expect(readSliceText(payload, blob, COMMENT_CREATE_OFFSETS.displayLanguage)).toBe('en')
   })
 
   it('createAnonymousComment posts an AnonymousCommentCreateRequest with omitted credentials', async () => {
@@ -253,10 +252,10 @@ describe('comment API', () => {
     const call = mockBinary.mock.calls[0][0]
     const body = call.requestOptions?.body as ArrayBuffer
     expect(call.binaryRoute).toEqual({ operationId: 'binary_post_comment' })
-    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
+    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateRequest)
     const payload = readAedsPayload(body)
-    expect(payload[12]).toBe(3)
-    expect(payload[13]).toBe(1)
+    expect(payload[COMMENT_CREATE_OFFSETS.authorMode]).toBe(3)
+    expect(payload[COMMENT_CREATE_OFFSETS.publicSendExplicitlySelected]).toBe(1)
   })
 
   it('encodeAnonymousCommentTicketRequest writes the v5 minimal-predicate ticket POD without exact attributes', () => {
@@ -362,7 +361,7 @@ describe('comment API', () => {
     })
   })
 
-  it('createCommentV2 rejects over-limit content before opening binary transport', async () => {
+  it('createComment rejects over-limit content before opening binary transport', async () => {
     const dto = {
       articleId: 1,
       content: 'a'.repeat(COMMENT_CONTENT_CONSTRAINT.maxChars + 1),
@@ -371,7 +370,7 @@ describe('comment API', () => {
       displayLanguage: 'zh-CN'
     } as const
 
-    await expect(createCommentV2(dto)).rejects.toThrow(COMMENT_CONTENT_CONSTRAINT.charLengthMessage)
+    await expect(createComment(dto)).rejects.toThrow(COMMENT_CONTENT_CONSTRAINT.charLengthMessage)
     expect(mockBinary).not.toHaveBeenCalled()
   })
 

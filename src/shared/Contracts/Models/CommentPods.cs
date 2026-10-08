@@ -60,31 +60,6 @@ public readonly struct CommentPolicyUpdateRequestPod
 }
 
 /// <summary>
-/// Defines the fixed-layout binary representation used by the <c>CommentCreateV2Request</c> wire contract.
-/// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct CommentCreateV2RequestPod
-{
-    public readonly int ArticleId;
-    public readonly int ReplyToUserId;
-    public readonly byte HasParentId;
-    public readonly byte HasRootId;
-    public readonly byte HasReplyToCommentId;
-    public readonly byte HasReplyToUserId;
-    public readonly byte AuthorMode;
-    public readonly byte PublicSendExplicitlySelected;
-    public readonly ushort Reserved0;
-    public readonly long ParentId;
-    public readonly long RootId;
-    public readonly long ReplyToCommentId;
-    public readonly Utf8SliceRef AnonymousScope;
-    public readonly Utf8SliceRef DisplayLanguage;
-    public readonly Utf8SliceRef ProofToken;
-    public readonly Utf8SliceRef ZkProof;
-    public readonly Utf8SliceRef Content;
-}
-
-/// <summary>
 /// Defines the final moderation state returned after comment creation and any synchronous model disposition.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

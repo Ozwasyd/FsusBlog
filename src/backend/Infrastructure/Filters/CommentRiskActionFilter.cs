@@ -51,7 +51,7 @@ public sealed partial class CommentRiskActionFilter(
             AedsDecodeResult frame = decoded.Value;
             return frame.FrameType switch
             {
-                AedsFrameType.CommentCreateV2Request when PodBinaryCodec.TryDecodeCommentCreateV2Request(frame.Payload, out CommentCreateV2RequestCoreModel v2Request)
+                AedsFrameType.CommentCreateRequest when PodBinaryCodec.TryDecodeCommentCreateRequest(frame.Payload, out CommentCreateRequestCoreModel v2Request)
                     => IsReply(v2Request) ? RiskActionNames.CommentReply : RiskActionNames.CommentCreate,
                 _ => RiskActionNames.CommentCreate
             };
@@ -75,7 +75,7 @@ public sealed partial class CommentRiskActionFilter(
         }
     }
 
-    private static bool IsReply(in CommentCreateV2RequestCoreModel request)
+    private static bool IsReply(in CommentCreateRequestCoreModel request)
         => !string.IsNullOrWhiteSpace(request.ParentId)
             || !string.IsNullOrWhiteSpace(request.RootId)
             || !string.IsNullOrWhiteSpace(request.ReplyToCommentId);
