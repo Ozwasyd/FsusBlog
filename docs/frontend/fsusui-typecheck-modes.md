@@ -103,7 +103,9 @@ repository root. The existing producer inherits every app/Wasm/SFC include and
 strict compiler setting from `tsconfig.app.json`, adds the local declarations,
 and resolves Vue and `@vue/*` through the consumer's installed dependencies.
 The generated project lives under `src/frontend/.tmp/typecheck`, so each
-worktree resolves its own installed `vite/client` and Node type libraries.
+worktree resolves its own installed type libraries. The complete application
+inherits the original app's `types` list; the focused contract project separately
+retains its original `vite/client` and Node types.
 Composite emission is disabled for this source-consumption typecheck; strictness,
 unused checks and the application's syntax checks remain inherited.
 

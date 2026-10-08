@@ -51,14 +51,16 @@ export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, 
     ];
     const configuration = {
         compilerOptions: {
-            ...(fullApplication ? { composite: false } : { erasableSyntaxOnly: false }),
+            ...(fullApplication ? { composite: false } : {
+                erasableSyntaxOnly: false,
+                types: ['vite/client', 'node']
+            }),
             jsx: 'preserve',
             jsxImportSource: 'vue',
             paths,
             tsBuildInfoFile: fullApplication
                 ? './tsconfig.fsusui-local.app.generated.tsbuildinfo'
-                : './tsconfig.fsusui-local.generated.tsbuildinfo',
-            types: ['vite/client', 'node']
+                : './tsconfig.fsusui-local.generated.tsbuildinfo'
         },
         extends: fromGeneratedConfigRoot(path.join(frontendRoot, fullApplication
             ? 'tsconfig.app.json'

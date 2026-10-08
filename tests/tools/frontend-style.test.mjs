@@ -1702,7 +1702,7 @@ function actualAppProgramProbe(localMode)
         console.log(JSON.stringify({
             project: options.configFilePath, parserOptions: config.languageOptions.parserOptions,
             optionDiagnostics: program.getOptionsDiagnostics().map((diagnostic) => diagnostic.code),
-            typeLibraries,
+            typeLibraries, originalTypes: original.options.types,
             roots: program.getRootFileNames(), originalRoots: original.fileNames,
             strict: options.strict, originalStrict: original.options.strict,
             noUnusedLocals: options.noUnusedLocals, originalNoUnusedLocals: original.options.noUnusedLocals,
@@ -1730,7 +1730,7 @@ test('canonical local app program includes every original app, Wasm and SFC root
     const program = actualAppProgramProbe('1');
     assert.match(program.project, /tsconfig\.fsusui-local\.app\.generated\.json$/u);
     assert.deepEqual(program.optionDiagnostics, []);
-    assert.deepEqual(program.typeLibraries.map((library) => library.name), ['vite/client', 'node']);
+    assert.deepEqual(program.typeLibraries.map((library) => library.name), program.originalTypes);
     assert.ok(program.typeLibraries.every((library) => library.file));
     const roots = new Set(program.roots.map((file) => path.normalize(file)));
     assert.ok(program.originalRoots.length > 100);
