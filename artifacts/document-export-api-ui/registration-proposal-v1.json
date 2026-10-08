@@ -239,7 +239,7 @@
     "execution": "Managed payload goldens/grammar/bounds can run before registration. Native/generated TS/full framed goldens require Shared-owned real allocation and products; remain NOT RUN here."
   },
   "privacyAndAuthorities": [
-    "All four roots remain sensitive/private pooled frames; do not add to IsPublicImmutable or expose source/owner/site/session/path/filename/grant.",
+    "All four roots remain sensitive/private pooled frames; do not add to IsPublicImmutable or expose source content/bytes, owner/site/session, storage paths, filenames or grants. The authorized exact Source coordinate intentionally remains in request/job DTOs.",
     "HTTP auth/permission/PoW/API error semantics stay original; malformed native payload is distinct from uniform authenticated document_export_unavailable API denial.",
     "Canonical freezer, soleJobs persistence/lifecycle and original sandbox/provider/receipt remain separate owners; DTO validation cannot authorize access or certify successful output."
   ],
