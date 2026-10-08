@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve current architecture contract identifiers and documented public FsusUI names while describing the identity-bound render-reference cache and its cancellation limits."
+        }
+    ]
+}
