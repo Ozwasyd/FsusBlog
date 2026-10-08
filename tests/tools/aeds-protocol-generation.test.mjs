@@ -186,7 +186,10 @@ test('source values and explicit metadata, not old output values, determine the 
 test('pending allocations stay outside every generated active frame and golden catalog', () =>
 {
     const outputs = new Map(renderAedsProtocolOutputs(manifest));
-    assert.deepEqual(manifest.reservedFrameValues, []);
+    assert.deepEqual(manifest.reservedFrameValues.map(({ name, value, ownerIssue }) => [name, value, ownerIssue]), [
+        ['AuthorArticleSelectionRevalidateRequest', 276, 2233],
+        ['AuthorArticleSelectionRevalidateResponse', 277, 2233]
+    ]);
     assert.deepEqual(manifest.frameTypes.find(frame => frame.name === 'UploadAssetPreview'), {
         name: 'UploadAssetPreview', value: 275, goldenFamily: 'upload-response', goldenOrder: 266
     });

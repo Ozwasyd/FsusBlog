@@ -2366,6 +2366,12 @@ caller-facing verifier 只有在当前权限快照有效且所有 history entry 
 terminal projection 仅在同一当前权限快照有效且全部 entry 可投影时保留授权 metadata；否则保留原 status/reason，
 但使用 canonical empty projection，不返回 collection facts 或无权摘要。正常读取仍按服务端权限过滤可见 entry。
 
+### Author article selection revalidation transport boundary
+
+`src/shared/Contracts/AuthoringNavigation/AuthorArticleSelectionRevalidationContracts.cs` owns the intrinsic request/response shape for the existing Server selection revalidation. The request contains schema version, positive article ID, positive Int64 server revision, nonempty request UUID and a 64-character lowercase hexadecimal permission token. It cannot carry an owner. The response retains those correlation fields and carries the owner derived by the authenticated Server facade; an observation with `Current=false` must omit its permission token. Shape validation and request correlation do not grant permission or establish source freshness.
+
+The existing Server owner keeps permission checks, repeated source reads and cancellation. This DTO does not add query metadata, ranking, slug, document epoch or an admission receipt. A frontend binding must retain server revision and admin principal Int64 values as canonical decimal strings, without JavaScript number coercion. The protocol manifest reserves request `276` and response `277` for #2233; neither reservation is an active frame, codec, decoder registration or HTTP route. Actual transport binding awaits the supplied canonical selection revalidator and its source-reader closure, followed by bounded POD, managed/native/TypeScript parity and authenticated transport verification.
+
 ### Admin Author Workbench
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：
