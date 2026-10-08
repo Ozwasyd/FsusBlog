@@ -53,13 +53,6 @@
                 "config/testing/required-evidence-authority-ledger.json"
             ],
             "reason": "Preserve existing canonical catalog and locator receipt schemas and wire keys while resealing the owner API references."
-        },
-        {
-            "id": "css-like-contract",
-            "paths": [
-                "docs/testing.md"
-            ],
-            "reason": "Preserve existing externally documented selectors and token spellings; the documentation adds internal verifier API usage without renaming external surfaces."
         }
     ]
 }
