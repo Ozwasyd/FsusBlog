@@ -14,16 +14,16 @@ The runner writes `probe.json` and screenshots, records the tested Blog commit, 
 ## Current source-bound result
 
 - Blog baseline: `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`; fetch succeeded and remote master, origin/master, and initial HEAD matched.
-- Tested probe commit: `646d8c1a2293fa0b35eb76f8343b7f2711bbf97d`.
+- Tested probe commit: `a84a77f3655664c4567b5e00152126f0fd28bb57`.
 - Local FsusUI: clean `main@f2b3bb89ffe5f749da26c388f058efdbb6aee864`, tree `2adf025d6874fe626b95d03538f3148cfd71a911`.
-- Run: `locale-menu-local-2026-10-08T02:42:27.120Z`, Node `v24.19.0`, Chromium `147.0.7727.15`, 1440×900 light viewport.
+- Run: `locale-menu-local-2026-10-08T02:47:33.762Z`, Node `v24.19.0`, Chromium `147.0.7727.15`, 1440×900 light viewport.
 - Local probe: exit 2, `capability-gap`, no page errors. The actual DropdownItem role is `menuitem` despite the supplied `menuitemradio`; its `aria-checked=true` therefore has incompatible semantics. [FsusUI #830](https://github.com/Ozwasyd/FsusUI/issues/830) owns the missing public capability.
 - Passed observations: public open/close and visibility events; trigger association; ArrowUp/Down/Home/End; Enter/Space command activation; pending remains open; error/retry stays reachable; disabled activation is rejected; Escape returns focus to the trigger; outside dismissal preserves focus on the outside target; custom compact trigger content renders.
 - Alternatives: Dropdown + Menu preserves a passed radio role, but keyboard entry fails and ArrowDown closes the popup; ArrowDown on its focused first item fails to advance. Single Select closes while active `en` remains uncommitted and pending becomes `ja`; its retry footer is then inaccessible.
 - Mixed items: a nested anchor navigates by pointer, but Enter on its DropdownItem emits a command without navigation. An explicit product activation adapter is allowed by #1891 and remains to be validated; this observation is not promoted to a separate upstream capability gap.
-- Published probe: exit 3, `blocked`, because the locked package could not be installed. `npm ci --ignore-scripts --no-audit --no-fund --cache /tmp/chain-1891-npm-cache` returned 401 for the GitHub Packages tarball. A query from `/tmp` against `https://registry.npmjs.org` returned 404. No credentials were invented or persisted.
+- Published probe: exit 3, `blocked`, because the locked package could not be installed. `npm ci --ignore-scripts --no-audit --no-fund --cache /tmp/chain-1891-npm-cache` returned 401 for the GitHub Packages tarball. `npm view @ozwasyd/element-plus@1.5.1 version dist --registry=https://registry.npmjs.org --cache=/tmp/chain-1891-npm-cache`, run from `/tmp`, returned exit 1 and HTTP 404. No credentials were invented or persisted.
 
-Raw current reports, screenshots, and the failed locked-install log are under `artifacts/frontend/locale-menu-probe/`. The screenshots were inspected for pending, visible error/retry, and the alternate Menu composition; they are minimal primitive fixtures rather than production-route evidence. The first published probe was subsequently moved into the canonical fixture/check ownership directories; current evidence is regenerated after that move.
+Raw current reports, screenshots, and `published-install.txt` from the failed locked install are under `artifacts/frontend/locale-menu-probe/`. The screenshots were inspected for pending, visible error/retry, and the alternate Menu composition; they are minimal primitive fixtures rather than production-route evidence. The evidence-only follow-up commit does not change the tested harness bytes. These are API fixture observations, not real locale-resource transaction tests.
 
 ## Remaining acceptance gates
 

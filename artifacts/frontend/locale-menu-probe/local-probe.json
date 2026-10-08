@@ -1,8 +1,8 @@
 {
     "schema": "fsusblog.locale-menu-api-probe.v1",
-    "runId": "locale-menu-local-2026-10-08T02:42:27.120Z",
+    "runId": "locale-menu-local-2026-10-08T02:47:33.762Z",
     "mode": "local",
-    "blogCommit": "646d8c1a2293fa0b35eb76f8343b7f2711bbf97d",
+    "blogCommit": "a84a77f3655664c4567b5e00152126f0fd28bb57",
     "blogStatus": "",
     "localRoot": "/workspace/FsusUI",
     "localCommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
@@ -10,10 +10,10 @@
     "localStatus": "",
     "nodeVersion": "v24.19.0",
     "harnessDigests": {
-        "App.vue": "005e478c20f667152d58aa1c17726185bc7ed8db31a55bb7fea8f5068fc5a046",
-        "main.ts": "e295dd61fbd7e3c13ec4de264607f090240f918dfe9dc3b56cd6e8ce667eaf80",
-        "index.html": "52f5c8e6b05020c7461fdf72535610a26b98cb6d3f2f73c1419e7ad7d9e372eb",
-        "run.mjs": "dad2dd1802812cefcdc034d9e29448257a649fd1c2ea4e994360911416d5cdc4"
+        "tests/frontend/fixtures/localeMenuProbe/App.vue": "005e478c20f667152d58aa1c17726185bc7ed8db31a55bb7fea8f5068fc5a046",
+        "tests/frontend/fixtures/localeMenuProbe/main.ts": "e295dd61fbd7e3c13ec4de264607f090240f918dfe9dc3b56cd6e8ce667eaf80",
+        "tests/frontend/fixtures/localeMenuProbe/index.html": "52f5c8e6b05020c7461fdf72535610a26b98cb6d3f2f73c1419e7ad7d9e372eb",
+        "tests/frontend/checks/runtime/probe-locale-menu.mjs": "4701806957e425f63c9bc7bd0fd53a38efce2f5cab4a60f81ddc0ed052223257"
     },
     "authorityDigests": {
         ".agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
@@ -31,7 +31,7 @@
         "publicOpen": true,
         "triggerAssociation": {
             "expanded": "true",
-            "controls": "el-id-9657-1",
+            "controls": "el-id-5557-1",
             "haspopup": "menu"
         },
         "radioItem": {
