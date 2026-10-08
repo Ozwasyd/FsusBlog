@@ -69,6 +69,25 @@ export function verifyDomainVerifierRegistry(registry, options)
     return registry;
 }
 
+// The execution index consumes this catalog-derived closed source set. It is
+// not a second authority/owner roster: catalog drift must regenerate it, while
+// the registry and runtime loader still independently check exact ownership.
+export function createDomainVerifierImportClosure({ catalog, repositoryRoot })
+{
+    const registry = createDomainVerifierRegistry({ catalog, repositoryRoot });
+    const owner = 'tools/release/required-evidence-verifier-registry.mjs';
+    const source = fs.readFileSync(sourceFile(repositoryRoot, owner), 'utf8');
+    const expressions = source.match(/import\(moduleUrl\)/gu) ?? [];
+    assert(expressions.length === 1, 'owner loader must have one explicit indexed import expression');
+    return {
+        owner,
+        sourceDigest: ownerVerifierSourceDigest(repositoryRoot, owner),
+        expressionDigest: `sha256:${crypto.createHash('sha256').update(expressions[0]).digest('hex')}`,
+        kind: 'runtime-module-path',
+        dependencies: [...new Set(registry.entries.map((entry) => entry.ref.split(':')[0]))].sort()
+    };
+}
+
 export async function loadDomainVerifier({ registry, catalog, authorityId, repositoryRoot })
 {
     verifyDomainVerifierRegistry(registry, { catalog, repositoryRoot });
