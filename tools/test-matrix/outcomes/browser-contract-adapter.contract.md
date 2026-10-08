@@ -208,3 +208,44 @@ execution of this later bridge implementation. Refreshing source registration
 belongs to the single catalog owner. The new APIs require the exact shared
 capability to be integrated. Local composition imports its commits verbatim;
 no shared registry, schema or authority file is independently edited.
+
+## Ordinary assertion report emission
+
+`createBrowserContractAssertionReport` in
+`browser-contract-assertion-report.mjs` supplies the missing ordinary report
+recorder. It reopens independently held sealed plan/catalog bytes and a held
+runner byte reference. Its authority argument contains the four binding fields
+above; it does not invent identities, planned members or correctness declarations.
+This emitter creates report data. The existing adapter and runner binding still
+own consumer validation and runtime admission.
+
+The producer calls `runAssertion(memberId, { assertion, capture, classifyFailure })`
+around an actual original assertion callback. The member ID must come from the
+held complete catalog. Successful callback completion records that assertion,
+with every declared correctness capture supplied as `{ id, path, digest }` and
+reopened by the existing contained byte reader. Original product assertion
+exceptions use `product.assertion` and preserve their planned assertion identity.
+Other exceptions require an explicit producer classification from the canonical
+taxonomy. No kind is inferred from error text. The callback's return value or
+original rejection is preserved; capture failure leaves the assertion unresolved
+and prevents report sealing, preserving a preceding product rejection.
+
+`skipAssertion(memberId)` records an explicit unexecuted skip. Required skips
+remain unsuccessful. `interrupt(kind)` records a structured infrastructure
+event; `finalize(diagnostics)` seals a complete report and blocks only assertions
+which never started. In-flight, unclassified or incompletely captured assertions
+cannot be replaced by blocked members. Diagnostic metadata stays diagnostic;
+the held `runnerReceipt` reference is retained. Output has the existing report
+schema and content seal, without authority publication or qualification.
+
+The native producer remains an explicit integration gap: `productAssert` has no
+stable assertion-ID/capture hook, and the scenario loop emits only coarse
+terminals. The original runner/scenario owner must assign complete call-site IDs
+in the sealed catalog, call this recorder at actual assertion boundaries, bind
+actual declared captures and structured infrastructure events, persist returned
+report bytes through its original private writer, and independently publish
+their byte reference. Wrapping an entire scenario as one assertion or deriving
+IDs/results from errors, logs or scenario success does not meet that contract.
+No existing Browser assertion, scenario, project, worker or retry is changed by
+this source increment. Ordinary callback fixtures verify emission; a physical
+browser report and qualified temporal/run evidence remain unverified.
