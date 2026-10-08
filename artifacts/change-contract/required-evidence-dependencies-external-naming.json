@@ -31,6 +31,13 @@
                 "config/schemas/test-execution-envelope-applicability.schema.json"
             ],
             "reason": "Preserve canonical execution, inventory, applicability and schema wire keys while repairing exact projection requirements and digests."
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "Preserve existing GitHub Actions job, timeout, artifact and environment keys while synchronizing canonical matrix projections."
         }
     ]
 }
