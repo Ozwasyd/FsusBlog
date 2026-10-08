@@ -95,6 +95,7 @@ test('semantic owner declarations bind real source contracts without adding case
     for (const row of result.requirements)
     {
         assert.equal(row.qualification, false);
+        assert.equal(row.inputs, null);
         assert.equal(row.scenarioApplicability, null);
         assert.equal(row.canonicalRoleBindings, null);
         assert.ok(row.blockers.includes('query_owner_scenario_receipt_intake_missing'));

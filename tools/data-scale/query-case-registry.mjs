@@ -212,7 +212,7 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
                     businessOwners = [sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs',
                         'FsusBlog.Server.Infrastructure.PublicReadArtifacts.PublicHotReadFastPath.TryServeAsync')];
                     routePatterns = ['/api/binary/article/{id}.aeds'];
-                    actorConstraint = 'original PublicHotRead security gates';
+                    actorConstraint = 'PublicHotReadSecurityGateMiddleware.InvokeAsync';
                     blockers.push('original_hot_read_generation_and_residency_coordinates_missing');
                     break;
                 case 'comment:public-list':
@@ -264,7 +264,7 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
                 blockers.push('canonical_query_case_and_expected_coordinate_missing');
             }
             requirements.push({ domain, kind, existingCaseIds, businessOwners,
-                routePatterns: [...new Set(routePatterns)], actorConstraint, canonicalRoleBindings: null,
+                routePatterns: [...new Set(routePatterns)], actorConstraint, inputs: null, canonicalRoleBindings: null,
                 scenarioApplicability: null, qualification: false, releaseEvidenceEligible: false,
                 status: existingCaseIds.length ? 'existing-case-mapping' : 'owner-declaration-only', blockers });
         }
