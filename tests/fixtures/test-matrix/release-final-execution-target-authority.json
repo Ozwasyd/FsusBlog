@@ -2875,8 +2875,8 @@
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
-            "contentDigest": "sha256:87ebe7a63017ed80e370928c25da59ac7dbd5f05265acc175e078b1177dad267",
-            "indexDigest": "sha256:87ebe7a63017ed80e370928c25da59ac7dbd5f05265acc175e078b1177dad267"
+            "contentDigest": "sha256:69ff46e1e1ee39df89d200c08563defcb7b012043d86b1417183b6d63d4b64ef",
+            "indexDigest": "sha256:69ff46e1e1ee39df89d200c08563defcb7b012043d86b1417183b6d63d4b64ef"
         },
         {
             "path": "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -4210,8 +4210,8 @@
         },
         {
             "path": "tools/test-inventory/discovery.mjs",
-            "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
-            "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+            "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+            "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
         },
         {
             "path": "tools/test-inventory/package.json",
