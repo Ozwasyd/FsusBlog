@@ -91,11 +91,23 @@ async function originalLaneCompilation(lane, frontendContexts)
         const binding = compilePublicRuntimeProducerDag(lane.input, lane.options);
         return { compiled: binding.compiled, binding };
     }
+    if (lane.kind === 'coverage')
+    {
+        exactFields(lane.options, [], 'coverage lane options');
+        exactFields(lane.input, ['root', 'plan', 'requests', 'matrix', 'authorities'], 'coverage lane source');
+        const { compileCoverageProducerDag } = await import(new URL('../../coverage/atomic-coverage-compiler-bridge.mjs', import.meta.url));
+        return { compiled: compileCoverageProducerDag(lane.input),
+            binding: { plan: lane.input.plan, requests: lane.input.requests } };
+    }
     throw new Error('atomic failure projection: original lane compiler capability unavailable');
 }
 
 function originalLaneStepIds(lane, original)
 {
+    if (lane.kind === 'coverage')
+    {
+        return [...lane.input.plan.producers, ...lane.input.plan.projections].map((entry) => entry.id);
+    }
     if (lane.kind === 'static')
     {
         return [...new Set([...original.binding.projectionIds,
@@ -106,6 +118,108 @@ function originalLaneStepIds(lane, original)
         return [...lane.input.declarations.nodes.map((node) => node.id), ...lane.input.declarations.externalDependencies];
     }
     return original.compiled.steps.filter((step) => step.kind !== 'always-run-finalizer').map((step) => step.id);
+}
+
+/** Prepare available original lane ports without launching or granting runtime authority. */
+export async function prepareCanonicalAtomicCiGroup(input, hostLimits, options)
+{
+    const material = admitMaterial(input, hostLimits);
+    sameFact(options.context.schedulerRunId, material.context.schedulerRunId, 'canonical execution run');
+    sameFact(options.context.sourceCommit, material.context.sourceCommit, 'canonical execution source');
+    sameFact(options.context.worktreeFingerprint, material.worktreeFingerprint, 'canonical execution worktree');
+    const frontendContexts = Object.fromEntries(material.lanes.filter((lane) => lane.kind === 'frontend')
+        .map((lane) => [lane.id, { context: options.context, producerContexts: options.producerContexts }]));
+    const ciMaterial = await projectCanonicalLaneAtomicCiMaterial(material, hostLimits, frontendContexts);
+    const producerContexts = { ...options.producerContexts };
+    const pendingLanes = [];
+    const lanePreparations = [];
+    for (const lane of material.lanes)
+    {
+        if (lane.kind === 'frontend')
+        {
+            lanePreparations.push({ id: lane.id, kind: lane.kind, status: 'original-admission-complete' });
+        }
+        else if (lane.kind === 'coverage')
+        {
+            const { validateCoverageExecutionRequest } = await import(new URL('../../coverage/atomic-coverage-compiler-bridge.mjs', import.meta.url));
+            const { prepareCoverageProducer } = await import(new URL('../../coverage/atomic-coverage-inputs.mjs', import.meta.url));
+            const { loadCoverageAttemptMaterial } = await import(new URL('../../coverage/atomic-coverage-command.mjs', import.meta.url));
+            const { readCoverageBytes } = await import(new URL('../../coverage/atomic-coverage-plan.mjs', import.meta.url));
+            const { digestCanonical, sha256 } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
+            const { root, plan, requests } = lane.input;
+            sameFact(plan.identity, { runId: options.context.schedulerRunId, sourceCommit: options.context.sourceCommit,
+                sourceFingerprint: options.context.worktreeFingerprint }, 'coverage current execution identity');
+            const owners = new Map();
+            for (const producer of plan.producers)
+            {
+                const supplied = producerContexts[producer.id];
+                requireFact(supplied && typeof supplied.verifyAuthority === 'function', 'original coverage producer context required');
+                for (const reference of supplied.authorityReferences)
+                {
+                    owners.set(digestCanonical(reference), supplied.verifyAuthority);
+                }
+            }
+            const verifyAuthority = (reference) => owners.get(digestCanonical(reference))?.(reference);
+            for (const producer of plan.producers)
+            {
+                const step = material.compiled.steps.find((entry) => entry.id === producer.id);
+                const item = requests.find((entry) => entry.request.producerId === producer.id);
+                sameFact(path.resolve(root, item.request.evidenceRoot), options.context.evidenceRoot, 'coverage evidence root');
+                const supplied = producerContexts[producer.id];
+                const prior = supplied.requiredInputAdmission;
+                if (prior !== undefined)
+                {
+                    exactFields(prior, ['inputClosureRef', 'validate'], 'held coverage input admission');
+                    requireFact(typeof prior.validate === 'function', 'held coverage input validator required');
+                    sameFact(prior.inputClosureRef, step.inputClosureRef, 'held coverage input closure');
+                }
+                producerContexts[producer.id] = { ...supplied, requiredInputAdmission: {
+                    inputClosureRef: step.inputClosureRef,
+                    validate: async (ready) =>
+                    {
+                        await prior?.validate(ready);
+                        validateCoverageExecutionRequest(item.request, root);
+                        sameFact(sha256(readCoverageBytes(root, item.request.requestPath)), sha256(item.bytes), 'coverage request bytes at admission');
+                        const inputs = Object.fromEntries(producer.dependsOn.map((id) =>
+                            [id, loadCoverageAttemptMaterial(root, item.request, id)]));
+                        prepareCoverageProducer({ root, plan, producerId: producer.id, inputs, verifyAuthority });
+                    }
+                } };
+            }
+            lanePreparations.push({ id: lane.id, kind: lane.kind, status: 'original-input-admission-installed' });
+        }
+        else if (lane.kind === 'public-runtime')
+        {
+            const { preparePublicRuntimeAttemptContexts } = await import(new URL('../../test/public-runtime-producers/compiler-adapter.mjs', import.meta.url));
+            const supplied = options.publicRuntimeContexts?.[lane.id];
+            requireFact(supplied, 'original public runtime preparation context required');
+            const binding = ciMaterial.laneBindings.find((entry) => entry.id === lane.id).originalBinding;
+            const preparation = preparePublicRuntimeAttemptContexts(binding, lane.input,
+                { ...supplied, context: options.context, producerContexts }, lane.options);
+            lanePreparations.push({ id: lane.id, kind: lane.kind, preparation });
+            pendingLanes.push({ id: lane.id, kind: lane.kind, reason: 'original-runtime-admission-and-reset-postflight-required' });
+        }
+        else
+        {
+            pendingLanes.push({ id: lane.id, kind: lane.kind, reason: 'original-prepare-only-port-unavailable' });
+        }
+    }
+    return { compiled: material.compiled, selectedIds: material.selectedIds, ciMaterial, lanePreparations, pendingLanes,
+        executionOptions: { ...options, matrix: material.matrix, authorities: material.authorities, producerContexts } };
+}
+
+/** Dispatch one complete canonical runner group; preserve the original error and full vector. */
+export async function executeCanonicalAtomicCiGroup(input, hostLimits, options)
+{
+    const prepared = await prepareCanonicalAtomicCiGroup(input, hostLimits, options);
+    requireFact(prepared.pendingLanes.length === 0, 'original lane execution preparation remains pending');
+    requireFact(prepared.ciMaterial.completeSourceCoverage, 'canonical execution has unconsumed producers');
+    requireFact(prepared.ciMaterial.ciProjection?.jobs.length === 1, 'original job-scoped execution capability unavailable');
+    sameFact([...prepared.selectedIds].sort(), prepared.compiled.steps.map((step) => step.id).sort(),
+        'original full-selection execution capability');
+    const { executeCompiledAtomicProducerDag } = await import(new URL('../atomic-producers/execution.mjs', import.meta.url));
+    const terminalVector = await executeCompiledAtomicProducerDag(prepared.compiled, prepared.executionOptions);
+    return { ciMaterial: prepared.ciMaterial, terminalVector };
 }
 
 /**
