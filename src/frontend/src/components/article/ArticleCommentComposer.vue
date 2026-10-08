@@ -952,12 +952,13 @@ const reviewCommentDraft = (): void =>
 const discardCommentDraft = (): void =>
 {
     reviewedPublicDraft = null;
+    const wasPendingReview = draftNeedsReview.value;
     const draftContent = localDraft.value?.content ?? '';
     if (!clearPersistedCommentDraft())
     {
         draftPrivacyBlocked.value = true;
     }
-    if (contentModel.value === draftContent)
+    if (!wasPendingReview && contentModel.value === draftContent)
     {
         emit('update:modelValue', '');
     }

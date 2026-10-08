@@ -363,6 +363,21 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     expect(localStorage.getItem(key)).toBe(stored)
   })
 
+  it('discarding an unreviewed draft does not clear an equal private in-memory body', async () => {
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '相同文字但属于当前私密正文', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff009-1234-7abc-8def-0123456789ab'
+    })
+    const wrapper = mountComposer({ articleId: 42, accountId: 7, modelValue: '相同文字但属于当前私密正文' })
+    await wrapper.get('.comment-composer-draft__actions button:last-child').trigger('click')
+    expect(localStorage.getItem(key)).toBeNull()
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    expect(wrapper.props('modelValue')).toBe('相同文字但属于当前私密正文')
+    wrapper.unmount()
+  })
+
   it('uses a new anonymous mutation identity after review and keeps cleanup failures closed', async () => {
     const preparation = prepareCommentPublicDraftStorage(localStorage)
     const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
