@@ -5,6 +5,7 @@ import { createMarkdownAnchorMap } from '@ozwasyd/element-plus/markdown-runtime'
 import { mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import ArticleSearchRevealStatus from '@/components/admin/article/ArticleSearchRevealStatus.vue';
 import { ArticleAnchorContextAdapter, type ArticleAnchorOrigin } from '@/services/authoring/articleAnchorContext';
 import { ArticleAttachmentContextAdapter } from '@/services/authoring/articleAttachmentContext';
 import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
@@ -13,6 +14,15 @@ import { projectArticleSearchReveal } from '@/services/authoring/articleSearchRe
 
 const cleanup: (() => void)[] = [];
 afterEach(() => cleanup.splice(0).forEach(dispose => dispose()));
+
+const revealLabels = {
+    label: 'Source reveal',
+    statusLabels: { ready: 'Command available', paused: 'Paused', rejected: 'Unavailable', unavailable: 'Unavailable' },
+    precisionLabels: {
+        exact: 'Exact source range', rebased: 'Mapped after edits', partial: 'Partial source range',
+        'semantic-neighbor': 'Nearby semantic position', percentage: 'Approximate percentage'
+    }
+};
 
 function open(initialSource = 'abcdef')
 {
@@ -265,5 +275,66 @@ describe('global search canonical reveal presentation (#2319)', () =>
             status: 'rejected', precision: null, exact: false,
             reason: 'search-reveal-binding-unavailable', commandDigest: null
         });
+    });
+
+    it.each([
+        ['exact', undefined],
+        ['rebased', [{ from: 0, to: 0, insert: 'X' }]],
+        ['partial', [{ from: 2, to: 4, insert: '' }]],
+        ['semantic-neighbor', [{ from: 1, to: 5, insert: '' }]],
+        ['percentage', [{ from: 0, to: 6, insert: '' }]]
+    ] as const)('renders actual canonical %s availability without claiming a completed jump', (precision, changes) =>
+    {
+        const state = open();
+        const transactions = changes ? [state.dispatch([...changes])] : undefined;
+        const presentation = projectArticleSearchReveal(state.restore(transactions), state.runtime, state.lease());
+        const view = mount(ArticleSearchRevealStatus, { props: { ...revealLabels, presentation } });
+        cleanup.push(() => view.unmount());
+        const output = view.get('output');
+        expect(output.text()).toContain(revealLabels.statusLabels.ready);
+        expect(output.text()).toContain(revealLabels.precisionLabels[precision]);
+        expect(output.attributes()).toMatchObject({ role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
+        expect(view.findAll('button, a, input, textarea')).toHaveLength(0);
+        expect(view.text()).not.toContain(presentation.commandDigest);
+        expect(view.emitted()).toEqual({});
+    });
+
+    it('updates from paused to available to canceled and removes the old precision label', async () =>
+    {
+        const state = open();
+        state.anchor.manual('touch', 'renderer', 100);
+        const lease = state.lease();
+        const view = mount(ArticleSearchRevealStatus, {
+            props: { ...revealLabels, presentation: projectArticleSearchReveal(state.restore(), state.runtime, lease) }
+        });
+        cleanup.push(() => view.unmount());
+        expect(view.text()).toContain('Paused');
+        state.anchor.resume('navigation', 101);
+        await view.setProps({ presentation: projectArticleSearchReveal(state.restore(), state.runtime, lease) });
+        expect(view.text()).toContain('Exact source range');
+        lease.cancel('search-panel-closed');
+        await view.setProps({ presentation: projectArticleSearchReveal(state.restore(), state.runtime, lease) });
+        expect(view.text()).toContain('Unavailable');
+        expect(view.text()).not.toContain('Exact source range');
+        expect(view.text()).not.toContain('search-reveal-lease-stale');
+    });
+
+    it('escapes localized labels and withholds invalid private payloads from visible and accessible output', () =>
+    {
+        const state = open();
+        const secret = 'PRIVATE_INTERNAL_QUERY_PAYLOAD';
+        const presentation = projectArticleSearchReveal({ Candidates: [secret] }, state.runtime, state.lease());
+        const view = mount(ArticleSearchRevealStatus, {
+            props: {
+                ...revealLabels, presentation, label: '原文定位',
+                statusLabels: { ...revealLabels.statusLabels, rejected: '<img src=x onerror=alert(1)> 无法定位' }
+            }
+        });
+        cleanup.push(() => view.unmount());
+        expect(view.get('output').attributes('aria-label')).toBe('原文定位');
+        expect(view.text()).toContain('<img src=x onerror=alert(1)> 无法定位');
+        expect(view.find('img').exists()).toBe(false);
+        expect(view.html()).not.toContain(secret);
+        expect(view.text()).not.toContain(presentation.reason);
     });
 });
