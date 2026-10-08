@@ -9,6 +9,8 @@ import {
 } from './outcome-contract.mjs';
 import { canonicalJson, digestCanonical } from '../../test/attempt-provenance.mjs';
 
+const { normalizeOutcomeIdsMap, normalizeScopedOutcomeReasons } = await import('./domain-outcome-analysis.mjs');
+
 export const producerOutcomeAnalysisSchema = 'fsusblog.producer-outcome-analysis.v1';
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const categories = new Set(['semantic-outcome', 'execution-identity', 'evidence-location',
@@ -261,6 +263,10 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
         result = records.sort((left, right) => compareText(left.key, right.key)).map((item) => item.normalized);
     }
     else if (rule === 'ids') result = ids(value, schemaPath);
+    else if (rule === 'ids-map')
+    {
+        result = normalizeOutcomeIdsMap(value);
+    }
     else if (rule === 'text') result = text(value, schemaPath);
     else if (rule === 'repository-relative-path')
     {
@@ -316,6 +322,15 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
     else if (rule === 'reasons')
     {
         sequence(value, 'reasons');
+        const scopeFields = ['testId', 'caseId', 'assertionId', 'scenarioId', 'phase', 'actionId', 'projectId', 'browserId'];
+        const scoped = value.some((reason) => ['failureClass', 'diagnosticEvidenceId', 'semanticArtifactIds', 'stateIds']
+            .some((key) => Object.hasOwn(reason, key)) || Object.keys(reason.identity).some((key) =>
+            scopeFields.includes(key) && !taxonomy.get(reason.kind)?.requiredIdentity.includes(key)));
+        if (scoped)
+        {
+            result = normalizeScopedOutcomeReasons(value, producerId, taxonomy);
+            return result;
+        }
         const seen = new Set();
         result = value.map((reason) =>
         {
@@ -347,6 +362,10 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
         require(value.present ? digestPattern.test(value.digest) : value.digest === null,
             'redacted secret digest does not preserve presence');
         throw new Error('outcome analysis: secret semantic-context authority bridge is required');
+    }
+    else
+    {
+        throw new Error(`outcome analysis: unsupported normalization rule ${rule}`);
     }
     if (semanticOnly && (['evidence-location', 'diagnostic-metadata', 'volatile-metadata'].includes(disposition.category)
         || ['content-seal', 'derived-digest'].includes(rule))) return omitted;

@@ -77,3 +77,30 @@ actual producer receipts after the missing verified-producer bridge is supplied.
 Constructed-object admission enumerates own keys to reject hidden fields and
 symbols; this does not guarantee an allocation bound against arbitrary extra
 properties. CLI encoded bytes are independently bounded before JSON parsing.
+
+`analyzeDomainProducerSemanticOutcomeCandidate(candidate, options)` consumes the
+original #2020 adapter catalog, membership schemas and
+`validateOutcomeAdapterCandidateData` API from exact source
+`777bb677c60047a26542f934df5814223fe5a994` (PR #3998). It requires externally
+held identity, producer, authority, adapter source commit/digest, raw candidate
+digest, encoded byte budget and JSON host budgets. Those contracts must be
+integrated before using this API; absent contracts are an unmet dependency.
+
+The separate DATA_ONLY fingerprint is version-bound to the catalog, complete
+membership schema and exact adapter source. Canonical output preserves every
+admitted field, including scoped failure evidence, optional browser members,
+frontend suite/test maps and reliability lifecycle order. Schema-declared ID
+sets and domain record collections sort deterministically. Candidate and
+membership derived seals remain in canonical output and are excluded from this
+API's semantic payload; source references and admitted diagnostic evidence are
+retained conservatively. This fingerprint is not interchangeable with the
+existing v2 producer analysis or the strong outcome fingerprint.
+
+`normalizeScopedOutcomeReasons` consumes the owner's closed failure shape and
+original taxonomy, preserving test/case/assertion/project/browser/scenario/action
+scope and allowed evidence fields. Existing v2 analysis calls it for richer
+reasons while keeping legacy exact reasons intact. `normalizeOutcomeIdsMap`
+implements the `ids-map` normalization capability; admission of that new rule
+and frontend v2 field profiles remains with the original registry owner. No
+registry is modified here. Missing custody, producer verification, secret
+context and current-run publication bridges remain unmet runtime conditions.
