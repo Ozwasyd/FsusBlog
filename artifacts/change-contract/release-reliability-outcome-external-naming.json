@@ -4,7 +4,8 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test-matrix/outcomes/release-reliability-adapter.mjs"
+                "tools/test-matrix/outcomes/release-reliability-adapter.mjs",
+                "tools/test-matrix/outcomes/release-reliability-held-input-bridge.mjs"
             ],
             "reason": "preserve the existing reliability producer execution identity and environment authority field spellings in the registered semantic outcome adapter surface"
         }
