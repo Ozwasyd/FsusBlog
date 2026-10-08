@@ -441,7 +441,7 @@ test('workflow runs coverage and CI aggregates only after external producer jobs
     assert.doesNotMatch(coverageProducer, /aggregate coverage-merge-threshold/u);
     assert.match(
         coverageSummary,
-        /needs: \[behavior-doc-static-admission, coverage-merge-threshold\]/u
+        /needs: \[behavior-doc-static-admission, coverage-merge-threshold, plan-pr-risk\]/u
     );
     assert.match(coverageSummary, /aggregate coverage-merge-threshold/u);
 
@@ -453,7 +453,7 @@ test('workflow runs coverage and CI aggregates only after external producer jobs
     const ciSummary = workflow.slice(ciSummaryStart, endpointStart);
     assert.match(
         ciSummary,
-        /needs: \[behavior-doc-static-admission, fast-summary, integration-runtime\]/u
+        /needs: \[behavior-doc-static-admission, fast-summary, integration-runtime, plan-pr-risk\]/u
     );
     assert.match(ciSummary, /aggregate ci-summary/u);
 });
@@ -468,8 +468,8 @@ test('workflow checker fails closed when an aggregate external dependency job is
             'utf8'
         );
         const invalidWorkflow = workflowSource.replace(
-            '        needs: [behavior-doc-static-admission, fast-summary, integration-runtime]\n',
-            '        needs: [behavior-doc-static-admission, fast-summary]\n'
+            '        needs: [behavior-doc-static-admission, fast-summary, integration-runtime, plan-pr-risk]\n',
+            '        needs: [behavior-doc-static-admission, fast-summary, plan-pr-risk]\n'
         );
         assert.notEqual(invalidWorkflow, workflowSource);
         const workflowFile = path.join(directory, 'quality-gate.yml');
