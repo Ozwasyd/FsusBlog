@@ -62,3 +62,14 @@ fields fail closed. The fixed media type is derived from the hash-bound file pat
 The Vite build graph is a separate artifact and cannot replace this inventory.
 These checks provide source artifact evidence; they do not provide browser install,
 native schema admission, readiness or Service Worker activation evidence.
+
+
+The checked-in worker now rejects install and activate with
+`current_release_browser_admission_unconfigured` before `skipWaiting`,
+`clients.claim` or any lifecycle cache deletion. A canonical build query, caller
+status, fixture flag or cached response cannot admit it. Successful installation
+still needs a public signed projection from the sole release owner binding the
+candidate, inventory bytes, contract versions and SW identity, plus the original
+Server native same-candidate admission/readiness bridge. The operational manifest
+and database identities must remain private. Source refusal tests do not replace
+the remaining cold/warm browser, interrupted update and request-byte acceptance.

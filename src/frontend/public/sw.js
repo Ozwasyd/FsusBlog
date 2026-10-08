@@ -79,14 +79,18 @@ const SENSITIVE_REQUEST_HEADERS = [
 
 self.addEventListener('install', (event) =>
 {
-    event.waitUntil(self.skipWaiting());
+    event.waitUntil((async () =>
+    {
+        await requireCurrentReleaseBrowserAdmission();
+        await self.skipWaiting();
+    })());
 });
 
 self.addEventListener('activate', (event) =>
 {
     event.waitUntil((async () =>
     {
-        await clearLegacyFsusCaches();
+        await requireCurrentReleaseBrowserAdmission();
         await self.clients.claim();
     })());
 });
@@ -904,15 +908,12 @@ async function clearNamedCache(cacheName, keys)
     await Promise.all(keys.map((key) => cache.delete(key)));
 }
 
-async function clearLegacyFsusCaches()
+async function requireCurrentReleaseBrowserAdmission()
 {
-    const keep = new Set([STATIC_CACHE, SHELL_CACHE, SEARCH_CACHE]);
-    const keys = await caches.keys();
-    await Promise.all(
-        keys
-            .filter((key) => key.startsWith('fsus-') && !keep.has(key))
-            .map((key) => caches.delete(key))
-    );
+    // The operational manifest contains private DB identities and host paths.
+    // No signed public projection or native exact-candidate health bridge exists.
+    // A build label, message or cached document cannot supply that admission.
+    throw new Error('current_release_browser_admission_unconfigured');
 }
 
 async function clearPrivateBrowserStateCaches(reason)
