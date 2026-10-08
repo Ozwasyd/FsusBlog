@@ -9,8 +9,46 @@ import { publicRuntimeCompilerFixture } from './public-runtime-compiler-fixture.
 import { staticAtomicCanonicalFixture } from './static-atomic-canonical-fixture.mjs';
 
 const { canonicalTestId, planExactShards, sealReplayPlan } = await import(new URL('../../../tools/test/execution-replay-contract.mjs', import.meta.url));
-const { digestCanonical, sha256 } = await import(new URL('../../../tools/test/attempt-provenance.mjs', import.meta.url));
+const { digestCanonical, sealContentDigest, sha256 } = await import(new URL('../../../tools/test/attempt-provenance.mjs', import.meta.url));
 const { compileAtomicProducerDag } = await import(new URL('../../../tools/test-matrix/atomic-producers/compiler.mjs', import.meta.url));
+const { createCoverageExecutionRequests, writeCoverageExecutionRequests } = await import(new URL('../../../tools/coverage/atomic-coverage-compiler-bridge.mjs', import.meta.url));
+
+function useCanonicalCoverageEvidenceRoot(fixture)
+{
+    const { root, plan, authorities, matrix } = fixture;
+    const oldRequests = fixture.requests;
+    const requests = createCoverageExecutionRequests({ root, plan, evidenceRoot: '.tmp/test-runs',
+        requestRoot: path.posix.dirname(oldRequests[0].request.requestPath),
+        replayPlanPaths: Object.fromEntries(oldRequests.map((item) => [item.request.producerId, item.request.replayPlanPath])),
+        authorityVerifier: oldRequests[0].request.authorityVerifier });
+    for (const item of oldRequests)
+    {
+        fs.unlinkSync(path.join(root, item.request.requestPath));
+    }
+    writeCoverageExecutionRequests(root, requests);
+    for (const node of matrix.atomicProducerDeclarations.nodes.filter((entry) => entry.kind === 'atomic-producer'))
+    {
+        const item = requests.find((request) => request.request.producerId === node.producerId);
+        const sourceIndex = authorities.commandSources.findIndex((source) => source.id === node.commandSourceRef.id);
+        const source = authorities.commandSources[sourceIndex];
+        const closureIndex = authorities.inputClosures.findIndex((closure) => closure.id === source.inputClosureRef.id);
+        const { contentDigest: closureDigest, ...closure } = authorities.inputClosures[closureIndex];
+        const boundClosure = sealContentDigest({ ...closure, coverageBinding: { ...closure.coverageBinding, requestDigest: sha256(item.bytes) } });
+        const { contentDigest: sourceDigest, ...sourceBody } = source;
+        authorities.inputClosures[closureIndex] = boundClosure;
+        authorities.commandSources[sourceIndex] = sealContentDigest({ ...sourceBody,
+            inputClosureRef: { id: boundClosure.id, contentDigest: boundClosure.contentDigest } });
+        node.commandSourceRef = { id: source.id, contentDigest: authorities.commandSources[sourceIndex].contentDigest };
+        authorities.physicalOwnership.find((owner) => owner.producerId === node.producerId).commandSourceRef = node.commandSourceRef;
+        if (!closureDigest || !sourceDigest)
+        {
+            throw new Error('original coverage fixture source digests required');
+        }
+    }
+    fixture.requests = requests;
+    fixture.executionOptions.context.evidenceRoot = path.join(root, '.tmp/test-runs');
+    rebindAtomicFixture(fixture);
+}
 
 export const hostLimits = Object.freeze({ maxDepth: 40, maxNodes: 20000, maxBytes: 2000000, maxItems: 10000 });
 export const repositoryRoot = '/workspace/FsusBlog';
@@ -111,6 +149,10 @@ export function originalLaneFixture(t, kind, scenarios = {})
     else if (kind === 'coverage')
     {
         const fixture = coverageCompilerFixture(t, scenarios);
+        if (scenarios.canonicalEvidenceRoot)
+        {
+            useCanonicalCoverageEvidenceRoot(fixture);
+        }
         const { root, plan, requests, matrix, authorities } = fixture;
         lane = { id: 'coverage-source', kind, input: { root, plan, requests, matrix, authorities }, options: {} };
         identity = fixture.executionOptions.context;

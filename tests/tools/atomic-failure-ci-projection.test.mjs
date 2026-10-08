@@ -616,7 +616,7 @@ test('one global CI invocation executes original coverage input preparation alon
 
 async function collectedLaneTerminals(t, scenarios = {})
 {
-    const fixture = coverageFrontendExecutionFixture(t, scenarios);
+    const fixture = coverageFrontendExecutionFixture(t, { ...scenarios, canonicalEvidenceRoot: true });
     const { material, options, coverage, frontendContexts } = fixture;
     let vector;
     try
