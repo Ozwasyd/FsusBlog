@@ -7,7 +7,7 @@ import { readCoverageBytes, requireCoverage, validateCoveragePlan } from './atom
  * Missing nodes remain visible and fail the aggregate. Blocked outcomes require the
  * canonical compiler's independent verifier; a digest alone cannot grant that authority.
  */
-export function projectCoverageSettled({ root, plan, projectionId, outcomes, verifyAuthority, verifyBlocked })
+export function projectCoverageSettled({ root, plan, projectionId, outcomes, verifyAuthority, verifyBlocked, verifyAdmission })
 {
     validateCoveragePlan(plan, root);
     const projection = plan.projections.find((item) => item.id === projectionId);
@@ -19,6 +19,29 @@ export function projectCoverageSettled({ root, plan, projectionId, outcomes, ver
         if (!outcome)
         {
             return { producerId, terminalState: 'missing', reasonCode: 'coverage.terminal-missing' };
+        }
+        if (Object.keys(outcome).join(',') === 'admissionRef')
+        {
+            const reference = outcome.admissionRef;
+            requireCoverage(reference && Object.keys(reference).sort().join(',') === 'digest,path', 'invalid input admission ref');
+            const bytes = readCoverageBytes(root, reference.path);
+            requireCoverage(sha256(bytes) === reference.digest, 'input admission receipt tamper');
+            requireCoverage(typeof verifyAdmission === 'function', 'canonical input admission verifier unavailable');
+            const admission = verifyAdmission({ reference, bytes, producerId, plan });
+            requireCoverage(admission?.producerId === producerId && admission.terminalState === 'failed'
+                && admission.reasonCode === 'required-input-admission-failed'
+                && admission.receiptKind === 'required-input-admission-refused-before-attempt'
+                && admission.identity?.runId === plan.identity.runId
+                && admission.identity?.sourceCommit === plan.identity.sourceCommit
+                && admission.identity?.sourceFingerprint === plan.identity.sourceFingerprint
+                && admission.planDigest === plan.contentDigest
+                && admission.attemptAllocationCount === 0 && admission.physicalSpawnCount === 0
+                && typeof admission.reason === 'string' && admission.reason.length > 0
+                && Array.isArray(admission.primaryFailureRefs) && admission.primaryFailureRefs.length > 0,
+            'invalid canonical input admission outcome');
+            return { producerId, terminalState: 'failed', reasonCode: admission.reasonCode, reason: admission.reason,
+                inputClosureRef: admission.inputClosureRef, primaryFailureRefs: admission.primaryFailureRefs,
+                attemptSpawnCount: 0, physicalSpawnCount: 0, admissionRef: reference };
         }
         if (Object.keys(outcome).join(',') === 'blockedRef')
         {

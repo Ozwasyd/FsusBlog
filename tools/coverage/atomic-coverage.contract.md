@@ -37,7 +37,7 @@ Backend raw coverage/shard completeness remains checked by the existing collecto
 exact map of that producer's hard predecessor materials. It revalidates attempt, replay,
 all retained attempt artifacts, and public output bytes before returning one leaf argv.
 Missing, failed, duplicate, cross-run, wrong-domain or tampered inputs throw; the compiler
-must record blocked with zero spawn. Collection actions have no coverage inputs. It must
+must record the original failed admission or hard-blocked terminal with zero spawn. Collection actions have no coverage inputs. It must
 revalidate at its spawn boundary and prevent input writes until the consuming action
 settles; the preparation function cannot confer resource isolation across a later spawn.
 
@@ -108,7 +108,9 @@ canonical migration must make the verified two-input preparation unavoidable.
 
 ## Canonical compiler and action bridge
 
-The continuation consumes exact framework `ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c`
+The continuation consumes exact required-input framework `39466f9a3a4714b5b58cd4c75a8baa69588e9c9e`,
+including primary-error publication preservation `5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f`
+and prior framework `ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c`
 (including cancellation/finalizer correction `653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0`)
 and scheduler terminal source `2eda290cc6098971b685b3fb1465d7193bd3dde2` as unchanged
 ancestry. `compileCoverageProducerDag` calls the original `compileAtomicProducerDag`
@@ -154,6 +156,25 @@ is an explicitly diagnostic, empty-test fixture action; this is not native quali
 The real unmodified collectors do not yet export the required coverage-specific native
 replay material, so successful native collection admission remains an owner handoff.
 
+`executeCoverageProducerDag` now installs the original framework's
+`producerContexts[id].requiredInputAdmission = {inputClosureRef, validate}` for each owned
+coverage producer. It binds the actual compiled closure, preserves any supplied owner's
+validator and then rereads the exact request/source and hard predecessor attempt/output
+material with `prepareCoverageProducer`. The hook runs after dependency/resource admission
+and before the original runner allocates an attempt. The action wrapper still verifies
+its own inputs at the physical child boundary. Physical grant/byte isolation remains the
+canonical run owner's contract; this source increment does not certify native isolation.
+
+A hook rejection is the original `failed / required-input-admission-failed` terminal.
+The bridge rereads the canonical rejection evidence, verifies its content digest against
+the actual vector and exact compiled producer/closure, and retains its original error
+message, primary failure refs, no-attempt state and explicit zero allocation/spawn counts.
+`projectCoverageSettled` accepts `{admissionRef: {path, digest}}` only through independent
+`verifyAdmission`; it retains failed admission instead of reporting a missing member or
+inventing a blocked terminal. No domain rejection receipt is minted. If canonical vector
+publication fails, the original `AtomicProducerExecutionError` with its primary cause and
+publication error is rethrown; the bridge does not reread an unpublished vector.
+
 Execution output separately records `attemptSpawnCount` and `physicalSpawnCount`. A
 canonical blocked node with no attempt yields zero for both. A wrapper input refusal can
 have one outer attempt and zero physical coverage child launches. Timeout/internal-error
@@ -162,11 +183,9 @@ zero. These source observations and projections always remain DATA_ONLY.
 
 ## Acceptance still required
 
-- Framework owner: pre-attempt admission hook for independently verified hard input
-  material under the input/resource grant. A failed collection already hard-blocks merge
-  before any attempt; a late missing/invalid input currently refuses inside its wrapper,
-  so only the physical child has zero spawn. This is not the stricter whole-producer
-  zero-spawn acceptance for all invalid inputs. Keep original terminal causes and scopes.
+- Canonical run owner: admit the actual input/resource grant and byte isolation for
+  native runs. The published pre-attempt hook is now consumed; ordinary missing-required-
+  input and valid-ordering controls establish its bounded consumer behavior only.
 - Collection/replay owners: actual current-candidate backend/frontend sealed coverage
   selection, shard/worker/seed and native receipt/actuals material matching unchanged
   instrumentation and membership. The new bridge does not infer this from an exit code,
@@ -189,3 +208,10 @@ failure directions, prove failed-collection merge attempt/physical spawn=0, and 
 all threshold terminals. These controls complement the original 41 tests. They are
 not real native coverage collection, Production Fresh, resume, CI or release acceptance.
 No denied semantic/cohort audits are replayed.
+
+Two bounded continuation controls cover ordinary missing-required-input rejection and
+valid prerequisite/grant/before-attempt ordering through the real canonical framework.
+They preserve source rejection evidence, zero attempt/child counts, independent domain
+thresholds and exactly-one valid merge execution. Earlier controls are not inherited as
+new qualification. Held-artifact/cross-candidate audit scenarios are not run by this
+continuation; native/full matrix/Fresh/resume/CI/final correctness remain unverified.
