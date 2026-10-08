@@ -129,6 +129,15 @@
             "sha256": "7d1b9c54069e6c4575a69645e96bd72544e41d5cd0fab0c7f7b001e817bb74fd"
         },
         {
+            "path": "proposed-pr-contract-result.json",
+            "sha256": "43eae794b0b2a6efb5a47cadf75cb5c6b39d28f4661018f89ddb301027a0ff86"
+        },
+        {
+            "path": "proposed-pr-contract.log.gz",
+            "sha256": "44d5ab1afff3fb37f2518427cb4431df4f2f450c52bf449cd293cd630cbe9e09",
+            "rawSha256": "b92f4f297d81b17ed8b045493dba77fe962692e5deddc32014a5b173f43eae87"
+        },
+        {
             "path": "prototype-current.json",
             "sha256": "fede78dc8a05ff9892ec4154c17d9be7ff64e3ea490e06a405f5980518255d8e"
         },

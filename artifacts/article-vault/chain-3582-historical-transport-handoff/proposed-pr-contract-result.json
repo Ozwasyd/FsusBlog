@@ -1,0 +1,15 @@
+{
+    "candidate": "a9d406d1a2fdbb49b060d5265d54a13d93529b5a",
+    "bodySha256": "7d1b9c54069e6c4575a69645e96bd72544e41d5cd0fab0c7f7b001e817bb74fd",
+    "command": [
+        "node",
+        "tools/governance/check-change-contract.mjs",
+        "--github-event",
+        ".tmp/chain-3582-expanded/stage-394-frozen/proposed-pr-event.json"
+    ],
+    "exitCode": 0,
+    "changedFiles": 536,
+    "isLocalProposedMetadataCheck": true,
+    "remoteBodyApplied": false,
+    "contentWriteQueuePending": true
+}
