@@ -16,6 +16,35 @@ public static class CanonicalCommentGraphFactory
     public const int MaximumIntentsPerBatch = 256;
 
     /// <summary>
+    /// Consumes observed revision facts through the production create/edit/delete
+    /// constructor. Does not normalize content, derive history or allocate a row
+    /// identity. Structural validation is not native or credential admission.
+    /// </summary>
+    public static CommentRevision ResolveRevision(
+        CommentScaleRevisionFacts facts,
+        ResolvedTemporalRoleContext temporal)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        ArgumentNullException.ThrowIfNull(temporal);
+        ArgumentNullException.ThrowIfNull(facts.Coordinate);
+        ArgumentNullException.ThrowIfNull(facts.Coordinate.Occurrence);
+        if (string.IsNullOrWhiteSpace(facts.Coordinate.CommentRole)
+            || string.IsNullOrWhiteSpace(facts.Coordinate.Occurrence.ScenarioRole)
+            || string.IsNullOrWhiteSpace(facts.Coordinate.Occurrence.ArticleTargetRole)
+            || facts.Coordinate.Occurrence.Repetition < 0
+            || facts.ArticleId <= 0 || facts.AllocatedCommentId <= 0 || facts.Version <= 0
+            || facts.Operation is not (CommentRevisionOperations.Created or CommentRevisionOperations.Edited or CommentRevisionOperations.Deleted)
+            || facts.NormalizedContent is null || string.IsNullOrWhiteSpace(facts.CreatedAtRole)
+            || string.IsNullOrWhiteSpace(facts.ActorMode))
+        {
+            throw new InvalidOperationException("comment_revision_structural_binding_invalid");
+        }
+        return CommentCommandService.BuildRevision(facts.AllocatedCommentId, facts.Version,
+            facts.Operation, facts.NormalizedContent, temporal.RequireInstant(facts.CreatedAtRole).UtcDateTime,
+            facts.ActorMode, facts.ActorAccountId, facts.ActorAdminPrincipalId);
+    }
+
+    /// <summary>
     /// Calls only the original production initial-event selector and envelope
     /// builder with supplied final comment facts, allocated ID and resolved time.
     /// Does not derive final moderation, actor, thread, recipient or privacy facts.
