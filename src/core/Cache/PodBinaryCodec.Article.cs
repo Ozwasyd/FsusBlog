@@ -1696,8 +1696,10 @@ public static partial class PodBinaryCodec
         }
         finally
         {
-            if (rentedPlans is not null) ArrayPool<ArticlePageItemSlicePlan>.Shared.Return(rentedPlans);
-            if (rentedTags is not null) ArrayPool<Utf8SliceRef>.Shared.Return(rentedTags);
+            if (rentedPlans is not null)
+                ArrayPool<ArticlePageItemSlicePlan>.Shared.Return(rentedPlans);
+            if (rentedTags is not null)
+                ArrayPool<Utf8SliceRef>.Shared.Return(rentedTags);
         }
     }
 
@@ -1725,7 +1727,8 @@ public static partial class PodBinaryCodec
         int tagCount = (blobOffset - tagOffset) / AedsArticleSearchWire.TagRecordBytes;
         ReadOnlySpan<byte> blob = bytes.Span[blobOffset..];
         var tagReader = new BinaryPodReader(bytes.Span[tagOffset..blobOffset]);
-        if (!TryReadArticleListTags(ref tagReader, tagCount, blob, out List<TagCoreModel> tags)) return false;
+        if (!TryReadArticleListTags(ref tagReader, tagCount, blob, out List<TagCoreModel> tags))
+            return false;
         int usedTags = 0;
         int blobEnd = 0;
         for (int index = 0; index < tagCount; index++)
@@ -1748,7 +1751,8 @@ public static partial class PodBinaryCodec
                 || !ValidArticleVersionCoordinates(revisionId, revisionNo, publicationId, publicationNo)
                 || !TryReadStrictSlice(category, blob, out string categoryName)
                 || !TryReadStrictSlice(title, blob, out string decodedTitle)
-                || !TryReadStrictSlice(summary, blob, out string decodedSummary)) return false;
+                || !TryReadStrictSlice(summary, blob, out string decodedSummary))
+                return false;
             usedTags += itemTagCount;
             blobEnd = Math.Max(blobEnd, Math.Max(category.Offset + category.Length,
                 Math.Max(title.Offset + title.Length, summary.Offset + summary.Length)));
@@ -1756,11 +1760,12 @@ public static partial class PodBinaryCodec
                 categoryName, decodedTitle, decodedSummary, null, out _);
             list.Add(new ArticleListCoreModel(pod, id, decodedTitle, decodedSummary, null, null, views,
                 PodTimeCodec.FromUnixMs(created), new ArticleCategoryCoreModel(categoryId, categoryName),
-                tags.GetRange(tagStart, itemTagCount), CurrentRevisionId: revisionId, RevisionNo: revisionNo,
+                tags.GetRange(tagStart, itemTagCount), IsDeleted: null, CurrentRevisionId: revisionId, RevisionNo: revisionNo,
                 CurrentPublicationId: publicationId == 0 ? null : publicationId,
                 PublicationNo: publicationNo == 0 ? null : publicationNo));
         }
-        if (usedTags != tagCount || blobEnd != blob.Length) return false;
+        if (usedTags != tagCount || blobEnd != blob.Length)
+            return false;
         items = list;
         return true;
     }
