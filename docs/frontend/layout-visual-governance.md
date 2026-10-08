@@ -240,3 +240,57 @@ The second command is deliberately blocked before subsequent static dependencies
 run. It does not weaken their normal execution or overwrite any prior failure
 artifacts. Keep each failed attempt and subsequent rerun under distinct run-bound
 artifact paths; this preflight is not an attempt/failure evidence producer.
+
+## Canonical origin and browser consumer admission
+
+`visualProducerAdmission.mjs` consumes the existing current-run evidence locator,
+publication payload resolver, transport mapping and managed browser identity
+APIs. It registers no producer or authority. `inspectVisualProducerAdmission`
+requires visual and browser origin inputs, both verified against the
+same scheduler context. Each origin supplies a registered `consumerId`, exactly
+one explicit path or content-addressed reference, and, for transported evidence,
+an explicit manifest path/digest. The consumer reads the sole canonical registry;
+caller registries, callbacks, directory scans, filenames and mtime cannot replace
+it. Production calls use this repository; temporary repositories are limited to
+explicit synthetic contract tests and never qualify acceptance.
+
+The consumer resolves actual payload bytes, verifies their seals and exact
+source/worktree/run/attempt binding, and checks every explicit screenshot,
+static, DOM and geometry artifact plus opaque producer bytes against the visual
+receipt. Locator digests retain the canonical `sha256:` prefix, while visual
+artifact digests remain bare SHA-256 hex. That conversion is explicit at this
+boundary; it does not reinterpret opaque producer schemas.
+
+`inspectVisualBrowserBinding` verifies the actual browser seal and rendering
+observation, then recreates the current managed browser plan from the real
+policy, SDK package/catalog, executable, fonts and locale sources. It has no
+caller filesystem, package resolver, policy or verification callback override.
+By itself it proves identity consistency only: a browser payload has no
+source/run identity until its separate canonical origin is admitted. Browser
+identity and an envelope do not prove that a particular product scene ran.
+
+`visualProducerAdmissionIdentity` binds the consumer and consumed canonical
+source/authority bytes. Its `producerAdmissionDigest` is a required visual
+receipt field returned by `visualVerifierIdentity`; old receipts or loaded
+consumers are rejected when that closure changes. Downstream producers consume
+these exported identities instead of independently deriving their own hashes.
+
+For rendered receipts, `verifyVisualAdjudication` invokes admission when its
+context supplies `producerAdmission`. Foundation admission still returns
+`qualificationEligible: false`, and the rendered path always refuses the
+unavailable static/DOM and geometry producer adapters. Missing registered visual
+and browser origins, opaque-producer-to-artifact mapping, current fixture/state
+admission and scene execution remain explicit pending capabilities. No current
+helper signs a visual pass, real mutation kill, source-mode qualification or full
+aggregate.
+
+Run the consumer contract negatives with:
+
+```bash
+node --test tests/tools/layout-visual-producer-admission.test.mjs
+```
+
+These tests use labelled synthetic publication payloads and existing registry
+entries without creating visual authorities. Actual managed-browser probes and
+local/transport packet probes must retain their narrower identity/transport
+scope; they are not product-scene or visual adjudication receipts.

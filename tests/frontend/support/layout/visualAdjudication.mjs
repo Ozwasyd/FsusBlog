@@ -10,6 +10,7 @@ import {
     createCompositionIdentity,
     verifyCompositionIdentity
 } from './compositionContracts.mjs';
+import { inspectVisualProducerAdmission, visualProducerAdmissionIdentity } from './visualProducerAdmission.mjs';
 
 
 
@@ -41,6 +42,7 @@ export function visualVerifierIdentity()
     return {
         schemaDigest: visualArtifactDigest(schemaBytes),
         verifierDigest: visualArtifactDigest(loadedVerifierBytes),
+        producerAdmissionDigest: visualProducerAdmissionIdentity().producerAdmissionDigest,
         rubricDigest: compositionDigest(schema.$defs.rubric),
         rubricVersion: schema.properties.rubricVersion.const,
         verifierVersion: schema.properties.verifierVersion.const
@@ -255,6 +257,15 @@ export function verifyVisualAdjudication(receipt, context)
         fail('evidence-cardinality', 'unconsumed old screenshot artifact');
     }
     verifyMovement(receipt, context.inputs, { ...artifacts, oldScreenshot });
+    // Canonical origin/transport/browser admission is available independently of
+    // the missing static/DOM/geometry producer semantics. It cannot sign a pass.
+    if (receipt.evidenceClass === 'rendered' && context.producerAdmission)
+    {
+        inspectVisualProducerAdmission({
+            ...context.producerAdmission, visualReceipt: receipt,
+            evidenceArtifacts: artifacts, purpose: context.purpose
+        });
+    }
     const outcomes = verifyEvidence(receipt, artifacts, context.purpose);
     const counts = { pass: 0, fail: 0, 'not-observed': 0 };
     for (const fieldName of visualRubricFields)
@@ -323,7 +334,7 @@ export function verifyVisualModeParity(left, right)
     {
         fail('mode-mismatch', 'comparison requires actual local and published identities');
     }
-    for (const field of ['schema', 'rubricVersion', 'rubricDigest', 'schemaDigest', 'verifierVersion', 'verifierDigest'])
+    for (const field of ['schema', 'rubricVersion', 'rubricDigest', 'schemaDigest', 'verifierVersion', 'verifierDigest', 'producerAdmissionDigest'])
     {
         if (left[field] !== right[field])
         {

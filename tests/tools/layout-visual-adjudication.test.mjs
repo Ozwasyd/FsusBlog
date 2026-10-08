@@ -11,6 +11,7 @@ import {
     createCompositionIdentity,
     loadCompositionInputs
 } from '@fsusblog/layout-governance/composition-contracts';
+import { governanceContentDigest } from '@fsusblog/layout-governance/evidence-location-contract';
 import {
     verifyVisualAdjudication,
     verifyVisualModeParity,
@@ -138,6 +139,37 @@ test('production evidence fails closed until canonical opaque producer adapters 
     {
         context.purpose = 'formal-acceptance';
     }, 'synthetic-not-admitted');
+});
+
+
+test('rendered path consumes canonical origin admission and refuses caller callback authority', () =>
+{
+    const { receipt, context } = fixture();
+    receipt.evidenceClass = 'rendered';
+    context.purpose = 'formal-acceptance';
+    const originContext = {
+        schema: 'fsusblog.current-run-evidence-context.v1',
+        schedulerRunId: receipt.binding.runId, attemptId: receipt.binding.attemptId,
+        sourceCommit: receipt.compositionIdentity.sourceCommit,
+        worktreeFingerprint: `sha256:${receipt.binding.worktreeFingerprint}`,
+        candidateIdentity: { id: 'synthetic-candidate', digest: `sha256:${digest}` },
+        buildIdentity: { id: 'synthetic-build', digest: `sha256:${digest}` },
+        ownedRoots: ['artifacts/current-run']
+    };
+    originContext.contentDigest = governanceContentDigest(originContext);
+    let callbackUsed = false;
+    context.producerAdmission = {
+        context: originContext,
+        visualOrigin: { consumerId: 'synthetic-unregistered-consumer', explicitInputs: ['synthetic.json'] },
+        verifyProducer: () =>
+        {
+            callbackUsed = true;
+            return { verified: true };
+        }
+    };
+    seal(receipt);
+    assert.throws(() => verifyVisualAdjudication(receipt, context), { code: 'visual-admission-consumer-unregistered' });
+    assert.equal(callbackUsed, false);
 });
 
 test('pass needs screenshot, static, DOM and geometry for every individual rubric field', () =>
@@ -339,7 +371,7 @@ test('unknown score, permanent exception, route criteria and warning fields fail
 
 test('versions, verifier bytes, rubric and independent reviewer binding cannot drift', () =>
 {
-    for (const key of ['schemaDigest', 'verifierDigest', 'rubricDigest'])
+    for (const key of ['schemaDigest', 'verifierDigest', 'rubricDigest', 'producerAdmissionDigest'])
     {
         reject((receipt) =>
         {
@@ -420,9 +452,11 @@ test('loaded synthetic verifier refuses actual later schema or source byte chang
         const require = createRequire(import.meta.url);
         const validatorUrl = pathToFileURL(require.resolve('@fsusblog/layout-governance/schema-validator')).href;
         const contractsUrl = pathToFileURL(require.resolve('@fsusblog/layout-governance/composition-contracts')).href;
+        const admissionUrl = pathToFileURL(require.resolve('@fsusblog/layout-governance/visual-producer-admission')).href;
         const relocated = source
             .replace("'@fsusblog/layout-governance/schema-validator'", JSON.stringify(validatorUrl))
             .replace("'./compositionContracts.mjs'", JSON.stringify(contractsUrl))
+            .replace("'./visualProducerAdmission.mjs'", JSON.stringify(admissionUrl))
             .replace("new URL('../../../../config/schemas/layout-visual-adjudication.schema.json', import.meta.url)", `new URL(${JSON.stringify(schemaUrl)})`);
         assert.notEqual(relocated, source);
         writeFileSync(schemaFile, readFileSync(new URL('../../config/schemas/layout-visual-adjudication.schema.json', import.meta.url)));
