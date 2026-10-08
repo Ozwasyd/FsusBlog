@@ -86,8 +86,10 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElInput } from '@ozwasyd/element-plus';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+
+import { FsusUiButton as ElButton } from '@/fsusui/button';
+import { FsusUiInput as ElInput } from '@/fsusui/input';
 
 // Presentation only: the owner supplies a permission-filtered, ordered page of
 // stable IDs and renders authoritative typed controls in the property slot.
