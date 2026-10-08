@@ -201,6 +201,21 @@ def embedded_fetcher(url, *args, **kwargs):
 
 
 def check_versions():
+    # The broker mounts the digest-bound runtime at /tool. Development checks
+    # use the adjacent source manifest; neither path comes from a request.
+    lock_path = (
+        Path("/tool/dependencies.lock.json")
+        if __file__ == "/broker/tool"
+        else Path(__file__).with_name("dependencies.lock.json")
+    )
+    dependencies = json.loads(
+        lock_path.read_text(encoding="utf-8"), object_pairs_hook=closed_object
+    )
+    if not isinstance(dependencies, dict) or not 1 <= len(dependencies) <= 64:
+        raise PdfRejected("dependency-lock")
+    for name, version in dependencies.items():
+        if importlib.metadata.version(name) != version:
+            raise PdfRejected("dependency-version")
     for name, version in {
         "weasyprint": "66.0",
         "pikepdf": "9.11.0",
