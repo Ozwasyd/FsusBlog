@@ -2405,5 +2405,18 @@
     "sha256": "54169f405b1d28576d5c285e7407c37478f5e20626cc71b7353594a0fbfde87b",
     "sourceCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
     "purpose": "Diagnostic invocation of original unchanged method only; the failed compiled-InlineData case remains failed and no runtime qualification is inferred."
+  },
+  "latestMasterRecheck": {
+    "sha": "8b1c739cacef47995f441f096835863d377dc347",
+    "deltaFromTestedBaseline": [
+      ".github/actionlint.yaml"
+    ],
+    "allClassifiedSourceOwnersUnchanged": true,
+    "newUnitQualificationInferred": false,
+    "mergeTreePreview": {
+      "exitCode": 0,
+      "tree": "cd5950753a759892faf189f18ead7205fb0bc7ed",
+      "operation": "read-only merge-tree preview; branch not merged or rewritten"
+    }
   }
 }
