@@ -48,6 +48,41 @@ public sealed class DocumentExportHtmlProviderTests
     }
 
     [Theory]
+    [InlineData("missing")]
+    [InlineData("duplicate")]
+    [InlineData("body-only")]
+    [InlineData("body-extra")]
+    [InlineData("nested-head")]
+    [InlineData("foreign-title")]
+    [InlineData("foreign-head")]
+    [InlineData("svg-substitute")]
+    public void RefusesPageTitleOutsideItsUniqueHtmlHeadOwnership(string mutation)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        byte[] document = SelfContainedHtmlDocumentExportProvider.ComposeDocument("Page title", input, "<p>Text</p>"u8, 16_777_216);
+        string original = Encoding.UTF8.GetString(document);
+        const string PageTitle = "<title>Page title</title>";
+        string changed = mutation switch
+        {
+            "missing" => original.Replace(PageTitle, string.Empty, StringComparison.Ordinal),
+            "duplicate" => original.Replace(PageTitle, PageTitle + PageTitle, StringComparison.Ordinal),
+            "body-only" => original.Replace(PageTitle, string.Empty, StringComparison.Ordinal)
+                .Replace("<body>", "<body>" + PageTitle, StringComparison.Ordinal),
+            "body-extra" => original.Replace("<body>", "<body>" + PageTitle, StringComparison.Ordinal),
+            "nested-head" => original.Replace(PageTitle, "<div>" + PageTitle + "</div>", StringComparison.Ordinal),
+            "foreign-title" => original.Replace(PageTitle, "<title xmlns=\"urn:other\">Page title</title>", StringComparison.Ordinal),
+            "foreign-head" => original.Replace("<head>", "<head xmlns=\"urn:other\">", StringComparison.Ordinal),
+            "svg-substitute" => original.Replace(PageTitle, string.Empty, StringComparison.Ordinal)
+                .Replace("<article>", "<article>" + SvgOpen + "<title>Page title</title><path d=\"M 0 0 L 1 1\" /></svg>", StringComparison.Ordinal),
+            _ => throw new InvalidOperationException("Unknown title mutation.")
+        };
+
+        Assert.NotEqual(original, changed);
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlVerifier.Validate(
+            Encoding.UTF8.GetBytes(changed), input, 16_777_216));
+    }
+
+    [Theory]
     [InlineData("em")]
     [InlineData("strong")]
     [InlineData("span")]
