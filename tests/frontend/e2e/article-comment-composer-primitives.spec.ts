@@ -132,7 +132,7 @@ for (const theme of ['light', 'dark']) {
                 await expect(expanded).toHaveValue(content)
                 expect(await selection(expanded)).toEqual([2, 8, 'backward'])
                 const footerWidth = await dialog.locator('.comment-composer-focus__footer').evaluate(element => {
-                    const surface = element.closest('.comment-composer-focus-dialog') as HTMLElement
+                    const surface = element.closest('footer') as HTMLElement
                     const style = getComputedStyle(surface)
                     const contentWidth = surface.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
                     return { actual: element.getBoundingClientRect().width, expected: contentWidth }
