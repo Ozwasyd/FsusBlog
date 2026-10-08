@@ -1,0 +1,16 @@
+{
+  "runId": "correction-retention-2026-10-08T11:44:50.694332+00:00",
+  "source": "44aa8ec232288b9c18c684f434fc3d82dfd8095b",
+  "command": [
+    "node",
+    "tools/test-replacement-transaction.mjs",
+    "check-diff",
+    "dbb373071db1ad21aaa665f4a1512bfb43f59950"
+  ],
+  "start": "2026-10-08T11:44:50.700385+00:00",
+  "RestoreLockedMode": null,
+  "trackedStatusBefore": "",
+  "exitCode": 0,
+  "end": "2026-10-08T11:44:51.948874+00:00",
+  "trackedStatusAfter": ""
+}

@@ -1,0 +1,90 @@
+Typed OpenAPI route census correction: #3540 -> consumer #3612
+Author execution evidence; independent review and merge remain outstanding.
+
+Published source branch: task/chain-3540-typed-route-census
+Exact correction/head: 44aa8ec232288b9c18c684f434fc3d82dfd8095b
+Exact fetched master base: dbb373071db1ad21aaa665f4a1512bfb43f59950
+Bounded canonical lock input: 030ded219c7031ee272befd771c34b5c604aadac
+Original provided lock owner commit: 2c380fee5cff5fa0e368b3da0a4052a4fe124263
+030ded copies ONLY the OpenAPI lock bytes from that supplied prerequisite.
+Both Git blobs are 93328bedf95349a3e857b68b0c76897e971dfd7a.
+Its seven additions record existing AngleSharp project/transitive entries;
+versions/hashes/producer behavior remain unchanged. No other lock is imported.
+Consumers with that exact canonical lock already present need only 44aa8ec23.
+This evidence branch adds artifacts separately; do not consume it as the source fix.
+Frozen b03d6e5b257cb66697354f5d96b19c775ffaa040 / PR3912 and original
+4f6ff718f1f19f2d2efe9ecf798751b393d91e06 / PR3817 are untouched and remotely verified.
+
+Cause/source scope
+Production 5ba42dbe66f41753b2d1cee50c0eb0c333f2a6af integrated typed AEDS
+Font/Theme reads. Current route declarations, response construction, compiled
+observer registration, generated endpoint contracts and OpenAPI were inspected.
+All three Font GET and five Theme GET paths under /api/binary/author/ops have
+specific typed response frames (see actual-typed-route-observations.json).
+Canonical producer has no retired exclusion exception and still throws on any
+non-AEDS binary route. Program creates/registers actual production route metadata;
+this check does not execute HTTP requests or exercise real database services.
+The former census test contradicted that implementation by demanding an obsolete
+pre-#3177 excluded count=8 diagnostic and forbidding all eight typed paths.
+Correction: refuse the retired exclusion message, require the EXACT eight route/
+method/operationId/responseFrame tuples, and verify request-free AEDS v2,
+ApiError, status200, binary success schema/content and payload placement.
+Missing/extra/changed tuples or incompatible response properties fail assertions.
+ArticleRelatedReading oracle, historical case ID, timeout/cleanup and every
+other existing refusal test remain. The retained title is historical and explicitly
+annotated; no case deletion/rename or source replacement waiver is introduced.
+No producer, baseline, policy, residual authority, generated contract or API change.
+Actual source branch diff: two files, 41 added/4 removed lines; correction commit
+alone changes one test file, 34 added/4 removed lines.
+
+Current executable verification
+Official Node24.16.0, .NET SDK10.0.401/runtime10.0.12 in isolated saved environment.
+Locked canonical npm installations use npm ci --ignore-scripts at regular paths.
+Initial npm cache path was unwritable and one guessed schema package path was
+wrong; retries used task-owned npm_config_cache and canonical tools/test-matrix/
+schema-validator. All canonical retries exit0; no source/lock edits from npm.
+Initial master observer --locked-mode restore: FAIL exit1 NU1004 (existing
+Server project AngleSharp edge missing in this consumer lock). SDK exists.
+After exact canonical lock input: restore PASS exit0, fresh Release --no-restore
+build PASS exit0, 0errors/323warnings. Build is a baseline prerequisite probe,
+not a receipt for Docker/full-matrix qualification.
+
+Baseline original census at exact030ded219, RestoreLockedMode=true:
+ node --test --test-name-pattern='^pre-3177 normal producer isolates only the exact owned JSON routes and emits the AEDS observation$' tests/tools/openapi-aeds-observation.test.mjs
+FAIL exit1: 0/1, zero skips. Actual producer exits0 and prints operations=274;
+only the retired exclusion assertion fails. Raw failure retained unchanged.
+
+Candidate exact44aa8ec232, RestoreLockedMode=true:
+ node --test tests/tools/openapi-aeds-observation.test.mjs tests/tools/behavior-fact-extractors.test.mjs
+PASS exit0: 56/56, zero skips/cancellations. Real compiled self-test and the
+corrected real production census pass; no test-name filter, assertion disable,
+threshold reduction, runtime substitution or skip in this full run.
+ dotnet run --project tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj -c Release --no-build -- --self-test
+PASS exit0, cases=7 loader,request,container-request,status,merger,census,font-theme-census.
+The unchanged font-theme-census includes all eight actual compiled routes and
+five malformed contract variants per route mixed with the seven valid others:
+JSON content, JSON placement, absent response/error frame and absent success status.
+The census also refuses the retired Font/Theme JSON exception and unexpected JSON.
+ dotnet run --project tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj -c Release --no-build -- --output <task-output>/observation.json --repository-root <source-root>
+PASS exit0, actual274operations; complete source-bound observation/projection
+are captured losslessly. These files are observations, not minimal-build/Docker
+admission receipts. Census test cleanup uses the original finally/rmSync.
+ node tools/test-replacement-transaction.mjs check-diff dbb373071db1ad21aaa665f4a1512bfb43f59950
+PASS exit0 governedChanges=0; no old canonical case removed.
+ node tools/governance/check-change-contract.mjs --range dbb373071db1ad21aaa665f4a1512bfb43f59950..HEAD
+PASS exit0.
+ node tools/frontend/check-frontend-style.mjs --mode changed --file tests/tools/openapi-aeds-observation.test.mjs
+PASS exit0, zero diagnostics. Precommit strict-full also zero diagnostics on the
+exact same test bytes (before44aa commit); it is not mislabeled a clean-head run.
+ node tools/fact-extractors/check-behavior-fact-extractors.mjs
+PASS exit0, eight owners and digest dd2566d3d9c34900fb7b13220adc8b1243fae897b7839eeeccd0cbdcd1632bc2.
+
+Every final probe sidecar names exact source HEAD, actual command, timestamps,
+exitCode and clean tracked before/after state. Raw logs are losslessly gzip-
+compressed with hashes; source-seal records unchanged production authority bytes.
+No current Docker/canonical minimal-build admission/full-matrix/HTTP acceptance
+is claimed. #3540 and #3537 remain OPEN; this corrects the reported source test
+regression and supplies evidence to #3612, not whole-chain completion.
+Content/API writes remain queued: no issue comment, PR create/edit/review/merge,
+Actions dispatch, closure, deployment or production database action here.
+Independent source review and separately requested final acceptance remain required.

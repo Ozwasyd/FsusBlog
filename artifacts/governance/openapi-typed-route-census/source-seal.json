@@ -1,0 +1,44 @@
+{
+  "runId": "typed-census-2026-10-08T11:46:59.607687+00:00",
+  "base": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+  "candidate": "44aa8ec232288b9c18c684f434fc3d82dfd8095b",
+  "lockPrerequisite": "030ded219c7031ee272befd771c34b5c604aadac",
+  "originalCanonicalLockSource": "2c380fee5cff5fa0e368b3da0a4052a4fe124263",
+  "inputs": [
+    {
+      "path": "src/backend/Modules/Endpoints/FontAdminEndpoints.cs",
+      "sha256": "d4e31d18936671b53ca0229e342d54a1b34714a179bfa65cdb53e7e8194d0ce1",
+      "unchangedFromMasterBase": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/ThemeAdminEndpoints.cs",
+      "sha256": "353749a1b1c12fda40b7deaef4a3b60a69df39eff6bcee2a154ad517252152cb",
+      "unchangedFromMasterBase": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs",
+      "sha256": "77e64d0b7c5c712bc648a7af8a89332a565c09135f233bbe2cac242eccd1ec9c",
+      "unchangedFromMasterBase": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/OpenApiObservationSelfTest.cs",
+      "sha256": "a260ff7304ace94fa4a41caff5c90c11649c0bc561d92fff611d67238ad3b84c",
+      "unchangedFromMasterBase": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+      "sha256": "da8c27e4d26af7d46e16eb8297b7dd38fcf9f97cda05241eee4f5d6ef4ce3fc1",
+      "unchangedFromMasterBase": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+      "sha256": "69f7fb92a5af32c76b350d5ad9ce92acd7fafc75c9951019dac4a3936dd7cefd",
+      "unchangedFromMasterBase": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+      "sha256": "3ab55f6930968c8db434ea6733e7c1a9ac4102cc8c2862ce74821729fd34362f",
+      "unchangedFromMasterBase": true
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "runId": "correction-governance-2026-10-08T11:45:10.954624+00:00",
+  "source": "44aa8ec232288b9c18c684f434fc3d82dfd8095b",
+  "command": [
+    "node",
+    "tools/fact-extractors/check-behavior-fact-extractors.mjs"
+  ],
+  "start": "2026-10-08T11:45:10.958453+00:00",
+  "RestoreLockedMode": null,
+  "trackedStatusBefore": "",
+  "exitCode": 0,
+  "end": "2026-10-08T11:45:15.543652+00:00",
+  "trackedStatusAfter": ""
+}

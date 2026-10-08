@@ -1,0 +1,24 @@
+{
+  "runId": "compiled-production-census-2026-10-08T11:47:46.843253+00:00",
+  "source": "44aa8ec232288b9c18c684f434fc3d82dfd8095b",
+  "command": [
+    "dotnet",
+    "run",
+    "--project",
+    "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+    "-c",
+    "Release",
+    "--no-build",
+    "--",
+    "--output",
+    "/workspace/scratch/chain-3540/census-evidence/compiled-observation/observation.json",
+    "--repository-root",
+    "/workspace/scratch/chain-3540/typed-route-census"
+  ],
+  "start": "2026-10-08T11:47:46.847568+00:00",
+  "RestoreLockedMode": "true",
+  "trackedStatusBefore": "",
+  "exitCode": 0,
+  "end": "2026-10-08T11:47:50.737762+00:00",
+  "trackedStatusAfter": ""
+}

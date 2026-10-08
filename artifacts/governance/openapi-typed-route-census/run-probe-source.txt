@@ -1,0 +1,7 @@
+import pathlib,subprocess,os,sys,datetime,json
+root=pathlib.Path('/workspace/scratch/chain-3540/typed-route-census'); out=pathlib.Path('/workspace/scratch/chain-3540/census-evidence'); name=sys.argv[1]; args=sys.argv[2:]
+record={'runId':name+'-'+datetime.datetime.now(datetime.timezone.utc).isoformat(),'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),'command':args,'start':datetime.datetime.now(datetime.timezone.utc).isoformat(),'RestoreLockedMode':os.environ.get('RestoreLockedMode'),'trackedStatusBefore':subprocess.check_output(['git','status','--porcelain'],cwd=root,text=True)}
+with (out/(name+'.log')).open('wb') as log: r=subprocess.run(args,cwd=root,stdout=log,stderr=subprocess.STDOUT)
+record.update({'exitCode':r.returncode,'end':datetime.datetime.now(datetime.timezone.utc).isoformat(),'trackedStatusAfter':subprocess.check_output(['git','status','--porcelain'],cwd=root,text=True)})
+(out/(name+'-command.json')).write_text(json.dumps(record,indent=2)+'\n');print(name,r.returncode,record['source'],flush=True)
+sys.exit(r.returncode)

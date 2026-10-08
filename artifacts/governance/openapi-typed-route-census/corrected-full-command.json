@@ -1,0 +1,16 @@
+{
+  "runId": "corrected-full-2026-10-08T11:44:49.594649+00:00",
+  "source": "44aa8ec232288b9c18c684f434fc3d82dfd8095b",
+  "command": [
+    "node",
+    "--test",
+    "tests/tools/openapi-aeds-observation.test.mjs",
+    "tests/tools/behavior-fact-extractors.test.mjs"
+  ],
+  "start": "2026-10-08T11:44:49.600653+00:00",
+  "RestoreLockedMode": "true",
+  "trackedStatusBefore": "",
+  "exitCode": 0,
+  "end": "2026-10-08T11:47:12.026009+00:00",
+  "trackedStatusAfter": ""
+}

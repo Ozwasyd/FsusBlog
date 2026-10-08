@@ -1,0 +1,102 @@
+[
+  {
+    "path": "ast-install-retry.log.gz",
+    "rawSha256": "8f87d31a04720c0b2bd41427bfb51d79b371fe44c5afea209503fd7c179fb632",
+    "gzipSha256": "a95d1ce13f18bee87fb93f428296f7e75263066059c3af8703a125fd9ef989d1"
+  },
+  {
+    "path": "ast-install.log.gz",
+    "rawSha256": "77086ac1598c7668301d8466b6bf5f73000c59c30e9e1496a107f7c4e5a926b6",
+    "gzipSha256": "c73b80cd5744fab144bf21015d079dc1bc6ba1b3e785322dc7379e280c9e45ea"
+  },
+  {
+    "path": "baseline-stale-census.log.gz",
+    "rawSha256": "ec8d6ef02a322dab94ead5c8c63074259351c56356c32929667decfa7bd1d185",
+    "gzipSha256": "11c48716d67af6bbe419f5ac93198e753e3a2911dc0643c0aca52e690758756c"
+  },
+  {
+    "path": "canonical-restore.log.gz",
+    "rawSha256": "9bda865dbb8749668e95f62ec4b4e983774d7242cf0912a1474925f41c99664e",
+    "gzipSha256": "a3d29570ecf850c7635b12c9410d8d32499f5859eecb7b3f283a4ca9ffbe67f9"
+  },
+  {
+    "path": "compiled-production-census.log.gz",
+    "rawSha256": "15d90c4b6ce5763b524f55ed32a19119f67053d1733a596f34d7809c98225e11",
+    "gzipSha256": "07d479803ce2cf051de6df1eb4507871953be22402541e8295aec7c886ddd152"
+  },
+  {
+    "path": "compiled-self-test.log.gz",
+    "rawSha256": "bba936661d626864cdf02510b7020346ee94755e92200a306dc226fdff00152a",
+    "gzipSha256": "c78aaafa0eba7d924a9f7d0a808f569df94889fe424d9e57e3e5e18304b2306c"
+  },
+  {
+    "path": "corrected-full.log.gz",
+    "rawSha256": "cf63b89753ecbe7b9ddfd5ecf099641123c9d8b2bfb741a936cd228ead0d374d",
+    "gzipSha256": "bb7b6eccd4ffd2c1d48613d8b4ec15aeb1799adaf1630f10d280603ee8380a6f"
+  },
+  {
+    "path": "correction-changed-style.log.gz",
+    "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+    "gzipSha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8"
+  },
+  {
+    "path": "correction-commit-contract.log.gz",
+    "rawSha256": "ddcc7e2d2bbed880ad950f74a6af25307bdb60d3c07f916825a8daf67a1a9313",
+    "gzipSha256": "457c3e42b52b0ca0e0e3ededd7b8df375cbd3ed9823c3be5e480d4529be371e2"
+  },
+  {
+    "path": "correction-governance.log.gz",
+    "rawSha256": "ffbacfc73493ce5f0d7cd452e79b57bfebd6d97ed3c034f11aa9eb8ba41564d3",
+    "gzipSha256": "d4db0d3a8702457f1782b2d97593a50faddf07fb46c313bcf92fae83b5520392"
+  },
+  {
+    "path": "correction-retention.log.gz",
+    "rawSha256": "39c1bf43db736e095b544d56d091d80d9833934033d43810919069ddb9e958f9",
+    "gzipSha256": "82757b33afdc297615be5cb06610254de614aa899abe1462b180877909077cba"
+  },
+  {
+    "path": "observer-build.log.gz",
+    "rawSha256": "89b02ab03d7c1facef11792eb4e9097f16ea129a2e3629aab77e3c4d6d750d1f",
+    "gzipSha256": "a74e688843f268542f087a11add409b890207da9e10b37022b130cbce21c066d"
+  },
+  {
+    "path": "replacement-install.log.gz",
+    "rawSha256": "6932d4ae199d86d55f1758726ac5bb1386e2b2f77c7b925e5ff94842356581ec",
+    "gzipSha256": "6f4e874b7008017af9b63aa87805d5d07103eaf94665eae02e7459a36c9daa76"
+  },
+  {
+    "path": "restore.log.gz",
+    "rawSha256": "38f887716710e92b37f1b5799f7d5c4afdf4a836b056cb85914359b3b0f1f75c",
+    "gzipSha256": "511d6f369aff5249ace5ca330173742510aadcec067105d2dc9a518a4383c12b"
+  },
+  {
+    "path": "schema-install-retry.log.gz",
+    "rawSha256": "a8a2931574db68c89ecf1af8e1be707d1a174b40d722aa1278d1599a23e4c6e6",
+    "gzipSha256": "668d1b1e43c7b1aa69b31cc1d08783a596130fe946d939b69e0b963672be5fe7"
+  },
+  {
+    "path": "schema-install.log.gz",
+    "rawSha256": "03ebe76098260c3ff0924a9ed4a988e6213b3f1d5fb9bf7ef037a47c4263672f",
+    "gzipSha256": "e185c2eb71987b10bbabe3415a05923bb81770dc572c53bbb7bb445620ca3ff0"
+  },
+  {
+    "path": "style-install-retry.log.gz",
+    "rawSha256": "d27256ac4ce91d7ae33c18013fb2f80fd6668c6fda0a3b2d7a04dd3e9ca4ae93",
+    "gzipSha256": "74ca92246fe4cc98b82d6573a1bb1e651848e5b46736e4caf4af47e6127c6c00"
+  },
+  {
+    "path": "style-install.log.gz",
+    "rawSha256": "ab497788528cadce9d5b001a003a6e100930b9885cd898e19eb48334670218ed",
+    "gzipSha256": "e0a84f3c2821eab853356b989fe2ce8966a202f2f00de5686b9edc7d0a683bf7"
+  },
+  {
+    "path": "fsusblog.openapi.observed.json.gz",
+    "rawSha256": "6a7f50e7e54e6f0055dd30950b172b4b3e625e2d2025cc8cb2ca503b4a522568",
+    "gzipSha256": "8083e9915777df1d94f444eeb7d04b399425f558dda15de0012f374229added1"
+  },
+  {
+    "path": "observation.json.gz",
+    "rawSha256": "42e908fb87167d043f1b681008486295e4a279227f3ffb0123cb433584be73b4",
+    "gzipSha256": "82823c4892526a12f1c6d8e01626711a5b2aeb364d967ade506f74663a1b4b71"
+  }
+]

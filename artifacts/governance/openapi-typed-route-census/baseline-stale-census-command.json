@@ -1,0 +1,16 @@
+{
+  "runId": "baseline-stale-census-2026-10-08T11:43:41.422020+00:00",
+  "source": "030ded219c7031ee272befd771c34b5c604aadac",
+  "command": [
+    "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "--test-name-pattern=^pre-3177 normal producer isolates only the exact owned JSON routes and emits the AEDS observation$",
+    "tests/tools/openapi-aeds-observation.test.mjs"
+  ],
+  "start": "2026-10-08T11:43:41.425030+00:00",
+  "RestoreLockedMode": "true",
+  "trackedStatusBefore": "",
+  "exitCode": 1,
+  "end": "2026-10-08T11:43:45.422409+00:00",
+  "trackedStatusAfter": ""
+}

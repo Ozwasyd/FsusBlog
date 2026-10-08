@@ -1,0 +1,18 @@
+{
+  "runId": "correction-changed-style-2026-10-08T11:44:54.899400+00:00",
+  "source": "44aa8ec232288b9c18c684f434fc3d82dfd8095b",
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--file",
+    "tests/tools/openapi-aeds-observation.test.mjs"
+  ],
+  "start": "2026-10-08T11:44:54.903410+00:00",
+  "RestoreLockedMode": null,
+  "trackedStatusBefore": "",
+  "exitCode": 0,
+  "end": "2026-10-08T11:45:10.881830+00:00",
+  "trackedStatusAfter": ""
+}

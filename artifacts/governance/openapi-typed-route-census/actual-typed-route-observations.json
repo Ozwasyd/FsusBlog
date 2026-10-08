@@ -1,0 +1,618 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/binary/author/ops/fonts/activations",
+    "operationId": "binary_get_author_ops_fonts_activations",
+    "protocol": "AEDS",
+    "aedsVersion": 2,
+    "requestFrame": null,
+    "responseFrame": "FontActivationList",
+    "errorFrame": "ApiError",
+    "successStatus": 200,
+    "resultPlacement": "aeds.frame.payload",
+    "responses": [
+      {
+        "status": 200,
+        "kind": "success",
+        "schemaRef": "aeds://frame/FontActivationList",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": null
+      },
+      {
+        "status": 401,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+      },
+      {
+        "status": 403,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+      },
+      {
+        "status": 406,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+      },
+      {
+        "status": 423,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+      },
+      {
+        "status": 429,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:429"
+      },
+      {
+        "status": 500,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/binary/author/ops/fonts/registry",
+    "operationId": "binary_get_author_ops_fonts_registry",
+    "protocol": "AEDS",
+    "aedsVersion": 2,
+    "requestFrame": null,
+    "responseFrame": "FontRegistryList",
+    "errorFrame": "ApiError",
+    "successStatus": 200,
+    "resultPlacement": "aeds.frame.payload",
+    "responses": [
+      {
+        "status": 200,
+        "kind": "success",
+        "schemaRef": "aeds://frame/FontRegistryList",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": null
+      },
+      {
+        "status": 401,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+      },
+      {
+        "status": 403,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+      },
+      {
+        "status": 406,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+      },
+      {
+        "status": 423,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+      },
+      {
+        "status": 429,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:429"
+      },
+      {
+        "status": 500,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/binary/author/ops/fonts/registry/{fontId}",
+    "operationId": "binary_get_author_ops_fonts_registry_fontId",
+    "protocol": "AEDS",
+    "aedsVersion": 2,
+    "requestFrame": null,
+    "responseFrame": "FontRegistryDetail",
+    "errorFrame": "ApiError",
+    "successStatus": 200,
+    "resultPlacement": "aeds.frame.payload",
+    "responses": [
+      {
+        "status": 200,
+        "kind": "success",
+        "schemaRef": "aeds://frame/FontRegistryDetail",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": null
+      },
+      {
+        "status": 401,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+      },
+      {
+        "status": 403,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+      },
+      {
+        "status": 406,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+      },
+      {
+        "status": 423,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+      },
+      {
+        "status": 429,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:429"
+      },
+      {
+        "status": 500,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/binary/author/ops/themes/activations",
+    "operationId": "binary_get_author_ops_themes_activations",
+    "protocol": "AEDS",
+    "aedsVersion": 2,
+    "requestFrame": null,
+    "responseFrame": "ThemeActivationList",
+    "errorFrame": "ApiError",
+    "successStatus": 200,
+    "resultPlacement": "aeds.frame.payload",
+    "responses": [
+      {
+        "status": 200,
+        "kind": "success",
+        "schemaRef": "aeds://frame/ThemeActivationList",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": null
+      },
+      {
+        "status": 401,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+      },
+      {
+        "status": 403,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+      },
+      {
+        "status": 406,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+      },
+      {
+        "status": 423,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+      },
+      {
+        "status": 429,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:429"
+      },
+      {
+        "status": 500,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/binary/author/ops/themes/activations/{scope}",
+    "operationId": "binary_get_author_ops_themes_activations_scope",
+    "protocol": "AEDS",
+    "aedsVersion": 2,
+    "requestFrame": null,
+    "responseFrame": "ThemeActivation",
+    "errorFrame": "ApiError",
+    "successStatus": 200,
+    "resultPlacement": "aeds.frame.payload",
+    "responses": [
+      {
+        "status": 200,
+        "kind": "success",
+        "schemaRef": "aeds://frame/ThemeActivation",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": null
+      },
+      {
+        "status": 401,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+      },
+      {
+        "status": 403,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+      },
+      {
+        "status": 406,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+      },
+      {
+        "status": 423,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+      },
+      {
+        "status": 429,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:429"
+      },
+      {
+        "status": 500,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/binary/author/ops/themes/activations/{scope}/history",
+    "operationId": "binary_get_author_ops_themes_activations_scope_history",
+    "protocol": "AEDS",
+    "aedsVersion": 2,
+    "requestFrame": null,
+    "responseFrame": "ThemeActivationHistory",
+    "errorFrame": "ApiError",
+    "successStatus": 200,
+    "resultPlacement": "aeds.frame.payload",
+    "responses": [
+      {
+        "status": 200,
+        "kind": "success",
+        "schemaRef": "aeds://frame/ThemeActivationHistory",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": null
+      },
+      {
+        "status": 401,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+      },
+      {
+        "status": 403,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+      },
+      {
+        "status": 406,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+      },
+      {
+        "status": 423,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+      },
+      {
+        "status": 429,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:429"
+      },
+      {
+        "status": 500,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/binary/author/ops/themes/registry",
+    "operationId": "binary_get_author_ops_themes_registry",
+    "protocol": "AEDS",
+    "aedsVersion": 2,
+    "requestFrame": null,
+    "responseFrame": "ThemeRegistryList",
+    "errorFrame": "ApiError",
+    "successStatus": 200,
+    "resultPlacement": "aeds.frame.payload",
+    "responses": [
+      {
+        "status": 200,
+        "kind": "success",
+        "schemaRef": "aeds://frame/ThemeRegistryList",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": null
+      },
+      {
+        "status": 401,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+      },
+      {
+        "status": 403,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+      },
+      {
+        "status": 406,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+      },
+      {
+        "status": 423,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+      },
+      {
+        "status": 429,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:429"
+      },
+      {
+        "status": 500,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/binary/author/ops/themes/registry/{themeId}",
+    "operationId": "binary_get_author_ops_themes_registry_themeId",
+    "protocol": "AEDS",
+    "aedsVersion": 2,
+    "requestFrame": null,
+    "responseFrame": "ThemeRegistryDetail",
+    "errorFrame": "ApiError",
+    "successStatus": 200,
+    "resultPlacement": "aeds.frame.payload",
+    "responses": [
+      {
+        "status": 200,
+        "kind": "success",
+        "schemaRef": "aeds://frame/ThemeRegistryDetail",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": null
+      },
+      {
+        "status": 401,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+      },
+      {
+        "status": 403,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+      },
+      {
+        "status": 406,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+      },
+      {
+        "status": 423,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+      },
+      {
+        "status": 429,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:429"
+      },
+      {
+        "status": 500,
+        "kind": "error",
+        "schemaRef": "aeds://frame/ApiError",
+        "contentType": "application/octet-stream",
+        "resultPlacement": "aeds.frame.payload",
+        "nullable": false,
+        "publicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+      }
+    ]
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "runId": "compiled-self-test-2026-10-08T11:47:46.761504+00:00",
+  "source": "44aa8ec232288b9c18c684f434fc3d82dfd8095b",
+  "command": [
+    "dotnet",
+    "run",
+    "--project",
+    "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+    "-c",
+    "Release",
+    "--no-build",
+    "--",
+    "--self-test"
+  ],
+  "start": "2026-10-08T11:47:46.764686+00:00",
+  "RestoreLockedMode": "true",
+  "trackedStatusBefore": "",
+  "exitCode": 0,
+  "end": "2026-10-08T11:47:52.602011+00:00",
+  "trackedStatusAfter": ""
+}
