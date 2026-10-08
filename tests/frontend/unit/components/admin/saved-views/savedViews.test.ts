@@ -14,7 +14,8 @@ import {
 } from '@/components/admin/saved-views/savedViewBuilder';
 import type {
     SavedViewBuilderDefinitions,
-    SavedViewQueryDraft
+    SavedViewQueryDraft,
+    SavedViewQuerySnapshot
 } from '@/components/admin/saved-views/savedViewBuilder';
 import {
     buildSavedViewDeepLink,
@@ -72,11 +73,16 @@ function query(): SavedViewQueryDraft {
     };
 }
 
+function snapshot(revision: number, value = query(), identity = viewId): SavedViewQuerySnapshot {
+    return { viewId: identity, revision, query: value };
+}
+
 const mounted: ReturnType<typeof mount>[] = [];
 function builder(overrides: Record<string, unknown> = {}) {
+    const { query: initialQuery = query(), ...props } = overrides;
     const wrapper = mount(SavedViewQueryBuilder, {
         attachTo: document.body,
-        props: { viewId, revision: 7, query: query(), definitions, ...overrides }
+        props: { viewId, revision: 7, snapshot: snapshot(7, initialQuery as SavedViewQueryDraft), definitions, ...props }
     });
     mounted.push(wrapper);
     return wrapper;
@@ -209,6 +215,133 @@ describe('real Vue builder controls', () => {
         expect(wrapper.text()).toContain('保存接口当前不可用');
     });
 
+    it('rejects delayed Q8 after overlapping revision8 and revision9 deliveries', async () => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.setProps({ revision: 8 });
+        await wrapper.setProps({ revision: 9 });
+        const delayed = query();
+        delayed.conditions[1]!.values = ['延迟 Q8'];
+        await wrapper.setProps({ snapshot: snapshot(8, delayed) });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        if (wrapper.find('form').exists()) {
+            await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+            await wrapper.get('form').trigger('submit');
+        }
+        expect(wrapper.emitted('submit')).toBeUndefined();
+    });
+
+    it.each(['older-first', 'newer-first'] as const)('uses only Q9 across overlapping %s response deliveries', async order => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.setProps({ revision: 8 });
+        await wrapper.setProps({ revision: 9 });
+        const q8 = query();
+        q8.conditions[1]!.values = ['延迟 Q8'];
+        const q9 = query();
+        q9.conditions[1]!.values = ['当前 Q9'];
+        const responses = order === 'older-first' ? [snapshot(8, q8), snapshot(9, q9)]
+            : [snapshot(9, q9), snapshot(8, q8)];
+        for (const response of responses) await wrapper.setProps({ snapshot: response });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('当前 Q9');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 9, query: { ...q9, pageSize: 25 } }]]);
+    });
+
+    it.each([false, true])('keeps overlapping delivery and reopen bound to Q9 with dirty=%s', async dirty => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        if (dirty) await wrapper.get('input[aria-label="条件 2 值 1"]').setValue('保留本地条件');
+        await wrapper.setProps({ revision: 8 });
+        await wrapper.setProps({ revision: 9 });
+        const q8 = query();
+        q8.conditions[1]!.values = ['延迟 Q8'];
+        await wrapper.setProps({ snapshot: snapshot(8, q8) });
+        expect(wrapper.get('input[aria-label="每页数量"]').attributes('disabled')).toBeDefined();
+        await wrapper.get('form').trigger('keydown', { key: 'Enter', ctrlKey: true });
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        await wrapper.get('[data-action="cancel"]').trigger('click');
+        expect(document.activeElement).toBe(wrapper.get('section[aria-label="视图筛选"]').element);
+        expect(wrapper.get('[data-action="edit"]').attributes('disabled')).toBeDefined();
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        expect(wrapper.find('form').exists()).toBe(false);
+        const q9 = query();
+        q9.conditions[1]!.values = ['当前 Q9'];
+        await wrapper.setProps({ snapshot: snapshot(9, q9) });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('当前 Q9');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 9, query: { ...q9, pageSize: 25 } }]]);
+    });
+
+    it('preserves an open dirty draft until cancel when Q9 arrives after delayed Q8', async () => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="条件 2 值 1"]').setValue('保留本地条件');
+        await wrapper.setProps({ revision: 8 });
+        await wrapper.setProps({ revision: 9 });
+        await wrapper.setProps({ snapshot: snapshot(8) });
+        const q9 = query();
+        q9.conditions[1]!.values = ['当前 Q9'];
+        await wrapper.setProps({ snapshot: snapshot(9, q9) });
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('保留本地条件');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        await wrapper.get('[data-action="cancel"]').trigger('click');
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 9, query: { ...q9, pageSize: 25 } }]]);
+    });
+
+    it.each(['response-first', 'target-first'] as const)('rejects the prior view snapshot across %s view switches', async order => {
+        const otherView = '22222222-2222-4222-8222-222222222222';
+        const wrapper = builder({ submitAvailable: true });
+        const otherQuery = query();
+        otherQuery.conditions[1]!.values = ['另一视图条件'];
+        await wrapper.setProps(order === 'response-first'
+            ? { snapshot: snapshot(7, otherQuery, otherView) } : { viewId: otherView });
+        await wrapper.setProps(order === 'response-first'
+            ? { viewId: otherView } : { snapshot: snapshot(7, otherQuery, otherView) });
+        await wrapper.setProps({ snapshot: snapshot(7, query(), viewId) });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('另一视图条件');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{
+            viewId: otherView, expectedRevision: 7, query: { ...otherQuery, pageSize: 25 }
+        }]]);
+    });
+
+    it('rejects a delayed response from an intermediate view and recovers after switch-back', async () => {
+        const middleView = '22222222-2222-4222-8222-222222222222';
+        const finalView = '33333333-3333-4333-8333-333333333333';
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.setProps({ viewId: middleView });
+        await wrapper.setProps({ viewId: finalView });
+        await wrapper.setProps({ snapshot: snapshot(7, query(), middleView) });
+        expect(wrapper.get('[data-action="edit"]').attributes('disabled')).toBeDefined();
+        await wrapper.setProps({ snapshot: snapshot(7, query(), finalView) });
+        await wrapper.setProps({ viewId, snapshot: snapshot(7) });
+        await wrapper.setProps({ snapshot: snapshot(7, query(), finalView) });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 7, query: { ...query(), pageSize: 25 } }]]);
+    });
+
+    it('accepts an explicitly bound new revision with the same query reference', async () => {
+        const original = query();
+        const wrapper = builder({ query: original, submitAvailable: true });
+        await wrapper.setProps({ revision: 8 });
+        await wrapper.setProps({ snapshot: snapshot(8, original) });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 8, query: { ...original, pageSize: 25 } }]]);
+    });
+
     it('submits the latest authoritative query after revision-first split updates', async () => {
         const wrapper = builder({ submitAvailable: true });
         await wrapper.get('[data-action="edit"]').trigger('click');
@@ -218,7 +351,7 @@ describe('real Vue builder controls', () => {
         expect(wrapper.get('input[aria-label="每页数量"]').attributes('disabled')).toBeDefined();
         await wrapper.get('form').trigger('submit');
         expect(wrapper.emitted('submit')).toBeUndefined();
-        await wrapper.setProps({ query: latest });
+        await wrapper.setProps({ snapshot: snapshot(8, latest) });
         expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('服务端 Q8');
         await wrapper.get('input[aria-label="每页数量"]').setValue('25');
         await wrapper.get('form').trigger('submit');
@@ -235,7 +368,7 @@ describe('real Vue builder controls', () => {
         await wrapper.get('input[aria-label="每页数量"]').setValue('25');
         const latest = query();
         latest.conditions[1]!.values = ['服务端刷新后的查询'];
-        await wrapper.setProps({ query: latest });
+        await wrapper.setProps({ snapshot: snapshot(8, latest) });
         await wrapper.get('form').trigger('submit');
         expect(wrapper.emitted('submit')).toBeUndefined();
         expect((wrapper.get('input[aria-label="每页数量"]').element as HTMLInputElement).value).toBe('25');
@@ -251,8 +384,8 @@ describe('real Vue builder controls', () => {
         await trigger.trigger('click');
         const latest = query();
         latest.conditions[1]!.values = ['配对的服务端 Q8'];
-        await wrapper.setProps(order === 'query-first' ? { query: latest } : { revision: 8 });
-        await wrapper.setProps(order === 'query-first' ? { revision: 8 } : { query: latest });
+        await wrapper.setProps(order === 'query-first' ? { snapshot: snapshot(8, latest) } : { revision: 8 });
+        await wrapper.setProps(order === 'query-first' ? { revision: 8 } : { snapshot: snapshot(8, latest) });
         expect(wrapper.get('input[aria-label="每页数量"]').attributes('disabled')).toBeUndefined();
         expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('配对的服务端 Q8');
         await wrapper.get('[data-action="cancel"]').trigger('click');
@@ -271,10 +404,10 @@ describe('real Vue builder controls', () => {
         await wrapper.get('input[aria-label="条件 2 值 1"]').setValue('本地未提交条件');
         const latest = query();
         latest.conditions[1]!.values = ['配对的服务端 Q8'];
-        await wrapper.setProps(order === 'query-first' ? { query: latest } : { revision: 8 });
+        await wrapper.setProps(order === 'query-first' ? { snapshot: snapshot(8, latest) } : { revision: 8 });
         await wrapper.get('form').trigger('submit');
         expect(wrapper.emitted('submit')).toBeUndefined();
-        await wrapper.setProps(order === 'query-first' ? { revision: 8 } : { query: latest });
+        await wrapper.setProps(order === 'query-first' ? { revision: 8 } : { snapshot: snapshot(8, latest) });
         expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('本地未提交条件');
         await wrapper.get('form').trigger('submit');
         expect(wrapper.emitted('submit')).toBeUndefined();
@@ -292,7 +425,7 @@ describe('real Vue builder controls', () => {
         await wrapper.get('[data-action="edit"]').trigger('click');
         const latest = query();
         latest.conditions[1]!.values = ['尚未配对的 Q8'];
-        await wrapper.setProps({ query: latest });
+        await wrapper.setProps({ snapshot: snapshot(8, latest) });
         await wrapper.get('[data-action="cancel"]').trigger('click');
         await wrapper.get('[data-action="edit"]').trigger('click');
         await wrapper.get('input[aria-label="每页数量"]').setValue('25');
@@ -307,7 +440,7 @@ describe('real Vue builder controls', () => {
         const wrapper = builder({ submitAvailable: true });
         const latest = query();
         latest.conditions[1]!.values = ['原子快照 Q8'];
-        await wrapper.setProps({ revision: 8, query: latest });
+        await wrapper.setProps({ revision: 8, snapshot: snapshot(8, latest) });
         await wrapper.get('[data-action="edit"]').trigger('click');
         await wrapper.get('input[aria-label="每页数量"]').setValue('25');
         await wrapper.get('form').trigger('submit');
@@ -318,7 +451,7 @@ describe('real Vue builder controls', () => {
         const original = query();
         const wrapper = builder({ query: original, submitAvailable: true });
         await wrapper.get('[data-action="edit"]').trigger('click');
-        await wrapper.setProps({ revision: 7, query: cloneSavedViewDraft(original) });
+        await wrapper.setProps({ revision: 7, snapshot: snapshot(7, cloneSavedViewDraft(original)) });
         await wrapper.get('[data-action="cancel"]').trigger('click');
         expect(document.activeElement).toBe(wrapper.get('[data-action="edit"]').element);
         await wrapper.get('[data-action="edit"]').trigger('click');
@@ -332,7 +465,7 @@ describe('real Vue builder controls', () => {
         const wrapper = builder({ query: original, submitAvailable: true });
         await wrapper.get('[data-action="edit"]').trigger('click');
         await wrapper.get('input[aria-label="条件 2 值 1"]').setValue('本地编辑');
-        await wrapper.setProps({ revision: 7, query: cloneSavedViewDraft(original) });
+        await wrapper.setProps({ revision: 7, snapshot: snapshot(7, cloneSavedViewDraft(original)) });
         expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('本地编辑');
         await wrapper.get('form').trigger('submit');
         const expected = cloneSavedViewDraft(original);
@@ -345,8 +478,8 @@ describe('real Vue builder controls', () => {
         await wrapper.get('[data-action="edit"]').trigger('click');
         const latest = query();
         latest.conditions[1]!.values = ['真正变化的 Q8'];
-        await wrapper.setProps({ query: latest });
-        await wrapper.setProps({ revision: 7, query: cloneSavedViewDraft(latest) });
+        await wrapper.setProps({ snapshot: snapshot(8, latest) });
+        await wrapper.setProps({ revision: 7, snapshot: snapshot(8, cloneSavedViewDraft(latest)) });
         await wrapper.get('[data-action="cancel"]').trigger('click');
         await wrapper.get('[data-action="edit"]').trigger('click');
         await wrapper.get('input[aria-label="每页数量"]').setValue('25');
@@ -376,7 +509,7 @@ describe('real Vue builder controls', () => {
         await wrapper.get('[data-action="edit"]').trigger('click');
         const latest = query();
         change(latest);
-        await wrapper.setProps({ revision: 7, query: latest });
+        await wrapper.setProps({ revision: 7, snapshot: snapshot(8, latest) });
         expect(wrapper.text()).toContain('正在等待对应版本');
         await wrapper.get('input[aria-label="每页数量"]').setValue('25');
         await wrapper.get('form').trigger('submit');

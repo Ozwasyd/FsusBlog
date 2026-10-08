@@ -57,6 +57,13 @@ export interface SavedViewBuilderDefinitions {
     timeZones: string[];
 }
 
+/** One server response: never stamp its query with the active selection's revision. */
+export interface SavedViewQuerySnapshot {
+    readonly viewId: string;
+    readonly revision: number;
+    readonly query: SavedViewQueryDraft;
+}
+
 export interface SavedViewDraftIssue {
     conditionIndex?: number;
     reason: string;

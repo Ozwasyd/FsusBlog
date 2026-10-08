@@ -2,6 +2,7 @@
     <section
         ref="root"
         class="saved-view-builder"
+        tabindex="-1"
         aria-label="视图筛选"
     >
         <ElButton
@@ -233,14 +234,14 @@ import type {
     SavedViewBuilderDefinitions,
     SavedViewCondition,
     SavedViewDraftSubmission,
-    SavedViewQueryDraft
+    SavedViewQuerySnapshot
 } from './savedViewBuilder';
 
 const props = withDefaults(defineProps<{
     viewId: string;
     revision: number;
-    /** Replacement immutable query and its revision may arrive in either order. */
-    query: SavedViewQueryDraft;
+    /** Response coordinates travel atomically with the immutable query, separately from the current target. */
+    snapshot: SavedViewQuerySnapshot;
     definitions: SavedViewBuilderDefinitions | null;
     submitAvailable?: boolean;
     commandState?: 'idle' | 'pending' | 'failure' | 'conflict' | 'stale';
@@ -258,17 +259,19 @@ const emit = defineEmits<{
 
 const open = ref(false);
 const acceptedSource = ref({
-    viewId: props.viewId,
-    revision: props.revision,
-    query: cloneSavedViewDraft(props.query)
+    viewId: props.snapshot.viewId,
+    revision: props.snapshot.revision,
+    query: cloneSavedViewDraft(props.snapshot.query)
 });
-let sourceQueryReference = props.query;
-let sourceQuerySnapshot = cloneSavedViewDraft(props.query);
-const sourceReady = ref(true);
-const queryAwaitingRevision = ref(false);
-const draft = ref(cloneSavedViewDraft(props.query));
-const baseRevision = ref(props.revision);
-const baseViewId = ref(props.viewId);
+const sourceReady = computed(() => acceptedSource.value.viewId === props.viewId
+    && Number.isSafeInteger(props.revision) && props.revision > 0
+    && Number.isSafeInteger(acceptedSource.value.revision)
+    && acceptedSource.value.revision >= props.revision);
+const queryAwaitingRevision = computed(() => sourceReady.value
+    && acceptedSource.value.revision !== props.revision);
+const draft = ref(cloneSavedViewDraft(props.snapshot.query));
+const baseRevision = ref(props.snapshot.revision);
+const baseViewId = ref(props.snapshot.viewId);
 const dirty = ref(false);
 const drifted = ref(false);
 const form = ref<HTMLFormElement | null>(null);
@@ -286,40 +289,31 @@ const canSubmit = computed(() => props.submitAvailable && editable.value
     && !queryAwaitingRevision.value && !drifted.value && !['conflict', 'stale'].includes(props.commandState)
     && dirty.value && issues.value.length === 0);
 
-watch(() => [props.viewId, props.revision, props.query] as const, () =>
+watch(() => [props.viewId, props.revision, props.snapshot] as const, (current, previous) =>
 {
-    const identityChanged = props.viewId !== acceptedSource.value.viewId
-        || props.revision !== acceptedSource.value.revision;
-    const queryUnchanged = sameSavedViewDraft(props.query, sourceQuerySnapshot);
-    // Split prop delivery must not certify Q7 with revision8. Wait for the
-    // associated immutable query object even if the editor is currently clean.
-    if (identityChanged && props.query === sourceQueryReference)
+    const targetChanged = current[0] !== previous[0] || current[1] !== previous[1];
+    const snapshot = props.snapshot;
+    // Only the response's own coordinates bind its query. A delayed Q8 cannot
+    // become Q9 by reference replacement; obsolete or foreign responses are ignored.
+    const canAccept = snapshot.viewId === props.viewId
+        && Number.isSafeInteger(snapshot.revision) && snapshot.revision > 0
+        && snapshot.revision >= props.revision
+        && (snapshot.viewId !== acceptedSource.value.viewId
+            || snapshot.revision >= acceptedSource.value.revision);
+    const sourceChanged = canAccept && (snapshot.viewId !== acceptedSource.value.viewId
+        || snapshot.revision !== acceptedSource.value.revision
+        || !sameSavedViewDraft(snapshot.query, acceptedSource.value.query));
+    if (canAccept)
     {
-        sourceReady.value = false;
-        if (open.value && dirty.value)
-        {
-            drifted.value = true;
-        }
-        return;
+        acceptedSource.value = {
+            viewId: snapshot.viewId,
+            revision: snapshot.revision,
+            query: cloneSavedViewDraft(snapshot.query)
+        };
     }
-    acceptedSource.value = {
-        viewId: props.viewId,
-        revision: props.revision,
-        query: cloneSavedViewDraft(props.query)
-    };
-    // Keep the last revision-bound reference until both halves have arrived.
-    // Accepting a query-only refresh must not consume the reference needed to
-    // pair a later revision, nor permit a CAS with the old revision meanwhile.
-    if (identityChanged || queryUnchanged)
-    {
-        sourceQueryReference = props.query;
-        sourceQuerySnapshot = cloneSavedViewDraft(props.query);
-    }
-    queryAwaitingRevision.value = !identityChanged && !queryUnchanged;
-    sourceReady.value = true;
     if (open.value && dirty.value)
     {
-        if (identityChanged || !queryUnchanged)
+        if (targetChanged || sourceChanged)
         {
             drifted.value = true;
         }
@@ -362,13 +356,21 @@ async function cancel(): Promise<void>
     open.value = false;
     emit('cancel');
     await nextTick();
-    if (returnFocus?.isConnected)
+    if (returnFocus?.isConnected && !returnFocus.matches(':disabled'))
     {
         returnFocus.focus();
     }
     else
     {
-        root.value?.querySelector<HTMLButtonElement>('[data-action="edit"]')?.focus();
+        const trigger = root.value?.querySelector<HTMLButtonElement>('[data-action="edit"]');
+        if (trigger && !trigger.disabled)
+        {
+            trigger.focus();
+        }
+        else
+        {
+            root.value?.focus();
+        }
     }
 }
 
