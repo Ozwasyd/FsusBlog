@@ -1,0 +1,52 @@
+{
+  "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "frozenBase": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "parents": [
+    "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+    "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f"
+  ],
+  "exactChangedFiles": [
+    "tests/tools/atomic-producer-compiler.test.mjs",
+    "tests/tools/correctness-seal-error-precedence.test.mjs",
+    "tools/test-matrix/atomic-producers/README.md",
+    "tools/test-matrix/atomic-producers/execution.mjs",
+    "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+  ],
+  "exactOwnerBlobs": [
+    {
+      "path": "tests/tools/correctness-seal-error-precedence.test.mjs",
+      "ownerCommit": "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+      "ownerBlob": "c0421ac160fbd01d895445c1ad1364c537cd93eb",
+      "compositionBlob": "c0421ac160fbd01d895445c1ad1364c537cd93eb"
+    },
+    {
+      "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+      "ownerCommit": "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+      "ownerBlob": "a4554583b5761c898d3a1538ee7d348bf17093af",
+      "compositionBlob": "a4554583b5761c898d3a1538ee7d348bf17093af"
+    },
+    {
+      "path": "tests/tools/atomic-producer-compiler.test.mjs",
+      "ownerCommit": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+      "ownerBlob": "d3c80b3db8ea2438971a0a93b646efd9966c2047",
+      "compositionBlob": "d3c80b3db8ea2438971a0a93b646efd9966c2047"
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/README.md",
+      "ownerCommit": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+      "ownerBlob": "122df0149aa473aaca35df0e3694308dff529e17",
+      "compositionBlob": "122df0149aa473aaca35df0e3694308dff529e17"
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/execution.mjs",
+      "ownerCommit": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+      "ownerBlob": "8de3589ece367f3f8a6029f0b0dce0d8a5e03bda",
+      "compositionBlob": "8de3589ece367f3f8a6029f0b0dce0d8a5e03bda"
+    }
+  ],
+  "bundleStepsUnchanged": true,
+  "laterPreAttemptHookIncluded": false,
+  "inputReaderDraftIncluded": false,
+  "fixturesIndexAndMetadataUnchanged": true,
+  "newReviewCreated": false
+}

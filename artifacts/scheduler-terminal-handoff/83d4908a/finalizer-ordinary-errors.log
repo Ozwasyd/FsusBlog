@@ -1,0 +1,13 @@
+✔ ordinary extensible Error retains its cause and exposes secondary seal diagnostics (1.140598ms)
+✔ nonextensible but unfrozen Error keeps its original identity and descriptors (0.852607ms)
+✔ sealed Error retains secondary diagnostics without changing its own properties (0.250425ms)
+✔ frozen Error retains its original secondary diagnostic outside the error object (0.197025ms)
+✔ an existing readonly diagnostic property cannot replace the primary error (0.225758ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 559.288389

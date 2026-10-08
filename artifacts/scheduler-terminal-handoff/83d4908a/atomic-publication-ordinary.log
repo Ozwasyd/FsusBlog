@@ -1,0 +1,11 @@
+✔ terminal publication failure retains the earlier producer failure as primary (172.349818ms)
+✔ terminal publication failure retains the original cancellation Error object (131.513638ms)
+✔ terminal publication failure without an earlier execution failure rejects with the write Error (114.955806ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 537.563554

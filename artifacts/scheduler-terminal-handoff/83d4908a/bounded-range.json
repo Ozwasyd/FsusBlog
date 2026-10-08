@@ -1,0 +1,15 @@
+{
+  "key": "bounded-range",
+  "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "6ed505c7a47029463d979682ad64fa8fbd58ba25..83d4908a1420c519dddb5fbb87f225880a731f13"
+  ],
+  "status": "COMPLETED",
+  "exitCode": 0,
+  "elapsedSeconds": 1.572,
+  "log": "/workspace/scheduler-two-p2-evidence/bounded-range.log",
+  "logSha256": "11a2c5fe9416c9d2836fb6571b67983aba86132ec75266d39929d27a9a10c83a"
+}

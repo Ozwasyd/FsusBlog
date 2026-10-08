@@ -1,0 +1,209 @@
+{
+  "repository": "Ozwasyd/FsusBlog",
+  "sourceThread": "01a1142b-a0b5-7419-a4df-a8bbe54660dd",
+  "coordinator": "01a119be-e15d-7134-badb-2af41ed14004",
+  "existingBoundedReview": "01a11adf-0d01-76bb-83e1-8cfe3077401d",
+  "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "sourceBranch": "task/scheduler-terminal-two-p2",
+  "frozenSource": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "frozenSourceBranch": "task/scheduler-terminal-canonical-source",
+  "frozenBranchUnchanged": true,
+  "compositionParents": [
+    "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+    "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f"
+  ],
+  "exactDeltaPaths": [
+    "tests/tools/atomic-producer-compiler.test.mjs",
+    "tests/tools/correctness-seal-error-precedence.test.mjs",
+    "tools/test-matrix/atomic-producers/README.md",
+    "tools/test-matrix/atomic-producers/execution.mjs",
+    "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+  ],
+  "sourceOwnership": {
+    "dbda69ceb81e5c79481db2e13515e7371a6d291e": "This partition: original finalizer error identity and secondary WeakMap diagnostics.",
+    "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f": "Sole atomic framework owner01a119f8-07b7-73d2-b926-b76b9fb78008: original producer/cancellation cause and secondary publicationError."
+  },
+  "allFiveChangedBlobsMatchExactOwners": true,
+  "bundleStepsUnchanged": true,
+  "laterPreAttempt39466Included": false,
+  "inputReaderDraftIncluded": false,
+  "preTestImportAndHooksChecked": true,
+  "allowedControls": {
+    "finalizerOrdinaryErrorObjects": {
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "atomicOrdinaryTerminalPublication": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "exactNamePattern": "^terminal publication failure (retains the earlier producer failure as primary|retains the original cancellation Error object|without an earlier execution failure rejects with the write Error)$",
+      "registeredCallbacksInFile": 22,
+      "excludedCallbacksNotExecuted": 19
+    }
+  },
+  "newTestOrEquivalentHarnessAddedByComposition": false,
+  "allowedExecutionAttribution": "Five finalizer ordinary Error-object controls and only the three coordinator-approved owner-supplied terminal-publication controls, after explicit import/hook inspection. Atomic19 other callbacks, coupled finalizer suites, held semantic/cohort/tamper audits and equivalent harnesses remain unexecuted.",
+  "style": {
+    "changedJSFiles": 4,
+    "ESLintExitCode": 0,
+    "changedMarkdownFiles": 1,
+    "originalPinnedMarkdownExitCode": 0
+  },
+  "boundedRangeExitCode": 0,
+  "commands": {
+    "finalizer-ordinary-errors": {
+      "key": "finalizer-ordinary-errors",
+      "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+      "command": [
+        "/tmp/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/correctness-seal-error-precedence.test.mjs"
+      ],
+      "status": "COMPLETED",
+      "exitCode": 0,
+      "elapsedSeconds": 0.622,
+      "log": "/workspace/scheduler-two-p2-evidence/finalizer-ordinary-errors.log",
+      "logSha256": "561db5439fcd614fe63449a1a9121de4fe1dcf83b217fd63af3f46e0bd5844e9"
+    },
+    "atomic-publication-ordinary": {
+      "key": "atomic-publication-ordinary",
+      "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+      "command": [
+        "/tmp/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "--test-name-pattern",
+        "^terminal publication failure (retains the earlier producer failure as primary|retains the original cancellation Error object|without an earlier execution failure rejects with the write Error)$",
+        "tests/tools/atomic-producer-compiler.test.mjs"
+      ],
+      "status": "COMPLETED",
+      "exitCode": 0,
+      "elapsedSeconds": 0.623,
+      "log": "/workspace/scheduler-two-p2-evidence/atomic-publication-ordinary.log",
+      "logSha256": "7086530f7b6a80f0679ac74cde2d294b5b49f86d5ecd1d414455a1b8688914df"
+    },
+    "changed-eslint": {
+      "key": "changed-eslint",
+      "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+      "command": [
+        "/tmp/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+        "tests/tools/correctness-seal-error-precedence.test.mjs",
+        "tools/test-matrix/atomic-producers/execution.mjs",
+        "tests/tools/atomic-producer-compiler.test.mjs"
+      ],
+      "status": "COMPLETED",
+      "exitCode": 0,
+      "elapsedSeconds": 1.722,
+      "log": "/workspace/scheduler-two-p2-evidence/changed-eslint.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "changed-markdown": {
+      "key": "changed-markdown",
+      "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+      "command": [
+        "/tmp/node-v24.16.0-linux-x64/bin/node",
+        "tools/style/check-native-tooling-style.mjs",
+        "--operation",
+        "lint",
+        "--mode",
+        "changed",
+        "--domain",
+        "docs",
+        "--base",
+        "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+        "--file",
+        "tools/test-matrix/atomic-producers/README.md",
+        "--require-tools"
+      ],
+      "status": "COMPLETED",
+      "exitCode": 0,
+      "elapsedSeconds": 0.371,
+      "log": "/workspace/scheduler-two-p2-evidence/changed-markdown.log",
+      "logSha256": "b608acafb63a002126a587f683eb22e426cb681ff44d215c85f96dee49eb5ec4"
+    },
+    "bounded-range": {
+      "key": "bounded-range",
+      "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+      "command": [
+        "/tmp/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "6ed505c7a47029463d979682ad64fa8fbd58ba25..83d4908a1420c519dddb5fbb87f225880a731f13"
+      ],
+      "status": "COMPLETED",
+      "exitCode": 0,
+      "elapsedSeconds": 1.572,
+      "log": "/workspace/scheduler-two-p2-evidence/bounded-range.log",
+      "logSha256": "11a2c5fe9416c9d2836fb6571b67983aba86132ec75266d39929d27a9a10c83a"
+    }
+  },
+  "SOURCE": "UNRUN on this composition; frozen6ed SOURCE93/boundary103/fixed-point receipts are not transplanted. Existing fixture/index/binding bytes remain unchanged; original3521 must regenerate/rebind the final exact candidate for SOURCE admission.",
+  "canonicalOwnerFollowup": "canonical-binding-request.json",
+  "runtimeCohortHistoricalQualification": false,
+  "newReviewCreated": false,
+  "newPRCreated": false,
+  "issueOrCommentContentWrites": false,
+  "selfMerge": false,
+  "issuesClosed": false,
+  "upstreamBaselineFailureEvidence": "Coordinator reports owner reproduced two old6ed ordinary publication controls as failing. This partition did not rerun/relabel that baseline as its own evidence.",
+  "evidenceFiles": [
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/finalizer-ordinary-errors.json",
+      "sha256": "ce32a9536e767bddf0ce7ddae5d72d9da91ac163090660660a2029effb07cbc0"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/finalizer-ordinary-errors.log",
+      "sha256": "561db5439fcd614fe63449a1a9121de4fe1dcf83b217fd63af3f46e0bd5844e9"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/atomic-publication-ordinary.json",
+      "sha256": "6d8e052b63f3e00a73073bc41bd931496f6be791171fe785cea6299aa5022f5a"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/atomic-publication-ordinary.log",
+      "sha256": "7086530f7b6a80f0679ac74cde2d294b5b49f86d5ecd1d414455a1b8688914df"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/changed-eslint.json",
+      "sha256": "6eb6d293d371c913a75098a83323ce8d2d511150ba45cb75d729228234198cc9"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/changed-eslint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/changed-markdown.json",
+      "sha256": "ab8583a13dc48f25929462a80cf21f69a4d6c37911f7acbcdcd26d669e9efe6a"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/changed-markdown.log",
+      "sha256": "b608acafb63a002126a587f683eb22e426cb681ff44d215c85f96dee49eb5ec4"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/bounded-range.json",
+      "sha256": "72ce8ece9d9e0355105d952621811bcf3d33d751df45e83abceeb276476ab153"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/bounded-range.log",
+      "sha256": "11a2c5fe9416c9d2836fb6571b67983aba86132ec75266d39929d27a9a10c83a"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/composition-provenance.json",
+      "sha256": "799a391cee73bae418a8f0320169e979a300b08387bcdf27bd5dd7115373422e"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/pre-test-import-hook-check.json",
+      "sha256": "29b4c26d5bee71eb2a5107a88ec0bfe832057adddfa4b9a313babc5ddf5e22df"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/canonical-binding-request.json",
+      "sha256": "7f56e4de725ea138d8cc9f7491a0a23b46b699ec81290074fa4bf569bbb60b0d"
+    }
+  ],
+  "ordinaryIncrementOnly": "This composition is not full41-file or runtime acceptance. Original frozen source remains separate for bounded review; no independent framework repair, matrix/registry/authority mutation or later hook capability is added."
+}

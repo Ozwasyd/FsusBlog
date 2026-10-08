@@ -1,0 +1,16 @@
+{
+  "key": "atomic-publication-ordinary",
+  "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "--test-name-pattern",
+    "^terminal publication failure (retains the earlier producer failure as primary|retains the original cancellation Error object|without an earlier execution failure rejects with the write Error)$",
+    "tests/tools/atomic-producer-compiler.test.mjs"
+  ],
+  "status": "COMPLETED",
+  "exitCode": 0,
+  "elapsedSeconds": 0.623,
+  "log": "/workspace/scheduler-two-p2-evidence/atomic-publication-ordinary.log",
+  "logSha256": "7086530f7b6a80f0679ac74cde2d294b5b49f86d5ecd1d414455a1b8688914df"
+}

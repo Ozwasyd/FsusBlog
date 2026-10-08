@@ -1,0 +1,14 @@
+{
+  "key": "finalizer-ordinary-errors",
+  "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/correctness-seal-error-precedence.test.mjs"
+  ],
+  "status": "COMPLETED",
+  "exitCode": 0,
+  "elapsedSeconds": 0.622,
+  "log": "/workspace/scheduler-two-p2-evidence/finalizer-ordinary-errors.log",
+  "logSha256": "561db5439fcd614fe63449a1a9121de4fe1dcf83b217fd63af3f46e0bd5844e9"
+}
