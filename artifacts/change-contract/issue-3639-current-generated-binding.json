@@ -10,8 +10,7 @@
         "tools/governance/change-contract-registry.mjs",
         "tools/frontend/check-frontend-style-source-base.test.mjs",
         "tools/test-matrix/pr-impact-plan.mjs",
-        "tools/test/correctness-attempt-migration.mjs",
-        "tools/test-matrix/execution-dependency-contract.mjs"
+        "tools/test/correctness-attempt-migration.mjs"
     ],
     "outputs": [
         {
