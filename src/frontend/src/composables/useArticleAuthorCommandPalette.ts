@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, watch, type Ref } from 'vue';
+import { computed, onScopeDispose, ref, watch, type Ref } from 'vue';
 
 // Exact public method of MarkdownTextEditor; no command or editor state is projected here.
 type PaletteOwner = Readonly<{ openCommandPalette: () => void; }>;
@@ -12,13 +12,24 @@ interface ArticleAuthorCommandPaletteOptions {
 /** Present the existing editor palette; command availability and execution stay with its owner. */
 export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPaletteOptions)
 {
-    const available = computed(() => options.enabled.value && options.editor.value !== null);
+    const active = ref(true);
+    const available = computed(() => active.value && options.enabled.value && options.editor.value !== null);
+    // Scoped shortcut admission only; input transactions remain with the native editor owner.
+    let composing = false;
+    const beginComposition = (): void =>
+    {
+        composing = true;
+    };
+    const endComposition = (): void =>
+    {
+        composing = false;
+    };
 
     // The boolean confirms delegation, never a business result or an opened-surface receipt.
     const open = (): boolean =>
     {
         const editor = options.editor.value;
-        if (!options.enabled.value || editor === null)
+        if (!available.value || composing || editor === null)
         {
             return false;
         }
@@ -28,7 +39,7 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
 
     const handleShortcut = (event: KeyboardEvent): void =>
     {
-        if (event.defaultPrevented || event.isComposing || event.keyCode === 229 ||
+        if (event.defaultPrevented || composing || event.isComposing || event.keyCode === 229 ||
             event.altKey || event.shiftKey || event.ctrlKey === event.metaKey ||
             event.key.toLowerCase() !== 'p' || !available.value)
         {
@@ -42,16 +53,29 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
         }
     };
 
-    const stopWatching = watch(options.shortcutScope, (scope, _previous, onCleanup) =>
+    const stopWatching = watch([options.shortcutScope, options.editor], ([scope, editor], _previous, onCleanup) =>
     {
-        if (scope === null)
+        composing = false;
+        if (scope === null || editor === null)
         {
             return;
         }
         scope.addEventListener('keydown', handleShortcut, true);
-        onCleanup(() => scope.removeEventListener('keydown', handleShortcut, true));
+        scope.addEventListener('compositionstart', beginComposition, true);
+        scope.addEventListener('compositionend', endComposition, true);
+        onCleanup(() =>
+        {
+            scope.removeEventListener('keydown', handleShortcut, true);
+            scope.removeEventListener('compositionstart', beginComposition, true);
+            scope.removeEventListener('compositionend', endComposition, true);
+            composing = false;
+        });
     }, { immediate: true, flush: 'sync' });
-    onScopeDispose(stopWatching);
+    onScopeDispose(() =>
+    {
+        active.value = false;
+        stopWatching();
+    });
 
     return { available, open };
 }
