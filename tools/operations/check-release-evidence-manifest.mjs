@@ -2222,6 +2222,8 @@ async function runSelfTest()
             }
         }
     };
+    const { createReleaseIdentityRosterFixture } = await import('../../tests/tools/support/release-readiness-test-helpers.mjs');
+    base.releaseIdentity.identity = createReleaseIdentityRosterFixture(base.releaseIdentity);
     const { releaseSlot: unitSlot, ...unitManifest } = base.releaseIdentity;
     unitManifest.candidateId = deriveReleaseCandidateId(unitManifest);
     unitManifest.contentDigest = deriveReleaseManifestContentDigest(unitManifest);

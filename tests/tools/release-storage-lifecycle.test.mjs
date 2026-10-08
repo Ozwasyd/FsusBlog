@@ -1,4 +1,4 @@
-import { createCurrentSchemaReleaseBindingFixture } from './support/release-readiness-test-helpers.mjs';
+import { createCurrentSchemaReleaseBindingFixture, createReleaseIdentityRosterFixture } from './support/release-readiness-test-helpers.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -419,6 +419,7 @@ test('host CLIs emit stable machine JSON and retained asset gate fails closed', 
         frontendManifestHash: `sha256:${'b'.repeat(64)}`,
         wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
         currentSchema: createCurrentSchemaReleaseBindingFixture(),
+        identity: createReleaseIdentityRosterFixture({ commitSha: '0123456789abcdef0123456789abcdef01234567', imageDigest: `sha256:${'a'.repeat(64)}`, frontendManifestHash: `sha256:${'b'.repeat(64)}`, wasmArtifactHash: `sha256:${'c'.repeat(64)}` }),
         dotnetVersion: '10.0.100',
         nodeVersion: 'v20.19.0',
         dockerVersion: '28.0.0',

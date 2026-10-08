@@ -134,6 +134,12 @@ fi
 # Release byte binding is separate from canonical offline verification and live
 # startup admission; the build cannot manufacture a current-schema receipt.
 if [[ "$PUSH_IMAGE" == "1" ]]; then
+    [[ -n "${FSUSBLOG_RELEASE_IDENTITY_ROSTER:-}" && -n "${FSUSBLOG_RELEASE_IDENTITY_ROSTER_SHA256:-}" ]] ||
+        Fail "PUSH=1 requires an explicit closed release identity roster and artifact SHA-256"
+    node "$ROOT_DIR/tools/release/check-release-manifest.mjs" --identity-roster-byte-binding true \
+        --identity-roster "$FSUSBLOG_RELEASE_IDENTITY_ROSTER" \
+        --identity-roster-sha256 "$FSUSBLOG_RELEASE_IDENTITY_ROSTER_SHA256" >/dev/null ||
+        Fail "release identity roster byte binding failed"
     [[ ! -v FSUSBLOG_SCHEMA_MINIMUM_COORDINATE && ! -v FSUSBLOG_SCHEMA_MAXIMUM_COORDINATE ]] ||
         Fail "schema compatibility inputs are unsupported"
     [[ -n "${FSUSBLOG_CURRENT_SCHEMA_RECEIPT:-}" && -n "${FSUSBLOG_CURRENT_SCHEMA_RECEIPT_SHA256:-}" ]] ||
@@ -473,6 +479,8 @@ node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --image-digest "$image_digest" \
     --frontend-manifest-hash "$frontend_manifest_hash" \
     --wasm-artifact-hash "$wasm_artifact_hash" \
+    --identity-roster "$FSUSBLOG_RELEASE_IDENTITY_ROSTER" \
+    --identity-roster-sha256 "$FSUSBLOG_RELEASE_IDENTITY_ROSTER_SHA256" \
     --current-schema-receipt "$FSUSBLOG_CURRENT_SCHEMA_RECEIPT" \
     --current-schema-receipt-sha256 "$FSUSBLOG_CURRENT_SCHEMA_RECEIPT_SHA256" \
     --dotnet-version "$dotnet_version" \

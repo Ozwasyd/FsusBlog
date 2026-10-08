@@ -2,6 +2,8 @@
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs';
 
 import { createReleaseIdValueContract } from './release-id-value-contract.mjs';
+import { releaseIdentityRosterContent, validateReleaseIdentityRoster } from './release-manifest-identity-contract.mjs';
+
 
 export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v3';
 const SHA256 = /^sha256:[0-9a-f]{64}$/u;
@@ -24,6 +26,7 @@ const TOP_LEVEL_FIELDS = new Set([
     'frontendManifestHash',
     'wasmArtifactHash',
     'currentSchema',
+    'identity',
     'toolchain',
     'runtimeProfile',
     'build'
@@ -147,6 +150,7 @@ export function deriveReleaseCandidateId(manifest)
     const binding = manifest.currentSchema;
     return `sha256:${digestValue(stable({
         schema: RELEASE_MANIFEST_SCHEMA,
+        identity: releaseIdentityRosterContent(manifest.identity),
         commitSha: manifest.commitSha,
         imageDigest: manifest.imageDigest,
         frontendManifestHash: manifest.frontendManifestHash,
@@ -186,6 +190,16 @@ export function createReleaseManifestValueContract({ releaseIdContract })
         {
             throw new Error('schema compatibility inputs are unsupported; use the exact current-schema receipt binding');
         }
+        const inputFields = new Set(['releaseId', 'commitSha', 'imageRepository', 'imageTag', 'imageDigest',
+            'registryDigestVerified', 'createdAtUtc', 'frontendManifestHash', 'wasmArtifactHash', 'currentSchema',
+            'identity', 'dotnetVersion', 'nodeVersion', 'dockerVersion', 'dockerfileDigest', 'runtimeProfile', 'target']);
+        for (const key of Object.keys(input))
+        {
+            if (!inputFields.has(key))
+            {
+                throw new Error(`unsupported release manifest input: ${key}`);
+            }
+        }
         const manifest = {
             schema: RELEASE_MANIFEST_SCHEMA,
             releaseId: input.releaseId,
@@ -199,6 +213,7 @@ export function createReleaseManifestValueContract({ releaseIdContract })
             frontendManifestHash: input.frontendManifestHash,
             wasmArtifactHash: input.wasmArtifactHash,
             currentSchema: input.currentSchema,
+            identity: input.identity,
             toolchain: {
                 dotnetVersion: input.dotnetVersion,
                 nodeVersion: input.nodeVersion,
@@ -290,6 +305,7 @@ export function createReleaseManifestValueContract({ releaseIdContract })
             };
         }
         errors.push(...validateCurrentSchemaBinding(manifest.currentSchema));
+        errors.push(...validateReleaseIdentityRoster(manifest));
         if (!manifest.toolchain || typeof manifest.toolchain !== 'object')
         {
             errors.push('toolchain is required');
