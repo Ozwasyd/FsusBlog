@@ -1695,6 +1695,24 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                     "article_property_definition_history_write_isolation"
                 ]));
 
+        result.Add(
+            "20261006-post-article-canvas-link-history",
+            new OnlineSchemaMigrationMetadata(
+                "20261006-post-article-canvas-link-history",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20261006-article-canvas-links"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators: ["descriptor_policy", "n_minus_one_read_write", "article_canvas_link_owner_site_scope",
+                    "article_canvas_link_canonical_cas", "article_canvas_link_revision_history", "article_canvas_link_receipt_integrity"]));
+
         return new ReadOnlyDictionary<string, OnlineSchemaMigrationMetadata>(result);
     }
 

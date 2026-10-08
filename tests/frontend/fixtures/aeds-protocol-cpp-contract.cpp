@@ -369,6 +369,13 @@ int main(int argc, char** argv)
                 }
             }
 
+            else if (frame_type >= 266 && frame_type <= 268)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::ArticleCanvasLinkPayloadInvalid)
+                {
+                    return 16;
+                }
+            }
             else if (!decoded.ok || decoded.frame_type != frame_type || decoded.payload_len != 0U)
             {
                 return 12;

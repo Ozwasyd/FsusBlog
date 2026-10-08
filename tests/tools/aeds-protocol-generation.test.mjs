@@ -54,7 +54,33 @@ test('the original producer owns five products with manifest-derived identities 
     assert.deepEqual(golden.frames, [...manifest.frameTypes]
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
-    assert.equal(golden.frames.length, 244);
+    assert.equal(golden.frames.filter(frame => frame.value <= 252).length, 244);
+    assert.equal(golden.frames.length, 260);
+});
+
+test('the Canvas and article-link additions retain independently named roots and wire identities', () =>
+{
+    const expected = [
+        ['AuthoringCanvasCreateRequest', 253, 'authoring-canvas'],
+        ['AuthoringCanvasDocumentHeader', 254, 'authoring-canvas'],
+        ['AuthoringCanvasListResponse', 255, 'authoring-canvas'],
+        ['AuthoringCanvasNodesResponse', 256, 'authoring-canvas'],
+        ['AuthoringCanvasEdgesResponse', 257, 'authoring-canvas'],
+        ['AuthoringCanvasApplyRequest', 258, 'authoring-canvas'],
+        ['AuthoringCanvasOperationReceipt', 259, 'authoring-canvas'],
+        ['AuthoringCanvasUndoRedoRequest', 260, 'authoring-canvas'],
+        ['AuthoringCanvasHistoryResponse', 261, 'authoring-canvas'],
+        ['AuthoringCanvasDeleteRequest', 262, 'authoring-canvas'],
+        ['AuthoringCanvasWriteReceipt', 263, 'authoring-canvas'],
+        ['AuthoringCanvasResolveRequest', 264, 'authoring-canvas'],
+        ['AuthoringCanvasReferenceResolutionBatch', 265, 'authoring-canvas'],
+        ['ArticleCanvasLinkRequest', 266, 'article-canvas-link'],
+        ['ArticleCanvasLinkReceipt', 267, 'article-canvas-link'],
+        ['ArticleCanvasLinkHistoryResponse', 268, 'article-canvas-link']
+    ];
+    const actual = goldenFrom(manifest).frames.filter(frame => frame.value >= 253)
+        .map(frame => [frame.name, frame.value, frame.family]);
+    assert.deepEqual(actual, expected);
 });
 
 test('the original 236 golden records, evidence and retirement remain unchanged', () =>
@@ -135,7 +161,7 @@ for (const [label, mutate, expected] of [
 test('every frame, including future registrations, must explicitly provide complete golden metadata', () =>
 {
     const source = structuredClone(manifest);
-    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 244 });
+    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 260 });
     const golden = goldenFrom(source);
     assert.deepEqual(golden.frames.at(-1), { name: 'FutureFrame', value: 65535, family: 'test-response' });
 });

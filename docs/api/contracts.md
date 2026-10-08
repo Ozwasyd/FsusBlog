@@ -2912,6 +2912,36 @@ seals facts and checks document/content/history CAS through the sole engine.
 The binary binder caps the complete request frame at 8 MiB. Pages hold at most
 256 records; int64 values remain decimal strings in TypeScript. The client uses
 the existing administrator request lease, binary transport and decoder. No JSON
-fallback, browser document authority, public Canvas route or article write is
-introduced. See the [document boundary](../architecture/authoring-canvas-document-boundary.md).
+fallback, browser document authority or public Canvas route is introduced. See the [document boundary](../architecture/authoring-canvas-document-boundary.md).
 Source and codec verification do not establish HTTP/PostgreSQL or rendered UX acceptance.
+
+## Canvas edge conversion through the article owner
+
+`POST /api/binary/author/articles/{articleId:int}/canvas-links` consumes typed
+`ArticleCanvasLinkRequest` (266) and returns `ArticleCanvasLinkReceipt` (267).
+`GET /api/binary/author/articles/{articleId:int}/canvas-links/history` returns
+`ArticleCanvasLinkHistoryResponse` (268). Both routes retain the authenticated
+administrator, primary-site `ArticleWrite`, private/no-store response policy and
+unified `ApiError`; the mutation retains PoW. The server rechecks the active
+principal, source and target access, article revision and Canvas header/content
+CAS, and persisted edge/node/coordinate facts. Link text and public route/anchor
+are derived by the server.
+
+`IArticleCanvasLinkWriter` resolves to the existing scoped `ArticleService`.
+Conversion enters its canonical transaction and invokes `UpdateAsync`, preserving
+publication, assets, rights, outbox and public mutation fences. Article revisions,
+the append-only receipt journal and bounded undo/redo head commit together.
+Undo/redo creates a new canonical revision from the original revision source;
+a later unrelated article edit invalidates the old undo branch. Exact request
+replay recovers the committed receipt without a second write, even after the
+historical Canvas/target disappears. Source access remains required. Permanent
+article deletion removes the mutable history head and retains scalar audit
+receipts and immutable revisions.
+
+The frontend provider binds the administrator generation and owner, validates
+request/receipt/history digests and int64 strings, and retains the exact UUID and
+bytes after an uncertain result. Retrying a pending write cannot invent a new
+request or acknowledge a stale private response. Typed payloads are bounded at
+128 KiB and use the same closed scalar substrate as Canvas. Source and codec
+checks do not certify real HTTP, PostgreSQL transaction or rendered interaction
+acceptance.

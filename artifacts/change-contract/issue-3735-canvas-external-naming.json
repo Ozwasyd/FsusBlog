@@ -5,7 +5,8 @@
             "id": "content-doc-exactness-authority",
             "paths": [
                 "docs/api/contracts.md",
-                "tests/governance/test-lifecycle-registry.json"
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json"
             ],
             "reason": "The content exactness catalogs, current documentation authorities, test registries and receipt tooling must change atomically while preserving existing external JSON, Markdown marker, command-line and receipt identifiers; internal JavaScript symbols remain governed by the repository mapping. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
         },
@@ -46,7 +47,27 @@
                 "tools/governance/check-authoring-canvas-authority.mjs",
                 "src/backend/Services/Authoring/AuthoringCanvasDocumentContracts.cs",
                 "src/backend/Services/Authoring/AuthoringCanvasOperationContracts.cs",
-                "src/backend/Services/Authoring/AuthoringCanvasReferenceContracts.cs"
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceContracts.cs",
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs",
+                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaAllowedExtraLinkNames.generated.cs",
+                "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticleCanvasLinkRoutes.cs",
+                "src/backend/Services/ArticleService.ArticleVaultTransaction.cs",
+                "src/backend/Services/ArticleService.AuthoringCanvasLink.cs",
+                "src/backend/Services/ArticleService.AuthoringCanvasLinkJournal.cs",
+                "src/backend/Services/ArticleService.cs",
+                "src/backend/Services/Articles/ArticleDeletionKernel.cs",
+                "src/backend/Services/Articles/IArticleCanvasLinkWriter.cs",
+                "src/core/Cache/PodBinaryCodec.ArticleCanvasLink.Generated.cs",
+                "src/migration/Catalogs/SchemaMigrationCatalog20261006ArticleCanvasLinks.cs",
+                "src/migration/Definitions/ArticleCanvasLinkMigrationDefinitions.cs",
+                "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+                "src/migration/OfflineMigrationClassificationFacts.cs",
+                "src/migration/SchemaMigrationManifest.cs",
+                "src/shared/Contracts/Articles/ArticleCanvasLinkContracts.cs",
+                "tools/contracts/generate-article-canvas-link-golden.mjs",
+                "tools/contracts/generate-article-canvas-link-wire.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
             ],
             "reason": "Process environment spelling is external while option variables remain internal. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
         },
@@ -61,7 +82,8 @@
             "id": "compiler-intrinsic",
             "paths": [
                 "src/frontend/wasm/aeds/src/aeds_decode.cpp",
-                "tests/frontend/fixtures/aeds-protocol-cpp-contract.cpp"
+                "tests/frontend/fixtures/aeds-protocol-cpp-contract.cpp",
+                "tests/frontend/fixtures/article-canvas-link-cpp-contract.cpp"
             ],
             "reason": "Compiler-provided intrinsic names cannot be renamed. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
         },
@@ -70,7 +92,9 @@
             "paths": [
                 "tests/backend/Fixtures/aeds-golden-catalog.json",
                 "tests/fixtures/protocol/authoring-canvas-wire-golden.json",
-                "tests/backend/packages.lock.json"
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/protocol/article-canvas-link-wire-golden.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
         }

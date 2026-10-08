@@ -48,6 +48,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>();
         services.AddHostedService<ArticleViewFlushWorker>();
         services.AddScoped<ArticleService>();
+        services.AddScoped<FsusBlog.Server.Services.Articles.IArticleCanvasLinkWriter>(
+            serviceProvider => serviceProvider.GetRequiredService<ArticleService>());
         services.AddScoped<PostgresArticleVaultExecutionStore>();
         services.AddScoped<IArticleVaultExecutionStore>(
             serviceProvider => serviceProvider.GetRequiredService<PostgresArticleVaultExecutionStore>());

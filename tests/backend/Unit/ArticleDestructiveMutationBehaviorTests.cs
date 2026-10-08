@@ -1,3 +1,4 @@
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
@@ -312,6 +313,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(Article),
+            typeof(AdminPrincipal),
             typeof(ArticleBody),
             typeof(ArticleTag),
             typeof(Category),
@@ -331,6 +333,10 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             typeof(ArticleViewSeed),
             typeof(ContentAsset),
             typeof(ArticlePublicTaxonomyProjection));
+        foreach (var step in ArticleCanvasLinkMigrationDefinitions.BuildMigration().Steps)
+        {
+            step.ExecuteAsync(db, CancellationToken.None).GetAwaiter().GetResult();
+        }
         // Deletion kernel targets additional projection tables that are not always
         // modelled as SqlSugar entities; keep empty shells so DELETE stays valid.
         db.Ado.ExecuteCommand(

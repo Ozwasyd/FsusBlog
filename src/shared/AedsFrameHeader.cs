@@ -299,5 +299,8 @@ public enum AedsFrameType : ushort
     AuthoringCanvasDeleteRequest = 262,
     AuthoringCanvasWriteReceipt = 263,
     AuthoringCanvasResolveRequest = 264,
-    AuthoringCanvasReferenceResolutionBatch = 265
+    AuthoringCanvasReferenceResolutionBatch = 265,
+    ArticleCanvasLinkRequest = 266,
+    ArticleCanvasLinkReceipt = 267,
+    ArticleCanvasLinkHistoryResponse = 268
 }

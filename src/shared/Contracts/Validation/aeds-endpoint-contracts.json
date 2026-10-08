@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "18ce5e8db6d450bbeb0e742a0c29d8c9b4b6334b985dac781a6e2f20884b3801",
+    "contentDigest": "cc96fd93dbaae72daed8bea3641bd96c7168a3108036cffaa493668e0f00c2db",
     "operations": [
         {
             "method": "DELETE",
@@ -3130,6 +3130,28 @@
             "requestType": "FsusBlog.Shared.Contracts.AuthoringCanvas.AuthoringCanvasApplyRequest",
             "requestEncoding": "binary-layout",
             "responseFrame": "AuthoringCanvasApplyRequest",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/articles/{articleId:int}/canvas-links",
+            "operationId": "binary_author_article_canvas_link_apply",
+            "requestFrame": "ArticleCanvasLinkRequest",
+            "requestType": "FsusBlog.Contracts.Articles.ArticleCanvasLinkRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "ArticleCanvasLinkReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/articles/{articleId:int}/canvas-links/history",
+            "operationId": "binary_author_article_canvas_link_history",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "ArticleCanvasLinkHistoryResponse",
             "errorFrame": "ApiError",
             "successStatus": 200
         }

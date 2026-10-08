@@ -1595,6 +1595,24 @@
             "value": 265,
             "goldenFamily": "authoring-canvas",
             "goldenOrder": 256
+        },
+        {
+            "name": "ArticleCanvasLinkRequest",
+            "value": 266,
+            "goldenFamily": "article-canvas-link",
+            "goldenOrder": 257
+        },
+        {
+            "name": "ArticleCanvasLinkReceipt",
+            "value": 267,
+            "goldenFamily": "article-canvas-link",
+            "goldenOrder": 258
+        },
+        {
+            "name": "ArticleCanvasLinkHistoryResponse",
+            "value": 268,
+            "goldenFamily": "article-canvas-link",
+            "goldenOrder": 259
         }
     ],
     "goldenCatalog": {

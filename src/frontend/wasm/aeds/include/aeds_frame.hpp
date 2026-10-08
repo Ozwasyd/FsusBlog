@@ -297,6 +297,9 @@ enum class FrameType : std::uint16_t
     AuthoringCanvasWriteReceipt = 263,
     AuthoringCanvasResolveRequest = 264,
     AuthoringCanvasReferenceResolutionBatch = 265,
+    ArticleCanvasLinkRequest = 266,
+    ArticleCanvasLinkReceipt = 267,
+    ArticleCanvasLinkHistoryResponse = 268,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -579,6 +582,9 @@ enum class FrameType : std::uint16_t
         case FrameType::AuthoringCanvasWriteReceipt:
         case FrameType::AuthoringCanvasResolveRequest:
         case FrameType::AuthoringCanvasReferenceResolutionBatch:
+        case FrameType::ArticleCanvasLinkRequest:
+        case FrameType::ArticleCanvasLinkReceipt:
+        case FrameType::ArticleCanvasLinkHistoryResponse:
             return true;
         default:
             return false;
