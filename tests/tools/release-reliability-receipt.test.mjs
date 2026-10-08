@@ -863,7 +863,7 @@ behaviorTest('release-final-aggregate-contract', 'positive', 'aggregate stores o
     }
 });
 
-test('identity precondition failures preserve complete terminal timeline and failed receipt', () =>
+test('identity precondition failures still produce sealed partial timeline and failed receipt', () =>
 {
     const identity = sealDocument({
         ...completeIdentity(),

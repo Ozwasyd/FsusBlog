@@ -334,7 +334,7 @@ test('fixed release subset policy is machine-readable and digest-bound', () =>
         [...policy.requiredSourceRegions].sort());
 });
 
-test('CLI verifies controlled current-attempt fixture and rejects its tampered smoke evidence', async (t) =>
+test('release-final CLI verifies executed smoke evidence and matrix requires it', async (t) =>
 {
     const { options, parent } = await mutationAttemptFixture(t);
     const owner = await createMutationAttemptRoot(options);
