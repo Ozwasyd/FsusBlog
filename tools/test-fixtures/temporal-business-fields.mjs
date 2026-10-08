@@ -9,6 +9,7 @@ const {
 
 const verifiedBindings = new WeakSet();
 const verifiedEntityBindings = new WeakSet();
+const verifiedEntityTransports = new WeakMap();
 
 function fail(message)
 {
@@ -255,7 +256,105 @@ export function bindTemporalEntityBusinessFields({ temporalContext, artifact, ex
             return value;
         } });
     verifiedEntityBindings.add(binding);
+    verifiedEntityTransports.set(binding, { entities: snapshot.entities, rootNested: snapshot.entityPlan.distribution.rootNested });
     return binding;
+}
+
+/**
+ * Iterate fields from one wholly verified artifact in its original entity order.
+ * Packets are transport data, never independently resolved plans or receipts.
+ * The canonical whole-plan cap and cross-entity verifier remain unchanged.
+ */
+export function* iterateTemporalEntityBusinessBatches(binding, { batchSize = 1000, signal } = {})
+{
+    const source = verifiedEntityTransports.get(binding);
+    if (!source || !Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 1_000_000)
+    {
+        fail('batch transport requires a verified complete artifact and a bounded positive batch size');
+    }
+    signal?.throwIfAborted();
+    const fields = new Map();
+    for (const field of binding.fields)
+    {
+        signal?.throwIfAborted();
+        const key = entityFieldKey(field.coordinate, '');
+        if (!fields.has(key))
+        {
+            fields.set(key, []);
+        }
+        fields.get(key).push(field);
+    }
+    const identities = new Map();
+    const revisions = new Map();
+    for (const [index, entity] of source.entities.entries())
+    {
+        signal?.throwIfAborted();
+        const key = JSON.stringify([entity.coordinate.entityKind, entity.coordinate.semanticIdentity]);
+        if (!identities.has(key))
+        {
+            identities.set(key, index);
+        }
+        if (entity.coordinate.entityKind === 'article' && entity.coordinate.revisionNumber !== null)
+        {
+            const revisionKey = JSON.stringify([entity.coordinate.semanticIdentity, entity.coordinate.revisionNumber]);
+            if (!revisions.has(revisionKey))
+            {
+                revisions.set(revisionKey, index);
+            }
+        }
+    }
+    const links = new Map(source.rootNested.map((link) => [link.commentIdentity, link]));
+    const totalEntityOperations = source.entities.length;
+    const batchCount = Math.ceil(totalEntityOperations / batchSize);
+    let previousTransportDigest = null;
+    for (let batchIndex = 0; batchIndex < batchCount; batchIndex++)
+    {
+        signal?.throwIfAborted();
+        const entityStartIndex = batchIndex * batchSize;
+        const entities = [];
+        for (let index = entityStartIndex; index < Math.min(entityStartIndex + batchSize, totalEntityOperations); index++)
+        {
+            signal?.throwIfAborted();
+            const coordinate = Object.freeze({ ...source.entities[index].coordinate });
+            const references = [];
+            const reference = (kind, targetIndex) =>
+            {
+                if (!Number.isSafeInteger(targetIndex))
+                {
+                    fail('verified global entity reference is missing from transport');
+                }
+                references.push(Object.freeze({ kind, entityIndex: targetIndex,
+                    coordinate: Object.freeze({ ...source.entities[targetIndex].coordinate }) }));
+            };
+            if (coordinate.entityKind === 'comment')
+            {
+                reference('article', identities.get(JSON.stringify(['article', coordinate.articleIdentity])));
+                const link = links.get(coordinate.semanticIdentity);
+                if (link.parentIdentity !== null)
+                {
+                    reference('parent-comment', identities.get(JSON.stringify(['comment', link.parentIdentity])));
+                    reference('root-comment', identities.get(JSON.stringify(['comment', link.rootIdentity])));
+                }
+            }
+            if (coordinate.publicationNumber !== null)
+            {
+                reference('publication-revision', revisions.get(JSON.stringify([coordinate.semanticIdentity,
+                    coordinate.publicationRevisionNumber])));
+            }
+            entities.push(Object.freeze({ entityIndex: index, coordinate, references: Object.freeze(references),
+                fields: Object.freeze(fields.get(entityFieldKey(coordinate, '')) ?? []) }));
+        }
+        const packet = { transportOnly: true, qualificationEligible: false, artifactDigest: binding.artifactDigest,
+            entityPlanDigest: binding.entityPlanDigest, bindingSemanticDigest: binding.semanticDigest,
+            contextDigest: binding.contextDigest, catalogDigest: binding.catalogDigest, shapeDigest: binding.shapeDigest,
+            batchIndex, batchCount, entityStartIndex, totalEntityOperations, previousTransportDigest,
+            unsupportedFields: binding.unsupportedFields,
+            entities: Object.freeze(entities) };
+        const transportDigest = digestCanonical(packet);
+        signal?.throwIfAborted();
+        previousTransportDigest = transportDigest;
+        yield Object.freeze({ ...packet, transportDigest });
+    }
 }
 
 /** Refuse unsupported requests before any producer cleanup or business write. */

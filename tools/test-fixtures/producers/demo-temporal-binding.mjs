@@ -1,4 +1,4 @@
-const { bindTemporalEntityBusinessFields } = await import(new URL('../temporal-business-fields.mjs', import.meta.url));
+const { bindTemporalEntityBusinessFields, iterateTemporalEntityBusinessBatches } = await import(new URL('../temporal-business-fields.mjs', import.meta.url));
 const { digestCanonical } = await import(new URL('../../test/temporal-context.mjs', import.meta.url));
 const { resolveTemporalRolesForProducer } = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 
@@ -30,6 +30,13 @@ export function bindDemoTemporalBusinessFields(input)
         throw new Error('demo temporal binding requires development-demo context');
     }
     return bindTemporalEntityBusinessFields({ ...input, fieldMappings: demoTemporalFieldMappings });
+}
+
+/** Keep entity/history order across transport packets from one verified artifact. */
+export function iterateDemoTemporalBusinessBatches(input, options = {})
+{
+    options.signal?.throwIfAborted();
+    return iterateTemporalEntityBusinessBatches(bindDemoTemporalBusinessFields(input), options);
 }
 
 /** Prepare canonical ingress before any cleanup or business write is attempted. */

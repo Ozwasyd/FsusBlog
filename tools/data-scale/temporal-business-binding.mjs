@@ -1,4 +1,4 @@
-const { bindTemporalEntityBusinessFields } = await import(new URL('../test-fixtures/temporal-business-fields.mjs', import.meta.url));
+const { bindTemporalEntityBusinessFields, iterateTemporalEntityBusinessBatches } = await import(new URL('../test-fixtures/temporal-business-fields.mjs', import.meta.url));
 
 export const dataScaleTemporalFieldMappings = Object.freeze([
     ['row.created-at', 'scale.row-created'],
@@ -23,4 +23,11 @@ export function bindDataScaleTemporalBusinessFields(input)
         throw new Error('data-scale temporal binding requires scale-data context');
     }
     return bindTemporalEntityBusinessFields({ ...input, fieldMappings: dataScaleTemporalFieldMappings });
+}
+
+/** Transport an already accepted whole plan; this cannot qualify oversized plans. */
+export function iterateDataScaleTemporalBusinessBatches(input, options = {})
+{
+    options.signal?.throwIfAborted();
+    return iterateTemporalEntityBusinessBatches(bindDataScaleTemporalBusinessFields(input), options);
 }
