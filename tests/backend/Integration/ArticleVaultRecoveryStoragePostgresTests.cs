@@ -1,9 +1,11 @@
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 
 using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.ArticleVault;
@@ -19,6 +21,58 @@ namespace FsusBlog.Server.Tests.Integration;
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class ArticleVaultRecoveryStoragePostgresTests(PostgresSchemaMigrationFixture fixture)
 {
+    [Fact]
+    public async Task ActualProtectionProviderAndPostgres_PreserveAuthenticatedBytesAndRefuseMissingKey()
+    {
+        await using Database database = await CreateAsync();
+        // Fixed public algorithm fixture, never a generated/provisioned credential. Actual
+        // AES-GCM/provider/storage run; key read remains controlled, with no custody/native claim.
+        byte[] key = Enumerable.Range(0, 32).Select(static value => (byte)value).ToArray();
+        byte[] plaintext = "source\n"u8.ToArray();
+        byte[] envelope = new byte[ArticleVaultRecoveryBackupEnvelope.CiphertextOffset + plaintext.Length];
+        ArticleVaultRecoveryBackupEnvelope.Magic.CopyTo(envelope);
+        Enumerable.Range(0, 12).Select(static value => (byte)value).ToArray().CopyTo(envelope, ArticleVaultRecoveryBackupEnvelope.NonceOffset);
+        ArticleVaultRecoveryBackupReceipt receipt = database.Backup with
+        {
+            CiphertextBytes = envelope.Length,
+            ProtectionKey = new("controlled-existing-key", ArticleVaultManifestCodec.ComputeSha256(key))
+        };
+        receipt = receipt with
+        {
+            ContentSha256 = ArticleVaultRecoveryStorageVerifier.ComputeContentSha256(receipt)
+        };
+        using (var aes = new AesGcm(key, ArticleVaultRecoveryBackupEnvelope.TagBytes))
+        {
+            aes.Encrypt(envelope.AsSpan(ArticleVaultRecoveryBackupEnvelope.NonceOffset, ArticleVaultRecoveryBackupEnvelope.NonceBytes),
+                plaintext, envelope.AsSpan(ArticleVaultRecoveryBackupEnvelope.CiphertextOffset),
+                envelope.AsSpan(ArticleVaultRecoveryBackupEnvelope.TagOffset, ArticleVaultRecoveryBackupEnvelope.TagBytes),
+                ArticleVaultRecoveryBackupEnvelope.BuildAssociatedData(receipt));
+        }
+        receipt = receipt with
+        {
+            CiphertextSha256 = ArticleVaultManifestCodec.ComputeSha256(envelope)
+        };
+        receipt = receipt with
+        {
+            ContentSha256 = ArticleVaultRecoveryStorageVerifier.ComputeContentSha256(receipt)
+        };
+        var keys = new DiagnosticExistingKeyStore(key);
+        var protection = new ArticleVaultRecoveryBackupProtectionAuthority(keys, TimeProvider.System);
+        var storage = new PostgresArticleVaultRecoveryStorage(database.Source, database.Proposals, database.Operations,
+            protection, TimeProvider.System);
+        await storage.SealBackupAsync(receipt, envelope);
+        await storage.SealBackupAsync(receipt, envelope);
+        var exact = new VaultRecoveryReference(receipt.BackupIdentity, receipt.ContentSha256);
+        Assert.Equal(envelope, (await storage.ReadBackupAsync(exact)).Ciphertext.ToArray());
+        keys.Missing = true;
+        ArticleVaultExecutionRejectedException error = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => storage.ReadBackupAsync(exact));
+        Assert.Equal("article_vault_recovery_protection_key_unavailable", error.ReasonCode);
+        Assert.Equal(1, await CountAsync(database, "article_vault_recovery_backup"));
+        Assert.Equal(0, await CountAsync(database, "article_vault_operation_checkpoint"));
+        Assert.Equal(0, await CountAsync(database, "article_vault_execution_result"));
+        Assert.Equal(0, keys.Writes);
+    }
+
     [Fact]
     public async Task ExactBackupReplayAndReopen_PreserveOneOpaquePayloadAndReceipt()
     {
@@ -573,6 +627,38 @@ public sealed class ArticleVaultRecoveryStoragePostgresTests(PostgresSchemaMigra
         } = now;
 
         public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private sealed class DiagnosticExistingKeyStore(byte[] key) : IAuditRetentionEpochKeyStore
+    {
+        public bool Missing
+        {
+            get; set;
+        }
+        public int Writes
+        {
+            get; private set;
+        }
+
+        public ValueTask<byte[]?> TryReadAsync(string keyDomain, string epochId, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Assert.Equal(ArticleVaultRecoveryBackupEnvelope.KeyDomain, keyDomain);
+            Assert.Equal("controlled-existing-key", epochId);
+            return ValueTask.FromResult(Missing ? null : key.ToArray());
+        }
+
+        public ValueTask<byte[]> CreateAsync(string keyDomain, string epochId, CancellationToken cancellationToken)
+        {
+            Writes++;
+            throw new InvalidOperationException("fixture forbids key creation");
+        }
+
+        public ValueTask<bool> DestroyAsync(string keyDomain, string epochId, CancellationToken cancellationToken)
+        {
+            Writes++;
+            throw new InvalidOperationException("fixture forbids key destruction");
+        }
     }
 
     private sealed record Database(string ConnectionString, NpgsqlDataSource Source, SqlSugarClient Db,
