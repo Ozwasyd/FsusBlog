@@ -1,0 +1,7 @@
+{
+    "verifyExit": 0,
+    "stdout": "{\"pid\":7912,\"status\":\"passed\",\"structuralChecks\":7,\"states\":[\"Prepared\",\"ServerCommitting\",\"RecoveryRequired\"],\"admission\":\"article_vault_recovery_canonical_materializer_and_operation_admission_missing\",\"staleReason\":\"article_vault_plan_expired\",\"authorityQualification\":false}",
+    "exportProcessCommand": "dotnet recovery/bin/Debug/net10.0/RecoveryCrashReplay.dll export",
+    "verifyProcessCommand": "dotnet recovery/bin/Debug/net10.0/RecoveryCrashReplay.dll verify evidence/recovery-fixture.json",
+    "authorityQualification": false
+}

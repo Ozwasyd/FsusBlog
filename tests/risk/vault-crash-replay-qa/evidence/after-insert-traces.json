@@ -1,0 +1,47 @@
+[
+    {
+        "host": "vault-crash-replay-qa-65e3bd65c8",
+        "port": "56243",
+        "version": "17.11",
+        "systemIdentifier": "7694173786596569128"
+    },
+    {
+        "action": "planned",
+        "database": "interrupted",
+        "exit": 0,
+        "stdout": "{\"action\":\"planned\",\"pid\":11331,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}",
+        "stderr": ""
+    },
+    {
+        "action": "read-planned",
+        "database": "interrupted",
+        "exit": 0,
+        "stdout": "{\"action\":\"read-planned\",\"pid\":11865,\"count\":1,\"state\":\"Planned\",\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\",\"baseUnchanged\":true}",
+        "stderr": ""
+    },
+    {
+        "action": "validating",
+        "database": "interrupted",
+        "exit": 0,
+        "stdout": "{\"action\":\"validating\",\"pid\":11880,\"status\":\"committed\",\"sequence\":1,\"digest\":\"32ab0479e1ac47e99333ac220e52ec1f07dcd783cec0159e9417a607bd816e58\"}",
+        "stderr": ""
+    },
+    {
+        "action": "read-validating",
+        "database": "interrupted",
+        "exit": 0,
+        "stdout": "{\"action\":\"read-validating\",\"pid\":11895,\"count\":2,\"state\":\"Validating\",\"digest\":\"32ab0479e1ac47e99333ac220e52ec1f07dcd783cec0159e9417a607bd816e58\",\"baseUnchanged\":true}",
+        "stderr": ""
+    },
+    {
+        "case": "uncommitted-append-SIGKILL",
+        "triggerTiming": "AFTER",
+        "pid": 11413,
+        "exit": -9,
+        "persistedRowsBeforeReplay": 1
+    },
+    {
+        "case": "uncommitted-append-after-insert-rollback-and-replay",
+        "status": "passed"
+    }
+]
