@@ -185,9 +185,18 @@ internal static class DataScaleProviderBulkTransport
         => tables.Select(table => new DataScaleBulkTableRows(table.Table, table.Columns.ToArray(),
             table.Rows.Select(row => (IReadOnlyList<object?>)row.Select(value => value is byte[] bytes ? bytes.ToArray() : value).ToArray()).ToArray())).ToArray();
 
-    private static async Task ValidateNativeUpdateKeyAsync(DbConnection connection, DbTransaction transaction,
+    private static Task ValidateNativeUpdateKeyAsync(DbConnection connection, DbTransaction transaction,
         DataScaleBulkProvider provider, DataScaleBulkTableRows update, CancellationToken cancellationToken)
+        => ValidateNativePrimaryKeysAsync(connection, transaction, provider, update.Table, [update.Columns[0].Name], cancellationToken);
+
+    internal static async Task ValidateNativePrimaryKeysAsync(DbConnection connection, DbTransaction transaction,
+        DataScaleBulkProvider provider, string table, IReadOnlyList<string> expected, CancellationToken cancellationToken)
     {
+        ValidateIdentifier(table);
+        foreach (string column in expected)
+        {
+            ValidateIdentifier(column);
+        }
         await using DbCommand command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandTimeout = 30;
@@ -201,7 +210,7 @@ internal static class DataScaleProviderBulkTransport
         DbParameter parameter = command.CreateParameter();
         parameter.ParameterName = "@table";
         parameter.DbType = DbType.String;
-        parameter.Value = provider == DataScaleBulkProvider.PostgreSql ? Quote(provider, update.Table) : update.Table;
+        parameter.Value = provider == DataScaleBulkProvider.PostgreSql ? Quote(provider, table) : table;
         command.Parameters.Add(parameter);
         var columns = new List<string>();
         await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -209,7 +218,7 @@ internal static class DataScaleProviderBulkTransport
         {
             columns.Add(reader.GetString(0));
         }
-        if (columns.Count != 1 || columns[0] != update.Columns[0].Name)
+        if (columns.Count != expected.Count || !columns.ToHashSet(StringComparer.Ordinal).SetEquals(expected))
         {
             throw new InvalidOperationException("bulk_deferred_update_native_primary_key_mismatch");
         }

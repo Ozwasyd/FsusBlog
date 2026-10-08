@@ -21,19 +21,25 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
     private static readonly byte[] s_key = SHA256.HashData("isolated-native-producer-component-key"u8);
 
     [Theory]
-    [InlineData(ArticleScaleVariant.Published)]
-    [InlineData(ArticleScaleVariant.Scheduled)]
-    [InlineData(ArticleScaleVariant.PublishedWithScheduledUpdate)]
-    [InlineData(ArticleScaleVariant.Archived)]
-    [InlineData(ArticleScaleVariant.Deleted)]
-    public async Task NativePipeline_SealsActualSequenceIdsBeforeAtomicRowsAndSupportsOwnedReplay(ArticleScaleVariant variant)
+    [InlineData(ArticleScaleVariant.Published, false)]
+    [InlineData(ArticleScaleVariant.Scheduled, false)]
+    [InlineData(ArticleScaleVariant.PublishedWithScheduledUpdate, false)]
+    [InlineData(ArticleScaleVariant.Archived, false)]
+    [InlineData(ArticleScaleVariant.Deleted, false)]
+    [InlineData(ArticleScaleVariant.Published, true)]
+    [InlineData(ArticleScaleVariant.Scheduled, true)]
+    [InlineData(ArticleScaleVariant.PublishedWithScheduledUpdate, true)]
+    [InlineData(ArticleScaleVariant.Archived, true)]
+    [InlineData(ArticleScaleVariant.Deleted, true)]
+    public async Task NativePipeline_SealsActualSequenceIdsBeforeAtomicRowsAndSupportsOwnedReplay(ArticleScaleVariant variant, bool withTaxonomy)
     {
         var (plan, example, _) = DataScaleArticlePhysicalProjectionTests.Graph(variant);
         ArticleScaleArticleGraph diagnostic = CanonicalArticleGraphFactory.BuildArticleGraph(plan, example.ArticleOrdinal,
             variant, ArticleScaleVariantContractCatalog.Get(variant));
         var schema = DataScaleArticlePhysicalProjectionTests.Schema();
         var principals = DataScaleArticlePhysicalProjectionTests.Principals(plan);
-        await using NpgsqlConnection db = await OpenAsync(schema);
+        DataScaleArticleTaxonomySchema? taxonomy = withTaxonomy ? DataScaleArticleTaxonomyTests.TaxonomySchema() : null;
+        await using NpgsqlConnection db = await OpenAsync(schema, withTaxonomy);
         string root = Path.Combine(Path.GetTempPath(), "fsus-native-batch-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
@@ -60,6 +66,11 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
                 // Caller mutation after the awaited native allocation must not change product inputs.
                 ((Dictionary<string, string>)schema[ArticleScaleRowKind.Article].Columns)["Title"] = "not_an_owned_column";
                 principals[$"{plan.IdAllocation.NamespacePrefix}:principal/authoring-admin"] = 111111;
+                if (taxonomy is not null)
+                {
+                    ((Dictionary<string, string>)taxonomy.ArticleTag.Columns)["TagId"] = "not_an_owned_column";
+                    ((Dictionary<string, string>)taxonomy.Tag.Columns)["Id"] = "not_the_native_key";
+                }
             }
             async Task Checkpoint(DataScaleBatchCheckpoint checkpoint, CancellationToken token)
             {
@@ -68,10 +79,18 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
             }
             DataScalePostgresArticleProduction produced = await DataScalePostgresArticleProducer.ProduceAsync(db, plan, [diagnostic],
                 schema, principals, "component-native-run", "component-native-runtime",
-                new string('a', 40), "canonical-component-batch", s_key, Allocation, Checkpoint, CancellationToken.None);
+                new string('a', 40), "canonical-component-batch", s_key, Allocation, Checkpoint, CancellationToken.None, taxonomySchema: taxonomy);
             Assert.Equal(DataScaleBulkCommitState.Committed, produced.Execution.Transport.State);
             Assert.True(produced.Execution.CleanupEligible);
             Assert.False(produced.Execution.CompleteSeedAccepted);
+            if (withTaxonomy)
+            {
+                await using DbCommand links = db.CreateCommand();
+                links.CommandText = "SELECT COUNT(*) FROM article_tag";
+                Assert.Equal(2L, await links.ExecuteScalarAsync());
+                Assert.DoesNotContain(produced.Authority.Batch.LogicalReferences,
+                    row => row.Kind == ArticleScaleRowKind.ArticleTaxonomyReference);
+            }
             Assert.All(produced.NativeAllocation, observation => Assert.NotEmpty(observation.OwnedSequence));
             Assert.All(produced.NativeBindings.Values.SelectMany(binding => binding.Ids.Values), id => Assert.True(id > 0));
             ArticleScaleArticleGraph graph = Assert.Single(produced.Graphs);
@@ -147,7 +166,8 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
         Assert.Equal(false, await untouched.ExecuteScalarAsync());
     }
 
-    private async Task<NpgsqlConnection> OpenAsync(IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema)
+    private async Task<NpgsqlConnection> OpenAsync(IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema,
+        bool withTaxonomy = false)
     {
         string database = await fixture.CreateDatabaseAsync();
         var db = new NpgsqlConnection(fixture.BuildDatabaseConnectionString(database));
@@ -171,6 +191,19 @@ public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigratio
                 await using DbCommand create = db.CreateCommand();
                 create.CommandText = "CREATE TABLE \"" + schema[model.Kind].Table + "\"(" + string.Join(',', definitions) + ")";
                 await create.ExecuteNonQueryAsync();
+            }
+            if (withTaxonomy)
+            {
+                await using DbCommand domain = db.CreateCommand();
+                domain.CommandText = "CREATE TABLE category(id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,name text,description text);"
+                    + "CREATE TABLE tag(id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,name text,description text);"
+                    + "INSERT INTO category(name) SELECT 'category-'||n FROM generate_series(1,5) n;"
+                    + "INSERT INTO tag(name) SELECT 'tag-'||n FROM generate_series(1,10) n;"
+                    + "CREATE TABLE article_tag(article_id integer NOT NULL REFERENCES article(id),"
+                    + "tag_id integer NOT NULL REFERENCES tag(id),PRIMARY KEY(article_id,tag_id));"
+                    + "ALTER TABLE article ADD FOREIGN KEY(\"" + schema[ArticleScaleRowKind.Article].Columns["CategoryId"]
+                    + "\") REFERENCES category(id)";
+                await domain.ExecuteNonQueryAsync();
             }
             // Immediate cycle constraints are exercised by the actual shared deferred-write transport.
             await using DbCommand constraints = db.CreateCommand();

@@ -29,7 +29,8 @@ internal static class DataScalePostgresArticleProducer
         ReadOnlyMemory<byte> taskKey,
         Func<IReadOnlyList<DataScaleNativeIdentityObservation>, IReadOnlyDictionary<string, ArticleScaleGraphIdentityBindings>, CancellationToken, Task> persistNativeAllocation,
         Func<DataScaleBatchCheckpoint, CancellationToken, Task> persistCheckpoint,
-        CancellationToken cancellationToken, ArticleScaleResolvedGraphBatch? resolvedBatch = null)
+        CancellationToken cancellationToken, ArticleScaleResolvedGraphBatch? resolvedBatch = null,
+        DataScaleArticleTaxonomySchema? taxonomySchema = null)
     {
         ArgumentNullException.ThrowIfNull(persistNativeAllocation);
         ArgumentNullException.ThrowIfNull(persistCheckpoint);
@@ -42,6 +43,15 @@ internal static class DataScalePostgresArticleProducer
             }));
         externalIdentities = new System.Collections.ObjectModel.ReadOnlyDictionary<string, long>(
             new Dictionary<string, long>(externalIdentities, StringComparer.Ordinal));
+        if (taxonomySchema is not null)
+        {
+            DataScaleEntityTransportBinding Freeze(DataScaleEntityTransportBinding binding) => binding with
+            {
+                Columns = new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(
+                    new Dictionary<string, string>(binding.Columns, StringComparer.Ordinal))
+            };
+            taxonomySchema = new(Freeze(taxonomySchema.ArticleTag), Freeze(taxonomySchema.Category), Freeze(taxonomySchema.Tag));
+        }
         if (resolvedBatch is not null)
         {
             foreach (ArticleScaleArticleGraph graph in factoryBatch)
@@ -68,7 +78,7 @@ internal static class DataScalePostgresArticleProducer
             plan, graph.ArticleOrdinal, graph.Variant, ArticleScaleVariantContractCatalog.Get(graph.Variant),
             preflightBindings[graph.SemanticArticleId], resolvedBatch)).ToArray();
         _ = new DataScaleArticleBatchAuthority(plan, preflightGraphs, preflightBindings, schema, externalIdentities,
-            runId, runtimeIdentity, sourceCommit, factoryBatchReference, DataScaleArticleBatchAuthority.ComputeGraphDigest(preflightGraphs), resolvedBatch);
+            runId, runtimeIdentity, sourceCommit, factoryBatchReference, DataScaleArticleBatchAuthority.ComputeGraphDigest(preflightGraphs), resolvedBatch, taxonomySchema);
         var requests = new List<DataScaleNativeIdentityTableRequest>();
         foreach (var model in DataScaleArticlePhysicalProjection.EntityModels.Where(model => model.Kind != ArticleScaleRowKind.ArticleBody))
         {
@@ -103,7 +113,7 @@ internal static class DataScalePostgresArticleProducer
         ArticleScaleArticleGraph[] graphs = factoryBatch.Select(graph => CanonicalArticleGraphFactory.BuildArticleGraph(
             plan, graph.ArticleOrdinal, graph.Variant, ArticleScaleVariantContractCatalog.Get(graph.Variant), bindings[graph.SemanticArticleId], resolvedBatch)).ToArray();
         var authority = new DataScaleArticleBatchAuthority(plan, graphs, bindings, schema, externalIdentities,
-            runId, runtimeIdentity, sourceCommit, factoryBatchReference, DataScaleArticleBatchAuthority.ComputeGraphDigest(graphs), resolvedBatch);
+            runId, runtimeIdentity, sourceCommit, factoryBatchReference, DataScaleArticleBatchAuthority.ComputeGraphDigest(graphs), resolvedBatch, taxonomySchema);
         DataScaleArticleBatchExecution execution = await DataScaleArticleBatchWriter.WriteAsync(connection, DataScaleBulkProvider.PostgreSql,
             authority, null, taskKey, persistCheckpoint, cancellationToken).ConfigureAwait(false);
         return new(allocation, bindings, Array.AsReadOnly(graphs), authority, execution);

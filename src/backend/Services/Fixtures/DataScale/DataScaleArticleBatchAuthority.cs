@@ -29,7 +29,8 @@ internal sealed class DataScaleArticleBatchAuthority
         IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema,
         IReadOnlyDictionary<string, long> externalIdentities,
         string runId, string runtimeIdentity, string sourceCommit, string factoryBatchReference,
-        string expectedGraphDigest, ArticleScaleResolvedGraphBatch? resolvedBatch = null)
+        string expectedGraphDigest, ArticleScaleResolvedGraphBatch? resolvedBatch = null,
+        DataScaleArticleTaxonomySchema? taxonomySchema = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         ArgumentException.ThrowIfNullOrWhiteSpace(runtimeIdentity);
@@ -43,7 +44,7 @@ internal sealed class DataScaleArticleBatchAuthority
             throw new InvalidOperationException("batch_source_commit_invalid");
         }
         DataScaleArticlePhysicalBatch compiled = DataScaleArticlePhysicalProjection.Compile(
-            plan, graphs, identities, schema, externalIdentities, resolvedBatch);
+            plan, graphs, identities, schema, externalIdentities, resolvedBatch, taxonomySchema);
         _graphDigest = ComputeGraphDigest(graphs);
         if (_graphDigest != expectedGraphDigest)
         {
@@ -61,6 +62,16 @@ internal sealed class DataScaleArticleBatchAuthority
             DeferredColumns = new System.Collections.ObjectModel.ReadOnlyDictionary<string, IReadOnlyList<int>>(
                 compiled.DeferredColumns.ToDictionary(pair => pair.Key,
                     pair => (IReadOnlyList<int>)Array.AsReadOnly(pair.Value.ToArray()), StringComparer.Ordinal)),
+            CompositePrimaryKeyColumns = new System.Collections.ObjectModel.ReadOnlyDictionary<string, IReadOnlyList<int>>(
+                compiled.CompositePrimaryKeyColumns.ToDictionary(pair => pair.Key,
+                    pair => (IReadOnlyList<int>)Array.AsReadOnly(pair.Value.ToArray()), StringComparer.Ordinal)),
+            OwnedRowScopes = new System.Collections.ObjectModel.ReadOnlyDictionary<string, DataScaleOwnedRowScope>(
+                compiled.OwnedRowScopes.ToDictionary(pair => pair.Key,
+                    pair => pair.Value with { Values = Array.AsReadOnly(pair.Value.Values.ToArray()) }, StringComparer.Ordinal)),
+            ExternalReferences = Array.AsReadOnly(compiled.ExternalReferences.Select(reference => reference with
+            {
+                Values = Array.AsReadOnly(reference.Values.ToArray())
+            }).ToArray()),
             LogicalReferences = Array.AsReadOnly(compiled.LogicalReferences.ToArray()),
             LogicalRowCounts = new System.Collections.ObjectModel.ReadOnlyDictionary<string, long>(
                 new Dictionary<string, long>(compiled.LogicalRowCounts, StringComparer.Ordinal))
@@ -69,9 +80,12 @@ internal sealed class DataScaleArticleBatchAuthority
         _bindingsDigest = Digest(identities.OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .SelectMany(pair => new[] { pair.Key, pair.Value.Digest }));
         _keysDigest = Digest(Batch.Tables.OrderBy(table => table.Table, StringComparer.Ordinal).SelectMany(table =>
-            new[] { table.Table, table.Columns[Batch.PrimaryKeyColumns[table.Table]].Name }.Concat(
-                table.Rows.Select(row => Convert.ToInt64(row[Batch.PrimaryKeyColumns[table.Table]], CultureInfo.InvariantCulture))
-                    .Order().Select(id => id.ToString(CultureInfo.InvariantCulture)))));
+            new[] { table.Table }.Concat(DataScalePhysicalBatchReadback.KeyColumns(Batch, table.Table).Select(key => table.Columns[key].Name))
+                .Concat(Batch.CompositePrimaryKeyColumns.Count == 0
+                    ? table.Rows.Select(row => Convert.ToInt64(row[Batch.PrimaryKeyColumns[table.Table]], CultureInfo.InvariantCulture))
+                        .Order().Select(id => id.ToString(CultureInfo.InvariantCulture))
+                    : table.Rows.Select(row => DataScalePhysicalBatchReadback.KeyToken(row,
+                        DataScalePhysicalBatchReadback.KeyColumns(Batch, table.Table))).Order(StringComparer.Ordinal))));
         _runId = runId;
         _runtime = runtimeIdentity;
         _source = sourceCommit;

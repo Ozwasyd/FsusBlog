@@ -20,6 +20,18 @@ internal sealed record DataScaleArticlePhysicalBatch(
     IReadOnlyList<ArticleScaleRowPlan> LogicalReferences,
     IReadOnlyDictionary<string, long> LogicalRowCounts)
 {
+    internal IReadOnlyDictionary<string, IReadOnlyList<int>> CompositePrimaryKeyColumns
+    {
+        get; init;
+    }
+        = new Dictionary<string, IReadOnlyList<int>>(StringComparer.Ordinal);
+    internal IReadOnlyDictionary<string, DataScaleOwnedRowScope> OwnedRowScopes
+    {
+        get; init;
+    }
+        = new Dictionary<string, DataScaleOwnedRowScope>(StringComparer.Ordinal);
+    internal IReadOnlyList<DataScaleExternalReferenceKeys> ExternalReferences { get; init; } = [];
+
     internal IReadOnlyDictionary<string, IReadOnlyList<int>> DeferredColumns
     {
         get; init;
@@ -62,7 +74,8 @@ internal static class DataScaleArticlePhysicalProjection
         IReadOnlyDictionary<string, ArticleScaleGraphIdentityBindings> identities,
         IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema,
         IReadOnlyDictionary<string, long> externalIdentities,
-        ArticleScaleResolvedGraphBatch? resolvedBatch = null)
+        ArticleScaleResolvedGraphBatch? resolvedBatch = null,
+        DataScaleArticleTaxonomySchema? taxonomySchema = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(graphs);
@@ -221,10 +234,12 @@ internal static class DataScaleArticlePhysicalProjection
             .ToDictionary(group => group.Key.ToString(), group => group.LongCount(), StringComparer.Ordinal);
         // Logical taxonomy/audit references remain explicit obligations. This projection does
         // not fabricate product audit rows or silently claim article_tag/checkpoint persistence.
-        return new(tables, keys, references, counts)
+        var batch = new DataScaleArticlePhysicalBatch(tables, keys, references, counts)
         {
             DeferredColumns = deferred
         };
+        return taxonomySchema is null ? batch
+            : DataScaleArticleTaxonomyProjection.Attach(plan, graphs, identities, taxonomySchema, batch);
     }
 
     // The exact final factory values are retained; only nullable FK cycles are deferred
