@@ -4,12 +4,17 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Infrastructure/Helpers/Initializer/SqlSugarInitializer.cs",
+                "src/backend/Infrastructure/Middlewares/RuntimeCacheEvidenceMiddleware.cs",
+                "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs",
+                "src/backend/Infrastructure/Testing/QueryPlanCommandCapture.cs",
+                "src/backend/Infrastructure/Testing/RuntimeCacheEvidenceObservation.cs",
                 "tools/data-scale/query-case-registry.mjs",
                 "tools/data-scale/query-matrix.mjs",
                 "tools/data-scale/query-plan-capture.mjs",
                 "tools/data-scale/query-payload-decoders.mjs"
             ],
-            "reason": "The trusted registry governs tools/**/*.mjs under environment-variable. These modules declare that existing surface, introduce no process-environment keys, and keep internal bindings in camelCase; runtime and protocol adapters retain their existing ownership."
+            "reason": "The trusted registry governs tools/**/*.mjs and src/**/*.cs under environment-variable. These consumers and observation hooks preserve existing environment/header spelling, introduce no new process-environment keys, and keep internal bindings in camelCase; private capture configuration and runtime/protocol adapters retain their declared ownership."
         }
     ]
 }
