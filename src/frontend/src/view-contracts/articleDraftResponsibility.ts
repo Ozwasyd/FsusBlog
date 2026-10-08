@@ -29,7 +29,10 @@ export type ArticleDraftResponsibilityDisclosure = Readonly<{
 }>;
 
 const producedSnapshots = new WeakSet<ArticleDraftResponsibilitySnapshot>();
-const boundDisclosures = new WeakMap<ArticleDraftResponsibilityDisclosure, () => boolean>();
+const boundDisclosures = new WeakMap<ArticleDraftResponsibilityDisclosure, Readonly<{
+    isCurrent: () => boolean;
+    subscribe: (invalidate: () => void) => () => void;
+}>>();
 const trim = (value: string | null | undefined): string | null => value?.trim() ? value.trim() : null;
 
 // Display filtering mirrors ArticleResponsibilityGovernance.PublicUrl, without DNS/reachability claims.
@@ -159,7 +162,7 @@ export function admitArticleDraftResponsibilitySnapshot(
     try
     {
         const { context, responsibilityDigest, snapshot } = value;
-        return boundDisclosures.get(value)?.() === true
+        return boundDisclosures.get(value)?.isCurrent() === true
             && validateArticleDocumentContext(context) && producedSnapshots.has(snapshot)
             && snapshot.contextDigest === context.contextDigest && snapshot.sourceRevision === context.sourceRevision
             && snapshot.responsibilityDigest === responsibilityDigest
@@ -178,16 +181,27 @@ export function bindArticleDraftResponsibilitySnapshot(
     source: ArticleDraftResponsibilitySource | null,
     siteAuthor: string,
     snapshot: ArticleDraftResponsibilitySnapshot,
-    authority: Pick<ArticleDocumentContextAdapter, 'isCurrentContext'>,
+    authority: Pick<ArticleDocumentContextAdapter, 'isCurrentContext' | 'subscribeContext'>,
     readCurrent: () => Readonly<{ source: ArticleDraftResponsibilitySource | null; siteAuthor: string; }>
 ): ArticleDraftResponsibilityDisclosure
 {
     const responsibilityDigest = digest({ source, siteAuthor });
     const disclosure = Object.freeze({ context, responsibilityDigest, snapshot });
     // The live owner stays out of serialized props and rendered markup. Historical contexts are not authority.
-    boundDisclosures.set(disclosure, () => authority.isCurrentContext(context)
-        && responsibilityDigest === digest(readCurrent()));
+    boundDisclosures.set(disclosure, Object.freeze({
+        isCurrent: () => authority.isCurrentContext(context) && responsibilityDigest === digest(readCurrent()),
+        subscribe: (invalidate: () => void) => authority.subscribeContext(invalidate)
+    }));
     return disclosure;
+}
+
+/** Client views borrow the canonical owner's notification and release it with their mounted lifecycle. */
+export function subscribeArticleDraftResponsibility(
+    disclosure: ArticleDraftResponsibilityDisclosure,
+    invalidate: () => void
+): () => void
+{
+    return boundDisclosures.get(disclosure)?.subscribe(invalidate) ?? (() => undefined);
 }
 
 /** Independently compares display and private-input digests to a fresh projection from the same authority input. */

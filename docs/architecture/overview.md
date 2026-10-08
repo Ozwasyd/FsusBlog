@@ -260,6 +260,10 @@ responsibility/site-author inputs. Both remain private runtime capabilities;
 copied or serialized disclosures cannot authorize attribution. Owner disposal
 and revision changes reject historical disclosures. The binding also compares
 the expected digest with freshly read responsibility/site-author inputs;
+mounted reading/disclosure views subscribe to the existing canonical owner's
+notifications, withdrawing stale attribution even when preview props have not
+changed. Each view releases its borrowed subscription on prop change or unmount;
+SSR attaches no subscription and admits against the live owner synchronously.
 metadata-only edits reject an older result even when Markdown/context is
 unchanged. Missing, stale or forged inputs never
 fall back to published authors. The public path retains its existing fetch and
