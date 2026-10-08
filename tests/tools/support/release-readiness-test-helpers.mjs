@@ -64,7 +64,7 @@ export function createReleaseIdentityRosterFixture({ commitSha, imageDigest, fro
         source: { commitSha, worktreeFingerprint: digest('8'), buildId: 'unit-build-v1', buildReceipt: artifact('build.json') },
         backend: { imageDigest, artifact: artifact('backend.bin') },
         frontend: { buildId: 'unit-build-v1', buildReceipt: artifact('frontend-build.json'),
-            assetManifest: artifact('assets.json', frontendManifestHash), wasmArtifact: artifact('decoder.wasm', wasmArtifactHash) },
+            buildManifest: artifact('vite-manifest.json', frontendManifestHash), assetManifest: artifact('asset-manifest.json'), wasmArtifact: artifact('decoder.wasm', wasmArtifactHash) },
         serviceWorker: { namespace: 'unit-current-sw', version: 'unit-sw-v1', artifact: artifact('sw.js') },
         contracts: { aeds: contract('aeds.json'), protocol: contract('protocol.json'), wasmAbi: contract('wasm-abi.json'), notification: contract('notification.json') },
         runtime: { roles: contract('roles.json'), config: contract('config.json'), dependencies: contract('dependencies.json') },

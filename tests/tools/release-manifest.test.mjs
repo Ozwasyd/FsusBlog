@@ -839,7 +839,7 @@ function signingFixture(context)
     const policy = { schema: 'fsusblog.release-signing-trust.v1', version: input.identity.signing.trustPolicy.version,
         allowedKeys: [{ keyId: input.identity.signing.keyId, algorithm: 'ed25519', publicKeySha256: input.identity.signing.publicKey.sha256 }] };
     writeArtifact(input.identity.signing.trustPolicy.artifact, Buffer.from(canonicalize(policy)));
-    input.frontendManifestHash = input.identity.frontend.assetManifest.sha256;
+    input.frontendManifestHash = input.identity.frontend.buildManifest.sha256;
     input.wasmArtifactHash = input.identity.frontend.wasmArtifact.sha256;
     const unsigned = createReleaseManifest(input);
     const manifest = signReleaseManifest(unsigned, privateKey);
@@ -1086,5 +1086,33 @@ test('creator signs with owned pinned key bytes and refuses key drift and handwr
             ...args, '--output', rejectedFile, ...invalid], { encoding: 'utf8' });
         assert.notEqual(rejected.status, 0);
         assert.equal(fs.existsSync(rejectedFile), false);
+    }
+});
+
+
+test('Vite build manifest and full release asset inventory have distinct closed artifact bindings', () =>
+{
+    const manifest = createReleaseManifest(createInput());
+    assert.notEqual(manifest.identity.frontend.buildManifest.sha256, manifest.identity.frontend.assetManifest.sha256);
+    assert.deepEqual(validateReleaseManifest(manifest), []);
+    const inventoryChanged = structuredClone(manifest);
+    inventoryChanged.identity.frontend.assetManifest.sha256 = `sha256:${'9'.repeat(64)}`;
+    assert.notEqual(deriveReleaseCandidateId(inventoryChanged), manifest.candidateId);
+    inventoryChanged.candidateId = deriveReleaseCandidateId(inventoryChanged);
+    inventoryChanged.contentDigest = deriveReleaseManifestContentDigest(inventoryChanged);
+    assert.deepEqual(validateReleaseManifest(inventoryChanged), []);
+    for (const mutation of [value =>
+    {
+        delete value.identity.frontend.buildManifest;
+    }, value =>
+    {
+        value.identity.frontend.buildManifest.sha256 = value.identity.frontend.assetManifest.sha256;
+    }])
+    {
+        const changed = structuredClone(manifest);
+        mutation(changed);
+        changed.candidateId = deriveReleaseCandidateId(changed);
+        changed.contentDigest = deriveReleaseManifestContentDigest(changed);
+        assert.ok(validateReleaseManifest(changed).length > 0);
     }
 });
