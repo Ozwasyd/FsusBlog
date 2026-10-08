@@ -54,8 +54,8 @@ async function loadProductAdapters()
     let comment;
     try
     {
-        article = await import(new URL('adapters/binary/articleAdapter.ts', frontendRoot).href);
-        comment = await import(new URL('adapters/binary/commentAdapter.ts', frontendRoot).href);
+        article = await import(new URL('../../src/frontend/src/adapters/binary/articleAdapter.ts', import.meta.url));
+        comment = await import(new URL('../../src/frontend/src/adapters/binary/commentAdapter.ts', import.meta.url));
     }
     finally
     {
