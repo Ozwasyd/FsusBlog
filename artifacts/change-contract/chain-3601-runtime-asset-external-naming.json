@@ -14,6 +14,13 @@
                 "config/testing/correctness-attempt-producers.json"
             ],
             "reason": "Preserve the canonical catalog JSON authority and digest field names while consuming its exact owner-supplied current roster source; this declaration does not promote historical catalog or QPS acceptance."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve existing environment and tooling identifier spellings while consuming the exact canonical migration source, without adding a resource override or weakening its refusal gates."
         }
     ]
 }
