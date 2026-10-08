@@ -4,10 +4,15 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Services/ArticleCommentPolicyService.cs",
+                "src/backend/Services/CommentModerationService.cs",
+                "src/backend/Services/CommentService.cs",
                 "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphModels.cs",
-                "src/backend/Services/Fixtures/DataScale/CommentScalePlan.cs"
+                "src/backend/Services/Fixtures/DataScale/CommentScalePlan.cs",
+                "src/backend/Services/Fixtures/DataScale/CommentScalePolicyResolver.cs",
+                "src/backend/Services/Security/AnonymousCommentPolicyService.cs"
             ],
-            "reason": "These new source paths fall under the registered src/**/*.cs process-environment consumer surface. The plan uses the existing resolved temporal-role adapter without adding or renaming external environment keys; C# records, enums and local identifiers retain repository naming. This declaration covers the trusted path registry and introduces no new naming policy."
+            "reason": "Consume canonical production policy source 617c4e162b5faaa3af1e7deb965f1dbe94c9ec43 unchanged and call its public pure methods from the fixture policy-facts stage. These paths fall under the registered src/**/*.cs process-environment consumer surface; no environment key is added or renamed. Existing C# identifiers retain repository naming."
         },
         {
             "id": "json-wire-key",
@@ -15,6 +20,13 @@
                 "tests/backend/packages.lock.json"
             ],
             "reason": "Consume the canonical bd3dbde7939dc95c81cef4ab6b50f883459ee85d NuGet lock postimage unchanged. Preserve the external NuGet schema and package names; do not add internal naming rules or hand-edit dependency objects."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/comment-command-boundary.md"
+            ],
+            "reason": "Consume the canonical comment-command boundary documentation from source 617c4e162b5faaa3af1e7deb965f1dbe94c9ec43 unchanged, retaining registered external contract spelling."
         }
     ]
 }

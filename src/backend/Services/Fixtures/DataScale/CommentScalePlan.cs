@@ -300,14 +300,14 @@ public static class CommentScalePlanContract
         }
     }
 
-    private static bool IsDigest(string value)
+    internal static bool IsDigest(string value)
         => value is not null && value.Length == 71 && value.StartsWith("sha256:", StringComparison.Ordinal)
             && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
 
     private static bool IsCommit(string value)
         => value is not null && value.Length == 40 && value.AsSpan().IndexOfAnyExcept("0123456789abcdef") < 0;
 
-    private static bool IsRole(string value)
+    internal static bool IsRole(string value)
         => !string.IsNullOrWhiteSpace(value) && value.Length <= 128
             && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '.' or '_' or ':');
 
