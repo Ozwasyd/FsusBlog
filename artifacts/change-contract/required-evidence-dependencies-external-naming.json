@@ -22,9 +22,10 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "tests/fixtures/test-matrix/execution-dependency-contract.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve the canonical execution-target snapshot schema and serialized keys while regenerating current source/import digests."
+            "reason": "Preserve canonical execution graph and execution-target snapshot schemas and serialized keys while regenerating their current derived digests."
         }
     ]
 }
