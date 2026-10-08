@@ -132,6 +132,20 @@ function verifyPayload(proof, identity, present)
     }
 }
 
+function verifyMutationBinding(mutation, identity, obligation)
+{
+    verifyIdentity(mutation, identity);
+    requireProof(mutation.committed === true, 'cache-churn-mutation-not-committed');
+    requireProof(positiveInteger(mutation.entityId)
+        && typeof mutation.producerMutationId === 'string' && mutation.producerMutationId.length > 0,
+    'cache-churn-producer-mutation-binding-missing');
+    const enqueue = mutation.deliveryReceipt;
+    requireProof(enqueue && enqueue.obligationId === obligation.obligationId
+        && enqueue.deliveryGeneration === obligation.targetGeneration
+        && enqueue.status === obligation.deliveryResult,
+    'cache-churn-mutation-enqueue-binding-mismatch');
+}
+
 function verifyPublication(proof, identity, obligation, present)
 {
     verifyIdentity(proof, identity);
@@ -139,6 +153,7 @@ function verifyPublication(proof, identity, obligation, present)
     verifyObligation(proof.obligation, identity, obligation.targetGeneration - 1);
     requireProof(proof.obligation.obligationId === obligation.obligationId
         && proof.obligation.targetGeneration === obligation.targetGeneration
+        && proof.obligation.deliveryResult === obligation.deliveryResult
         && proof.obligation.state === 'published', 'cache-churn-exact-obligation-not-published');
     requireProof(proof.publishedGeneration === obligation.targetGeneration
         && proof.obligation.publishedGeneration === proof.publishedGeneration,
@@ -187,6 +202,7 @@ export async function runCacheChurnCycle({ driver, identity, policy, signal })
     const cycleDeadline = deadlineScope(policy.cycleTimeoutMs, signal);
     const cycleSignal = cycleDeadline.signal;
     let mutationAttempted = false;
+    let committedMutation;
     const step = (name, proof) => receipt.steps.push({ name, proof });
     try
     {
@@ -198,12 +214,14 @@ export async function runCacheChurnCycle({ driver, identity, policy, signal })
 
         mutationAttempted = true;
         const mutation = await invokeDriver(driver, 'mutateCanary', identity, cycleSignal);
+        committedMutation = mutation;
         verifyIdentity(mutation, identity);
         requireProof(mutation.committed === true, 'cache-churn-mutation-not-committed');
         step(cacheChurnSteps[1], mutation);
 
         const obligation = verifyObligation(
             await invokeDriver(driver, 'readObligation', identity, cycleSignal), identity, previous.generation);
+        verifyMutationBinding(mutation, identity, obligation);
         receipt.obligationId = obligation.obligationId;
         receipt.targetGeneration = obligation.targetGeneration;
         receipt.deliveryAttempt = {
@@ -276,6 +294,14 @@ export async function runCacheChurnCycle({ driver, identity, policy, signal })
                 const cleanupObligation = verifyObligation(
                     cleanup.obligation, cleanupIdentity,
                     receipt.targetGeneration ?? receipt.previousGeneration);
+                verifyMutationBinding(cleanup, cleanupIdentity, cleanupObligation);
+                if (committedMutation?.entityId !== undefined)
+                {
+                    requireProof(cleanup.entityId === committedMutation.entityId,
+                        'cache-churn-cleanup-entity-binding-mismatch');
+                    requireProof(cleanup.producerMutationId !== committedMutation.producerMutationId,
+                        'cache-churn-cleanup-producer-mutation-reused');
+                }
                 step(cacheChurnSteps[9], cleanup);
                 const published = await waitForPostcondition(
                     (waitSignal) => invokeDriver(driver, 'readPublication', cleanupIdentity, waitSignal),
@@ -320,6 +346,7 @@ export function verifyCacheChurnEvidence({ cycles, policy, elapsedMs, durationMs
     requireProof(elapsedMs >= durationMs, 'cache-churn-window-incomplete');
     const cycleIds = new Set();
     const mutationIds = new Set();
+    const producerMutationIds = new Set();
     let previousPublished = 0;
     for (const cycle of cycles)
     {
@@ -336,6 +363,7 @@ export function verifyCacheChurnEvidence({ cycles, policy, elapsedMs, durationMs
         requireProof(cycle.steps[1].proof.committed === true, 'cache-churn-mutation-not-committed');
         verifyIdentity(cycle.steps[1].proof, identity);
         const obligation = verifyObligation(cycle.steps[2].proof, identity, cycle.previousGeneration);
+        verifyMutationBinding(cycle.steps[1].proof, identity, obligation);
         requireProof(cycle.obligationId === obligation.obligationId
             && cycle.targetGeneration === obligation.targetGeneration,
         'cache-churn-cycle-summary-mismatch');
@@ -356,6 +384,17 @@ export function verifyCacheChurnEvidence({ cycles, policy, elapsedMs, durationMs
         requireProof(cycle.steps[9].proof.committed === true, 'cache-churn-cleanup-not-committed');
         const cleanupObligation = verifyObligation(cycle.steps[9].proof.obligation,
             cleanupIdentity, cycle.publishedGeneration);
+        verifyMutationBinding(cycle.steps[9].proof, cleanupIdentity, cleanupObligation);
+        requireProof(cycle.steps[9].proof.entityId === cycle.steps[1].proof.entityId,
+            'cache-churn-cleanup-entity-binding-mismatch');
+        requireProof(cycle.steps[9].proof.producerMutationId !== cycle.steps[1].proof.producerMutationId,
+            'cache-churn-cleanup-producer-mutation-reused');
+        for (const proof of [cycle.steps[1].proof, cycle.steps[9].proof])
+        {
+            requireProof(!producerMutationIds.has(proof.producerMutationId),
+                'cache-churn-producer-mutation-reused');
+            producerMutationIds.add(proof.producerMutationId);
+        }
         verifyPublication(cycle.steps[10].proof, cleanupIdentity, cleanupObligation, false);
         previousPublished = cycle.steps[10].proof.publishedGeneration;
     }

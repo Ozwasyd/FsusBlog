@@ -30,6 +30,13 @@ function fixture(overrides = {})
         attempts: ['projector', 'publish', 'revocation-completion', 'completion']
             .map((stage) => ({ attemptNumber: 1, failureKind: 'none', stage }))
     });
+    const mutation = (identity) => ({
+        ...identity, committed: true, entityId: 41,
+        producerMutationId: `fixture-business:${identity.mutationId}`,
+        deliveryReceipt: {
+            obligationId: `obligation:${generation}`, deliveryGeneration: generation, status: 'accepted'
+        }
+    });
     const driver = {
         async readCurrentGeneration(identity, signal)
         {
@@ -42,7 +49,7 @@ function fixture(overrides = {})
             signal.throwIfAborted();
             calls.push('mutation');
             generation += 1;
-            return { ...identity, committed: true };
+            return mutation(identity);
         },
         async readObligation(identity)
         {
@@ -77,7 +84,7 @@ function fixture(overrides = {})
             signal.throwIfAborted();
             calls.push('cleanup');
             generation += 1;
-            return { ...identity, committed: true, obligation: obligation(identity) };
+            return { ...mutation(identity), obligation: obligation(identity) };
         }
     };
     for (const [method, transform] of Object.entries(overrides))
@@ -131,6 +138,38 @@ test('GET-only and cache-clear-only evidence cannot claim cache-churn', async ()
     assert.throws(() => verifyCacheChurnEvidence(inventedSuccess), /steps-incomplete/);
 });
 
+test('an observed latest obligation cannot replace the mutation enqueue receipt', async () =>
+{
+    for (const replacement of [{ obligationId: 'unrelated-obligation' }, { targetGeneration: 99 }])
+    {
+        const runtime = fixture({ readObligation: (proof) => ({ ...proof, ...replacement }) });
+        const result = await runtime.run();
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureKind, /mutation-enqueue-binding-mismatch/);
+        assert.equal(result.cycles[0].cleanup.status, 'ok');
+    }
+    const missing = await fixture({ mutateCanary: (proof) => ({ ...proof, deliveryReceipt: null }) }).run();
+    assert.match(missing.failureKind, /mutation-enqueue-binding-mismatch/);
+    const valid = await fixture().run();
+    valid.cycles[0].steps[1].proof.deliveryReceipt.obligationId = 'copied-latest-obligation';
+    assert.throws(() => verifyCacheChurnEvidence(valid), /mutation-enqueue-binding-mismatch/);
+    const reused = await fixture().run();
+    reused.cycles[1].steps[1].proof.producerMutationId = reused.cycles[0].steps[1].proof.producerMutationId;
+    assert.throws(() => verifyCacheChurnEvidence(reused), /producer-mutation-reused/);
+});
+
+test('cleanup retains the mutation entity and requires its own producer mutation and enqueue', async () =>
+{
+    const otherEntity = await fixture({ cleanupCanary: (proof) => ({ ...proof, entityId: 42 }) }).run();
+    assert.match(otherEntity.failureKind, /cleanup-entity-binding-mismatch/);
+    const reused = await fixture({ cleanupCanary: (proof, identity) => ({ ...proof,
+        producerMutationId: `fixture-business:${identity.cycleId}/mutation` }) }).run();
+    assert.match(reused.failureKind, /cleanup-producer-mutation-reused/);
+    const copied = await fixture({ cleanupCanary: (proof) => ({ ...proof,
+        deliveryReceipt: { ...proof.deliveryReceipt, deliveryGeneration: proof.deliveryReceipt.deliveryGeneration - 1 } }) }).run();
+    assert.match(copied.failureKind, /cleanup:cache-churn-mutation-enqueue-binding-mismatch/);
+});
+
 test('old generation still current fails and cleanup still executes', async () =>
 {
     const runtime = fixture({ readRevocation: (proof) => ({ ...proof, oldGenerationIsCurrent: true }) });
@@ -177,9 +216,11 @@ test('queue-full with durable marker may complete but keeps admission attempt ev
 {
     const persisted = (proof) => ({ ...proof, deliveryResult: 'persisted-dirty', queueFull: true });
     const result = await fixture({
+        mutateCanary: (proof) => ({ ...proof, deliveryReceipt: { ...proof.deliveryReceipt, status: 'persisted-dirty' } }),
         readObligation: persisted,
         readPublication: (proof) => ({ ...proof, obligation: persisted(proof.obligation) }),
-        cleanupCanary: (proof) => ({ ...proof, obligation: persisted(proof.obligation) })
+        cleanupCanary: (proof) => ({ ...proof, obligation: persisted(proof.obligation),
+            deliveryReceipt: { ...proof.deliveryReceipt, status: 'persisted-dirty' } })
     }).run();
     assert.equal(result.status, 'ok');
     assert.deepEqual(result.cycles[0].deliveryAttempt, { result: 'persisted-dirty', queueFull: true });

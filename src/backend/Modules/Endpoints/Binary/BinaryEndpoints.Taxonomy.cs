@@ -168,29 +168,20 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"分类“{trimmedName}”已存在"), aeds);
             }
 
-            int newId = await CreateCategoryAsync(db, trimmedName, normalizedDescription, cancellationToken);
-            if (newId <= 0)
+            CategoryMutationReceipt mutation = await CreateCategoryAndDispatchAsync(
+                db, cacheInvalidation, invalidationDispatcher, publicHotUpdates,
+                trimmedName, normalizedDescription, cancellationToken);
+            if (mutation.Outcome == CategoryMutationOutcome.WriteFailed)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "由于数据库写入异常，分类创建失败"), aeds);
             }
 
-            using var _ = AuditLogScope.Push(
-                AuditSourceCatalog.Category,
-                AuditTypeCatalog.Audit,
-                new KeyValuePair<string, object?>("AuditAction", "category.create"),
-                new KeyValuePair<string, object?>("CategoryName", trimmedName));
-            await cacheInvalidation.RemoveAsync(CachePolicyId.TaxonomyExactMetadataFrame, TaxonomyExactMetadataCache.ForCategory(newId), CancellationToken.None);
-            await invalidationDispatcher.InvalidateCategoryTagAsync(CancellationToken.None);
-            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
-                PublicHotArtifactDeliveryClass.RequiredTaxonomy,
-                null,
-                "taxonomy-category-created",
-                cancellationToken: CancellationToken.None);
+            PublicHotArtifactEnqueueResult delivery = mutation.Delivery!.Value;
             if (!IsRequiredTaxonomyDeliveryDurable(delivery))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "分类已创建，但 PublicHot 重建交付未确认"), aeds);
             }
-            return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
+            return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(mutation.CategoryId, writer));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilterWithMetadata<RequiresPowFilter>();
@@ -293,30 +284,18 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken,
             IAedsEncoder aeds) =>
         {
-            bool hasArticles = await db.Queryable<Article>().AnyAsync(a => a.CategoryId == id && !a.IsDeleted && a.Status != ArticleStatus.Deleted);
-            if (hasArticles)
+            CategoryMutationReceipt mutation = await DeleteCategoryAndDispatchAsync(
+                db, cacheInvalidation, invalidationDispatcher, publicHotUpdates, id, cancellationToken);
+            if (mutation.Outcome == CategoryMutationOutcome.InUse)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "无法删除：该分类下仍有关联文章，请先迁移文章到其他分类"), aeds);
             }
-
-            int deleteCount = await db.Deleteable<Category>().In(id).ExecuteCommandAsync();
-            if (deleteCount <= 0)
+            if (mutation.Outcome == CategoryMutationOutcome.NotFound)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：目标分类不存在或已被删除"), aeds);
             }
 
-            using var _ = AuditLogScope.Push(
-                AuditSourceCatalog.Category,
-                AuditTypeCatalog.Audit,
-                new KeyValuePair<string, object?>("AuditAction", "category.delete"),
-                new KeyValuePair<string, object?>("CategoryId", id));
-            await cacheInvalidation.RemoveAsync(CachePolicyId.TaxonomyExactMetadataFrame, TaxonomyExactMetadataCache.ForCategory(id), CancellationToken.None);
-            await invalidationDispatcher.InvalidateCategoryTagAsync(CancellationToken.None);
-            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
-                PublicHotArtifactDeliveryClass.RequiredTaxonomy,
-                null,
-                "taxonomy-category-deleted",
-                cancellationToken: CancellationToken.None);
+            PublicHotArtifactEnqueueResult delivery = mutation.Delivery!.Value;
             if (!IsRequiredTaxonomyDeliveryDurable(delivery))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "分类已删除，但 PublicHot 重建交付未确认"), aeds);
