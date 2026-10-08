@@ -7,11 +7,7 @@
         "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasDocumentContracts.cs",
         "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasOperationContracts.cs",
         "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs",
-        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs",
-        "Directory.Packages.props",
-        "src/backend/FsusBlog.Server.csproj",
-        "tests/backend/FsusBlog.Server.Tests.csproj",
-        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj"
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs"
     ],
     "outputs": [
         {
@@ -45,14 +41,6 @@
         {
             "path": "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp",
             "sha256": "8106396d6f06df3d138c295935640d9baa8c5109dfd1a8beb3f042c694cc30a6"
-        },
-        {
-            "path": "tests/backend/packages.lock.json",
-            "sha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9"
-        },
-        {
-            "path": "benchmarks/core/packages.lock.json",
-            "sha256": "ba5c059240d7151a2187925c627061d93e6872cd7dcd2f0c8b3694e5829422fc"
         }
     ]
 }

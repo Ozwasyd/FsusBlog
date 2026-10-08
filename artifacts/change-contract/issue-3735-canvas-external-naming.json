@@ -4,7 +4,8 @@
         {
             "id": "content-doc-exactness-authority",
             "paths": [
-                "docs/api/contracts.md"
+                "docs/api/contracts.md",
+                "tests/governance/test-lifecycle-registry.json"
             ],
             "reason": "The content exactness catalogs, current documentation authorities, test registries and receipt tooling must change atomically while preserving existing external JSON, Markdown marker, command-line and receipt identifiers; internal JavaScript symbols remain governed by the repository mapping. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
         },
