@@ -68,7 +68,15 @@ internal sealed class OsPageRegion : IDisposable
     // byte ledger or capability policy is introduced.
     public static MemoryOperationResult<OsPageRegion> TryReserve(IOsPageNativeApi native,
         MemoryAllocationDescriptor descriptor, IMemoryReservation reservation, bool guardPages, ResourceDomainId? lockedSubset = null)
+        => TryReserve(native, descriptor, reservation, guardPages, out _, lockedSubset);
+
+    // A missing error means no native allocation was attempted; native errno or
+    // Win32 error survives failed allocation/locking and subsequent cleanup.
+    public static MemoryOperationResult<OsPageRegion> TryReserve(IOsPageNativeApi native,
+        MemoryAllocationDescriptor descriptor, IMemoryReservation reservation, bool guardPages,
+        out int? nativeError, ResourceDomainId? lockedSubset = null)
     {
+        nativeError = null;
         ArgumentNullException.ThrowIfNull(native);
         ArgumentNullException.ThrowIfNull(descriptor);
         ArgumentNullException.ThrowIfNull(reservation);
@@ -100,7 +108,8 @@ internal sealed class OsPageRegion : IDisposable
             charges.Add(new(subset, MemoryResourceUnit.Bytes, payloadBytes));
         }
         var region = new OsPageRegion(native, descriptor, 0, (nuint)capacity, guardBytes);
-        nint address = native.Reserve((nuint)capacity, out _);
+        nint address = native.Reserve((nuint)capacity, out int reserveError);
+        nativeError = reserveError;
         if (address == 0)
         {
             return MemoryOperationResult<OsPageRegion>.Reject(MemoryFailure.TierUnavailable);
@@ -136,12 +145,14 @@ internal sealed class OsPageRegion : IDisposable
             {
                 if (!region.Commit())
                 {
+                    nativeError = region._lastNativeError;
                     region.Dispose();
                     return MemoryOperationResult<OsPageRegion>.Reject(MemoryFailure.TierUnavailable);
                 }
                 region._lockObservationKnown = false;
                 if (!region.Observe(native.Lock(region._payload, region._payloadBytes)))
                 {
+                    nativeError = region._lastNativeError;
                     region.Dispose();
                     return MemoryOperationResult<OsPageRegion>.Reject(MemoryFailure.TierUnavailable);
                 }
