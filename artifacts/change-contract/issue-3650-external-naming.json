@@ -9,7 +9,8 @@
                 "tests/backend/packages.lock.json",
                 "tests/governance/test-lifecycle-registry.json",
                 "config/testing/correctness-attempt-producers.json",
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/migration/packages.lock.json"
             ],
             "reason": "Preserve the existing external JSON schemas, lock dependency identities and retained governance identifiers; the owned suffix/digest repair and supplied graph/duplicate consolidation change only their bounded payloads."
         },
