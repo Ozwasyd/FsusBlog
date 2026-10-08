@@ -87,6 +87,13 @@ Registry and checker sources are loaded from the independently selected checker 
 
 The separate [metadata v2 semantic probe](../../tools/style/command-wrapper-input-ast-v2.mjs) models the current helper's decimal metadata conversion, two descriptor observations, exact device/inode/uid/mode comparisons and rule creation through the same verified alias descriptor. Its finite statement productions and actual AST call, field, flag and conversion checks retain `main.argc` and `main.argv` as the only controlled classes; descriptor identities, the decimal end cursor and errno remain untrusted observations. It refuses metadata-to-command flow, mutable borrowed aliases, substituted descriptors, unapproved call/declaration families and macro drift. Private metadata parameter/local renaming does not grant new effects. The observed glibc C23 conversion alias still requires independent compiler/header qualification.
 
+`AllowPath` refuses a null path with `EINVAL` and exit 125 before calling `open`.
+Its finite probe production retains the original declared path operand, access
+rights, descriptor rule and close operation. The original network owner tests
+this boundary and executes a removed-guard negative control; valid paths retain
+their existing open/error behavior. This component evidence does not qualify the
+caller profile or actual confinement.
+
 Run `node --test tests/tools/command-wrapper-metadata-input.test.mjs` with real Clang for this additional component probe. It returns no analyzer options and always reports `qualificationEligible: false` and `policyPromotion: false`. The required-tools checker, original v1 modules, caller roster and compiler/analyzer/header seals do not select v2 and remain unchanged. Neither these source probes nor the execution-envelope's link-time fault adapters establish real Landlock/systemd confinement, complete caller admission or trusted policy promotion. Integrating v2 into authority requires independent review, a separately versioned complete current compile/caller profile and the original positive/refusal/native/runtime gates.
 
 The current source-integration candidate preserves the master caller's exact
