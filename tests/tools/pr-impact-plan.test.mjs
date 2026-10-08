@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
 
 const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
     ciJob: id, executionDependsOn: [], ...extra });
@@ -435,14 +435,157 @@ test('shell syntax cannot treat refused or missing source identities as stable i
     }
 });
 
-test('SOURCE frontend routing retains strict original checks for every non-module frontend kind', () =>
+function frontendRoutingFixture(t)
 {
-    const files = ['tools/check.mjs', 'src/code.ts', 'src/code.tsx', 'src/view.vue', 'src/theme.css', 'src/theme.scss'];
-    const groups = sourceFrontendCheckGroups(files, 'source-integration', 'actual-base');
-    assert.deepEqual(groups[0], { options: ['--mode', 'source-diff', '--base', 'actual-base'], files: [files[0]] });
-    assert.deepEqual(groups[1], { options: ['--mode', 'strict-full'], files: files.slice(1) });
-    assert.deepEqual(sourceFrontendCheckGroups(files, 'qualification', 'actual-base'),
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-source-frontend-routing-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const git = (...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: 'pipe' }).trim();
+    const write = (file, content) =>
+    {
+        mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+        writeFileSync(path.join(root, file), content);
+    };
+    const commit = () =>
+    {
+        git('add', '-A');
+        git('-c', 'user.name=Source test', '-c', 'user.email=source-test@example.invalid', 'commit', '-qm', 'test(tooling): frontend routing fixture');
+    };
+    git('init', '-q');
+    const policy = { configurationSources: ['tools/frontend/check-frontend-style.mjs', 'config/extra.json'],
+        ruleRegistry: sourceGovernanceDataInputs[1],
+        toolchain: { package: sourceGovernanceDataInputs[2], lock: sourceGovernanceDataInputs[3] },
+        eslintConfig: 'eslint.config.mjs', stylelintConfig: 'stylelint.config.mjs' };
+    for (const file of [...sourceGovernanceDataInputs, ...policy.configurationSources])
+    {
+        write(file, '{}\n');
+    }
+    write(sourceGovernanceDataInputs[0], JSON.stringify(policy));
+    const files = ['tools/check.mjs', 'src/code.js', 'src/code.cjs', 'src/code.ts', 'src/code.tsx', 'src/view.vue', 'src/theme.css', 'src/theme.scss'];
+    for (const file of files)
+    {
+        write(file, 'original source\n');
+    }
+    commit();
+    const base = git('rev-parse', 'HEAD');
+    for (const file of files)
+    {
+        write(file, 'changed source\n');
+    }
+    commit();
+    return { root, base, files, policy, write, commit, actual: () => readGitChangedPaths(root, base).changedFiles.filter(file => existsSync(path.join(root, file))) };
+}
+
+test('SOURCE frontend routing retains source-diff only with complete unchanged actual configuration', t =>
+{
+    const { root, base, files } = frontendRoutingFixture(t);
+    const configuration = inspectSourceFrontendConfiguration(root, base);
+    assert.equal(configuration.changed, false);
+    assert.ok(configuration.identities.some(value => value.file === 'config/extra.json'));
+    const groups = sourceFrontendCheckGroups(files, 'source-integration', base, root);
+    assert.deepEqual(groups[0], { options: ['--mode', 'source-diff', '--base', base], files: files.slice(0, 3) });
+    assert.deepEqual(groups[1], { options: ['--mode', 'strict-full'], files: files.slice(3) });
+    assert.deepEqual(sourceFrontendCheckGroups(files, 'qualification', base),
         [{ options: ['--mode', 'strict-full'], files }]);
+});
+
+test('SOURCE configuration drift dispatches every applicable changed input through strict-full without exemptions', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    fixture.write('config/extra.json', '{"changed":true}\n');
+    fixture.commit();
+    const files = fixture.actual();
+    assert.equal(inspectSourceFrontendConfiguration(fixture.root, fixture.base).changed, true);
+    assert.deepEqual(sourceFrontendCheckGroups(files, 'source-integration', fixture.base, fixture.root),
+        [{ options: ['--mode', 'strict-full'], files: files.filter(file => file !== 'config/extra.json') }]);
+});
+
+test('SOURCE detects drift in every actual configuration input, including the checker and fixed data inputs', t =>
+{
+    const roster = frontendRoutingFixture(t);
+    const files = inspectSourceFrontendConfiguration(roster.root, roster.base).identities.map(value => value.file);
+    for (const file of files)
+    {
+        const fixture = frontendRoutingFixture(t);
+        fixture.write(file, `${readFileSync(path.join(fixture.root, file), 'utf8')}\n`);
+        fixture.commit();
+        const configuration = inspectSourceFrontendConfiguration(fixture.root, fixture.base);
+        assert.equal(configuration.changed, true, file);
+        assert.deepEqual(configuration.identities.filter(value => value.baseDigest !== value.currentDigest).map(value => value.file), [file]);
+        const changed = fixture.actual();
+        assert.deepEqual(sourceFrontendCheckGroups(changed, 'source-integration', fixture.base, fixture.root),
+            [{ options: ['--mode', 'strict-full'], files: changed.filter(value => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(value)) }]);
+    }
+});
+
+test('SOURCE compares the union of actual base and current policy inputs including added configuration', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    fixture.policy.configurationSources = ['tools/frontend/check-frontend-style.mjs', 'config/added.json'];
+    fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
+    fixture.write('config/added.json', '{}\n');
+    fixture.commit();
+    const configuration = inspectSourceFrontendConfiguration(fixture.root, fixture.base);
+    assert.equal(configuration.changed, true);
+    assert.ok(configuration.identities.some(value => value.file === 'config/extra.json'));
+    assert.ok(configuration.identities.some(value => value.file === 'config/added.json' && value.baseDigest === null));
+    assert.deepEqual(sourceFrontendCheckGroups(fixture.actual(), 'source-integration', fixture.base, fixture.root)[0].options,
+        ['--mode', 'strict-full']);
+});
+
+test('SOURCE refuses omitted changed inputs under both unchanged and changed configuration', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    for (const drift of [false, true])
+    {
+        if (drift)
+        {
+            fixture.write('config/extra.json', '{"changed":true}\n');
+            fixture.commit();
+        }
+        for (const omitted of fixture.actual())
+        {
+            assert.throws(() => sourceFrontendCheckGroups(fixture.actual().filter(file => file !== omitted),
+                'source-integration', fixture.base, fixture.root), /complete actual changed-source scope/u);
+        }
+    }
+});
+
+test('SOURCE refuses absent, nonregular, untracked and malformed configuration instead of claiming unchanged identity', t =>
+{
+    for (const scenario of ['absent', 'symlink', 'untracked', 'malformed', 'invalid-path'])
+    {
+        const fixture = frontendRoutingFixture(t);
+        if (scenario === 'absent' || scenario === 'symlink')
+        {
+            rmSync(path.join(fixture.root, 'config/extra.json'));
+            if (scenario === 'symlink')
+            {
+                symlinkSync('../eslint.config.mjs', path.join(fixture.root, 'config/extra.json'));
+            }
+        }
+        else if (scenario === 'untracked')
+        {
+            fixture.policy.configurationSources.push('config/untracked.json');
+            fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
+            fixture.commit();
+            fixture.write('config/untracked.json', '{}\n');
+        }
+        else if (scenario === 'malformed')
+        {
+            fixture.policy.configurationSources = null;
+            fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
+        }
+        else
+        {
+            fixture.policy.configurationSources.push('../escaped.json');
+            fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
+        }
+        assert.throws(() => inspectSourceFrontendConfiguration(fixture.root, fixture.base),
+            /tracked regular input|nonregular or escaped input|complete policy input set|invalid input path/u);
+    }
+    const fixture = frontendRoutingFixture(t);
+    assert.throws(() => sourceFrontendCheckGroups(fixture.files, 'source-integration', 'HEAD^', fixture.root), /exact base commit/u);
+    assert.throws(() => sourceFrontendCheckGroups(fixture.files, 'source-integration', fixture.base), /actual repository/u);
 });
 
 test('Python SOURCE syntax uses the existing isolated checker and only verified inputs escape unsupported', async () =>
