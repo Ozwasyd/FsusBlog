@@ -428,7 +428,7 @@ function auxiliaryPayload(name)
   if (name === 'releaseManifest')
   {
     return {
-      schema: 'fsusblog.release-manifest.v2',
+      schema: 'fsusblog.release-manifest.v3',
       releaseId: target.releaseId,
       imageDigest: target.imageDigest
     }

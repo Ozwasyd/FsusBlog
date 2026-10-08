@@ -2,7 +2,7 @@
 import path from 'node:path';
 import process from 'node:process';
 
-import { createReleaseManifest, writeReleaseManifestAtomic } from './release-manifest.mjs';
+import { createReleaseManifest, readCurrentSchemaReceiptReleaseBinding, writeReleaseManifestAtomic } from './release-manifest.mjs';
 
 function parseArgs(argv)
 {
@@ -23,10 +23,14 @@ function parseArgs(argv)
 try
 {
     const options = parseArgs(process.argv.slice(2));
+    if (options['schema-minimum-coordinate'] !== undefined || options['schema-maximum-coordinate'] !== undefined)
+    {
+        throw new Error('schema compatibility arguments are unsupported');
+    }
     const required = [
         'output', 'release-id', 'created-at-utc', 'commit-sha', 'image-repository', 'image-tag', 'image-digest',
         'frontend-manifest-hash', 'wasm-artifact-hash',
-        'schema-minimum-coordinate', 'schema-maximum-coordinate',
+        'current-schema-receipt', 'current-schema-receipt-sha256',
         'dotnet-version', 'node-version', 'docker-version', 'dockerfile-digest'
     ];
     for (const field of required)
@@ -46,8 +50,8 @@ try
         createdAtUtc: options['created-at-utc'],
         frontendManifestHash: options['frontend-manifest-hash'],
         wasmArtifactHash: options['wasm-artifact-hash'],
-        schemaMinimumCoordinate: options['schema-minimum-coordinate'],
-        schemaMaximumCoordinate: options['schema-maximum-coordinate'],
+        currentSchema: readCurrentSchemaReceiptReleaseBinding(
+            options['current-schema-receipt'], options['current-schema-receipt-sha256']),
         dotnetVersion: options['dotnet-version'],
         nodeVersion: options['node-version'],
         dockerVersion: options['docker-version'],

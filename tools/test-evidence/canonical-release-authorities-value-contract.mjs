@@ -87,8 +87,7 @@ export function verifyCanonicalReleaseAuthorityValues({
   const runtimeRole = verifyRuntimeRole(runtimeRoleAdmission, plan, repositoryRoot, readJson)
   const manifest = referencedJson(rollout.value.auxiliary?.releaseManifest, 'release manifest', repositoryRoot, readJson)
   const { validateReleaseManifest } = createReleaseManifestValueContract({
-    releaseIdContract: readJson('src/shared/Contracts/Validation/release-id-contract.json', 'release identity contract').value,
-    schemaCompatibilityContract: readJson('src/shared/Contracts/Validation/schema-compatibility-coordinate.json', 'schema coordinate contract').value
+    releaseIdContract: readJson('src/shared/Contracts/Validation/release-id-contract.json', 'release identity contract').value
   })
   const manifestErrors = validateReleaseManifest(manifest.value, {
     requireRegistryDigest: true,

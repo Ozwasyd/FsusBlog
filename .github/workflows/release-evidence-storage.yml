@@ -16,7 +16,7 @@ on:
                 required: true
                 type: string
             created_at_utc:
-                description: Canonical createdAtUtc from release-manifest.v2
+                description: Canonical createdAtUtc from release-manifest.v3
                 required: true
                 type: string
             image_digest:
