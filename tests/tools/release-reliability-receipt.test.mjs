@@ -42,6 +42,8 @@ const { createCleanAttemptEvidenceFixture } = await import(new URL(
     import.meta.url
 ));
 
+const { controlledMutationParityFixture } = await import(new URL('./helpers/controlled-mutation-parity-fixture.mjs', import.meta.url));
+
 const verifier = path.join(repositoryRoot, 'tools/test/verify-release-reliability-receipt.mjs');
 const scenarioIds = [
     'release-soak-min',
@@ -1427,7 +1429,7 @@ function currentCgroup()
     return { status: 'complete', version: 'v2', path: membership, limits };
 }
 
-function passingVerifierEvidence(root, scenario, releaseReliability)
+async function passingVerifierEvidence(root, scenario, releaseReliability, context, buildReceiptPath)
 {
     const qualification = scenario.qualification;
     const common = { status: 'ok', sentinel: 'current', releaseReliability };
@@ -1588,28 +1590,21 @@ function passingVerifierEvidence(root, scenario, releaseReliability)
         const policyFile = path.join(root, qualification.policy);
         const policyBytes = fs.readFileSync(policyFile);
         const policy = JSON.parse(policyBytes);
-        const executedMutantIds = policy.subset.map((_, index) => `mutant-${index + 1}`);
-        const resolvedSubset = policy.subset.map((entry, index) => ({
-            ...entry,
-            mutantId: executedMutantIds[index]
-        }));
-        const inventoryDigest = digest('b');
-        const configDigest = digest('c');
-        const releaseParityPath = `.tmp/mutation/backend-critical/release-parity/${
-            releaseReliability.runId
-        }/release-parity-receipt.json`;
-        const releaseParity = {
-            schema: 'fsusblog.release-mutation-parity-receipt.v1',
-            evidenceClass: 'release-artifact',
-            runId: releaseReliability.runId,
-            sourceAuthority: { inventoryDigest, configDigest },
-            resolvedSubset,
-            resolvedSubsetDigest: bytesDigest(Buffer.from(JSON.stringify(resolvedSubset)))
-        };
+        const fixture = await controlledMutationParityFixture({
+            repositoryRoot: root, runId: releaseReliability.runId, invocationId: releaseReliability.invocationId,
+            sourceState: releaseReliability.sourceState, buildReceiptPath,
+            buildReceiptDigest: releaseReliability.buildContentDigest, policy, context
+        });
+        const executedMutantIds = fixture.source.inventory.map(mutant => mutant.mutantId);
+        const inventoryDigest = fixture.source.inventoryDigest;
+        const configDigest = fixture.source.config.sha256;
+        const releaseParityPath = `.tmp/mutation/backend-critical/release-parity/${releaseReliability.runId}/release-parity-receipt.json`;
+        const releaseParity = fixture.parity;
         writeJson(path.join(root, releaseParityPath), releaseParity);
         const releaseParityBytes = fs.readFileSync(path.join(root, releaseParityPath));
         return {
             ...common,
+            ...fixture.source,
             tierId: qualification.tierId,
             sliceId: qualification.sliceId,
             config: { sha256: configDigest },
@@ -2049,14 +2044,14 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
     for (const scenario of catalog.scenarios)
     {
         const evidencePath = scenario.authoritativeEvidence.path;
-        const evidence = passingVerifierEvidence(root, scenario, {
+        const evidence = await passingVerifierEvidence(root, scenario, {
             invocationId,
             runId,
             scenarioId: scenario.id,
             identityContentDigest: identity.contentDigest,
             sourceState,
             buildContentDigest: build.contentDigest
-        });
+        }, context, path.join(root, buildPath));
         writeJson(path.join(root, evidencePath), evidence);
         const evidenceDigest = bytesDigest(fs.readFileSync(path.join(root, evidencePath)));
         const contracts = fixtureLifecycleContracts(catalog);
@@ -2944,4 +2939,22 @@ test('self-recomputed result cannot substitute a different producer invocation',
     const verification = verifyCli(fixture);
     assert.notEqual(verification.status, 0);
     assert.match(verification.stderr, /producer invocation mismatch/u);
+});
+
+test('retained mutation fixture bytes remain bound after attestation and finalization', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    verifyCliPreflight(fixture);
+    const finalized = finalizeCli(fixture);
+    assert.equal(finalized.status, 0, finalized.stderr);
+    const candidate = JSON.parse(fs.readFileSync(fixture.receiptFile, 'utf8'));
+    const reference = candidate.scenarios.find(entry => entry.scenarioId === 'release-mutation-critical-slice');
+    const authority = JSON.parse(fs.readFileSync(path.join(fixture.root, reference.evidencePath), 'utf8'));
+    const parity = JSON.parse(fs.readFileSync(path.join(fixture.root,
+        authority.releaseQualification.releaseParityReceipt.path), 'utf8'));
+    fs.writeFileSync(parity.artifact.assembly.path, 'tampered controlled fixture bytes');
+    assert.notEqual(finalizeCli(fixture).status, 0);
+    const rejected = verifyTerminalCli(fixture);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /release artifact digest binding mismatch/u);
 });

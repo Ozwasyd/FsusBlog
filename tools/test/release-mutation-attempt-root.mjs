@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { observeExecutableIdentity } from './execution-envelope-environment.mjs';
 import { buildLandlockHelper } from './execution-envelope-network.mjs';
 import { currentProcessIdentity, processIdentityStatus } from './process-identity.mjs';
 
@@ -72,7 +73,7 @@ export function assertMutationRootLocation({ repositoryRoot, outputRoot, forbidd
         throw new Error('mutation filesystem identity enforcement currently requires Linux');
     }
     const output = physicalPath(outputRoot);
-    const forbidden = [repositoryRoot, os.homedir(), ...forbiddenRoots].map((entry) =>
+    const forbidden = [repositoryRoot, os.userInfo().homedir, ...forbiddenRoots].map((entry) =>
         fs.existsSync(entry) ? fs.realpathSync(entry) : physicalPath(entry));
     for (const excluded of forbidden)
     {
@@ -153,15 +154,19 @@ export async function createMutationAttemptRoot({
         fs.mkdirSync(directory, { mode: 0o700 });
         return [name, directory];
     }));
+    const sdkTargetsPath = path.join(root, 'mutation-build-boundary.targets');
+    const sdkTargetsBytes = '<Project><PropertyGroup><UseSharedCompilation>false</UseSharedCompilation></PropertyGroup></Project>\n';
+    fs.writeFileSync(sdkTargetsPath, sdkTargetsBytes, { flag: 'wx', mode: 0o400 });
     const receipt = {
         schema: 'fsusblog.release-mutation-attempt-root.v1',
+        sdkBoundary: { path: sdkTargetsPath, fileDigest: `sha256:${createHash('sha256').update(sdkTargetsBytes).digest('hex')}` },
         runId, invocationId, attemptId, sourceState,
         immutableBuild: { path: buildFile, contentDigest: verified.receipt.contentDigest },
         root, resolvedRealpath: fs.realpathSync(root), paths,
         filesystemIdentity: directoryIdentity(root),
         directoryIdentities: Object.fromEntries(Object.entries(paths).map(([name, directory]) =>
             [name, directoryIdentity(directory)])),
-        forbiddenRoots: [fs.realpathSync(repositoryRoot), os.homedir(), path.dirname(buildFile), ...forbiddenRoots],
+        forbiddenRoots: [fs.realpathSync(repositoryRoot), os.userInfo().homedir, path.dirname(buildFile), ...forbiddenRoots],
         owner: { pid: process.pid, uid: process.getuid(), processIdentity: currentProcessIdentity() },
         createdAt: new Date().toISOString(), cleanupPolicy: 'retain-on-failure',
         writeDomain: [root], producerSpawned: false, authoritativeEvidence: null
@@ -172,7 +177,7 @@ export async function createMutationAttemptRoot({
     return receipt;
 }
 
-export function verifyMutationAttemptRoot(receipt, expected)
+function verifyRootIdentity(receipt, expected, requireLiveOwner)
 {
     const { contentDigest, ...content } = receipt;
     if (receipt.schema !== 'fsusblog.release-mutation-attempt-root.v1' || contentDigest !== digest(content)
@@ -189,8 +194,19 @@ export function verifyMutationAttemptRoot(receipt, expected)
     {
         throw new Error('mutation root filesystem identity drift');
     }
+    if (receipt.sdkBoundary?.path !== path.join(receipt.root, 'mutation-build-boundary.targets')
+        || physicalPath(receipt.sdkBoundary.path) !== receipt.sdkBoundary.path
+        || receipt.sdkBoundary.fileDigest !== `sha256:${createHash('sha256').update(fs.readFileSync(receipt.sdkBoundary.path)).digest('hex')}`)
+    {
+        throw new Error('mutation SDK boundary target identity drift');
+    }
+    const stored = JSON.parse(fs.readFileSync(path.join(receipt.root, 'root-receipt.json'), 'utf8'));
+    if (JSON.stringify(stored) !== JSON.stringify(receipt))
+    {
+        throw new Error('mutation root receipt bytes differ from the pinned owner');
+    }
     if (receipt.owner.uid !== process.getuid() || receipt.owner.pid !== receipt.owner.processIdentity?.pid
-        || processIdentityStatus(receipt.owner.processIdentity).status !== 'live')
+        || (requireLiveOwner && processIdentityStatus(receipt.owner.processIdentity).status !== 'live'))
     {
         throw new Error('mutation attempt root owner is stale or unverifiable');
     }
@@ -205,20 +221,183 @@ export function verifyMutationAttemptRoot(receipt, expected)
     return receipt;
 }
 
+export function verifyMutationAttemptRoot(receipt, expected)
+{
+    return verifyRootIdentity(receipt, expected, true);
+}
+
+function mutationControlPath(repositoryRoot, invocationId, name)
+{
+    segment(invocationId, 'invocationId');
+    const file = path.join(repositoryRoot, '.tmp/release-reliability', invocationId, name);
+    let cursor = file;
+    while (cursor !== repositoryRoot)
+    {
+        if (fs.existsSync(cursor) && fs.lstatSync(cursor).isSymbolicLink())
+        {
+            throw new Error('mutation control reference contains a filesystem alias');
+        }
+        cursor = path.dirname(cursor);
+    }
+    return file;
+}
+
+export function publishMutationAttemptReference(receipt, expected)
+{
+    verifyMutationAttemptRoot(receipt, expected);
+    const file = mutationControlPath(receipt.forbiddenRoots[0], receipt.invocationId, 'mutation-attempt-reference.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(file, `${JSON.stringify({
+        schema: 'fsusblog.release-mutation-attempt-reference.v1', rootReceipt: receipt
+    }, null, 4)}\n`, { flag: 'wx', mode: 0o400 });
+    return file;
+}
+
+export async function readMutationAttemptObservation({ repositoryRoot, runId, invocationId, sourceState, buildReceiptDigest })
+{
+    const file = mutationControlPath(repositoryRoot, invocationId, 'mutation-attempt-reference.json');
+    if (!fs.existsSync(file))
+    {
+        return { status: 'not-allocated', root: null, terminal: null };
+    }
+    const admission = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (admission.schema !== 'fsusblog.release-mutation-attempt-reference.v1')
+    {
+        throw new Error('mutation control owner schema mismatch');
+    }
+    const receipt = admission.rootReceipt;
+    const expected = { runId, invocationId, attemptId: `${invocationId}.attempt-1`,
+        sourceState: receipt.sourceState, buildReceiptDigest };
+    if (receipt.sourceState.commit !== sourceState.commit
+        || receipt.sourceState.worktreeFingerprint.replace(/^sha256:/u, '') !== sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
+        || receipt.forbiddenRoots[0] !== fs.realpathSync(repositoryRoot))
+    {
+        throw new Error('mutation control owner source identity mismatch');
+    }
+    const reference = JSON.parse(fs.readFileSync(mutationControlPath(repositoryRoot, invocationId, 'mutation-attempt-terminal.json'), 'utf8'));
+    const terminal = await verifyMutationRootTerminal(receipt, expected, reference, { requireSuccess: false });
+    return { status: 'retained', root: receipt.root, filesystemIdentity: receipt.filesystemIdentity,
+        rootReceiptDigest: receipt.contentDigest, writeDomain: receipt.writeDomain,
+        producerSpawned: terminal.producerSpawned, producerOutcome: terminal.producerOutcome,
+        cleanup: terminal.cleanup, terminal: { path: reference.path, fileDigest: reference.fileDigest, status: terminal.status } };
+}
+
+export function writeMutationRootTerminal(receipt, expected, {
+    phase, producerSpawned, producerOutcome, firstBlockingReason = null, authoritativeEvidence = null, enforcement = null
+})
+{
+    verifyMutationAttemptRoot(receipt, expected);
+    const passed = producerSpawned === true && producerOutcome?.exitCode === 0
+        && producerOutcome.signal === null && firstBlockingReason === null && authoritativeEvidence !== null;
+    if (authoritativeEvidence !== null && !passed)
+    {
+        throw new Error('failed mutation attempt cannot publish authoritative evidence');
+    }
+    const terminal = {
+        schema: 'fsusblog.release-mutation-root-terminal.v1',
+        rootReceiptDigest: receipt.contentDigest,
+        runId: receipt.runId, invocationId: receipt.invocationId, attemptId: receipt.attemptId,
+        sourceState: receipt.sourceState, immutableBuild: receipt.immutableBuild,
+        root: receipt.root, writeDomain: receipt.writeDomain,
+        reachedPhase: phase, producerSpawned, producerOutcome, firstBlockingReason, enforcement,
+        authoritativeEvidence, status: passed ? 'passed' : 'failed',
+        cleanup: { policy: receipt.cleanupPolicy, outcome: 'retained', rootExists: fs.existsSync(receipt.root) },
+        finishedAt: new Date().toISOString()
+    };
+    terminal.contentDigest = digest(terminal);
+    const file = path.join(receipt.root, 'root-terminal.json');
+    fs.writeFileSync(file, `${JSON.stringify(terminal, null, 4)}\n`, { flag: 'wx', mode: 0o400 });
+    const reference = { terminal, path: file, fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}` };
+    const control = mutationControlPath(receipt.forbiddenRoots[0], receipt.invocationId, 'mutation-attempt-reference.json');
+    if (fs.existsSync(control))
+    {
+        const admission = JSON.parse(fs.readFileSync(control, 'utf8'));
+        if (admission.rootReceipt?.contentDigest !== receipt.contentDigest)
+        {
+            throw new Error('mutation terminal cannot overwrite another control owner');
+        }
+        fs.writeFileSync(mutationControlPath(receipt.forbiddenRoots[0], receipt.invocationId, 'mutation-attempt-terminal.json'),
+            `${JSON.stringify({ ...reference, rootReceiptDigest: receipt.contentDigest }, null, 4)}\n`, { flag: 'wx', mode: 0o400 });
+    }
+    return reference;
+}
+
+// Read-only evidence verification never grants reuse of an exited allocating owner.
+export async function verifyMutationRootTerminal(receipt, expected, reference, { requireSuccess = true } = {})
+{
+    verifyRootIdentity(receipt, expected, false);
+    await verifyCurrentSource(receipt.forbiddenRoots[0], expected.sourceState);
+    verifyProductionBuildReceipt({
+        artifactRoot: path.dirname(receipt.immutableBuild.path), receiptFile: path.basename(receipt.immutableBuild.path),
+        expectedSourceState: expected.sourceState, expectedReceiptDigest: expected.buildReceiptDigest,
+        expectedProducer: { runId: expected.runId, job: 'production-build-artifacts' },
+        expectedInputRoot: receipt.forbiddenRoots[0], repairReadOnlySeal: false
+    });
+    const file = path.join(receipt.root, 'root-terminal.json');
+    if (reference.path !== file || fs.lstatSync(file).isSymbolicLink()
+        || reference.fileDigest !== `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`)
+    {
+        throw new Error('mutation terminal reference or bytes mismatch');
+    }
+    const terminal = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const { contentDigest, ...content } = terminal;
+    if (terminal.schema !== 'fsusblog.release-mutation-root-terminal.v1' || contentDigest !== digest(content)
+        || terminal.rootReceiptDigest !== receipt.contentDigest
+        || ['runId', 'invocationId', 'attemptId', 'root'].some(field => terminal[field] !== receipt[field])
+        || JSON.stringify(terminal.sourceState) !== JSON.stringify(receipt.sourceState)
+        || JSON.stringify(terminal.immutableBuild) !== JSON.stringify(receipt.immutableBuild)
+        || JSON.stringify(terminal.writeDomain) !== JSON.stringify(receipt.writeDomain)
+        || terminal.cleanup?.policy !== 'retain-on-failure' || terminal.cleanup.outcome !== 'retained'
+        || terminal.cleanup.rootExists !== true)
+    {
+        throw new Error('mutation terminal owner/outcome/cleanup binding mismatch');
+    }
+    if (!requireSuccess && terminal.status === 'failed'
+        && terminal.authoritativeEvidence === null && typeof terminal.firstBlockingReason === 'string'
+        && terminal.firstBlockingReason.length > 0)
+    {
+        return terminal;
+    }
+    if (terminal.status !== 'passed' || terminal.producerSpawned !== true
+        || terminal.producerOutcome?.exitCode !== 0 || terminal.producerOutcome.signal !== null
+        || terminal.firstBlockingReason !== null || !terminal.authoritativeEvidence)
+    {
+        throw new Error('mutation terminal has no successful authoritative producer outcome');
+    }
+    const evidence = physicalPath(terminal.authoritativeEvidence.path);
+    if (!contains(receipt.paths.physical, evidence) || !fs.lstatSync(evidence).isFile()
+        || terminal.authoritativeEvidence.fileDigest !== `sha256:${createHash('sha256').update(fs.readFileSync(evidence)).digest('hex')}`)
+    {
+        throw new Error('mutation terminal authoritative evidence escapes or differs from owned output');
+    }
+    return terminal;
+}
+
 export function prepareMutationWriteBoundary(receipt, expected, environment)
 {
     verifyMutationAttemptRoot(receipt, expected);
     const output = path.join(receipt.root, 'execution-envelope-landlock');
     const binding = buildLandlockHelper({ output, pathValue: environment.PATH, environment });
+    const dotnet = observeExecutableIdentity('dotnet', { pathValue: environment.PATH });
+    const readRoots = [...new Set([receipt.forbiddenRoots[0], path.dirname(receipt.immutableBuild.path),
+        path.dirname(fs.realpathSync(process.execPath)), path.dirname(dotnet.realPath),
+        '/usr', '/lib', '/lib64', '/etc', '/proc', '/sys'].filter(entry => fs.existsSync(entry)).map(entry => fs.realpathSync(entry)))];
+    const readFiles = ['/dev/urandom', '/dev/random'].filter(entry => fs.existsSync(entry));
+    const boundaryArguments = [
+        ...readRoots.flatMap(entry => ['--readable', entry]),
+        ...readFiles.flatMap(entry => ['--readable-file', entry]),
+        '--writable', receipt.root, '--writable-file', '/dev/null'
+    ];
     const probe = spawnSync(binding.helper.absolutePath,
-        ['--writable', receipt.root, '--writable-file', '/dev/null', '--', '/bin/true'],
+        [...boundaryArguments, '--', '/bin/true'],
         { env: environment, encoding: 'utf8' });
     if (probe.status !== 0)
     {
         throw new Error(`mutation write boundary is unavailable: ${probe.stderr}`);
     }
     return {
-        binding,
+        binding: { ...binding, readDomain: readRoots, readFiles, dotnet },
+        dotnetExecutable: dotnet.realPath,
         async run(command, args, options = {})
         {
             verifyMutationAttemptRoot(receipt, expected);
@@ -230,6 +409,10 @@ export function prepareMutationWriteBoundary(receipt, expected, environment)
                 expectedProducer: { runId: expected.runId, job: 'production-build-artifacts' },
                 expectedInputRoot: receipt.forbiddenRoots[0], repairReadOnlySeal: false
             });
+            if (`sha256:${createHash('sha256').update(fs.readFileSync(dotnet.realPath)).digest('hex')}` !== dotnet.sha256)
+            {
+                throw new Error('mutation bound SDK executable identity drift');
+            }
             const helper = binding.helper;
             if (fs.lstatSync(helper.absolutePath).isSymbolicLink()
                 || fs.realpathSync(helper.absolutePath) !== helper.realPath
@@ -242,7 +425,7 @@ export function prepareMutationWriteBoundary(receipt, expected, environment)
                 throw new Error('mutation producer command must be an exact absolute executable');
             }
             return spawnSync(binding.helper.absolutePath,
-                ['--writable', receipt.root, '--writable-file', '/dev/null', '--', command, ...args],
+                [...boundaryArguments, '--', command, ...args],
                 { ...options, env: environment });
         }
     };

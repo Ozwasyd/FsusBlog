@@ -1,18 +1,20 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const { createProductionBuildReceipt } = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
-const { snapshotGitWorktree } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
+import { mutationAttemptFixture as fixture } from './helpers/mutation-attempt-fixture.mjs';
 const {
     assertMutationMountIsolation,
     assertMutationRootLocation,
     createMutationAttemptRoot,
     prepareMutationWriteBoundary,
-    verifyMutationAttemptRoot
+    publishMutationAttemptReference,
+    readMutationAttemptObservation,
+    verifyMutationAttemptRoot,
+    writeMutationRootTerminal,
+    verifyMutationRootTerminal
 } = await import(new URL('../../tools/test/release-mutation-attempt-root.mjs', import.meta.url));
 
 test('mount topology rejects bind aliases at roots, below roots and through ancestors', () =>
@@ -28,42 +30,6 @@ test('mount topology rejects bind aliases at roots, below roots and through ance
     assert.throws(() => assertMutationMountIsolation('/tmp/alias/attempt',
         `${normal}\n3 1 0:1 /source /tmp/alias rw - ext4 disk rw`), /alias/u);
 });
-
-async function fixture(t)
-{
-    const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-mutation-root-'));
-    t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
-    const repositoryRoot = path.join(parent, 'source');
-    fs.mkdirSync(repositoryRoot);
-    fs.writeFileSync(path.join(repositoryRoot, 'input.txt'), 'current source input\n');
-    const git = (...args) =>
-    {
-        const result = spawnSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' });
-        assert.equal(result.status, 0, result.stderr);
-        return result.stdout.trim();
-    };
-    git('init', '-q');
-    git('add', '.');
-    git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture');
-    const sourceState = { commit: git('rev-parse', 'HEAD'),
-        worktreeFingerprint: (await snapshotGitWorktree(repositoryRoot)).fingerprint };
-    const artifactRoot = path.join(parent, 'immutable-build-fixture');
-    fs.mkdirSync(path.join(artifactRoot, 'backend'), { recursive: true });
-    fs.writeFileSync(path.join(artifactRoot, 'backend', 'fixture.dll'), 'controlled fixture, not a runtime receipt');
-    const receipt = createProductionBuildReceipt({
-        root: repositoryRoot, artifactRoot, sourceState,
-        producer: { workflow: 'controlled-fixture', runId: 'run-1951', runAttempt: 1, job: 'production-build-artifacts' },
-        toolchain: { node: 'fixture', npm: 'fixture', dotnet: 'fixture', vite: 'fixture',
-            vitest: 'fixture', playwright: 'fixture', emsdk: 'fixture' },
-        inputPaths: ['input.txt'], domains: [{ name: 'backend-runtime', path: 'backend' }]
-    });
-    const options = {
-        repositoryRoot, outputRoot: path.join(parent, 'owned'),
-        runId: 'run-1951', invocationId: 'invocation-1', attemptId: 'attempt-1', sourceState,
-        buildReceiptPath: path.join(artifactRoot, 'receipt.json'), buildReceiptDigest: receipt.contentDigest
-    };
-    return { parent, options, artifactRoot };
-}
 
 test('fresh attempt has independently verified source, immutable build and filesystem bindings', async (t) =>
 {
@@ -189,6 +155,8 @@ test('native Landlock denies direct, descendant and symlink escape writes; faile
         const fs = require('node:fs');
         const { spawnSync } = require('node:child_process');
         fs.writeFileSync(${JSON.stringify(path.join(receipt.root, 'allowed'))}, 'owned');
+        try { fs.readFileSync(${JSON.stringify(sentinel)}); process.exit(97); }
+        catch (error) { if (!['EACCES', 'EPERM'].includes(error.code)) throw error; }
         for (const target of ${JSON.stringify([sentinel, path.join(outside, 'new'), path.join(receipt.root, 'escape', 'new')])}) {
             try { fs.writeFileSync(target, 'escape'); process.exit(99); }
             catch (error) { if (!['EACCES', 'EPERM'].includes(error.code)) throw error; }
@@ -215,4 +183,73 @@ test('unsafe real build entry refuses before reading authority or deleting prior
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /overlaps a forbidden/u);
     assert.doesNotMatch(result.stderr, /ENOENT/u);
+});
+
+test('failed attempt records actual admission failure and retained cleanup without producer evidence', async (t) =>
+{
+    const { options } = await fixture(t);
+    const receipt = await createMutationAttemptRoot(options);
+    const reference = writeMutationRootTerminal(receipt, options, {
+        phase: 'write-boundary-precondition', producerSpawned: false, producerOutcome: null,
+        firstBlockingReason: 'native capability unavailable'
+    });
+    assert.equal(reference.terminal.status, 'failed');
+    assert.equal(reference.terminal.authoritativeEvidence, null);
+    assert.deepEqual(reference.terminal.cleanup, { policy: 'retain-on-failure', outcome: 'retained', rootExists: true });
+    await assert.rejects(verifyMutationRootTerminal(receipt, options, reference), /no successful/u);
+    assert.throws(() => writeMutationRootTerminal(receipt, options, {
+        phase: 'retry', producerSpawned: false, producerOutcome: null
+    }), /EEXIST/u);
+});
+
+test('controlled terminal verifies after owner exit without granting writable reuse', async (t) =>
+{
+    const { options } = await fixture(t);
+    const moduleUrl = new URL('../../tools/test/release-mutation-attempt-root.mjs', import.meta.url).href;
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+        const fs = await import('node:fs');
+        const { createHash } = await import('node:crypto');
+        const { createMutationAttemptRoot, writeMutationRootTerminal } = await import(process.argv[1]);
+        const options = JSON.parse(process.argv[2]);
+        const receipt = await createMutationAttemptRoot(options);
+        const evidence = receipt.paths.physical + '/controlled-fixture.json';
+        fs.writeFileSync(evidence, 'controlled test fixture; not real mutation evidence');
+        const reference = writeMutationRootTerminal(receipt, options, {
+            phase: 'controlled-fixture-complete', producerSpawned: true,
+            producerOutcome: { exitCode: 0, signal: null },
+            authoritativeEvidence: { path: evidence,
+                fileDigest: 'sha256:' + createHash('sha256').update(fs.readFileSync(evidence)).digest('hex') }
+        });
+        process.stdout.write(JSON.stringify({ receipt, reference }));
+    `, moduleUrl, JSON.stringify(options)], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const { receipt, reference } = JSON.parse(result.stdout);
+    assert.throws(() => verifyMutationAttemptRoot(receipt, options), /owner is stale/u);
+    assert.equal((await verifyMutationRootTerminal(receipt, options, reference)).status, 'passed');
+    await assert.rejects(verifyMutationRootTerminal(receipt, { ...options, attemptId: 'different' }, reference), /identity/u);
+    fs.writeFileSync(path.join(receipt.paths.physical, 'controlled-fixture.json'), 'tampered');
+    await assert.rejects(verifyMutationRootTerminal(receipt, options, reference), /differs/u);
+});
+
+test('current invocation observes failed retained root independently and refuses cross-attempt control references', async (t) =>
+{
+    const { options } = await fixture(t);
+    options.attemptId = `${options.invocationId}.attempt-1`;
+    const receipt = await createMutationAttemptRoot(options);
+    publishMutationAttemptReference(receipt, options);
+    writeMutationRootTerminal(receipt, options, {
+        phase: 'mutation-producer', producerSpawned: true,
+        producerOutcome: { exitCode: 7, signal: null }, firstBlockingReason: 'controlled failed producer'
+    });
+    const observation = await readMutationAttemptObservation(options);
+    assert.equal(observation.status, 'retained');
+    assert.equal(observation.root, receipt.root);
+    assert.equal(observation.producerOutcome.exitCode, 7);
+    assert.equal(observation.terminal.status, 'failed');
+    assert.deepEqual(observation.writeDomain, [receipt.root]);
+    assert.throws(() => publishMutationAttemptReference(receipt, options), /EEXIST/u);
+    await assert.rejects(readMutationAttemptObservation({ ...options, runId: 'wrong-run' }), /identity/u);
+    fs.chmodSync(path.join(receipt.root, 'root-receipt.json'), 0o600);
+    fs.writeFileSync(path.join(receipt.root, 'root-receipt.json'), '{}');
+    await assert.rejects(readMutationAttemptObservation(options), /bytes/u);
 });

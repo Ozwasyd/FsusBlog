@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { createStrykerAuthority } from './check-stryker-report.mjs';
@@ -11,11 +12,16 @@ import {
 import {
     assertMutationRootLocation,
     createMutationAttemptRoot,
-    prepareMutationWriteBoundary
+    prepareMutationWriteBoundary,
+    publishMutationAttemptReference,
+    writeMutationRootTerminal
 } from './release-mutation-attempt-root.mjs';
 
 let writeBoundary = null;
-function spawnProducer(command, args, options)
+let reachedPhase = 'write-boundary-precondition';
+let producerSpawned = false;
+let producerOutcome = null;
+async function spawnProducer(command, args, options)
 {
     if (!writeBoundary)
     {
@@ -24,7 +30,11 @@ function spawnProducer(command, args, options)
     const executable = command === 'dotnet'
         ? writeBoundary.dotnetExecutable
         : command;
-    return writeBoundary.run(executable, args, options);
+    const result = await writeBoundary.run(executable, args, options);
+    producerSpawned = true;
+    producerOutcome = { exitCode: result.status, signal: result.signal ?? null,
+        executable, args, error: result.error?.message ?? null };
+    return result;
 }
 
 const sha256 = (bytes) => `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
@@ -57,8 +67,10 @@ async function readCompilerProperties(project, configuration, environment)
         'DefineConstants',
         'TargetFramework',
         'LangVersion',
-        'TieredPGO'
+        'TieredPGO',
+        'UseSharedCompilation'
     ];
+    reachedPhase = `${configuration}-compiler-identity`;
     const result = await spawnProducer(
         'dotnet',
         [
@@ -78,6 +90,7 @@ async function readCompilerProperties(project, configuration, environment)
 }
 async function run(command, args, options, label)
 {
+    reachedPhase = label;
     const result = await spawnProducer(command, args, options);
     if (result.status !== 0)
     {
@@ -88,7 +101,7 @@ async function run(command, args, options, label)
 
 const authorityFile = option('--authority');
 const policyFile = option('--policy');
-const outputRoot = option('--output-root');
+const outputRoot = option('--output-root') ?? path.join(os.tmpdir(), `fsusblog-mutation-${crypto.randomUUID()}`);
 const runId = option('--run-id');
 if (!authorityFile || !policyFile || !outputRoot || !runId)
 {
@@ -99,15 +112,36 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../.
 assertMutationRootLocation({ repositoryRoot: root, outputRoot });
 const invocationId = option('--invocation-id');
 const attemptId = option('--attempt-id');
-const buildReceiptPath = option('--build-receipt');
-const buildReceiptDigest = option('--build-receipt-digest');
+let runBinding = null;
+let buildReceiptPath = option('--build-receipt');
+let buildReceiptDigest = option('--build-receipt-digest');
+const identityPath = option('--identity');
+if (identityPath)
+{
+    const { readReleaseReliabilityEvidenceBinding } = await import('./release-reliability-evidence-binding.mjs');
+    const binding = readReleaseReliabilityEvidenceBinding({ repositoryRoot: root, environment: {
+        FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH: identityPath,
+        FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_DIGEST: option('--identity-digest'),
+        FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: invocationId,
+        FSUSBLOG_RELEASE_RELIABILITY_RUN_ID: runId,
+        FSUSBLOG_RELEASE_RELIABILITY_SCENARIO_ID: 'release-mutation-critical-slice'
+    } });
+    runBinding = binding;
+    const identity = JSON.parse(fs.readFileSync(path.resolve(root, identityPath), 'utf8'));
+    if (!binding || identity.build.status !== 'complete' || attemptId !== `${invocationId}.attempt-1`)
+    {
+        throw new Error('mutation attempt is not bound to the canonical current invocation');
+    }
+    buildReceiptPath = path.resolve(root, identity.build.path);
+    buildReceiptDigest = identity.build.contentDigest;
+}
 if (!invocationId || !attemptId || !buildReceiptPath || !buildReceiptDigest)
 {
     throw new Error('Release mutation requires --invocation-id --attempt-id --build-receipt --build-receipt-digest');
 }
 const authority = JSON.parse(fs.readFileSync(path.resolve(authorityFile), 'utf8'));
 const policy = JSON.parse(fs.readFileSync(path.resolve(policyFile), 'utf8'));
-if (authority.evidenceClass !== 'source-level')
+if (authority.evidenceClass !== 'source-level' || authority.producer?.runId !== runId)
 {
     throw new Error('Release parity requires a source-level authority');
 }
@@ -135,196 +169,241 @@ config['stryker-config'].configuration = 'Release';
 config['stryker-config'].concurrency = 1;
 config['stryker-config']['additional-timeout'] = 120000;
 const sourceState = authority.producer.sourceState;
+if (runBinding && (sourceState.commit !== runBinding.sourceState.commit
+    || sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
+        !== runBinding.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')))
+{
+    throw new Error('mutation source authority does not match the canonical run identity');
+}
 const rootReceipt = await createMutationAttemptRoot({
     repositoryRoot: root, outputRoot, runId, invocationId, attemptId, sourceState,
     buildReceiptPath, buildReceiptDigest
 });
+const expectedRoot = { runId, invocationId, attemptId, sourceState, buildReceiptDigest };
 const runRoot = rootReceipt.root;
-const configFile = path.join(runRoot, 'config.release.json');
-const output = rootReceipt.paths.physical;
-const buildRoot = rootReceipt.paths.build;
-writeJson(configFile, config);
-const mutationProjectRoot = path.join(root, 'src/core');
-const sourceProject = path.join(mutationProjectRoot, 'FsusBlog.Core.csproj');
-const sourceProjectIdentity = path.relative(root, sourceProject).replaceAll(path.sep, '/');
-const environment = {
-    ...process.env,
-    FSUSBLOG_MUTATION_BUILD: '1',
-    FSUSBLOG_PRODUCTION_BUILD_ROOT: buildRoot,
-    HOME: rootReceipt.paths.home,
-    DOTNET_CLI_HOME: rootReceipt.paths.home,
-    TMPDIR: rootReceipt.paths.scratch,
-    TEMP: rootReceipt.paths.scratch,
-    TMP: rootReceipt.paths.scratch,
-    FSUSBLOG_TOOL_CACHE: rootReceipt.paths['tool-cache']
-};
+let terminalWritten = false;
 try
 {
-    writeBoundary = prepareMutationWriteBoundary(rootReceipt,
-        { runId, invocationId, attemptId, sourceState, buildReceiptDigest }, environment);
+    if (runBinding)
+    {
+        publishMutationAttemptReference(rootReceipt, expectedRoot);
+    }
+    const configFile = path.join(runRoot, 'config.release.json');
+    const output = rootReceipt.paths.physical;
+    const buildRoot = rootReceipt.paths.build;
+    writeJson(configFile, config);
+    const mutationProjectRoot = path.join(root, 'src/core');
+    const sourceProject = path.join(mutationProjectRoot, 'FsusBlog.Core.csproj');
+    const sourceProjectIdentity = path.relative(root, sourceProject).replaceAll(path.sep, '/');
+    const environment = {
+        ...process.env,
+        FSUSBLOG_MUTATION_BUILD: '1',
+        FSUSBLOG_PRODUCTION_BUILD_ROOT: buildRoot,
+        HOME: rootReceipt.paths.home,
+        DOTNET_CLI_HOME: rootReceipt.paths.home,
+        TMPDIR: rootReceipt.paths.scratch,
+        TEMP: rootReceipt.paths.scratch,
+        TMP: rootReceipt.paths.scratch,
+        FSUSBLOG_TOOL_CACHE: rootReceipt.paths['tool-cache'],
+        DOTNET_CLI_USE_MSBUILD_SERVER: '0',
+        MSBUILDDISABLENODEREUSE: '1',
+        CustomAfterMicrosoftCommonTargets: rootReceipt.sdkBoundary.path,
+        NUGET_PACKAGES: path.join(rootReceipt.paths['tool-cache'], 'nuget')
+    };
+    writeBoundary = prepareMutationWriteBoundary(rootReceipt, expectedRoot, environment);
+    const { observeExecutableIdentity } = await import('./execution-envelope-environment.mjs');
+    writeBoundary.dotnetExecutable = observeExecutableIdentity('dotnet', { pathValue: environment.PATH }).realPath;
+    const debugCompilerProperties = await readCompilerProperties(sourceProject, 'Debug', environment);
+    const releaseCompilerProperties = await readCompilerProperties(sourceProject, 'Release', environment);
+    if (path.resolve(releaseCompilerProperties.MSBuildProjectFullPath) !== sourceProject
+    || releaseCompilerProperties.AssemblyName !== 'FsusBlog.Core'
+    || releaseCompilerProperties.Configuration !== 'Release'
+    || releaseCompilerProperties.Optimize !== 'true'
+    || releaseCompilerProperties.UseSharedCompilation !== 'false'
+    || debugCompilerProperties.UseSharedCompilation !== 'false')
+    {
+        throw new Error('Release compiler identity is not the production FsusBlog.Core project');
+    }
+    await run('dotnet', ['build', sourceProject, '--configuration', 'Debug'], {
+        cwd: root, encoding: 'utf8', env: environment
+    }, 'run-bound Debug production Core build');
+    const debugAssembly = path.join(buildRoot, 'dotnet/FsusBlog.Core/bin/Debug/net10.0/FsusBlog.Core.dll');
+    if (!fs.existsSync(debugAssembly))
+    {
+        throw new Error('run-bound Debug production Core artifact is missing');
+    }
+    const debugAssemblyDigest = sha256(fs.readFileSync(debugAssembly));
+    const toolBindingPath = path.join(output, 'tool-binding.json');
+    reachedPhase = 'sealed-critical-Release-Stryker';
+    const result = await spawnProducer(process.execPath, [path.join(root, 'tools/mutation/stryker-tool.mjs'), 'run', '--working-directory', mutationProjectRoot, '--attestation-output', toolBindingPath, '--root-receipt', path.join(runRoot, 'root-receipt.json'), '--', '--config-file', configFile, '--output', output, '--log-to-file', '--verbosity', 'trace'], {
+        cwd: root, stdio: 'inherit', env: environment
+    });
+    if (result.status !== 0)
+    {
+        throw new Error('Release Stryker failed for the sealed critical authority scope');
+    }
+    const reportFile = path.join(output, 'reports', config['stryker-config']['report-file-name'] + '.json');
+    const rawReport = fs.readFileSync(reportFile);
+    const rawTrace = fs.readFileSync(traceFile(output));
+    const releaseAuthority = createStrykerAuthority({
+        toolBinding: JSON.parse(fs.readFileSync(toolBindingPath)),
+        report: JSON.parse(rawReport), rawReport, reportPath: path.relative(root, reportFile).replaceAll(path.sep, '/'),
+        reportAbsolutePath: reportFile, rawTrace, tracePath: path.relative(root, traceFile(output)).replaceAll(path.sep, '/'),
+        config, rawConfig: fs.readFileSync(configFile), configPath: path.relative(root, configFile).replaceAll(path.sep, '/'),
+        tierId: 'release-mutation-critical-slice', runId: `${runId}:release`, sourceState: authority.producer.sourceState,
+        generatedAt: new Date().toISOString(), repositoryRoot: root, sourceRoot: 'src/core'
+    });
+    if (releaseAuthority.semanticMutantIdentityDigest !== authority.semanticMutantIdentityDigest)
+    {
+        throw new Error('Release Stryker produced a different semantic mutant identity inventory');
+    }
+    const assembly = path.join(
+        buildRoot,
+        'dotnet/FsusBlog.Server.Tests/bin/Release/net10.0/FsusBlog.Core.dll'
+    );
+    if (!fs.existsSync(assembly))
+    {
+        throw new Error('production FsusBlog.Core Release artifact is missing from the run-bound build root');
+    }
+    const assemblyDigest = sha256(fs.readFileSync(assembly));
+    const compilerIdentity = {
+        configuration: 'Release',
+        project: sourceProjectIdentity,
+        sourceConfigDigest: sha256(rawSourceConfig),
+        releaseConfigDigest: sha256(fs.readFileSync(configFile)),
+        buildRoot: buildRoot,
+        properties: releaseCompilerProperties
+    };
+    const compiler = { ...compilerIdentity, optionsDigest: sha256(JSON.stringify(compilerIdentity)) };
+    const smokeRoot = path.join(runRoot, 'smoke');
+    fs.mkdirSync(smokeRoot, { recursive: true });
+    const smokeResult = await run('dotnet', [
+        'test',
+        path.join(root, 'tests/backend/FsusBlog.Server.Tests.csproj'),
+        '--configuration', 'Release',
+        '--no-build',
+        '--filter', config['stryker-config']['test-case-filter'],
+        '--logger', 'trx;LogFileName=release-artifact-smoke.trx',
+        '--results-directory', smokeRoot
+    ], { cwd: root, encoding: 'utf8', env: environment }, 'Release artifact AEDS smoke');
+    const smokeTrxFile = path.join(smokeRoot, 'release-artifact-smoke.trx');
+    if (!fs.existsSync(smokeTrxFile))
+    {
+        throw new Error('Release artifact smoke did not produce TRX execution evidence');
+    }
+    const selectedKilledMutantIds = resolvedSubset.subset.map(({ mutantId }) => mutantId).sort();
+    const releaseById = new Map(releaseAuthority.inventory.map((mutant) => [mutant.mutantId, mutant]));
+    if (!selectedKilledMutantIds.every((mutantId) => releaseById.get(mutantId)?.status === 'Killed'))
+    {
+        throw new Error('Release mutation producer did not kill every selected semantic mutant');
+    }
+    const smokeEvidenceFile = path.join(smokeRoot, 'execution.json');
+    writeJson(smokeEvidenceFile, {
+        schema: 'fsusblog.release-mutation-artifact-smoke.v1',
+        command: 'dotnet test tests/backend/FsusBlog.Server.Tests.csproj --configuration Release --no-build --filter FullyQualifiedName~FsusBlog.Server.Tests.Unit.AedsEncoderTests',
+        exitCode: smokeResult.status,
+        stdoutDigest: sha256(smokeResult.stdout),
+        stderrDigest: sha256(smokeResult.stderr),
+        loadedAssemblyPath: assembly,
+        loadedAssemblyDigest: assemblyDigest,
+        trxPath: smokeTrxFile,
+        trxDigest: sha256(fs.readFileSync(smokeTrxFile)),
+        canonicalAffectedTestsPassed: true,
+        aedsEncodeDecodeContractPassed: true,
+        killedMutantIds: selectedKilledMutantIds
+    });
+    const sourceText = fs.readFileSync(path.join(root, 'src/core/Algorithms/AedsEncoder.cs'), 'utf8');
+    const debugCompilerIdentity = {
+        configuration: 'Debug',
+        project: sourceProjectIdentity,
+        sourceConfigDigest: sha256(rawSourceConfig),
+        releaseConfigDigest: sha256(fs.readFileSync(configFile)),
+        buildRoot: buildRoot,
+        properties: debugCompilerProperties
+    };
+    const debugCompiler = {
+        ...debugCompilerIdentity,
+        optionsDigest: sha256(JSON.stringify(debugCompilerIdentity))
+    };
+    const terminal = writeMutationRootTerminal(rootReceipt, expectedRoot, {
+        phase: 'producer-complete', producerSpawned, producerOutcome, enforcement: writeBoundary.binding,
+        authoritativeEvidence: { path: reportFile, fileDigest: sha256(rawReport) }
+    });
+    terminalWritten = true;
+    const receipt = {
+        schema: 'fsusblog.release-mutation-parity-receipt.v1', evidenceClass: 'release-artifact', runId,
+        invocationId, attemptId, sourceState,
+        attemptRoot: rootReceipt,
+        terminal: { path: terminal.path, fileDigest: terminal.fileDigest },
+        sourceAuthority: { path: path.relative(root, path.resolve(authorityFile)).replaceAll(path.sep, '/'), inventoryDigest: authority.inventoryDigest, configDigest: authority.config.sha256 },
+        semanticMutantIdentityDigest: releaseAuthority.semanticMutantIdentityDigest,
+        resultInventoryDigest: releaseAuthority.inventoryDigest,
+        inventory: releaseAuthority.inventory,
+        debugCompiler,
+        compiler,
+        configurationComparison: {
+            debugArtifactDigest: debugAssemblyDigest,
+            releaseArtifactDigest: assemblyDigest,
+            debugCompilerOptionsDigest: debugCompiler.optionsDigest,
+            releaseCompilerOptionsDigest: compiler.optionsDigest,
+            ilClassification: debugAssemblyDigest === assemblyDigest
+                ? 'same-assembly-bytes'
+                : 'configuration-different-assembly-bytes',
+            sourceBranchClassification: /^\s*#\s*(if|elif|else|endif)\b/mu.test(sourceText)
+                ? 'conditional-source-branch-different'
+                : 'same-source-branch'
+        },
+        resolvedSubset: resolvedSubset.subset, resolvedSubsetDigest: resolvedSubset.resolvedSubsetDigest,
+        artifact: {
+            root: runRoot,
+            buildRoot: buildRoot,
+            digest: releaseArtifactDigest(runRoot),
+            assembly: {
+                name: 'FsusBlog.Core.dll',
+                path: assembly,
+                digest: assemblyDigest
+            },
+            smoke: {
+                evidencePath: smokeEvidenceFile,
+                evidenceDigest: sha256(fs.readFileSync(smokeEvidenceFile)),
+                trxPath: smokeTrxFile,
+                trxDigest: sha256(fs.readFileSync(smokeTrxFile)),
+                killedMutantIds: selectedKilledMutantIds
+            }
+        }
+    };
+    writeJson(path.join(runRoot, 'release-parity-receipt.json'), receipt);
+    const { validateMutationReleaseParity, verifyReleaseArtifactBinding } = await import('./mutation-release-parity.mjs');
+    validateMutationReleaseParity({ sourceMutationResult: authority, releaseParityResult: receipt, selectionPolicy: policy });
+    await verifyReleaseArtifactBinding(receipt, root);
+    const receiptOutput = option('--receipt-output');
+    if (receiptOutput)
+    {
+        const expected = path.join(root, '.tmp/mutation/backend-critical/release-parity', runId, 'release-parity-receipt.json');
+        if (path.resolve(receiptOutput) !== expected)
+        {
+            throw new Error('mutation control receipt must use the canonical current-run path');
+        }
+        let cursor = expected;
+        while (cursor !== root)
+        {
+            if (fs.existsSync(cursor) && fs.lstatSync(cursor).isSymbolicLink())
+            {
+                throw new Error('mutation control receipt path contains a filesystem alias');
+            }
+            cursor = path.dirname(cursor);
+        }
+        writeJson(expected, receipt);
+    }
 }
 catch (error)
 {
-    writeJson(path.join(runRoot, 'root-terminal.json'), {
-        schema: 'fsusblog.release-mutation-root-terminal.v1',
-        rootReceiptDigest: rootReceipt.contentDigest,
-        runId, invocationId, attemptId, sourceState,
-        root: runRoot, writeDomain: rootReceipt.writeDomain,
-        reachedPhase: 'write-boundary-precondition',
-        producerSpawned: false, authoritativeEvidence: null,
-        firstBlockingReason: error.message,
-        cleanup: 'retained', producerOutcome: null, finishedAt: new Date().toISOString()
-    });
+    if (!terminalWritten)
+    {
+        writeMutationRootTerminal(rootReceipt, expectedRoot, {
+            phase: reachedPhase, producerSpawned, producerOutcome, firstBlockingReason: error.message,
+                enforcement: writeBoundary?.binding ?? null
+        });
+    }
     throw error;
 }
-const { observeExecutableIdentity } = await import('./execution-envelope-environment.mjs');
-writeBoundary.dotnetExecutable = observeExecutableIdentity('dotnet', { pathValue: environment.PATH }).realPath;
-const debugCompilerProperties = await readCompilerProperties(sourceProject, 'Debug', environment);
-const releaseCompilerProperties = await readCompilerProperties(sourceProject, 'Release', environment);
-if (path.resolve(releaseCompilerProperties.MSBuildProjectFullPath) !== sourceProject
-    || releaseCompilerProperties.AssemblyName !== 'FsusBlog.Core'
-    || releaseCompilerProperties.Configuration !== 'Release'
-    || releaseCompilerProperties.Optimize !== 'true')
-{
-    throw new Error('Release compiler identity is not the production FsusBlog.Core project');
-}
-await run('dotnet', ['build', sourceProject, '--configuration', 'Debug'], {
-    cwd: root, encoding: 'utf8', env: environment
-}, 'run-bound Debug production Core build');
-const debugAssembly = path.join(buildRoot, 'dotnet/FsusBlog.Core/bin/Debug/net10.0/FsusBlog.Core.dll');
-if (!fs.existsSync(debugAssembly))
-{
-    throw new Error('run-bound Debug production Core artifact is missing');
-}
-const debugAssemblyDigest = sha256(fs.readFileSync(debugAssembly));
-const toolBindingPath = path.join(output, 'tool-binding.json');
-const result = await spawnProducer(process.execPath, [path.join(root, 'tools/mutation/stryker-tool.mjs'), 'run', '--working-directory', mutationProjectRoot, '--attestation-output', toolBindingPath, '--', '--config-file', configFile, '--output', output, '--log-to-file', '--verbosity', 'trace'], {
-    cwd: root, stdio: 'inherit', env: environment
-});
-if (result.status !== 0)
-{
-    throw new Error('Release Stryker failed for the sealed critical authority scope');
-}
-const reportFile = path.join(output, 'reports', config['stryker-config']['report-file-name'] + '.json');
-const rawReport = fs.readFileSync(reportFile);
-const rawTrace = fs.readFileSync(traceFile(output));
-const releaseAuthority = createStrykerAuthority({
-    toolBinding: JSON.parse(fs.readFileSync(toolBindingPath)),
-    report: JSON.parse(rawReport), rawReport, reportPath: path.relative(root, reportFile).replaceAll(path.sep, '/'),
-    reportAbsolutePath: reportFile, rawTrace, tracePath: path.relative(root, traceFile(output)).replaceAll(path.sep, '/'),
-    config, rawConfig: fs.readFileSync(configFile), configPath: path.relative(root, configFile).replaceAll(path.sep, '/'),
-    tierId: 'release-mutation-critical-slice', runId: `${runId}:release`, sourceState: authority.producer.sourceState,
-    generatedAt: new Date().toISOString(), repositoryRoot: root, sourceRoot: 'src/core'
-});
-if (releaseAuthority.semanticMutantIdentityDigest !== authority.semanticMutantIdentityDigest)
-{
-    throw new Error('Release Stryker produced a different semantic mutant identity inventory');
-}
-const assembly = path.join(
-    buildRoot,
-    'dotnet/FsusBlog.Server.Tests/bin/Release/net10.0/FsusBlog.Core.dll'
-);
-if (!fs.existsSync(assembly))
-{
-    throw new Error('production FsusBlog.Core Release artifact is missing from the run-bound build root');
-}
-const assemblyDigest = sha256(fs.readFileSync(assembly));
-const compilerIdentity = {
-    configuration: 'Release',
-    project: sourceProjectIdentity,
-    sourceConfigDigest: sha256(rawSourceConfig),
-    releaseConfigDigest: sha256(fs.readFileSync(configFile)),
-    buildRoot: path.relative(root, buildRoot).replaceAll(path.sep, '/'),
-    properties: releaseCompilerProperties
-};
-const compiler = { ...compilerIdentity, optionsDigest: sha256(JSON.stringify(compilerIdentity)) };
-const smokeRoot = path.join(runRoot, 'smoke');
-fs.mkdirSync(smokeRoot, { recursive: true });
-const smokeResult = await run('dotnet', [
-    'test',
-    path.join(root, 'tests/backend/FsusBlog.Server.Tests.csproj'),
-    '--configuration', 'Release',
-    '--no-build',
-    '--filter', config['stryker-config']['test-case-filter'],
-    '--logger', 'trx;LogFileName=release-artifact-smoke.trx',
-    '--results-directory', smokeRoot
-], { cwd: root, encoding: 'utf8', env: environment }, 'Release artifact AEDS smoke');
-const smokeTrxFile = path.join(smokeRoot, 'release-artifact-smoke.trx');
-if (!fs.existsSync(smokeTrxFile))
-{
-    throw new Error('Release artifact smoke did not produce TRX execution evidence');
-}
-const selectedKilledMutantIds = resolvedSubset.subset.map(({ mutantId }) => mutantId).sort();
-const releaseById = new Map(releaseAuthority.inventory.map((mutant) => [mutant.mutantId, mutant]));
-if (!selectedKilledMutantIds.every((mutantId) => releaseById.get(mutantId)?.status === 'Killed'))
-{
-    throw new Error('Release mutation producer did not kill every selected semantic mutant');
-}
-const smokeEvidenceFile = path.join(smokeRoot, 'execution.json');
-writeJson(smokeEvidenceFile, {
-    schema: 'fsusblog.release-mutation-artifact-smoke.v1',
-    command: 'dotnet test tests/backend/FsusBlog.Server.Tests.csproj --configuration Release --no-build --filter FullyQualifiedName~FsusBlog.Server.Tests.Unit.AedsEncoderTests',
-    exitCode: smokeResult.status,
-    stdoutDigest: sha256(smokeResult.stdout),
-    stderrDigest: sha256(smokeResult.stderr),
-    loadedAssemblyPath: path.relative(root, assembly).replaceAll(path.sep, '/'),
-    loadedAssemblyDigest: assemblyDigest,
-    trxPath: path.relative(root, smokeTrxFile).replaceAll(path.sep, '/'),
-    trxDigest: sha256(fs.readFileSync(smokeTrxFile)),
-    canonicalAffectedTestsPassed: true,
-    aedsEncodeDecodeContractPassed: true,
-    killedMutantIds: selectedKilledMutantIds
-});
-const sourceText = fs.readFileSync(path.join(root, 'src/core/Algorithms/AedsEncoder.cs'), 'utf8');
-const debugCompilerIdentity = {
-    configuration: 'Debug',
-    project: sourceProjectIdentity,
-    sourceConfigDigest: sha256(rawSourceConfig),
-    releaseConfigDigest: sha256(fs.readFileSync(configFile)),
-    buildRoot: path.relative(root, buildRoot).replaceAll(path.sep, '/'),
-    properties: debugCompilerProperties
-};
-const debugCompiler = {
-    ...debugCompilerIdentity,
-    optionsDigest: sha256(JSON.stringify(debugCompilerIdentity))
-};
-const receipt = {
-    schema: 'fsusblog.release-mutation-parity-receipt.v1', evidenceClass: 'release-artifact', runId,
-    sourceAuthority: { path: path.relative(root, path.resolve(authorityFile)).replaceAll(path.sep, '/'), inventoryDigest: authority.inventoryDigest, configDigest: authority.config.sha256 },
-    semanticMutantIdentityDigest: releaseAuthority.semanticMutantIdentityDigest,
-    resultInventoryDigest: releaseAuthority.inventoryDigest,
-    inventory: releaseAuthority.inventory,
-    debugCompiler,
-    compiler,
-    configurationComparison: {
-        debugArtifactDigest: debugAssemblyDigest,
-        releaseArtifactDigest: assemblyDigest,
-        debugCompilerOptionsDigest: debugCompiler.optionsDigest,
-        releaseCompilerOptionsDigest: compiler.optionsDigest,
-        ilClassification: debugAssemblyDigest === assemblyDigest
-            ? 'same-assembly-bytes'
-            : 'configuration-different-assembly-bytes',
-        sourceBranchClassification: /^\s*#\s*(if|elif|else|endif)\b/mu.test(sourceText)
-            ? 'conditional-source-branch-different'
-            : 'same-source-branch'
-    },
-    resolvedSubset: resolvedSubset.subset, resolvedSubsetDigest: resolvedSubset.resolvedSubsetDigest,
-    artifact: {
-        root: path.relative(root, runRoot).replaceAll(path.sep, '/'),
-        buildRoot: path.relative(root, buildRoot).replaceAll(path.sep, '/'),
-        digest: releaseArtifactDigest(runRoot),
-        assembly: {
-            name: 'FsusBlog.Core.dll',
-            path: path.relative(root, assembly).replaceAll(path.sep, '/'),
-            digest: assemblyDigest
-        },
-        smoke: {
-            evidencePath: path.relative(root, smokeEvidenceFile).replaceAll(path.sep, '/'),
-            evidenceDigest: sha256(fs.readFileSync(smokeEvidenceFile)),
-            trxPath: path.relative(root, smokeTrxFile).replaceAll(path.sep, '/'),
-            trxDigest: sha256(fs.readFileSync(smokeTrxFile)),
-            killedMutantIds: selectedKilledMutantIds
-        }
-    }
-};
-writeJson(path.join(runRoot, 'release-parity-receipt.json'), receipt);
