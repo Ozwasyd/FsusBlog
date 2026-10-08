@@ -48,9 +48,28 @@ export async function probeLocaleMenuBrowserZoom({ chromium, expect, url, eviden
         const trigger = page.locator('[data-locale-selector-trigger]');
         const menu = page.locator('[data-locale-selector-menu]');
         const item = (code) => page.locator(`[data-locale-code="${code}"]`);
+        const readFocusPaint = (element) =>
+            {
+                const style = globalThis.getComputedStyle(element);
+                const after = globalThis.getComputedStyle(element, '::after');
+                return {
+                    focusVisible: element.matches(':focus-visible'),
+                    boxShadow: style.boxShadow,
+                    outlineStyle: style.outlineStyle,
+                    outlineWidth: style.outlineWidth,
+                    afterContent: after.content,
+                    afterBorderStyle: after.borderTopStyle,
+                    afterBorderWidth: after.borderTopWidth,
+                    afterBorderColor: after.borderTopColor
+                };
+            };
+        const hasFocusPaint = (paint) => paint.focusVisible && (paint.boxShadow !== 'none'
+            || (paint.outlineStyle !== 'none' && Number.parseFloat(paint.outlineWidth) > 0)
+            || (paint.afterContent !== 'none' && paint.afterBorderStyle !== 'none' && Number.parseFloat(paint.afterBorderWidth) > 0));
         for (const variant of [
             { width: 375, theme: 'light', rtl: false, forcedColors: 'none' },
             { width: 1440, theme: 'dark', rtl: true, forcedColors: 'none' },
+            { width: 375, theme: 'light', rtl: false, forcedColors: 'active' },
             { width: 375, theme: 'dark', rtl: true, forcedColors: 'active' }
         ])
         {
@@ -94,30 +113,13 @@ export async function probeLocaleMenuBrowserZoom({ chromium, expect, url, eviden
                     }).map((row) => row.getAttribute('data-locale-code'))
                 };
             });
-            const focusPaint = await item('ru-RU').evaluate((element) =>
-            {
-                const style = globalThis.getComputedStyle(element);
-                const after = globalThis.getComputedStyle(element, '::after');
-                return {
-                    focusVisible: element.matches(':focus-visible'),
-                    boxShadow: style.boxShadow,
-                    outlineStyle: style.outlineStyle,
-                    outlineWidth: style.outlineWidth,
-                    afterContent: after.content,
-                    afterBorderStyle: after.borderTopStyle,
-                    afterBorderWidth: after.borderTopWidth,
-                    afterBorderColor: after.borderTopColor
-                };
-            });
-            if (variant.forcedColors === 'active' && (!focusPaint.focusVisible || (
-                focusPaint.boxShadow === 'none'
-                && (focusPaint.outlineStyle === 'none' || Number.parseFloat(focusPaint.outlineWidth) === 0)
-                && (focusPaint.afterContent === 'none' || focusPaint.afterBorderStyle === 'none' || Number.parseFloat(focusPaint.afterBorderWidth) === 0)
-            )))
+            const focusPaint = await item('ru-RU').evaluate(readFocusPaint);
+            if (variant.forcedColors === 'active' && !hasFocusPaint(focusPaint))
             {
                 report.observations.realBrowserZoom.focusPaintFailures.push('forced-colors-focus-paint');
             }
-            report.observations.realBrowserZoom.variants.push({ ...variant, geometry, focusPaint });
+            const observation = { ...variant, geometry, focusPaint };
+            report.observations.realBrowserZoom.variants.push(observation);
             expect(geometry.cssZoom).toBe('1');
             expect(geometry.dpr).toBe(before.dpr * 2);
             expect(geometry.innerWidth).toBeLessThan(variant.width);
@@ -143,9 +145,28 @@ export async function probeLocaleMenuBrowserZoom({ chromium, expect, url, eviden
             {
                 await session.detach();
             }
+            if (variant.forcedColors === 'active')
+            {
+                const negativeStyle = await page.addStyleTag({ content: '[data-locale-code="ru-RU"]::after { border-width: 0 !important; }' });
+                try
+                {
+                    observation.focusPaintNegative = await item('ru-RU').evaluate(readFocusPaint);
+                    expect(hasFocusPaint(observation.focusPaintNegative)).toBe(false);
+                }
+                finally
+                {
+                    await negativeStyle.evaluate((element) => element.remove());
+                }
+                expect(await item('ru-RU').evaluate(readFocusPaint)).toEqual(focusPaint);
+            }
             await page.keyboard.press('Escape');
             await expect(trigger).toBeFocused();
             await expect(menu).not.toBeAttached();
+            observation.triggerFocusPaint = await trigger.evaluate(readFocusPaint);
+            if (variant.forcedColors === 'active' && !hasFocusPaint(observation.triggerFocusPaint))
+            {
+                report.observations.realBrowserZoom.focusPaintFailures.push('forced-colors-trigger-focus-paint');
+            }
         }
     }
     finally
