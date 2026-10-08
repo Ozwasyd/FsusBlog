@@ -1,0 +1,363 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.atomic-producer-declarations.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "nodes"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.atomic-producer-declarations.v1"
+        },
+        "nodes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "kind",
+                            "producerId",
+                            "logicalParentId",
+                            "owner",
+                            "projectionOwner",
+                            "dependsOn",
+                            "settledDependsOn",
+                            "commandSourceRef",
+                            "executionClass",
+                            "evidenceClass",
+                            "attemptPolicyId",
+                            "fixtureProfile",
+                            "stateAccessRef",
+                            "resourceContractRef",
+                            "serviceDependencies",
+                            "artifacts",
+                            "evidence",
+                            "replayOwner",
+                            "replayPlanRef"
+                        ],
+                        "properties": {
+                            "kind": {
+                                "enum": [
+                                    "atomic-producer",
+                                    "hard-prerequisite"
+                                ]
+                            },
+                            "producerId": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "logicalParentId": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "owner": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "projectionOwner": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "dependsOn": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                },
+                                "uniqueItems": true
+                            },
+                            "settledDependsOn": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                },
+                                "uniqueItems": true
+                            },
+                            "commandSourceRef": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "id",
+                                    "contentDigest"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "string",
+                                        "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                    },
+                                    "contentDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    }
+                                }
+                            },
+                            "executionClass": {
+                                "enum": [
+                                    "static",
+                                    "build",
+                                    "runtime"
+                                ]
+                            },
+                            "evidenceClass": {
+                                "const": "correctness"
+                            },
+                            "attemptPolicyId": {
+                                "const": "correctness-first-attempt"
+                            },
+                            "fixtureProfile": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "id",
+                                    "contentDigest"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "string",
+                                        "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                    },
+                                    "contentDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    }
+                                }
+                            },
+                            "stateAccessRef": {
+                                "anyOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "required": [
+                                            "id",
+                                            "contentDigest"
+                                        ],
+                                        "properties": {
+                                            "id": {
+                                                "type": "string",
+                                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                            },
+                                            "contentDigest": {
+                                                "type": "string",
+                                                "pattern": "^sha256:[a-f0-9]{64}$"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            "resourceContractRef": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "id",
+                                    "contentDigest"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "string",
+                                        "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                    },
+                                    "contentDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    }
+                                }
+                            },
+                            "serviceDependencies": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                },
+                                "uniqueItems": true
+                            },
+                            "artifacts": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                },
+                                "uniqueItems": true
+                            },
+                            "evidence": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                },
+                                "uniqueItems": true
+                            },
+                            "replayOwner": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "replayPlanRef": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "id",
+                                    "contentDigest",
+                                    "planDigest"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "string",
+                                        "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                    },
+                                    "contentDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    },
+                                    "planDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "kind",
+                            "producerId",
+                            "logicalParentId",
+                            "owner",
+                            "projectionOwner",
+                            "dependsOn",
+                            "settledDependsOn"
+                        ],
+                        "properties": {
+                            "kind": {
+                                "enum": [
+                                    "settled-join",
+                                    "logical-projection"
+                                ]
+                            },
+                            "producerId": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "logicalParentId": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "owner": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "projectionOwner": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "dependsOn": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                },
+                                "uniqueItems": true
+                            },
+                            "settledDependsOn": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                },
+                                "uniqueItems": true
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "kind",
+                            "producerId",
+                            "logicalParentId",
+                            "owner",
+                            "projectionOwner",
+                            "dependsOn",
+                            "settledDependsOn",
+                            "finalizerPurpose",
+                            "operationRef"
+                        ],
+                        "properties": {
+                            "kind": {
+                                "enum": [
+                                    "always-run-finalizer"
+                                ]
+                            },
+                            "producerId": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "logicalParentId": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "owner": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "projectionOwner": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "dependsOn": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                },
+                                "uniqueItems": true
+                            },
+                            "settledDependsOn": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                },
+                                "uniqueItems": true
+                            },
+                            "finalizerPurpose": {
+                                "enum": [
+                                    "cleanup",
+                                    "sealed-failure-summary",
+                                    "partial-evidence-inventory"
+                                ]
+                            },
+                            "operationRef": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "id",
+                                    "contentDigest"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "string",
+                                        "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                                    },
+                                    "contentDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}

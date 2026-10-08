@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release/correctness-terminal-receipt.mjs"
+            ],
+            "reason": "Preserve the original registered tooling naming surface while defining the terminal receipt contract; no environment switch or producer override is added."
+        }
+    ]
+}
