@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/CommentAuthorManagementService.cs",
+                "src/backend/Services/CommentService.cs",
+                "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphFactory.cs",
+                "src/backend/Services/Fixtures/DataScale/CommentScaleRevisionGraphAdapter.cs"
+            ],
+            "reason": "Preserve existing canonical production configuration and reference contract names while importing the original shared revision constructor unchanged and pairing explicit observed revision/outbox facts without a private row authority."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/comment-command-boundary.md"
+            ],
+            "reason": "Consume the original current comment command documentation unchanged, preserving its external configuration and generated-section identifiers."
+        }
+    ]
+}

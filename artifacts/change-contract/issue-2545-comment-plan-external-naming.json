@@ -5,6 +5,7 @@
             "id": "environment-variable",
             "paths": [
                 "src/backend/Services/ArticleCommentPolicyService.cs",
+                "src/backend/Services/CommentAuthorManagementService.cs",
                 "src/backend/Services/CommentModerationService.cs",
                 "src/backend/Services/CommentService.cs",
                 "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",

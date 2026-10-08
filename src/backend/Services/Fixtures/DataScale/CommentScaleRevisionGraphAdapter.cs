@@ -90,17 +90,17 @@ public static class CommentScaleRevisionGraphAdapter
             // Production reads the creation clock and initial-outbox clock
             // separately. Revision and event instants must not be conflated.
             if (events.Length == 0 || events.Length != group.Events.Count || events[0] is null
-                || events[0].NextStatus is null || !Enum.IsDefined(events[0].NextStatus.Value)
+                || events[0].NextStatus is not { } initialStatus || !Enum.IsDefined(initialStatus)
                 || events[0].OccurredAtUtc.Kind != DateTimeKind.Utc
                 || events.Any(item => item is null || item.CommentId != revision.CommentId
                     || item.ArticleId != facts.ArticleId || item.OccurredAtUtc != events[0].OccurredAtUtc
                     || item.OccurredAtUtc.Kind != events[0].OccurredAtUtc.Kind
                     || item.AccountId != revision.ActorAccountId || item.ActorAdminPrincipalId is not null
                     || item.PreviousStatus is not null
-                    || item.NextStatus != events[0].NextStatus || item.RootId != events[0].RootId
+                    || item.NextStatus != initialStatus || item.RootId != events[0].RootId
                     || item.ParentId != events[0].ParentId || item.ReplyToAccountId != events[0].ReplyToAccountId)
                 || !events.Select(item => item.EventType).SequenceEqual(
-                    CommentCommandService.ResolveInitialOutboxEventTypes(events[0].NextStatus.Value,
+                    CommentCommandService.ResolveInitialOutboxEventTypes(initialStatus,
                         events[0].ReplyToAccountId)))
             {
                 throw new InvalidOperationException("comment_revision_initial_event_binding_mismatch");

@@ -569,7 +569,9 @@ public sealed class CommentScaleRevisionGraphAdapterTests
     {
         Fixture f = Create();
         var events = new MisreportedList<CommentMutationOutboxEvent>(0, [f.Groups[1].Events[0]]);
-        Assert.Equal(0, events.Count);
+        // Check the deceptive reported value independently of real enumeration.
+        int reportedCount = events.Count;
+        Assert.Equal(0, reportedCount);
         Assert.Single(events.ToArray());
         f.Groups[0] = f.Groups[0] with
         {
