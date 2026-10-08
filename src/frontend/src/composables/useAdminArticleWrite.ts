@@ -1044,11 +1044,8 @@ export function useAdminArticleWrite()
         kind: 'refresh',
         producerRef: 'article-write:taxonomy'
     });
-    const previewTask = useAbortableTask({
-        registry: articleDocumentContextAdapter,
-        kind: 'preview',
-        producerRef: 'article-write:preview'
-    });
+    // Source admission owns the document preview lease; this controller only cancels the caller.
+    const previewTask = useAbortableTask();
     const prepublishTask = useAbortableTask({
         registry: articleDocumentContextAdapter,
         kind: 'feature',
