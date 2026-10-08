@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release-candidate/cohort-ledger.mjs",
+                "tools/release-candidate/cohort-store.mjs"
+            ],
+            "reason": "preserve the registered tooling naming surface while binding explicit run and receipt references; no ambient environment or process identifiers choose authority"
+        }
+    ]
+}
