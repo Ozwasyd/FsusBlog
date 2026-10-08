@@ -185,6 +185,42 @@ describe('global search canonical reveal presentation (#2319)', () =>
         }
     });
 
+    it.each(['evaluation', 'candidate', 'raw-range'] as const)(
+        'does not promote unadmitted internal index %s evidence to an exact source reveal', kind =>
+        {
+            const state = open();
+            const lease = state.lease();
+            const receipts = state.anchor.receipts;
+            const context = state.owner.context;
+            // Untrusted boundary samples, not a production response or a wire codec.
+            // Record names follow AuthorFullTextSearchQueryEvaluator at ac85bda.
+            const privateEpoch = 'PRIVATE_INTERNAL_SOURCE_EPOCH';
+            const range = {
+                Authority: 'fsusui.markdown-source-coordinate-map', ParserVersion: 'explicit-algorithm-fixture',
+                DocumentEpoch: privateEpoch, SourceRevision: 1, SourceDigest: `sha256:${'0'.repeat(64)}`,
+                Utf16Start: 1, Utf16End: 5, Utf8Start: 1, Utf8End: 5
+            };
+            const candidate = {
+                Document: { Identity: { Permission: 1 } }, Ranges: [range],
+                PhraseClauses: 1, MatchedRanges: 1, FieldWeight: 10
+            };
+            const evaluation = {
+                QueryDigest: `sha256:${'1'.repeat(64)}`, IndexGeneration: 1, SourceGeneration: 1,
+                SnapshotDigest: `sha256:${'2'.repeat(64)}`, Candidates: [candidate]
+            };
+            const input = kind === 'evaluation' ? evaluation : kind === 'candidate' ? candidate : range;
+            const result = projectArticleSearchReveal(input, state.runtime, lease);
+            expect(result).toEqual({
+                status: 'rejected', precision: null, exact: false, approximate: false,
+                reason: 'search-reveal-command-invalid', commandDigest: null
+            });
+            expect(JSON.stringify(result)).not.toContain(privateEpoch);
+            expect(state.owner.context).toBe(context);
+            expect(state.anchor.receipts).toEqual(receipts);
+            expect(lease.isCurrent()).toBe(true);
+        }
+    );
+
     it.each(['cancel', 'supersede', 'complete', 'other-kind', 'other-document'] as const)(
         'rejects a canonical lease after %s without promoting an exact command', action =>
         {

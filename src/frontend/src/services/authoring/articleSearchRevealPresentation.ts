@@ -19,6 +19,8 @@ export interface ArticleSearchRevealPresentation {
 /**
  * Project the canonical search reveal outcome for UI consumption. This does not
  * create anchors, execute commands, revalidate server results or record visits.
+ * Internal index evaluations/candidates/raw ranges are not admitted commands;
+ * only the canonical anchor validator decides whether an input is a command.
  * The shared runtime must still admit/execute the original command at use time.
  */
 export function projectArticleSearchReveal(
