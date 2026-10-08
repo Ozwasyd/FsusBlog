@@ -14,7 +14,13 @@
         "tools/test-inventory/discovery.mjs",
         "tools/test-matrix/generate-release-final-execution-authority.mjs",
         "tools/test-matrix/release-final-static-boundary.mjs",
-        "config/testing/release-final-execution-authority-index.json"
+        "config/testing/release-final-execution-authority-index.json",
+        "config/testing/release-reliability-scenario-catalog.json",
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+        "config/testing/replay-qualification-producers.json",
+        "tools/test/attempt-runner.mjs",
+        "tools/test/temporal-context.mjs",
+        "tools/test/temporal-context-contract.mjs"
     ],
     "outputs": [
         {
