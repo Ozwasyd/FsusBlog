@@ -2960,8 +2960,8 @@
         },
         {
             "path": "tools/docs/generated-fact-sections/renderers.mjs",
-            "contentDigest": "sha256:27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37",
-            "indexDigest": "sha256:27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37"
+            "contentDigest": "sha256:40c5858e17cc39f56d945de2f77e6c9b15bb75b6392c412cd33ef2c8ba31baff",
+            "indexDigest": "sha256:40c5858e17cc39f56d945de2f77e6c9b15bb75b6392c412cd33ef2c8ba31baff"
         },
         {
             "path": "tools/docs/global-claim-exactness-final.mjs",
