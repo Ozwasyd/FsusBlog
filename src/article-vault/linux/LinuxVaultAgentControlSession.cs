@@ -256,17 +256,19 @@ public sealed class LinuxVaultAgentControlSession : IAsyncDisposable
         }
     }
 
-    private Task<ArticleVaultAgentCommandReceipt> DispatchAsync(
+    private async Task<ArticleVaultAgentCommandReceipt> DispatchAsync(
         ArticleVaultAgentRequest request, int size, CancellationToken cancellationToken)
     {
+        ArticleVaultAgentDispatchScope? dispatch;
+        ArticleVaultAgentLifecycleReceipt lifecycle;
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_shutdown is not null, this);
             _lease.RequireCurrent(cancellationToken);
             if (_pendingRegistrations.Count > 0 && request.Command is not (ArticleVaultAgentCommand.InspectStatus or ArticleVaultAgentCommand.Revoke))
             {
-                return Task.FromResult(ArticleVaultAgentCommandReceipts.Create(request, size,
-                    ArticleVaultAgentCommandStatus.Blocked, "agent_operation_registration_not_durable"));
+                return ArticleVaultAgentCommandReceipts.Create(request, size,
+                    ArticleVaultAgentCommandStatus.Blocked, "agent_operation_registration_not_durable");
             }
 
             if (request.Command == ArticleVaultAgentCommand.Revoke)
@@ -274,17 +276,64 @@ public sealed class LinuxVaultAgentControlSession : IAsyncDisposable
                 _revocationRequested = true;
                 _grants.Revoke(cancellationToken);
                 _dispatch?.Dispose();
-                return Task.FromResult(ArticleVaultAgentCommandReceipts.Create(request, size,
-                    ArticleVaultAgentCommandStatus.Admitted, "agent_revoke_requested"));
+                return ArticleVaultAgentCommandReceipts.Create(request, size,
+                    ArticleVaultAgentCommandStatus.Admitted, "agent_revoke_requested");
             }
 
-            return _dispatch is not null ? _dispatch.DispatchAsync(request, size, Receipt, cancellationToken)
-                : Task.FromResult(ArticleVaultAgentCommandReceipts.Create(request, size,
+            dispatch = _dispatch;
+            lifecycle = Receipt;
+            if (dispatch is null)
+            {
+                return ArticleVaultAgentCommandReceipts.Create(request, size,
                     request.Command == ArticleVaultAgentCommand.InspectStatus
                         ? ArticleVaultAgentCommandStatus.Completed : ArticleVaultAgentCommandStatus.Blocked,
                     request.Command == ArticleVaultAgentCommand.InspectStatus ? null : "agent_canonical_operation_handler_missing",
-                    request.Command == ArticleVaultAgentCommand.InspectStatus ? Receipt.ContentSha256 : null));
+                    request.Command == ArticleVaultAgentCommand.InspectStatus ? Receipt.ContentSha256 : null);
+            }
         }
+
+        ArticleVaultAgentCommandReceipt result = await dispatch.DispatchAsync(request, size, lifecycle, cancellationToken)
+            .ConfigureAwait(false);
+        if (request.Command == ArticleVaultAgentCommand.Cancel)
+        {
+            lock (_gate)
+            {
+                IReadOnlyList<ArticleVaultAgentOperationReference> current = dispatch.InspectOperationReferences();
+                if (current.Any(reference => !_journal.Tip!.Operations.Any(old =>
+                    old.Identity.OperationIdentity == reference.Identity.OperationIdentity
+                    && old.CheckpointSequence == reference.CheckpointSequence
+                    && old.CheckpointSha256 == reference.CheckpointSha256)))
+                {
+                    ArticleVaultAgentOperationReference[] inventory = _journal.Tip!.Operations
+                        .Where(old => !current.Any(reference => reference.Identity.OperationIdentity == old.Identity.OperationIdentity))
+                        .Concat(current).ToArray();
+                    try
+                    {
+                        // The held journal survives lease revocation until admitted peers drain.
+                        // Persist the canonical pointer before the endpoint can send its receipt.
+                        _journal.Append(Receipt, inventory, CancellationToken.None);
+                    }
+                    catch
+                    {
+                        _revocationRequested = true;
+                        try
+                        {
+                            _grants.Revoke(CancellationToken.None);
+                        }
+                        finally
+                        {
+                            dispatch.Dispose();
+                        }
+
+                        return ArticleVaultAgentCommandReceipts.Create(request, size,
+                            ArticleVaultAgentCommandStatus.Blocked, "agent_operation_inventory_persistence_failed",
+                            result.CanonicalResultSha256);
+                    }
+                }
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

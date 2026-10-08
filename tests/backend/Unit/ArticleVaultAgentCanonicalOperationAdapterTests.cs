@@ -45,6 +45,72 @@ public sealed class ArticleVaultAgentCanonicalOperationAdapterTests
         await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => fixture.Adapter.ExecuteAsync(fixture.Reference, default));
     }
 
+    [Fact]
+    public async Task CancellationBeforeExecution_AppendsCanonicalCancelledFact()
+    {
+        var fixture = new Fixture(beforeExecution: true);
+        ArticleVaultAgentOperationSnapshot cancelled = await fixture.Adapter.CancelAsync(fixture.Reference, default);
+        ArticleVaultOperationCheckpoint tip = cancelled.History[^1];
+        Assert.Equal(VaultOperationState.Cancelled, tip.State);
+        Assert.Equal(VaultServerCommitDisposition.NotStarted, tip.ServerCommit);
+        Assert.True(tip.CancellationRequested);
+        Assert.Equal(fixture.Reference.CheckpointSha256, tip.PreviousCheckpointSha256);
+        Assert.Equal(fixture.Reference.CheckpointSequence + 1, tip.Sequence);
+        await fixture.Checkpoints.Received(1).AppendAsync(fixture.Reference.Identity, cancelled.Plan, tip, default);
+        await fixture.Writer.DidNotReceiveWithAnyArgs().ExecuteGroupAsync(default!, default!, default!, default);
+    }
+
+    [Fact]
+    public async Task CancellationWithUnknownServerResult_AppendsRecoveryWithoutInventingReceipt()
+    {
+        var fixture = new Fixture();
+        ArticleVaultAgentOperationSnapshot cancelled = await fixture.Adapter.CancelAsync(fixture.Reference, default);
+        ArticleVaultOperationCheckpoint tip = cancelled.History[^1];
+        Assert.Equal(VaultOperationState.RecoveryRequired, tip.State);
+        Assert.Equal(VaultServerCommitDisposition.Unknown, tip.ServerCommit);
+        Assert.Null(tip.ServerResult);
+        Assert.True(tip.CancellationRequested);
+        Assert.All(tip.Articles, article => Assert.Equal(article.BaseBeforeSha256, article.BaseAfterSha256));
+        await fixture.Store.DidNotReceiveWithAnyArgs().SaveResultAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task CanonicalCancelledPointer_ReplaysWithoutAppendingAgain()
+    {
+        var fixture = new Fixture(beforeExecution: true);
+        ArticleVaultAgentOperationSnapshot first = await fixture.Adapter.CancelAsync(fixture.Reference, default);
+        ArticleVaultOperationCheckpoint tip = first.History[^1];
+        ArticleVaultAgentOperationSnapshot replay = await fixture.Adapter.CancelAsync(
+            new(fixture.Reference.Identity, tip.Sequence, tip.ContentSha256), default);
+        Assert.Equal(tip.ContentSha256, replay.History[^1].ContentSha256);
+        await fixture.Checkpoints.ReceivedWithAnyArgs(1).AppendAsync(default!, default!, default!, default);
+    }
+
+    [Fact]
+    public async Task CompetingCanonicalAppend_CannotReturnCancellationSuccess()
+    {
+        var fixture = new Fixture();
+        fixture.Checkpoints.AppendAsync(Arg.Any<ArticleVaultOperationIdentity>(), Arg.Any<ArticleVaultSyncPlan>(),
+            Arg.Any<ArticleVaultOperationCheckpoint>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new ArticleVaultExecutionRejectedException("article_vault_operation_append_conflict")));
+        ArticleVaultExecutionRejectedException error = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(
+            () => fixture.Adapter.CancelAsync(fixture.Reference, default));
+        Assert.Equal("article_vault_operation_append_conflict", error.ReasonCode);
+        Assert.Equal(fixture.Reference.CheckpointSequence + 1, fixture.History.Count);
+    }
+
+    [Fact]
+    public async Task CancellationReadBackDrift_CannotBecomeDurableProof()
+    {
+        var fixture = new Fixture();
+        fixture.Checkpoints.ReadThroughAsync(Arg.Any<ArticleVaultOperationIdentity>(), Arg.Any<ArticleVaultSyncPlan>(),
+            Arg.Is<long>(sequence => sequence > fixture.Reference.CheckpointSequence), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<ArticleVaultOperationCheckpoint>>(fixture.History.ToArray()));
+        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => fixture.Adapter.CancelAsync(fixture.Reference, default));
+        Assert.Equal("article_vault_operation_history_missing", error.Message);
+    }
+
     // Ordinary source-composition fixtures; no live database, native control or platform admission.
     private sealed class Fixture
     {
@@ -52,6 +118,8 @@ public sealed class ArticleVaultAgentCanonicalOperationAdapterTests
         public IArticleVaultExecutionStore Store { get; } = Substitute.For<IArticleVaultExecutionStore>();
         public IArticleVaultCanonicalGroupWriter Writer { get; } = Substitute.For<IArticleVaultCanonicalGroupWriter>();
         public IArticleVaultCurrentObservationAuthority Observations { get; } = Substitute.For<IArticleVaultCurrentObservationAuthority>();
+        public IArticleVaultOperationCheckpointStore Checkpoints { get; } = Substitute.For<IArticleVaultOperationCheckpointStore>();
+        public List<ArticleVaultOperationCheckpoint> History { get; } = [];
         public ArticleVaultAgentCanonicalOperationAdapter Adapter
         {
             get;
@@ -65,7 +133,7 @@ public sealed class ArticleVaultAgentCanonicalOperationAdapterTests
             get;
         }
 
-        public Fixture()
+        public Fixture(bool beforeExecution = false)
         {
             var binding = new ArticleVaultAgentBinding("site-test", "vault-test", "device-test", "agent-test", "session-test", Digest, Digest, "1.0.0", 1);
             VaultArticleCoordinate coordinate = new(ArticleVaultSchemas.Coordinate, 1, true, false, 4,
@@ -110,8 +178,11 @@ public sealed class ArticleVaultAgentCanonicalOperationAdapterTests
                 ContentSha256 = ArticleVaultExecutionIntegrity.SealBundle(bundle)
             };
             ArticleVaultOperationIdentity identity = ArticleVaultOperationVerifier.Bind(plan, binding.AgentInstanceIdentity, Digest, Digest, 60000);
-            var history = new List<ArticleVaultOperationCheckpoint>();
-            foreach (VaultOperationState state in new[] { VaultOperationState.Planned, VaultOperationState.Validating, VaultOperationState.ExecutingServer })
+            List<ArticleVaultOperationCheckpoint> history = History;
+            VaultOperationState[] states = beforeExecution
+                ? [VaultOperationState.Planned, VaultOperationState.Validating]
+                : [VaultOperationState.Planned, VaultOperationState.Validating, VaultOperationState.ExecutingServer];
+            foreach (VaultOperationState state in states)
             {
                 ArticleVaultOperationCheckpoint checkpoint = new(ArticleVaultOperationSchemas.Checkpoint, 1, identity.OperationIdentity,
                     identity.ContentSha256, history.Count, history.LastOrDefault()?.ContentSha256, history.Count,
@@ -150,12 +221,21 @@ public sealed class ArticleVaultAgentCanonicalOperationAdapterTests
             };
             Store.LoadSealedAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(bundle);
             Store.LoadResultAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result);
-            IArticleVaultOperationCheckpointStore checkpoints = Substitute.For<IArticleVaultOperationCheckpointStore>();
-            checkpoints.ReadThroughAsync(Arg.Any<ArticleVaultOperationIdentity>(), Arg.Any<ArticleVaultSyncPlan>(),
-                Arg.Any<long>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(history);
+            Checkpoints.ReadThroughAsync(Arg.Any<ArticleVaultOperationIdentity>(), Arg.Any<ArticleVaultSyncPlan>(),
+                Arg.Any<long>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
+                    Task.FromResult<IReadOnlyList<ArticleVaultOperationCheckpoint>>(history
+                        .Where(checkpoint => checkpoint.Sequence <= call.ArgAt<long>(2)).ToArray()));
+            Checkpoints.AppendAsync(Arg.Any<ArticleVaultOperationIdentity>(), Arg.Any<ArticleVaultSyncPlan>(),
+                Arg.Any<ArticleVaultOperationCheckpoint>(), Arg.Any<CancellationToken>()).Returns(call =>
+                {
+                    ArticleVaultOperationCheckpoint next = call.ArgAt<ArticleVaultOperationCheckpoint>(2);
+                    ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateAppend(identity, plan, history[^1], next));
+                    history.Add(next);
+                    return Task.CompletedTask;
+                });
             var time = new UnitTimeProvider();
             var executor = new ArticleVaultSyncPlanExecutor(Store, Observations, Writer, time);
-            Adapter = new(Store, checkpoints, executor, binding, root.ContentSha256, 1001, time);
+            Adapter = new(Store, Checkpoints, executor, binding, root.ContentSha256, 1001, time);
         }
     }
 

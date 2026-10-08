@@ -3,8 +3,8 @@ using FsusBlog.Shared.Contracts.ArticleVault;
 namespace FsusBlog.Server.Services.ArticleVault;
 
 /// <summary>
-/// Composes the original server stores and executor; no writer, operation transition, persistence
-/// or automatic DI registration is added. The trusted session/root binding is supplied by the host.
+/// Composes the original server stores and executor. Cancellation uses the canonical checkpoint
+/// writer; no second store, article writer or automatic DI registration is added.
 /// </summary>
 public sealed class ArticleVaultAgentCanonicalOperationAdapter(
     IArticleVaultExecutionStore executions,
@@ -77,6 +77,55 @@ public sealed class ArticleVaultAgentCanonicalOperationAdapter(
                 ArticleVaultExecutionOutcome.Cancelled => ArticleVaultAgentCanonicalOutcome.Cancelled,
                 _ => ArticleVaultAgentCanonicalOutcome.Failed
             });
+    }
+
+    public async Task<ArticleVaultAgentOperationSnapshot> CancelAsync(
+        ArticleVaultAgentOperationReference reference,
+        CancellationToken cancellationToken)
+    {
+        ArticleVaultAgentOperationSnapshot snapshot = await ReadAsync(reference, cancellationToken).ConfigureAwait(false);
+        ArticleVaultOperationCheckpoint tip = snapshot.History[^1];
+        if (tip.State == VaultOperationState.Cancelled
+            || tip.State == VaultOperationState.RecoveryRequired && tip.CancellationRequested)
+        {
+            return snapshot;
+        }
+
+        if (ArticleVaultOperationVerifier.IsTerminal(tip.State))
+        {
+            throw new InvalidDataException("agent_operation_cancellation_terminal");
+        }
+
+        long now = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
+        if (now < tip.RecordedAtUnixMs)
+        {
+            throw new InvalidDataException("agent_operation_cancellation_clock_invalid");
+        }
+
+        bool recovery = tip.ServerCommit is VaultServerCommitDisposition.Unknown or VaultServerCommitDisposition.Accepted;
+        ArticleVaultOperationCheckpoint next = tip with
+        {
+            Sequence = checked(tip.Sequence + 1),
+            PreviousCheckpointSha256 = tip.ContentSha256,
+            RecordedAtUnixMs = now,
+            State = recovery ? VaultOperationState.RecoveryRequired : VaultOperationState.Cancelled,
+            CancellationRequested = true,
+            ReasonCode = recovery ? "agent_canonical_recovery_required" : "agent_cancel_requested",
+            ContentSha256 = string.Empty
+        };
+        next = next with
+        {
+            ContentSha256 = ArticleVaultOperationCodec.ComputeContentSha256(next)
+        };
+        ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateAppend(
+            reference.Identity, snapshot.Plan, tip, next));
+        cancellationToken.ThrowIfCancellationRequested();
+        // This is the existing sole writer's expected-predecessor append, not first-execution admission.
+        // A competing transition refuses this candidate rather than overwriting canonical history.
+        await checkpoints.AppendAsync(reference.Identity, snapshot.Plan, next, cancellationToken).ConfigureAwait(false);
+        // Once the append returns, obtain the durable exact receipt even if the peer has disconnected.
+        return await ReadAsync(new(reference.Identity, next.Sequence, next.ContentSha256), CancellationToken.None)
+            .ConfigureAwait(false);
     }
 
     private async Task<ArticleVaultSealedExecutionBundle> LoadAsync(

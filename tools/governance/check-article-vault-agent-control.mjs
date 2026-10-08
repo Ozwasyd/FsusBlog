@@ -106,7 +106,7 @@ export function checkArticleVaultAgentControlSources(sources)
         [journalFile, ['OpenLifecycleJournal', 'VerifyAppend', 'MaximumJournalBytes', 'Flush(flushToDisk: true)', 'agent_lifecycle_journal_incomplete_recovery_required', 'agent_lifecycle_journal_recovery_required']],
         [dispatchFile, ['ArticleVaultSyncPlanner.Build', 'RequireCurrentBinding', 'agent_dispatch_lifecycle_not_running', 'agent_execution_recovery_required', 'agent_native_conditional_materializer_missing']],
         [inventoryFile, ['VerifyAppend', 'previous.RootManifestSha256 == next.RootManifestSha256', 'retained.CheckpointSequence < old.CheckpointSequence', 'next.Lifecycle.RescanRequired']],
-        [adapterFile, ['checkpoints.ReadThroughAsync', 'executor.ExecuteAsync', 'ArticleVaultExecutionIntegrity.VerifyResult', 'agent_current_operation_execution_admission_missing', 'agent_execution_result_receipt_missing']]
+        [adapterFile, ['checkpoints.ReadThroughAsync', 'checkpoints.AppendAsync', 'ArticleVaultOperationVerifier.ValidateAppend', 'executor.ExecuteAsync', 'ArticleVaultExecutionIntegrity.VerifyResult', 'agent_current_operation_execution_admission_missing', 'agent_execution_result_receipt_missing']]
     ]);
     for (const [file, required] of guards)
     {
@@ -122,9 +122,10 @@ export function checkArticleVaultAgentControlSources(sources)
     {
         errors.push('IPC must remain a closed current-user Unix endpoint, never remote or listen-all');
     }
-    if (/\b(?:AppendAsync|SaveResultAsync|ExecuteGroupAsync|SaveChanges|CreateTemporarySource)\s*\(/u.test(sources.get(adapterFile)))
+    const adapterWithoutCanonicalCancellation = sources.get(adapterFile).replace('checkpoints.AppendAsync(', 'CanonicalCancellationAppend(');
+    if (/\b(?:AppendAsync|SaveResultAsync|ExecuteGroupAsync|SaveChanges|CreateTemporarySource)\s*\(/u.test(adapterWithoutCanonicalCancellation))
     {
-        errors.push('canonical agent adapter must not add operation transitions, a writer or a private materializer');
+        errors.push('canonical agent adapter must not add a second checkpoint writer, article writer or private materializer');
     }
     if (/\b\w+\.Bind\s*\(/u.test(sources.get(endpointFile)))
     {

@@ -2,7 +2,7 @@ namespace FsusBlog.Shared.Contracts.ArticleVault;
 
 /// <summary>
 /// Routes admitted references to the original planner and canonical operation port. Registration is
-/// host-owned, bounded and session-local; this scope neither persists nor transitions operations.
+/// host-owned, bounded and session-local; canonical cancellation persistence remains in its owner.
 /// The native control owner must admit the peer/grant and supply its own current lifecycle receipt.
 /// </summary>
 public sealed class ArticleVaultAgentDispatchScope : IDisposable
@@ -156,8 +156,7 @@ public sealed class ArticleVaultAgentDispatchScope : IDisposable
                 return Blocked("agent_cancel_operation_binding_missing");
             }
 
-            // This only requests cancellation. Existing canonical checkpoint transitions stay
-            // with their owner; an uncertain/accepted server result still requires recovery.
+            // Signal only the bound local request, then require the canonical writer's durable fact.
             CancellationTokenSource? activeCancellation;
             lock (_gate)
             {
@@ -176,15 +175,32 @@ public sealed class ArticleVaultAgentDispatchScope : IDisposable
                     // The target completed while the cancellation request was being admitted.
                 }
 
-                ArticleVaultAgentOperationSnapshot snapshot = await _operations.ReadAsync(entry.Reference, cancellationToken)
+                ArticleVaultAgentOperationReference previous = entry.Reference;
+                ArticleVaultAgentOperationSnapshot snapshot = await _operations.CancelAsync(previous, cancellationToken)
                     .ConfigureAwait(false);
-                ArticleVaultAgentOperationInventory.RequireCurrentBinding(_binding, _rootManifestSha256, entry.Reference, snapshot);
                 ArticleVaultOperationCheckpoint tip = snapshot.History[^1];
+                ArticleVaultAgentOperationReference durable = new(previous.Identity, tip.Sequence, tip.ContentSha256);
+                ArticleVaultAgentOperationInventory.RequireCurrentBinding(_binding, _rootManifestSha256, durable, snapshot);
+                if (tip.Sequence < previous.CheckpointSequence
+                    || snapshot.History[(int)previous.CheckpointSequence].ContentSha256 != previous.CheckpointSha256
+                    || tip.State != VaultOperationState.Cancelled
+                        && !(tip.State == VaultOperationState.RecoveryRequired && tip.CancellationRequested))
+                {
+                    return Blocked("agent_cancel_canonical_receipt_unavailable");
+                }
+
+                lock (_gate)
+                {
+                    entry.Reference = durable;
+                    if (_revoked)
+                    {
+                        return Blocked("agent_execution_recovery_required", tip.ContentSha256);
+                    }
+                }
+
                 return tip.State == VaultOperationState.Cancelled
                     ? Receipt(ArticleVaultAgentCommandStatus.Cancelled, "agent_canonical_cancelled", tip.ContentSha256)
-                    : Receipt(ArticleVaultAgentCommandStatus.Admitted,
-                        tip.ServerCommit is VaultServerCommitDisposition.Unknown or VaultServerCommitDisposition.Accepted
-                            ? "agent_canonical_recovery_required" : "agent_cancel_requested");
+                    : Receipt(ArticleVaultAgentCommandStatus.Blocked, "agent_canonical_recovery_required", tip.ContentSha256);
             }
             catch (Exception)
             {
@@ -335,6 +351,17 @@ public sealed class ArticleVaultAgentDispatchScope : IDisposable
         if (failed)
         {
             throw new InvalidDataException("agent_dispatch_cancellation_drain_failed");
+        }
+    }
+
+    /// <summary>Returns closed canonical pointers for the lifecycle owner's durable inventory.</summary>
+    public IReadOnlyList<ArticleVaultAgentOperationReference> InspectOperationReferences()
+    {
+        lock (_gate)
+        {
+            return _registered.Values.Select(static entry =>
+                ArticleVaultOperationCodec.Deserialize<ArticleVaultAgentOperationReference>(
+                    ArticleVaultOperationCodec.Serialize(entry.Reference))).ToArray();
         }
     }
 

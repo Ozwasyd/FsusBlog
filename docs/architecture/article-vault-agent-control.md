@@ -91,19 +91,28 @@ inputs and exact operation pointers. It snapshots inputs, uses the original
 `ArticleVaultSyncPlanner.Build` and consumes verified histories through
 `IArticleVaultAgentCanonicalOperations`. Execute requests are pinned to their
 registered request/cancellation identities and original plan reference/digest; cancel targets only the exact operation
-and signals its owned in-flight request. Without a canonical Cancelled checkpoint
-or result, cancellation remains admitted/blocked. An interrupted accepted result
+and signals its owned in-flight request. Cancellation then calls the canonical
+checkpoint writer with its exact expected predecessor. A not-started/rejected
+server stage can become Cancelled; an unknown/accepted stage becomes
+RecoveryRequired and retains its exact server receipt. The dispatcher verifies
+the returned history and the lifecycle owner fsyncs the new pointer before IPC
+can return it. A conflicting append or missing read-back never reports durable
+cancellation. An interrupted accepted result
 retains its canonical digest with recovery-required semantics.
 
 `ArticleVaultAgentCanonicalOperationAdapter` is a server composition adapter over
 the original sealed execution store, checkpoint store and sync executor. It verifies
 persisted results before and after the original executor's result-replay path. It
-never appends operation checkpoints or adds an article writer. The current canonical
+uses the existing `IArticleVaultOperationCheckpointStore.AppendAsync(identity,
+plan, checkpoint, token)` solely for cancellation facts, after original
+`ValidateAppend` checks. It adds no second store or article writer. Recovery
+journal `StageAsync` requires its original resolution/proposal/backup association
+and is not a generic cancellation API. The current canonical
 `ReadThroughAsync` is an immutable historical-prefix read, not current-tip admission.
 First execution without a persisted result therefore blocks with
 `agent_current_operation_execution_admission_missing`. #2106 must supply an actual
-current-operation compare/admit/execute handler, including cancellation/recovery
-serialization, before that path can execute new work. The host must supply its
+current-operation compare/admit/execute handler serialized against canonical
+cancellation before that path can execute new work. The host must supply its
 trusted session bridge; this adapter does not register itself in DI or provision
 service credentials in the local agent. It requires the server boundary's trusted
 admin principal and refuses sealed bundles belonging to another principal.

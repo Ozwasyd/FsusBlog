@@ -42,6 +42,11 @@ public interface IArticleVaultAgentCanonicalOperations
     Task<ArticleVaultAgentCanonicalResult> ExecuteAsync(
         ArticleVaultAgentOperationReference reference,
         CancellationToken cancellationToken);
+
+    /// <summary>Requests a durable canonical cancellation and returns its exact verified history.</summary>
+    Task<ArticleVaultAgentOperationSnapshot> CancelAsync(
+        ArticleVaultAgentOperationReference reference,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>Checks canonical operation histories against the exact active control scope.</summary>

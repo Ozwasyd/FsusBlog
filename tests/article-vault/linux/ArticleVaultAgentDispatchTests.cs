@@ -101,9 +101,9 @@ public sealed class ArticleVaultAgentDispatchTests
         ArticleVaultAgentRequest cancel = fixture.Request(ArticleVaultAgentCommand.Cancel,
             new(ArticleVaultAgentReferenceKind.Operation, fixture.Identity.OperationIdentity, fixture.Identity.ContentSha256), "cancel-request");
         ArticleVaultAgentCommandReceipt acknowledged = await fixture.Dispatch.DispatchAsync(cancel, 1000, fixture.Running, default);
-        Assert.Equal(ArticleVaultAgentCommandStatus.Admitted, acknowledged.Status);
+        Assert.Equal(ArticleVaultAgentCommandStatus.Blocked, acknowledged.Status);
         Assert.Equal("agent_canonical_recovery_required", acknowledged.ReasonCode);
-        Assert.Null(acknowledged.CanonicalResultSha256);
+        Assert.Equal(fixture.History[^1].ContentSha256, acknowledged.CanonicalResultSha256);
         release.SetResult();
         ArticleVaultAgentCommandReceipt interrupted = await execution;
         Assert.Equal(ArticleVaultAgentCommandStatus.Blocked, interrupted.Status);
@@ -123,6 +123,38 @@ public sealed class ArticleVaultAgentDispatchTests
         Assert.Equal(fixture.Reference.CheckpointSha256, receipt.CanonicalResultSha256);
         Assert.Throws<InvalidDataException>(() => ArticleVaultAgentCommandReceipts.Create(request,
             1000, ArticleVaultAgentCommandStatus.Cancelled, "cancel_requested"));
+    }
+
+    [Fact]
+    public async Task DurableCancellation_AdvancesOnlyTheBoundInventoryPointer()
+    {
+        using var fixture = new ArticleVaultAgentDispatchFixture();
+        await fixture.RegisterAsync();
+        ArticleVaultAgentRequest cancel = fixture.Request(ArticleVaultAgentCommand.Cancel,
+            new(ArticleVaultAgentReferenceKind.Operation, fixture.Identity.OperationIdentity, fixture.Identity.ContentSha256));
+        ArticleVaultAgentCommandReceipt receipt = await fixture.Dispatch.DispatchAsync(cancel, 1000, fixture.Running, default);
+        ArticleVaultAgentOperationReference durable = Assert.Single(fixture.Dispatch.InspectOperationReferences());
+        Assert.Equal(fixture.Reference.CheckpointSequence + 1, durable.CheckpointSequence);
+        Assert.Equal(receipt.CanonicalResultSha256, durable.CheckpointSha256);
+        Assert.Equal(fixture.Identity, durable.Identity);
+        Assert.Equal(VaultOperationState.RecoveryRequired, fixture.History[^1].State);
+        ArticleVaultAgentCommandReceipt execute = await fixture.Dispatch.DispatchAsync(fixture.ExecuteRequest(), 1000, fixture.Running, default);
+        Assert.Equal("agent_execution_cancelled_or_active", execute.ReasonCode);
+        Assert.Equal(0, fixture.Executions);
+    }
+
+    [Fact]
+    public async Task UnchangedNonCancelledHistory_CannotAcknowledgeDurableCancellation()
+    {
+        using var fixture = new ArticleVaultAgentDispatchFixture();
+        await fixture.RegisterAsync();
+        fixture.Cancel = () => Task.FromResult(new ArticleVaultAgentOperationSnapshot(fixture.Plan, fixture.History));
+        ArticleVaultAgentRequest cancel = fixture.Request(ArticleVaultAgentCommand.Cancel,
+            new(ArticleVaultAgentReferenceKind.Operation, fixture.Identity.OperationIdentity, fixture.Identity.ContentSha256));
+        ArticleVaultAgentCommandReceipt receipt = await fixture.Dispatch.DispatchAsync(cancel, 1000, fixture.Running, default);
+        Assert.Equal("agent_cancel_canonical_receipt_unavailable", receipt.ReasonCode);
+        Assert.Null(receipt.CanonicalResultSha256);
+        Assert.Equal(fixture.Reference, Assert.Single(fixture.Dispatch.InspectOperationReferences()));
     }
 
     [Fact]
@@ -176,13 +208,17 @@ internal sealed class ArticleVaultAgentDispatchFixture : IArticleVaultAgentCanon
     }
     internal IReadOnlyList<ArticleVaultOperationCheckpoint> History
     {
-        get;
+        get; private set;
     }
     internal int Executions
     {
         get; private set;
     }
     internal Func<CancellationToken, Task<ArticleVaultAgentCanonicalResult>>? Execute
+    {
+        get; set;
+    }
+    internal Func<Task<ArticleVaultAgentOperationSnapshot>>? Cancel
     {
         get; set;
     }
@@ -279,6 +315,37 @@ internal sealed class ArticleVaultAgentDispatchFixture : IArticleVaultAgentCanon
     {
         Executions++;
         return Execute?.Invoke(cancellationToken) ?? Task.FromResult(Result());
+    }
+
+    public Task<ArticleVaultAgentOperationSnapshot> CancelAsync(ArticleVaultAgentOperationReference reference, CancellationToken cancellationToken)
+    {
+        if (Cancel is not null)
+        {
+            return Cancel();
+        }
+
+        ArticleVaultOperationCheckpoint tip = History[^1];
+        if (tip.State != VaultOperationState.Cancelled && !tip.CancellationRequested)
+        {
+            ArticleVaultOperationCheckpoint next = tip with
+            {
+                Sequence = tip.Sequence + 1,
+                PreviousCheckpointSha256 = tip.ContentSha256,
+                RecordedAtUnixMs = 50,
+                State = VaultOperationState.RecoveryRequired,
+                CancellationRequested = true,
+                ReasonCode = "unit_cancel_recovery",
+                ContentSha256 = string.Empty
+            };
+            next = next with
+            {
+                ContentSha256 = ArticleVaultOperationCodec.ComputeContentSha256(next)
+            };
+            ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateAppend(Identity, Plan, tip, next));
+            History = [.. History, next];
+        }
+
+        return Task.FromResult(new ArticleVaultAgentOperationSnapshot(Plan, History));
     }
 
     public void Dispose() => Dispatch.Dispose();
