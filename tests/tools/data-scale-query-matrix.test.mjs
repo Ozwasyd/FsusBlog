@@ -413,3 +413,16 @@ test('trends reject a missing tier or cross-source/cross-epoch evaluations', () 
     matrices[2].binding = { ...binding, sourceCommit: 'b'.repeat(40) };
     assert.throws(() => compareQueryTrends(matrices), /cross-tier/);
 });
+
+test('trend comparisons expose adjacent-tier deltas and ratios without hiding zero baselines', () =>
+{
+    const matrices = queryMatrixTiers.map((tier) => evaluateQueryMatrix(matrixInput(tier)));
+    matrices[1].results[0].metrics.rowsRead = 20;
+    matrices[0].results[0].metrics.sharedBlocksRead = 0;
+    const comparison = compareQueryTrends(matrices).results[0].comparisons[0];
+    assert.equal(comparison.fromTier, 'scale-xs');
+    assert.equal(comparison.toTier, 'scale-s');
+    assert.deepEqual(comparison.changes.rowsRead, { delta: 10, ratio: 2 });
+    assert.deepEqual(comparison.changes.sharedBlocksRead, { delta: 1, ratio: null });
+    assert.deepEqual(comparison.changes.tempBlocks, { delta: 0, ratio: 1 });
+});

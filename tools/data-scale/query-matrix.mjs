@@ -338,7 +338,16 @@ export function compareQueryTrends(matrices)
             {
                 throw new Error('cross-tier source commit or business epoch mismatch');
             }
-            results.push({ id, values });
+            const comparisons = values.slice(1).map((current, index) =>
+            {
+                const previous = values[index];
+                const changes = Object.fromEntries(['rowsRead', 'sharedBlocksRead', 'sharedBlocksHit', 'tempBlocks', 'latencyMs'].map((field) => [field, {
+                    delta: current[field] - previous[field],
+                    ratio: previous[field] === 0 ? (current[field] === 0 ? 1 : null) : current[field] / previous[field]
+                }]));
+                return { fromTier: previous.tier, toTier: current.tier, changes };
+            });
+            results.push({ id, values, comparisons });
         }
     }
     return { schema: 'fsusblog.data-scale-query-trends-evaluation.v1', status: failures.length ? 'failed' : 'ok', failures, results };
