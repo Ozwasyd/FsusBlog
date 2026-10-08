@@ -623,7 +623,10 @@ public sealed class CanonicalArticleProjectionVerifierTests
         await artifact.Received(readCount).TryReadAsync(row.Id, Arg.Any<CancellationToken>());
         await cache.Received(readCount).GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>());
         await aotArtifacts.Received(readCount).TryGetEntryAsync(lookup, Arg.Any<CancellationToken>());
-        await publicArtifacts.Received(readCount).TryReadAsync(hydrationKey, LocalPublicArtifactStorage.AedsMediaType, hydrationHash, Arg.Any<CancellationToken>());
+        // A missing document has no sidecar reference to read. The successful
+        // reread discovers and verifies its sidecar exactly once.
+        int hydrationReadCount = scenario is "aot-cold-wait" or "aot-shared-budget" ? 1 : readCount;
+        await publicArtifacts.Received(hydrationReadCount).TryReadAsync(hydrationKey, LocalPublicArtifactStorage.AedsMediaType, hydrationHash, Arg.Any<CancellationToken>());
     }
 
     private sealed class ProjectionTestTimeProvider : TimeProvider
