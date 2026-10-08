@@ -9,6 +9,7 @@ pending/failure/retry/commit; they are not a browser-backed preference service.
 ```bash
 PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI /tmp/locale-menu-local
 PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs published /workspace/FsusBlog/src/frontend /tmp/locale-menu-published
+FSUSBLOG_LOCALE_PROBE_REAL_ZOOM=1 PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI /tmp/locale-menu-browser-zoom
 ```
 
 Use Node 24 and installed Vite, its Vue plugin, Vue and Playwright from the
@@ -43,16 +44,26 @@ ten locale names, checked state, pending/failure/retry/commit, URL activation,
 keyboard, repeated dismissal, disabled/compact and touch observations, accessibility
 snapshot, light/dark, RTL-direction projection, forced colors and reduced motion.
 RTL here changes item/container direction without inventing a supported locale.
-The 2x case uses CSS zoom and is not qualified as real browser 200% zoom.
+The default 2x cases use CSS zoom. Setting `FSUSBLOG_LOCALE_PROBE_REAL_ZOOM=1`
+also runs the actual consumer at browser 200% zoom through
+[`chrome.tabs.setZoom/getZoom`](https://developer.chrome.com/docs/extensions/reference/api/tabs#method-setZoom)
+in a task-scoped extension, using the official
+[Playwright Chromium extension setup](https://playwright.dev/docs/chrome-extensions).
+It requires getZoom=2, doubled DPR, a reduced CSS viewport and root CSS zoom=1,
+then checks ten radio items, one checked item, keyboard entry/Home/End/Escape,
+labels, both popup bounds and document overflow in narrow/light, wide/dark/RTL
+and narrow/dark/RTL/forced-colors states. Extension/profile resources are removed
+in `finally`. A missing capability fails the requested probe; it does not silently
+substitute CSS zoom. This remains component evidence, not the #2228 live-backend
+viewport acceptance workflow or independent UX qualification.
 
 #1891 remains **WIP / blocked**, not complete:
 
-- Public Dropdown's shared 34px option-row geometry clips native/English multiline
-  content. The closed #449 contract explicitly fixes desktop row geometry and
-  requires opt-in variants. A documented upstream composition/variant is needed;
-  consumer private geometry overrides or smaller/hidden labels are forbidden.
-- Narrow CSS 2x zoom evidence shows horizontal overflow. Do not promote the
-  viewport matrix to acceptance; distinguish fixture overflow from popup bounds.
+- Original multiline clipping and CSS 2x overflow are repaired in the local
+  FsusUI candidate by the public opt-in `multiline` description/suffix and
+  `viewport-bounded` contracts. Default 34px rows remain. Bound local evidence is
+  in `artifacts/frontend/locale-menu-probe/multiline/`; current source and actual
+  run identity must be checked before using any receipt.
 - Locked published package installation returned GitHub Packages HTTP 401;
   public npm lookup returned 404 and authorized package metadata access returned
   403. Published probing is blocked. No credentials or package identity were
@@ -60,11 +71,14 @@ The 2x case uses CSS zoom and is not qualified as real browser 200% zoom.
 - Full production build is blocked by the incomplete dependency installation
   (`@tailwindcss/vite` missing). Broader consumer typecheck reaches unrelated app
   sources and missing dependencies and fails; it is not a successful full check.
-- Production-route preference integration, independent screen-reader review,
-  real browser zoom and complete qualified viewport/theme/input coverage remain
-  open. An accessibility snapshot is not screen-reader acceptance.
+- Production-route preference integration, independent screen-reader review and
+  complete qualified viewport/theme/input coverage remain open. An accessibility
+  snapshot is not screen-reader acceptance; the optional zoom probe alone does
+  not qualify the full product workflow.
 
-The coordinator needs the upstream public multiline-content disposition and an
-accessible published package identity with the checked API before release
-qualification. No issue closure, merge, deployment, fallback or UX acceptance
-receipt is performed by this task.
+The coordinator needs exact current upstream/runtime evidence and an accessible
+published package identity with the checked/multiline APIs before release
+qualification. Canonical icon/theme source belongs to FsusUI #842 / original
+Blog #1805 and is consumed only through the parent's exact handoff. No issue
+closure, merge, deployment, fallback or UX acceptance receipt is performed by
+this task.

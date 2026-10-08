@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const runnerFile = fileURLToPath(import.meta.url);
 const repositoryRoot = path.resolve(path.dirname(runnerFile), '../../../..');
 const probeRoot = path.join(repositoryRoot, 'tests/frontend/fixtures/localeMenuProbe');
+const realZoomProbe = path.join(path.dirname(runnerFile), 'probe-locale-menu-browser-zoom.mjs');
 const { createFsusUiAliases, resolveLocalFsusUiRoot } = await import(
     pathToFileURL(path.join(repositoryRoot, 'src/frontend/scripts/fsusui-local.ts'))
 );
@@ -40,7 +41,7 @@ const report = {
     qualification: false
 };
 await fs.mkdir(evidenceRoot, { recursive: true });
-for (const file of [...['App.vue', 'Consumer.vue', 'main.ts', 'index.html'].map((name) => path.join(probeRoot, name)), runnerFile])
+for (const file of [...['App.vue', 'Consumer.vue', 'main.ts', 'index.html'].map((name) => path.join(probeRoot, name)), runnerFile, realZoomProbe])
 {
     report.harnessDigests[path.relative(repositoryRoot, file)] = sha256(await fs.readFile(file));
 }
@@ -445,6 +446,11 @@ try
     await expect(touchPage.locator('[data-locale-selector-menu]')).not.toBeAttached();
     report.observations.consumerTouchPendingOutside = true;
     await touchContext.close();
+    if (process.env.FSUSBLOG_LOCALE_PROBE_REAL_ZOOM === '1')
+    {
+        const { probeLocaleMenuBrowserZoom } = await import(pathToFileURL(realZoomProbe));
+        await probeLocaleMenuBrowserZoom({ chromium, expect, url: server.resolvedUrls.local[0], evidenceRoot, report });
+    }
     await browser.close();
     browser = null;
     const observations = report.observations;
