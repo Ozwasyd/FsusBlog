@@ -62,9 +62,17 @@ claiming the worker, the job owner calls `CreateAttemptResources` once with the
 same execution task/input and its `TimeProvider`, then passes that exact instance
 to `ExportAsync` and `VerifyAsync`. Check `RequireCompleted(executionTask, input)` again at publication
 boundaries alongside the existing deadline/cancellation checks. An adapter without
-this port must be refused for aggregate qualification, not silently delegated to
-the old per-stage methods. The original job owner must wire this additional port;
-its SiteScope source migration alone does not provide aggregate accounting.
+this port is blocked before a worker claim; the service never delegates to its
+old per-stage methods. The Jobs service creates the resource once after the durable
+claim, passes it to both explicit overloads, and checks completion before object
+publication and before/after final state persistence. An incomplete or active
+resource stage retains its worker claim for the original quiescence recovery.
+If completion becomes invalid during final state publication, the still-held
+exclusion lock restores the original worker, execution task and frozen source,
+keeps the object as a pending cleanup obligation and removes the output from the
+projection. Neither ordinary cleanup nor a verifier return can release that
+recovery fence. The attempt records the actual failed publication rather than
+the transient in-lock success state.
 
 The canonical renderer and the final sandbox stage use the resource-aware
 overloads with that same instance. If independent verification needs a second
@@ -89,6 +97,10 @@ between observations or total kernel read/write traffic, nor host managed CPU.
 Those physical qualification limits remain open. Plans/receipts keep their current
 versions and identities; providers and the independent verifier still need all
 original current-candidate native evidence. PDF/DOCX/EPUB remain inactive.
+The Jobs publication checks use the bound completion overload with the original
+execution task and frozen input, including the final before/after-save callbacks.
+Resource-state failure is checked before simultaneous cancellation or deadline
+refusal so the original recovery claim cannot be discarded by that overlap.
 
 Construct `DocumentExportJobService` with the existing `ReleaseStorageLayout`,
 shared `IDataProtectionProvider`, the exact permission adapter and `TimeProvider`.
