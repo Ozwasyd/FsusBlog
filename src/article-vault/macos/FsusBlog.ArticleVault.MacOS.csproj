@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <IsPackable>false</IsPackable>
+        <MacVaultNativeDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', '$(Configuration)', 'macos-native'))</MacVaultNativeDirectory>
+        <MacVaultNativeLibrary>$(MacVaultNativeDirectory)libFsusBlog.ArticleVault.MacOS.dylib</MacVaultNativeLibrary>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../../shared/FsusBlog.Shared.csproj" />
+        <InternalsVisibleTo Include="FsusBlog.ArticleVault.MacOS.Tests" />
+        <None Include="$(MacVaultNativeLibrary)"
+              Link="libFsusBlog.ArticleVault.MacOS.dylib"
+              CopyToOutputDirectory="PreserveNewest"
+              Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+    </ItemGroup>
+    <Target Name="BuildMacVaultNative" BeforeTargets="BeforeBuild"
+            Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <MakeDir Directories="$(MacVaultNativeDirectory)" />
+        <Exec Command="node &quot;$(MSBuildProjectDirectory)/../../../tools/test/build-macos-vault-native.mjs&quot; --output-directory &quot;$(MacVaultNativeDirectory)&quot;" />
+    </Target>
+</Project>

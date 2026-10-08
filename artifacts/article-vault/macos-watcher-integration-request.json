@@ -1,0 +1,192 @@
+{
+    "schema": "fsusblog.article-vault.macos-watcher-integration-request.v1",
+    "status": "proposal-not-applied",
+    "owner": "original-chain-3582",
+    "qualificationClaim": false,
+    "baseCapability": "c0c32cb168fbe59125b942b5964edd7263247338",
+    "insertions": {
+        "tests/governance/test-lifecycle-registry.json": {
+            "array": "nodeTests",
+            "entry": {
+                "file": "tests/tools/macos-vault-observer-source.test.mjs",
+                "owner": "matrix-tier:macos-vault-observer-source",
+                "executionCategory": "matrix-tier",
+                "lifecycle": "canonical-execution",
+                "physicalExecutionCount": 1,
+                "classifications": [
+                    "source-text",
+                    "behavior"
+                ]
+            }
+        },
+        "config/development/document-lifecycle.json": {
+            "array": "documents",
+            "entry": {
+                "path": "docs/architecture/article-vault-macos-watcher.md",
+                "status": "current",
+                "owner": "backend",
+                "relatedIssues": [
+                    2671,
+                    2674
+                ],
+                "supersedes": [],
+                "supersededBy": null
+            }
+        },
+        "tests/coverage-registry.json": {
+            "array": "entries",
+            "entry": {
+                "id": "macos-vault-observer-source-governance",
+                "description": "The macOS raw observer has one read-only native boundary, bounded loss delivery and explicit unavailable rescan admission.",
+                "owner": "ServerContractAgent",
+                "risk": "high",
+                "evidencePaths": [
+                    "src/article-vault/macos/FSEventsNative.cs",
+                    "src/article-vault/macos/MacVaultRawFactBuffer.cs",
+                    "src/article-vault/macos/MacVaultRawFactCodec.cs",
+                    "src/article-vault/macos/MacVaultRootPathScope.cs",
+                    "src/article-vault/macos/MacVaultWatchContracts.cs",
+                    "src/article-vault/macos/MacVaultWatcherSession.cs",
+                    "src/article-vault/macos/native/MacVaultFSEvents.c",
+                    "tools/test/check-macos-vault-observer-source.mjs",
+                    "tools/test/build-macos-vault-native.mjs",
+                    "tests/tools/macos-vault-observer-source.test.mjs",
+                    "src/article-vault/macos/MacVaultObservationAdapter.cs"
+                ],
+                "assertionType": "contract",
+                "failClosedRule": "Reject source reads outside the fixed control manifest, writer/planner/polling/log additions, omitted ordered native teardown, queue bound removal and hidden overflow.",
+                "minimumRequirement": "Run the canonical Node source mutation owner once. These checks do not qualify Darwin compilation, actual FSEvents behavior, resource release or full-agent APFS acceptance.",
+                "tierIds": [
+                    "macos-vault-observer-source"
+                ]
+            }
+        },
+        "tests/matrix.yml": {
+            "array": "tiers",
+            "entry": {
+                "id": "macos-vault-observer-source",
+                "executionClass": "runtime",
+                "evidenceClass": "diagnostic",
+                "qualificationEligible": false,
+                "fixtureProfile": "none",
+                "fixtureProfileReason": "none-runtime",
+                "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+                "fixtureMutatorAllowed": false,
+                "owner": "ServerContractAgent",
+                "command": "node --test tests/tools/macos-vault-observer-source.test.mjs",
+                "outputReceiptSchema": "fsusblog.ci.job-result.v1",
+                "executionDependsOn": [
+                    "validate-matrix",
+                    "behavior-doc-static-admission"
+                ],
+                "services": [],
+                "parallelizable": true,
+                "exclusiveResources": [],
+                "phase": 1,
+                "cost": "low",
+                "resourceClass": "cpu",
+                "cpuWeight": 0.5,
+                "memoryWeight": 0.5,
+                "minCpuUnits": 1,
+                "executionKey": "macos-vault-observer-source",
+                "executionVariant": "ordinary",
+                "cacheInputs": [
+                    "src/article-vault/macos/FSEventsNative.cs",
+                    "src/article-vault/macos/MacVaultRawFactBuffer.cs",
+                    "src/article-vault/macos/MacVaultRawFactCodec.cs",
+                    "src/article-vault/macos/MacVaultRootPathScope.cs",
+                    "src/article-vault/macos/MacVaultWatchContracts.cs",
+                    "src/article-vault/macos/MacVaultWatcherSession.cs",
+                    "src/article-vault/macos/native/MacVaultFSEvents.c",
+                    "tools/test/check-macos-vault-observer-source.mjs",
+                    "tools/test/build-macos-vault-native.mjs",
+                    "tests/tools/macos-vault-observer-source.test.mjs",
+                    "src/article-vault/macos/MacVaultObservationAdapter.cs"
+                ],
+                "requiresBootstrap": "none",
+                "requiresNode": true,
+                "requiresDotnet": false,
+                "requiresPlaywright": "none",
+                "cacheProfile": "none",
+                "timeoutMinutes": 2,
+                "shardable": false,
+                "defaultShards": 1,
+                "risk": "high",
+                "cadence": "pr",
+                "requiredFor": "fast",
+                "coverage": [
+                    "macos-vault-observer-source-governance"
+                ],
+                "artifacts": [],
+                "evidence": [
+                    "src/article-vault/macos/FSEventsNative.cs",
+                    "src/article-vault/macos/MacVaultRawFactBuffer.cs",
+                    "src/article-vault/macos/MacVaultRawFactCodec.cs",
+                    "src/article-vault/macos/MacVaultRootPathScope.cs",
+                    "src/article-vault/macos/MacVaultWatchContracts.cs",
+                    "src/article-vault/macos/MacVaultWatcherSession.cs",
+                    "src/article-vault/macos/native/MacVaultFSEvents.c",
+                    "tools/test/check-macos-vault-observer-source.mjs",
+                    "tools/test/build-macos-vault-native.mjs",
+                    "tests/tools/macos-vault-observer-source.test.mjs",
+                    "src/article-vault/macos/MacVaultObservationAdapter.cs"
+                ],
+                "ciJob": "fast-static-governance",
+                "localOnly": false,
+                "nightlyOnly": false,
+                "prDefault": true,
+                "smartGateMode": "conditional",
+                "retentionClass": "must-keep",
+                "triggerFiles": [
+                    "src/article-vault/macos/FSEventsNative.cs",
+                    "src/article-vault/macos/MacVaultRawFactBuffer.cs",
+                    "src/article-vault/macos/MacVaultRawFactCodec.cs",
+                    "src/article-vault/macos/MacVaultRootPathScope.cs",
+                    "src/article-vault/macos/MacVaultWatchContracts.cs",
+                    "src/article-vault/macos/MacVaultWatcherSession.cs",
+                    "src/article-vault/macos/native/MacVaultFSEvents.c",
+                    "tools/test/check-macos-vault-observer-source.mjs",
+                    "tools/test/build-macos-vault-native.mjs",
+                    "tests/tools/macos-vault-observer-source.test.mjs",
+                    "src/article-vault/macos/MacVaultObservationAdapter.cs"
+                ],
+                "triggerReason": "macOS observer source mutations are diagnostic and confer no native or full-agent qualification"
+            }
+        }
+    },
+    "boundedAppendRequests": {
+        ".git-blame-ignore-revs": [
+            "e63715b162459ae968525b1b37e19cd5898efd61"
+        ],
+        "config/development/native-tooling-style-policy.json::excludedPaths": [
+            "src/article-vault/macos/packages.lock.json",
+            "tests/article-vault/macos/packages.lock.json"
+        ],
+        "config/development/native-tooling-style-policy.json::standardTools.cppLint.compileDatabaseCandidates": [
+            "src/article-vault/macos/obj/Debug/macos-native",
+            "src/article-vault/macos/obj/Release/macos-native"
+        ],
+        "config/development/authoritative-development-docs.json::pathClassifications[id=lock].patterns": [
+            "src/article-vault/macos/packages.lock.json",
+            "tests/article-vault/macos/packages.lock.json"
+        ]
+    },
+    "commandsRequiringOwnerRegistration": {
+        "managedContract": "dotnet test tests/article-vault/macos/FsusBlog.ArticleVault.MacOS.Tests.csproj --no-restore --filter Category=MacArticleVaultRawFactContract",
+        "realApfs": "dotnet test tests/article-vault/macos/FsusBlog.ArticleVault.MacOS.Tests.csproj --no-restore --filter Category=MacArticleVaultWatcher"
+    },
+    "generatedBindings": "Integration owner regenerates existing execution authority/coverage bindings after source and registration review; this proposal grants none.",
+    "missingCapability": {
+        "owner": 2112,
+        "request": "native terminal verification after canonical structural AwaitingNativeVerification, bound to watch identity/event cut/root manifest/verified actual snapshot/pending queue-loss obligations; no self-acknowledgement"
+    },
+    "nativeAcceptanceStillOpen": [
+        "real macOS/APFS compile and focused execution",
+        "physical unmount/nested mount rejection",
+        "deterministic real stream loss flags",
+        "native resource-leak evidence",
+        "exclusive lease/control-tree owner from #2113"
+    ],
+    "evidenceOnly2674": "No qualification manifest or receipt created without real OS/APFS/agent/protocol/root/current-source values and all actual producers.",
+    "observationCapability": "e1b4ffba4781bf6729e38b240df8c7647f19768e"
+}
