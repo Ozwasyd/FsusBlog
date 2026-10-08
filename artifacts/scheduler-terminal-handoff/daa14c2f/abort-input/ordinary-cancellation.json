@@ -1,0 +1,11 @@
+{
+  "candidate": "daa14c2f54be6961791aa2eb77166e762355915f",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/scheduler-abort-input.test.mjs"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.7535114730017085,
+  "logSha256": "3b65008a9a9ef0a3f9bb9effdd8e5ef93e4285ac4ec69222ab104e71090ec16e"
+}

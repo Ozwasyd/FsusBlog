@@ -1,0 +1,46 @@
+{
+  "source": "daa14c2f54be6961791aa2eb77166e762355915f",
+  "requests": [
+    {
+      "owner": "original #3521 canonical execution authority owner",
+      "paths": [
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "config/testing/release-final-execution-authority-index.json"
+      ],
+      "request": "On the final integrated candidate only, regenerate current execution closure through the existing Node24.16 official producer. Scheduler source and imported CPU dependency closure changed. No old6ed/83d/0d receipt transfers. Fixture/index were not edited here.",
+      "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "newSOURCE": "UNRUN"
+    },
+    {
+      "owner": "coordinator-assigned public runner / original #3521 integration owner; ownership not expanded here",
+      "paths": [
+        "tools/run-test-matrix.mjs"
+      ],
+      "exactObservedCallsites": [
+        {
+          "line": 5110,
+          "resourceInputLine": 5127
+        },
+        {
+          "line": 6327,
+          "resourceInputLine": 6344
+        }
+      ],
+      "beforeResourceResolutionLines": [
+        5277,
+        6290
+      ],
+      "request": "Use the existing CPU producer to collect real machine topology and construct the exact current identity/selection for each explicit run before tier resource resolution and plan sealing. Adapt existing systemResources through cpuCapacitySchedulerInput, then pass that same selection/identity/topology as cpuCapacity into Fresh runDag. Keep existing memory/load and planning envelope consistent. Do not fabricate current identity fields, verified finite boundary, calibrated cohort or Resume restoration. This partition implements the public runner input seam, not the reserved global CLI writer.",
+      "missingPhysicalQualification": true
+    },
+    {
+      "owner": "generic command-manifest live grant adapter owner; coordinator must assign exact file ownership",
+      "paths": [
+        "tools/test/run-command-manifest.mjs"
+      ],
+      "exactObservedApi": "readManifestSchedulerResourceGrant at line61 returns CPU/memory envelope only",
+      "requestedCapability": "Consume readCanonicalSchedulerResourceGrant({checkpointFile,runId,tierId,ownerToken,minimumGeneration,expectedGeneration}); transport exact current owner identity and canonical generation/revision to active executeWeightedStepDag before pending nested admission. Preserve identity/stale/corrupt refusal semantics. No independent projection authority.",
+      "acceptance": "Actual sibling terminal to growth to pending nested child-before-active-terminal timeline and receipt remain UNRUN."
+    }
+  ]
+}

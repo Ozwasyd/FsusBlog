@@ -1,0 +1,21 @@
+{
+  "candidate": "bb8a98e3ed66e0fda056e0da44bb2fad83686eb4",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--operation",
+    "lint",
+    "--mode",
+    "changed",
+    "--domain",
+    "docs",
+    "--base",
+    "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+    "--file",
+    "tools/test-matrix/scheduler-cpu-input.md",
+    "--require-tools"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.2833116030014935,
+  "logSha256": "b608acafb63a002126a587f683eb22e426cb681ff44d215c85f96dee49eb5ec4"
+}

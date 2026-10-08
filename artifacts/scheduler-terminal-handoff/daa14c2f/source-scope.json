@@ -1,0 +1,103 @@
+{
+  "source": "daa14c2f54be6961791aa2eb77166e762355915f",
+  "latestMasterObserved": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "base": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "masterNotMergedIntoCandidate": true,
+  "changedFilesAgainstBase": [
+    "artifacts/change-contract/cpu-calibration-external-naming.json",
+    "tests/tools/cpu-calibration-cohort.test.mjs",
+    "tests/tools/cpu-calibration-loader.test.mjs",
+    "tests/tools/cpu-calibration-selection.test.mjs",
+    "tests/tools/cpu-calibration-test-support.mjs",
+    "tests/tools/effective-cpu-fallback.test.mjs",
+    "tests/tools/machine-cpu-topology.test.mjs",
+    "tests/tools/scheduler-abort-input.test.mjs",
+    "tests/tools/scheduler-cpu-input.test.mjs",
+    "tools/test-matrix/scheduler-cpu-input.md",
+    "tools/test-matrix/scheduler.mjs",
+    "tools/test/cpu-calibration-cohort.mjs",
+    "tools/test/cpu-calibration-contract.mjs",
+    "tools/test/cpu-calibration-loader.mjs",
+    "tools/test/cpu-calibration-selection.mjs",
+    "tools/test/effective-cpu-fallback.mjs",
+    "tools/test/machine-cpu-topology.mjs"
+  ],
+  "ownedImplementationFiles": [
+    "tests/tools/scheduler-abort-input.test.mjs",
+    "tests/tools/scheduler-cpu-input.test.mjs",
+    "tools/test-matrix/scheduler-cpu-input.md",
+    "tools/test-matrix/scheduler.mjs"
+  ],
+  "consumedExactOwnerFiles": [
+    {
+      "path": "artifacts/change-contract/cpu-calibration-external-naming.json",
+      "gitBlob": "fd737587a6f5d33ec39f99b081c5b21f96361abc",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tests/tools/cpu-calibration-cohort.test.mjs",
+      "gitBlob": "804a947cade0d20fb455b634b9fa8a1d1461b690",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tests/tools/cpu-calibration-loader.test.mjs",
+      "gitBlob": "1c695db9212859cbe14e14adecc585d5e7ee8e38",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tests/tools/cpu-calibration-selection.test.mjs",
+      "gitBlob": "ba8724bd19dedf4b6e905486e575c7c68b33217d",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tests/tools/cpu-calibration-test-support.mjs",
+      "gitBlob": "f2b45aee28089a4659c30b96b3b80497642924c0",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tests/tools/effective-cpu-fallback.test.mjs",
+      "gitBlob": "f9b8fe769b14f79a32174a40065cf908a38e3169",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tests/tools/machine-cpu-topology.test.mjs",
+      "gitBlob": "44af60c863d1566e0444aede03518f27c3eda8ff",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tools/test/cpu-calibration-cohort.mjs",
+      "gitBlob": "a4b34e875cc70e2599c7cf27d3c02618e9aaa974",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tools/test/cpu-calibration-contract.mjs",
+      "gitBlob": "ae4f12acc4b536231defc35c214a53aa744f23a9",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tools/test/cpu-calibration-loader.mjs",
+      "gitBlob": "fc85c4954a7adb7de3e9140c8eb84bd637f54c49",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tools/test/cpu-calibration-selection.mjs",
+      "gitBlob": "14b4a4b19480941a08e794c449b87da28010fca7",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tools/test/effective-cpu-fallback.mjs",
+      "gitBlob": "72f717129fdb078cf9668e8f3dc197ee013b76da",
+      "exactOwnerBlob": true
+    },
+    {
+      "path": "tools/test/machine-cpu-topology.mjs",
+      "gitBlob": "4ea0e4a33e6df1e504b13782ecc1cd1e8a74a4cf",
+      "exactOwnerBlob": true
+    }
+  ],
+  "frozenReviewIdentities": [
+    "83d4908a1420c519dddb5fbb87f225880a731f13",
+    "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d"
+  ],
+  "frozenIdentitiesNotModified": true
+}

@@ -1,0 +1,16 @@
+✔ pre-aborted scheduler preserves the exact reason without snapshotting or acquiring an owner (2.213037ms)
+✔ abort during initial source observation refuses ownership and admission (0.544466ms)
+✔ abort before interrupt subscription records cancellation with zero pending admission (16.633554ms)
+✔ abort while active work holds capacity settles it and prevents pending admission even when collecting failures (33.754689ms)
+✔ abort after the first dispatch closes the remainder of an already selected admission wave (18.228485ms)
+✔ ordinary successful scheduling removes the abort subscription without invoking cancellation (15.391062ms)
+✔ abort inside ordinary pre-dispatch preparation prevents executor invocation (16.933589ms)
+✔ abort during the last source snapshot closes the log pipeline before executor invocation (23.510352ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 714.330726

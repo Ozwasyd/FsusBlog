@@ -1,0 +1,54 @@
+
+/workspace/scheduler-abort-input/tests/tools/scheduler-abort-input.test.mjs
+   66:1  error  Expected indentation of 4 spaces but found 0   @stylistic/indent
+   67:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   68:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   69:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   70:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   71:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   72:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   73:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   74:1  error  Expected indentation of 12 spaces but found 8  @stylistic/indent
+   75:1  error  Expected indentation of 12 spaces but found 8  @stylistic/indent
+   76:1  error  Expected indentation of 12 spaces but found 8  @stylistic/indent
+   77:1  error  Expected indentation of 12 spaces but found 8  @stylistic/indent
+   78:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   79:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   80:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   81:1  error  Expected indentation of 12 spaces but found 8  @stylistic/indent
+   82:1  error  Expected indentation of 12 spaces but found 8  @stylistic/indent
+   83:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   84:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   85:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   86:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   87:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   88:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   89:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   90:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   91:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   92:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   93:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   94:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+   95:1  error  Expected indentation of 4 spaces but found 0   @stylistic/indent
+   99:1  error  Expected indentation of 4 spaces but found 0   @stylistic/indent
+  100:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  101:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  102:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  103:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  104:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  105:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  106:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  107:1  error  Expected indentation of 12 spaces but found 8  @stylistic/indent
+  108:1  error  Expected indentation of 12 spaces but found 8  @stylistic/indent
+  109:1  error  Expected indentation of 12 spaces but found 8  @stylistic/indent
+  110:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  111:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  112:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  113:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  114:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  115:1  error  Expected indentation of 8 spaces but found 4   @stylistic/indent
+  116:1  error  Expected indentation of 4 spaces but found 0   @stylistic/indent
+
+✖ 48 problems (48 errors, 0 warnings)
+  48 errors and 0 warnings potentially fixable with the `--fix` option.
+

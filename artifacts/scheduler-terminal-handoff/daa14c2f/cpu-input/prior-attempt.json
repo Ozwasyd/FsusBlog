@@ -1,0 +1,8 @@
+{
+  "candidate": "13b045497aebf44de5b20a5c87a348b2e3f9f8ed",
+  "ordinaryControlsExit": 0,
+  "pass": 6,
+  "eslintExit": 1,
+  "reason": "import-x/order",
+  "repair": "move CPU owner import after source identity import"
+}

@@ -1,0 +1,90 @@
+{
+  "exactSource": "daa14c2f54be6961791aa2eb77166e762355915f",
+  "node": "v24.16.0",
+  "currentCandidateCommands": [
+    {
+      "candidate": "daa14c2f54be6961791aa2eb77166e762355915f",
+      "command": [
+        "/tmp/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/scheduler-abort-input.test.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.7535114730017085,
+      "logSha256": "3b65008a9a9ef0a3f9bb9effdd8e5ef93e4285ac4ec69222ab104e71090ec16e",
+      "evidence": "abort-input/ordinary-cancellation.log"
+    },
+    {
+      "candidate": "daa14c2f54be6961791aa2eb77166e762355915f",
+      "command": [
+        "/tmp/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/scheduler-cpu-input.test.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.6957203589990968,
+      "logSha256": "447eb75eff2e8e9f9dc2236be9ff47b6404b2291f69ed7d47b6accac7d725b52",
+      "evidence": "abort-input/ordinary-input-regression.log"
+    },
+    {
+      "candidate": "daa14c2f54be6961791aa2eb77166e762355915f",
+      "command": [
+        "/tmp/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js",
+        "tools/test-matrix/scheduler.mjs",
+        "tests/tools/scheduler-abort-input.test.mjs",
+        "tests/tools/scheduler-cpu-input.test.mjs"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 1.8618001399991044,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "evidence": "abort-input/changed-eslint.log"
+    },
+    {
+      "candidate": "daa14c2f54be6961791aa2eb77166e762355915f",
+      "command": [
+        "/tmp/node-v24.16.0-linux-x64/bin/node",
+        "tools/style/check-native-tooling-style.mjs",
+        "--operation",
+        "lint",
+        "--mode",
+        "changed",
+        "--domain",
+        "docs",
+        "--base",
+        "bb8a98e3ed66e0fda056e0da44bb2fad83686eb4",
+        "--file",
+        "tools/test-matrix/scheduler-cpu-input.md",
+        "--require-tools"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.2314113449974684,
+      "logSha256": "b608acafb63a002126a587f683eb22e426cb681ff44d215c85f96dee49eb5ec4",
+      "evidence": "abort-input/changed-markdown.log"
+    },
+    {
+      "candidate": "daa14c2f54be6961791aa2eb77166e762355915f",
+      "command": [
+        "/tmp/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "bb8a98e3ed66e0fda056e0da44bb2fad83686eb4..daa14c2f54be6961791aa2eb77166e762355915f"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 1.1397269379995123,
+      "logSha256": "f10df8fd033865f697b99f40417c55cc3911dd32366dbe7ad93b02afacc7c087",
+      "evidence": "abort-input/bounded-range.log"
+    }
+  ],
+  "ordinaryPass": 14,
+  "ordinaryFail": 0,
+  "ordinarySkipped": 0,
+  "incrementCpuPassAtExactFirstCommit": 6,
+  "priorFailedAttempts": "cpu input import order and cancellation test indentation failed ESLint, repaired before publication; prior failure logs retained",
+  "SOURCE": "UNRUN; original3521 owner binding request",
+  "heldAudits": "UNRUN",
+  "physicalQualification": "UNRUN",
+  "wholeSuiteOrInheritedCpu31RunHere": false,
+  "githubContentMutation": false,
+  "mergeOrDeployment": false
+}

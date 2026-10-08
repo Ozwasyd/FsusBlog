@@ -1,0 +1,25 @@
+{
+  "source": "daa14c2f54be6961791aa2eb77166e762355915f",
+  "cpuOwnerSource": "cb583495989a2482e0ef8ab6e561086505ca423f",
+  "cpuComposition": "2924938f0f6adf808076b76d3ad21291350a2fa5",
+  "freshInputCommit": "bb8a98e3ed66e0fda056e0da44bb2fad83686eb4",
+  "cancellationCommit": "daa14c2f54be6961791aa2eb77166e762355915f",
+  "freshApi": {
+    "entry": "tools/test-matrix/scheduler.mjs: runDag(options)",
+    "input": "cpuCapacity: {selection, identity, topology}; existing systemResources memory/load",
+    "ownerCapability": "cpuCapacitySchedulerInput(selection, {runId, identity, topology, resources})",
+    "binding": "once before run ownership and publication; no mutable active pointer reload",
+    "output": "existing resourceBudget plus retained cpuCapacityReceipt in canonical checkpoint",
+    "uncalibratedFallback": "retained as fallback, never calibration success",
+    "resume": "explicitly rejects cpuCapacity until selected capacity restoration exists"
+  },
+  "ordinaryCancellationApi": {
+    "input": "optional native AbortSignal options.signal",
+    "preAbort": "throws exact reason before source snapshot or ownership",
+    "lateAbort": "existing interrupt/terminate path; pending cancellation wins over collectFailures; wave remainder and pre-dispatch async preparation stop",
+    "inProcessSettlement": "executeTier context carries the same signal; abortTier remains settlement owner",
+    "cleanup": "abort listener removed through existing finalizer"
+  },
+  "qualificationEligible": false,
+  "physicalCleanupOrCalibrationQualified": false
+}

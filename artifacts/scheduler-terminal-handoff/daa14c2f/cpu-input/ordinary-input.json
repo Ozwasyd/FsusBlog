@@ -1,0 +1,11 @@
+{
+  "candidate": "bb8a98e3ed66e0fda056e0da44bb2fad83686eb4",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/scheduler-cpu-input.test.mjs"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.7223212469980353,
+  "logSha256": "7fa39088c102ae37f4dd4f0f6ab1418e106c0fbff9b65fe44a6d60ded89a5acd"
+}

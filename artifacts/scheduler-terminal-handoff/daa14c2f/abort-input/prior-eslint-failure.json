@@ -1,0 +1,13 @@
+{
+  "candidate": "843f666c22611f017d39a5c29246d9b2e1a923f1",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js",
+    "tools/test-matrix/scheduler.mjs",
+    "tests/tools/scheduler-abort-input.test.mjs",
+    "tests/tools/scheduler-cpu-input.test.mjs"
+  ],
+  "exitCode": 1,
+  "elapsedSeconds": 2.434330330001103,
+  "logSha256": "249a211af703610ad961cbbd94fc65b18b779b91d255a310f8b4517f7a5c4ba8"
+}
