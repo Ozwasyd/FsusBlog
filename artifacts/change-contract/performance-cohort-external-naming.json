@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/perf/production-fresh-cli.mjs",
+                "tools/perf/production-fresh-cohort.mjs",
+                "tools/perf/production-fresh-comparator.mjs",
+                "tools/perf/production-fresh-contract.mjs",
+                "tools/perf/production-fresh-disposition.mjs",
+                "tools/perf/production-fresh-verdict.mjs"
+            ],
+            "reason": "Declare the existing tools/**/*.mjs process-environment naming surface for the six new owned performance modules. Node caller environment spellings are preserved; internal options and exports use camelCase. No new environment key or registry permission is introduced."
+        }
+    ]
+}
