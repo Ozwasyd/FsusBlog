@@ -17,6 +17,7 @@ public sealed record ArticleVaultBlockLinkRefactorInput(
     ArticleVaultArticleManifest Manifest,
     PortableDependencyManifest Graph,
     IReadOnlyList<VaultDependencyNode> CurrentAuthorityNodes,
+    IReadOnlyList<VaultDependencyEdge> CurrentAuthorityEdges,
     string CurrentRelationSha256,
     ArticleEmbedResolutionBudgetLimits Budgets,
     ArticleRelationSourceRange SourceRange,
@@ -75,7 +76,8 @@ public static class ArticleVaultBlockLinkRefactor
             return Reject("vault_block_link_source_mismatch");
         }
         if (!PortableDependencyVerifier.VerifyCurrent(input.Graph, manifest, sourceBytes,
-                input.CurrentAuthorityNodes, input.CurrentRelationSha256, input.Budgets).IsValid)
+                input.CurrentAuthorityNodes, input.CurrentAuthorityEdges,
+                input.CurrentRelationSha256, input.Budgets).IsValid)
         {
             return Reject("vault_block_link_target_unavailable");
         }

@@ -85,6 +85,18 @@ public sealed class ArticleVaultBlockLinkRefactorTests
         {
             CurrentAuthorityNodes = [crossSite]
         }, bytes, "vault_block_link_target_unavailable");
+        VaultLinkDependency crossTargetScope = ((VaultLinkDependency)input.CurrentAuthorityNodes[0]) with
+        {
+            TargetBinding = new VaultDependencyBinding("site:primary", "vault:other", Target)
+        };
+        AssertRejected(input with
+        {
+            CurrentAuthorityNodes = [crossTargetScope]
+        }, bytes, "vault_block_link_target_unavailable");
+        AssertRejected(input with
+        {
+            CurrentAuthorityEdges = [new("unexpected", "changed", VaultDependencyEdgeKind.Requires)]
+        }, bytes, "vault_block_link_target_unavailable");
     }
 
     [Fact]
@@ -161,7 +173,8 @@ public sealed class ArticleVaultBlockLinkRefactorTests
             VaultDependencyRight.Read | VaultDependencyRight.Reference,
             VaultDependencyRight.Read | VaultDependencyRight.Reference, Digest, Digest, Digest);
         var node = new VaultLinkDependency(binding, admission,
-            new ArticleEmbedTargetIdentity(Target, ArticleEmbedTargetKind.Block, null, "stable"), Digest);
+            new ArticleEmbedTargetIdentity(Target, ArticleEmbedTargetKind.Block, null, "stable"),
+            binding with { PortableArticleIdentity = Target }, Digest);
         var graph = new PortableDependencyManifest(PortableDependencySchemas.Manifest, PortableDependencySchemas.Version,
             binding, manifest.ServerArticleIdentity, manifest.Coordinates, VaultDependencySourceSide.Server,
             sourceBytes, Digest, [node], [], string.Empty, string.Empty);
@@ -191,8 +204,8 @@ public sealed class ArticleVaultBlockLinkRefactorTests
         var range = new ArticleRelationSourceRange(start, start + markdown.Length, markdown);
         var budgets = new ArticleEmbedResolutionBudgetLimits(8, 64, 1_048_576, 60_000, 128);
         Assert.True(ArticleVaultManifestValidator.Validate(manifest).IsValid);
-        Assert.True(PortableDependencyVerifier.VerifyCurrent(graph, manifest, bytes, [node], Digest, budgets).IsValid);
-        return (new ArticleVaultBlockLinkRefactorInput(manifest, graph, [node], Digest, budgets, range,
+        Assert.True(PortableDependencyVerifier.VerifyCurrent(graph, manifest, bytes, [node], [], Digest, budgets).IsValid);
+        return (new ArticleVaultBlockLinkRefactorInput(manifest, graph, [node], [], Digest, budgets, range,
             new ArticleBlockRouteProjection(target, "old"), new ArticleBlockRouteProjection(target, slug), 8), bytes);
     }
 }

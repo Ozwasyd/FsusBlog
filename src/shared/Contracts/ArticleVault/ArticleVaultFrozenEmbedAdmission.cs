@@ -154,11 +154,12 @@ public static class ArticleVaultFrozenEmbedAdmission
         PortableDependencyManifest graph,
         ReadOnlySpan<byte> sourceBytes,
         IReadOnlyList<VaultDependencyNode> currentAuthorityNodes,
+        IReadOnlyList<VaultDependencyEdge> currentAuthorityEdges,
         string currentRelationSha256)
     {
         if (graph is null || candidate is null || !candidate.Permitted || !Verify(input, candidate)
             || !PortableDependencyVerifier.VerifyCurrent(graph, input.Manifest, sourceBytes,
-                currentAuthorityNodes, currentRelationSha256, input.Budgets).IsValid
+                currentAuthorityNodes, currentAuthorityEdges, currentRelationSha256, input.Budgets).IsValid
             || graph.SourceSide != VaultDependencySourceSide.Server
             || graph.Source.Sha256 != input.Request.ContentDigest)
         {

@@ -184,7 +184,7 @@ public sealed class ArticleVaultDependencyExecutionPreflightTests
         {
             ContentSha256 = ArticleVaultExecutionIntegrity.SealBundle(bundle)
         };
-        VaultDependencyPlanInput[] inputs = [new(graph, bytes, [], Digest)];
+        VaultDependencyPlanInput[] inputs = [new(graph, bytes, [], [], Digest)];
         VaultDependencyPlanBuildResult dependencies = ArticleVaultDependencyPlanner.Build(plan, request, context, inputs, s_budgets);
         Assert.NotNull(dependencies.Plan);
         return new Scenario(bundle, dependencies.Plan!, request, context, inputs);

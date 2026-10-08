@@ -183,14 +183,17 @@ public sealed class ArticleVaultFrozenEmbedAdmissionTests
         var admission = new VaultDependencyAdmission(ArticleEmbedPermissionStatus.Allowed,
             VaultDependencyRight.Read | VaultDependencyRight.Reference,
             VaultDependencyRight.Read | VaultDependencyRight.Reference, Digest, Digest, Digest);
+        VaultDependencyBinding targetBinding = binding with { PortableArticleIdentity = Target };
         VaultDependencyNode[] nodes =
         [
-            new VaultFrozenEmbedDependency(binding, admission, Coordinate(17), Digest, 128),
-            new VaultFrozenEmbedDependency(binding, admission, Coordinate(18), Digest, 128)
+            new VaultFrozenEmbedDependency(binding, admission, Coordinate(17), targetBinding, Digest, 128),
+            new VaultFrozenEmbedDependency(binding, admission, Coordinate(18), targetBinding, Digest, 128)
         ];
+        VaultDependencyEdge[] edges = [new(PortableDependencyCodec.NodeKey(nodes[0]),
+            PortableDependencyCodec.NodeKey(nodes[1]), VaultDependencyEdgeKind.FrozenRequires)];
         var graph = new PortableDependencyManifest(PortableDependencySchemas.Manifest, PortableDependencySchemas.Version,
             binding, input.Manifest.ServerArticleIdentity, input.Manifest.Coordinates, VaultDependencySourceSide.Server,
-            input.Manifest.Coordinates.Server.Source!, Digest, nodes, [], string.Empty, string.Empty);
+            input.Manifest.Coordinates.Server.Source!, Digest, nodes, edges, string.Empty, string.Empty);
         string graphSha256 = PortableDependencyCodec.GraphDigest(graph);
         VaultArticleCoordinate coordinate = input.Manifest.Coordinates.Server with
         {
@@ -221,7 +224,15 @@ public sealed class ArticleVaultFrozenEmbedAdmissionTests
         Assert.True(candidate.Permitted);
         Assert.NotEqual(PortableDependencyCodec.NodeKey(nodes[0]), PortableDependencyCodec.NodeKey(nodes[1]));
         Assert.True(ArticleVaultFrozenEmbedAdmission.VerifyGraph(input, candidate, graph,
-            fixture.SourceBytes, nodes, Digest).IsValid);
+            fixture.SourceBytes, nodes, edges, Digest).IsValid);
+        Assert.False(ArticleVaultFrozenEmbedAdmission.VerifyGraph(input, candidate, graph,
+            fixture.SourceBytes, nodes, [], Digest).IsValid);
+        VaultFrozenEmbedDependency crossScope = ((VaultFrozenEmbedDependency)nodes[0]) with
+        {
+            TargetBinding = targetBinding with { VaultIdentity = "vault:other" }
+        };
+        Assert.False(ArticleVaultFrozenEmbedAdmission.VerifyGraph(input, candidate, graph,
+            fixture.SourceBytes, [crossScope, nodes[1]], edges, Digest).IsValid);
         VaultDependencyNode revoked = nodes[0] with
         {
             Admission = admission with
@@ -230,7 +241,7 @@ public sealed class ArticleVaultFrozenEmbedAdmissionTests
             }
         };
         Assert.Equal("vault_embed_graph_unavailable", ArticleVaultFrozenEmbedAdmission.VerifyGraph(
-            input, candidate, graph, fixture.SourceBytes, [revoked, nodes[1]], Digest).ReasonCode);
+            input, candidate, graph, fixture.SourceBytes, [revoked, nodes[1]], edges, Digest).ReasonCode);
     }
 
     private static void AssertRejected(ArticleVaultFrozenEmbedInput input, string reasonCode)
