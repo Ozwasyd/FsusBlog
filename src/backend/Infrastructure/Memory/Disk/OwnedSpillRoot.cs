@@ -69,11 +69,38 @@ public sealed class OwnedSpillRoot : IDisposable
         _directory.Rename(source, destination);
     }
 
+    internal void Rename(string source, string destination, DiskFileFootprint expected)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        ValidateName(source);
+        ValidateName(destination);
+        _directory.Rename(source, destination, expected);
+    }
+
     public void Delete(string name)
     {
         ValidateName(name);
         _directory.Delete(name);
     }
+
+    internal void Delete(string name, DiskFileFootprint expected)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        ValidateName(name);
+        _directory.Delete(name, expected);
+    }
+
+    public DiskFileFootprint ObserveRootFootprint(TimeProvider? timeProvider = null)
+        => _directory.ObserveRootFootprint(timeProvider ?? TimeProvider.System);
+
+    public DiskFileFootprint ObserveFileFootprint(string name, TimeProvider? timeProvider = null)
+    {
+        ValidateName(name);
+        return _directory.ObserveFileFootprint(name, timeProvider ?? TimeProvider.System);
+    }
+
+    internal DiskFileFootprint ObserveFileFootprint(FileStream file)
+        => _directory.ObserveFileFootprint(file, TimeProvider.System);
 
     /// <summary>Samples the descriptor's actual device. Quota scope is supplied by its owner.</summary>
     public DiskCapacityObservation Observe(ResourceDomainId capacityDomain, ResourceDomainId inodeDomain,
@@ -89,7 +116,9 @@ public sealed class OwnedSpillRoot : IDisposable
         MemoryObservationState state = sample.ReadOnly ? MemoryObservationState.Denied : MemoryObservationState.Available;
         var bytes = new MemoryResourceObservation(capacityDomain, MemoryResourceUnit.Bytes, state,
             sample.ReadOnly ? null : sample.AvailableBytes, "linux:fstatvfs:descriptor", sampledAt);
-        var inodes = new MemoryResourceObservation(inodeDomain, MemoryResourceUnit.OperationSlots, state,
+        MemoryObservationState inodeState = sample.ReadOnly ? MemoryObservationState.Denied
+            : sample.AvailableInodes is null ? MemoryObservationState.Unknown : MemoryObservationState.Available;
+        var inodes = new MemoryResourceObservation(inodeDomain, MemoryResourceUnit.OperationSlots, inodeState,
             sample.ReadOnly ? null : sample.AvailableInodes, "linux:fstatvfs:descriptor:inodes", sampledAt);
         return new(sample.CapacityIdentity, bytes, quotaBytes, inodes, sample.Backing,
             (quotaBytes.SampledAt < sampledAt ? quotaBytes.SampledAt : sampledAt) + validity, policyRevision);

@@ -120,17 +120,18 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         }
     }
 
-    internal void Rename(string source, string destination)
+    internal void Rename(string source, string destination, DiskFileFootprint? expected = null)
     {
         Validate();
         using FileStream proof = Read(source);
+        RequireExpectedFile(proof.SafeFileHandle, expected);
         if (RenameAt(_directory, source, _directory, destination, 1) != 0)
         {
             ThrowNative("publish spill file");
         }
     }
 
-    internal void Delete(string name)
+    internal void Delete(string name, DiskFileFootprint? expected = null)
     {
         Validate();
         // Only ENOENT from this anchored leaf lookup proves physical absence.
@@ -141,6 +142,7 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
             return;
         }
         using FileStream proof = StreamFromDescriptor(descriptor, FileAccess.Read);
+        RequireExpectedFile(proof.SafeFileHandle, expected);
         if (UnlinkAt(_directory, name, 0) != 0 && Marshal.GetLastPInvokeError() != 2)
         {
             ThrowNative("delete owned spill file");
@@ -159,11 +161,12 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
             ThrowNative("sample owned volume");
         }
         long bytes;
-        long inodes;
+        long? inodes;
         try
         {
             bytes = checked((long)volume._availableBlocks * (long)volume._fragmentSize);
-            inodes = checked((long)volume._availableFiles);
+            inodes = volume._files is 0 or ulong.MaxValue || volume._availableFiles == ulong.MaxValue
+                ? null : checked((long)volume._availableFiles);
         }
         catch (OverflowException exception)
         {
@@ -179,6 +182,55 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         };
         return new($"linux-device:{_identity._deviceMajor}:{_identity._deviceMinor}", bytes, inodes,
             backing, (volume._flags & 1) != 0);
+    }
+
+    internal DiskFileFootprint ObserveRootFootprint(TimeProvider timeProvider)
+        => ObserveFootprint(_directory, DirectoryType, timeProvider);
+
+    internal DiskFileFootprint ObserveFileFootprint(string name, TimeProvider timeProvider)
+    {
+        using FileStream file = Read(name);
+        return ObserveFootprint(file.SafeFileHandle, RegularType, timeProvider);
+    }
+
+    internal DiskFileFootprint ObserveFileFootprint(FileStream file, TimeProvider timeProvider)
+        => ObserveFootprint(file.SafeFileHandle, RegularType, timeProvider);
+
+    private static void RequireExpectedFile(SafeFileHandle handle, DiskFileFootprint? expected)
+    {
+        if (expected is null)
+        {
+            return;
+        }
+        FileIdentity identity = Inspect(handle);
+        if (expected.IsDirectory || identity._inode != expected.Inode
+            || expected.CapacityIdentity != $"linux-device:{identity._deviceMajor}:{identity._deviceMinor}")
+        {
+            throw new DiskFileSystemException("mutate replaced spill file", 0, DiskFileSystemFailure.OwnershipChanged);
+        }
+    }
+
+    private DiskFileFootprint ObserveFootprint(SafeFileHandle handle, ushort type, TimeProvider timeProvider)
+    {
+        Validate();
+        FileIdentity identity = Inspect(handle);
+        RequireOwned(identity, type);
+        if ((identity._mask & 0x7c0) != 0x7c0)
+        {
+            throw new IOException("Filesystem did not return size/block/change observations.");
+        }
+        if (identity._deviceMajor != _identity._deviceMajor || identity._deviceMinor != _identity._deviceMinor)
+        {
+            throw new DiskFileSystemException("observe foreign volume file", 0, DiskFileSystemFailure.OwnershipChanged);
+        }
+        long logicalBytes = checked((long)identity._size);
+        // Linux statx reports blocks in 512-byte units, independently of filesystem block size.
+        long allocatedFileBytes = checked((long)identity._blocks * 512L);
+        Validate();
+        return new($"linux-device:{identity._deviceMajor}:{identity._deviceMinor}", identity._inode,
+            logicalBytes, allocatedFileBytes, type == DirectoryType, timeProvider.GetUtcNow(),
+            new(identity._modifiedSeconds, identity._modifiedNanoseconds,
+                identity._changedSeconds, identity._changedNanoseconds));
     }
 
     public void Dispose() => _directory.Dispose();
@@ -280,6 +332,12 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         [FieldOffset(20)] internal uint _userId;
         [FieldOffset(28)] internal ushort _mode;
         [FieldOffset(32)] internal ulong _inode;
+        [FieldOffset(40)] internal ulong _size;
+        [FieldOffset(48)] internal ulong _blocks;
+        [FieldOffset(96)] internal long _changedSeconds;
+        [FieldOffset(104)] internal uint _changedNanoseconds;
+        [FieldOffset(112)] internal long _modifiedSeconds;
+        [FieldOffset(120)] internal uint _modifiedNanoseconds;
         [FieldOffset(136)] internal uint _deviceMajor;
         [FieldOffset(140)] internal uint _deviceMinor;
     }
@@ -324,5 +382,5 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
     private static extern int VolumeStats(SafeFileHandle file, out VolumeStat statistics);
 }
 
-internal sealed record LinuxDiskSample(string CapacityIdentity, long AvailableBytes, long AvailableInodes,
+internal sealed record LinuxDiskSample(string CapacityIdentity, long AvailableBytes, long? AvailableInodes,
     DiskBackingKind Backing, bool ReadOnly);

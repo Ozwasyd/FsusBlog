@@ -82,6 +82,8 @@ public sealed class DiskBudgetAdmission
         get;
     }
 
+    internal ulong PolicyRevision => _coordinator.Snapshot().PolicyRevision;
+
     public MemoryOperationResult<MemoryReservation> TryReserve(DiskBudgetRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

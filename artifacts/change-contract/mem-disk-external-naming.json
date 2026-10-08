@@ -5,11 +5,14 @@
             "id": "environment-variable",
             "paths": [
                 "src/backend/Infrastructure/Memory/Disk/DiskBudgetAdmission.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskFileFootprint.cs",
                 "src/backend/Infrastructure/Memory/Disk/DiskFileSystemException.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskPhysicalAllocationPolicy.cs",
                 "src/backend/Infrastructure/Memory/Disk/DiskSegmentFormat.cs",
                 "src/backend/Infrastructure/Memory/Disk/DiskSegmentLease.cs",
                 "src/backend/Infrastructure/Memory/Disk/DiskSegmentStore.cs",
                 "src/backend/Infrastructure/Memory/Disk/DiskSpillEligibility.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSpillInventoryObservation.cs",
                 "src/backend/Infrastructure/Memory/Disk/OwnedSpillRoot.cs",
                 "src/backend/Infrastructure/Memory/Platform/LinuxOwnedSpillDirectory.cs"
             ],
