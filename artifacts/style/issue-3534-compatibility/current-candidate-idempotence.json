@@ -9,8 +9,8 @@
     "paths": [
         "tests/tools/behavior-document-consistency-final.test.mjs"
     ],
-    "firstPassTreeSha256": "b9cd8fac901c11baa91361857467ff92fd9e46b28e0c5fa833c256cd5087a5fc",
-    "secondPassTreeSha256": "b9cd8fac901c11baa91361857467ff92fd9e46b28e0c5fa833c256cd5087a5fc",
+    "firstPassTreeSha256": "0ea5c06da9eab8f2bb17a064320ffe734c137b5d8f031812ee72c2141a81449a",
+    "secondPassTreeSha256": "0ea5c06da9eab8f2bb17a064320ffe734c137b5d8f031812ee72c2141a81449a",
     "idempotent": true,
     "originalWhitespacePasses": {
         "paths": [
@@ -31,5 +31,5 @@
         "publishedAtCommit": "b1f0fd6160289b2bab60eca55592050c42b07e83"
     },
     "currentCandidateRunId": "issue-3534-compatibility-20261008",
-    "sourceCommit": "30aa8a6660b881b61e15cffdd31fd18ed36c789a"
+    "sourceCommit": "b4dfcb7dab1219106deb40ee4393b447054e42b5"
 }

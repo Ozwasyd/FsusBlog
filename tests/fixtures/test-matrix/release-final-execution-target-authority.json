@@ -2875,8 +2875,8 @@
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
-            "contentDigest": "sha256:79fbe49c620a17947a41b5f5376553c01cc5427d072f109d6aca5945e3a059f2",
-            "indexDigest": "sha256:79fbe49c620a17947a41b5f5376553c01cc5427d072f109d6aca5945e3a059f2"
+            "contentDigest": "sha256:69ff46e1e1ee39df89d200c08563defcb7b012043d86b1417183b6d63d4b64ef",
+            "indexDigest": "sha256:69ff46e1e1ee39df89d200c08563defcb7b012043d86b1417183b6d63d4b64ef"
         },
         {
             "path": "tools/docs/check-document-claim-migration-ledger.mjs",
