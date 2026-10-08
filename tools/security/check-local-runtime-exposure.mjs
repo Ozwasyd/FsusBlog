@@ -127,6 +127,7 @@ async function writeSummary(outputFile, summary)
 {
     await mkdir(path.dirname(outputFile), { recursive: true });
     await writeFile(outputFile, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
+    return Object.freeze([outputFile]);
 }
 
 export async function runLocalRuntimeExposure({
@@ -135,7 +136,8 @@ export async function runLocalRuntimeExposure({
     readListeners = readSystemListeners,
     inspectBindings = inspectContainerBindings,
     outputFile = defaultOutputFile,
-    now = () => Date.now()
+    now = () => Date.now(),
+    resultOutlet = null
 } = {})
 {
     const startedAtMs = now();
@@ -253,7 +255,8 @@ export async function runLocalRuntimeExposure({
         finishedAt: new Date(finishedAtMs).toISOString(),
         durationMs: Math.max(0, finishedAtMs - startedAtMs)
     };
-    await writeSummary(outputFile, summary);
+    const artifactPaths = await writeSummary(outputFile, summary);
+    await resultOutlet?.({ summary, artifactPaths });
     return summary;
 }
 

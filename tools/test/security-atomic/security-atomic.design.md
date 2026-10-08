@@ -140,12 +140,19 @@ attempt-relative artifact paths. Owner-approved mapping of actual observed check
 fixture/scan failure classes and original artifact custody remains required. The
 retained runtime producer also keeps catalog assertions as declaration metadata.
 
-Original-producer changes are prepared separately for coordination, not applied:
-a read-only result outlet after each original scan writer finishes, and returning
-already-validated original security cleanup observations through catalog ports.
-These changes would preserve existing result bytes and validation rules, but do
-not add missing before observations or qualify reset/native runtime. Exact patch
-bases/file objects and proposed digests are delivered to the coordinator. The sole
+The two original scan APIs now accept an optional `resultOutlet`. After the
+original summary writer finishes, they await the outlet with the original
+`summary` and a frozen `artifactPaths` array containing the actual written file.
+The original schemas, summary bytes and return value are preserved; outlet
+failure propagates, and writer failure prevents outlet invocation. These raw
+paths are not admitted attempt-relative paths or canonical sidecar evidence.
+Ordinary synthetic controls cover written-file visibility, asynchronous outlet
+settlement, original failure preservation and writer/outlet error propagation.
+
+Returning already-validated original security cleanup observations through
+catalog ports remains an unapplied proposal for shared owner coordination. It
+does not add missing before observations or qualify reset/native runtime. Exact
+patch bases/file objects and proposed digests are delivered to the coordinator. The sole
 #3521 owner must perform current-candidate fixture rebinding through its original
 producer; this partition does not hand-edit shared authority fixtures or ledgers.
 
