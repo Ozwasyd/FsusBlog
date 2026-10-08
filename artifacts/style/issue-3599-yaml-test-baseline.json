@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.source-style-observation.v1",
+    "frozenCommit": "2f122ad0ced6cebf3ac79c1fccc1e448c98f8673",
+    "path": "tests/tools/yaml-consumer-style.test.mjs",
+    "sourceSha256": "51f9ae0a4fe4bcd40b83e9d0d6483c7a3df8519d903bd4f337c1e0897714d94d",
+    "formatter": {
+        "identity": "eslint",
+        "version": "10.8.0"
+    },
+    "strictDiagnostics": 180,
+    "rules": {
+        "@stylistic/semi": 66,
+        "import-x/order": 1,
+        "import-x/no-relative-parent-imports": 3,
+        "@stylistic/brace-style": 11,
+        "@stylistic/indent": 99
+    },
+    "qualification": false
+}
