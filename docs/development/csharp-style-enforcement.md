@@ -81,7 +81,6 @@ No placeholder SHA is accepted in `.git-blame-ignore-revs`. A formatting commit 
 
 The read-only text checker follows the outer method parameter list across lines before extracting parameter identifiers. Parameter attributes, including `MarshalAs(UnmanagedType.LPUTF8Str)` and named attribute arguments, remain metadata; camelCase checks apply to the actual parameter names. This does not execute C# or replace Roslyn, compilation, runtime or release verification.
 
-
 ## Bounded policy digest rebind
 
 `node tools/dotnet/check-csharp-style.mjs --mode full --rebind-baseline-policy` is the explicit producer for the `Miss` semantic-directory extension. It verifies the original policy and baseline regular Git objects at authority `b19b3dc715691b871f0e3cab598ec5da8f27633c`, including their pinned object IDs and SHA-256 digests with replacement refs disabled. Only the canonical policy bytes with `Miss` appended are admitted. The existing baseline must be byte-identical to that original or its exact rebound output. The producer updates only `policySha256`, preserving schema, generatedFrom, counts, paths, source/rule/violation digests and every other byte. Missing, corrupted or substituted inputs and combinations with fix, update-baseline or file selection are refused. Repeating the producer is idempotent. Normal checking still rejects a stale policy digest.
