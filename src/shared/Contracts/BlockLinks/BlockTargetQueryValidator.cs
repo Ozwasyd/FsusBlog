@@ -67,7 +67,7 @@ public static class BlockTargetQueryValidator
             || token.SchemaVersion != BlockTargetQuerySchemas.Version
             || !BlockAnchorContractValidator.Validate(token.Target).IsValid
             || !IsArticle(token.Article, currentRequest.Scope)
-            || !IsSelectableArticle(token.Article)
+            || !IsSelectableArticle(token.Article, currentRequest.Scope)
             || token.Target.ArticleIdentity != token.Article.ArticleIdentity
             || !IsText(token.SourceNodeIdentity, 256, false)
             || token.SourceStart < 0
@@ -110,7 +110,7 @@ public static class BlockTargetQueryValidator
         }
 
         if (page.Status is BlockTargetQueryPageStatus.Ready or BlockTargetQueryPageStatus.Blocked
-            && !IsSelectableArticle(currentRequest.Article!))
+            && !IsSelectableArticle(currentRequest.Article!, currentRequest.Scope))
         {
             return BlockTargetQueryValidationResult.Invalid("block_target_page_disclosure_invalid");
         }
@@ -168,12 +168,15 @@ public static class BlockTargetQueryValidator
                 article.RevisionIdentity, article.RevisionNumber, article.RevisionKind,
                 article.Lifecycle, article.Permission)).IsValid
             && BlockAnchorContractDigest.IsSha256(article.ContentDigest)
+            && Enum.IsDefined(article.EditPermission)
             && (scope == BlockTargetQueryScope.AuthoringCurrent
                 ? article.RevisionKind is ArticleRelationRevisionKind.Draft or ArticleRelationRevisionKind.Current
                 : article.RevisionKind == ArticleRelationRevisionKind.Published);
 
-    private static bool IsSelectableArticle(BlockTargetArticleCoordinate article)
+    private static bool IsSelectableArticle(BlockTargetArticleCoordinate article, BlockTargetQueryScope scope)
         => article.Permission == ArticleRelationPermissionState.Allowed
+            && (scope != BlockTargetQueryScope.AuthoringCurrent
+                || article.EditPermission == ArticleRelationPermissionState.Allowed)
             && article.Lifecycle is not ArticleRelationLifecycleState.Archived and not ArticleRelationLifecycleState.Deleted;
 
     private static bool IsText(string? value, int maximumLength, bool allowEmpty)

@@ -72,6 +72,8 @@ relation, UI, package, or source mutation implementation.
 `BlockTargetQueryRequest` separates the article page from heading/block drill-in.
 Drill-in requires an exact stable article/revision/content coordinate. Authoring
 accepts current or draft revisions; public queries require published coordinates.
+Read and edit permission dispositions are separate. Authoring tokens require both
+allowed; a public publication target may be read-only to its caller.
 Requests bind actor/site, permission context and revision, query/index/route
 generations, request sequence, search and page limit, plus the existing anchor
 contract version/digest. A changed coordinate invalidates cursors and tokens.

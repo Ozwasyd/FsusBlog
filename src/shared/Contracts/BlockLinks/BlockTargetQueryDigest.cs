@@ -84,6 +84,7 @@ public static class BlockTargetQueryDigest
         writer.Add((int)article.RevisionKind);
         writer.Add((int)article.Lifecycle);
         writer.Add((int)article.Permission);
+        writer.Add((int)article.EditPermission);
         writer.Add(article.ContentDigest);
     }
 

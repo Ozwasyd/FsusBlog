@@ -38,6 +38,7 @@ public sealed record BlockTargetArticleCoordinate(
     ArticleRelationRevisionKind RevisionKind,
     ArticleRelationLifecycleState Lifecycle,
     ArticleRelationPermissionState Permission,
+    ArticleRelationPermissionState EditPermission,
     string ContentDigest);
 
 /// <summary>All producer generations that invalidate a cursor or selected target on drift.</summary>

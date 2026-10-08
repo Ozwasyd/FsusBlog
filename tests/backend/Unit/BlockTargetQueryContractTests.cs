@@ -277,6 +277,32 @@ public sealed class BlockTargetQueryContractTests
         }), request).IsValid);
     }
 
+    [Theory]
+    [InlineData(ArticleRelationPermissionState.Denied)]
+    [InlineData(ArticleRelationPermissionState.Unknown)]
+    public void ReadableButUneditableTarget_IsNotAnAuthoringToken(ArticleRelationPermissionState editPermission)
+    {
+        BlockTargetQueryRequest request = Seal(Request() with
+        {
+            Article = Request().Article! with
+            {
+                EditPermission = editPermission
+            }
+        });
+        Assert.True(BlockTargetQueryValidator.Validate(request).IsValid);
+        Assert.False(BlockTargetQueryValidator.Validate(Token(request), request).IsValid);
+        BlockTargetQueryRequest published = Seal(request with
+        {
+            Scope = BlockTargetQueryScope.CurrentPublicPublication,
+            Article = request.Article! with
+            {
+                RevisionKind = ArticleRelationRevisionKind.Published,
+                Lifecycle = ArticleRelationLifecycleState.Published
+            }
+        });
+        Assert.True(BlockTargetQueryValidator.Validate(Token(published), published).IsValid);
+    }
+
     [Fact]
     public void Page_RejectsDuplicateAnchorsAndOverBudgetInsteadOfTruncating()
     {
@@ -344,7 +370,8 @@ public sealed class BlockTargetQueryContractTests
             BlockTargetQueryLayer.Blocks,
             BlockTargetQueryScope.AuthoringCurrent,
             new BlockTargetArticleCoordinate(Article, "revision:current", 1, ArticleRelationRevisionKind.Current,
-                ArticleRelationLifecycleState.Draft, ArticleRelationPermissionState.Allowed, s_digest),
+                ArticleRelationLifecycleState.Draft, ArticleRelationPermissionState.Allowed,
+                ArticleRelationPermissionState.Allowed, s_digest),
             string.Empty, 100, 1, string.Empty));
 
     private static BlockTargetQueryToken Token(BlockTargetQueryRequest request)
