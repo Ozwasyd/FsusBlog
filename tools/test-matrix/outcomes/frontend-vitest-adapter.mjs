@@ -104,6 +104,12 @@ export function frontendVitestTestIdentity(suite, test)
         caseIdentity: test.caseId === null ? null : { kind: 'parameterized', id: test.caseId } });
 }
 
+/** Derive a suite ID from the same source-owned replay identity primitive. */
+export function frontendVitestSuiteIdentity(suite)
+{
+    return canonicalTestId({ framework: 'vitest', source: suite.source, name: suite.declarationId });
+}
+
 function manifestMembership(manifest, replayPlan)
 {
     const suites = new Map();
@@ -112,7 +118,7 @@ function manifestMembership(manifest, replayPlan)
     for (const suite of manifest.suites)
     {
         exact(suite, ['source', 'declarationId', 'tests'], 'manifest suite');
-        const suiteId = canonicalTestId({ framework: 'vitest', source: suite.source, name: suite.declarationId });
+        const suiteId = frontendVitestSuiteIdentity(suite);
         requireValue(!suites.has(suiteId) && Array.isArray(suite.tests) && suite.tests.length > 0, 'duplicate or empty suite');
         const members = [];
         for (const test of suite.tests)
@@ -211,7 +217,7 @@ export function adaptFrontendVitestSemanticOutcome({
     exact(manifest, ['schema', 'identity', 'configId', 'projectId', 'policyDigests', 'suites',
         'coverageIds', 'artifactIds', 'contentDigest'], 'manifest');
     exact(evidence, ['schema', 'identity', 'configId', 'projectId', 'policyDigests', 'attemptEligibility',
-        'manifestDigest', 'reportDigest', 'completion', 'tests', 'coverageIds', 'artifacts', 'contentDigest'], 'evidence');
+        'manifestDigest', 'reportDigest', 'completion', 'suiteBindings', 'tests', 'coverageIds', 'artifacts', 'contentDigest'], 'evidence');
     requireValue(manifest.schema === frontendVitestManifestSchema && evidence.schema === frontendVitestEvidenceSchema, 'unsupported binding schema');
     sealed(manifest, expectedInputs.manifestDigest, 'manifest');
     sealed(evidence, expectedInputs.evidenceDigest, 'evidence');
@@ -251,6 +257,23 @@ export function adaptFrontendVitestSemanticOutcome({
     requireValue(Array.isArray(evidence.tests), 'runner test evidence missing');
     equal(exactIds(evidence.tests.map((item) => item.testId), 'actual test IDs'), [...tests.keys()].sort(), 'actual test membership');
     requireValue(typeof report.success === 'boolean' && Array.isArray(report.testResults), 'native testResults/success missing');
+    requireValue(Array.isArray(evidence.suiteBindings), 'native suite bindings missing');
+    equal(exactIds(evidence.suiteBindings.map((binding) => binding.suiteId), 'actual suite IDs'), [...suites.keys()].sort(), 'actual suite membership');
+    const suiteBindings = new Map();
+    const boundFiles = new Set();
+    for (const binding of evidence.suiteBindings)
+    {
+        exact(binding, ['suiteId', 'fileIndex'], 'native suite binding');
+        requireValue(binding.fileIndex === null ? evidence.completion === 'aborted'
+            : Number.isSafeInteger(binding.fileIndex) && binding.fileIndex >= 0 && binding.fileIndex < report.testResults.length,
+        'missing or invalid native suite');
+        suiteBindings.set(binding.suiteId, binding.fileIndex);
+        if (binding.fileIndex !== null)
+        {
+            boundFiles.add(binding.fileIndex);
+        }
+    }
+    requireValue(boundFiles.size === report.testResults.length, 'extra native suite');
     const native = new Map();
     report.testResults.forEach((file, fileIndex) =>
     {
@@ -277,6 +300,7 @@ export function adaptFrontendVitestSemanticOutcome({
         {
             exact(event.nativeRef, ['fileIndex', 'assertionIndex'], 'native ref');
             requireValue(Object.values(event.nativeRef).every((index) => Number.isSafeInteger(index) && index >= 0), 'invalid native ref');
+            equal(event.nativeRef.fileIndex, suiteBindings.get(tests.get(event.testId).suiteId), 'test/suite native binding');
             const key = `${event.nativeRef.fileIndex}:${event.nativeRef.assertionIndex}`;
             const actual = native.get(key);
             requireValue(actual && !usedNative.has(key), 'missing or duplicate native result');
@@ -332,6 +356,29 @@ export function adaptFrontendVitestSemanticOutcome({
     for (const status of ['executed', ...statuses])
     {
         membership[`${status}TestIds`].sort();
+    }
+    for (const status of ['planned', 'executed', ...statuses])
+    {
+        membership[`${status}ParameterizedTestIds`] = membership[`${status}TestIds`]
+            .filter((id) => tests.get(id).caseId !== null);
+    }
+    for (const status of ['executed', ...statuses])
+    {
+        membership[`${status}SuiteIds`] = [];
+    }
+    for (const [suiteId, members] of suites)
+    {
+        if (members.some((id) => membership.executedTestIds.includes(id)))
+        {
+            membership.executedSuiteIds.push(suiteId);
+        }
+        const status = ['failed', 'blocked', 'skipped'].find((state) =>
+            members.some((id) => membership[`${state}TestIds`].includes(id))) ?? 'passed';
+        membership[`${status}SuiteIds`].push(suiteId);
+    }
+    for (const status of ['executed', ...statuses])
+    {
+        membership[`${status}SuiteIds`].sort();
     }
     membership.assertions.sort((left, right) => left.id.localeCompare(right.id));
     membership.failures.sort((left, right) => left.assertionId.localeCompare(right.assertionId));

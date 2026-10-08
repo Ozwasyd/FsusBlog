@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { adaptFrontendVitestSemanticOutcome, frontendVitestTestIdentity, verifyFrontendVitestSemanticOutcomeCandidate,
+const { adaptFrontendVitestSemanticOutcome, frontendVitestTestIdentity, frontendVitestSuiteIdentity,
+    verifyFrontendVitestSemanticOutcomeCandidate,
     frontendVitestManifestSchema, frontendVitestEvidenceSchema } = await import(new URL('../../tools/test-matrix/outcomes/frontend-vitest-adapter.mjs', import.meta.url));
 const { digestCanonical, sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const { REPLAY_PLAN_SCHEMA, planExactShards, sealReplayPlan } = await import(new URL('../../tools/test/execution-replay-contract.mjs', import.meta.url));
@@ -38,6 +39,7 @@ function fixture()
     })) }] };
     const evidence = { schema: frontendVitestEvidenceSchema, identity, configId: manifest.configId, projectId: manifest.projectId,
         policyDigests: manifest.policyDigests, attemptEligibility, manifestDigest: d('0'), reportDigest: d('0'), completion: 'complete',
+        suiteBindings: [{ suiteId: frontendVitestSuiteIdentity(suite), fileIndex: 0 }],
         tests: testIds.map((testId, index) => ({ testId, status: 'passed', executed: true,
             nativeRef: { fileIndex: 0, assertionIndex: index }, assertions: [
                 { id: suite.tests[index].assertionIds[0], status: 'passed', failure: null }
@@ -103,6 +105,8 @@ test('frontend adapter returns the original candidate v1 with exact suite/test/c
     assert.deepEqual(result.outcome.membership.passedTestIds, values.replayPlan.testEnumerationOrder);
     assert.equal(result.outcome.membership.plannedSuiteIds.length, 1);
     assert.equal(result.outcome.membership.parameterizedTestIds.length, 2);
+    assert.deepEqual(result.outcome.membership.passedSuiteIds, result.outcome.membership.plannedSuiteIds);
+    assert.deepEqual(result.outcome.membership.passedParameterizedTestIds, result.outcome.membership.parameterizedTestIds);
     assert.equal(Object.hasOwn(result, 'outcomeFingerprint'), false);
     validateProducerSemanticOutcomeCandidate(result);
 });
@@ -150,6 +154,8 @@ test('native pending is explicitly skipped by runner evidence rather than counte
     assert.deepEqual(member.skippedTestIds, [event.testId]);
     assert.deepEqual(member.blockedTestIds, []);
     assert.equal(member.executedTestIds.includes(event.testId), false);
+    assert.deepEqual(member.skippedSuiteIds, member.plannedSuiteIds);
+    assert.deepEqual(member.skippedParameterizedTestIds, [event.testId]);
 });
 
 test('worker abort preserves passed, partially executed blocked and never started blocked topology', () =>
@@ -163,6 +169,9 @@ test('worker abort preserves passed, partially executed blocked and never starte
     assert.deepEqual(member.executedTestIds, values.evidence.tests.slice(0, 2).map((event) => event.testId).sort());
     assert.deepEqual(member.skippedTestIds, []);
     assert.equal(member.failures[0].failureKind, 'infra.process-signal');
+    assert.deepEqual(member.blockedSuiteIds, member.plannedSuiteIds);
+    assert.deepEqual(member.executedSuiteIds, member.plannedSuiteIds);
+    assert.equal(member.blockedParameterizedTestIds.length, 1);
 });
 
 test('blocked pending differs from skipped pending and requires canonical runner abort evidence', () =>
@@ -213,6 +222,42 @@ test('extra or missing native results cannot be hidden by native summary totals'
     const missing = fixture();
     missing.evidence.tests[0].nativeRef = null;
     assert.throws(() => adaptFrontendVitestSemanticOutcome(bind(missing)), /native result missing/u);
+});
+
+test('empty extra native suites and missing/duplicate/foreign suite bindings fail closed', () =>
+{
+    const extra = fixture();
+    extra.report.testResults.push({ name: '/foreign/empty.test.ts', assertionResults: [] });
+    assert.throws(() => adaptFrontendVitestSemanticOutcome(bind(extra)), /extra native suite/u);
+    const missing = fixture();
+    missing.evidence.suiteBindings = [];
+    assert.throws(() => adaptFrontendVitestSemanticOutcome(bind(missing)), /actual suite membership/u);
+    const duplicate = fixture();
+    duplicate.evidence.suiteBindings.push(duplicate.evidence.suiteBindings[0]);
+    assert.throws(() => adaptFrontendVitestSemanticOutcome(bind(duplicate)), /duplicate IDs/u);
+    const foreign = fixture();
+    foreign.evidence.suiteBindings[0].suiteId = 'vitest:foreign#suite';
+    assert.throws(() => adaptFrontendVitestSemanticOutcome(bind(foreign)), /actual suite membership/u);
+});
+
+test('an entirely aborted suite preserves no native file and no executed suite without inventing results', () =>
+{
+    const values = aborted(fixture());
+    values.report.testResults = [];
+    values.evidence.suiteBindings[0].fileIndex = null;
+    const first = values.evidence.tests[0];
+    first.status = 'blocked';
+    first.executed = false;
+    first.nativeRef = null;
+    first.assertions[0] = { ...values.evidence.tests[2].assertions[0], id: first.assertions[0].id,
+        failure: { ...values.evidence.tests[2].assertions[0].failure, identity: { producerId: 'frontend-vitest',
+            testId: first.testId, assertionId: first.assertions[0].id, attemptNumber: 1 } } };
+    values.evidence.tests[1].executed = false;
+    const member = adaptFrontendVitestSemanticOutcome(bind(values)).outcome.membership;
+    assert.deepEqual(member.executedSuiteIds, []);
+    assert.deepEqual(member.executedTestIds, []);
+    assert.deepEqual(member.blockedSuiteIds, member.plannedSuiteIds);
+    assert.deepEqual(member.blockedParameterizedTestIds, member.plannedParameterizedTestIds);
 });
 
 test('passed/failed/skipped/blocked overlap and unknown status evidence are rejected', () =>
