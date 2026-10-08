@@ -275,6 +275,19 @@
             "supersededBy": null
         },
         {
+            "path": "docs/architecture/article-property-value-boundary.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                1808,
+                2322,
+                2323,
+                2324
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/architecture/authoring-canvas-document-boundary.md",
             "status": "current",
             "owner": "backend",

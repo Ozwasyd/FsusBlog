@@ -34,6 +34,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Versioned article mutation outbox](architecture/article-mutation-outbox-versioning.md)
 - [Article mutation side-effect boundaries](architecture/article-mutation-side-effect-boundaries.md)
 - [Article PropertyDefinition authority](architecture/article-property-definition-authority.md)
+- [Article property value authority boundary](architecture/article-property-value-boundary.md)
 - [Article revision concurrency](architecture/article-revision-concurrency.md)
 - [Article Vault Linux watcher boundary](architecture/article-vault-linux-watcher.md)
 - [Authoring canvas document boundary](architecture/authoring-canvas-document-boundary.md)

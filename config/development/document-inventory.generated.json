@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:3c5418c9c684ad1404f5be6ed4528a034b7fab57df767a91e47992a1a3e753e0",
+    "policyDigest": "sha256:05c149c4ce571c53d2173848930c7c7bd4ec445461c0bfd49b4dffdfede3b039",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -399,6 +399,23 @@
             "supersededBy": null,
             "relatedIssues": [
                 2322
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-property-value-boundary.md",
+            "title": "Article property value authority boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1808,
+                2322,
+                2323,
+                2324
             ],
             "producer": null
         },
