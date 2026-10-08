@@ -12,33 +12,16 @@ public static class AuthorTypographyCommandPolicy
         AuthorTypographyCommand? command,
         AuthorTypographyProfile? serverCurrentDesignDefault)
     {
-        if (command is null || command.ExpectedRevision < 0)
+        if (!AuthorTypographyContractValidator.ValidateCommand(command))
         {
             return Refuse(AuthorTypographyCommandStatus.InvalidCommand);
-        }
-        switch (command.Mutation)
-        {
-            case AuthorTypographyMutation.SetProfile:
-                if (!AuthorTypographyContractValidator.ValidateProfile(command.Profile))
-                {
-                    return Refuse(AuthorTypographyCommandStatus.InvalidCommand);
-                }
-                break;
-            case AuthorTypographyMutation.Reset:
-                if (command.Profile is not null)
-                {
-                    return Refuse(AuthorTypographyCommandStatus.InvalidCommand);
-                }
-                break;
-            default:
-                return Refuse(AuthorTypographyCommandStatus.InvalidCommand);
         }
         if (AuthorTypographyContractValidator.ValidateSnapshot(current, authenticatedScope)
             != AuthorTypographyContractStatus.Valid)
         {
             return Refuse(AuthorTypographyCommandStatus.InvalidSnapshot);
         }
-        if (command.ExpectedRevision != current!.Revision)
+        if (command!.ExpectedRevision != current!.Revision)
         {
             return Refuse(AuthorTypographyCommandStatus.RevisionConflict);
         }

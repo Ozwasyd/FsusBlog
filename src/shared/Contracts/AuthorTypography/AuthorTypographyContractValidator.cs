@@ -7,6 +7,97 @@ namespace FsusBlog.Shared.Contracts.AuthorTypography;
 /// <summary>Validates closed profile facts without normalizing arbitrary or legacy values.</summary>
 public static class AuthorTypographyContractValidator
 {
+    /// <summary>Validates the payload without deriving a default or accepting a persistence operation.</summary>
+    public static bool ValidateCommand(AuthorTypographyCommand? command)
+    {
+        return command is not null
+            && command.ExpectedRevision >= 0
+            && (command.Mutation switch
+            {
+                AuthorTypographyMutation.SetProfile => ValidateProfile(command.Profile),
+                AuthorTypographyMutation.Reset => command.Profile is null,
+                _ => false
+            });
+    }
+
+    /// <summary>Request IDs must be nonempty and are interpreted only inside the authenticated scope.</summary>
+    public static bool ValidateMutationRequest(
+        AuthorTypographyScope? authenticatedScope,
+        AuthorTypographyMutationRequest? request)
+    {
+        return ValidateScope(authenticatedScope)
+            && request is not null
+            && request.RequestId != Guid.Empty
+            && ValidateCommand(request.Command);
+    }
+
+    /// <summary>Content address binds the exact scope, request identity, action, expected revision and payload.</summary>
+    public static string ComputeRequestDigest(
+        AuthorTypographyScope authenticatedScope,
+        AuthorTypographyMutationRequest request)
+    {
+        if (!ValidateMutationRequest(authenticatedScope, request))
+        {
+            throw new ArgumentException("Invalid author typography request.", nameof(request));
+        }
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, AuthorTypographyCatalog.Schema);
+        Append(hash, "request");
+        Append(hash, authenticatedScope.AccountId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Append(hash, authenticatedScope.SiteIdentity);
+        Append(hash, request.RequestId.ToString("D"));
+        Append(hash, request.Command.ExpectedRevision.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Append(hash, request.Command.Mutation == AuthorTypographyMutation.SetProfile ? "set" : "reset");
+        if (request.Command.Profile is { } profile)
+        {
+            Append(hash, profile.FontFamily);
+            Append(hash, profile.FontSize);
+            Append(hash, profile.LineHeight);
+            Append(hash, profile.CanvasWidth);
+            Append(hash, profile.ParagraphSpacing);
+        }
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    /// <summary>Validates persisted-record content and its command-to-snapshot revision/profile binding.</summary>
+    public static bool ValidateRecordedRequest(
+        AuthorTypographyRecordedRequest? record,
+        AuthorTypographyScope? authenticatedScope)
+    {
+        return IsRecordedRequestWellFormed(record, authenticatedScope)
+            && string.Equals(record!.ContentDigest, ComputeRecordedRequestDigest(record, authenticatedScope!), StringComparison.Ordinal);
+    }
+
+    /// <summary>Seals record content, without authenticating storage or manufacturing a transaction receipt.</summary>
+    public static string ComputeRecordedRequestDigest(
+        AuthorTypographyRecordedRequest record,
+        AuthorTypographyScope authenticatedScope)
+    {
+        if (!IsRecordedRequestWellFormed(record, authenticatedScope))
+        {
+            throw new ArgumentException("Invalid author typography recorded request.", nameof(record));
+        }
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, AuthorTypographyCatalog.Schema);
+        Append(hash, "recorded-request");
+        Append(hash, ComputeRequestDigest(authenticatedScope, record.Request));
+        Append(hash, record.CommittedSnapshot.ContentDigest);
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    private static bool IsRecordedRequestWellFormed(
+        AuthorTypographyRecordedRequest? record,
+        AuthorTypographyScope? authenticatedScope)
+    {
+        return record is not null
+            && ValidateMutationRequest(authenticatedScope, record.Request)
+            && ValidateSnapshot(record.CommittedSnapshot, authenticatedScope) == AuthorTypographyContractStatus.Valid
+            && record.Request.Command.ExpectedRevision < long.MaxValue
+            && record.CommittedSnapshot.Revision == record.Request.Command.ExpectedRevision + 1
+            && (record.Request.Command.Mutation == AuthorTypographyMutation.Reset
+                || record.Request.Command.Profile == record.CommittedSnapshot.Profile);
+    }
+
     /// <summary>
     /// Admits exactly the five ID fields. This is a field validator, not a JSON codec or
     /// a persistence fallback. Unknown, missing, differently cased and extra fields refuse.

@@ -46,6 +46,18 @@ public sealed record AuthorTypographySnapshot(
     AuthorTypographyProfile Profile,
     string ContentDigest);
 
+/// <summary>Stable client request identity paired with a closed command; scope is supplied by the server.</summary>
+public sealed record AuthorTypographyMutationRequest(Guid RequestId, AuthorTypographyCommand Command);
+
+/// <summary>
+/// Observation read from the sole writer's persisted request record. Its digest provides
+/// content identity only; constructing this record never establishes a committed write.
+/// </summary>
+public sealed record AuthorTypographyRecordedRequest(
+    AuthorTypographyMutationRequest Request,
+    AuthorTypographySnapshot CommittedSnapshot,
+    string ContentDigest);
+
 /// <summary>Finite contract refusal reasons; none implies persistence or runtime acceptance.</summary>
 public enum AuthorTypographyContractStatus : byte
 {
