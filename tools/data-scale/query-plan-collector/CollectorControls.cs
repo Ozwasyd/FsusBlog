@@ -57,13 +57,21 @@ internal static class CollectorControls
                 string typeName = entrypoint[..separator];
                 string methodName = entrypoint[(separator + 1)..];
                 Type? type = assemblies.Select(assembly => assembly.GetType(typeName)).FirstOrDefault(candidate => candidate is not null);
-                Require(type is not null && type.GetMethods(InstanceFlags | StaticFlags).Any(method => method.Name == methodName),
-                    "semantic business entrypoint is absent from the original compiled assemblies");
+                string[]? parameterTypes = owner.TryGetProperty("parameterTypes", out JsonElement signature)
+                    ? signature.EnumerateArray().Select(parameter => parameter.GetString()!).ToArray()
+                    : null;
+                Require(parameterTypes is null || parameterTypes.All(parameter => !string.IsNullOrWhiteSpace(parameter)),
+                    "semantic business signature contains an invalid parameter type");
+                Require(type is not null && type.GetMethods(InstanceFlags | StaticFlags).Any(method =>
+                    method.Name == methodName && (parameterTypes is null || method.GetParameters()
+                        .Select(parameter => parameter.ParameterType.FullName).SequenceEqual(parameterTypes))),
+                    "semantic business entrypoint or signature is absent from the original compiled assemblies");
                 results.Add(new
                 {
                     domain = requirement.GetProperty("domain").GetString(),
                     kind = requirement.GetProperty("kind").GetString(),
                     entrypoint,
+                    parameterTypes,
                     status = "declared"
                 });
             }

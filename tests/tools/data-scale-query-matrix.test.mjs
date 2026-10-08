@@ -104,6 +104,15 @@ test('semantic owner declarations bind real source contracts without adding case
             assert.equal(owner.contentDigest, computeSha256(fs.readFileSync(new URL(`../../${owner.path}`, import.meta.url))));
         }
     }
+    const consistency = buildQuerySemanticOwnerInventory({ binding,
+        kinds: { article: ['cache-consistency', 'aot-consistency', 'hot-read-consistency'], comment: ['public-list'] } });
+    for (const row of consistency.requirements.filter((requirement) => requirement.domain === 'article'))
+    {
+        assert.deepEqual(row.businessOwners[0].parameterTypes,
+            ['FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationReceipt',
+                'FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationRequest', 'System.Threading.CancellationToken']);
+        assert.ok(row.blockers.includes('original_same_run_publication_receipt_and_current_invocation_missing'));
+    }
     assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { ...kinds, article: ['invented-kind'] } }), /undeclared/u);
     assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { ...kinds, comment: ['public-list', 'public-list'] } }), /unique/u);
     assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { article: ['detail'] } }), /vocabulary/u);

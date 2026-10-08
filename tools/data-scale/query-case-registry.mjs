@@ -143,10 +143,11 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
         throw new Error('explicit unique article/comment semantic vocabulary required');
     }
     const inventory = buildQueryCaseInventory(binding);
-    const sourceRef = (sourcePath, entrypoint) =>
+    const sourceRef = (sourcePath, entrypoint, parameterTypes) =>
     {
         const contentDigest = computeSha256(fs.readFileSync(new URL(`../../${sourcePath}`, import.meta.url)));
-        return { path: sourcePath, entrypoint, contentDigest, version: `source-${contentDigest.slice('sha256:'.length)}` };
+        return { path: sourcePath, entrypoint, contentDigest, version: `source-${contentDigest.slice('sha256:'.length)}`,
+            ...(parameterTypes ? { parameterTypes } : {}) };
     };
     const article = (member) => sourceRef('src/backend/Interfaces/IArticleEndpointService.cs', `FsusBlog.Server.Interfaces.IArticleEndpointService.${member}`);
     const comment = (member) => sourceRef('src/backend/Services/CommentQueryService.cs', `FsusBlog.Server.Services.ICommentQueryService.${member}`);
@@ -156,6 +157,10 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
         'FsusBlog.Core.Services.Abstractions.ICommentCoreService.GetUserCommentsAsync');
     const visibilityProjection = () => sourceRef('src/backend/Infrastructure/Projections/CommentProjection.cs',
         'FsusBlog.Server.Infrastructure.Projections.CommentProjection.ToCoreModel');
+    const projectionVerifier = () => sourceRef('src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs',
+        'FsusBlog.Server.Services.Fixtures.CanonicalArticleProjectionVerifier.VerifyAsync',
+        ['FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationReceipt',
+            'FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationRequest', 'System.Threading.CancellationToken']);
     const requirements = [];
     for (const [domain, values] of Object.entries(kinds))
     {
@@ -196,21 +201,38 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
                     routePatterns = ['/api/binary/article/{articleId:int}/related.aeds'];
                     break;
                 case 'article:cache-consistency':
-                    businessOwners = [article('GetPublicArtifactBackedDetailAsync'),
+                    businessOwners = [projectionVerifier(), article('GetPublicArtifactBackedDetailAsync'),
+                        sourceRef('src/backend/Infrastructure/Cache/CachePorts.cs',
+                            'FsusBlog.Server.Infrastructure.Cache.ICacheStringReader.GetStringAsync'),
+                        sourceRef('src/core/Services/Gateways/IArticleCoreGateway.cs',
+                            'FsusBlog.Core.Services.Gateways.IArticleCoreGateway.GetByIdAsync'),
                         sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs',
                             'FsusBlog.Server.Infrastructure.PublicReadArtifacts.IPublicArticleProjectionStore.TryReadAsync')];
                     routePatterns = ['/api/binary/article/{id}.aeds'];
                     blockers.push('mutation_and_cache_generation_coordinates_missing');
                     break;
                 case 'article:aot-consistency':
-                    businessOwners = [sourceRef('src/backend/Infrastructure/PublicAot/IPublicAotShellService.cs',
-                        'FsusBlog.Server.Infrastructure.PublicAot.IPublicAotShellService.BuildNavigationSnapshotAsync')];
+                    businessOwners = [projectionVerifier(),
+                        ...['CreateLookup', 'TryGetEntryAsync', 'IsRenderable'].map((member) =>
+                            sourceRef('src/backend/Infrastructure/PublicAot/PublicAotArtifactStore.cs',
+                                `FsusBlog.Server.Infrastructure.PublicAot.IPublicAotArtifactStore.${member}`)),
+                        sourceRef('src/backend/Infrastructure/PublicAot/PublicAotInvalidationGenerationAuthority.cs',
+                            'FsusBlog.Server.Infrastructure.PublicAot.IPublicAotInvalidationGenerationAuthority.LoadAsync'),
+                        sourceRef('src/backend/Infrastructure/PublicAot/PublicAotInvalidationGenerationAuthority.cs',
+                            'FsusBlog.Server.Infrastructure.PublicAot.PublicAotInvalidationGenerationState.Current')];
                     routePatterns = ['/api/public/navigation-snapshot.aeds'];
                     blockers.push('original_aot_artifact_and_route_identity_missing');
                     break;
                 case 'article:hot-read-consistency':
-                    businessOwners = [sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs',
-                        'FsusBlog.Server.Infrastructure.PublicReadArtifacts.PublicHotReadFastPath.TryServeAsync')];
+                    businessOwners = [projectionVerifier(),
+                        sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs',
+                            'FsusBlog.Server.Infrastructure.PublicReadArtifacts.PublicHotReadSnapshot.TryGetArticle'),
+                        sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs',
+                            'FsusBlog.Server.Infrastructure.PublicReadArtifacts.IPublicArticleProjectionStore.TryReadAsync'),
+                        sourceRef('src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs',
+                            'FsusBlog.Server.Infrastructure.PublicReadArtifacts.IArticleDetailAedsArtifactStore.TryReadAsync'),
+                        sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs',
+                            'FsusBlog.Server.Infrastructure.PublicReadArtifacts.PublicHotReadFastPath.TryServeAsync')];
                     routePatterns = ['/api/binary/article/{id}.aeds'];
                     actorConstraint = 'PublicHotReadSecurityGateMiddleware.InvokeAsync';
                     blockers.push('original_hot_read_generation_and_residency_coordinates_missing');
@@ -257,6 +279,10 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
                     break;
                 default:
                     throw new Error(`query semantic owner is undeclared: ${domain}:${kind}`);
+            }
+            if (['cache-consistency', 'aot-consistency', 'hot-read-consistency'].includes(kind))
+            {
+                blockers.push('original_same_run_publication_receipt_and_current_invocation_missing');
             }
             const existingCaseIds = inventory.cases.filter((row) => row.domain === domain && row.kind === kind).map((row) => row.id);
             if (!existingCaseIds.length)

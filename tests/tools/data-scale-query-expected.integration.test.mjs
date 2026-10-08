@@ -44,6 +44,14 @@ test('semantic owner metadata resolves original compiled business contracts and 
     const invalid = structuredClone(inventory);
     invalid.requirements[0].businessOwners[0].entrypoint += 'Missing';
     assert.equal(run(invalid).status, 1);
+    const wrongOverload = structuredClone(inventory);
+    const verifier = wrongOverload.requirements.find((row) => row.kind === 'cache-consistency').businessOwners[0];
+    assert.equal(verifier.parameterTypes.length, 3);
+    verifier.parameterTypes[1] = 'FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationFixtureBinding';
+    assert.equal(run(wrongOverload).status, 1);
+    const malformedSignature = structuredClone(inventory);
+    malformedSignature.requirements.find((row) => row.kind === 'aot-consistency').businessOwners[0].parameterTypes[1] = '';
+    assert.equal(run(malformedSignature).status, 1);
     fs.writeFileSync(inventoryPath, JSON.stringify(inventory), { mode: 0o600 });
 });
 
