@@ -54,7 +54,10 @@
             :disabled="view.permission !== 'allowed'"
             @click="reload"
         >重新读取偏好</ElButton>
-        <section aria-label="排版内容样例">
+        <section
+            class="min-w-0"
+            aria-label="排版内容样例"
+        >
             <p>内容样例 · 排版预览暂不可用，尚未应用所选偏好。</p>
             <MarkdownRenderer
                 :content="sample"

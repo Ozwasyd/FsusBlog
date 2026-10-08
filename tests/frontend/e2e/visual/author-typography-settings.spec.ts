@@ -101,6 +101,14 @@ test.describe('controlled states and keyboard', () =>
             // CSS zoom covers reflow, not an OS/browser magnification acceptance gate.
             await page.evaluate(value => { document.body.style.zoom = String(value); }, zoom);
             expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+            const sample = page.getByRole('region', { name: '排版内容样例' });
+            expect(await sample.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+            for (const choice of await page.getByRole('combobox').all())
+            {
+                const box = await choice.boundingBox();
+                expect(box).not.toBeNull();
+                expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+            }
             await expect(page.getByRole('button', { name: '重新读取偏好' })).toBeEnabled();
             await page.screenshot({ path: testInfo.outputPath(`typography-zoom-${zoom}.png`), fullPage: true });
         });
