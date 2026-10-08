@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
 
-using Microsoft.Win32.SafeHandles;
-
 using FsusBlog.Shared.Contracts.ArticleVault;
+
+using Microsoft.Win32.SafeHandles;
 
 namespace FsusBlog.ArticleVault.Windows;
 

@@ -2,19 +2,22 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
-            "id": "css-selector-custom-property",
+            "id": "content-doc-exactness-authority",
             "paths": [
-                "config/development/authoritative-development-docs.json",
-                "config/development/document-lifecycle.json",
-                "config/development/native-tooling-style-policy.json",
                 "config/testing/correctness-attempt-producers.json",
-                "config/testing/release-reliability-lifecycle-action-registry.json",
                 "docs/api/contracts.md",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the canonical external contract spelling within these exact registered source paths; source identifiers follow repository naming and no public protocol or authority is changed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
                 "docs/architecture/article-property-value-boundary.md",
                 "docs/architecture/article-vault-linux-watcher.md",
                 "docs/architecture/article-vault-macos-watcher.md"
             ],
-            "reason": "Preserve the registered external schema, native interop or configuration spellings in these exact integrated canonical source surfaces; source variables follow repository conventions and this declaration changes no public protocol or runtime authority."
+            "reason": "Preserve the canonical external contract spelling within these exact registered source paths; source identifiers follow repository naming and no public protocol or authority is changed."
         },
         {
             "id": "environment-variable",
@@ -76,12 +79,8 @@
                 "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyCodec.cs",
                 "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyManifest.cs",
                 "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyVerifier.cs",
-                "tools/contracts/check-locale-catalog.mjs",
-                "tools/contracts/generate-locale-catalog.mjs",
                 "tools/governance/article-vault-conflict-terminal-ui.mjs",
                 "tools/governance/check-article-vault-conflicts.mjs",
-                "tools/test-inventory/ts-ast-adapter/index.mjs",
-                "tools/test-matrix/scheduler.mjs",
                 "tools/test/build-macos-vault-native.mjs",
                 "tools/test/check-macos-vault-observer-source.mjs",
                 "tools/test/correctness-attempt-migration.mjs"
@@ -89,24 +88,32 @@
             "reason": "Preserve external process environment and protocol spellings while new internal C# and JavaScript symbols follow repository naming conventions."
         },
         {
-            "id": "json-api-field",
+            "id": "json-wire-key",
             "paths": [
-                "config/development/authoritative-development-docs.json",
                 "config/development/document-lifecycle.json",
                 "config/development/native-tooling-style-policy.json",
-                "config/testing/correctness-attempt-producers.json",
-                "config/testing/release-reliability-lifecycle-action-registry.json",
-                "docs/api/contracts.md",
-                "docs/testing.generated.md",
                 "tests/article-vault-observations/packages.lock.json",
                 "tests/article-vault/macos/packages.lock.json",
                 "tests/article-vault/windows/packages.lock.json",
                 "tests/backend/packages.lock.json",
-                "tests/coverage-registry.json",
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/governance/test-lifecycle-registry.json"
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve the registered external schema, native interop or configuration spellings in these exact integrated canonical source surfaces; source variables follow repository conventions and this declaration changes no public protocol or runtime authority."
+            "reason": "Preserve the canonical external contract spelling within these exact registered source paths; source identifiers follow repository naming and no public protocol or authority is changed."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "config/development/authoritative-development-docs.json"
+            ],
+            "reason": "Preserve the canonical external contract spelling within these exact registered source paths; source identifiers follow repository naming and no public protocol or authority is changed."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve the canonical external contract spelling within these exact registered source paths; source identifiers follow repository naming and no public protocol or authority is changed."
         }
     ]
 }
