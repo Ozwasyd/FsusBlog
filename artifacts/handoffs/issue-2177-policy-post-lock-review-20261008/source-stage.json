@@ -1,0 +1,19 @@
+{
+  "candidateSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+  "masterSha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/run-test-matrix.mjs",
+    "ci-pr-smart",
+    "--stage",
+    "source-integration",
+    "--base-ref",
+    "1787fe43953a275ee25a481e1eec7c8dbbd5852f"
+  ],
+  "startedAt": "2026-10-08T12:05:09.804303+00:00",
+  "endedAt": "2026-10-08T12:05:22.072067+00:00",
+  "exitCode": 0,
+  "logSha256": "fbb622312640fa96177a9252effe30ffda209ccbfaf03cf92ca4d77b6a66abe7",
+  "qualification": false,
+  "wholeIssueAccepted": false
+}

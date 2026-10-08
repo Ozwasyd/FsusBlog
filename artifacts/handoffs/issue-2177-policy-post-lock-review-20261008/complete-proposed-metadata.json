@@ -1,0 +1,21 @@
+{
+  "candidateSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+  "baseSha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+  "authoritySha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "/tmp/fsusblog-2177-naming-authority-1787fe439/tools/governance/check-change-contract.mjs",
+    "--root",
+    "/workspace/FsusBlog-2177-formal-current-review",
+    "--github-event",
+    "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/proposed-github-event.json"
+  ],
+  "startedAt": "2026-10-08T12:09:30.804887+00:00",
+  "endedAt": "2026-10-08T12:09:32.174373+00:00",
+  "exitCode": 0,
+  "logSha256": "7ceccefd95c8545eddef25b667246b94af0ccb79ec3bb07945e7e65a24cfd54e",
+  "eventSha256": "73e27e1d1763b5b5db0e414c7e4b9f3e0f15cffd0ee7d262b0d406696a70fee7",
+  "completeProposedCandidateMetadataChecked": true,
+  "livePrMetadataChecked": false,
+  "qualification": false
+}

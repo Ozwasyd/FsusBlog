@@ -1,0 +1,216 @@
+{
+  "candidateSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+  "wholeIssueAccepted": false,
+  "artifacts": [
+    {
+      "path": "actual-scope-source-closure.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/actual-scope-source-closure.json",
+      "bytes": 327740,
+      "sha256": "d2361beb7dcaf7bac2728e89dacea6dfd871a3f176746231d03ed7d2d70fccf0"
+    },
+    {
+      "path": "assignment-status-current.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/assignment-status-current.json",
+      "bytes": 162005,
+      "sha256": "d662ddde3d44d7d59ea4ffb83e71121105e23b56777c00c885dc167c5de80891"
+    },
+    {
+      "path": "complete-proposed-metadata.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/complete-proposed-metadata.json",
+      "bytes": 1014,
+      "sha256": "51851c7dc17cc3c23025622e2b0ffd107bd89ef06496ab82e8432885e333faad"
+    },
+    {
+      "path": "complete-proposed-metadata.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/complete-proposed-metadata.log",
+      "bytes": 43,
+      "sha256": "7ceccefd95c8545eddef25b667246b94af0ccb79ec3bb07945e7e65a24cfd54e"
+    },
+    {
+      "path": "current-review-source.patch",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/current-review-source.patch",
+      "bytes": 23206,
+      "sha256": "4bb44b919b2fb1c5ae2599a3c627c0bdd2c9614496895610fa3f165b4914108c"
+    },
+    {
+      "path": "evaluated-project-source-closure.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/evaluated-project-source-closure.json",
+      "bytes": 3153,
+      "sha256": "cb670a3d017b66a60631bbd88ed70617edf1f4fdbacbe69dc4e686c577ba5214"
+    },
+    {
+      "path": "evaluation-FsusBlog.Core.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/evaluation-FsusBlog.Core.json",
+      "bytes": 100437,
+      "sha256": "6fc592723437cb76384a7a4a2680b060f35de33d447951434ead4d4f53f368c8"
+    },
+    {
+      "path": "evaluation-FsusBlog.DiLifetimeAnalyzer.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/evaluation-FsusBlog.DiLifetimeAnalyzer.json",
+      "bytes": 1126,
+      "sha256": "24260c59885b9ce4073f059deed84697304f58ddcc4bc237994339bb9d3f5233"
+    },
+    {
+      "path": "evaluation-FsusBlog.Migration.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/evaluation-FsusBlog.Migration.json",
+      "bytes": 171636,
+      "sha256": "a95d24422893baeb6dcbd38ee477e569d02eca64c735e69ec0ac38519a032d91"
+    },
+    {
+      "path": "evaluation-FsusBlog.Server.Tests.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/evaluation-FsusBlog.Server.Tests.json",
+      "bytes": 701689,
+      "sha256": "476f7c2bd85d12cb5b30a60d2a95c90dbf5ffcca84cb82e7309b17c4e20f2f56"
+    },
+    {
+      "path": "evaluation-FsusBlog.Server.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/evaluation-FsusBlog.Server.json",
+      "bytes": 986204,
+      "sha256": "a4b3fea96fdf19d7004ca43a9c38dba2efa78b78821e10249810b32049170220"
+    },
+    {
+      "path": "evaluation-FsusBlog.Shared.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/evaluation-FsusBlog.Shared.json",
+      "bytes": 129563,
+      "sha256": "7c3a14bb0cbf6e395a1db7cddc7882bfc46b686c50a3d26388cf939371f627a0"
+    },
+    {
+      "path": "formal-locked-restore.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/formal-locked-restore.json",
+      "bytes": 630,
+      "sha256": "c372270ded79b58dc520c9cc97b38c3c678e67ee90902e8dcf5e2f7debfe19de"
+    },
+    {
+      "path": "formal-locked-restore.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/formal-locked-restore.log",
+      "bytes": 655,
+      "sha256": "a06090f5769df91468024173256985bdb6940308a07fe2ccc4f2871043d754a4"
+    },
+    {
+      "path": "formal-policy-bound-results.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/formal-policy-bound-results.json",
+      "bytes": 73623,
+      "sha256": "a90481e6aec6bdd1ada56c9de1e0ffd71fd3556d9926774fef5a94cd562be352"
+    },
+    {
+      "path": "formal-policy-tests.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/formal-policy-tests.json",
+      "bytes": 1372,
+      "sha256": "13652c2acd645abc527d06eefaf29d168e47fbe6858b9a0f5e1c82f7c0a6a470"
+    },
+    {
+      "path": "formal-policy-tests.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/formal-policy-tests.log",
+      "bytes": 480452,
+      "sha256": "8dca095ebbfb2cccae6f65e230d87436f714ffcaa839f66bc6b7bc15d1b71ffc"
+    },
+    {
+      "path": "formal-policy-tests.trx",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/formal-policy-tests.trx",
+      "bytes": 124367,
+      "sha256": "6ce785f4bd18ec31a0576dbc8fc73973024abc6823f8f8d927095b2b452cf081"
+    },
+    {
+      "path": "handoff.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/handoff.json",
+      "bytes": 4485,
+      "sha256": "21add0ffd4dc35ecabb9c9b4605ea038c1dc58f50139d78d4810e254060e4a38"
+    },
+    {
+      "path": "initial-proposed-metadata/complete-proposed-metadata.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/initial-proposed-metadata/complete-proposed-metadata.json",
+      "bytes": 1014,
+      "sha256": "6d421f4abdf9111372c411b3491a72e3edd3ba93a87e40bfb3d1841aae7736d2"
+    },
+    {
+      "path": "initial-proposed-metadata/complete-proposed-metadata.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/initial-proposed-metadata/complete-proposed-metadata.log",
+      "bytes": 43,
+      "sha256": "7ceccefd95c8545eddef25b667246b94af0ccb79ec3bb07945e7e65a24cfd54e"
+    },
+    {
+      "path": "initial-proposed-metadata/proposed-github-event.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/initial-proposed-metadata/proposed-github-event.json",
+      "bytes": 6611,
+      "sha256": "227864a591b9e61aceacf8eef472924f409535574b070d38b6ab5558839f873f"
+    },
+    {
+      "path": "initial-proposed-metadata/proposed-pr-body.txt",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/initial-proposed-metadata/proposed-pr-body.txt",
+      "bytes": 6084,
+      "sha256": "25e50895e0994307e94f12f26561e0819740ded857cde10ccbd95156d88ad062"
+    },
+    {
+      "path": "manifest-regeneration.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/manifest-regeneration.json",
+      "bytes": 914,
+      "sha256": "e7ffc6a3896786f9281d7ed6420209b97fc69619fe5ba397a2d5be6ee4a8a4b5"
+    },
+    {
+      "path": "proposed-github-event.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/proposed-github-event.json",
+      "bytes": 6761,
+      "sha256": "73e27e1d1763b5b5db0e414c7e4b9f3e0f15cffd0ee7d262b0d406696a70fee7"
+    },
+    {
+      "path": "proposed-pr-body.txt",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/proposed-pr-body.txt",
+      "bytes": 6234,
+      "sha256": "22e2c338356bf50ca323ae7d757be23f5297ec2a230d79ee355e20063b613848"
+    },
+    {
+      "path": "range-contract.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/range-contract.json",
+      "bytes": 767,
+      "sha256": "9fc06c1244a90135c34a8b91b41377e017a84ec05b1afe94a48a443a3d1f6457"
+    },
+    {
+      "path": "range-contract.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/range-contract.log",
+      "bytes": 117,
+      "sha256": "1ea50fc79b7deed36f16b01e8846f84cbaae0ef31ba693a4c2ec44473b784db1"
+    },
+    {
+      "path": "regenerated-policy-manifest.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/regenerated-policy-manifest.json",
+      "bytes": 904,
+      "sha256": "2881587850c33ae5d3758b6b060dbea6db44b3704899531d81e09e49fc59ed1a"
+    },
+    {
+      "path": "source-publication.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/source-publication.json",
+      "bytes": 647,
+      "sha256": "4538b9a01a99eeddda018f8712a10056efdbcc1c3206634c27aef9bc81bf31f6"
+    },
+    {
+      "path": "source-push.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/source-push.log",
+      "bytes": 782,
+      "sha256": "b365e1315e0536db905b736f4449feb445f7ca546a9b6118fc3dbf3baefef0bb"
+    },
+    {
+      "path": "source-readback.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/source-readback.log",
+      "bytes": 102,
+      "sha256": "35b739bf1a4cf6428ab5ca1b11cabff6cbc6e624c93d8b648f8481e67fbd1116"
+    },
+    {
+      "path": "source-stage.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/source-stage.json",
+      "bytes": 657,
+      "sha256": "9d87681b23e71854fb940f5a75907642050a1bf77830a7c0ea9c2db84a1fd3c2"
+    },
+    {
+      "path": "source-stage.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/source-stage.log",
+      "bytes": 257,
+      "sha256": "fbb622312640fa96177a9252effe30ffda209ccbfaf03cf92ca4d77b6a66abe7"
+    },
+    {
+      "path": "toolchain-current-binding.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008/toolchain-current-binding.json",
+      "bytes": 903,
+      "sha256": "366a9ee9e85a3e1d717fc52faf88d6152f345855f6ccd8ec60a18ad9a54db013"
+    }
+  ]
+}

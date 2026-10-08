@@ -1,0 +1,18 @@
+{
+  "candidateSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+  "masterSha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "/tmp/fsusblog-2177-naming-authority-1787fe439/tools/governance/check-change-contract.mjs",
+    "--root",
+    "/workspace/FsusBlog-2177-formal-current-review",
+    "--range",
+    "1787fe43953a275ee25a481e1eec7c8dbbd5852f..d44dce8f4fb16b9f15f6065524a2ae30f2539191"
+  ],
+  "startedAt": "2026-10-08T12:05:09.806681+00:00",
+  "endedAt": "2026-10-08T12:05:11.706521+00:00",
+  "exitCode": 0,
+  "logSha256": "1ea50fc79b7deed36f16b01e8846f84cbaae0ef31ba693a4c2ec44473b784db1",
+  "qualification": false,
+  "wholeIssueAccepted": false
+}

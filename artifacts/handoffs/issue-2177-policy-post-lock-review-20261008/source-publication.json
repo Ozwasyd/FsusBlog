@@ -1,0 +1,21 @@
+{
+  "candidateSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+  "branch": "codex/issue-2177-policy-post-lock-review-20261008",
+  "command": [
+    "git",
+    "-c",
+    "credential.helper=!gh auth git-credential",
+    "push",
+    "-u",
+    "origin",
+    "codex/issue-2177-policy-post-lock-review-20261008"
+  ],
+  "startedAt": "2026-10-08T12:06:39.910802+00:00",
+  "exitCode": 0,
+  "logSha256": "b365e1315e0536db905b736f4449feb445f7ca546a9b6118fc3dbf3baefef0bb",
+  "remoteReadback": {
+    "exitCode": 0,
+    "text": "d44dce8f4fb16b9f15f6065524a2ae30f2539191\trefs/heads/codex/issue-2177-policy-post-lock-review-20261008"
+  },
+  "published": true
+}

@@ -1,0 +1,17 @@
+{
+  "candidateSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+  "actualBaseSha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+  "source": "actual remaining diff registered surface set; retained existing legitimate IDs/reasons",
+  "actualRegisteredPaths": [
+    "docs/architecture/comment-command-boundary.md",
+    "src/backend/Services/ArticleCommentPolicyService.cs",
+    "src/backend/Services/CommentModerationService.cs",
+    "src/backend/Services/CommentService.cs",
+    "src/backend/Services/Security/AnonymousCommentPolicyService.cs"
+  ],
+  "rendering": "repository four-space JSON with one-path arrays compact, preserving existing policy manifest conventions",
+  "regeneratedSha256": "2881587850c33ae5d3758b6b060dbea6db44b3704899531d81e09e49fc59ed1a",
+  "existingSha256": "2881587850c33ae5d3758b6b060dbea6db44b3704899531d81e09e49fc59ed1a",
+  "byteIdentical": true,
+  "trackedSourceWriteNecessary": false
+}

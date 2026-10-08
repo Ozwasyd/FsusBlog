@@ -1,0 +1,26 @@
+{
+  "candidateSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+  "masterSha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "-p:RestoreLockedMode=true",
+    "-p:NuGetAudit=true",
+    "-m:1",
+    "-nodeReuse:false",
+    "-p:UseSharedCompilation=false",
+    "--filter",
+    "FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~AnonymousCommentPolicyTests|FullyQualifiedName~AnonymousCommentScopePolicyTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentModerationDispositionPolicyTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentPurePolicyContractTests|FullyQualifiedName~CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply",
+    "--logger",
+    "trx;LogFileName=formal-policy-tests.trx",
+    "--results-directory",
+    "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-policy-post-lock-review-20261008"
+  ],
+  "startedAt": "2026-10-08T12:05:46.982775+00:00",
+  "endedAt": "2026-10-08T12:08:29.357568+00:00",
+  "exitCode": 0,
+  "logSha256": "8dca095ebbfb2cccae6f65e230d87436f714ffcaa839f66bc6b7bc15d1b71ffc",
+  "qualification": false,
+  "wholeIssueAccepted": false
+}

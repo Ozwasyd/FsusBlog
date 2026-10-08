@@ -1,0 +1,23 @@
+{
+  "observedAtUtc": "2026-10-08T12:07:57.540082+00:00",
+  "sdkExplicitlySelectedByOriginalCommand": true,
+  "version": "10.0.302",
+  "dotnetPath": "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+  "dotnetSha256": "55117d7d1f27537ee6e7a81b8b9f84f0b50c8cbd2d1d1e21684c31db1518230a",
+  "repositoryBuildConfiguration": [
+    {
+      "path": "Directory.Build.props",
+      "blob": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715",
+      "sha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "blob": "0abc085c29fb28bcc5982c8f45e4085d2b739812",
+      "sha256": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f"
+    }
+  ],
+  "repositoryGlobalJsonPresent": false,
+  "priorWholeSdkTreeDigestAvailable": false,
+  "oldFormalReceiptReusedAsNewRun": false,
+  "newFormalRunRequested": true
+}

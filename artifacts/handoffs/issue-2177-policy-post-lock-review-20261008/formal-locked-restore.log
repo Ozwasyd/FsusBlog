@@ -1,0 +1,4 @@
+  Determining projects to restore...
+/workspace/FsusBlog-2177-formal-current-review/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog-2177-formal-current-review/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog-2177-formal-current-review/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  All projects are up-to-date for restore.

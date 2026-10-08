@@ -1,0 +1,83 @@
+{
+  "testedSha": "d44dce8f4fb16b9f15f6065524a2ae30f2539191",
+  "masterSha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+  "projectCount": 6,
+  "sourceInputCount": 2013,
+  "evaluations": [
+    {
+      "project": "tests/backend/FsusBlog.Server.Tests.csproj",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "msbuild",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "-getItem:Compile,ProjectReference,EmbeddedResource,AdditionalFiles",
+        "-nologo"
+      ],
+      "exitCode": 0,
+      "sha256": "476f7c2bd85d12cb5b30a60d2a95c90dbf5ffcca84cb82e7309b17c4e20f2f56"
+    },
+    {
+      "project": "src/backend/FsusBlog.Server.csproj",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "msbuild",
+        "src/backend/FsusBlog.Server.csproj",
+        "-getItem:Compile,ProjectReference,EmbeddedResource,AdditionalFiles",
+        "-nologo"
+      ],
+      "exitCode": 0,
+      "sha256": "a4b3fea96fdf19d7004ca43a9c38dba2efa78b78821e10249810b32049170220"
+    },
+    {
+      "project": "src/core/FsusBlog.Core.csproj",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "msbuild",
+        "src/core/FsusBlog.Core.csproj",
+        "-getItem:Compile,ProjectReference,EmbeddedResource,AdditionalFiles",
+        "-nologo"
+      ],
+      "exitCode": 0,
+      "sha256": "6fc592723437cb76384a7a4a2680b060f35de33d447951434ead4d4f53f368c8"
+    },
+    {
+      "project": "src/migration/FsusBlog.Migration.csproj",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "msbuild",
+        "src/migration/FsusBlog.Migration.csproj",
+        "-getItem:Compile,ProjectReference,EmbeddedResource,AdditionalFiles",
+        "-nologo"
+      ],
+      "exitCode": 0,
+      "sha256": "a95d24422893baeb6dcbd38ee477e569d02eca64c735e69ec0ac38519a032d91"
+    },
+    {
+      "project": "src/shared/FsusBlog.Shared.csproj",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "msbuild",
+        "src/shared/FsusBlog.Shared.csproj",
+        "-getItem:Compile,ProjectReference,EmbeddedResource,AdditionalFiles",
+        "-nologo"
+      ],
+      "exitCode": 0,
+      "sha256": "7c3a14bb0cbf6e395a1db7cddc7882bfc46b686c50a3d26388cf939371f627a0"
+    },
+    {
+      "project": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "msbuild",
+        "tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+        "-getItem:Compile,ProjectReference,EmbeddedResource,AdditionalFiles",
+        "-nologo"
+      ],
+      "exitCode": 0,
+      "sha256": "24260c59885b9ce4073f059deed84697304f58ddcc4bc237994339bb9d3f5233"
+    }
+  ],
+  "allEvaluatedRepositoryInputsMatchOriginal2013PathSet": true,
+  "actualGitBlobAndFileHashComparison": "actual-scope-source-closure.json",
+  "priorRunNotRebound": true
+}
