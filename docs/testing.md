@@ -200,6 +200,33 @@ member or listener may be certified clean while still present. Focused crash
 checks are `node --test tests/tools/production-fresh-native-owner-recovery.test.mjs`.
 This source capability does not supply a readiness or qualification receipt.
 
+Bootstrap binary probing reuses the canonical release reliability AEDS frame
+validator and the SEO/PoW route catalog. It requires exact status, Content-Type,
+complete bounded frames, CRC and the route's cache policy. Managed probes verify
+the declared process/listener before and after the request; probes with a bound
+manifest additionally reobserve the exact run/namespace/lease/attempt/socket.
+An explicitly supplied payload digest can reject another generation, but wire
+and listener diagnostics always return `qualifiedReadiness: false`.
+
+Production Fresh uses its existing `FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT`
+selector to refuse occupied listener reuse or termination without current-run
+authority and to guard environment-ready publication. The manifest path is an
+explicit `FSUSBLOG_PORT_LEASE_MANIFEST_FILE` runtime environment input; the bundle
+verifier requires a private regular file and reobserves listeners before a
+consumer, while it runs and at completion. `verify-listeners` observes lifecycle
+bindings only. `verify-readiness` deliberately fails closed: host-native roles
+currently have no genuine universal OCI `imageDigest`, and protected exact
+product identity endpoints, frontend asset/backend-target receipts and sealed
+same-attempt business canaries remain unavailable. No diagnostic manifest or
+executable/build digest substitutes for those contracts. A fresh full product
+run therefore remains blocked before an environment-ready receipt or consumer
+can be accepted. `node --test tests/tools/production-fresh-bootstrap-readiness.test.mjs`
+checks real HTTP negatives, native listener drift, private manifest admission,
+the canonical consumer's zero-spawn refusal and another run's real Vite HTTP 200
+refusal, including reproduction of the old bootstrap's unsafe reuse. These
+source/component tests do not qualify all-five product readiness or continuous
+drift cancellation after an accepted product readiness receipt.
+
 Focused checks are `node --test tests/tools/production-fresh-continuous-handoff.test.mjs`.
 These checks exercise real subprocesses and sockets. They do not establish a
 five-role bootstrap, business AEDS canary, sealed readiness receipt, current-run

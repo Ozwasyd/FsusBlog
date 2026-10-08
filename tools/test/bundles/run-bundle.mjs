@@ -50,7 +50,7 @@ import {
     StepTerminalError
 } from './bundle-steps.mjs';
 import { wrapTaskScopedMeasurementCommand } from './measurement-step-command.mjs';
-import { readRuntimeEnvironment } from './runtime-environment.mjs';
+import { assertProductionFreshReadiness, readRuntimeEnvironment } from './runtime-environment.mjs';
 import { writeBundleSummaryAtomically } from './terminal-summary.mjs';
 
 
@@ -1200,6 +1200,11 @@ function loadExistingMemberExecutionReceipts()
 
 async function executeStep(step)
 {
+    if (productionFreshLayout && runtimeChildEnvironment.FSUSBLOG_TEST_NAMESPACE)
+    {
+        await assertProductionFreshReadiness({environment: runtimeChildEnvironment,
+            runId: schedulerRunId(), namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '')});
+    }
     const measurementEvidenceFile = step.evidencePhase === 'measurement'
         ? path.join(logDir, `${step.id}.measurement-noise.json`)
         : null;
@@ -1394,6 +1399,38 @@ async function executeStep(step)
     {
         let settled = false;
         let deadlineExpired = false;
+        let listenerCheckPending = false;
+        let listenerFailure = null;
+        const listenerTimer = productionFreshLayout && runtimeChildEnvironment.FSUSBLOG_TEST_NAMESPACE
+            ? setInterval(async () =>
+            {
+                if (settled || listenerCheckPending)
+                {
+                    return;
+                }
+                listenerCheckPending = true;
+                try
+                {
+                    await assertProductionFreshReadiness({environment: runtimeChildEnvironment,
+                        runId: schedulerRunId(), namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '')});
+                }
+                catch (error)
+                {
+                    if (!settled)
+                    {
+                        listenerFailure ??= error;
+                        shutdownController.abort(error);
+                        await terminateProcessGroup(child, terminationGraceMs);
+                        closeChildPipes(child);
+                        settle({code: 1, signal: null, error, logComplete: false, logTruncationReason: 'runtime-listener-drift'});
+                    }
+                }
+                finally
+                {
+                    listenerCheckPending = false;
+                }
+            }, 100)
+            : null;
         let removeLogFailure = () =>
         {};
         const settle = (result) =>
@@ -1403,10 +1440,12 @@ async function executeStep(step)
                 return;
             }
             settled = true;
+            clearInterval(listenerTimer);
             clearTimeout(deadlineTimer);
             removeLogFailure();
             activeStepChildren.delete(child);
-            resolve(result);
+            resolve(listenerFailure ? {...result, code: 1, error: listenerFailure,
+                logComplete: false, logTruncationReason: 'runtime-listener-drift'} : result);
         };
         const deadlineTimer = setTimeout(async () =>
         {
@@ -1458,11 +1497,24 @@ async function executeStep(step)
                 logTruncationReason: 'child-spawn-error'
             });
         });
-        child.once('close', (code, signal) =>
+        child.once('close', async (code, signal) =>
         {
             if (deadlineExpired)
             {
                 return;
+            }
+            if (productionFreshLayout && runtimeChildEnvironment.FSUSBLOG_TEST_NAMESPACE)
+            {
+                try
+                {
+                    await assertProductionFreshReadiness({environment: runtimeChildEnvironment,
+                        runId: schedulerRunId(), namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '')});
+                }
+                catch (error)
+                {
+                    listenerFailure ??= error;
+                    shutdownController.abort(error);
+                }
             }
             settle({ code: code ?? 1, signal });
         });

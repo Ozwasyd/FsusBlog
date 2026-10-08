@@ -606,6 +606,7 @@ FSUSBLOG_REDIS_CONTAINER_NAME=$REDIS_CONTAINER
 FSUSBLOG_TEST_SERVICE_ENVELOPE_FILE=$EXECUTION_SERVICE_ENVELOPE_FILE
 FSUSBLOG_PORT_LEASED_ROLES=${PORT_LEASED_ROLES:-}
 FSUSBLOG_PORT_LEASE_DAEMON_PID=${PORT_LEASE_DAEMON_PID:-}
+FSUSBLOG_PORT_LEASE_MANIFEST_FILE=$PORT_LEASE_MANIFEST_FILE
 FSUSBLOG_NOTIFICATION_DRILL_SECRET=$NOTIFICATION_DRILL_SECRET
 FSUSBLOG_DATA_ROOT=$TEST_DATA_ROOT
 FSUSBLOG_RELEASE_DERIVED_ROOT=$FSUSBLOG_RELEASE_DERIVED_ROOT
@@ -1514,6 +1515,19 @@ AdmitDedicatedRuntimePort() {
     local pidFile="$3"
     local port="$4"
     local reachable="${5:-0}"
+    if [[ -n "${FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT:-}" ]]; then
+        local priorPid
+        priorPid="$(ReadPidFile "$pidFile")"
+        if PortIsListening "$port" || [[ "$reachable" == "1" ]] ||
+            { [[ -n "$priorPid" ]] && kill -0 "$priorPid" >/dev/null 2>&1; }; then
+            if ! PortLeaseCli verify-readiness --manifest "$PORT_LEASE_MANIFEST_FILE" \
+                --run-id "${FSUSBLOG_TEST_RUN_ID:?Fresh readiness requires current run}" \
+                --namespace "$FSUSBLOG_TEST_NAMESPACE" >/dev/null; then
+                Log "$label lacks exact current-run readiness authority; refusing reuse or termination"
+                return 1
+            fi
+        fi
+    fi
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" != "1" ]]; then
         return 0
     fi
@@ -1605,6 +1619,14 @@ KillRuntimePidIfOwned() {
     if [[ -z "$pid" ]] || ! kill -0 "$pid" >/dev/null 2>&1; then
         return 0
     fi
+    if [[ -n "${FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT:-}" ]]; then
+        PortLeaseCli verify-readiness --manifest "$PORT_LEASE_MANIFEST_FILE" \
+            --run-id "${FSUSBLOG_TEST_RUN_ID:?Fresh readiness requires current run}" \
+            --namespace "$FSUSBLOG_TEST_NAMESPACE" >/dev/null || {
+            Log "$role has no current-run readiness authority; refusing termination"
+            return 1
+        }
+    fi
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" != "1" ]]; then
         KillPidIfRunning "$pid" "$terminationDeadlineAtMs"
         return
@@ -1671,7 +1693,12 @@ ProbeUrl() {
 
 ProbeBinaryUrl() {
     local url="$1"
-    curl -fsS --max-time 5 -H 'Accept: application/octet-stream' "$url" >/dev/null 2>&1
+    local -a probeArgs=(--binary-url "$url")
+    if [[ -n "${2:-}" ]]; then
+        probeArgs+=(--managed-pid "$2")
+    fi
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/probe-release-reliability-runtime-smoke.mjs" \
+        "${probeArgs[@]}" >/dev/null 2>&1
 }
 
 ProbeNotificationDrillUrl() {
@@ -1795,7 +1822,7 @@ WaitForManagedBinaryUrl() {
     local logFile="$5"
 
     while (($(NowMonotonicMs) < deadlineAtMs)); do
-        if ProbeBinaryUrl "$url"; then
+        if ProbeBinaryUrl "$url" "$pid"; then
             return 0
         fi
         if ! kill -0 "$pid" >/dev/null 2>&1; then
@@ -2353,6 +2380,11 @@ ConfigureAccountProfilePreferenceFixture() {
 PublishEnvironmentReadyReceipt() {
     # environment-ready is runtime topology readiness, not fixture completeness.
     # Completeness requires FixtureReceipt terminalStatus=verified (#1710).
+    if [[ -n "${FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT:-}" ]]; then
+        PortLeaseCli verify-readiness --manifest "$PORT_LEASE_MANIFEST_FILE" \
+            --run-id "${FSUSBLOG_TEST_RUN_ID:?Fresh readiness requires current run}" \
+            --namespace "$FSUSBLOG_TEST_NAMESPACE" >/dev/null || return 1
+    fi
     local -a readyArgs=(
         write-receipt
         --plan "$FIXTURE_PROFILE_PLAN_FILE"

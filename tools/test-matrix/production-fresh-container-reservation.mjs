@@ -242,6 +242,18 @@ async function observePublisher(container, expected)
     };
 }
 
+/** Read-only observation of the exact final publisher retained by the canonical allocator. */
+export async function observeReservedContainerPublisher({ownerIdentity, gateDirectory})
+{
+    await verifyGateDirectory(gateDirectory, ownerIdentity.gateOwner);
+    const observation = await observePublisher(await inspectContainer(ownerIdentity.containerId), {...ownerIdentity, gateDirectory});
+    if (!isDeepStrictEqual(observation, ownerIdentity))
+    {
+        throw new Error('reserved container publisher identity drift');
+    }
+    return observation;
+}
+
 /** Called only by canonical allocator recovery after its reservation daemon death check. */
 export async function recoverReleaseContainerPublisher({ ownerIdentity, gateDirectory })
 {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -11,9 +11,12 @@ import {
     routeCatalogDigest,
     routeContract
 } from './lanes/runtime-http-route-contract.mjs';
+import {collectProcessIdentity, processIdentityStatus} from './process-identity.mjs';
 import {
     digestValue
 } from './release-reliability-receipt.mjs';
+
+const {observeBoundPortLease, verifyListenerIdentityRef} = await import(new URL('../test-matrix/production-fresh-port-lease.mjs', import.meta.url));
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const protocolFile = path.join(repositoryRoot, 'src/shared/Contracts/Validation/aeds-protocol.json');
@@ -106,6 +109,84 @@ export function validateAedsFrame(bytes, expectedFrameType, authority = canonica
 export function validateSeoConfigFrame(bytes, authority = canonicalProtocolAuthority)
 {
     return validateAedsFrame(bytes, authority.seoConfigFrameType, authority);
+}
+
+export async function probeBootstrapBinaryRoute({url, managedPid, manifest, role, runId, namespace,
+    expectedPayloadDigest, timeoutMs = 5000})
+{
+    const target = new URL(url);
+    const contract = ['system-seo', 'pow-challenge'].map((id) => routeContract(id))
+        .find((route) => target.pathname === route.pathTemplate);
+    if (!contract || target.protocol !== 'http:' || target.hostname !== '127.0.0.1' ||
+        target.username || target.password || target.search || target.hash ||
+        !Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000)
+    {
+        throw new Error('bootstrap binary probe requires an admitted loopback canonical route');
+    }
+    const bound = manifest ? await observeBoundPortLease({manifest, role, runId, namespace}) : null;
+    if (bound && bound.port !== Number(target.port || 80))
+    {
+        throw new Error('bootstrap binary probe target differs from its bound listener receipt');
+    }
+    const pid = bound?.identity?.pid ?? managedPid;
+    if (pid !== undefined && (!Number.isSafeInteger(pid) || pid < 1))
+    {
+        throw new Error('bootstrap binary probe requires an exact managed process identity');
+    }
+    const processIdentity = pid === undefined ? null : collectProcessIdentity(Number(pid));
+    const unchanged = async () =>
+    {
+        if (processIdentity && (processIdentity.status !== 'verified' ||
+            processIdentityStatus(processIdentity).status !== 'live' ||
+            !await verifyListenerIdentityRef({port: Number(target.port || 80), listenerIdentityRef: `pid:${pid}`})))
+        {
+            throw new Error('bootstrap binary probe managed listener identity drift');
+        }
+        if (bound && JSON.stringify(await observeBoundPortLease({manifest, role, runId, namespace})) !== JSON.stringify(bound))
+        {
+            throw new Error('bootstrap binary probe bound listener changed within its attempt');
+        }
+    };
+    await unchanged();
+    const response = await fetch(target, {method: contract.method, redirect: 'error',
+        headers: {Accept: contract.expectedContentType[0], 'Accept-Encoding': 'identity'},
+        signal: AbortSignal.timeout(timeoutMs)});
+    const contentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+    if (response.status !== contract.expectedStatus || !contract.expectedContentType.includes(contentType))
+    {
+        throw new Error('bootstrap binary probe status or Content-Type mismatch');
+    }
+    if (contract.cacheHeaderPolicy === 'no-store' &&
+        !/(?:^|,)\s*no-store(?:\s|,|$)/u.test(String(response.headers.get('cache-control') ?? '').toLowerCase()))
+    {
+        throw new Error('bootstrap binary probe cache policy mismatch');
+    }
+    const chunks = [];
+    let byteLength = 0;
+    for await (const chunk of response.body)
+    {
+        byteLength += chunk.byteLength;
+        if (byteLength > contract.maximumBodyBytes)
+        {
+            throw new Error('bootstrap binary probe body exceeds canonical bound');
+        }
+        chunks.push(chunk);
+    }
+    const bytes = Buffer.concat(chunks);
+    if (byteLength < contract.minimumBodyBytes)
+    {
+        throw new Error('bootstrap binary probe body is shorter than its canonical contract');
+    }
+    const frame = validateAedsFrame(bytes, contract.expectedAedsFrameType);
+    const payloadDigest = `sha256:${createHash('sha256').update(bytes.subarray(frame.headerLength)).digest('hex')}`;
+    if (expectedPayloadDigest !== undefined && (!/^sha256:[a-f0-9]{64}$/u.test(expectedPayloadDigest) ||
+        payloadDigest !== expectedPayloadDigest))
+    {
+        throw new Error('bootstrap binary probe fixed payload/generation mismatch');
+    }
+    await unchanged();
+    return {routeId: contract.routeId, frame, payloadDigest, bound, processIdentity,
+        qualifiedReadiness: false};
 }
 
 async function fetchResponse(baseUrl, relativePath, method, accept, signal)
@@ -411,6 +492,17 @@ function writeObservation(output, value)
 
 async function main()
 {
+    if (process.argv[2] === '--binary-url')
+    {
+        if (![4, 6].includes(process.argv.length) || (process.argv.length === 6 && process.argv[4] !== '--managed-pid'))
+        {
+            throw new Error('binary probe requires --binary-url <url> [--managed-pid <pid>]');
+        }
+        const result = await probeBootstrapBinaryRoute({url: process.argv[3],
+            managedPid: process.argv[5] === undefined ? undefined : Number(process.argv[5])});
+        process.stdout.write(`${JSON.stringify(result)}\n`);
+        return;
+    }
     const options = parseArguments(process.argv.slice(2));
     const result = await probeReleaseReliabilityRuntimeSmoke(options);
     if (options.out)

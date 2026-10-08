@@ -7,7 +7,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { recoverReleaseContainerPublisher, reserveContainerPublisher, validateContainerReservationOptions } from './production-fresh-container-reservation.mjs';
+import { observeReservedContainerPublisher, recoverReleaseContainerPublisher, reserveContainerPublisher, validateContainerReservationOptions } from './production-fresh-container-reservation.mjs';
 
 export const portLeaseReservationEngine = 'python-bind-without-listen';
 
@@ -1660,6 +1660,61 @@ function nativeSocketOwnerMatches(expected, port)
     }
 }
 
+export async function observeBoundPortLease({manifest, role, runId, namespace})
+{
+    verifySealedPortLeaseManifest(manifest);
+    if (!runId || !namespace || manifest.runId !== runId || manifest.namespace !== namespace)
+    {
+        throw new Error('bound listener manifest does not match the current run and namespace');
+    }
+    const lease = manifest.leases.find((entry) => entry.role === role);
+    if (!lease || lease.handoffState !== 'bound')
+    {
+        throw new Error(`bound listener receipt is missing for ${role}`);
+    }
+    if (lease.reservationKind === 'inherited-native-socket')
+    {
+        const identity = lease.handoffOwnerIdentity;
+        if (!identity || identity.runId !== runId || identity.namespace !== namespace || identity.role !== role ||
+            identity.portLeaseId !== lease.portLeaseId || identity.attemptId !== lease.handoffAttemptId ||
+            lease.boundListenerIdentityRef !== `pid:${identity.pid}` || !nativeSocketOwnerMatches(identity, lease.port))
+        {
+            throw new Error(`current-run bound native listener drift: ${role}`);
+        }
+        return {role, port: lease.port, portLeaseId: lease.portLeaseId, listenerIdentityRef: lease.boundListenerIdentityRef,
+            identity, manifestDigest: manifest.contentDigest};
+    }
+    if (lease.reservationKind === 'final-docker-publisher')
+    {
+        const identity = await observeReservedContainerPublisher(lease.containerReservation);
+        if (identity.runId !== runId || identity.namespace !== namespace ||
+            lease.boundListenerIdentityRef !== `container:${identity.containerId}`)
+        {
+            throw new Error(`current-run bound container listener drift: ${role}`);
+        }
+        return {role, port: lease.port, portLeaseId: lease.portLeaseId, listenerIdentityRef: lease.boundListenerIdentityRef,
+            identity, manifestDigest: manifest.contentDigest};
+    }
+    throw new Error(`continuous bound listener authority is missing for ${role}`);
+}
+
+export async function verifyBoundRuntimeListeners({manifest, runId, namespace, requireReadiness = false})
+{
+    const observations = [];
+    for (const role of defaultRoleCatalog())
+    {
+        observations.push(await observeBoundPortLease({manifest, role: role.role, runId, namespace}));
+    }
+    if (requireReadiness)
+    {
+        // The active issue contract requires genuine imageDigest for every role.
+        // Socket/process/build digests cannot supply OCI authority for these host
+        // native listeners. Never promote this lifecycle observation to readiness.
+        throw new Error('Production Fresh readiness is unavailable: native backend/debug-frontend/release-preview have no verified OCI imageDigest authority; protected exact runtime identity and business canary receipts are also required');
+    }
+    return observations;
+}
+
 function pidListeningOnPort(pid, port)
 {
     try
@@ -2116,6 +2171,8 @@ async function main()
         process.stdout.write(`Usage:
   node tools/test-matrix/production-fresh-port-lease.mjs serve --run-id <id> --namespace <ns> --roles <postgres,redis,...> --manifest <path> --control-socket <path> --token-file <path> --pid-file <path> --terminal-receipt <path> [--pin role:port,...] [--ttl-ms <ms>]
   node tools/test-matrix/production-fresh-port-lease.mjs verify --manifest <path>
+  node tools/test-matrix/production-fresh-port-lease.mjs verify-listeners --manifest <path> --run-id <id> --namespace <ns>
+  node tools/test-matrix/production-fresh-port-lease.mjs verify-readiness --manifest <path> --run-id <id> --namespace <ns>
   node tools/test-matrix/production-fresh-port-lease.mjs get-port --manifest <path> --role <role>
   node tools/test-matrix/production-fresh-port-lease.mjs roles --manifest <path>
   node tools/test-matrix/production-fresh-port-lease.mjs status --manifest <path> --token-file <path>
@@ -2137,6 +2194,16 @@ async function main()
     {
         readSealedManifest(path.resolve(options.manifest));
         process.stdout.write(`[port-lease] manifest ok ${options.manifest}\n`);
+        return;
+    }
+    if (command === 'verify-listeners' || command === 'verify-readiness')
+    {
+        const observations = await verifyBoundRuntimeListeners({
+            manifest: readSealedManifest(path.resolve(options.manifest)),
+            runId: options['run-id'], namespace: options.namespace,
+            requireReadiness: command === 'verify-readiness'
+        });
+        process.stdout.write(`${JSON.stringify(observations)}\n`);
         return;
     }
     if (command === 'get-port')
