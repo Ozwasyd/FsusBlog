@@ -369,6 +369,7 @@ test('missing collector samples, wrong windows, PID confusion and derived substi
         (value) => value.metrics.generatorRssBytes = null,
         (value) => value.samples.splice(1, 1),
         (value) => value.samples = [value.samples.at(-1)],
+        (value) => value.samples[1].atMs = value.samples[1].scheduledMonotonicMs - 0.1,
         (value) => value.samples[1].atMs = value.end.endedMonotonicMs + 100,
         (value) => value.samples[1].pid = run.fixture.identity.pid,
         (value) => value.start.startedMonotonicMs += 500,
@@ -445,6 +446,29 @@ test('collector lifecycle is synchronous, refuses missing boundaries and cleans 
     assert.equal(requests, 0);
     collector.dispose();
     assert.throws(() => collector.onMeasurementStart({}), /disposed/u);
+});
+
+test('wrong monotonic measurement origin is refused synchronously before actual HTTP', async (t) =>
+{
+    const fixture = await backendFixture(t);
+    const schedule = buildOpenLoopLoadSchedule(arrivalPolicy(['public-home']));
+    const collector = createOpenLoopLoadGeneratorCollector({ policy: collectorPolicy(), schedule, sourceSha, backendIdentity: fixture.identity });
+    t.after(collector.dispose);
+    const transport = await createOpenLoopLoadClientTransport({ policy: transportPolicy(), endpoint: fixture.endpoint,
+        runBinding: binding(fixture.endpoint), onObservation: collector.onTransportObservation });
+    let requests = 0;
+    try
+    {
+        await assert.rejects(dispatchOpenLoopLoadSchedule(schedule, { clock: () => 0, request: () => requests += 1,
+            onMeasurementStart: (window) => collector.onMeasurementStart({ ...window,
+                transportIdentity: transport.identity, transportSnapshot: transport.snapshot() }) }), /shared monotonic window/u);
+    }
+    finally
+    {
+        await transport.close();
+    }
+    assert.equal(requests, 0);
+    assert.throws(() => collector.finish({}), /unavailable/u);
 });
 
 test('unavailable real process collector aborts before the first HTTP request and preserves its error', async (t) =>

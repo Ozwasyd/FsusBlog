@@ -284,7 +284,7 @@ export function createOpenLoopLoadGeneratorCollector({ policy: candidate, schedu
         const maximumDelay = kind === 'periodic' ? policy.maximumSampleDelayMs : policy.maximumBoundaryDelayMs;
         if (atMs < scheduledMonotonicMs || atMs > scheduledMonotonicMs + maximumDelay)
         {
-            throw new Error('actual process collector is outside the shared monotonic window/capture bound');
+            throw new Error(`actual ${kind} process collector is outside the shared monotonic window/capture bound: due=${scheduledMonotonicMs}, observed=${atMs}`);
         }
         if (kind === 'periodic' && atMs >= start.plannedEndMonotonicMs)
         {
@@ -301,8 +301,16 @@ export function createOpenLoopLoadGeneratorCollector({ policy: candidate, schedu
         {
             return;
         }
-        timer = setTimeout(() =>
+        function tick()
         {
+            const remaining = due - performance.now();
+            // Node timer buckets can wake slightly before a performance.now()
+            // deadline. Re-arm the same slot; do not sample an earlier window.
+            if (remaining > 0)
+            {
+                timer = setTimeout(tick, Math.ceil(remaining));
+                return;
+            }
             try
             {
                 sample('periodic', due);
@@ -314,7 +322,8 @@ export function createOpenLoopLoadGeneratorCollector({ policy: candidate, schedu
                 collectionError = error.message;
                 dispose();
             }
-        }, Math.max(0, Math.ceil(due - performance.now())));
+        }
+        timer = setTimeout(tick, Math.max(0, Math.ceil(due - performance.now())));
     }
 
     function onMeasurementStart(value)
