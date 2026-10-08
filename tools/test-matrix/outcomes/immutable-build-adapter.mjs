@@ -1,3 +1,5 @@
+const { verifyProductionBuildReceipt, productionBuildVerificationSchema } = await import(new URL('../../ci/production-build-artifacts.mjs', import.meta.url));
+
 import { candidate, exactIds, inputAuthorityReasons, reason, verifyAdapterCandidate } from './adapter-support.mjs';
 
 export const immutableBuildOutcomeProducerId = 'immutable-build-semantic-outcome';
@@ -106,4 +108,63 @@ export function verifyImmutableBuildSemanticOutcomeCandidate(value, expectations
         producerAuthorityId: 'tools/test-matrix/outcomes/immutable-build-adapter.mjs',
         authorityIssue: 2654
     });
+}
+
+
+/** Map real verified receipt bytes; host authority and attempt admission remain required. */
+export function mapVerifiedProductionBuildOutcomeInputs({ plan, verification, artifactBindings })
+{
+    for (const field of ['artifactRoot', 'expectedInputRoot', 'expectedReceiptDigest',
+        'expectedSourceState', 'expectedProducer', 'expectedToolchain'])
+    {
+        if (!verification?.[field])
+        {
+            throw new Error(`production build outcome bridge requires independent ${field}`);
+        }
+    }
+    exactIds(artifactBindings?.map((binding) => binding.id), 'production artifact binding IDs');
+    const { receipt, evidence: verified } = verifyProductionBuildReceipt({
+        ...verification, repairReadOnlySeal: false
+    });
+    for (const field of ['workflow', 'runId', 'runAttempt', 'job'])
+    {
+        if (verification.expectedProducer[field] !== receipt.producer[field])
+        {
+            throw new Error(`production build outcome bridge requires exact producer ${field}`);
+        }
+    }
+    if (JSON.stringify(Object.keys(verification.expectedToolchain).sort())
+        !== JSON.stringify(Object.keys(receipt.toolchain).sort()))
+    {
+        throw new Error('production build outcome bridge requires the complete held toolchain');
+    }
+    const records = new Map(receipt.artifacts.map((record) => [record.path, record]));
+    const artifacts = artifactBindings.map((binding) =>
+    {
+        const record = (field) =>
+        {
+            const value = records.get(binding[field]);
+            if (!value)
+            {
+                throw new Error(`${binding.id} ${field} is not in the verified build receipt`);
+            }
+            return value.sha256;
+        };
+        if (binding.imageDigest !== undefined && binding.imageDigest !== null)
+        {
+            throw new Error('image outcome requires the original image-verification owner capability');
+        }
+        return { id: binding.id, contentDigest: record('contentPath'),
+            manifestDigest: record('manifestPath'), provenanceDigest: record('provenancePath'),
+            imageDigest: null, verified: true };
+    });
+    return {
+        plan: structuredClone(plan),
+        evidence: {
+            artifacts,
+            verificationAssertions: [{ id: productionBuildVerificationSchema,
+                status: verified.status === 'success' ? 'passed' : 'failed' }],
+            nativeReceiptDigest: receipt.contentDigest
+        }
+    };
 }

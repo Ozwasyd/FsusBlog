@@ -1,3 +1,6 @@
+const { digestCanonical } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
+const { buildReleaseFinalizerPlan } = await import(new URL('../release-final-evidence-contract.mjs', import.meta.url));
+
 import { candidate, exactIds, inputAuthorityReasons, reason, verifyAdapterCandidate } from './adapter-support.mjs';
 
 export const releaseFinalizerOutcomeProducerId = 'release-finalizer-semantic-outcome';
@@ -81,4 +84,17 @@ export function verifyReleaseFinalizerSemanticOutcomeCandidate(value, expectatio
         producerAuthorityId: 'tools/test-matrix/outcomes/release-finalizer-adapter.mjs',
         authorityIssue: 2656
     });
+}
+
+
+/** Required IDs come from the existing canonical finalizer owner, never observed outputs. */
+export function mapCanonicalReleaseFinalizerOutcomePlan(matrix)
+{
+    const authority = buildReleaseFinalizerPlan(matrix);
+    if (authority.errors.length > 0)
+    {
+        throw new Error(`canonical finalizer outcome plan refused: ${authority.errors.join('; ')}`);
+    }
+    return { inputIds: [...authority.inputTierIds], outputIds: [authority.outputReceiptSchema],
+        canonicalPlanDigest: digestCanonical(authority) };
 }

@@ -1,3 +1,9 @@
+const { digestCanonical } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
+const { projectionContentDigest } = await import(new URL('../evidence-projection.mjs', import.meta.url));
+const { normalizeSourceArtifact, readJsonArtifact, validateCatalogAgainstLedger } = await import(new URL('../release-domain-ledger.mjs', import.meta.url));
+const { validateReleaseDomainProjectionReceipt } = await import(new URL('../release-domain-projection-receipt.mjs', import.meta.url));
+const { validateDomainReceiptAgainstReport } = await import(new URL('../release-domain-report.mjs', import.meta.url));
+
 import { candidate, exactIds, inputAuthorityReasons, reason, verifyAdapterCandidate } from './adapter-support.mjs';
 
 export const releaseProjectionOutcomeProducerId = 'release-projection-semantic-outcome';
@@ -71,4 +77,67 @@ export function verifyReleaseProjectionSemanticOutcomeCandidate(value, expectati
         producerAuthorityId: 'tools/test-matrix/outcomes/release-projection-adapter.mjs',
         authorityIssue: 2655
     });
+}
+
+
+/** Read exact canonical native refs without generating a projection or invoking a producer. */
+export function mapVerifiedReleaseDomainProjectionOutcomeInputs({
+    catalog, ledger, repositoryRoot, sourceState, runId, namespace, buildIdentity, policyIdentity
+})
+{
+    if (!repositoryRoot || !sourceState || !runId || !namespace || !buildIdentity || !policyIdentity)
+    {
+        throw new Error('projection outcome bridge requires independent native identity and root');
+    }
+    const entries = validateCatalogAgainstLedger(catalog, ledger);
+    normalizeSourceArtifact(repositoryRoot, { path: catalog.dispositionLedger, digest: policyIdentity }, 'projection policy');
+    if (digestCanonical(readJsonArtifact(repositoryRoot, catalog.dispositionLedger)) !== digestCanonical(ledger))
+    {
+        throw new Error('projection outcome bridge held ledger differs from native policy bytes');
+    }
+    const receiptPaths = [...new Set(entries.map((entry) => entry.outputReceiptPath))];
+    if (receiptPaths.length !== 1)
+    {
+        throw new Error('projection outcome bridge requires exactly one canonical receipt path');
+    }
+    const receipt = readJsonArtifact(repositoryRoot, receiptPaths[0]);
+    validateReleaseDomainProjectionReceipt({ receipt, catalog, ledger, sourceState, runId, namespace, policyIdentity });
+    if (receipt.buildIdentity !== buildIdentity)
+    {
+        throw new Error('projection outcome bridge native build identity mismatch');
+    }
+    const producerReceipt = readJsonArtifact(repositoryRoot, receipt.producer.receipt);
+    if (producerReceipt.schema !== receipt.producer.schema
+        || producerReceipt.contentDigest !== projectionContentDigest(producerReceipt)
+        || producerReceipt.contentDigest !== receipt.producer.receiptContentDigest
+        || producerReceipt.producerId !== catalog.projectFrom
+        || producerReceipt.logicalTierId !== catalog.tierId
+        || producerReceipt.status !== 'success'
+        || JSON.stringify(producerReceipt.sourceState) !== JSON.stringify(receipt.sourceState)
+        || producerReceipt.runId !== runId || producerReceipt.namespace !== namespace
+        || producerReceipt.buildIdentity !== buildIdentity || producerReceipt.policyIdentity !== policyIdentity
+        || digestCanonical(producerReceipt.artifacts) !== digestCanonical(receipt.artifacts)
+        || digestCanonical(producerReceipt.assertionReport) !== digestCanonical(receipt.producer.assertionReport))
+    {
+        throw new Error('projection outcome bridge native producer receipt binding mismatch');
+    }
+    normalizeSourceArtifact(repositoryRoot, producerReceipt.assertionReport, 'producer assertion report');
+    const assertionReport = readJsonArtifact(repositoryRoot, producerReceipt.assertionReport.path);
+    validateDomainReceiptAgainstReport({ catalog, ledger, producerReceipt, assertionReport,
+        sourceState: receipt.sourceState, runId, namespace, buildIdentity, policyIdentity, repositoryRoot });
+    receipt.artifacts.forEach((artifact) => normalizeSourceArtifact(repositoryRoot, artifact, artifact.id));
+    const semantic = {
+        schema: receipt.schema,
+        testIds: receipt.testIds,
+        coverageIds: receipt.coverageIds,
+        assertions: receipt.assertions,
+        artifacts: receipt.artifacts.map(({ id, digest }) => ({ id, digest }))
+    };
+    return {
+        plan: { projectionIds: [catalog.tierId], catalogDigest: digestCanonical(catalog),
+            ledgerDigest: digestCanonical(ledger) },
+        evidence: { producedIds: [catalog.tierId], verifiedIds: [catalog.tierId], failedIds: [], blockedIds: [],
+            semanticDigests: { [catalog.tierId]: digestCanonical(semantic) },
+            nativeReceiptDigest: receipt.contentDigest, nativeProducerDigest: producerReceipt.contentDigest }
+    };
 }
