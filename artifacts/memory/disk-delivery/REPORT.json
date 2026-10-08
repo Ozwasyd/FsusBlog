@@ -183,7 +183,7 @@
             "id": "MEM-P10-AC01",
             "issue": 3453,
             "result": "NotVerified",
-            "sourceContribution": "Actual descriptor device identity and common topology alias admission; concurrent alias fixture supplied.",
+            "sourceContribution": "Actual descriptor device identity and common topology alias admission; concurrent alias fixture supplied. File-byte vector tests do not certify the filesystem physical-allocation conversion; that bound and namespace inventory remain owner contract prerequisites.",
             "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
         },
         {
@@ -197,7 +197,7 @@
             "id": "MEM-P10-AC03",
             "issue": 3453,
             "result": "NotVerified",
-            "sourceContribution": "Common ledger caps bound to fresh volume/quota sample; independent application and safety constraints; policy reduction/compaction fixtures supplied.",
+            "sourceContribution": "Common ledger caps bound to fresh volume/quota sample; independent application and safety constraints; policy reduction/compaction fixtures supplied. File-byte vector tests do not certify the filesystem physical-allocation conversion; that bound and namespace inventory remain owner contract prerequisites.",
             "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
         },
         {
@@ -281,7 +281,7 @@
             "id": "MEM-P11-AC05",
             "issue": 3455,
             "result": "NotVerified",
-            "sourceContribution": "Old source charges/leases persist through destination publication; final hold triggers physical delete then charge release; compaction fixtures supplied.",
+            "sourceContribution": "Old source charges/leases persist through destination publication; final hold triggers physical delete then charge release; compaction fixtures supplied. File-byte vector tests do not certify the filesystem physical-allocation conversion; that bound and namespace inventory remain owner contract prerequisites.",
             "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
         },
         {
@@ -309,7 +309,7 @@
             "id": "MEM-P11-AC09",
             "issue": 3455,
             "result": "NotVerified",
-            "sourceContribution": "Common host/disk/slot admission throughout recovery/probe/compaction/cleanup source. Actual durability/native/crash checks remain unverified.",
+            "sourceContribution": "Common host/disk/slot admission throughout recovery/probe/compaction/cleanup source. Actual durability/native/crash checks remain unverified. File-byte vector tests do not certify the filesystem physical-allocation conversion; that bound and namespace inventory remain owner contract prerequisites.",
             "runtime": "Mandatory full integration/qualification assertion not executed; ordinary isolated source run does not replace it."
         }
     ],
@@ -321,7 +321,8 @@
         "Existing matrix Node parser identity/closure failure reproduced on exact clean master.",
         "Native backend qualification, actual quota/inode/disk-full/crash evidence and physical metadata baseline remain NotVerified.",
         "Secondary content creation rejection: GraphQL was submitted too quickly (addComment). Coordinated hold prevents comments/PR creation; draft body preserved locally.",
-        "Persistent inode occupancy has no dedicated common unit/domain contract: current source uses scoped inode samples as a conservative I/O-slot admission constraint, not a separately certified inode ledger. Request owner-defined file/inode capacity contract if required by final acceptance."
+        "Persistent inode occupancy has no dedicated common unit/domain contract: current source uses scoped inode samples as a conservative I/O-slot admission constraint, not a separately certified inode ledger. Request owner-defined file/inode capacity contract if required by final acceptance.",
+        "Physical disk footprint/inventory contract unresolved: segment charges currently use private-format file length, not a qualified bound on filesystem block/extents/metadata allocation. Existing unscanned owner remnants also require inventory reconciliation before Auto growth. Frozen sizing/inventory owner input is requested; physical disk cap is NotVerified."
     ],
     "rollback": "Disable new operations; drain active leased reads; only owner-scoped lease-free deletion releases charges; failures retain bounded cleanup entries. No bulk host repopulation.",
     "publication": {
