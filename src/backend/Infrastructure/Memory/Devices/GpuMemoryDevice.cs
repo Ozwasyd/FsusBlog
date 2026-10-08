@@ -34,6 +34,7 @@ public sealed class GpuMemoryDevice : IDisposable
     private bool _accepting = true;
     private bool _faulted;
     private bool _disposed;
+    private int _externalHolds;
 
     public GpuMemoryDevice(IGpuDriverSession driver, MemoryReservationCoordinator ledger,
         GpuMemoryDomains domains, GpuMemoryLimits limits, DeviceEpoch epoch, MemoryCapabilityStatus qualification)
@@ -44,7 +45,8 @@ public sealed class GpuMemoryDevice : IDisposable
         ArgumentNullException.ThrowIfNull(limits);
         ArgumentNullException.ThrowIfNull(qualification);
         MemoryCapabilityPolicy.Validate(qualification.Requested);
-        if (qualification.Requested == MemoryCapabilityMode.Disabled
+        if (qualification.PolicyRevision == 0 || qualification.Detection != MemoryDetection.Present
+            || qualification.Requested == MemoryCapabilityMode.Disabled
             || qualification.ReleaseQualification != MemoryQualification.Qualified
             || qualification.RuntimeQualification != MemoryQualification.Qualified
             || qualification.OnlineState != MemoryOnlineState.Online)
@@ -73,6 +75,8 @@ public sealed class GpuMemoryDevice : IDisposable
 
     public GpuDeviceIdentity Identity => _driver.Identity;
     internal IGpuDriverSession Driver => _driver;
+    internal MemoryReservationCoordinator Ledger => _ledger;
+    internal ResourceDomainId TransferDomain => _domains.TransferSlots;
 
     public GpuMemorySnapshot Snapshot()
     {
@@ -81,7 +85,7 @@ public sealed class GpuMemoryDevice : IDisposable
             int quarantined = _operations.Count(operation => operation.Quarantined)
                 + _peerOperations.Count(operation => operation.Quarantined);
             return new(_epoch, _accepting, _faulted, _allocations.Count, _staging.Count,
-                _operations.Count + _peerOperations.Count, quarantined, _uncertainReservations.Count, _faulted);
+                _operations.Count + _peerOperations.Count + _externalHolds, quarantined, _uncertainReservations.Count, _faulted);
         }
     }
 
@@ -171,6 +175,7 @@ public sealed class GpuMemoryDevice : IDisposable
         }
         if (_driver is not IGpuPeerDriverSession destinationSession
             || source.Driver is not IGpuPeerDriverSession sourceSession
+            || !ReferenceEquals(_ledger, source.Ledger)
             || destination.Content != source.Content || destination.Length != source.Length)
         {
             return MemoryOperationResult<GpuPeerDeviceOperation>.Reject(MemoryFailure.UnsupportedCapability);
@@ -194,11 +199,14 @@ public sealed class GpuMemoryDevice : IDisposable
                 {
                     return MemoryOperationResult<GpuPeerDeviceOperation>.Reject(MemoryFailure.StaleLocation);
                 }
-                if (_operations.Count + _peerOperations.Count >= _limits.MaximumOperations)
+                if (_operations.Count + _peerOperations.Count + _externalHolds >= _limits.MaximumOperations)
                 {
                     return MemoryOperationResult<GpuPeerDeviceOperation>.Reject(MemoryFailure.BudgetRejected);
                 }
-                var admission = _ledger.TryReserve([new(_domains.TransferSlots, MemoryResourceUnit.OperationSlots, 1)]);
+                MemoryResourceCharge[] vector = source.TransferDomain == _domains.TransferSlots
+                    ? [new(_domains.TransferSlots, MemoryResourceUnit.OperationSlots, 1)]
+                    : [new(_domains.TransferSlots, MemoryResourceUnit.OperationSlots, 1), new(source.TransferDomain, MemoryResourceUnit.OperationSlots, 1)];
+                var admission = _ledger.TryReserve(vector);
                 if (!admission.Succeeded)
                 {
                     return MemoryOperationResult<GpuPeerDeviceOperation>.Reject(admission.Failure!.Value);
@@ -207,7 +215,7 @@ public sealed class GpuMemoryDevice : IDisposable
                 destination.Holds++;
                 destination.UploadSubmitted = true;
                 destinationHold = new GpuAllocationHold(this, destination, GpuPeerAllocationAccess.ExclusiveWrite);
-                operation = new GpuPeerDeviceOperation(destination);
+                operation = new GpuPeerDeviceOperation(source, destination);
                 _peerOperations.Add(operation);
             }
             // Never hold one device gate while checking or invoking the other device owner.
@@ -217,6 +225,10 @@ public sealed class GpuMemoryDevice : IDisposable
                 GpuPeerTransfer transfer = GpuPeerTransfer.Submit(sourceSession, destinationSession,
                     sourceHold, destinationHold, destination.Length, reservation);
                 bool quarantined = transfer.IsQuarantined;
+                if (quarantined)
+                {
+                    source.InvalidateOwner();
+                }
                 lock (_gate)
                 {
                     operation.Transfer = transfer;
@@ -265,7 +277,7 @@ public sealed class GpuMemoryDevice : IDisposable
             {
                 return MemoryOperationResult<GpuTransferOperation>.Reject(MemoryFailure.StaleLocation);
             }
-            if (_operations.Count + _peerOperations.Count >= _limits.MaximumOperations)
+            if (_operations.Count + _peerOperations.Count + _externalHolds >= _limits.MaximumOperations)
             {
                 return MemoryOperationResult<GpuTransferOperation>.Reject(MemoryFailure.BudgetRejected);
             }
@@ -430,6 +442,10 @@ public sealed class GpuMemoryDevice : IDisposable
                 continue;
             }
             bool quarantined = transfer.IsQuarantined;
+            if (quarantined)
+            {
+                operation.Source.InvalidateOwner();
+            }
             lock (_gate)
             {
                 if (!_peerOperations.Contains(operation))
@@ -512,20 +528,26 @@ public sealed class GpuMemoryDevice : IDisposable
             {
                 return MemoryOperationResult<IGpuPeerAllocationHold>.Reject(MemoryFailure.StaleLocation);
             }
-            if (allocation.Holds >= _limits.MaximumOperations)
+            if (allocation.Holds >= _limits.MaximumOperations
+                || _operations.Count + _peerOperations.Count + _externalHolds >= _limits.MaximumOperations)
             {
                 return MemoryOperationResult<IGpuPeerAllocationHold>.Reject(MemoryFailure.BudgetRejected);
             }
             allocation.Holds++;
+            _externalHolds++;
             return MemoryOperationResult<IGpuPeerAllocationHold>.Success(new GpuAllocationHold(this, allocation, GpuPeerAllocationAccess.Read));
         }
     }
 
-    internal void ReleaseHold(GpuAllocation allocation)
+    internal void ReleaseHold(GpuAllocation allocation, bool external)
     {
         lock (_gate)
         {
             allocation.Holds--;
+            if (external)
+            {
+                _externalHolds--;
+            }
             DrainLocked();
         }
     }
@@ -543,7 +565,16 @@ public sealed class GpuMemoryDevice : IDisposable
             {
                 throw new ArgumentException("The complete payload must be delivered to its admitted response owner.", nameof(destination));
             }
-            _driver.ReadHost(operation.Staging.Address, destination);
+            try
+            {
+                _driver.ReadHost(operation.Staging.Address, destination);
+            }
+            catch
+            {
+                operation.Quarantined = true;
+                FaultLocked();
+                throw;
+            }
         }
     }
 
@@ -628,8 +659,16 @@ public sealed class GpuMemoryDevice : IDisposable
             }
             if (!_faulted && _operations.Count == 0 && _peerOperations.Count == 0 && _allocations.Count == 0 && _staging.Count == 0 && !_disposed)
             {
-                _driver.Dispose();
-                _disposed = true;
+                try
+                {
+                    _driver.Dispose();
+                    _disposed = true;
+                }
+                catch
+                {
+                    // Context teardown may have partly completed; never guess it is retry-safe.
+                    FaultLocked();
+                }
             }
         }
     }

@@ -488,7 +488,10 @@ public sealed class GpuNativeTests
             PeerDisables++;
         }
         public override void CopyPeer(GpuDeviceAddress source, int sourceDevice, nint sourceContext,
-            GpuDeviceAddress destination, int destinationDevice, nint destinationContext, long bytes, nint stream) => Copies++;
+            GpuDeviceAddress destination, int destinationDevice, nint destinationContext, long bytes, nint stream)
+        {
+            Copies++;
+        }
         public void CleanupTestMemory()
         {
             foreach (nint address in _testHosts)
