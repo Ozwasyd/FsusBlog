@@ -48,3 +48,31 @@ cross-consumer governance also remain with their canonical owners.
 Downstream candidate aggregation requires verified alias/policy/build/fixture/
 execution identities. Missing receipts cannot be filled with SHA-only or manual
 defaults, and this source contract does not create a qualified candidate.
+
+## Fixture identity capability
+
+`collectFixtureIdentity` consumes explicit canonical catalogs, the actual sealed
+`fixture-orchestrator-plan.v1`, a verified `fixture-receipt.v2` and the source
+snapshot. It calls the original pure catalog resolver/DAG and receipt validator.
+Plan/receipt source, run, namespace, profile, variant, producer order, per-producer
+source, postconditions and digest closure are checked without running lifecycle
+ports. An absent receipt, unsealed/dev profile, cross-run producer or catalog/DAG
+drift fails. Upstream alias/policy digests are explicit binding expectations; their
+actual fragments must be independently verified by aggregate admission.
+
+The canonical matrix seal is an object in the orchestrator plan and a verified
+boolean in the fixture receipt; both are checked against the original owner API.
+The collector preserves that distinction instead of inventing a new fixture
+schema. Unit cases consume the actual canonical none/public-minimal contracts
+with explicitly marked model postconditions. They do not establish live fixture
+postconditions or runtime acceptance.
+
+```bash
+node --test tests/tools/release-candidate-fixture-identity.test.mjs
+```
+
+Production CLI admission stays fail-closed until upstream alias/policy fragment
+verifiers and the current-run locator binding are supplied. It cannot silently
+exit successfully without producing an identity. Fixture seed/schema/policy
+projection to the final candidate and canonical tool-source binding still require
+aggregate integration. No fixture profile/default is inferred from the environment.
