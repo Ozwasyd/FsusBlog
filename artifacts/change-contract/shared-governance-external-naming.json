@@ -6,9 +6,10 @@
             "paths": [
                 "tests/governance/test-lifecycle-registry.json",
                 "config/testing/correctness-attempt-producers.json",
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/backend/packages.lock.json"
             ],
-            "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
+            "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests; preserve NuGet serialized keys and third-party package identities in the exact canonical backend consumer lock"
         },
         {
             "id": "environment-variable",
