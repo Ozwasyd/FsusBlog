@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decode } from '@wasm/aeds'
 import { FrameType } from '@wasm/protocol/frame'
-import { binaryRequest, buildBinaryPowHeaders } from '@/api/binaryApiClient'
+import { binaryRequest, buildBinaryPowHeaders, resolveBinaryTransportUrl } from '@/api/binaryApiClient'
 import { SecurityChallengeKind } from '@/contracts/binaryApi'
 import type { RiskChallengeProofContext, RiskChallengeProofSettlement } from '@/contracts/riskChallenge'
 
@@ -489,3 +489,39 @@ function createRiskChallengeLease(): RiskChallengeProofContext & {
     settle: vi.fn((_outcome: RiskChallengeProofSettlement) => true)
   }
 }
+
+
+describe('binaryApiClient URL base handling', () => {
+  let originalHref: string
+
+  beforeEach(() => {
+    originalHref = window.location.href
+    window.location.href = 'https://fsusblog.test/author/drafts/?page=2'
+  })
+
+  afterEach(() => {
+    window.location.href = originalHref
+    vi.unstubAllGlobals()
+  })
+
+  it('resolves browser root-relative and path-relative routes using the real location href', () => {
+    expect(resolveBinaryTransportUrl('/api/binary/article?q=one#result'))
+      .toBe('https://fsusblog.test/api/binary/article?q=one#result')
+    expect(resolveBinaryTransportUrl('../canvas'))
+      .toBe('https://fsusblog.test/author/canvas')
+  })
+
+  it('preserves absolute URLs in browser and without a location', () => {
+    const absolute = 'https://assets.fsusblog.test/item?version=2#detail'
+    expect(resolveBinaryTransportUrl(absolute)).toBe(absolute)
+    vi.stubGlobal('location', undefined)
+    expect(resolveBinaryTransportUrl(absolute)).toBe(absolute)
+  })
+
+  it('retains the existing SSR localhost base when location is unavailable', () => {
+    vi.stubGlobal('location', undefined)
+    expect(resolveBinaryTransportUrl('/api/binary/article?q=one#result'))
+      .toBe('http://localhost/api/binary/article?q=one#result')
+    expect(resolveBinaryTransportUrl('api/binary/article')).toBe('http://localhost/api/binary/article')
+  })
+})
