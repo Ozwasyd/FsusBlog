@@ -9,14 +9,12 @@ commentSourceRoot=""
 evidenceDirectory=""
 scratchDirectory=""
 
-Fail()
-{
+Fail() {
     printf 'query producer refusal controls: %s\n' "$1" >&2
     exit 1
 }
 
-Cleanup()
-{
+Cleanup() {
     if [[ -n "$scratchDirectory" ]]; then
         rm -rf -- "$scratchDirectory"
     fi
@@ -56,21 +54,21 @@ HELP
         *) Fail "unknown option: $1" ;;
     esac
 done
-[[ -n "$articleSourceRoot" && -n "$commentSourceRoot" && -n "$evidenceDirectory" ]] \
-    || Fail "explicit article/comment Git source roots and a new evidence directory are required"
+[[ -n "$articleSourceRoot" && -n "$commentSourceRoot" && -n "$evidenceDirectory" ]] ||
+    Fail "explicit article/comment Git source roots and a new evidence directory are required"
 
 for sourceRoot in "$articleSourceRoot" "$commentSourceRoot"; do
-    [[ "$sourceRoot" == /* && -d "$sourceRoot" && ! -L "$sourceRoot" ]] \
-        || Fail "source roots must be absolute Git directories"
-    [[ "$(git -C "$sourceRoot" rev-parse --show-toplevel)" == "$(realpath "$sourceRoot")" ]] \
-        || Fail "source root must name the Git worktree root"
+    [[ "$sourceRoot" == /* && -d "$sourceRoot" && ! -L "$sourceRoot" ]] ||
+        Fail "source roots must be absolute Git directories"
+    [[ "$(git -C "$sourceRoot" rev-parse --show-toplevel)" == "$(realpath "$sourceRoot")" ]] ||
+        Fail "source root must name the Git worktree root"
 done
-[[ "$(git -C "$articleSourceRoot" cat-file -t "$articleCommit")" == commit ]] \
-    || Fail "exact article commit is unavailable"
-[[ "$(git -C "$commentSourceRoot" cat-file -t "$commentCommit")" == commit ]] \
-    || Fail "exact comment commit is unavailable"
-[[ "$evidenceDirectory" == /* && ! -e "$evidenceDirectory" && ! -L "$evidenceDirectory" ]] \
-    || Fail "evidence directory must be absolute and new; prior failure output must not be overwritten"
+[[ "$(git -C "$articleSourceRoot" cat-file -t "$articleCommit")" == commit ]] ||
+    Fail "exact article commit is unavailable"
+[[ "$(git -C "$commentSourceRoot" cat-file -t "$commentCommit")" == commit ]] ||
+    Fail "exact comment commit is unavailable"
+[[ "$evidenceDirectory" == /* && ! -e "$evidenceDirectory" && ! -L "$evidenceDirectory" ]] ||
+    Fail "evidence directory must be absolute and new; prior failure output must not be overwritten"
 mkdir -p -- "$evidenceDirectory"
 evidenceDirectory="$(realpath "$evidenceDirectory")"
 scratchDirectory="$(mktemp -d /tmp/fsusblog-query-producer-controls.XXXXXXXX)"
@@ -91,12 +89,11 @@ commentOverlayPaths=(
     src/backend/Services/Security/AnonymousCommentPolicyService.cs
 )
 for sourcePath in "${commentOverlayPaths[@]}"; do
-    git -C "$commentSourceRoot" show "$commentCommit:$sourcePath" > "$scratchDirectory/backend/$sourcePath"
+    git -C "$commentSourceRoot" show "$commentCommit:$sourcePath" >"$scratchDirectory/backend/$sourcePath"
 done
 planPath=src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs
-[[ "$(git -C "$articleSourceRoot" rev-parse "$articleCommit:$planPath")" \
-    == "$(git -C "$commentSourceRoot" rev-parse "$commentCommit:$planPath")" ]] \
-    || Fail "article plan dependency differs between producer commits"
+[[ "$(git -C "$articleSourceRoot" rev-parse "$articleCommit:$planPath")" == "$(git -C "$commentSourceRoot" rev-parse "$commentCommit:$planPath")" ]] ||
+    Fail "article plan dependency differs between producer commits"
 
 python3 - "$articleSourceRoot" "$commentSourceRoot" "$articleCommit" "$commentCommit" \
     "$scratchDirectory" "$scriptRoot" "$evidenceDirectory/source-manifest.json" "${commentOverlayPaths[@]}" <<'PY'
@@ -144,7 +141,7 @@ PY
 
 cp -- "$scriptRoot/QueryProducerRoleIntake.cs" "$scriptRoot/QueryPostgresProducerIntake.cs" \
     "$scriptRoot/QueryProducerRoleIntakeControls.cs" "$scratchDirectory/harness/"
-cat > "$scratchDirectory/harness/QueryProducerRoleIntakeControls.csproj" <<'XML'
+cat >"$scratchDirectory/harness/QueryProducerRoleIntakeControls.csproj" <<'XML'
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -164,13 +161,12 @@ if [[ -f /workspace/.setup/activate.sh ]]; then
 fi
 command -v dotnet >/dev/null || Fail ".NET SDK is unavailable"
 command -v timeout >/dev/null || Fail "timeout is unavailable"
-dotnet --info > "$evidenceDirectory/dotnet-info.log" 2>&1
+dotnet --info >"$evidenceDirectory/dotnet-info.log" 2>&1
 
-RunLogged()
-{
+RunLogged() {
     local logName="$1"
     shift
-    if "$@" > "$evidenceDirectory/$logName.log" 2>&1; then
+    if "$@" >"$evidenceDirectory/$logName.log" 2>&1; then
         cat "$evidenceDirectory/$logName.log"
     else
         local exitCode=$?
@@ -181,8 +177,7 @@ RunLogged()
     fi
 }
 
-VerifyManifestSources()
-{
+VerifyManifestSources() {
     python3 - "$evidenceDirectory/source-manifest.json" "$scriptRoot" "$scratchDirectory" <<'PY'
 import hashlib
 import json
@@ -211,8 +206,8 @@ RunLogged restore-backend timeout 180 dotnet restore "$scratchDirectory/backend/
 RunLogged restore-harness timeout 180 dotnet restore "$scratchDirectory/harness/QueryProducerRoleIntakeControls.csproj" --no-dependencies
 for lockPath in src/backend/packages.lock.json src/core/packages.lock.json src/shared/packages.lock.json \
     tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json; do
-    cmp "$scratchDirectory/backend/$lockPath" <(git -C "$articleSourceRoot" show "$articleCommit:$lockPath") \
-        || Fail "native dependency lock bytes changed during restore: $lockPath"
+    cmp "$scratchDirectory/backend/$lockPath" <(git -C "$articleSourceRoot" show "$articleCommit:$lockPath") ||
+        Fail "native dependency lock bytes changed during restore: $lockPath"
 done
 RunLogged build timeout 300 dotnet build "$scratchDirectory/harness/QueryProducerRoleIntakeControls.csproj" \
     --no-restore --configuration Release -p:PublishClientAssets=false -p:FsusBlogCommitSha="$articleCommit"

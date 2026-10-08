@@ -67,17 +67,28 @@ Resealing uses its native-binding/resolved-input overload. Bounds remain at
 1–1000 graphs, 1–32 allocation observations and at most 50,000 role IDs.
 
 The original authority observes current database identity. Its frozen batch's
-original v2 `ExpectedDigest` must match authenticated `PhysicalDigest`; the
-original digest covers composite primary keys, complete owned row scopes and
-external taxonomy references. Original checkpoint validation requires the exact
-current identity and committed stage. Authentication failures propagate without
-retry or normalization. The consumer executes no SQL and retains no task key.
+original `ExpectedDigest` must match authenticated `PhysicalDigest`. The original
+digest selects `physical-row-integrity.v2` when
+`CompositePrimaryKeyColumns.Count != 0`; that path also hashes composite keys,
+owned row scopes and external reference descriptors. With no composite keys it
+uses `physical-row-integrity.v1`. The producer accepts `taxonomySchema = null`,
+which leaves the base batch on this legitimate v1 path. Digest equality in this
+consumer accepts either version; it does not require taxonomy attachment.
 
-Taxonomy projection and readback are implemented: the original projection adds
-ArticleTag links to the physical batch, and the original writer persists and
-verifies them. `DataScalePublicationRequestBinding.BindAsync` likewise exists;
-its actual publication result and current invocation must come from the original
-publication owner. No product schema migration is required by this intake.
+Original checkpoint validation requires the exact current identity and committed
+stage. Authentication failures propagate without retry or normalization. The
+consumer executes no SQL and retains no task key. Digest equality checks the
+frozen batch's binding, not a fresh database readback or taxonomy completeness.
+
+When the original producer receives a taxonomy schema, its taxonomy projection
+attaches ArticleTag links, composite keys, owned scopes and external category/tag
+references. The original writer/readback APIs implement persistence and scope/
+reference verification for that supplied batch. This closure has not exercised
+that nonempty path or verified actual taxonomy/readback coverage. A null taxonomy
+schema does not acquire those facts by passing the intake digest check.
+`DataScalePublicationRequestBinding.BindAsync` likewise exists; its actual
+publication result and current invocation must come from the original publication
+owner. No product schema migration is required by this intake.
 
 ## Admission and qualification
 
