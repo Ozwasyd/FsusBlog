@@ -1,0 +1,15 @@
+  Determining projects to restore...
+  Restored /workspace/mem-gpu/src/shared/FsusBlog.Shared.csproj (in 112 ms).
+  Restored /workspace/mem-gpu/src/core/FsusBlog.Core.csproj (in 193 ms).
+/workspace/mem-gpu/tests/backend/FsusBlog.Server.Tests.csproj : error NU1101: Unable to find package coverlet.collector. No packages exist with this id in source(s): /workspace/.setup/nuget
+/workspace/mem-gpu/tests/backend/FsusBlog.Server.Tests.csproj : error NU1102: Unable to find package Microsoft.IdentityModel.Protocols with version (>= 8.2.0)
+/workspace/mem-gpu/tests/backend/FsusBlog.Server.Tests.csproj : error NU1102:   - Found 2 version(s) in /workspace/.setup/nuget [ Nearest version: 8.0.1 ]
+/workspace/mem-gpu/tests/backend/FsusBlog.Server.Tests.csproj : error NU1102: Unable to find package Microsoft.IdentityModel.Protocols.OpenIdConnect with version (>= 8.2.0)
+/workspace/mem-gpu/tests/backend/FsusBlog.Server.Tests.csproj : error NU1102:   - Found 2 version(s) in /workspace/.setup/nuget [ Nearest version: 8.0.1 ]
+/workspace/mem-gpu/tests/backend/FsusBlog.Server.Tests.csproj : error NU1101: Unable to find package Microsoft.AspNetCore.TestHost. No packages exist with this id in source(s): /workspace/.setup/nuget
+/workspace/mem-gpu/tests/backend/FsusBlog.Server.Tests.csproj : error NU1102: Unable to find package System.IdentityModel.Tokens.Jwt with version (>= 8.2.0)
+/workspace/mem-gpu/tests/backend/FsusBlog.Server.Tests.csproj : error NU1102:   - Found 2 version(s) in /workspace/.setup/nuget [ Nearest version: 8.0.1 ]
+  Restored /workspace/mem-gpu/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 197 ms).
+  Restored /workspace/mem-gpu/src/migration/FsusBlog.Migration.csproj (in 200 ms).
+  Restored /workspace/mem-gpu/src/backend/FsusBlog.Server.csproj (in 43 ms).
+  Failed to restore /workspace/mem-gpu/tests/backend/FsusBlog.Server.Tests.csproj (in 114 ms).
