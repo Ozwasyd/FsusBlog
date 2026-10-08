@@ -2520,8 +2520,8 @@
         },
         {
             "path": "tools/contracts/check-locale-catalog.mjs",
-            "contentDigest": "sha256:bd58cfb081361660334a94d972abf1d0a9cd5f709c50d5795cb9e2c94e9043f2",
-            "indexDigest": "sha256:bd58cfb081361660334a94d972abf1d0a9cd5f709c50d5795cb9e2c94e9043f2"
+            "contentDigest": "sha256:a895317216b8ce84415f5408e3efa5937bdb7f57f2183b7ccc164029c961d92d",
+            "indexDigest": "sha256:a895317216b8ce84415f5408e3efa5937bdb7f57f2183b7ccc164029c961d92d"
         },
         {
             "path": "tools/contracts/check-openapi-consumers.mjs",
@@ -2550,8 +2550,8 @@
         },
         {
             "path": "tools/contracts/generate-locale-catalog.mjs",
-            "contentDigest": "sha256:291bd2892861d55714f132dcdbbadc6d2f4dca74bf935fc40bb05cfa1bf2ab55",
-            "indexDigest": "sha256:291bd2892861d55714f132dcdbbadc6d2f4dca74bf935fc40bb05cfa1bf2ab55"
+            "contentDigest": "sha256:1aebfcda0ebe9e622ae4e8e65d82ca78c3b8ea22cbda1557e5de536631ddd636",
+            "indexDigest": "sha256:1aebfcda0ebe9e622ae4e8e65d82ca78c3b8ea22cbda1557e5de536631ddd636"
         },
         {
             "path": "tools/contracts/generate-perception-character-v3-release-target.mjs",

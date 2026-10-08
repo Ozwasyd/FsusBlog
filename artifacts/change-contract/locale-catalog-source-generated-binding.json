@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/contracts/check-locale-catalog.mjs",
+        "tools/contracts/generate-locale-catalog.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "16e637f7325b9c24eb3e54c9cd9850c9c9fffd2af194f2d47b3a908db08e757a"
+        }
+    ]
+}
