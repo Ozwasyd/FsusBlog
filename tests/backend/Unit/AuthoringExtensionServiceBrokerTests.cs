@@ -1205,13 +1205,25 @@ public sealed class AuthoringExtensionServiceBrokerTests
 
         public string ExecutableSha256 { get; set; } = string.Empty;
 
-        public Action? ResponseBoundary { get; init; }
+        public Action? ResponseBoundary
+        {
+            get; init;
+        }
 
-        public Func<ValueTask>? Termination { get; init; }
+        public Func<ValueTask>? Termination
+        {
+            get; init;
+        }
 
-        public bool TerminationTokenWasCancelable { get; private set; }
+        public bool TerminationTokenWasCancelable
+        {
+            get; private set;
+        }
 
-        public int DisposeCount { get; private set; }
+        public int DisposeCount
+        {
+            get; private set;
+        }
 
         public string? TerminationReason
         {
@@ -1263,7 +1275,10 @@ public sealed class AuthoringExtensionServiceBrokerTests
 
     private sealed class CallbackRevisionGate(Action<CancellationToken> callback) : IAuthoringDocumentRevisionGate
     {
-        public int CallCount { get; private set; }
+        public int CallCount
+        {
+            get; private set;
+        }
 
         public ValueTask<bool> IsCurrentAsync(
             string documentId,
@@ -1334,9 +1349,15 @@ public sealed class AuthoringExtensionServiceBrokerTests
             Directory.CreateDirectory(Staging);
         }
 
-        public string Owned { get; }
+        public string Owned
+        {
+            get;
+        }
 
-        public string Staging { get; }
+        public string Staging
+        {
+            get;
+        }
 
         public AuthoringFileGrant CreateGrant(DateTimeOffset now) => new(
             new string('a', 64),
