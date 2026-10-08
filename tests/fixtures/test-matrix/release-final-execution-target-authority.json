@@ -2185,8 +2185,8 @@
         },
         {
             "path": "tests/tools/required-evidence-dependencies.test.mjs",
-            "contentDigest": "sha256:6655b88581df0a2617b9c389c0e0154a40d5baab517aefe5e122e607eaee3e57",
-            "indexDigest": "sha256:6655b88581df0a2617b9c389c0e0154a40d5baab517aefe5e122e607eaee3e57"
+            "contentDigest": "sha256:fd2802a56234bc6cfec525b8e865cba03652a5327c8f13488a494bb5b9f41ebe",
+            "indexDigest": "sha256:fd2802a56234bc6cfec525b8e865cba03652a5327c8f13488a494bb5b9f41ebe"
         },
         {
             "path": "tests/tools/resource-utilization.test.mjs",
@@ -3770,8 +3770,8 @@
         },
         {
             "path": "tools/run-test-matrix.mjs",
-            "contentDigest": "sha256:77661b8baca506d96162b1170441964aef7825c854e61a660421e8285d00a421",
-            "indexDigest": "sha256:77661b8baca506d96162b1170441964aef7825c854e61a660421e8285d00a421"
+            "contentDigest": "sha256:ab010b8764fb97e505a2a02d37f1ca3c0a77ade192636cda9dd66517f01df917",
+            "indexDigest": "sha256:ab010b8764fb97e505a2a02d37f1ca3c0a77ade192636cda9dd66517f01df917"
         },
         {
             "path": "tools/runtime-profiles/release-runtime-matrix.mjs",
@@ -6772,8 +6772,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:77661b8baca506d96162b1170441964aef7825c854e61a660421e8285d00a421",
-            "indexDigest": "sha256:77661b8baca506d96162b1170441964aef7825c854e61a660421e8285d00a421",
+            "contentDigest": "sha256:ab010b8764fb97e505a2a02d37f1ca3c0a77ade192636cda9dd66517f01df917",
+            "indexDigest": "sha256:ab010b8764fb97e505a2a02d37f1ca3c0a77ade192636cda9dd66517f01df917",
             "dependencyClosure": [
                 "tools/ci/production-build-artifacts.mjs",
                 "tools/contracts/behavior-contract-catalog.mjs",
