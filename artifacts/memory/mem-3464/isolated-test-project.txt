@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>FsusBlog.Server.Tests</AssemblyName>
+    <IsTestProject>true</IsTestProject>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <Reference Include="FsusBlog.Server"><HintPath>/workspace/FsusBlog-3464/src/backend/bin/Debug/net10.0/FsusBlog.Server.dll</HintPath></Reference>
+    <Reference Include="FsusBlog.Shared"><HintPath>/workspace/FsusBlog-3464/src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll</HintPath></Reference>
+    <Compile Include="/workspace/FsusBlog-3464/tests/backend/Unit/FlatArtifactIndexTests.cs" Link="FlatArtifactIndexTests.cs" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+</Project>

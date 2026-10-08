@@ -1,0 +1,52 @@
+{
+  "interpretation": "Informational counted-reader cost only; no frozen CPU/latency gates or production qualification",
+  "framework": ".NET 10.0.12",
+  "os": "Debian GNU/Linux 13 (trixie)",
+  "architecture": "X64",
+  "stopwatchFrequency": 1000000000,
+  "footprint": {
+    "interpretation": "Inline process-local field sizes only: excludes referenced strings, payloads, FrozenDictionary tables, headers, build workspace and runtime overhead; native descriptor does not encode all serving fields",
+    "publicBinaryArtifactBytes": 144,
+    "publicHtmlArtifactBytes": 104,
+    "publicHtmlRouteIndexBytes": 24,
+    "flatDescriptorBytes": 104,
+    "nativeAllocationBytes": 208
+  },
+  "samples": [
+    {
+      "sample": 0,
+      "operations": 200000,
+      "elapsedTicks": 53795638,
+      "nanosecondsPerAcquireDispose": 268.97819,
+      "managedAllocatedBytesPerAcquireDispose": 184
+    },
+    {
+      "sample": 1,
+      "operations": 200000,
+      "elapsedTicks": 49867603,
+      "nanosecondsPerAcquireDispose": 249.338015,
+      "managedAllocatedBytesPerAcquireDispose": 184
+    },
+    {
+      "sample": 2,
+      "operations": 200000,
+      "elapsedTicks": 57515060,
+      "nanosecondsPerAcquireDispose": 287.5753,
+      "managedAllocatedBytesPerAcquireDispose": 184
+    },
+    {
+      "sample": 3,
+      "operations": 200000,
+      "elapsedTicks": 59365402,
+      "nanosecondsPerAcquireDispose": 296.82701,
+      "managedAllocatedBytesPerAcquireDispose": 184
+    },
+    {
+      "sample": 4,
+      "operations": 200000,
+      "elapsedTicks": 52512201,
+      "nanosecondsPerAcquireDispose": 262.561005,
+      "managedAllocatedBytesPerAcquireDispose": 184
+    }
+  ]
+}
