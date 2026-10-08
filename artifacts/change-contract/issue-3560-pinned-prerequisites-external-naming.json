@@ -21,9 +21,11 @@
             "id": "environment-variable",
             "paths": [
                 "tools/test/correctness-attempt-migration.mjs",
-                "src/backend/Services/DocumentExport/DocumentExportTaskQueue.cs"
+                "src/backend/Services/DocumentExport/DocumentExportTaskQueue.cs",
+                "src/backend/Services/DocumentExport/DocumentExportSourceFreezer.cs",
+                "src/backend/Services/DocumentExport/DocumentExportTaskJournal.cs"
             ],
-            "reason": "The supplied producer validation preserves canonical process environment identifiers. The scheduler lies within the same registered C# source-path surface, preserves canonical task/provider identities, and introduces or renames no process environment keys."
+            "reason": "The supplied producer validation preserves canonical process environment identifiers. The scheduler, canonical source freezer and private task journal lie within the same registered C# source-path surface and preserve existing task/provider and library identifiers. They introduce or rename no process environment keys."
         }
     ]
 }
