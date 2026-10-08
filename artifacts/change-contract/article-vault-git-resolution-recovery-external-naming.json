@@ -5,6 +5,7 @@
             "id": "environment-variable",
             "paths": [
                 "src/article-vault/linux/LinuxVaultGitObserver.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultAcceptedSourceAdapter.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultMaterializationPreflightVerifier.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultRecoveryCheckpointReader.cs",
                 "src/shared/Contracts/ArticleVault/ArticleVaultGitFacts.cs",

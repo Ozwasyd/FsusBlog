@@ -24,6 +24,7 @@ public sealed record ArticleVaultMaterializationInstruction(
     string AgentIdentity,
     string PlanReference,
     string PlanSha256,
+    string RootManifestSha256,
     string ServerResultReference,
     string ServerResultSha256,
     string GroupIdentity,
@@ -33,6 +34,7 @@ public sealed record ArticleVaultMaterializationInstruction(
     VaultMaterializationSourceAction Action,
     VaultSourceByteIdentity? ExpectedOldSource,
     VaultSourceByteIdentity? NewSource,
+    string? ExpectedOldMetadataManifestSha256,
     string BaseBeforeSha256,
     string JournalIdentity,
     string ContentSha256);
