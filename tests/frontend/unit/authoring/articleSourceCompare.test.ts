@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { ElDrawer, ElIcon, ElMarkdownEditor } from '@ozwasyd/element-plus';
-import { MARKDOWN_RENDERER_VERSION, createMarkdownAnchorMap, renderMarkdownResultWithRuntime } from '@ozwasyd/element-plus/markdown-runtime';
+import { MARKDOWN_RENDERER_VERSION, createMarkdownAnchorMap, initMarkdownRuntime, renderMarkdownResultWithRuntime } from '@ozwasyd/element-plus/markdown-runtime';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
@@ -18,6 +18,14 @@ import type { MarkdownEditorDispatchResult, MarkdownEditorTransaction } from '@o
 import type { ArticleEditorRuntimeBinding } from '@/services/authoring/articleEditorRuntimeBinding';
 import type { ArticleEditorContinuityPort, ArticleEditorContinuityReceipt } from '@/services/authoring/articleEditorContinuity';
 
+// Vite resolves native assets against the DOM origin. The actual Node loader
+// maps localhost /@fs/ URLs to the built local WASM files; an arbitrary HTTPS
+// fixture origin would instead request a remote module. Keep the real DOM pool.
+const fixtureWindow = window as unknown as { happyDOM: { setURL(url: string): void } };
+const originalFixtureUrl = window.location.href;
+beforeAll(() => fixtureWindow.happyDOM.setURL('http://localhost/'));
+afterAll(() => fixtureWindow.happyDOM.setURL(originalFixtureUrl));
+
 const cleanup: (() => void)[] = [];
 afterEach(() => cleanup.splice(0).reverse().forEach(dispose => dispose()));
 const viewport = { inlineSize: 1366, mobile: false };
@@ -26,6 +34,8 @@ const restore = { origin: 'tool' as const, now: 100, viewportHeight: 500, reduce
 async function host(initialSurface: 'live' | 'source' = 'source', initialSource = '\ufeff# Heading\r\n\r\nparagraph  \r\n', productionWrapper = false)
 {
     let source = initialSource;
+    const actualEdits: MarkdownEditorDispatchResult[] = [];
+    let bookmarkRevision = 0;
     const owner = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1', editorSessionId: 'session:compare', siteScope: 'site:test', userScope: 'user:test', content: source });
     const anchors = new ArticleAnchorContextAdapter(owner);
     const configuration = { allowLatex: true, allowMermaid: true, baseUrl: null };
@@ -42,6 +52,7 @@ async function host(initialSurface: 'live' | 'source' = 'source', initialSource 
         } : {}),
         onTransaction: (result: MarkdownEditorDispatchResult) => {
             if (!result.accepted) return;
+            if (result.revision > result.beforeRevision) actualEdits.push(result);
             runtime?.consumeTransaction(result);
         }
     } });
@@ -119,6 +130,7 @@ async function host(initialSurface: 'live' | 'source' = 'source', initialSource 
     };
     const open = async () => {
         const opening = compare.open(viewport, identity, binding(), options(), restore);
+        bookmarkRevision = opening.tool.before.document.sourceRevision;
         tool = 'source-compare';
         if (opening.source !== null) {
             expect(compare.state.sourceReady).toBe(false);
@@ -126,7 +138,10 @@ async function host(initialSurface: 'live' | 'source' = 'source', initialSource 
         }
         return opening;
     };
-    const close = () => compare.close(binding(), options(), restore);
+    // Restore consumes the actual native edit chain through the existing public
+    // anchor contract; the fixture does not calculate or synthesize any mapping.
+    const close = () => compare.close(binding(), options(), { ...restore,
+        transactions: actualEdits.filter(result => result.beforeRevision >= bookmarkRevision) });
     return { owner, anchors, runtime: bound, compare, wrapper, editor, adapter, identity, binding: bound.positionBinding, options, dispatch, complete, open, close, source: () => source };
 }
 
@@ -180,6 +195,8 @@ describe('temporary compare using actual shared owners (#2284 source stage)', ()
         expect(h.source()).toBe(bytes);
     });
     it('executes the actual renderer in the mounted-editor environment', async () => {
+        const initialized = await initMarkdownRuntime();
+        expect(initialized.ok, JSON.stringify(initialized)).toBe(true);
         const result = await renderMarkdownResultWithRuntime({ source: '# Runtime probe', mode: 'editor' });
         expect(result.ok, JSON.stringify(result)).toBe(true);
     });
@@ -196,6 +213,8 @@ describe('temporary compare using actual shared owners (#2284 source stage)', ()
         const content = h.compare.state.render!.content!;
         expect(content.context.contextDigest).toBe(h.owner.context.contextDigest);
         expect(h.compare.retainedRender?.render.rawSource).toBe(bytes);
+        expect(h.compare.retainedRender!.render).toBe(h.runtime.retainedRender!.render);
+        expect(h.compare.retainedRender!.projection).toBe(h.runtime.retainedRender!.projection);
         expect(h.compare.retainedRender).toBe(h.runtime.retainedRender);
         const planned = h.close();
         expect(planned.status).toBe('planned');
@@ -283,6 +302,52 @@ describe('temporary compare using actual shared owners (#2284 source stage)', ()
         expect(h.compare.synchronize({ document: h.owner.context, pane: 'source', generation: null, now: 200 }, saved, h.binding(), { height: 500, reducedMotion: true })).toBeNull();
         expect(await h.compare.refresh(h.binding(), h.options())).toBe('eligible');
         expect(h.compare.state.render!.stale).toBe(false);
+    });
+
+    it('renews only the canonical revision lease and seals the next request from actual edited context', async () => {
+        const h = await host('live');
+        await h.open();
+        expect(await h.compare.refresh(h.binding(), h.options())).toBe('eligible');
+        const before = h.compare.state.request!;
+        const oldSignal = h.compare.signal!;
+        const retained = h.compare.state.render!.content!.result.resultRef;
+        h.dispatch({ changes: [{ from: 14, to: 14, insert: 'edited ' }], history: 'record' });
+        await nextTick();
+        expect(oldSignal.aborted).toBe(true);
+        expect(h.compare.signal!.aborted).toBe(false);
+        expect(h.compare.state.request).toBeNull();
+        expect(h.compare.state.sourceReady).toBe(true);
+        expect(h.compare.state.render!.stale).toBe(true);
+        expect(h.compare.state.render!.content!.result.resultRef).toBe(retained);
+        expect(h.owner.activeTaskRefs).toHaveLength(1);
+        expect(await h.compare.refresh(h.binding(), h.options())).toBe('eligible');
+        const after = h.compare.state.request!;
+        expect(validateArticleSourceCompareRequest(after)).toBe(true);
+        expect(after.document.contextDigest).toBe(h.owner.context.contextDigest);
+        expect(after.document.sourceRevision).toBeGreaterThan(before.document.sourceRevision);
+        expect(after.taskRef).not.toBe(before.taskRef);
+        expect(after.document.documentEpoch).toBe(before.document.documentEpoch);
+        expect(h.compare.retainedRender!.render.rawSource).toBe(h.source());
+        await h.complete(h.close());
+        expect(h.compare.state.open).toBe(false);
+        expect(h.owner.activeTaskRefs).toHaveLength(0);
+    });
+
+    it('does not reclaim a superseding tool when a later edit cancels that tool', async () => {
+        const h = await host();
+        await h.open();
+        const oldSignal = h.compare.signal!;
+        const preview = h.runtime.beginToolTask('publish-preview');
+        h.dispatch({ changes: [{ from: 14, to: 14, insert: 'edited ' }], history: 'record' });
+        await nextTick();
+        expect(oldSignal.aborted).toBe(true);
+        expect(preview.signal.aborted).toBe(true);
+        expect(h.compare.signal).toBe(oldSignal);
+        expect(h.compare.state.sourceReady).toBe(false);
+        expect(h.compare.state.render).toBeNull();
+        expect(await h.compare.refresh(h.binding(), h.options())).toBe('invalid');
+        expect(h.owner.activeTaskRefs).toHaveLength(0);
+        await h.complete(h.close());
     });
 
     it('delegates sync on/off, generation feedback rejection, manual priority and reduced motion to the existing anchor owner', async () => {

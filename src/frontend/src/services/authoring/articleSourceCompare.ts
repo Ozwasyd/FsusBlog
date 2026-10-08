@@ -140,6 +140,14 @@ export class ArticleSourceCompareSession
             {
                 this.withdraw();
             }
+            else if (this.lease?.signal.aborted && ['source-revision-changed', 'draft-revision-changed'].includes(this.lease.envelope.abortReason ?? ''))
+            {
+                // The document owner retired the old revision's async work. Keep
+                // its same-document last-valid cache visible, using a new canonical
+                // tool lease. A new request needs the next actual continuity capture.
+                this.lease = this.runtime.beginToolTask('source-compare');
+                this.currentRequest = null;
+            }
         });
         this.createRequest(tool.before.anchor.contentDigest);
         return { tool, source };
