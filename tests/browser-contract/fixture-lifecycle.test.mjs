@@ -40,7 +40,7 @@ const browserTemporalContext = qualificationTemporalContext({
 });
 
 const providerSource = String.raw`#!/usr/bin/env node
-import { access, appendFile, mkdir, symlink, writeFile } from 'node:fs/promises'
+import { access, appendFile, chmod, mkdir, symlink, writeFile } from 'node:fs/promises'
 const chunks = []
 for await (const chunk of process.stdin) chunks.push(chunk)
 const request = JSON.parse(Buffer.concat(chunks).toString('utf8'))
@@ -85,7 +85,10 @@ if (request.operation === 'createPublishedArticle') {
     await writeFile(outside, storage, { mode: 0o600 })
     await symlink(outside, root + '/user.storage-state.json')
   } else {
-    await writeFile(root + '/user.storage-state.json', storage, { mode: Number(process.env.FAKE_STORAGE_MODE ?? 0o600) })
+    const storageMode = Number(process.env.FAKE_STORAGE_MODE ?? 0o600)
+    await writeFile(root + '/user.storage-state.json', storage, { mode: storageMode })
+    // The permission counterexample must survive a restrictive inherited umask.
+    await chmod(root + '/user.storage-state.json', storageMode)
   }
   entity = { id: 303, storageStateFile: 'user.storage-state.json', capabilities: { webAuthnRegistration: true } }
 } else if (request.operation === 'createAdminSession') {
