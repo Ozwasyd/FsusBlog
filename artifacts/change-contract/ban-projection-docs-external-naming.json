@@ -4,16 +4,21 @@
         {
             "id": "environment-variable",
             "paths": [
-                "src/backend/Infrastructure/Security/BanStateProjection.cs"
+                "src/backend/Infrastructure/Security/BanStateProjection.cs",
+                "tools/test/correctness-attempt-migration.mjs"
             ],
-            "reason": "Preserve the registered C# environment-variable surface while correcting only XML documentation of missing authority facts and the concurrent local-state reread. Runtime tokens and signatures are unchanged."
+            "reason": "Preserve the registered C# environment-variable surface while correcting only XML documentation of missing authority facts and the concurrent local-state reread. Runtime tokens and signatures are unchanged. Imported prerequisite binding: preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster."
         },
         {
             "id": "json-wire-key",
             "paths": [
-                "tests/backend/packages.lock.json"
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/test-retention-replacements.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve package-manager-owned serialized package names and JSON keys while consuming the exact parent-supplied root #3568 lock blob. No dependency versions, external keys, or test oracles are renamed."
+            "reason": "Preserve package-manager-owned serialized package names and JSON keys while consuming the exact parent-supplied root #3568 lock blob. No dependency versions, external keys, or test oracles are renamed. Imported prerequisite binding: preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests."
         }
     ]
 }
