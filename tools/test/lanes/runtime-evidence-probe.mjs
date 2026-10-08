@@ -66,6 +66,9 @@ const { buildLoadRequestObservations, buildLoadRequestSample, buildLoadResourceO
     observeLoadTransportError, validateLoadWorkerRegistration, verifyLoadRequestObservations }
     = await import(new URL('../load-request-observations.mjs', import.meta.url).href);
 
+const { createOpenLoopLoadGeneratorCollector, validateLoadGeneratorObservationPolicy, verifyOpenLoopLoadGeneratorObservations }
+    = await import(new URL('../open-loop-load-generator-observations.mjs', import.meta.url).href);
+
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
 if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
 {
@@ -290,6 +293,12 @@ export function readLoadTransportPolicy(profile, { policyText = readPerfPolicy()
 {
     const { value } = readExplicitLoadProfilePolicy(profile, 'transportPolicy', policyText);
     return validateLoadTransportPolicy(value);
+}
+
+export function readLoadGeneratorPolicy(profile, { policyText = readPerfPolicy().text } = {})
+{
+    const { value } = readExplicitLoadProfilePolicy(profile, 'generatorObservationPolicy', policyText);
+    return validateLoadGeneratorObservationPolicy(value);
 }
 
 function readLoadTransportRunBinding()
@@ -749,6 +758,113 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
     openLoop: result, routeStatistics, transportEvidence, measurementWindow, requestAvailability, loadRequestObservations,
     candidateBinding, candidateIdentity: candidateBinding.contentDigest,
     qualificationEligible: false };
+}
+
+/** Compose the actual canonical probe and owned collector without granting native authority. */
+export async function runOpenLoopLoadGeneratorProbe(schedule, { generatorPolicy, backendIdentity, ...options })
+{
+    for (const name of ['onMeasurementStart', 'onMeasurementEnd', 'onTransportObservation'])
+    {
+        if (options[name] !== undefined && typeof options[name] !== 'function')
+        {
+            throw new Error(`${name} requires its synchronous callback before HTTP`);
+        }
+    }
+    const collector = createOpenLoopLoadGeneratorCollector({ policy: generatorPolicy, schedule,
+        sourceSha: options.sourceSha, backendIdentity });
+    let collectionFailure = null;
+    let generatorObservations = null;
+    let generatorValidation;
+    function synchronousPort(name, value)
+    {
+        const port = options[name];
+        if (port === undefined)
+        {
+            return;
+        }
+        if (typeof port !== 'function')
+        {
+            throw new Error(`${name} requires its synchronous callback`);
+        }
+        const returned = port(value);
+        if (returned && typeof returned.then === 'function')
+        {
+            throw new Error(`${name} must complete synchronously`);
+        }
+    }
+    function collect(name, value)
+    {
+        if (collectionFailure)
+        {
+            return;
+        }
+        try
+        {
+            collector[name](value);
+        }
+        catch (error)
+        {
+            collectionFailure = error.message;
+            collector.dispose();
+        }
+    }
+    let probe;
+    try
+    {
+        probe = await runOpenLoopRouteContractProbe(schedule, { ...options,
+            onMeasurementStart: (value) =>
+            {
+                // Admission failure still refuses before the first actual request.
+                collector.onMeasurementStart(value);
+                synchronousPort('onMeasurementStart', value);
+            },
+            onMeasurementEnd: (value) =>
+            {
+                collect('onMeasurementEnd', value);
+                synchronousPort('onMeasurementEnd', value);
+            },
+            onTransportObservation: (value) =>
+            {
+                // Preserve the entire actual ledger and request cleanup on collector failure.
+                collect('onTransportObservation', value);
+                synchronousPort('onTransportObservation', value);
+            } });
+        if (!collectionFailure)
+        {
+            const inputs = { sourceSha: options.sourceSha, schedule, timeline: probe.openLoop.timeline,
+                measurementWindow: probe.measurementWindow, transportEvidence: probe.transportEvidence,
+                policy: generatorPolicy, generatorIdentity: collector.identity };
+            try
+            {
+                generatorObservations = collector.finish(inputs);
+                generatorValidation = verifyOpenLoopLoadGeneratorObservations(generatorObservations, inputs);
+            }
+            catch (error)
+            {
+                collectionFailure = error.message;
+            }
+        }
+    }
+    finally
+    {
+        collector.dispose();
+    }
+    if (collectionFailure)
+    {
+        generatorValidation = { passed: false, generatorPassed: false, qualificationEligible: false,
+            failureKind: 'infra.load-generator-collector-unavailable', reason: collectionFailure };
+    }
+    const generatorEvidence = sealContentDigest({ schema: 'fsusblog.release-load-generator-source-evidence.v1',
+        identity: collector.identity, observations: generatorObservations, validation: generatorValidation,
+        status: generatorObservations ? 'observed' : 'probe-failed', reason: collectionFailure,
+        runtimeLeaseVerified: false, qualificationEligible: false });
+    const candidateBinding = sealContentDigest({ ...probe.candidateBinding,
+        policyDigest: digestCanonical({ loadPolicyDigest: probe.candidateBinding.policyDigest,
+            generatorPolicyDigest: collector.identity.policyDigest }),
+        generatorIdentityDigest: collector.identity.contentDigest, generatorEvidenceDigest: generatorEvidence.contentDigest });
+    return { ...probe, serverProbeStatus: probe.status,
+        status: probe.status === 'ok' && generatorValidation.passed ? 'ok' : 'failed',
+        generatorEvidence, candidateBinding, candidateIdentity: candidateBinding.contentDigest, qualificationEligible: false };
 }
 
 async function runHttpProbe(paths, options = {})
@@ -4704,10 +4820,11 @@ async function loadProfile(profile, outFile)
     }
     const routePolicy = schedule ? readLoadRouteStatisticsPolicy(profile, schedule) : null;
     const transportPolicy = schedule ? readLoadTransportPolicy(profile) : null;
+    const generatorPolicy = schedule ? readLoadGeneratorPolicy(profile) : null;
     const sourceSha = schedule ? currentLoadSourceSha() : null;
     const runBinding = schedule ? readLoadTransportRunBinding() : null;
     const iterations = schedule?.plannedCount ?? policy.effective.concurrency * policy.effective.rounds;
-    const probe = schedule ? await runOpenLoopRouteContractProbe(schedule, { routePolicy, sourceSha, transportPolicy, runBinding }) : await runRouteContractProbe(safeBinaryRouteIds, {
+    const probe = schedule ? await runOpenLoopLoadGeneratorProbe(schedule, { routePolicy, sourceSha, transportPolicy, runBinding, generatorPolicy }) : await runRouteContractProbe(safeBinaryRouteIds, {
         iterations,
         concurrency: policy.effective.concurrency
     });
@@ -4742,7 +4859,8 @@ async function loadProfile(profile, outFile)
         ...(schedule ? { candidateIdentity: probe.candidateIdentity, qualificationEligible: false,
             routeStatistics: probe.routeStatistics, candidateBinding: probe.candidateBinding,
             transportEvidence: probe.transportEvidence, measurementWindow: probe.measurementWindow,
-            requestAvailability: probe.requestAvailability, loadRequestObservations: probe.loadRequestObservations } : {}),
+            requestAvailability: probe.requestAvailability, loadRequestObservations: probe.loadRequestObservations,
+            generatorEvidence: probe.generatorEvidence } : {}),
         declared: policy.declared,
         effective: policy.effective,
         thresholds: policy.thresholds,

@@ -4450,6 +4450,22 @@
             }
         },
         {
+            "file": "tests/tools/open-loop-load-generator-observations.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "perf",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "open-loop-load-generator-observations",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
             "file": "tests/tools/open-loop-load-runtime-port.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

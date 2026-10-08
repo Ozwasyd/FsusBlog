@@ -8,10 +8,11 @@ import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const { encodeAedsFrame } = await import(new URL('../frontend/support/aeds-envelope.mjs', import.meta.url).href);
-const { readLoadArrivalPolicy, readLoadRouteStatisticsPolicy, readLoadTransportPolicy, runOpenLoopRouteContractProbe } = await import(new URL('../../tools/test/lanes/runtime-evidence-probe.mjs', import.meta.url).href);
+const { readLoadArrivalPolicy, readLoadGeneratorPolicy, readLoadRouteStatisticsPolicy, readLoadTransportPolicy, runOpenLoopLoadGeneratorProbe, runOpenLoopRouteContractProbe } = await import(new URL('../../tools/test/lanes/runtime-evidence-probe.mjs', import.meta.url).href);
 const { fetchRouteSample, producerRouteIds, routeContract } = await import(new URL('../../tools/test/lanes/runtime-http-route-contract.mjs', import.meta.url).href);
 const { buildOpenLoopLoadSchedule, dispatchOpenLoopLoadSchedule } = await import(new URL('../../tools/test/open-loop-load-schedule.mjs', import.meta.url).href);
 const { createOpenLoopLoadClientTransport } = await import(new URL('../../tools/test/open-loop-load-client-transport.mjs', import.meta.url).href);
+const { loadGeneratorMetricNames } = await import(new URL('../../tools/test/open-loop-load-generator-observations.mjs', import.meta.url).href);
 const { observeLoadIssuer } = await import(new URL('../../tools/test/load-request-observations.mjs', import.meta.url).href);
 const { digestCanonical } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url).href);
 
@@ -445,4 +446,155 @@ test('canonical actual dispatcher deadline retains typed provenance and counts e
     assert.ok(probe.loadRequestObservations.samples.every((sample) => sample.outcome === 'timeout' && sample.errorKind === 'dispatcher-deadline'));
     assert.equal(probe.status, 'failed');
     assert.equal(probe.candidateBinding.qualificationEligible, false);
+});
+
+
+function fixtureGeneratorPolicy(maximumGeneratorCpuPercent = 10000)
+{
+    const metrics = Object.fromEntries(loadGeneratorMetricNames.map((metric) => [metric, { classification: 'diagnostic-only' }]));
+    metrics.generatorCpuPercent = { classification: 'qualification-required', maximum: maximumGeneratorCpuPercent };
+    metrics.scheduleLagP99Ms = { classification: 'qualification-required', maximum: 500 };
+    return { schema: 'fsusblog.load-generator-observation-policy.v1', samplingIntervalMs: 80,
+        eventLoopResolutionMs: 2, maximumSampleDelayMs: 75, maximumBoundaryDelayMs: 20,
+        maximumGeneratorCpuPercent, maximumGeneratorScheduleLagP99Ms: 500, metrics };
+}
+
+async function separateGeneratorBackendFixture(t, sourceSha, mode)
+{
+    const routes = Object.fromEntries(producerRouteIds('runtime-load-soak').map((id) =>
+    {
+        const route = routeContract(id);
+        return [route.pathTemplate, Buffer.from(encodeAedsFrame(route.expectedAedsFrameType, new Uint8Array(16))).toString('base64')];
+    }));
+    const script = `
+        import http from 'node:http';
+        const config = JSON.parse(process.argv[1]);
+        const timers = new Set();
+        const server = http.createServer((request, response) => {
+            if (config.mode === 'reset') { request.socket.destroy(); return; }
+            const timer = setTimeout(() => {
+                timers.delete(timer);
+                response.writeHead(200, { 'content-type': 'application/octet-stream' });
+                response.end(Buffer.from(config.routes[request.url], 'base64'));
+            }, config.mode === 'slow' ? 100 : 1);
+            timers.add(timer);
+            response.once('close', () => { clearTimeout(timer); timers.delete(timer); });
+        });
+        server.listen(0, '127.0.0.1', () => process.send({ pid: process.pid, port: server.address().port }));
+        process.on('message', () => {
+            for (const timer of timers) clearTimeout(timer);
+            server.closeAllConnections();
+            server.close(() => process.exit(0));
+        });
+    `;
+    const child = spawn(process.execPath, ['--input-type=module', '-e', script, JSON.stringify({ routes, mode })],
+        { stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => stderr += chunk);
+    const startupTimer = setTimeout(() => child.kill(), 3000);
+    t.after(async () =>
+    {
+        clearTimeout(startupTimer);
+        if (child.exitCode !== null || child.signalCode !== null)
+        {
+            return;
+        }
+        const exited = new Promise((resolve) => child.once('exit', resolve));
+        const timer = setTimeout(() => child.kill(), 2000);
+        child.send('close');
+        await exited;
+        clearTimeout(timer);
+    });
+    const ready = await new Promise((resolve, reject) =>
+    {
+        child.once('message', resolve);
+        child.once('error', reject);
+        child.once('exit', () => reject(new Error(`fixture backend exited: ${stderr}`)));
+    });
+    clearTimeout(startupTimer);
+    assert.equal(ready.pid, child.pid);
+    assert.notEqual(ready.pid, process.pid);
+    return { endpoint: `http://127.0.0.1:${ready.port}`, backendIdentity: { pid: ready.pid, sourceSha } };
+}
+
+async function actualGeneratorProbe(t, { mode = 'fast', maximumCpu = 10000, signal } = {})
+{
+    const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const fixture = await separateGeneratorBackendFixture(t, sourceSha, mode);
+    const { schedule: original, routePolicy, routeIds } = canonicalFixturePolicies();
+    const schedule = buildOpenLoopLoadSchedule({ ...original.policy, durationMs: 320, qualificationWindowMs: 160 }, routeIds);
+    if (mode === 'slow')
+    {
+        routePolicy.routes.forEach((route) => Object.assign(route.thresholds, { latencyP95Ms: 20, latencyP99Ms: 20, latencyMaxMs: 20 }));
+    }
+    const probe = await runOpenLoopLoadGeneratorProbe(schedule, { sourceSha, routePolicy,
+        requestBaseUrl: fixture.endpoint, transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(fixture.endpoint),
+        workerRegistration: fixtureWorkerRegistration(), generatorPolicy: fixtureGeneratorPolicy(maximumCpu),
+        backendIdentity: fixture.backendIdentity, signal });
+    return { probe, schedule, fixture };
+}
+
+test('canonical generator policy requires explicit seventeen classifications and both mandatory maxima', () =>
+{
+    const policy = fixtureGeneratorPolicy();
+    const text = `loadProfiles:\n  fixture:\n    generatorObservationPolicy: ${JSON.stringify(policy)}\n`;
+    assert.deepEqual(readLoadGeneratorPolicy('fixture', { policyText: text }), policy);
+    assert.throws(() => readLoadGeneratorPolicy('fixture', { policyText: 'loadProfiles:\n  fixture:\n' }), /one explicit generatorObservationPolicy/u);
+    assert.throws(() => readLoadGeneratorPolicy('fixture', { policyText: text + `    generatorObservationPolicy: ${JSON.stringify(policy)}\n` }), /one explicit/u);
+    const incomplete = structuredClone(policy);
+    delete incomplete.metrics.idleSockets;
+    assert.throws(() => readLoadGeneratorPolicy('fixture', { policyText: `loadProfiles:\n  fixture:\n    generatorObservationPolicy: ${JSON.stringify(incomplete)}\n` }), /exact explicit fields/u);
+});
+
+test('canonical generator integration binds actual process intervals and Agent ledger without backend substitution', async (t) =>
+{
+    const { probe, schedule, fixture } = await actualGeneratorProbe(t);
+    assert.equal(probe.generatorEvidence.status, 'observed');
+    assert.equal(probe.generatorEvidence.validation.generatorPassed, true);
+    assert.equal(probe.generatorEvidence.validation.qualificationEligible, false);
+    const receipt = probe.generatorEvidence.observations;
+    assert.equal(receipt.identity.pid, process.pid);
+    assert.equal(receipt.identity.backendIdentity.pid, fixture.backendIdentity.pid);
+    assert.ok(receipt.samples.length >= 5);
+    assert.ok(receipt.intervals.every((interval) => interval.metrics.generatorRssBytes > 0));
+    assert.ok(loadGeneratorMetricNames.every((metric) => Number.isFinite(receipt.metrics[metric])));
+    assert.deepEqual(receipt.events, probe.transportEvidence.observations);
+    assert.equal(probe.loadRequestObservations.sampleCount, schedule.plannedCount);
+    assert.equal(probe.candidateBinding.generatorEvidenceDigest, probe.generatorEvidence.contentDigest);
+    assert.equal(probe.candidateBinding.generatorIdentityDigest, receipt.identity.contentDigest);
+    assert.equal(probe.generatorEvidence.runtimeLeaseVerified, false);
+    assert.equal(probe.status, 'ok');
+});
+
+test('canonical generator saturation and slow-server route failure preserve separate measured origins', async (t) =>
+{
+    const saturated = await actualGeneratorProbe(t, { maximumCpu: 0 });
+    assert.equal(saturated.probe.generatorEvidence.validation.failureKind, 'infra.load-generator-saturated');
+    assert.equal(saturated.probe.serverProbeStatus, 'ok');
+    assert.equal(saturated.probe.status, 'failed');
+    const slow = await actualGeneratorProbe(t, { mode: 'slow' });
+    assert.equal(slow.probe.generatorEvidence.validation.generatorPassed, true);
+    assert.equal(slow.probe.generatorEvidence.validation.failureKind, null);
+    assert.equal(slow.probe.serverProbeStatus, 'failed');
+    assert.equal(slow.probe.status, 'failed');
+});
+
+test('canonical collector vocabulary gap and interruption retain requests and cleanup while failing qualification', async (t) =>
+{
+    const reset = await actualGeneratorProbe(t, { mode: 'reset' });
+    assert.equal(reset.probe.generatorEvidence.status, 'probe-failed');
+    assert.equal(reset.probe.generatorEvidence.validation.failureKind, 'infra.load-generator-collector-unavailable');
+    assert.match(reset.probe.generatorEvidence.reason, /vocabulary/u);
+    assert.equal(reset.probe.loadRequestObservations.sampleCount, reset.schedule.plannedCount);
+    assert.equal(reset.probe.loadRequestObservations.errorRate, 1);
+    assert.equal(reset.probe.transportEvidence.finalSnapshot.activeRequests, 0);
+    assert.equal(reset.probe.transportEvidence.finalSnapshot.socketCount, 0);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 140);
+    t.after(() => clearTimeout(timer));
+    const interrupted = await actualGeneratorProbe(t, { mode: 'slow', signal: controller.signal });
+    assert.equal(interrupted.probe.status, 'failed');
+    assert.equal(interrupted.probe.generatorEvidence.validation.passed, false);
+    assert.ok(interrupted.probe.openLoop.timeline.observedActiveWindowMs < interrupted.schedule.policy.durationMs);
+    assert.equal(interrupted.probe.transportEvidence.finalSnapshot.closed, true);
 });
