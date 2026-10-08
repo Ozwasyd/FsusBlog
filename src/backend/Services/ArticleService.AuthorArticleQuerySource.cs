@@ -35,7 +35,7 @@ public partial class ArticleService : IAuthorArticleQuerySourceReader
                     ORDER BY id
                     LIMIT @Limit;
                     """,
-                    new SugarParameter("@Statuses", statuses.Select(static status => (int)status).ToArray()),
+                    new SugarParameter("@Statuses", statuses.Select(static status => (int)status).ToArray()) { IsArray = true },
                     new SugarParameter("@Limit", AuthorArticleQuerySourceInspection.MaxBatchSize + 1)).ConfigureAwait(false);
                 while (await reader.ReadAsync(gateCt).ConfigureAwait(false))
                 {
@@ -85,7 +85,7 @@ public partial class ArticleService : IAuthorArticleQuerySourceReader
                       AND a.status IN (0, 1, 2)
                     ORDER BY a.id;
                     """,
-                    new SugarParameter("@ArticleIds", admittedArticleIds.ToArray())).ConfigureAwait(false);
+                    new SugarParameter("@ArticleIds", admittedArticleIds.ToArray()) { IsArray = true }).ConfigureAwait(false);
                 while (await reader.ReadAsync(gateCt).ConfigureAwait(false))
                 {
                     fields.Add(new(
