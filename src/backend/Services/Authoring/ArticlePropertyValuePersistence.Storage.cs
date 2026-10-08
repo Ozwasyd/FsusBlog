@@ -43,6 +43,8 @@ public sealed partial class ArticlePropertyValuePersistence
                 case ArticlePropertyUrlValue url:
                     bytes += Encoding.UTF8.GetByteCount(url.Url);
                     break;
+                case ArticlePropertySingleSelectValue single when single.OptionId == Guid.Empty:
+                    throw Integrity("article_property_value_storage_options_invalid");
                 case ArticlePropertyMultiSelectValue options:
                     if (options.OptionIds.Count > ArticlePropertyDefinitionContract.MaxOptionsPerDefinition
                         || options.OptionIds.Any(static id => id == Guid.Empty)
