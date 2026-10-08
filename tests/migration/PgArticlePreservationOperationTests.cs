@@ -186,7 +186,31 @@ public sealed class PgArticlePreservationOperationTests
             "unsupported-object" => original.Select(fact => fact.Name == "objects.unsupported" ? fact with { Value = "1" } : fact).ToImmutableArray(),
             _ => throw new ArgumentOutOfRangeException(nameof(drift))
         };
-        Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceFingerprints.RequireKnownSchema(CurrentSchemaProviderKind.PostgreSql, changed));
+        OfflineMigrationSourceFingerprintException error = Assert.Throws<OfflineMigrationSourceFingerprintException>(
+            () => OfflineMigrationSourceFingerprints.RequireKnownSchema(CurrentSchemaProviderKind.PostgreSql, changed));
+        Assert.Equal("source_fingerprint_unknown", error.Code);
+        Assert.Equal(error.Code, error.Message);
+        Assert.Null(error.InnerException);
+        Assert.Empty(error.AmbiguousBaselineIdSha256s);
+        string name = drift switch
+        {
+            "unknown-table" => "table/unknown",
+            "partial-schema" => original[^1].Name,
+            _ => "objects.unsupported"
+        };
+        string? expected = original.FirstOrDefault(fact => fact.Name == name)?.Value;
+        string? actual = changed.FirstOrDefault(fact => fact.Name == name)?.Value;
+        OfflineMigrationFingerprintDifferenceKind kind = expected is null
+            ? OfflineMigrationFingerprintDifferenceKind.Extra
+            : actual is null ? OfflineMigrationFingerprintDifferenceKind.Missing
+            : OfflineMigrationFingerprintDifferenceKind.Changed;
+        Assert.Contains(error.Differences, difference =>
+            difference.BaselineIdSha256 == OfflineMigrationSourceFingerprintException.HashText(OfflineMigrationSourceFingerprints.LegacyId)
+            && difference.Category == OfflineMigrationFingerprintCategory.Schema && difference.Kind == kind
+            && difference.FactNameSha256 == OfflineMigrationSourceFingerprintException.HashText(name)
+            && difference.ExpectedValueSha256 == (expected is null ? null : OfflineMigrationSourceFingerprintException.HashText(expected))
+            && difference.ActualValueSha256 == (actual is null ? null : OfflineMigrationSourceFingerprintException.HashText(actual))
+            && difference.ExpectedFactCount == original.Length && difference.ActualFactCount == changed.Length);
     }
 
     private static OfflineMigrationPlan JournalPlan()
