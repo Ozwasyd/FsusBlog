@@ -16,6 +16,43 @@ test('catalog retains the fixed runtime-state audit baseline', () => {
   assert.equal(catalog.auditBaseline, '3bd957a74a9846567a6f6270c03349b8219d6dc1')
   assert.equal(catalog.implementationBaseline, 'b49320d24ed605ca98c5f24df5f33c1c767b4451')
 })
+for (const stepId of ['security-runtime-core', 'resilience']) {
+    test(`${stepId} binds public-content creation to the existing fixture shell owner`, () => {
+        const step = runtimeSteps().find((candidate) => candidate.id === stepId)
+        const analysis = analyzeRuntimeStepCommand(step)
+        assert.ok(analysis.calledFunctions.includes('InvokeLaneFixtureOrchestrator'))
+        assert.ok(analysis.findings.some((finding) =>
+            finding.operation === 'creates' && finding.domain === 'fixture.public-content'
+            && finding.source === 'tools/test/lanes/_suite-support.sh#InvokeLaneFixtureOrchestrator'))
+    })
+    test(`${stepId} rejects omitted or incorrect public-content creation`, () => {
+        for (const replacement of [null, 'fixture.runtime-config']) {
+            rejects((data) => {
+                const entry = data.steps.find((candidate) => candidate.stepId === stepId)
+                entry.creates = entry.creates.filter((domain) => domain !== 'fixture.public-content')
+                if (replacement) entry.creates.push(replacement)
+                entry.creates.sort()
+                entry.operationOverlaps = entry.operationOverlaps.filter((overlap) => overlap.domain !== 'fixture.public-content')
+            }, new RegExp(`${stepId} analyzer detected undeclared creates fixture\\.public-content`))
+        }
+    })
+    test(`${stepId} rejects omitted or incorrect public-content operation overlap`, () => {
+        rejects((data) => {
+            const entry = data.steps.find((candidate) => candidate.stepId === stepId)
+            entry.operationOverlaps = entry.operationOverlaps.filter((overlap) => overlap.domain !== 'fixture.public-content')
+        }, new RegExp(`${stepId} has unexplained operation overlap for fixture\\.public-content`))
+        rejects((data) => {
+            const entry = data.steps.find((candidate) => candidate.stepId === stepId)
+            entry.operationOverlaps.find((overlap) => overlap.domain === 'fixture.public-content').operations = ['reads', 'writes']
+        }, new RegExp(`${stepId} has unexplained operation overlap for fixture\\.public-content`))
+    })
+    test(`${stepId} rejects a forged public-content creation owner`, () => {
+        rejects((data) => {
+            const entry = data.steps.find((candidate) => candidate.stepId === stepId)
+            entry.evidence.find((proof) => proof.operation === 'creates' && proof.domain === 'fixture.public-content').source = 'tools/test/lanes/_suite-support.sh#RunIntegrationOnly'
+        }, new RegExp(`${stepId} invalid static analyzer proof for creates fixture\\.public-content`))
+    })
+}
 test('rejects omitted and extra steps', () => { rejects((data) => data.steps.pop(), /missing from catalog/); rejects((data) => data.steps.push({stepId:'unknown',stateAccess:'none'}), /extra catalog step/) })
 test('rejects unknown, broad and unordered domains', () => { rejects((data) => data.steps.find((x)=>x.stepId==='bootstrap').writes.push('all-runtime-state'), /unknown domain/); rejects((data) => data.steps.find((x)=>x.stepId==='bootstrap').writes.reverse(), /sorted and unique/) })
 test('rejects no proof, bad reset and stateful coordination', () => { rejects((data) => data.steps.find((x)=>x.stepId==='bootstrap').evidence=[], /no operation-specific proof/); rejects((data) => data.steps.find((x)=>x.stepId==='runtime-integration').resetBefore=[{producer:'x',postcondition:'x'}], /invalid resetBefore/); rejects((data) => data.steps.find((x)=>x.stepId==='security-join').stateAccess='declared', /coordination-only/) })
