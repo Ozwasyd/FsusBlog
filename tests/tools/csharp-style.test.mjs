@@ -1271,7 +1271,21 @@ test('contextual record expressions do not exempt lowercase types named with', (
 {
     withFixture((fixtureRoot) =>
     {
-        for (const declaration of ['record with;', 'record with(int Value);', 'record class with;', 'class with', 'struct with', 'record lowerCase;', '[System.Obsolete]\npublic class Container\n{\n    record with;\n}', '#nullable enable\npublic class Container(int Value)\n{\n    record with;\n}'])
+        for (const declaration of [
+            'record with;',
+            'record with(int Value);',
+            'record class with;',
+            'class with',
+            'struct with',
+            'record lowerCase;',
+            '[System.Obsolete]\npublic class Container\n{\n    record with;\n}',
+            '#nullable enable\npublic class Container(int Value)\n{\n    record with;\n}',
+            '[System.Xml.Serialization.XmlInclude(typeof(int[]))]\npublic class Container(int value)\n{\n    record with;\n}',
+            '[System.Xml.Serialization.XmlInclude(\n    typeof(int[]))]\npublic class Container(int value)\n{\n    record with;\n}',
+            '[Some(new int[] { 1 })]\npublic class Container(int value)\n{\n    record with;\n}',
+            '[System.Obsolete]\n[Some(new int[] { 1 })]\npublic class Container(int value)\n{\n    record with;\n}',
+            'public class Container([Some(new int[] { 1 })] int value)\n{\n    record with;\n}'
+        ])
         {
             writeFixture(fixtureRoot, 'src/sample/BadType.cs', `namespace Fixture;\n\n${declaration}${/[;}]$/u.test(declaration) ? '\n' : '\n{\n}\n'}`);
             const result = runChecker(fixtureRoot, ['--mode', 'full']);
@@ -1409,5 +1423,32 @@ test('policy-only rebind preserves the real original baseline and refuses substi
         symlinkSync(path.join(fixtureRoot, 'original-baseline.json'), path.join(fixtureRoot, baselinePath));
         assert.equal(run().status, 1);
         assert.equal(readFileSync(path.join(fixtureRoot, 'original-baseline.json'), 'utf8'), originalBytes);
+    });
+});
+
+
+test('array-valued attributes retain genuine contextual record expressions', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        writeFixture(fixtureRoot, 'src/sample/AttributedRecord.cs', `namespace Fixture;
+
+[System.Xml.Serialization.XmlInclude(typeof(int[]))]
+public sealed record AttributedRecord(string Name)
+{
+    public AttributedRecord Normalize(AttributedRecord record)
+    {
+        return Copy(
+            record with
+            {
+                Name = Name.Trim()
+            });
+    }
+
+    private static AttributedRecord Copy(AttributedRecord value) => value;
+}
+`);
+        const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/AttributedRecord.cs']);
+        assert.equal(result.status, 0, output(result));
     });
 });

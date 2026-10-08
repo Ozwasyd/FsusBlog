@@ -601,11 +601,44 @@ function hasInlineBlockOpeningBrace(value, contextualRecordExpression = false)
 
 // Local type declarations are illegal C#. Track lexical scopes and argument
 // continuations instead of exempting the contextual identifier "with" by name.
+function stripLeadingScopeAttributes(value)
+{
+    let header = value.trim();
+    while (header.startsWith('['))
+    {
+        let depth = 0;
+        let end = -1;
+        for (let index = 0; index < header.length; index += 1)
+        {
+            if (header[index] === '[')
+            {
+                depth += 1;
+            }
+            else if (header[index] === ']')
+            {
+                depth -= 1;
+                if (depth === 0)
+                {
+                    end = index;
+                    break;
+                }
+            }
+        }
+        if (end < 0)
+        {
+            return '';
+        }
+        header = header.slice(end + 1).trimStart();
+    }
+    return header;
+}
+
 function contextualRecordExpressionLines(codeLines)
 {
     const scopes = [];
     let header = '';
     let parentheses = 0;
+    let brackets = 0;
     return codeLines.map((line) =>
     {
         if (line.trim().startsWith('#'))
@@ -616,6 +649,14 @@ function contextualRecordExpressionLines(codeLines)
             && (parentheses > 0 || scopes.includes('expression') || /(?:=|=>|\breturn)\s*$/u.test(header));
         for (const character of line)
         {
+            if (character === '[')
+            {
+                brackets += 1;
+            }
+            else if (character === ']')
+            {
+                brackets = Math.max(0, brackets - 1);
+            }
             if (character === '(')
             {
                 parentheses += 1;
@@ -624,21 +665,21 @@ function contextualRecordExpressionLines(codeLines)
             {
                 parentheses = Math.max(0, parentheses - 1);
             }
-            if (character === '{')
+            if (character === '{' && brackets === 0)
             {
-                const declaration = /^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\s+[A-Za-z_]\w*\b/u.test(header.trim().replace(/^(?:\[[^\]]*\]\s*)+/u, ''));
+                const declaration = /^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\s+[A-Za-z_]\w*\b/u.test(stripLeadingScopeAttributes(header));
                 const executable = scopes.includes('expression') || expression
                     || /(?:\)|=>|=|\bwith|\b(?:else|try|finally|do))\s*$/u.test(header)
                     || /\bnew\b/u.test(header);
                 scopes.push(declaration && !expression ? 'declaration' : executable ? 'expression' : 'unknown');
                 header = '';
             }
-            else if (character === '}')
+            else if (character === '}' && brackets === 0)
             {
                 scopes.pop();
                 header = '';
             }
-            else if (character === ';')
+            else if (character === ';' && brackets === 0)
             {
                 header = '';
             }
