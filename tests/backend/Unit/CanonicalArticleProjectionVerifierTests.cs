@@ -563,9 +563,9 @@ public sealed class CanonicalArticleProjectionVerifierTests
                 }
                 return scenario.StartsWith("publication", StringComparison.Ordinal)
                     ? verifier.AwaitCurrentOutputAsync(publication, publicationInvocation,
-                        PublicContentFixtureSeeder.ProjectionConvergencePollInterval, callerBudget.Token)
+                        PublicContentFixtureSeeder.s_projectionConvergencePollInterval, callerBudget.Token)
                     : verifier.AwaitCurrentOutputAsync(authority, currentInvocation,
-                        PublicContentFixtureSeeder.ProjectionConvergencePollInterval, callerBudget.Token);
+                        PublicContentFixtureSeeder.s_projectionConvergencePollInterval, callerBudget.Token);
             }
             return scenario.StartsWith("publication", StringComparison.Ordinal)
                 ? verifier.VerifyAsync(publication, publicationInvocation)
