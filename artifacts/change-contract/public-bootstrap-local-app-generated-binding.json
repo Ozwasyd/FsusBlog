@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/development/frontend-style-policy.json",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "tools/frontend/check-frontend-style.mjs",
+        "tools/frontend/style-toolchain/eslint.config.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "b5d84010111884355a55cddebc66370c92e1dea6a91740f75800593c6059e4b4"
+        }
+    ]
+}
