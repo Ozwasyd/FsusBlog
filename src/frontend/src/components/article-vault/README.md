@@ -1,5 +1,50 @@
 # Vault conflict evidence presentation
 
+## Exact stored review increment
+
+`VaultStoredConflictReview.vue` composes the actual conflict and proposal leaves
+from the new server `ArticleVaultConflictReviewReader.ReadAsync`. That reader
+uses canonical `IArticleVaultResolutionProposalStore.ReadExactAsync` and
+`ArticleVaultRecoveryCheckpointReader.ReadAsync` at `8b98366438ed76de4b6b57e682dba3939f89eb87`.
+The accepted-source/preflight bytes on this baseline match
+`9cd6ae50b233eee35f291c9690d316bbfee37941`; no alternate source reader is added.
+The server checks the authenticated principal against the original sealed bundle,
+the trusted site/Vault/device/document binding, and existing live-session permission
+snapshots before and after reading. Its optional `CurrentEvidence` is present only
+when the actual canonical `VerifyCurrent` result passes. Historical stale proposals
+remain reviewable with their rejected validation result and no current decisions.
+Private accepted-source packages are not included.
+
+These are in-process reader and read-only display subsets, not a new public JSON
+API, authentication grant, parser or generated wire contract. The integration host
+must supply actual current inputs, bind its configured permission site to the
+trusted Vault site, and expose this reader through the canonical AEDS boundary.
+Its generated frontend binding/authorized transport is still required.
+
+The host wraps each actual response with the originating display context,
+reference and `requestIdentity`. Context includes the current actor, session epoch,
+site, Vault, device and document. Every read, including a refresh of the same exact
+reference, needs a distinct host-issued request identity. Changing these props or
+setting `loading`/a current read refusal hides old results immediately. The host
+must discard stale async responses and invalidate results when current facts or
+permissions change; correlation is not machine verification. Never log or render
+the session correlation epoch as a credential.
+
+`request-read` and `request-return` carry the current context and explicit proposal/
+operation-checkpoint reference. Native fragment links provide actual navigation
+between the mounted conflict and review sections; the host owns workspace return,
+router registration and focus. No route name is invented. `request-action` remains
+the exact per-item intent from `VaultConflictList`, not a writer command.
+
+Canonical operation checkpoints (`operation-checkpoint.v1`, sequence starting at
+zero) are displayed separately from resolution recovery journals. They are never
+relabelled as the latter. Historical `synced` records are not current native/base
+qualification. Canonical missing-capability reasons stay visible. Actual producer
+source `5928e10…`/`c962b70a…` exposes status and agent stop/unlink, not resolution
+cancel/recover. Those product controls remain disabled; no substitute command,
+receipt, journal store or permission flag is implemented. Root enumeration/private
+temp preparation at `5e7fd98…` does not supply final replace/remove or base commit.
+
 `VaultConflictList.vue` is a read-only product composition. The host supplies
 authorized, codec-decoded, current-bound `ArticleVaultConflictEvidence` values
 and the actual shared `article-vault-conflict-evidence.schema.json` document.
