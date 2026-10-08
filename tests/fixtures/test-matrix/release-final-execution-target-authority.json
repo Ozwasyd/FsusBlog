@@ -4210,8 +4210,8 @@
         },
         {
             "path": "tools/test-inventory/discovery.mjs",
-            "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
-            "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+            "contentDigest": "sha256:09c51bf5b99208b42bb7977903f3b6879fbf9934a356111d643784cc92b1135b",
+            "indexDigest": "sha256:09c51bf5b99208b42bb7977903f3b6879fbf9934a356111d643784cc92b1135b"
         },
         {
             "path": "tools/test-inventory/package.json",
