@@ -2,44 +2,6 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
-            "id": "json-wire-key",
-            "paths": [
-                "config/development/document-inventory.generated.json",
-                "config/development/document-lifecycle.json",
-                "config/security/asset-security-contract.json",
-                "config/security/asset-security-contract.schema.json",
-                "config/security/public-asset-delivery.json",
-                "config/security/public-asset-delivery.schema.json",
-                "config/testing/correctness-attempt-producers.json",
-                "config/testing/current-run-evidence-location-acceptance.json",
-                "config/testing/fsusui-baseline.json",
-                "config/testing/required-evidence-authority-ledger.json",
-                "tests/backend/packages.lock.json",
-                "tests/governance/test-lifecycle-registry.json"
-            ],
-            "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming. Preserve these caller-visible names while implementing asset delivery or consuming exact prerequisite owners; internal names remain governed."
-        },
-        {
-            "id": "release-locator-current-run-authority",
-            "paths": [
-                "config/testing/evidence-location-migration-ledger.json",
-                "config/testing/evidence-locator-registry.json",
-                "tools/release/test-evidence-receipts.mjs",
-                "tools/test/generate-evidence-location-governance.mjs"
-            ],
-            "reason": "Preserve the registered external receipt, identity and current-run authority field spellings while exposing read-only owner verification APIs; existing producer contracts are unchanged."
-        },
-        {
-            "id": "css-like-contract",
-            "paths": [
-                "docs/architecture/overview.md",
-                "docs/architecture/release-storage-lifecycle.md",
-                "docs/security/public-asset-delivery-policy.generated.md",
-                "docs/security/site-backup-envelope.md"
-            ],
-            "reason": "preserve documented CLI and contract spellings while distinguishing exact current source inventory validation from runtime qualification Preserve existing documented caller-visible DOM and custom-property spellings while adding the document-bound anchor and created attachment ownership notes."
-        },
-        {
             "id": "environment-variable",
             "paths": [
                 "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs",
@@ -48,15 +10,20 @@
                 "src/backend/Infrastructure/Storage/PublicAssetDeliveryPolicy.cs",
                 "src/backend/Infrastructure/Storage/PublicAssetFileProvider.cs",
                 "src/backend/Infrastructure/Storage/PublicAssetStaticFileExtensions.cs",
+                "src/backend/Interfaces/IFileService.cs",
+                "src/backend/Interfaces/UploadAssetObservation.cs",
+                "src/backend/Services/FileService.AssetObservation.cs",
                 "src/backend/Services/FileService.cs",
                 "src/migration/OfflineMigrationExecutor.cs",
                 "src/migration/OfflineMigrationPostgreSqlNativeSession.cs",
                 "src/migration/OfflineMigrationSourceObserver.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
                 "tools/ci/check-flaky-registry.mjs",
                 "tools/ci/check-job-summaries.mjs",
                 "tools/contracts/check-perception-character-v3-retirement.mjs",
                 "tools/coverage/check-release-final-coverage.mjs",
                 "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/governance/check-article-relations.mjs",
                 "tools/operations/check-release-evidence-manifest.mjs",
                 "tools/release/browser-contract-receipt-contract.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
@@ -64,6 +31,7 @@
                 "tools/release/required-evidence-owner-contract.mjs",
                 "tools/release/required-evidence-owner-input.mjs",
                 "tools/release/required-evidence-verifier-registry.mjs",
+                "tools/release/test-evidence-receipts.mjs",
                 "tools/security/asset-security-contract.mjs",
                 "tools/security/asset-security-contract.test.mjs",
                 "tools/security/asset-security-static.mjs",
@@ -74,11 +42,13 @@
                 "tools/security/public-asset-policy.test.mjs",
                 "tools/security/run-perception-character-v3-release-gate.mjs",
                 "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
                 "tools/test-matrix/release-domain-projection-receipt.mjs",
                 "tools/test-quality/artifact.mjs",
                 "tools/test-quality/conformance.mjs",
                 "tools/test-runtime/order-equivalence.mjs",
                 "tools/test/correctness-attempt-migration.mjs",
+                "tools/test/generate-evidence-location-governance.mjs",
                 "tools/test/native-test-receipt.mjs",
                 "tools/test/verify-release-reliability-receipt.mjs"
             ],
@@ -92,11 +62,98 @@
             "reason": "Exported shell variables retain process-level spelling; local aliases use camelCase. Preserve these caller-visible names while implementing asset delivery or consuming exact prerequisite owners; internal names remain governed."
         },
         {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/evidence-locator-registry.json",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test/generate-evidence-location-governance.mjs"
+            ],
+            "reason": "Preserve the registered external receipt, identity and current-run authority field spellings while exposing read-only owner verification APIs; existing producer contracts are unchanged."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs"
+            ],
+            "reason": "Preserve the current registered external spelling without extending its trusted exception scope."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "docs/api/contracts.md",
+                "docs/architecture/overview.md",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the current registered external spelling without extending its trusted exception scope."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve the current registered external spelling without extending its trusted exception scope."
+        },
+        {
             "id": "pre-runtime-fact-build-identity-authority",
             "paths": [
                 "tools/test-matrix/behavior-evidence-pre-runtime.mjs"
             ],
             "reason": "Preserve the registered external receipt, identity and current-run authority field spellings while exposing read-only owner verification APIs; existing producer contracts are unchanged."
+        },
+        {
+            "id": "dotnet-configuration-environment",
+            "paths": [
+                "tools/operations/backup-restore-drill.sh"
+            ],
+            "reason": "Preserve the current registered external spelling without extending its trusted exception scope."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "config/schemas/article-relation-contract.schema.json",
+                "config/security/asset-security-contract.json",
+                "config/security/asset-security-contract.schema.json",
+                "config/security/public-asset-delivery.json",
+                "config/security/public-asset-delivery.schema.json",
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/evidence-locator-registry.json",
+                "config/testing/fsusui-baseline.json",
+                "config/testing/required-evidence-authority-ledger.json",
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming. Preserve these caller-visible names while implementing asset delivery or consuming exact prerequisite owners; internal names remain governed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "config/schemas/article-relation-contract.schema.json",
+                "config/security/asset-security-contract.json",
+                "config/security/asset-security-contract.schema.json",
+                "config/security/public-asset-delivery.json",
+                "config/security/public-asset-delivery.schema.json",
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/evidence-locator-registry.json",
+                "config/testing/fsusui-baseline.json",
+                "config/testing/required-evidence-authority-ledger.json",
+                "docs/api/contracts.md",
+                "docs/architecture/article-asset-reference-lifecycle.md",
+                "docs/architecture/overview.md",
+                "docs/architecture/release-storage-lifecycle.md",
+                "docs/security/public-asset-delivery-policy.generated.md",
+                "docs/security/site-backup-envelope.md"
+            ],
+            "reason": "preserve documented CLI and contract spellings while distinguishing exact current source inventory validation from runtime qualification Preserve existing documented caller-visible DOM and custom-property spellings while adding the document-bound anchor and created attachment ownership notes."
         }
     ]
 }
