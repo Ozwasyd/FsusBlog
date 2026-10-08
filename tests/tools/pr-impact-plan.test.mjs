@@ -370,7 +370,7 @@ test('C++ suffixes remain unsupported until their actual compiler context succee
 {
     const files = ['src/Example.cpp', 'src/Value.hpp', 'src/Other.hpp', 'src/Unsupported.c'];
     assert.deepEqual(unsupportedSourceStageFiles(files), files);
-    assert.deepEqual(unsupportedSourceStageFiles(files, [], [], ['src/Example.cpp', 'src/Value.hpp']), files.slice(2));
+    assert.deepEqual(unsupportedSourceStageFiles(files, [], [], null, ['src/Example.cpp', 'src/Value.hpp']), files.slice(2));
     const { sourceGovernanceChildEntries, selectSourceRegressionTargets } =
         await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
     assert.equal(sourceGovernanceChildEntries.cpp, 'tools/configuration/check-cpp-source.mjs');
@@ -383,7 +383,7 @@ test('flat solution checker and its refusal controls are explicit source executi
     const { sourceGovernanceChildEntries, sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
         await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
     assert.equal(sourceGovernanceChildEntries.solution, 'tools/configuration/check-solution-source.mjs');
-    assert.equal(sourceGovernanceExecutableEntries().length, 12);
+    assert.equal(sourceGovernanceExecutableEntries().length, 14);
     assert.ok(sourceGovernanceExecutableEntries().includes('tools/configuration/solution-source.test.mjs'));
     assert.deepEqual(selectSourceRegressionTargets(['tools/contracts/Example.slnx']), ['tools/configuration/solution-source.test.mjs']);
     assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.solution]).includes('tools/configuration/solution-source.test.mjs'));
