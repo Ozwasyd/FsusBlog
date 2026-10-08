@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Server.Services.Authoring;
+
 namespace FsusBlog.Server.Services.DocumentExport;
 
 /// <summary>
@@ -164,10 +166,7 @@ public static partial class DocumentExportContractValidator
         ArgumentNullException.ThrowIfNull(input);
         RequireExact(input.Schema, DocumentExportContractCatalog.InputSchema, nameof(input));
         RequireIdentifier(input.InputId, nameof(input.InputId));
-        if (input.UserId <= 0 || input.SiteId <= 0)
-        {
-            throw new ArgumentException("Document export user and site identities must be positive.", nameof(input));
-        }
+        RequireOwnerScope(input.UserId, input.SiteScope);
 
         ValidateCoordinate(input.Coordinate);
         if (input.MarkdownUtf8.Length == 0 || input.MarkdownUtf8.Length > 32L * 1024 * 1024)
@@ -212,7 +211,7 @@ public static partial class DocumentExportContractValidator
         RequireIdentifier(task.RequestId, nameof(task.RequestId));
         RequireIdentifier(task.IdempotencyKey, nameof(task.IdempotencyKey));
         if (task.UserId != input.UserId
-            || task.SiteId != input.SiteId
+            || !string.Equals(task.SiteScope, input.SiteScope, StringComparison.Ordinal)
             || task.Coordinate != input.Coordinate
             || !string.Equals(task.InputId, input.InputId, StringComparison.Ordinal)
             || !string.Equals(task.InputDigest, input.ContentDigest, StringComparison.Ordinal)
@@ -325,6 +324,27 @@ public static partial class DocumentExportContractValidator
         {
             throw new InvalidDataException("Document export provider receipt identity or result policy mismatch.");
         }
+        foreach (DocumentExportFeatureSupport feature in provider.Features)
+        {
+            if (!receipt.ObservedFeatures.Contains(feature.FeatureId, StringComparer.Ordinal))
+            {
+                continue;
+            }
+            if (feature.Disposition == DocumentExportFeatureDisposition.WarningWithPreservedFallback
+                    && !receipt.Warnings.Contains(
+                        $"{feature.FeatureId}:{feature.PreservedFallback}", StringComparer.Ordinal)
+                || feature.Disposition == DocumentExportFeatureDisposition.HardFail
+                    && receipt.Status == DocumentExportProviderResultStatus.Succeeded)
+            {
+                throw new InvalidDataException("Document export provider receipt violates the observed feature policy.");
+            }
+        }
+        DocumentExportNormalizationContract normalization = DocumentExportContractCatalog.Normalizations.Single(
+            candidate => candidate.ProviderId == provider.ProviderId);
+        if (normalization.ByteIdenticalForEqualFrozenInput && receipt.SemanticDigest != receipt.OutputDigest)
+        {
+            throw new InvalidDataException("Document export deterministic output and semantic digests must match.");
+        }
         DocumentExportProviderReceipt unsigned = receipt with
         {
             ContentDigest = string.Empty
@@ -337,6 +357,25 @@ public static partial class DocumentExportContractValidator
         if (!Sha256DigestRegex().IsMatch(value))
         {
             throw new ArgumentException("Document export digest must be canonical lowercase SHA-256.", parameterName);
+        }
+    }
+
+    internal static void RequireOwnerScope(long userId, string siteScope)
+    {
+        try
+        {
+            // Reuse the existing administrator/site contract, without resolving
+            // a numeric alias or normalizing a received identity into acceptance.
+            AuthorRecentArticleHistoryContract.ValidateOwner(new AuthorRecentArticleHistoryOwner(userId, siteScope));
+        }
+        catch (AuthorRecentArticleHistoryValidationException exception)
+        {
+            throw new ArgumentException("Document export owner/site scope is outside the existing authority contract.",
+                nameof(siteScope), exception);
+        }
+        if (!string.Equals(siteScope, siteScope.Trim().TrimEnd('/'), StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Document export site scope must already equal its canonical authority value.", nameof(siteScope));
         }
     }
 
