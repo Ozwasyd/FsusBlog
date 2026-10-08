@@ -460,12 +460,12 @@ public sealed class DocumentExportDocxProviderTests
         var resources = new DocumentExportAttemptResources(task, input, contract.Budgets, TimeProvider.System);
         Assert.Throws<InvalidOperationException>(() => port.CreateAttemptResources(task, input, TimeProvider.System));
         await Assert.ThrowsAsync<InvalidOperationException>(() => port.ExportAsync(task, input, resources, default));
-        Assert.Throws<InvalidDataException>(resources.RequireCompleted);
+        Assert.Throws<InvalidDataException>(() => resources.RequireCompleted(task, input));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => port.ExportAsync(task, input, resources, cancellation.Token));
         await Assert.ThrowsAsync<OperationCanceledException>(() => port.VerifyAsync(null!, task, input, resources, cancellation.Token));
-        Assert.Throws<InvalidDataException>(resources.RequireCompleted);
+        Assert.Throws<InvalidDataException>(() => resources.RequireCompleted(task, input));
     }
 
     [Fact]
@@ -477,6 +477,41 @@ public sealed class DocumentExportDocxProviderTests
         await Assert.ThrowsAsync<ArgumentNullException>(() => provider.ExportAsync(task, input, null!, default));
         await Assert.ThrowsAsync<ArgumentNullException>(() => provider.VerifyAsync(null!, task, input, null!, default));
         await Assert.ThrowsAsync<InvalidOperationException>(() => provider.VerifyAsync(null!, task, input, default));
+    }
+
+    [Theory]
+    [InlineData("task")]
+    [InlineData("input")]
+    public void DocxResourceCompletionRefusesAnotherFrozenAttempt(string replay)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportProviderContract contract = DocumentExportContractCatalog.RequireProvider("docx");
+        DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input) with
+        {
+            FormatId = contract.FormatId,
+            ProviderId = contract.ProviderId,
+            ProviderVersion = contract.ProviderVersion,
+            ContentDigest = string.Empty
+        });
+        var resources = new DocumentExportAttemptResources(task, input, contract.Budgets, TimeProvider.System);
+        DocumentExportFrozenInput replayInput = replay == "input"
+            ? DocumentExportContractValidator.Seal(input with
+            {
+                InputId = "22222222-2222-4222-8222-222222222222"
+            }) : input;
+        DocumentExportTask replayTask = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(replayInput) with
+        {
+            TaskId = "33333333-3333-4333-8333-333333333333",
+            FormatId = contract.FormatId,
+            ProviderId = contract.ProviderId,
+            ProviderVersion = contract.ProviderVersion,
+            ContentDigest = string.Empty
+        });
+        DocumentExportContractValidator.Validate(replayTask, replayInput);
+        InvalidDataException failure = Assert.Throws<InvalidDataException>(() => resources.RequireCompleted(replayTask, replayInput));
+        Assert.Contains("does not bind this frozen attempt", failure.Message, StringComparison.Ordinal);
+        // Binding failure is sticky; no completion call or native success is fabricated.
+        Assert.Throws<InvalidDataException>(() => resources.RequireCompleted(task, input));
     }
 
     [Theory]
