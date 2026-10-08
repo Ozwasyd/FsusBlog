@@ -3,8 +3,8 @@
   "runId": "2026-10-08T03:35:23.928106+00:00",
   "trackingIssue": 3551,
   "mode": "tracking-only",
-  "testedCandidate": "7564be84483b6b543985430d83df41ceffc3a81c",
-  "master": "3466db03e0421f4e90d36528b9062cdf7446abda",
+  "testedCandidate": "e41fff59a5d54be3eed479a0f1d30ea27d17266b",
+  "master": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
   "originalInventoryCommit": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
   "accepted": false,
   "scopeDiscrepancy": "Original body retains its historical b19 baseline. Current master source findings are zero; original inventory and every child gate remain accounted, without rewriting scope.",
@@ -1697,7 +1697,7 @@
     ]
   },
   "earlyIndependentReviewEligible": false,
-  "earlyReviewRefusal": "RPC/resolver ordinary rosters and style are now verified, but full Migration117 failures,35 replacement-target refusals,169 inventory errors and939 dynamic obligations, Migration style and AST/generated/matrix/native gates remain. Not environment-only.",
+  "earlyReviewRefusal": "Four canonical Migration increments correct68 of93 failures in actual540 affected rows;25 remain failed and24 historical unaffected failure rows were not rerun.597 strict whitespace diagnostics remain, as do canonical retention/identity/generated/matrix/native and independent gates. Not environment-only.",
   "actual17OwnerExecution": {
     "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
     "counts": {
@@ -2042,14 +2042,21 @@
     "trxSha256": "331e410c9b1b784fde51d9d5260272fb58662d2922f9044209e4db49481d60b6"
   },
   "latestMasterRecheck": {
-    "sha": "3466db03e0421f4e90d36528b9062cdf7446abda",
+    "sha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
     "actualMergePerformed": false,
-    "acceptedSdkCompileSourceAlreadyPresent": true,
     "additionalMasterChangesInspectedNotConsumed": [
-      "artifacts/change-contract/disposed-document-context-external-naming.json",
-      "docs/architecture/overview.md",
-      "src/frontend/src/services/authoring/articleDocumentContext.ts",
-      "tests/frontend/unit/authoring/articleDocumentContextDisposal.test.ts"
+      "artifacts/change-contract/data-scale-distribution-external-naming.json",
+      "src/frontend/src/components/admin/article/ArticleMetadataPropertyList.vue",
+      "tests/frontend/unit/components/admin/ArticleMetadataPropertyList.test.ts",
+      "tests/tools/data-scale-distribution-assignment.test.mjs",
+      "tests/tools/data-scale-distribution-catalog.test.mjs",
+      "tests/tools/data-scale-distribution-query-binding.test.mjs",
+      "tests/tools/data-scale-distribution-statistics.test.mjs",
+      "tools/data-scale/distribution-assignment.mjs",
+      "tools/data-scale/distribution-catalog.mjs",
+      "tools/data-scale/distribution-contract.mjs",
+      "tools/data-scale/distribution-query-binding.mjs",
+      "tools/data-scale/distribution-statistics.mjs"
     ]
   },
   "gitHubWritePause": "Coordinator secondary-rate-limit instruction: no comments, PR create/edit, or other content mutations; git code pushes permitted if unblocked.",
@@ -2243,5 +2250,97 @@
       "tree": "4e4043001eb50a6a908a1394e8beaaf930ff4c6e",
       "actualMergePerformed": false
     }
+  },
+  "latestPreviousCandidate": "7564be84483b6b543985430d83df41ceffc3a81c",
+  "latestMigrationRefusalVerification": "artifacts/style/suite-convergence-migration-refusal-verification.json",
+  "currentAffectedMigrationExecution": {
+    "runId": "issue-3593-migration-refusals-final-20261008T083909Z",
+    "testedCommit": "e41fff59a5d54be3eed479a0f1d30ea27d17266b",
+    "counts": {
+      "total": "540",
+      "executed": "540",
+      "passed": "515",
+      "failed": "25",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "classCounts": {
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4805Tests": {
+        "Passed": 51,
+        "Failed": 5
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationApplyJournalTests": {
+        "Passed": 77
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverTests": {
+        "Passed": 75,
+        "Failed": 5
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4755Tests": {
+        "Passed": 50,
+        "Failed": 3
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5207Tests": {
+        "Failed": 3,
+        "Passed": 50
+      },
+      "FsusBlog.Migration.Tests.PgArticlePreservationOperationTests": {
+        "Passed": 26
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5263Tests": {
+        "Passed": 17,
+        "Failed": 2
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationCommandLineTests": {
+        "Passed": 16
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceMaterialCleanupTests": {
+        "Passed": 13
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationPlanTests": {
+        "Passed": 38
+      },
+      "FsusBlog.Migration.Tests.PgCurrentSchemaOwnedTargetObserverTests": {
+        "Passed": 34,
+        "Failed": 1
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue4850Tests": {
+        "Passed": 17,
+        "Failed": 2
+      },
+      "FsusBlog.Migration.Tests.OfflineMigrationSourceObserverValue5323Tests": {
+        "Passed": 51,
+        "Failed": 4
+      }
+    },
+    "oldSelectedFailed": 93,
+    "fixedOriginalFailures": 68,
+    "remainingAffectedFailures": 25,
+    "introducedFailures": 0,
+    "originalCaseNamesPreserved": 540,
+    "unrerunHistoricalFailures": 24,
+    "currentFullMigrationRun": false,
+    "qualified": false
+  },
+  "previousOrdinaryOwnerMasterRecheck": {
+    "sha": "3466db03e0421f4e90d36528b9062cdf7446abda",
+    "actualMergePerformed": false,
+    "acceptedSdkCompileSourceAlreadyPresent": true,
+    "additionalMasterChangesInspectedNotConsumed": [
+      "artifacts/change-contract/disposed-document-context-external-naming.json",
+      "docs/architecture/overview.md",
+      "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "tests/frontend/unit/authoring/articleDocumentContextDisposal.test.ts"
+    ]
   }
 }
