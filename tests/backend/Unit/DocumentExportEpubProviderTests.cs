@@ -110,6 +110,11 @@ public sealed class DocumentExportEpubProviderTests
     [InlineData("EPUB/chapter-0001.xhtml", "<head>", "PRIVATE_OWNER_FACT<head>")]
     [InlineData("EPUB/package.opf", "<manifest>", "PRIVATE_OWNER_FACT<manifest>")]
     [InlineData("EPUB/package.opf", "</manifest>", "PRIVATE_OWNER_FACT</manifest>")]
+    [InlineData("EPUB/chapter-0001.xhtml", "<head>", "<head xmlns:private=\"private-owner-fact\">")]
+    [InlineData("EPUB/package.opf", "<manifest>", "<manifest xmlns:private=\"private-owner-fact\">")]
+    [InlineData("META-INF/container.xml", "<rootfiles>", "<rootfiles xmlns:private=\"private-owner-fact\">")]
+    [InlineData("EPUB/chapter-0001.xhtml", "encoding=\"utf-8\"", "encoding=\"utf-16\"")]
+    [InlineData("EPUB/package.opf", "encoding=\"utf-8\"", "encoding=\"windows-1252\"")]
     public void RefusesResealedValidZipWithTamperedStructureContentOrResources(string path, string oldValue, string newValue)
     {
         EpubPublicationMetadata metadata = Metadata();

@@ -124,7 +124,8 @@ public static class DocumentExportEpubPackageValidator
             ?? throw new InvalidDataException("EPUB has no semantic reading article.");
         EpubXmlBudget.Validate("<article>" + response.HtmlFragment + "</article>", budgets.MaxInputBytes, cancellationToken);
         byte[] sanitized = DocumentExportHtmlSanitizer.Sanitize(response.HtmlFragment, input.Assets, Math.Min(budgets.MaxOutputBytes, EpubXmlBudget.MaximumBytes));
-        XElement expectedArticle = Parse(Encoding.UTF8.GetBytes("<article>" + Encoding.UTF8.GetString(sanitized) + "</article>"), budgets.MaxOutputBytes, cancellationToken);
+        XElement expectedArticle = Parse(Encoding.UTF8.GetBytes("<article>" + Encoding.UTF8.GetString(sanitized) + "</article>"),
+            budgets.MaxOutputBytes, cancellationToken, requireDeclaration: false);
         foreach (XElement element in expectedArticle.DescendantsAndSelf())
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -386,7 +387,8 @@ public static class DocumentExportEpubPackageValidator
         }
     }
 
-    private static XElement Parse(ReadOnlyMemory<byte> bytes, long maximumBytes, CancellationToken cancellationToken)
+    private static XElement Parse(ReadOnlyMemory<byte> bytes, long maximumBytes, CancellationToken cancellationToken,
+        bool requireDeclaration = true)
     {
         try
         {
@@ -403,10 +405,34 @@ public static class DocumentExportEpubPackageValidator
                 IgnoreProcessingInstructions = false
             });
             XDocument document = XDocument.Load(reader, LoadOptions.PreserveWhitespace);
+            if (requireDeclaration && (document.Declaration?.Version != "1.0"
+                || document.Declaration.Encoding != "utf-8" || document.Declaration.Standalone is not null))
+            {
+                throw new InvalidDataException("EPUB XML declaration does not match its normalized UTF-8 bytes.");
+            }
             if (document.Root is null || document.Nodes().Any(node => node != document.Root)
                 || document.Root.DescendantNodes().Any(node => node is not (XElement or XText) || node is XCData))
             {
                 throw new InvalidDataException("EPUB XML contains prohibited document nodes.");
+            }
+            foreach (XElement element in document.Root.DescendantsAndSelf())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                foreach (XAttribute declaration in element.Attributes().Where(attribute => attribute.IsNamespaceDeclaration))
+                {
+                    bool validDefault = declaration.Name.LocalName == "xmlns" && declaration.Value == element.Name.NamespaceName
+                        && (element == document.Root && element.Name.NamespaceName is "http://www.w3.org/1999/xhtml"
+                            or "http://www.idpf.org/2007/opf" or "urn:oasis:names:tc:opendocument:xmlns:container"
+                            || element.Name == s_svg + "svg");
+                    bool validEpub = declaration.Name == XNamespace.Xmlns + "epub"
+                        && declaration.Value == s_epub.NamespaceName && element == document.Root && element.Name == s_xhtml + "html";
+                    bool validDc = declaration.Name == XNamespace.Xmlns + "dc"
+                        && declaration.Value == s_dc.NamespaceName && element.Name == s_opf + "metadata";
+                    if (!validDefault && !validEpub && !validDc)
+                    {
+                        throw new InvalidDataException("EPUB contains an unowned or noncanonical namespace binding.");
+                    }
+                }
             }
             return document.Root;
         }
