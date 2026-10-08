@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync,
-  cpSync, existsSync
+  cpSync, existsSync, readdirSync
 } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -420,6 +420,97 @@ test('test-matrix-fact-extractor is registered for browserless-production-correc
   }
   assert.equal(TEST_MATRIX_REQUIRED_FACT_KEYS.length, 18)
 })
+
+test('runtime-role replay ignores external TMPDIR and cleans repeated compiled observations', () =>
+{
+    const external = mkdtempSync(path.join(os.tmpdir(), 'runtime-role-replay-external-'));
+    const previous = process.env.TMPDIR;
+    const owner = path.join(root, '.tmp/contracts/runtime-role');
+    try
+    {
+        assert.ok(!external.startsWith(`${root}${path.sep}`));
+        process.env.TMPDIR = external;
+        for (let attempt = 0; attempt < 2; attempt += 1)
+        {
+            const result = extractTestMatrix({
+                repositoryRoot: root,
+                extractor: registryExtractor(),
+                sourceCommit: sourceIdentity.sourceCommit,
+                worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+                buildIdentity: runtimeRoleBuild.buildIdentity,
+                buildReceiptPath: runtimeRoleBuild.buildReceiptPath
+            });
+            assert.equal(result.status, 'ok', result.failureReasons?.join('\n'));
+            assert.deepEqual(readdirSync(external), []);
+            assert.ok(!readdirSync(owner).some((name) => name.startsWith('replay-')));
+        }
+    }
+    finally
+    {
+        if (previous === undefined)
+        {
+            delete process.env.TMPDIR;
+        }
+        else
+        {
+            process.env.TMPDIR = previous;
+        }
+        rmSync(external, { recursive: true, force: true });
+    }
+});
+
+test('compiled runtime-role producer still refuses external replay output', () =>
+{
+    const external = mkdtempSync(path.join(os.tmpdir(), 'runtime-role-output-external-'));
+    try
+    {
+        assert.ok(!external.startsWith(`${root}${path.sep}`));
+        const { binding } = loadRuntimeBuildBinding(root);
+        const output = path.join(external, 'rejected.json');
+        const result = spawnSync('dotnet', [
+            path.join(root, binding.assemblyPath),
+            '--deployment-observation', path.join(root, binding.deploymentArtifactPath),
+            '--output', output
+        ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
+        assert.notEqual(result.status, 0);
+        assert.match(`${result.stdout}\n${result.stderr}`, /runtime_role_output_path_not_canonical:output/u);
+        assert.equal(existsSync(output), false);
+    }
+    finally
+    {
+        rmSync(external, { recursive: true, force: true });
+    }
+});
+
+test('runtime-role replay refuses a symlinked canonical owner before writing outside', () =>
+{
+    const directory = fixtureRepository();
+    const external = mkdtempSync(path.join(os.tmpdir(), 'runtime-role-owner-external-'));
+    try
+    {
+        const build = bindFixtureBuild(directory);
+        const owner = path.join(directory, '.tmp/contracts/runtime-role');
+        mkdirSync(path.dirname(owner), { recursive: true });
+        assert.equal(existsSync(owner), false);
+        symlinkSync(external, owner, 'dir');
+        const result = extractTestMatrix({
+            repositoryRoot: directory,
+            extractor: registryExtractor(),
+            sourceCommit: sourceIdentity.sourceCommit,
+            worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+            buildIdentity: build.buildIdentity,
+            buildReceiptPath: build.buildReceiptPath
+        });
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /symbolic link/u);
+        assert.deepEqual(readdirSync(external), []);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+        rmSync(external, { recursive: true, force: true });
+    }
+});
 
 test('live matrix projects typed topology / release-final / production-fresh facts', async () =>
 {
@@ -978,6 +1069,8 @@ test('runtime-role deployment source roster, live digests, and policy authority 
       const result = extractMutatedRuntimeObservation(directory, mutate)
       assert.equal(result.status, 'failed', label)
       assert.match(result.failureReasons.join('\n'), /compiled producer replay mismatch/iu, label)
+      const replayOwner = path.join(directory, '.tmp/contracts/runtime-role');
+      assert.ok(!readdirSync(replayOwner).some((name) => name.startsWith('replay-')), label);
     }
     finally
     {
