@@ -2,6 +2,8 @@
     <div
         class="article-write-editor"
         data-article-document-editor="true"
+        @focusin.capture="$emit('editor-focus', 'focusin')"
+        @focusout.capture="$emit('editor-focus', 'focusout')"
     >
         <ArticleWriteOutlineRail
             :active-heading-id="activeHeadingId"
@@ -96,6 +98,7 @@ import type {
     FsusUiAuthoringDocumentIdentity,
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
+import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor';
 
 import type {
@@ -142,6 +145,9 @@ const emit = defineEmits<{
     (e: 'save'): void;
     (e: 'draft-save'): void;
     (e: 'submit'): void;
+    (e: 'transaction', event: MarkdownEditorTransactionEvent): void;
+    (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
+    (e: 'editor-focus', event: 'focusin' | 'focusout'): void;
     (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
 }>();
 
@@ -151,6 +157,7 @@ const content = computed({
 });
 
 const adapterRef = ref<{
+    getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     revealHeading?: (
@@ -255,6 +262,7 @@ function handleSelectionChange(event: ArticleAuthoringSelectionEvent): void
     activeCause.value = 'selection';
     sourceRevision.value = event.revision;
     selection.value = event.selection;
+    emit('selection-change', event);
 }
 
 function handleTransaction(event: MarkdownEditorTransactionEvent): void
@@ -272,6 +280,7 @@ function handleTransaction(event: MarkdownEditorTransactionEvent): void
     activeCause.value = event.transaction.origin === 'input' ? 'typing' : 'caret';
     sourceRevision.value = event.revision;
     selection.value = event.selection;
+    emit('transaction', event);
 }
 
 function handleViewportChange(event: {
@@ -342,7 +351,13 @@ function openCommandPalette(): void
     adapterRef.value?.openCommandPalette?.();
 }
 
+function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
+{
+    return adapterRef.value?.getAuthoringEditorPort?.() ?? null;
+}
+
 defineExpose({
+    getAuthoringEditorPort,
     insertMarkdownAtCursor,
     openCommandPalette,
     revealHeading: (nodeId: string, options?: MarkdownEditorRevealOptions) =>

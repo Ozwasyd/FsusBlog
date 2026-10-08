@@ -46,6 +46,7 @@ import type {
     FsusUiAuthoringDocumentIdentity,
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
+import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorMode,
@@ -127,6 +128,7 @@ const emit = defineEmits<{
 
 const provider = computed(() => resolveMarkdownEditorProvider());
 const editorRef = ref<{
+    getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     revealHeading?: (
@@ -181,7 +183,13 @@ function revealSourceRange(
     return editorRef.value?.revealSourceRange?.(range, options) ?? 'not-found';
 }
 
+function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
+{
+    return editorRef.value?.getAuthoringEditorPort?.() ?? null;
+}
+
 defineExpose({
+    getAuthoringEditorPort,
     insertMarkdownAtCursor,
     openCommandPalette,
     revealHeading,

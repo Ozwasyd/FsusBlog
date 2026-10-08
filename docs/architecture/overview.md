@@ -123,6 +123,13 @@ viewport observations or focus acknowledgements. Those public runtime gaps and
 product event wiring remain acceptance limits; successful restore admission alone
 is not completed focus or viewport restoration.
 
+The three production wrappers expose `getAuthoringEditorPort()`, returning the
+same actual FsusUI exposed instance or null while unavailable. The writer wrapper
+forwards admitted transaction and identity-bound selection events and native host
+focus events. Consumers can bind these to `authoringEditorRuntime.bindEditor`
+without reaching into child DOM or constructing another editor. These hooks do
+not manufacture viewport observations, revision seeds or restore completion.
+
 The writer mounts `useArticleAuthorCommandPalette` once on the editor panel.
 Its scoped Mod+P listener and `ArticleAuthorCommandEntry` secondary action both
 call the existing `ArticleWriteEditor.openCommandPalette` public method. Loading,

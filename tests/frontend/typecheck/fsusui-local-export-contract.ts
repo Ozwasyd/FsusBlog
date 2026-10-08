@@ -56,3 +56,13 @@ export { ArticleAnchorContextAdapter } from '../../../src/frontend/src/services/
 export { ArticleAttachmentContextAdapter } from '../../../src/frontend/src/services/authoring/articleAttachmentContext'
 export type * from './article-editor-continuity'
 export { bindArticleEditorRuntime } from '../../../src/frontend/src/services/authoring/articleEditorRuntimeBinding'
+
+import ArticleWriteEditor from '../../../src/frontend/src/components/admin/article/ArticleWriteEditor.vue'
+import MarkdownEditorAdapter from '../../../src/frontend/src/components/ui/MarkdownEditorAdapter.vue'
+import MarkdownTextEditor from '../../../src/frontend/src/components/ui/MarkdownTextEditor.vue'
+import type { ArticleEditorContinuityPort } from '../../../src/frontend/src/services/authoring/articleEditorContinuity'
+export type ArticleWriterPublicPortContract = [
+  Expect<Equal<ReturnType<InstanceType<typeof ArticleWriteEditor>['getAuthoringEditorPort']>, ArticleEditorContinuityPort | null>>,
+  Expect<Equal<ReturnType<InstanceType<typeof MarkdownEditorAdapter>['getAuthoringEditorPort']>, ArticleEditorContinuityPort | null>>,
+  Expect<Equal<ReturnType<InstanceType<typeof MarkdownTextEditor>['getAuthoringEditorPort']>, ArticleEditorContinuityPort | null>>,
+]

@@ -115,6 +115,7 @@ import {
     type FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
 import { createMarkdownSourceCoordinateMap } from '@/fsusui/markdownOutline';
+import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorCommand,
@@ -124,6 +125,7 @@ import type {
 } from '@/ui-contracts/markdownEditor';
 
 type FsusUiMarkdownEditorExpose = Readonly<{
+    dispatchTransaction: ArticleEditorContinuityPort['dispatchTransaction'];
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     revealHeading?: (
@@ -743,7 +745,14 @@ watch(() => props.documentIdentity, () =>
     currentAuthoringBinding.value = null;
 });
 
+function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
+{
+    const editor = editorRef.value;
+    return editor && typeof editor.dispatchTransaction === 'function' ? editor : null;
+}
+
 defineExpose({
+    getAuthoringEditorPort,
     insertMarkdownAtCursor,
     openCommandPalette,
     revealHeading,
