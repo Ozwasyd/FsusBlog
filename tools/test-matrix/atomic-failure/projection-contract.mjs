@@ -161,7 +161,8 @@ export function checkGraphMaterial(graph)
         for (const access of node.stateAccess)
         {
             exactFields(access, ['domain', 'mode'], 'state access');
-            stableIds([access.domain], 'state domain');
+            requireFact(typeof access.domain === 'string' && /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u.test(access.domain),
+                'explicit canonical state domain required');
             requireFact(['read', 'write'].includes(access.mode) && !domains.has(access.domain), 'ambiguous state access');
             domains.add(access.domain);
         }

@@ -4,12 +4,15 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const { checkAtomicWorkflowMaterial, collectCompiledAtomicTerminalMaterial, projectAtomicCiMaterial, projectCompiledAtomicCiMaterial } = await import(new URL('../../tools/test-matrix/atomic-failure/ci-projection.mjs', import.meta.url));
+const { checkAtomicWorkflowMaterial, collectCompiledAtomicTerminalMaterial, createCompiledAtomicRuntimeCiBinding, projectAtomicCiMaterial, projectCompiledAtomicCiMaterial, projectCompiledAtomicRuntimeCiMaterial } = await import(new URL('../../tools/test-matrix/atomic-failure/ci-projection.mjs', import.meta.url));
 const { compileAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/compiler.mjs', import.meta.url));
 const { AtomicProducerExecutionError, executeCompiledAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/execution.mjs', import.meta.url));
-const { sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
+const { digestCanonical, sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
+const { loadRuntimeStateAuthority } = await import(new URL('../../tools/test-runtime/catalog.mjs', import.meta.url));
+const { readCanonicalSchedulerCheckpoint } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 import { atomicFixture, hostLimits } from './support/atomic-failure-fixture.mjs';
-import { atomicExecutionOptions, atomicFixture as compilerFixture } from './support/atomic-producer-fixture.mjs';
+import { atomicExecutionOptions, atomicFixture as compilerFixture, atomicReference, rebindAtomicFixture } from './support/atomic-producer-fixture.mjs';
+import { writeCanonicalSchedulerFixture } from './support/canonical-scheduler-fixture.mjs';
 
 function project(fixture = atomicFixture())
 {
@@ -282,3 +285,169 @@ test('global interruption keeps unspawned cancellation and exact-once finalizer 
         assert.equal(material.receipts.find((receipt) => receipt.producerId === 'cleanup-inventory').terminalState, 'success');
         assert.equal(Object.hasOwn(material, 'interruption'), false);
     }, true));
+
+/** Controlled original-producer/state fixtures; no physical runtime admission or qualification. */
+async function withRuntimeInput(run, { splitJobs = false, independentDomain = false } = {})
+{
+    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atomic-runtime-ci-'));
+    try
+    {
+        const fixture = compilerFixture();
+        const declarations = fixture.matrix.atomicProducerDeclarations.nodes;
+        if (splitJobs)
+        {
+            for (const producerId of ['alpha-check', 'beta-check'])
+            {
+                const parentId = `${producerId}-summary`;
+                declarations.find((node) => node.producerId === producerId).logicalParentId = parentId;
+                fixture.authorities.physicalOwnership.find((owner) => owner.producerId === producerId).logicalParentId = parentId;
+                const projection = structuredClone(declarations.find((node) => node.kind === 'logical-projection'));
+                projection.producerId = parentId;
+                projection.logicalParentId = parentId;
+                projection.settledDependsOn = [producerId];
+                declarations.push(projection);
+                fixture.matrix.tiers.push({ ...fixture.matrix.tiers[0], id: parentId, projectFrom: [producerId] });
+                declarations.find((node) => node.kind === 'always-run-finalizer').settledDependsOn.push(parentId);
+            }
+            fixture.matrix.tiers[0].projectFrom = ['dependent-check'];
+            declarations.find((node) => node.producerId === 'fixture-summary').settledDependsOn = ['dependent-check'];
+            declarations.find((node) => node.kind === 'always-run-finalizer').settledDependsOn.sort();
+        }
+        const sourceRoot = path.resolve(import.meta.dirname, '../..');
+        const catalogue = JSON.parse(fs.readFileSync(path.join(sourceRoot, 'config/testing/runtime-state-domain-catalog.json'), 'utf8'));
+        catalogue.steps = declarations.map((node) =>
+        {
+            if (!['atomic-producer', 'hard-prerequisite'].includes(node.kind))
+            {
+                return { stepId: node.producerId, stateAccess: 'none' };
+            }
+            const domain = node.producerId === 'beta-check' && independentDomain ? 'fixture.public-content' : 'postgres.article';
+            const operation = node.producerId === 'alpha-check' ? 'writes' : 'reads';
+            return { stepId: node.producerId, stateAccess: 'declared', reads: [], writes: [], creates: [], deletes: [],
+                invalidates: [], exclusiveStateDomains: [], commutativeWrites: [], resetBefore: [], resetAfter: [],
+                requiredPredecessors: [], postconditions: ['receipt'], operationOverlaps: [], [operation]: [domain],
+                evidence: [{ proofKind: 'structured-test', operation, domain, assertionId: node.producerId,
+                    verifier: 'tests/tools/atomic-failure-ci-projection.test.mjs' }] };
+        });
+        const runtimeCatalogPath = path.join(repositoryRoot, 'catalog.json');
+        fs.writeFileSync(runtimeCatalogPath, JSON.stringify(catalogue));
+        for (const node of declarations.filter((entry) => entry.kind === 'atomic-producer'))
+        {
+            const entry = catalogue.steps.find((item) => item.stepId === node.producerId);
+            const state = sealContentDigest({ id: `${node.producerId}-state`, producerId: node.producerId,
+                unknownAccess: false, catalogDigest: digestCanonical(catalogue), catalogEntryDigest: digestCanonical(entry) });
+            fixture.authorities.stateAccess.push(state);
+            node.executionClass = 'runtime';
+            node.stateAccessRef = atomicReference(state);
+        }
+        rebindAtomicFixture(fixture);
+        const input = compiledInput(fixture);
+        if (splitJobs)
+        {
+            input.ciPlan.jobs = fixture.matrix.tiers.map((tier) => ({ id: `${tier.id}-job`, tiers: [tier.id] }));
+        }
+        const worktreeFingerprint = `sha256:${'2'.repeat(64)}`;
+        const checkpointFile = path.join(repositoryRoot, '.tmp/test-runs', input.context.schedulerRunId, 'checkpoint.json');
+        writeCanonicalSchedulerFixture(checkpointFile, { runId: input.context.schedulerRunId,
+            sourceState: { commit: input.context.sourceCommit, worktreeFingerprint } });
+        const canonical = readCanonicalSchedulerCheckpoint(checkpointFile);
+        return await run({ ...input, repositoryRoot, runtimeCatalogPath, worktreeFingerprint,
+            checkpointRef: { path: `.tmp/test-runs/${input.context.schedulerRunId}/checkpoint.json`, objectDigest: canonical.checkpointDigest } });
+    }
+    finally
+    {
+        fs.rmSync(repositoryRoot, { recursive: true, force: true });
+    }
+}
+
+test('canonical state binding feeds the original runtime executor without changing commands or capacity', async () =>
+    withRuntimeInput(async (input) =>
+    {
+        const binding = await createCompiledAtomicRuntimeCiBinding(input, hostLimits);
+        const alpha = binding.projection.graph.nodes.find((node) => node.id === 'alpha-check');
+        assert.deepEqual(alpha.stateAccess, [{ domain: 'postgres.article', mode: 'write' }]);
+        assert.equal(binding.stateConflictPolicy.evaluate('alpha-check', 'beta-check').conflict, true);
+        assert.equal(binding.projection.qualificationEligible, false);
+        assert.equal(binding.projection.runtimeAcceptancePending, true);
+        assert.equal(binding.projection.verificationStatus, 'unverified');
+        assert.equal(binding.checkpointBinding.revision, 1);
+        const options = atomicExecutionOptions(input, path.join(input.repositoryRoot, '.tmp/test-runs'));
+        const originalCapacity = { ...options.capacity };
+        options.capacity.stateConflictPolicy = binding.stateConflictPolicy;
+        const vector = await executeCompiledAtomicProducerDag(input.compiled, options);
+        assert.equal(vector.status, 'success');
+        const { runtimeCatalogPath, checkpointRef, ...terminalInput } = input;
+        assert.ok(runtimeCatalogPath && checkpointRef);
+        const collected = await collectCompiledAtomicTerminalMaterial({ ...terminalInput, runtimeAuthority: binding.runtimeAuthority,
+            vector, expectedVector: vector,
+            terminalVectorRef: { path: `.tmp/test-runs/${vector.schedulerRunId}/atomic-dag/${input.compiled.contentDigest.slice(7)}/terminal-vector.json`,
+                objectDigest: vector.contentDigest } }, hostLimits);
+        assert.equal(collected.ciProjectionDigest, binding.projection.ciProjection.contentDigest);
+        assert.equal(collected.receipts.length, vector.receipts.length);
+        assert.equal(collected.sourceStatus, 'success');
+        assert.equal(collected.qualificationEligible, false);
+        assert.deepEqual(Object.fromEntries(Object.keys(originalCapacity).map((key) => [key, options.capacity[key]])), originalCapacity);
+        const attempts = vector.receipts.filter((receipt) => receipt.attemptRef).map((receipt) =>
+            ({ id: receipt.producerId, ...JSON.parse(fs.readFileSync(receipt.attemptRef.path, 'utf8')) }));
+        const a = attempts.find((attempt) => attempt.id === 'alpha-check');
+        const b = attempts.find((attempt) => attempt.id === 'beta-check');
+        assert.ok(Date.parse(a.finishedAt) <= Date.parse(b.startedAt) || Date.parse(b.finishedAt) <= Date.parse(a.startedAt));
+        assert.ok(attempts.every((attempt) => attempt.attemptNumber === 1 && attempt.maxAttempts === 1));
+        const again = readCanonicalSchedulerCheckpoint(path.join(input.repositoryRoot, input.checkpointRef.path));
+        assert.equal(again.checkpointDigest, input.checkpointRef.objectDigest);
+        assert.equal(again.checkpoint.revision, 1);
+    }));
+
+test('canonical CI planner must keep conflicting independent runtime producers on the same runner', async () =>
+    withRuntimeInput(async (input) =>
+    {
+        await assert.rejects(createCompiledAtomicRuntimeCiBinding(input, hostLimits), /co-locate/u);
+    }, { splitJobs: true }));
+
+test('original state policy permits independent-domain CI jobs while keeping hard job prerequisites', async () =>
+    withRuntimeInput(async (input) =>
+    {
+        const binding = await createCompiledAtomicRuntimeCiBinding(input, hostLimits);
+        assert.equal(binding.projection.ciProjection.jobs.length, 3);
+        const dependentJob = binding.projection.ciProjection.jobs.find((job) => job.id === 'fixture-summary-job');
+        assert.ok(dependentJob.needs.includes('alpha-check-summary-job'));
+        assert.ok(binding.projection.ciProjection.jobs.every((job) => job.failFast === false));
+    }, { splitJobs: true, independentDomain: true }));
+
+test('runtime state input remains DATA_ONLY and must preserve the original catalog reference binding', async () =>
+    withRuntimeInput(async (input) =>
+    {
+        const { repositoryRoot, runtimeCatalogPath, checkpointRef, worktreeFingerprint, ...compiledMaterial } = input;
+        assert.ok(repositoryRoot && checkpointRef && worktreeFingerprint);
+        const sourceRoot = path.resolve(import.meta.dirname, '../..');
+        const steps = input.compiled.steps.map((step) => ({ id: step.id, resources: step.resources, dependsOn: step.dependsOn,
+            command: (step.command ?? []).map((arg) => arg.startsWith(`${sourceRoot}/`) ? path.relative(sourceRoot, arg) : arg).join(' ') }));
+        const runtimeAuthority = loadRuntimeStateAuthority({ catalogPath: runtimeCatalogPath, steps });
+        const projected = await projectCompiledAtomicRuntimeCiMaterial({ ...compiledMaterial, runtimeAuthority }, hostLimits);
+        assert.equal(projected.runtimeCatalogDigest, runtimeAuthority.catalogDigest);
+        assert.equal(projected.verificationStatus, 'unverified');
+        const changed = structuredClone(runtimeAuthority);
+        changed.steps['alpha-check'].writes = ['postgres.auth'];
+        await assert.rejects(projectCompiledAtomicRuntimeCiMaterial({ ...compiledMaterial, runtimeAuthority: changed }, hostLimits), /mismatch/u);
+    }));
+
+test('running canonical checkpoint source is required; disposable JSON cannot replace readback', async () =>
+    withRuntimeInput(async (input) =>
+    {
+        const wrongSource = { ...input, worktreeFingerprint: `sha256:${'3'.repeat(64)}` };
+        await assert.rejects(createCompiledAtomicRuntimeCiBinding(wrongSource, hostLimits), /worktree/u);
+        const file = path.join(input.repositoryRoot, input.checkpointRef.path);
+        fs.rmSync(path.join(path.dirname(file), 'evidence-store'), { recursive: true, force: true });
+        await assert.rejects(createCompiledAtomicRuntimeCiBinding(input, hostLimits), /missing-canonical-checkpoint/u);
+    }));
+
+test('original runtime catalog drift is refused before a later admission wave', async () =>
+    withRuntimeInput(async (input) =>
+    {
+        const binding = await createCompiledAtomicRuntimeCiBinding(input, hostLimits);
+        binding.stateConflictPolicy.assertCurrent();
+        const catalog = JSON.parse(fs.readFileSync(input.runtimeCatalogPath, 'utf8'));
+        catalog.auditBaseline = '0'.repeat(40);
+        fs.writeFileSync(input.runtimeCatalogPath, JSON.stringify(catalog));
+        assert.throws(() => binding.stateConflictPolicy.assertCurrent(), /drifted/u);
+    }));

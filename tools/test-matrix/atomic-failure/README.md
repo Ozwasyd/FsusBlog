@@ -1,6 +1,9 @@
 # Atomic failure projection material
 
-These modules analyze explicit, bounded, caller-owned data. Every result has
+Projection modules analyze explicit, bounded, caller-owned data. The runtime
+binder additionally reads the original state catalogue and canonical scheduler
+checkpoint through their source-owned I/O contracts. Its returned facts are admitted
+under the explicit host budgets after those original reads. Every projection has
 `dataOnly: true` and `verificationStatus: unverified`. The display `contentDigest`
 detects modification; it does not authenticate a graph, producer, attempt,
 aggregate or replay input. No module runs tests, retries a producer, scans a run
@@ -24,9 +27,39 @@ fail-fast, artifact bindings and structured aggregate consumption.
 `ci-plan.jobs[].tiers` projection. It derives the material view without maintaining
 another parent/job map. This API requires the atomic framework source capability
 to be installed; its independently tested dependency is
-`653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0`. The original framework source
+`ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c` (original behavior correction
+`653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0` plus the sole-owner import fix). The original framework source
 and history are consumed unchanged by a normal merge. Missing or ambiguous canonical CI ownership
 and runtime `stateAccessRef` without its canonical fact bridge are refused.
+
+`projectCompiledAtomicRuntimeCiMaterial` extends the compiler/CI-plan projection
+with the original runtime state's catalogue and registry facts. Each original
+`stateAccessRef` must bind its catalogue digest and exact entry digest through
+`catalogDigest` and `catalogEntryDigest`; entry IDs remain producer IDs, without an
+alias table. Missing entries or stateful children without original refs are
+refused. The graph retains canonical dotted state-domain names. Read/write advice
+is conservative; the actual scheduler policy retains the original operation,
+exclusive-domain and commutativity rules. Conflicting independent producers in
+different CI jobs are refused until the canonical planner co-locates them. Existing
+cross-job prerequisite ancestry permits serialization; no new needs map is added.
+
+`createCompiledAtomicRuntimeCiBinding` loads state facts using the original
+`loadRuntimeStateAuthority` and checks the explicit current-run checkpoint with
+`readCanonicalSchedulerCheckpoint` from exact scheduler source
+`2eda290cc6098971b685b3fb1465d7193bd3dde2`. Disposable checkpoint JSON cannot substitute
+for canonical objects/journal. Source/worktree/run/digest must match and scheduler
+status must be running. Compiled argv is retained unchanged for execution; only a
+literal command view is derived for the existing catalogue source analyzer.
+Unsupported argv syntax needs the original structured argv analyzer, rather than
+assuming no state. The returned original conflict policy, including catalogue,
+registry and checkpoint source checks before later admission waves, can be attached
+to the original executor's capacity. CPU, memory, concurrency, commands, attempt
+policy and finalizers stay unchanged. This readback does not grant a live scheduler
+resource admission or perform checkpoint CAS/final receipt publication. Hosts still
+need the original owner/grant and finalizer contracts. Raw validated state facts
+are returned for reuse by read-only terminal collection, not as a qualification
+receipt. Ordinary controls execute original source-fixture producers through this
+binding; they do not exercise product services or qualify Production runtime.
 
 `collectCompiledAtomicTerminalMaterial` consumes that same verified compiled DAG,
 its original complete terminal vector and explicit expected-vector material. It
@@ -36,6 +69,8 @@ primary failure refs, blocked dependencies, receipt digests and reference digest
 encoding, including bare SHA-256 join evidence. Unspawned cancellation stays an
 attempt-less original receipt. CI transport bindings remain plans: this read-only
 API neither materializes a file nor claims that its planned receipt path exists.
+Runtime collection accepts the same original `runtimeAuthority` facts and
+recomputes the state-aware CI binding, preserving the original CI projection digest.
 Partial selection is refused until the original executor supplies not-selected
 receipts. Explicit repository-relative paths are lexical checks; filesystem reads,
 symlink authentication and original byte verification belong to the authority
@@ -103,7 +138,9 @@ for exceptionally wide key enumeration. The caller owns input transport policy.
 
 - The atomic declaration/compiler owners must provide exact current graph bytes,
   compiled identities, declaration-linked source launch facts, attempt bindings and
-  domain migration receipts. The original compiler/executor source is now consumed;
+  domain migration receipts. Runtime catalogue entries need exact producer IDs and
+  original state refs with `catalogDigest` and `catalogEntryDigest`; the planner must
+  invoke the state bridge before assigning conflicting children to separate jobs. The original compiler/executor source is now consumed;
   complete domain declarations and runtime authority bindings remain pending.
 - The semantic aggregate owner must authenticate original producer/attempt/replay
   refs, retain all first failures and publish through the existing current-run

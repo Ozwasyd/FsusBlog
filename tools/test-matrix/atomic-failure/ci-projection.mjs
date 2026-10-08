@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { admitMaterial, checkGraphMaterial, checkProjectionDigest, currentReference, digestFact, exactFields,
+import { admitMaterial, checkGraphMaterial, checkProjectionDigest, currentReference, digestFact, exactFields, freezeMaterial,
     requireFact, sameFact, sealProjection, stableIds } from './projection-contract.mjs';
 
 /**
@@ -9,12 +9,11 @@ import { admitMaterial, checkGraphMaterial, checkProjectionDigest, currentRefere
  * job map. Runtime state facts need a separate canonical handoff; they cannot
  * be inferred from a stateAccessRef or considered conflict-free here.
  */
-export async function projectCompiledAtomicCiMaterial(input, hostLimits)
+async function compiledCiGraph(material, runtimeAuthority = null)
 {
-    const material = admitMaterial(input, hostLimits);
-    exactFields(material, ['compiled', 'matrix', 'authorities', 'ciPlan', 'graphRef', 'context', 'selectedIds'],
-        'compiled CI consumer input');
     const { verifyCompiledAtomicProducerDag } = await import(new URL('../atomic-producers/compiler.mjs', import.meta.url));
+    const { resolveAtomicReference } = await import(new URL('../atomic-producers/contract.mjs', import.meta.url));
+    const { digestCanonical } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
     const compiled = verifyCompiledAtomicProducerDag(material.compiled, material.matrix, material.authorities);
     sameFact(material.graphRef.objectDigest, compiled.contentDigest, 'compiled graph reference digest');
     requireFact(Array.isArray(material.ciPlan.jobs), 'canonical CI plan jobs required');
@@ -25,16 +24,169 @@ export async function projectCompiledAtomicCiMaterial(input, hostLimits)
     {
         const owners = material.ciPlan.jobs.filter((job) => Array.isArray(job.tiers) && job.tiers.includes(step.logicalParentId));
         requireFact(owners.length === 1, 'compiled logical parent must have exact-one canonical CI job');
-        requireFact(!step.stateAccessRef, 'canonical runtime state-access fact bridge unavailable');
+        let stateAccess = [];
+        if (runtimeAuthority)
+        {
+            const entry = runtimeAuthority.steps[step.id];
+            requireFact(entry, 'atomic producer missing from canonical runtime state catalog');
+            const mutating = new Set(['writes', 'creates', 'deletes', 'invalidates', 'exclusiveStateDomains']
+                .flatMap((field) => entry[field] ?? []));
+            stateAccess = [...new Set([...(entry.reads ?? []), ...mutating])].sort()
+                .map((domain) => ({ domain, mode: mutating.has(domain) ? 'write' : 'read' }));
+            if (step.stateAccessRef)
+            {
+                const source = resolveAtomicReference(material.authorities.stateAccess, step.stateAccessRef, 'runtime state access');
+                sameFact(source.catalogDigest, runtimeAuthority.catalogDigest, 'state access canonical catalog binding');
+                sameFact(source.catalogEntryDigest, digestCanonical(entry), 'state access canonical entry binding');
+            }
+            else
+            {
+                requireFact(stateAccess.length === 0, 'stateful producer requires original stateAccessRef');
+            }
+        }
+        else
+        {
+            requireFact(!step.stateAccessRef, 'canonical runtime state-access fact bridge unavailable');
+        }
         const declaration = declarations.get(step.id);
         requireFact(kinds[step.kind] && declaration, 'compiled kind/declaration mismatch');
         return { id: step.id, logicalParentId: step.logicalParentId, kind: kinds[step.kind],
             evidenceClass: ['atomic-producer', 'hard-prerequisite'].includes(step.kind) ? declaration.evidenceClass : 'coordination',
             dependsOn: [...step.dependsOn], settledDependsOn: [...step.settledDependsOn], ciJobId: owners[0].id,
-            stateAccess: [], exclusiveResources: [...(step.resources.exclusiveResources ?? [])] };
+            stateAccess, exclusiveResources: [...(step.resources.exclusiveResources ?? [])] };
     });
+    return { graphRef: material.graphRef, dagDigest: compiled.contentDigest, nodes };
+}
+
+const compiledCiFields = ['compiled', 'matrix', 'authorities', 'ciPlan', 'graphRef', 'context', 'selectedIds'];
+
+export async function projectCompiledAtomicCiMaterial(input, hostLimits)
+{
+    const material = admitMaterial(input, hostLimits);
+    exactFields(material, compiledCiFields, 'compiled CI consumer input');
     return projectAtomicCiMaterial({ context: material.context, selectedIds: material.selectedIds,
-        graph: { graphRef: material.graphRef, dagDigest: compiled.contentDigest, nodes } }, hostLimits);
+        graph: await compiledCiGraph(material) }, hostLimits);
+}
+
+async function runtimeCiBinding(material, hostLimits)
+{
+    const { digestCanonical } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
+    const { createStateConflictPolicy } = await import(new URL('../../test-runtime/state-conflict.mjs', import.meta.url));
+    const authority = material.runtimeAuthority;
+    requireFact(authority.catalog.schema === 'fsusblog.runtime-state-domain-catalog.v1'
+        && authority.registry.schema === 'fsusblog.runtime-state-domain-registry.v1', 'original runtime state schemas required');
+    sameFact(authority.catalogDigest, digestCanonical(authority.catalog), 'runtime catalog digest');
+    sameFact(authority.registryDigest, digestCanonical(authority.registry), 'runtime registry digest');
+    requireFact(Array.isArray(authority.catalog.steps), 'original runtime catalog steps required');
+    sameFact(authority.steps, Object.fromEntries(authority.catalog.steps.map((entry) => [entry.stepId, entry])), 'runtime catalog step facts');
+    requireFact(new Set(authority.catalog.steps.map((entry) => entry.stepId)).size === authority.catalog.steps.length,
+        'duplicate runtime catalog step');
+    requireFact(Array.isArray(authority.registry.domains), 'canonical state domain registry required');
+    const domains = new Set(authority.registry.domains);
+    for (const entry of authority.catalog.steps)
+    {
+        requireFact(['none', 'declared'].includes(entry.stateAccess), 'closed original state-access kind required');
+        for (const field of ['reads', 'writes', 'creates', 'deletes', 'invalidates', 'exclusiveStateDomains'])
+        {
+            const values = entry[field] ?? (entry.stateAccess === 'none' ? [] : null);
+            requireFact(Array.isArray(values) && new Set(values).size === values.length
+                && values.every((domain) => domains.has(domain)), 'canonical state operation domains required');
+            requireFact(entry.stateAccess !== 'none' || values.length === 0, 'coordination cannot declare runtime state');
+        }
+    }
+    const graph = await compiledCiGraph(material, authority);
+    const ciProjection = projectAtomicCiMaterial({ context: material.context, selectedIds: material.selectedIds, graph }, hostLimits);
+    const stateConflictPolicy = createStateConflictPolicy(authority);
+    const jobs = new Map(ciProjection.jobs.map((job) => [job.id, job]));
+    const precedes = (before, after) => jobs.get(after).needs.some((id) => id === before || precedes(before, id));
+    const executable = graph.nodes.filter((node) => ['producer', 'hard-prerequisite'].includes(node.kind));
+    for (let left = 0; left < executable.length; left += 1)
+    {
+        for (let right = left + 1; right < executable.length; right += 1)
+        {
+            const a = executable[left];
+            const b = executable[right];
+            if (a.ciJobId !== b.ciJobId && !precedes(a.ciJobId, b.ciJobId) && !precedes(b.ciJobId, a.ciJobId))
+            {
+                requireFact(!stateConflictPolicy.evaluate(a.id, b.id).conflict,
+                    `canonical CI planner must co-locate conflicting independent producers: ${a.id}, ${b.id}`);
+            }
+        }
+    }
+    const projection = sealProjection({ schema: 'fsusblog.atomic-runtime-ci-projection-material.v1', ciProjection,
+        graph, runtimeCatalogDigest: authority.catalogDigest, runtimeRegistryDigest: authority.registryDigest,
+        runtimeAcceptancePending: true, qualificationEligible: false });
+    return { projection, stateConflictPolicy };
+}
+
+/** DATA_ONLY projection from explicit original state facts; this does not authenticate supplied facts. */
+export async function projectCompiledAtomicRuntimeCiMaterial(input, hostLimits)
+{
+    const material = admitMaterial(input, hostLimits);
+    exactFields(material, [...compiledCiFields, 'runtimeAuthority'], 'runtime CI projection input');
+    return (await runtimeCiBinding(material, hostLimits)).projection;
+}
+
+/**
+ * Load the original validated state catalog and canonical scheduler readback.
+ * The returned original conflict policy can be passed to the original executor;
+ * resource capacity, finalizers, admission and receipts remain with their owners.
+ */
+export async function createCompiledAtomicRuntimeCiBinding(input, hostLimits)
+{
+    const material = admitMaterial(input, hostLimits);
+    exactFields(material, [...compiledCiFields, 'repositoryRoot', 'runtimeCatalogPath', 'checkpointRef',
+        'worktreeFingerprint'], 'runtime CI binding input');
+    requireFact(typeof material.repositoryRoot === 'string' && path.isAbsolute(material.repositoryRoot), 'absolute repository root required');
+    digestFact(material.worktreeFingerprint, 'runtime worktree fingerprint');
+    const { loadRuntimeStateAuthority, assertRuntimeAuthorityUnchanged } = await import(new URL('../../test-runtime/catalog.mjs', import.meta.url));
+    const { verifyCompiledAtomicProducerDag } = await import(new URL('../atomic-producers/compiler.mjs', import.meta.url));
+    const { readCanonicalSchedulerCheckpoint } = await import(new URL('../scheduler.mjs', import.meta.url));
+    const compiled = verifyCompiledAtomicProducerDag(material.compiled, material.matrix, material.authorities);
+    const commandRepositoryRoot = path.resolve(import.meta.dirname, '../../..');
+    const steps = compiled.steps.map((step) => ({ id: step.id, dependsOn: step.dependsOn, resources: step.resources,
+        command: (step.command ?? []).map((argument) =>
+        {
+            const value = path.isAbsolute(argument) && argument.startsWith(`${commandRepositoryRoot}${path.sep}`)
+                ? path.relative(commandRepositoryRoot, argument) : argument;
+            requireFact(!/[\s;&|`$"'<>]/u.test(value), 'runtime catalog needs an original structured argv analyzer for this command');
+            return value;
+        }).join(' ') }));
+    const catalogOptions = { steps };
+    if (material.runtimeCatalogPath !== null)
+    {
+        requireFact(typeof material.runtimeCatalogPath === 'string' && path.isAbsolute(material.runtimeCatalogPath), 'absolute runtime catalog path required');
+        catalogOptions.catalogPath = material.runtimeCatalogPath;
+    }
+    const runtimeAuthority = freezeMaterial(admitMaterial(loadRuntimeStateAuthority(catalogOptions), hostLimits));
+    currentReference(material.checkpointRef, material.context, 'canonical scheduler checkpoint');
+    requireFact(material.checkpointRef.path === `.tmp/test-runs/${material.context.schedulerRunId}/checkpoint.json`,
+        'explicit canonical checkpoint path required');
+    const canonical = readCanonicalSchedulerCheckpoint(path.join(material.repositoryRoot, material.checkpointRef.path));
+    requireFact(canonical, 'canonical scheduler checkpoint unavailable');
+    sameFact(canonical.checkpointDigest, material.checkpointRef.objectDigest, 'canonical scheduler checkpoint digest');
+    sameFact(canonical.checkpoint.runId, material.context.schedulerRunId, 'canonical scheduler run');
+    sameFact(canonical.checkpoint.sourceState.commit, material.context.sourceCommit, 'canonical scheduler source');
+    sameFact(canonical.checkpoint.sourceState.worktreeFingerprint, material.worktreeFingerprint, 'canonical scheduler worktree');
+    requireFact(canonical.checkpoint.status === 'running', 'canonical scheduler must be running before runtime binding');
+    const binding = await runtimeCiBinding({ ...material, runtimeAuthority }, hostLimits);
+    const originalPolicy = binding.stateConflictPolicy;
+    const assertCurrent = () =>
+    {
+        assertRuntimeAuthorityUnchanged(runtimeAuthority, catalogOptions);
+        sameFact(loadRuntimeStateAuthority(catalogOptions).registryDigest, runtimeAuthority.registryDigest, 'current runtime state registry');
+        const current = readCanonicalSchedulerCheckpoint(path.join(material.repositoryRoot, material.checkpointRef.path));
+        requireFact(current && current.checkpoint.runId === material.context.schedulerRunId
+            && current.checkpoint.sourceState.commit === material.context.sourceCommit
+            && current.checkpoint.sourceState.worktreeFingerprint === material.worktreeFingerprint
+            && current.checkpoint.status === 'running',
+        'canonical scheduler runtime binding drifted');
+    };
+    return Object.freeze({ projection: binding.projection,
+        runtimeAuthority,
+        checkpointBinding: Object.freeze({ checkpointRef: material.checkpointRef, revision: canonical.checkpoint.revision,
+            lastSequence: canonical.lastSequence }),
+        stateConflictPolicy: Object.freeze({ ...originalPolicy, assertCurrent }) });
 }
 
 function terminalReference(reference, repositoryRoot, context)
@@ -63,10 +215,13 @@ export async function collectCompiledAtomicTerminalMaterial(input, hostLimits)
 {
     const material = admitMaterial(input, hostLimits);
     exactFields(material, ['compiled', 'matrix', 'authorities', 'ciPlan', 'graphRef', 'context', 'selectedIds',
-        'vector', 'expectedVector', 'terminalVectorRef', 'worktreeFingerprint', 'repositoryRoot'], 'terminal collection input');
+        'vector', 'expectedVector', 'terminalVectorRef', 'worktreeFingerprint', 'repositoryRoot',
+        ...(Object.hasOwn(material, 'runtimeAuthority') ? ['runtimeAuthority'] : [])], 'terminal collection input');
     const { compiled, matrix, authorities, ciPlan, graphRef, context, selectedIds, vector } = material;
-    const projection = await projectCompiledAtomicCiMaterial({ compiled, matrix, authorities, ciPlan,
-        graphRef, context, selectedIds }, hostLimits);
+    const ciInput = { compiled, matrix, authorities, ciPlan, graphRef, context, selectedIds };
+    const projection = Object.hasOwn(material, 'runtimeAuthority')
+        ? (await runtimeCiBinding({ ...ciInput, runtimeAuthority: material.runtimeAuthority }, hostLimits)).projection.ciProjection
+        : await projectCompiledAtomicCiMaterial(ciInput, hostLimits);
     const { verifyAtomicTerminalVector } = await import(new URL('../atomic-producers/execution.mjs', import.meta.url));
     const { digestCanonical } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
     verifyAtomicTerminalVector(vector, material.expectedVector);
