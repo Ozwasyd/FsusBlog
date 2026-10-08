@@ -316,6 +316,15 @@ describe('one saved-view state adapter across surfaces', () => {
         const wrapper = mount(SavedViewSurface, { props: { surface: 'list', status: 'ready', view, deepLinkStatus: 'resolving' }, slots: { results: '服务端文章' } });
         mounted.push(wrapper);
         expect(wrapper.text()).not.toContain('服务端文章');
+        expect(wrapper.text()).not.toContain(view.name);
+    });
+
+    it.each(['stale', 'permission-denied'] as const)('%s also masks prior view names and Rail pins', status => {
+        const wrapper = mount(SavedViewSurface, { props: { surface: 'rail', status, view, pinnedViews: [view] } });
+        mounted.push(wrapper);
+        expect(wrapper.text()).not.toContain(view.name);
+        expect(wrapper.findAll('li')).toHaveLength(0);
+        expect(wrapper.find('button').exists()).toBe(false);
     });
 });
 

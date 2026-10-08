@@ -12,7 +12,7 @@
             v-if="deepLinkStatus === 'invalid'"
             role="alert"
         >视图链接无效，请重新选择视图。</p>
-        <template v-if="surface === 'rail'">
+        <template v-if="surface === 'rail' && identityVisible">
             <ul class="saved-view-pins">
                 <li
                     v-for="pin in pinnedViews.slice(0, 20)"
@@ -34,9 +34,9 @@
                 @click="emit('nextPins')"
             >下一页视图</ElButton>
         </template>
-        <p v-if="view">{{ view.name }} · 服务端版本 {{ view.revision }}</p>
+        <p v-if="view && identityVisible">{{ view.name }} · 服务端版本 {{ view.revision }}</p>
         <p :role="['invalid', 'stale', 'permission-denied'].includes(status) ? 'alert' : 'status'">{{ statusText }}</p>
-        <ul v-if="status === 'invalid'">
+        <ul v-if="status === 'invalid' && identityVisible">
             <li
                 v-for="(reason, index) in reasons.slice(0, 64)"
                 :key="index"
@@ -45,11 +45,11 @@
             </li>
         </ul>
         <ElButton
-            v-if="status === 'invalid' && view"
+            v-if="status === 'invalid' && view && identityVisible"
             @click="emit('repair', view.viewId)"
         >修复条件</ElButton>
         <slot
-            v-if="status === 'ready' && view && deepLinkStatus !== 'invalid' && deepLinkStatus !== 'resolving'"
+            v-if="status === 'ready' && view && identityVisible"
             name="results"
         />
     </section>
@@ -101,6 +101,10 @@ const statusText = computed(() => ({
     empty: '服务端查询未返回文章。',
     unsynced: '修改尚未同步；当前展示仍属于服务端版本。'
 }[props.status]));
+
+// A retained prior response is not authority after permission/link drift.
+const identityVisible = computed(() => !['stale', 'permission-denied'].includes(props.status)
+    && !['invalid', 'resolving'].includes(props.deepLinkStatus));
 
 function openView(view: SavedViewSummary): void
 {
