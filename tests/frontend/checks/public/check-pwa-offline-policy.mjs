@@ -213,6 +213,14 @@ async function runShellInvalidationBehaviorCheck(scope, initialPaths)
     return { result, cache: context.__cache };
 }
 
+{
+    const { context, sandbox } = createServiceWorkerContext(['/', '/about', '/archive']);
+    const result = await vm.runInContext("handleControlMessage({ type: 'shell.invalidate', scope: 'about' })", sandbox);
+    assert(result.deletedCount === 1, 'shell control must return its in-scope deletion result after broadcasting');
+    assert(!context.__cache.has('/about'), 'shell control must invalidate the selected public scope');
+    assert(context.__cache.has('/') && context.__cache.has('/archive'), 'shell control must preserve other public scopes');
+}
+
 async function runSensitiveFetchBehaviorCheck(path)
 {
     const { context } = createServiceWorkerContext();
