@@ -1,3 +1,4 @@
+import type { BinaryRouteRequest, BinaryTransportRequest } from '@/contracts/binaryTransport';
 import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder';
 import {
     encodeSecurityChallengeCancelRequest,
@@ -490,10 +491,8 @@ export interface SecurityRiskResetResponse {
 }
 
 const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof';
-const BINARY_API_PREFIX = '/api/binary';
 
 interface SecurityBinaryRequestOptions {
-    method?: string;
     requestFrame?: FrameType;
     request?: unknown;
 }
@@ -576,94 +575,69 @@ function securityChallengeHeaders(
 }
 
 function requestSecurityBinary<T>(
-    path: string,
+    binaryRoute: BinaryRouteRequest,
     frameType: FrameType,
     config?: ApiRequestConfig,
     options: SecurityBinaryRequestOptions = {}
 ): Promise<T>
 {
-    const requestOptions: RequestInit = {
-        credentials: 'include',
+    const requestOptions: NonNullable<BinaryTransportRequest['requestOptions']> = {
         headers: securityHeaders(config?.mfaProofToken)
     };
-    if (options.method)
-    {
-        requestOptions.method = options.method;
-    }
     if (options.requestFrame !== undefined)
     {
         requestOptions.body = securityBody(options.requestFrame, options.request);
     }
 
     return requestBinaryOnly<T>({
-        binaryUrl: `${BINARY_API_PREFIX}/admin/security${path}`,
-        privateScope: 'admin',
+        binaryRoute,
         frameType,
         requestOptions,
         signal: config?.signal
     });
 }
 
-const query = (params: Record<string, string | number | null | undefined>): string =>
-{
-    const search = new URLSearchParams();
-    for (const [key, value] of Object.entries(params))
-    {
-        if (value !== undefined && value !== null && value !== '')
-        {
-            search.set(key, String(value));
-        }
-    }
-    const value = search.toString();
-    return value ? `?${value}` : '';
-};
-
 export const getSecurityOverview = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<SecurityOverviewResponse>('/overview', FrameType.SecurityOverview, config);
+    requestSecurityBinary<SecurityOverviewResponse>({ operationId: 'binary_get_admin_security_overview' }, FrameType.SecurityOverview, config);
 
 export const getRiskControlConsole = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<RiskControlConsoleResponse>('/risk-control/overview', FrameType.SecurityOverview, config);
+    requestSecurityBinary<RiskControlConsoleResponse>({ operationId: 'binary_get_admin_security_risk_control_overview' }, FrameType.SecurityOverview, config);
 
 export const simulateRiskControl = (request: RiskControlSimulationRequest, config?: ApiRequestConfig) =>
-    requestSecurityBinary<RiskControlSimulationResponse>('/risk-control/simulate', FrameType.SecurityOverview, config, {
-        method: 'POST',
+    requestSecurityBinary<RiskControlSimulationResponse>({ operationId: 'binary_post_admin_security_risk_control_simulate' }, FrameType.SecurityOverview, config, {
         requestFrame: FrameType.SecurityOverview,
         request
     });
 
 export const getSecurityChallengeMetrics = (params: { kind?: string | null; } = {}, config?: ApiRequestConfig) =>
-    requestSecurityBinary<SecurityChallengeMetricsResponse>(`/challenges/overview${query(params)}`, FrameType.SecurityOverview, config);
+    requestSecurityBinary<SecurityChallengeMetricsResponse>({ operationId: 'binary_get_admin_security_challenges_overview', query: params }, FrameType.SecurityOverview, config);
 
 export const getSecurityPolicyConsole = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<SecurityPolicyConsoleResponse>('/policies/overview', FrameType.SecurityOverview, config);
+    requestSecurityBinary<SecurityPolicyConsoleResponse>({ operationId: 'binary_get_admin_security_policies_overview' }, FrameType.SecurityOverview, config);
 
 export const getRiskControlOptions = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<SecurityRiskPolicy>('/risk-control/options', FrameType.SecurityOverview, config);
+    requestSecurityBinary<SecurityRiskPolicy>({ operationId: 'binary_get_admin_security_risk_control_options' }, FrameType.SecurityOverview, config);
 
 export const getPerceptionSealedV2Console = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<PerceptionSealedV2ConsoleResponse>('/perception-v2/overview', FrameType.SecurityOverview, config);
+    requestSecurityBinary<PerceptionSealedV2ConsoleResponse>({ operationId: 'binary_get_admin_security_perception_v2_overview' }, FrameType.SecurityOverview, config);
 
 export const getPerceptionSealedV2Options = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<PerceptionSealedV2PolicySnapshot>('/perception-v2/options', FrameType.SecurityOverview, config);
+    requestSecurityBinary<PerceptionSealedV2PolicySnapshot>({ operationId: 'binary_get_admin_security_perception_v2_options' }, FrameType.SecurityOverview, config);
 
 export const updatePerceptionSealedV2Options = (request: PerceptionSealedV2PolicyUpdateRequest, config?: ApiRequestConfig) =>
-    requestSecurityBinary<PerceptionSealedV2PolicySnapshot>('/perception-v2/options', FrameType.SecurityOverview, config, {
-        method: 'PUT',
+    requestSecurityBinary<PerceptionSealedV2PolicySnapshot>({ operationId: 'binary_put_admin_security_perception_v2_options' }, FrameType.SecurityOverview, config, {
         requestFrame: FrameType.SecurityOverview,
         request
     });
 
 export const rollbackPerceptionSealedV2Options = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<PerceptionSealedV2PolicySnapshot>('/perception-v2/options/rollback', FrameType.SecurityOverview, config, { method: 'POST' });
+    requestSecurityBinary<PerceptionSealedV2PolicySnapshot>({ operationId: 'binary_post_admin_security_perception_v2_options_rollback' }, FrameType.SecurityOverview, config, { });
 
 export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, config?: ApiRequestConfig) =>
     requestBinaryOnly<SecurityChallengeIssueResponse>({
-        binaryUrl: `${BINARY_API_PREFIX}/security/challenge`,
-        privateScope: 'public',
+        binaryRoute: { operationId: 'binary_post_security_challenge' },
         frameType: FrameType.SecurityChallengeIssueResponse,
         requestOptions: {
-            method: 'POST',
-            credentials: 'include',
             headers: securityChallengeHeaders(request.deviceFingerprint, request.replacement, request.representation),
             body: encodeAedsFrame(
                 FrameType.SecurityChallengeIssueRequest,
@@ -681,12 +655,9 @@ export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, c
 
 export const verifySecurityChallenge = (request: VerifySecurityChallengeRequest, config?: ApiRequestConfig) =>
     requestBinaryOnly<SecurityChallengeVerifyResponse>({
-        binaryUrl: `${BINARY_API_PREFIX}/security/challenge/verify`,
-        privateScope: 'public',
+        binaryRoute: { operationId: 'binary_post_security_challenge_verify' },
         frameType: FrameType.SecurityChallengeVerifyResponse,
         requestOptions: {
-            method: 'POST',
-            credentials: 'include',
             headers: securityChallengeHeaders(),
             body: encodeAedsFrame(
                 FrameType.SecurityChallengeVerifyRequest,
@@ -706,12 +677,9 @@ export const verifySecurityChallenge = (request: VerifySecurityChallengeRequest,
 
 export const cancelSecurityChallenge = (request: CancelSecurityChallengeRequest, config?: ApiRequestConfig) =>
     requestBinaryOnly<null>({
-        binaryUrl: `${BINARY_API_PREFIX}/security/challenge/cancel`,
-        privateScope: 'public',
+        binaryRoute: { operationId: 'binary_post_security_challenge_cancel' },
         frameType: FrameType.EmptySuccess,
         requestOptions: {
-            method: 'POST',
-            credentials: 'include',
             keepalive: true,
             headers: securityChallengeHeaders(request.deviceFingerprint),
             body: encodeAedsFrame(
@@ -729,92 +697,85 @@ export const cancelSecurityChallenge = (request: CancelSecurityChallengeRequest,
     });
 
 export const getAntiCrawlerOverview = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerOverviewResponse>('/anti-crawler/overview', FrameType.AntiCrawlerOverview, config);
+    requestSecurityBinary<AntiCrawlerOverviewResponse>({ operationId: 'binary_get_admin_security_anti_crawler_overview' }, FrameType.AntiCrawlerOverview, config);
 
 export const getAntiCrawlerOptions = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerPolicySnapshot>('/anti-crawler/options', FrameType.AntiCrawlerPolicySnapshot, config);
+    requestSecurityBinary<AntiCrawlerPolicySnapshot>({ operationId: 'binary_get_admin_security_anti_crawler_options' }, FrameType.AntiCrawlerPolicySnapshot, config);
 
 export const updateAntiCrawlerOptions = (request: AntiCrawlerOptionsUpdateRequest, config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerPolicySnapshot>('/anti-crawler/options', FrameType.AntiCrawlerPolicySnapshot, config, {
-        method: 'PUT',
+    requestSecurityBinary<AntiCrawlerPolicySnapshot>({ operationId: 'binary_put_admin_security_anti_crawler_options' }, FrameType.AntiCrawlerPolicySnapshot, config, {
         requestFrame: FrameType.AntiCrawlerOptionsUpdateRequest,
         request
     });
 
 export const rollbackAntiCrawlerOptions = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerPolicySnapshot>('/anti-crawler/options/rollback', FrameType.AntiCrawlerPolicySnapshot, config, { method: 'POST' });
+    requestSecurityBinary<AntiCrawlerPolicySnapshot>({ operationId: 'binary_post_admin_security_anti_crawler_options_rollback' }, FrameType.AntiCrawlerPolicySnapshot, config, { });
 
 export const getCrawlerRangesStatus = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<CrawlerRangesAdminStatus>('/anti-crawler/crawler-ranges/status', FrameType.CrawlerRangesAdminStatus, config);
+    requestSecurityBinary<CrawlerRangesAdminStatus>({ operationId: 'binary_get_admin_security_anti_crawler_crawler_ranges_status' }, FrameType.CrawlerRangesAdminStatus, config);
 
 export const syncCrawlerRanges = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<CrawlerRangeSyncResponse>('/anti-crawler/crawler-ranges/sync', FrameType.CrawlerRangeSyncResponse, config, { method: 'POST' });
+    requestSecurityBinary<CrawlerRangeSyncResponse>({ operationId: 'binary_post_admin_security_anti_crawler_crawler_ranges_sync' }, FrameType.CrawlerRangeSyncResponse, config, { });
 
 export const listSecurityRiskEvents = (params: { source?: string | null; reason?: string | null; limit?: number; } = {}, config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerRiskEventResponse[]>(`/risk/events${query(params)}`, FrameType.SecurityRiskEventList, config);
+    requestSecurityBinary<AntiCrawlerRiskEventResponse[]>({ operationId: 'binary_get_admin_security_risk_events', query: params }, FrameType.SecurityRiskEventList, config);
 
 export const listSecurityRiskSnapshots = (limit = 100, config?: ApiRequestConfig) =>
-    requestSecurityBinary<SecurityRiskSnapshotResponse[]>(`/risk/snapshots${query({ limit })}`, FrameType.SecurityRiskSnapshotList, config);
+    requestSecurityBinary<SecurityRiskSnapshotResponse[]>({ operationId: 'binary_get_admin_security_risk_snapshots', query: { limit } }, FrameType.SecurityRiskSnapshotList, config);
 
 export const resetSecurityRisk = (request: SecurityRiskResetRequest, config?: ApiRequestConfig) =>
-    requestSecurityBinary<SecurityRiskResetResponse>('/risk/ip/reset', FrameType.SecurityRiskResetResponse, config, {
-        method: 'POST',
+    requestSecurityBinary<SecurityRiskResetResponse>({ operationId: 'binary_post_admin_security_risk_dimension_reset', params: { dimension: 'ip' } }, FrameType.SecurityRiskResetResponse, config, {
         requestFrame: FrameType.SecurityRiskResetRequest,
         request
     });
 
 export const listAntiCrawlerRules = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerRuleResponse[]>('/anti-crawler/rules', FrameType.AntiCrawlerRuleList, config);
+    requestSecurityBinary<AntiCrawlerRuleResponse[]>({ operationId: 'binary_get_admin_security_anti_crawler_rules' }, FrameType.AntiCrawlerRuleList, config);
 
 export const createAntiCrawlerRule = (request: AntiCrawlerRuleRequest, config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerRuleResponse>('/anti-crawler/rules', FrameType.AntiCrawlerRuleResponse, config, {
-        method: 'POST',
+    requestSecurityBinary<AntiCrawlerRuleResponse>({ operationId: 'binary_post_admin_security_anti_crawler_rules' }, FrameType.AntiCrawlerRuleResponse, config, {
         requestFrame: FrameType.AntiCrawlerRuleRequest,
         request
     });
 
 export const updateAntiCrawlerRule = (id: string, request: AntiCrawlerRuleRequest, config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerRuleResponse>(`/anti-crawler/rules/${encodeURIComponent(id)}`, FrameType.AntiCrawlerRuleResponse, config, {
-        method: 'PUT',
+    requestSecurityBinary<AntiCrawlerRuleResponse>({ operationId: 'binary_put_admin_security_anti_crawler_rules_id', params: { id } }, FrameType.AntiCrawlerRuleResponse, config, {
         requestFrame: FrameType.AntiCrawlerRuleRequest,
         request
     });
 
 export const deleteAntiCrawlerRule = (id: string, config?: ApiRequestConfig) =>
-    requestSecurityBinary<{ deleted: boolean; }>(`/anti-crawler/rules/${encodeURIComponent(id)}`, FrameType.AntiCrawlerRuleDeleteResponse, config, { method: 'DELETE' });
+    requestSecurityBinary<{ deleted: boolean; }>({ operationId: 'binary_delete_admin_security_anti_crawler_rules_id', params: { id } }, FrameType.AntiCrawlerRuleDeleteResponse, config, { });
 
 export const listAntiCrawlerEntries = (listType: 'allowlist' | 'blocklist', config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerListEntryResponse[]>(`/anti-crawler/${listType}`, FrameType.AntiCrawlerListEntryList, config);
+    requestSecurityBinary<AntiCrawlerListEntryResponse[]>({ operationId: listType === 'allowlist' ? 'binary_get_admin_security_anti_crawler_allowlist' : 'binary_get_admin_security_anti_crawler_blocklist' }, FrameType.AntiCrawlerListEntryList, config);
 
 export const createAntiCrawlerEntry = (listType: 'allowlist' | 'blocklist', request: AntiCrawlerListEntryRequest, config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerListEntryResponse>(`/anti-crawler/${listType}`, FrameType.AntiCrawlerListEntryResponse, config, {
-        method: 'POST',
+    requestSecurityBinary<AntiCrawlerListEntryResponse>({ operationId: listType === 'allowlist' ? 'binary_post_admin_security_anti_crawler_allowlist' : 'binary_post_admin_security_anti_crawler_blocklist' }, FrameType.AntiCrawlerListEntryResponse, config, {
         requestFrame: FrameType.AntiCrawlerListEntryRequest,
         request
     });
 
 export const deleteAntiCrawlerEntry = (listType: 'allowlist' | 'blocklist', id: string, config?: ApiRequestConfig) =>
-    requestSecurityBinary<{ deleted: boolean; }>(`/anti-crawler/${listType}/${encodeURIComponent(id)}`, FrameType.AntiCrawlerListEntryDeleteResponse, config, { method: 'DELETE' });
+    requestSecurityBinary<{ deleted: boolean; }>({ operationId: listType === 'allowlist' ? 'binary_delete_admin_security_anti_crawler_allowlist_id' : 'binary_delete_admin_security_anti_crawler_blocklist_id', params: { id } }, FrameType.AntiCrawlerListEntryDeleteResponse, config, { });
 
 export const simulateAntiCrawlerPolicy = (request: AntiCrawlerSimulationRequest, config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerSimulationResult>('/anti-crawler/simulate', FrameType.AntiCrawlerSimulationResult, config, {
-        method: 'POST',
+    requestSecurityBinary<AntiCrawlerSimulationResult>({ operationId: 'binary_post_admin_security_anti_crawler_simulate' }, FrameType.AntiCrawlerSimulationResult, config, {
         requestFrame: FrameType.AntiCrawlerSimulationRequest,
         request
     });
 
 export const getPowOverview = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<PowOverviewResponse>('/pow/overview', FrameType.PowOverview, config);
+    requestSecurityBinary<PowOverviewResponse>({ operationId: 'binary_get_admin_security_pow_overview' }, FrameType.PowOverview, config);
 
 export const getPowOptions = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<PowPolicySnapshot>('/pow/options', FrameType.PowPolicySnapshot, config);
+    requestSecurityBinary<PowPolicySnapshot>({ operationId: 'binary_get_admin_security_pow_options' }, FrameType.PowPolicySnapshot, config);
 
 export const updatePowOptions = (request: PowOptionsUpdateRequest, config?: ApiRequestConfig) =>
-    requestSecurityBinary<PowPolicySnapshot>('/pow/options', FrameType.PowPolicySnapshot, config, {
-        method: 'PUT',
+    requestSecurityBinary<PowPolicySnapshot>({ operationId: 'binary_put_admin_security_pow_options' }, FrameType.PowPolicySnapshot, config, {
         requestFrame: FrameType.PowOptionsUpdateRequest,
         request
     });
 
 export const rollbackPowOptions = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<PowPolicySnapshot>('/pow/options/rollback', FrameType.PowPolicySnapshot, config, { method: 'POST' });
+    requestSecurityBinary<PowPolicySnapshot>({ operationId: 'binary_post_admin_security_pow_options_rollback' }, FrameType.PowPolicySnapshot, config, { });

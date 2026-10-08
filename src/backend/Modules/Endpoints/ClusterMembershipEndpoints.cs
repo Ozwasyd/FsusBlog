@@ -4,9 +4,11 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
 using FsusBlog.Server.Infrastructure.Distributed.StateControl;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.AspNetCore.Mvc;
@@ -23,14 +25,19 @@ public static class ClusterMembershipEndpoints
     {
         RouteGroupBuilder group = app.MapGroup("/api/binary/author/ops/cluster")
             .WithTags("ClusterOperations")
+            .WithMetadata(new FsusRouteKindMetadata("binary"))
             .RequireAdminPermission(AdminPermissions.SystemConfig)
             .RequireRateLimiting("fixed_ip")
             .RequireNoStoreResponse();
 
-        group.MapGet("/nodes", ReadSnapshotAsync);
-        group.MapPost("/nodes/{nodeId}/state", SetNodeStateAsync);
-        group.MapPost("/scheduler", SetSchedulerAsync);
-        group.MapPost("/leases/{leaseId}/release-expired", ReleaseExpiredLeaseAsync);
+        group.MapGet("/nodes", ReadSnapshotAsync)
+            .WithMetadata(new FsusOpenApiAedsContractMetadata(RequestFrame: null, ResponseFrame: AedsFrameType.ClusterRuntimeSnapshot));
+        group.MapPost("/nodes/{nodeId}/state", SetNodeStateAsync)
+            .WithMetadata(new FsusOpenApiAedsContractMetadata(RequestFrame: AedsFrameType.ClusterNodeStateRequest, ResponseFrame: AedsFrameType.ClusterRuntimeSnapshot));
+        group.MapPost("/scheduler", SetSchedulerAsync)
+            .WithMetadata(new FsusOpenApiAedsContractMetadata(RequestFrame: AedsFrameType.ClusterSchedulerStateRequest, ResponseFrame: AedsFrameType.ClusterRuntimeSnapshot));
+        group.MapPost("/leases/{leaseId}/release-expired", ReleaseExpiredLeaseAsync)
+            .WithMetadata(new FsusOpenApiAedsContractMetadata(RequestFrame: AedsFrameType.ClusterLeaseReleaseRequest, ResponseFrame: AedsFrameType.ClusterRuntimeSnapshot));
         return app;
     }
 

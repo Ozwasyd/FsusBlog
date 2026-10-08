@@ -18,6 +18,25 @@ public sealed class AnonymousCredentialRevocationArtifactServiceTests(PostgresSc
     private static readonly string[] s_handles = [new('1', 64), new('2', 64)];
 
     [Fact]
+    public void WithDistributionMetadata_IssuesCoordinatesWithoutUrlEscape()
+    {
+        using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(
+            AnonymousCredentialRevocationArtifactService.WithDistributionMetadata("{}", Epoch, 2, new string('a', 64)));
+        System.Text.Json.JsonElement distribution = document.RootElement.GetProperty("revocationDistribution");
+        System.Text.Json.JsonElement snapshot = distribution.GetProperty("snapshot");
+        System.Text.Json.JsonElement delta = distribution.GetProperty("delta");
+        Assert.Equal("snapshot", snapshot.GetProperty("kind").GetString());
+        Assert.Equal(Epoch, snapshot.GetProperty("epoch").GetInt64());
+        Assert.Equal(2, snapshot.GetProperty("version").GetInt64());
+        Assert.Equal(new string('a', 64), snapshot.GetProperty("revocationRoot").GetString());
+        Assert.Equal("delta", delta.GetProperty("kind").GetString());
+        Assert.Equal(1, delta.GetProperty("baseVersion").GetInt64());
+        Assert.False(distribution.TryGetProperty("snapshotPath", out _));
+        Assert.False(distribution.TryGetProperty("deltaPath", out _));
+        Assert.DoesNotContain("/api/", document.RootElement.GetRawText());
+    }
+
+    [Fact]
     public async Task GetAsync_PublishesCommonImmutableFullAndDeltaWithoutCredentialInput()
     {
         string rootHash = CircuitFriendlyRoot(s_handles);

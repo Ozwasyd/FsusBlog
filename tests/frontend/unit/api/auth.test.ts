@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -39,8 +40,6 @@ describe('auth API binary base session flow', () => {
   it('anonymous bootstrap sends the passkey-first account bootstrap request', async () => {
     await bootstrapAnonymousAccount({ publicHandle: 'alice', acceptedGuidelines: true })
     expectBinaryRoute('binary_post_auth_anonymous_bootstrap', FrameType.AuthLoginFlow, expect.objectContaining({
-      method: 'POST',
-      requiresPow: true,
       body: expect.any(ArrayBuffer)
     }))
   })
@@ -105,7 +104,7 @@ describe('auth API binary base session flow', () => {
       binaryRoute: { operationId: 'binary_post_auth_refresh_token' },
       frameType: FrameType.EmptySuccess,
       suppressAuthFailureTelemetry: true,
-      requestOptions: expect.objectContaining({ method: 'POST' })
+      requestOptions: expect.objectContaining({ })
     }))
   })
 
@@ -132,7 +131,6 @@ describe('auth API binary base session flow', () => {
   it('updatePublicHandle sends a dedicated binary public handle request', async () => {
     await updatePublicHandle({ publicHandle: 'QuietReader' })
     expectBinaryRoute('binary_put_auth_public_handle', FrameType.EmptySuccess, expect.objectContaining({
-      method: 'PUT',
       body: expect.any(ArrayBuffer)
     }))
   })
@@ -140,8 +138,6 @@ describe('auth API binary base session flow', () => {
   it('deleteAccount sends anonymous delete request with step-up proof and no password payload', async () => {
     await deleteAccount({ confirmText: 'DELETE', mfaProofToken: 'proof-delete' })
     expectBinaryRoute('binary_post_auth_delete_account', FrameType.EmptySuccess, expect.objectContaining({
-      method: 'POST',
-      requiresPow: true,
       headers: expect.any(Headers),
       body: expect.any(ArrayBuffer)
     }))
@@ -162,13 +158,13 @@ describe('auth API binary base session flow', () => {
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_auth_sessions_id_revoke', params: { id: 'session/id' } },
       frameType: FrameType.EmptySuccess,
-      requestOptions: expect.objectContaining({ method: 'POST' })
+      requestOptions: expect.objectContaining({ })
     }))
   })
 
   it('revokeOtherSessions uses binary empty success frame', async () => {
     await revokeOtherSessions()
-    expectBinaryRoute('binary_post_auth_sessions_revoke_others', FrameType.EmptySuccess, expect.objectContaining({ method: 'POST' }))
+    expectBinaryRoute('binary_post_auth_sessions_revoke_others', FrameType.EmptySuccess, expect.objectContaining({ }))
   })
 
   it('getPowChallenge uses binary pow frame', async () => {
@@ -182,7 +178,7 @@ describe('auth API binary base session flow', () => {
       binaryRoute: { operationId: 'binary_post_auth_admin_step_up_passkey_begin' },
       frameType: FrameType.PasskeyLoginBegin,
       suppressAuthFailureTelemetry: true,
-      requestOptions: expect.objectContaining({ method: 'POST' })
+      requestOptions: expect.objectContaining({ })
     }))
   })
 
@@ -204,11 +200,9 @@ describe('auth API binary base session flow', () => {
     })
 
     expectBinaryRoute('binary_post_auth_step_up_passkey_begin', FrameType.PasskeyLoginBegin, expect.objectContaining({
-      method: 'POST',
       body: expect.any(ArrayBuffer)
     }))
     expectBinaryRoute('binary_post_auth_step_up_passkey_complete', FrameType.MfaChallengeResult, expect.objectContaining({
-      method: 'POST',
       body: expect.any(ArrayBuffer)
     }))
   })
@@ -241,7 +235,7 @@ describe('auth API binary base session flow', () => {
     const regenerate = findBinaryRouteCall('binary_post_auth_mfa_recovery_regenerate')
 
     for (const call of [setup, disable, regenerate]) {
-      expect(call?.requestOptions).toEqual(expect.objectContaining({ method: 'POST' }))
+      expect(call?.requestOptions).toEqual(expect.objectContaining({ }))
       expect(call?.requestOptions).not.toHaveProperty('body')
       expect(call?.requestOptions?.headers).toBeInstanceOf(Headers)
       expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toMatch(/^proof-/)
@@ -250,7 +244,7 @@ describe('auth API binary base session flow', () => {
 
   it('logout uses binary empty success frame', async () => {
     await logout()
-    expectBinaryRoute('binary_post_auth_logout', FrameType.EmptySuccess, expect.objectContaining({ method: 'POST' }))
+    expectBinaryRoute('binary_post_auth_logout', FrameType.EmptySuccess, expect.objectContaining({ }))
   })
 
   it('admin logout uses the independent admin binary route', async () => {
@@ -259,7 +253,7 @@ describe('auth API binary base session flow', () => {
       binaryRoute: { operationId: 'binary_post_auth_admin_logout' },
       frameType: FrameType.EmptySuccess,
       suppressAuthFailureTelemetry: true,
-      requestOptions: expect.objectContaining({ method: 'POST' })
+      requestOptions: expect.objectContaining({ })
     }))
   })
 
@@ -320,21 +314,21 @@ describe('auth API binary base session flow', () => {
     await deletePasskey(7)
     await renamePasskey(7, 'Phone')
 
-    expectBinaryRoute('binary_post_auth_passkey_register_begin', FrameType.PasskeyRegisterBegin, expect.objectContaining({ method: 'POST' }))
-    expectBinaryRoute('binary_post_auth_passkey_register_complete', FrameType.PasskeySignalState, expect.objectContaining({ method: 'POST', body: expect.any(ArrayBuffer) }))
-    expectBinaryRoute('binary_post_auth_passkey_login_begin', FrameType.PasskeyLoginBegin, expect.objectContaining({ method: 'POST' }))
-    expectBinaryRoute('binary_post_auth_passkey_login_complete', FrameType.AuthLoginFlow, expect.objectContaining({ method: 'POST', body: expect.any(ArrayBuffer) }))
+    expectBinaryRoute('binary_post_auth_passkey_register_begin', FrameType.PasskeyRegisterBegin, expect.objectContaining({ }))
+    expectBinaryRoute('binary_post_auth_passkey_register_complete', FrameType.PasskeySignalState, expect.objectContaining({ body: expect.any(ArrayBuffer) }))
+    expectBinaryRoute('binary_post_auth_passkey_login_begin', FrameType.PasskeyLoginBegin, expect.objectContaining({ }))
+    expectBinaryRoute('binary_post_auth_passkey_login_complete', FrameType.AuthLoginFlow, expect.objectContaining({ body: expect.any(ArrayBuffer) }))
     expectBinaryRoute('binary_get_auth_passkey_credentials', FrameType.PasskeyCredentialList)
     expectBinaryRoute('binary_get_auth_passkey_signal_state', FrameType.PasskeySignalState)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_delete_auth_passkey_credentials_id_int', params: { id: 7 } },
       frameType: FrameType.PasskeySignalState,
-      requestOptions: expect.objectContaining({ method: 'DELETE' })
+      requestOptions: expect.objectContaining({ })
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_put_auth_passkey_credentials_id_int_name', params: { id: 7 } },
       frameType: FrameType.EmptySuccess,
-      requestOptions: expect.objectContaining({ method: 'PUT', body: expect.any(ArrayBuffer) })
+      requestOptions: expect.objectContaining({ body: expect.any(ArrayBuffer) })
     }))
   })
 
@@ -346,14 +340,12 @@ describe('auth API binary base session flow', () => {
     const rename = findBinaryRouteCall('binary_put_auth_passkey_credentials_id_int_name')
 
     expect(remove?.requestOptions).toEqual(expect.objectContaining({
-      method: 'DELETE',
       headers: expect.any(Headers)
     }))
     expect(remove?.requestOptions).not.toHaveProperty('body')
     expect((remove?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-delete-passkey')
 
     expect(rename?.requestOptions).toEqual(expect.objectContaining({
-      method: 'PUT',
       headers: expect.any(Headers),
       body: expect.any(ArrayBuffer)
     }))
@@ -385,11 +377,9 @@ describe('auth API binary base session flow', () => {
       }
     })
 
-    expectBinaryRoute('binary_post_auth_recovery_key_create', FrameType.RecoveryKeyCreateResponse, expect.objectContaining({ method: 'POST' }))
-    expectBinaryRoute('binary_post_auth_recovery_key_rotate', FrameType.RecoveryKeyCreateResponse, expect.objectContaining({ method: 'POST' }))
+    expectBinaryRoute('binary_post_auth_recovery_key_create', FrameType.RecoveryKeyCreateResponse, expect.objectContaining({ }))
+    expectBinaryRoute('binary_post_auth_recovery_key_rotate', FrameType.RecoveryKeyCreateResponse, expect.objectContaining({ }))
     expectBinaryRoute('binary_post_auth_recovery_key_verify', FrameType.RecoveryKeyVerifyResponse, expect.objectContaining({
-      method: 'POST',
-      requiresPow: true,
       body: expect.any(ArrayBuffer)
     }))
     const verifyCall = findBinaryRouteCall('binary_post_auth_recovery_key_verify')
@@ -407,11 +397,9 @@ describe('auth API binary base session flow', () => {
     expect(view.getInt32(payloadOffset + 12, true)).toBe(recoveryKeyLength)
     expect(new TextDecoder().decode(body.subarray(payloadOffset + 16))).toBe(recoveryKey)
     expectBinaryRoute('binary_post_auth_recovery_key_passkey_register_begin', FrameType.PasskeyRegisterBegin, expect.objectContaining({
-      method: 'POST',
       body: expect.any(ArrayBuffer)
     }))
     expectBinaryRoute('binary_post_auth_recovery_key_passkey_register_complete', FrameType.EmptySuccess, expect.objectContaining({
-      method: 'POST',
       body: expect.any(ArrayBuffer)
     }))
   })
@@ -428,7 +416,6 @@ describe('auth API binary base session flow', () => {
       [rotate, 'proof-rotate-recovery-key']
     ] as const) {
       expect(call?.requestOptions).toEqual(expect.objectContaining({
-        method: 'POST',
         headers: expect.any(Headers)
       }))
       expect(call?.requestOptions).not.toHaveProperty('body')
@@ -436,3 +423,8 @@ describe('auth API binary base session flow', () => {
     }
   })
 })
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
+}

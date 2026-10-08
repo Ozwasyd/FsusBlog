@@ -1,3 +1,4 @@
+import type { CommentPrivacyRevocationArtifactReference } from '@/privacy/commentPrivacyContracts';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
 import type {
     AnonymousCommentCreateRequestDto,
@@ -123,8 +124,6 @@ export const createAnonymousComment = (
         frameType: FrameType.AnonymousCommentCreateResult,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            credentials: 'omit',
             body: encodeAedsFrame(FrameType.AnonymousCommentCreateRequest, payload)
         }
     });
@@ -171,7 +170,7 @@ export const getCommentPolicySnapshot = (
         binaryRoute: { operationId: 'binary_get_comment_policy', query },
         frameType: FrameType.CommentPolicySnapshot,
         signal: config?.signal,
-        requestOptions: { credentials: 'omit' }
+        requestOptions: { }
     });
 };
 
@@ -181,7 +180,6 @@ export const getAnonymousCredentialRootSnapshot = (config?: ApiRequestConfig) =>
         frameType: FrameType.AnonymousCredentialRootSnapshot,
         signal: config?.signal,
         requestOptions: {
-            credentials: 'omit'
         }
     });
 
@@ -191,7 +189,6 @@ export const getAnonymousCredentialCircuitSnapshot = (config?: ApiRequestConfig)
         frameType: FrameType.AnonymousCredentialRootSnapshot,
         signal: config?.signal,
         requestOptions: {
-            credentials: 'omit'
         }
     });
 
@@ -201,27 +198,29 @@ export const getBlindCredentialIssuerMetadata = (config?: ApiRequestConfig) =>
         frameType: FrameType.BlindCredentialIssuerMetadata,
         signal: config?.signal,
         requestOptions: {
-            credentials: 'omit'
         }
     });
 
 export const getAnonymousCredentialRevocationArtifact = (
-    path: string,
-    kind: 1 | 2,
+    reference: CommentPrivacyRevocationArtifactReference,
     config?: ApiRequestConfig
 ) =>
-    requestBinaryOnly<AnonymousCredentialRevocationArtifact>({
-        binaryUrl: path,
-        privateScope: 'public',
-        frameType: kind === 1
+{
+    const params = {
+        epoch: reference.epoch,
+        version: reference.version,
+        revocationRoot: reference.revocationRoot
+    };
+    return requestBinaryOnly<AnonymousCredentialRevocationArtifact>({
+        binaryRoute: reference.kind === 'snapshot'
+            ? { operationId: 'binary_get_anonymous_credential_revocation_full', params }
+            : { operationId: 'binary_get_anonymous_credential_revocation_delta', params: { ...params, baseVersion: reference.baseVersion } },
+        frameType: reference.kind === 'snapshot'
             ? FrameType.AnonymousCredentialRevocationSnapshot
             : FrameType.AnonymousCredentialRevocationDelta,
-        signal: config?.signal,
-        requestOptions: {
-            method: 'GET',
-            credentials: 'omit'
-        }
+        signal: config?.signal
     });
+};
 
 export const issueAnonymousCommentTicket = (
     data: AnonymousCommentTicketRequestDto,
@@ -234,8 +233,6 @@ export const issueAnonymousCommentTicket = (
         frameType: FrameType.AnonymousCommentTicketResponse,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            credentials: 'omit',
             body: encodeAedsFrame(FrameType.AnonymousCommentTicketRequest, payload)
         }
     });
@@ -265,8 +262,6 @@ function sendCommentMutation(
         frameType: FrameType.CommentCreateResult,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            requiresPow: true,
             riskChallengeProof: config?.riskChallengeProof ?? undefined,
             headers: {
                 'X-Fsus-Client-Mutation-Id': clientMutationId
@@ -318,7 +313,6 @@ export const getComments = (
         frameType: FrameType.CommentTreeRootCursor,
         signal: config?.signal,
         requestOptions: {
-            credentials: 'omit'
         }
     });
 };
@@ -345,7 +339,7 @@ export const getCommentChildren = (
         },
         frameType: FrameType.CommentChildCursor,
         signal: config?.signal,
-        requestOptions: { credentials: 'omit' }
+        requestOptions: { }
     });
 };
 
@@ -365,7 +359,7 @@ export const getCommentPermalinkContext = (
         },
         frameType: FrameType.CommentPermalinkContext,
         signal: config?.signal,
-        requestOptions: { credentials: 'omit' }
+        requestOptions: { }
     });
 };
 
@@ -392,7 +386,6 @@ export const getThreadReplies = (
         frameType: FrameType.CommentThreadReplyCursor,
         signal: config?.signal,
         requestOptions: {
-            credentials: 'omit'
         }
     });
 };
@@ -451,8 +444,6 @@ export const deleteComment = (id: string, config?: ApiRequestConfig) =>
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'DELETE',
-            requiresPow: true
         }
     });
 
@@ -469,7 +460,6 @@ export const issueCommentManagementChallenge = (
   FrameType.CommentManagementChallengeRequest,
   FrameType.CommentManagementChallengeResponse,
   { purpose, capabilitySecret },
-  capabilitySecret ? 'public' : 'account',
   config
 );
 
@@ -485,7 +475,6 @@ export const editCommentAsAuthor = (
   FrameType.CommentAuthorEditRequest,
   FrameType.CommentAuthorMutationResult,
   request,
-  request.capabilitySecret ? 'public' : 'account',
   config
 );
 
@@ -500,7 +489,6 @@ export const deleteAnonymousComment = (
     FrameType.CommentAuthorStatusRequest,
     FrameType.CommentAuthorMutationResult,
     { capabilitySecret, challenge },
-    'public',
     config
 );
 
@@ -514,7 +502,6 @@ export const deleteCommentAsAuthor = (
     FrameType.CommentAuthorStatusRequest,
     FrameType.CommentAuthorMutationResult,
     { challenge, capabilitySecret: '' },
-    'account',
     config
 );
 
@@ -529,7 +516,6 @@ export const getAnonymousCommentStatus = (
     FrameType.CommentAuthorStatusRequest,
     FrameType.CommentAuthorStatusResult,
     { capabilitySecret, challenge },
-    'public',
     config
 );
 
@@ -545,7 +531,6 @@ export const appealAnonymousComment = (
     FrameType.CommentAuthorAppealRequest,
     FrameType.CommentAuthorMutationResult,
     { capabilitySecret, challenge, reason },
-    'public',
     config
 );
 
@@ -555,20 +540,16 @@ function requestCommentManagementJson<T>(
     requestFrame: FrameType,
     responseFrame: FrameType,
     value: unknown,
-    privateScope: 'public' | 'account',
     config?: ApiRequestConfig
 ): Promise<T>
 {
     const payload = new TextEncoder().encode(JSON.stringify(value));
     return requestBinaryOnly<T>({
         binaryRoute: { operationId, params: { id } },
-        privateScope,
         frameType: responseFrame,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
             cache: 'no-store',
-            credentials: privateScope === 'account' ? 'include' : 'omit',
             body: encodeAedsFrame(requestFrame, payload)
         }
     });

@@ -14,6 +14,6 @@ export function getCommentRevisions(commentId: string, config?: ApiRequestConfig
         },
         frameType: FrameType.CommentRevisionList,
         signal: config?.signal,
-        requestOptions: { method: 'GET', cache: 'no-store', credentials: 'include' }
+        requestOptions: { cache: 'no-store', }
     });
 }

@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -31,17 +32,14 @@ describe('Font/Theme administration binary API', () => {
         expect(requestBinaryOnlyMock.mock.calls.map(([request]) => request)).toEqual([
             {
                 binaryRoute: { operationId: 'binary_get_author_ops_fonts_registry' },
-                privateScope: 'admin',
                 frameType: FrameType.FontRegistryList
             },
             {
                 binaryRoute: { operationId: 'binary_get_author_ops_fonts_registry_fontId', params: { fontId: 'font/a' } },
-                privateScope: 'admin',
                 frameType: FrameType.FontRegistryDetail
             },
             {
                 binaryRoute: { operationId: 'binary_get_author_ops_fonts_activations' },
-                privateScope: 'admin',
                 frameType: FrameType.FontActivationList
             }
         ])
@@ -57,29 +55,29 @@ describe('Font/Theme administration binary API', () => {
         expect(requestBinaryOnlyMock.mock.calls.map(([request]) => request)).toEqual([
             {
                 binaryRoute: { operationId: 'binary_get_author_ops_themes_registry' },
-                privateScope: 'admin',
                 frameType: FrameType.ThemeRegistryList
             },
             {
                 binaryRoute: { operationId: 'binary_get_author_ops_themes_registry_themeId', params: { themeId: 'theme/a' } },
-                privateScope: 'admin',
                 frameType: FrameType.ThemeRegistryDetail
             },
             {
                 binaryRoute: { operationId: 'binary_get_author_ops_themes_activations' },
-                privateScope: 'admin',
                 frameType: FrameType.ThemeActivationList
             },
             {
                 binaryRoute: { operationId: 'binary_get_author_ops_themes_activations_scope', params: { scope: 'user-preview:1' } },
-                privateScope: 'admin',
                 frameType: FrameType.ThemeActivation
             },
             {
                 binaryRoute: { operationId: 'binary_get_author_ops_themes_activations_scope_history', params: { scope: 'user-preview:1' } },
-                privateScope: 'admin',
                 frameType: FrameType.ThemeActivationHistory
             }
         ])
     })
 })
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
+}

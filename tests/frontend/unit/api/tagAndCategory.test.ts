@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute } from '@/generated/fsusBinaryRoutes'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/composition/binaryTransport', () => ({
@@ -62,8 +63,6 @@ describe('tag API', () => {
       binaryRoute: { operationId: 'binary_post_tag' },
       frameType: FrameType.MutationId,
       requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     }))
@@ -78,8 +77,6 @@ describe('tag API', () => {
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_put_tag_id_int', params: { id: 5 } },
       requestOptions: expect.objectContaining({
-        method: 'PUT',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     }))
@@ -90,8 +87,6 @@ describe('tag API', () => {
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_delete_tag_id_int', params: { id: 3 } },
       requestOptions: expect.objectContaining({
-        method: 'DELETE',
-        requiresPow: true
       })
     }))
   })
@@ -126,8 +121,6 @@ describe('category API', () => {
       binaryRoute: { operationId: 'binary_post_category' },
       frameType: FrameType.MutationId,
       requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     }))
@@ -138,8 +131,6 @@ describe('category API', () => {
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_put_category_id_int', params: { id: 2 } },
       requestOptions: expect.objectContaining({
-        method: 'PUT',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     }))
@@ -154,8 +145,6 @@ describe('category API', () => {
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_delete_category_id_int', params: { id: 1 } },
       requestOptions: expect.objectContaining({
-        method: 'DELETE',
-        requiresPow: true
       })
     }))
   })
@@ -179,4 +168,9 @@ function readTaxonomyMetadataRequestBody(): { name: string; description: string 
   expect(descriptionLength).toBe(blobLength)
   const description = decoder.decode(payload.subarray(140, 140 + blobLength))
   return { name, description: description.length === 0 ? null : description }
+}
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
 }

@@ -2924,3 +2924,10 @@ render: key-value-table
 | UserCommentCursorVersion | {"class":"blog","domain":"blog","id":"UserCommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-version","securityCritical":false} |
 | VisitLock | {"class":"security-critical","domain":"sec","id":"VisitLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"visit-lock","securityCritical":true} |
 <!-- FSUSBLOG-GENERATED:END api.security-cache-policies -->
+
+
+## Generated binary request ownership
+
+前端 binary 请求只能提交 `binaryRoute.operationId`、route params 和 query；`fsusBinaryRouteDescriptors` 是 method、auth、credentials、rate-limit、PoW 和 private generation scope 的唯一来源。所有 anonymous descriptor 使用 `omit`，optional/user/admin 使用 `include`。调用方传 method、credentials 或 requiresPow 会在请求发出前被拒绝；缺失 operation 或 params 不会回退到 public/unknown URL。原有 public-read 428 重试仍在 transport 内部依据 descriptor 执行。
+
+匿名撤销分发 metadata 的 `snapshot`/`delta` 使用 `{kind, epoch, version, revocationRoot}` 坐标；delta 另带 `baseVersion`。decoder 严格核对字段集合与当前 root，拒绝 URL/path、跨 epoch/version/root 和非法 base。客户端直接选择 full/delta generated operation 并编码 params，不增加一次换取 URL 的网络请求。旧 `snapshotPath`/`deltaPath` 不被接受。

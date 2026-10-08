@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute, fsusBinaryRouteDescriptors } from '@/generated/fsusBinaryRoutes'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -58,7 +59,7 @@ describe('article API (binary)', () => {
     await getArticles({})
     expectBinaryRoute('binary_get_article_list_home_page_size_aeds', FrameType.ArticleList, {
       params: { page: 1, size: 10 },
-      requestOptions: expect.objectContaining({ credentials: 'omit' })
+      requestOptions: expect.objectContaining({ })
     })
   })
 
@@ -125,7 +126,7 @@ describe('article API (binary)', () => {
     await getArticleById(42)
     expectBinaryRoute('binary_get_article_id_aeds', FrameType.ArticleDetail, {
       params: { id: 42 },
-      requestOptions: expect.objectContaining({ credentials: 'omit' }),
+      requestOptions: expect.objectContaining({ }),
     })
   })
 
@@ -140,7 +141,7 @@ describe('article API (binary)', () => {
         params: { id: 42 }
       }),
       frameType: FrameType.ArticleDetail,
-      requestOptions: expect.objectContaining({ credentials: 'omit' }),
+      requestOptions: expect.objectContaining({ }),
       signal: controller.signal
     }))
   })
@@ -149,7 +150,7 @@ describe('article API (binary)', () => {
     await getHotArticles(5)
     expectBinaryRoute('binary_get_article_hot_size_aeds', FrameType.ArticleHot, {
       params: { size: 5 },
-      requestOptions: expect.objectContaining({ credentials: 'omit' })
+      requestOptions: expect.objectContaining({ })
     })
   })
 
@@ -164,7 +165,7 @@ describe('article API (binary)', () => {
     await getFeaturedArticles(4)
     expectBinaryRoute('binary_get_article_featured_size_aeds', FrameType.ArticleFeatured, {
       params: { size: 4 },
-      requestOptions: expect.objectContaining({ credentials: 'omit' }),
+      requestOptions: expect.objectContaining({ }),
     })
   })
 
@@ -178,8 +179,8 @@ describe('article API (binary)', () => {
       }),
       frameType: FrameType.ArticleRelatedReading
     }))
-    expect(call.requestOptions).toEqual(expect.objectContaining({ credentials: 'omit' }))
-    expect(call.requestOptions?.requiresPow).toBeUndefined()
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].credentialPolicy).toBe('omit')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].requiresPow).toBe(false)
   })
 })
 
@@ -194,8 +195,6 @@ describe('article API (admin)', () => {
     await createArticle(data)
     expectBinaryRoute('binary_post_admin_article', FrameType.MutationId, {
       requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     })
@@ -276,8 +275,6 @@ describe('article API (admin)', () => {
     expectBinaryRoute('binary_put_admin_article_id_int', FrameType.MutationId, {
       params: { id: 10 },
       requestOptions: expect.objectContaining({
-        method: 'PUT',
-        requiresPow: true,
         body: expect.any(ArrayBuffer)
       })
     })
@@ -303,8 +300,6 @@ describe('article API (admin)', () => {
     expectBinaryRoute('binary_delete_admin_article_id_int', FrameType.EmptySuccess, {
       params: { id: 10 },
       requestOptions: expect.objectContaining({
-        method: 'DELETE',
-        requiresPow: true
       })
     })
   })
@@ -314,8 +309,6 @@ describe('article API (admin)', () => {
     expectBinaryRoute('binary_put_admin_article_restore_id_int', FrameType.EmptySuccess, {
       params: { id: 5 },
       requestOptions: expect.objectContaining({
-        method: 'PUT',
-        requiresPow: true
       })
     })
   })
@@ -325,8 +318,6 @@ describe('article API (admin)', () => {
     expectBinaryRoute('binary_delete_admin_article_permanent_id_int', FrameType.EmptySuccess, {
       params: { id: 7 },
       requestOptions: expect.objectContaining({
-        method: 'DELETE',
-        requiresPow: true
       })
     })
   })
@@ -436,4 +427,9 @@ function parseArticleWriteRequestPayload(payload: Uint8Array): {
       copyPolicy: readSlice(4)
     }
   }
+}
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
 }

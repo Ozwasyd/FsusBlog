@@ -34,13 +34,10 @@ async function sendSiteSubscriptionRequest(
 ): Promise<SiteSubscriptionResponse>
 {
     return await requestBinaryOnly<SiteSubscriptionResponse>({
-        binaryUrl: '/api/binary/subscriptions',
-        privateScope: 'public',
+        binaryRoute: { operationId: method === 'POST' ? 'binary_post_subscriptions' : 'binary_delete_subscriptions' },
         frameType: FrameType.SiteSubscriptionResponse,
         signal: config.signal,
         requestOptions: {
-            method,
-            credentials: 'omit',
             body: encodeAedsFrame(FrameType.SiteSubscriptionRequest, encodeSiteSubscriptionRequest(request))
         }
     });

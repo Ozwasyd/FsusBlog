@@ -45,8 +45,6 @@ export const updateSiteConfig = (data: SeoConfigAdmin, config?: ApiRequestConfig
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'PUT',
-            requiresPow: true,
             body: encodeAedsFrame(FrameType.SeoConfigUpdateRequest, encodeSeoConfigPayload(data))
         }
     });
@@ -71,8 +69,6 @@ export const updateSiteComplianceConfig = (data: SiteComplianceConfigAdmin, conf
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'PUT',
-            requiresPow: true,
             body: encodeAedsFrame(FrameType.SiteComplianceConfigUpdateRequest, encodeSiteCompliancePayload(data))
         }
     });
@@ -110,8 +106,6 @@ export const updatePageData = (data: PageContentAdmin, config?: ApiRequestConfig
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'PUT',
-            requiresPow: true,
             body: encodeAedsFrame(FrameType.PageContentUpdateRequest, encodePageContentPayload(data))
         }
     });
@@ -125,8 +119,6 @@ export const refreshPageData = (slug: string, config?: ApiRequestConfig) =>
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'POST',
-            requiresPow: true
         }
     });
 
@@ -140,8 +132,6 @@ export const deleteImage = (assetId: string, config?: ApiRequestConfig) =>
         frameType: FrameType.EmptySuccess,
         signal: config?.signal,
         requestOptions: {
-            method: 'DELETE',
-            requiresPow: true,
             body: encodeAedsFrame(FrameType.FileDeleteRequest, encodeStringMutationRequest(assetId))
         }
     });

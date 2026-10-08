@@ -6,6 +6,9 @@ The origin publishes one public, immutable full snapshot and optional delta for
 an attested `(epoch, version, revocationRoot)`. Every browser fetches the same
 URL without credentials or a request body. The target revocation handle exists
 only in the browser privacy worker while it derives the non-membership witness.
+Root metadata carries typed snapshot/delta coordinates, including an exact delta
+base, rather than a URL. The decoder binds every coordinate to the current root
+and rejects extra URL/path fields before the generated route builder runs.
 
 ## Threats and controls
 

@@ -1,3 +1,4 @@
+import { buildFsusBinaryRoute, fsusBinaryRouteDescriptors } from '@/generated/fsusBinaryRoutes'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -62,8 +63,6 @@ describe('comment API', () => {
       binaryRoute: { operationId: 'binary_post_comment' },
       frameType: FrameType.CommentCreateResult,
       requestOptions: expect.objectContaining({
-        method: 'POST',
-        requiresPow: true,
         headers: {
           'X-Fsus-Client-Mutation-Id': '018ff005-1234-7abc-8def-0123456789ab'
         },
@@ -197,12 +196,10 @@ describe('comment API', () => {
       frameType: FrameType.AnonymousCommentCreateResult,
       signal,
       requestOptions: expect.objectContaining({
-        method: 'POST',
-        credentials: 'omit',
         body: expect.any(ArrayBuffer)
       })
     }))
-    expect(call.requestOptions?.requiresPow).toBeUndefined()
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].requiresPow).toBe(false)
     expect(call.requestOptions?.headers).toBeUndefined()
     expect(readAedsFrameType(body)).toBe(FrameType.AnonymousCommentCreateRequest)
 
@@ -384,9 +381,6 @@ describe('comment API', () => {
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_get_anonymous_credential_root' },
       frameType: FrameType.AnonymousCredentialRootSnapshot,
-      requestOptions: expect.objectContaining({
-        credentials: 'omit'
-      })
     }))
     expect(mockBinary.mock.calls[0][0].requestOptions?.headers).toBeUndefined()
   })
@@ -397,9 +391,6 @@ describe('comment API', () => {
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_get_anonymous_credential_circuit' },
       frameType: FrameType.AnonymousCredentialRootSnapshot,
-      requestOptions: expect.objectContaining({
-        credentials: 'omit'
-      })
     }))
     expect(mockBinary.mock.calls[0][0].requestOptions?.headers).toBeUndefined()
   })
@@ -434,31 +425,25 @@ describe('comment API', () => {
       frameType: FrameType.AnonymousCommentTicketResponse,
       signal,
       requestOptions: expect.objectContaining({
-        method: 'POST',
-        credentials: 'omit',
         body: expect.any(ArrayBuffer)
       })
     }))
-    expect(call.requestOptions?.requiresPow).toBeUndefined()
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].requiresPow).toBe(false)
     expect(call.requestOptions?.headers).toBeUndefined()
     expect(readAedsFrameType(body)).toBe(FrameType.AnonymousCommentTicketRequest)
   })
 
   it('uses the same bodyless public artifact transcript for every credential', async () => {
     const signal = new AbortController().signal
-    const path = `/api/binary/anonymous-credential/revocation/20260618/4/${'ab'.repeat(32)}/full.aeds`
-    await getAnonymousCredentialRevocationArtifact(path, 1, { signal })
-    await getAnonymousCredentialRevocationArtifact(path, 1, { signal })
+    const reference = { kind: 'snapshot' as const, epoch: 20260618, version: 4, revocationRoot: 'ab'.repeat(32) }
+    await getAnonymousCredentialRevocationArtifact(reference, { signal })
+    await getAnonymousCredentialRevocationArtifact(reference, { signal })
 
     expect(mockBinary.mock.calls).toHaveLength(2)
     for (const [call] of mockBinary.mock.calls) expect(call).toEqual(expect.objectContaining({
-      binaryUrl: path,
+      binaryRoute: { operationId: 'binary_get_anonymous_credential_revocation_full', params: { epoch: 20260618, version: 4, revocationRoot: 'ab'.repeat(32) } },
       frameType: FrameType.AnonymousCredentialRevocationSnapshot,
       signal,
-      requestOptions: expect.objectContaining({
-        method: 'GET',
-        credentials: 'omit'
-      })
     }))
     expect(mockBinary.mock.calls[0][0].requestOptions?.body).toBeUndefined()
     expect(mockBinary.mock.calls[0][0]).toEqual(mockBinary.mock.calls[1][0])
@@ -471,8 +456,8 @@ describe('comment API', () => {
       operationId: 'binary_get_comment_articleId_int',
       params: { articleId: 5 }
     }))
-    expect(call.requestOptions).toEqual(expect.objectContaining({ credentials: 'omit' }))
-    expect(call.requestOptions?.requiresPow).toBeUndefined()
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].credentialPolicy).toBe('omit')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].requiresPow).toBe(false)
   })
 
   it('getComments includes cursor when provided', async () => {
@@ -495,8 +480,8 @@ describe('comment API', () => {
       params: { articleId: 1, rootId: 'root-123' }
     }))
     expect(queryToString(call.binaryRoute?.query)).toContain('limit=20')
-    expect(call.requestOptions).toEqual(expect.objectContaining({ credentials: 'omit' }))
-    expect(call.requestOptions?.requiresPow).toBeUndefined()
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].credentialPolicy).toBe('omit')
+    expect(fsusBinaryRouteDescriptors[call.binaryRoute.operationId].requiresPow).toBe(false)
   })
 
   it('getThreadReplies includes cursor', async () => {
@@ -529,8 +514,6 @@ describe('comment API', () => {
       },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
-        method: 'DELETE',
-        requiresPow: true
       })
     }))
   })
@@ -542,8 +525,8 @@ describe('comment API', () => {
       operationId: 'binary_post_comment_id_long_management_challenge',
       requestFrame: FrameType.CommentManagementChallengeRequest,
       responseFrame: FrameType.CommentManagementChallengeResponse,
-      privateScope: 'public',
-      credentials: 'omit',
+      expectedScope: 'public',
+      expectedCredentials: 'omit',
       payload: { purpose: 'edit', capabilitySecret: 'secret-123' }
     },
     {
@@ -552,8 +535,8 @@ describe('comment API', () => {
       operationId: 'binary_post_comment_id_long_author_challenge',
       requestFrame: FrameType.CommentManagementChallengeRequest,
       responseFrame: FrameType.CommentManagementChallengeResponse,
-      privateScope: 'account',
-      credentials: 'include',
+      expectedScope: 'account',
+      expectedCredentials: 'include',
       payload: { purpose: 'delete', capabilitySecret: null }
     },
     {
@@ -562,8 +545,8 @@ describe('comment API', () => {
       operationId: 'binary_post_comment_id_long_management_edit',
       requestFrame: FrameType.CommentAuthorEditRequest,
       responseFrame: FrameType.CommentAuthorMutationResult,
-      privateScope: 'public',
-      credentials: 'omit',
+      expectedScope: 'public',
+      expectedCredentials: 'omit',
       payload: { expectedVersion: 2, content: 'edited', challenge: 'challenge', capabilitySecret: 'secret-123' }
     },
     {
@@ -572,8 +555,8 @@ describe('comment API', () => {
       operationId: 'binary_post_comment_id_long_management_delete',
       requestFrame: FrameType.CommentAuthorStatusRequest,
       responseFrame: FrameType.CommentAuthorMutationResult,
-      privateScope: 'public',
-      credentials: 'omit',
+      expectedScope: 'public',
+      expectedCredentials: 'omit',
       payload: { capabilitySecret: 'secret-123', challenge: 'challenge' }
     },
     {
@@ -582,8 +565,8 @@ describe('comment API', () => {
       operationId: 'binary_post_comment_id_long_author_delete',
       requestFrame: FrameType.CommentAuthorStatusRequest,
       responseFrame: FrameType.CommentAuthorMutationResult,
-      privateScope: 'account',
-      credentials: 'include',
+      expectedScope: 'account',
+      expectedCredentials: 'include',
       payload: { challenge: 'challenge', capabilitySecret: '' }
     },
     {
@@ -592,8 +575,8 @@ describe('comment API', () => {
       operationId: 'binary_post_comment_id_long_management_status',
       requestFrame: FrameType.CommentAuthorStatusRequest,
       responseFrame: FrameType.CommentAuthorStatusResult,
-      privateScope: 'public',
-      credentials: 'omit',
+      expectedScope: 'public',
+      expectedCredentials: 'omit',
       payload: { capabilitySecret: 'secret-123', challenge: 'challenge' }
     },
     {
@@ -602,8 +585,8 @@ describe('comment API', () => {
       operationId: 'binary_post_comment_id_long_management_appeal',
       requestFrame: FrameType.CommentAuthorAppealRequest,
       responseFrame: FrameType.CommentAuthorMutationResult,
-      privateScope: 'public',
-      credentials: 'omit',
+      expectedScope: 'public',
+      expectedCredentials: 'omit',
       payload: { capabilitySecret: 'secret-123', challenge: 'challenge', reason: 'please review' }
     }
   ])('sends $name as a no-store JSON AEDS request', async ({
@@ -611,8 +594,8 @@ describe('comment API', () => {
     operationId,
     requestFrame,
     responseFrame,
-    privateScope,
-    credentials,
+    expectedScope,
+    expectedCredentials,
     payload
   }) => {
     await invoke()
@@ -621,15 +604,14 @@ describe('comment API', () => {
     const body = call.requestOptions?.body as ArrayBuffer
     expect(call).toEqual(expect.objectContaining({
       binaryRoute: { operationId, params: { id: '123' } },
-      privateScope,
       frameType: responseFrame,
       requestOptions: expect.objectContaining({
-        method: 'POST',
         cache: 'no-store',
-        credentials,
         body: expect.any(ArrayBuffer)
       })
     }))
+    expect(fsusBinaryRouteDescriptors[operationId as keyof typeof fsusBinaryRouteDescriptors].credentialPolicy).toBe(expectedCredentials)
+    expect(fsusBinaryRouteDescriptors[operationId as keyof typeof fsusBinaryRouteDescriptors].auth === 'anonymous' ? 'public' : 'account').toBe(expectedScope)
     expect(readAedsFrameType(body)).toBe(requestFrame)
     expect(JSON.parse(new TextDecoder().decode(readAedsPayload(body)))).toEqual(payload)
   })
@@ -654,4 +636,9 @@ function readSliceBytes(payload: Uint8Array, blob: Uint8Array, sliceOffset: numb
 
 function readSliceText(payload: Uint8Array, blob: Uint8Array, sliceOffset: number): string {
   return new TextDecoder().decode(readSliceBytes(payload, blob, sliceOffset))
+}
+
+function routeUrl(call: Partial<import('@/contracts/binaryTransport').BinaryTransportRequest> | undefined): string | undefined {
+  const route = call?.binaryRoute
+  return route ? buildFsusBinaryRoute(route.operationId, route.params, route.query) : undefined
 }
