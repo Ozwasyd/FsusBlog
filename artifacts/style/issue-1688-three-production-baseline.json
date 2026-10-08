@@ -1,0 +1,130 @@
+{
+    "schema": "fsusblog.reserved-production-format-baseline.v1",
+    "sourceCommit": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace FsusBlog.slnx --no-restore --include src/backend/Infrastructure/Operations/ProductionHealth.cs src/backend/Program.cs src/backend/Services/SystemService.cs --verify-no-changes --verbosity diagnostic --report .tmp/issue-1688/three-production-format/before-report"
+    },
+    "exitCode": 2,
+    "preimages": {
+        "src/backend/Infrastructure/Operations/ProductionHealth.cs": "9f708dcc83014fabe0b570b3c62d2088dfd251c1",
+        "src/backend/Program.cs": "50734b1e3226d880728905d59fba94c7f7d28908",
+        "src/backend/Services/SystemService.cs": "842f13491890fcd203b2b8abf223b619577e6c2b"
+    },
+    "diagnostics": [
+        {
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "line": 391,
+            "column": 94,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "line": 391,
+            "column": 96,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "line": 391,
+            "column": 107,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "line": 437,
+            "column": 39,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "line": 437,
+            "column": 41,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "line": 437,
+            "column": 52,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "line": 891,
+            "column": 51,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "line": 891,
+            "column": 53,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "line": 891,
+            "column": 78,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Program.cs",
+            "line": 26,
+            "column": 55,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Program.cs",
+            "line": 26,
+            "column": 57,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Program.cs",
+            "line": 26,
+            "column": 79,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Program.cs",
+            "line": 26,
+            "column": 120,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Replace 1 characters with '\\n\\s\\s\\s\\s\\s\\s\\s\\s'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        },
+        {
+            "file": "src/backend/Services/SystemService.cs",
+            "line": 16,
+            "column": 1,
+            "rule": "WHITESPACE / build IDE0055",
+            "message": "Fix whitespace formatting. Insert '\\n'.",
+            "project": "src/backend/FsusBlog.Server.csproj"
+        }
+    ],
+    "qualificationEligible": false
+}
