@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
@@ -65,6 +67,102 @@ public sealed class DocumentExportEndpointsTests
             context, jobs, binding, new AedsEncoder(), default);
         await AssertDeniedAsync(context, result);
 
+        Assert.Empty(jobs.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("7")]
+    [InlineData(" https://export.example/site")]
+    [InlineData("https://export.example/site/")]
+    [InlineData("https://export.example/Site")]
+    [InlineData("https://other.example/site")]
+    public async Task NonCanonicalOrOtherConfiguredScope_PerformsZeroJobOrFreezeWrites(string scope)
+    {
+        HttpContext context = AuthenticatedContext();
+        IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
+        IDocumentExportEndpointBinding binding = Binding();
+        binding.ResolveActorAsync(context, Arg.Any<CancellationToken>()).Returns(Actor() with
+        {
+            SiteScope = scope
+        });
+        IResult result = await BinaryEndpoints.HandleDocumentExportRequestAsync(
+            context, jobs, binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(context, result);
+        Assert.Empty(jobs.ReceivedCalls());
+        await binding.DidNotReceive().FreezeRequestAsync(Arg.Any<HttpContext>(),
+            Arg.Any<DocumentExportJobActor>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("input")]
+    [InlineData("task")]
+    [InlineData("other-site")]
+    public async Task LegacySchemaOrOtherFrozenScope_IsRejectedBeforeJobAdmission(string mutation)
+    {
+        HttpContext context = AuthenticatedContext();
+        IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
+        IDocumentExportEndpointBinding binding = Binding();
+        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidInput() with
+        {
+            UserId = Actor().UserId,
+            SiteScope = mutation == "other-site" ? "https://other.example/site" : Actor().SiteScope,
+            Schema = mutation == "input" ? "fsusblog.document-export-frozen-input.v2" : DocumentExportContractCatalog.InputSchema
+        });
+        DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input) with
+        {
+            Schema = mutation == "task" ? "fsusblog.document-export-task.v2" : DocumentExportContractCatalog.TaskSchema
+        });
+        binding.FreezeRequestAsync(context, Actor(), Arg.Any<CancellationToken>()).Returns((task, input));
+        IResult result = await BinaryEndpoints.HandleDocumentExportRequestAsync(
+            context, jobs, binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(context, result);
+        Assert.Empty(jobs.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CanonicalDecoderRefusesNumericSiteMemberWithoutAnyJobWrite(bool keepScope)
+    {
+        HttpContext context = AuthenticatedContext();
+        IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
+        IDocumentExportEndpointBinding binding = Binding();
+        DocumentExportFrozenInput canonical = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidInput() with
+        {
+            UserId = Actor().UserId,
+            SiteScope = Actor().SiteScope
+        });
+        JsonObject value = JsonNode.Parse(DocumentExportDigest.Serialize(canonical))!.AsObject();
+        value["siteId"] = 7;
+        if (!keepScope)
+        {
+            value.Remove("siteScope");
+        }
+        // Exercise the sole contract codec in the controlled frozen-input port;
+        // this does not add a JSON HTTP route or a second parser.
+        binding.FreezeRequestAsync(context, Actor(), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            DocumentExportFrozenInput input = DocumentExportDigest.Deserialize<DocumentExportFrozenInput>(
+                Encoding.UTF8.GetBytes(value.ToJsonString()));
+            return (DocumentExportContractTests.ValidTask(input), input);
+        });
+        IResult result = await BinaryEndpoints.HandleDocumentExportRequestAsync(
+            context, jobs, binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(context, result);
+        Assert.Empty(jobs.ReceivedCalls());
+        await binding.Received(1).FreezeRequestAsync(context, Actor(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task MissingConfiguredAuthority_PerformsZeroJobWrites()
+    {
+        HttpContext context = AuthenticatedContext();
+        context.RequestServices = new ServiceCollection().BuildServiceProvider();
+        IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
+        IResult result = await BinaryEndpoints.HandleDocumentExportStatusAsync(
+            context, jobs, Binding(), new AedsEncoder(), default);
+        await AssertDeniedAsync(context, result);
         Assert.Empty(jobs.ReceivedCalls());
     }
 
