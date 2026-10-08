@@ -98,7 +98,90 @@
                     "proofTestId": {
                         "type": "string",
                         "minLength": 1
+                    },
+                    "producerSources": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "$ref": "#/$defs/producerSource"
+                        }
                     }
+                }
+            }
+        }
+    },
+    "$defs": {
+        "producerSource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "role",
+                "path",
+                "sourceCommit",
+                "sourceDigest",
+                "exports",
+                "methods",
+                "documentSchemas",
+                "contractPath",
+                "admissionStatus",
+                "grantsQualification"
+            ],
+            "properties": {
+                "role": {
+                    "enum": [
+                        "assertion-report",
+                        "runner-binding",
+                        "held-native-bridge",
+                        "native-reporter",
+                        "native-runner"
+                    ]
+                },
+                "path": {
+                    "type": "string",
+                    "pattern": "^tools/(?:[A-Za-z0-9_-]+/)+[A-Za-z0-9_-]+\\.mjs$"
+                },
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "sourceDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "exports": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true,
+                    "minItems": 1
+                },
+                "methods": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "documentSchemas": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "pattern": "^fsusblog\\.[a-z0-9.-]+\\.v[1-9][0-9]*$"
+                    },
+                    "uniqueItems": true
+                },
+                "contractPath": {
+                    "type": "string",
+                    "pattern": "^tools/(?:[A-Za-z0-9_-]+/)+[A-Za-z0-9_.-]+\\.md$"
+                },
+                "admissionStatus": {
+                    "const": "ordinary-source-only"
+                },
+                "grantsQualification": {
+                    "const": false
                 }
             }
         }
