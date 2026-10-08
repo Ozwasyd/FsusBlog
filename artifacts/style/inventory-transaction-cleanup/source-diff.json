@@ -1,0 +1,604 @@
+{
+    "schema": "fsusblog.frontend-style-source-diff.v1",
+    "baseCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "candidateCommit": "978f9af371ba5a946236baa42c6e2c13939aba9d",
+    "configurationIdentities": [
+        {
+            "file": "config/development/frontend-style-policy.json",
+            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+        },
+        {
+            "file": "config/development/frontend-style-rule-registry.json",
+            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/package.json",
+            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/package-lock.json",
+            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+        },
+        {
+            "file": ".editorconfig",
+            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+        },
+        {
+            "file": "eslint.config.mjs",
+            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+        },
+        {
+            "file": "stylelint.config.mjs",
+            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+        },
+        {
+            "file": "src/frontend/eslint.config.mjs",
+            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+        },
+        {
+            "file": "src/frontend/stylelint.config.mjs",
+            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+        }
+    ],
+    "qualification": false,
+    "files": [
+        {
+            "file": "tests/tools/test-replacement-transaction.test.mjs",
+            "baseSourceSha256": "bad3fd45e49ee805d57962c46d6590d4359510e39ce93ccc73a9f55c3161ec55",
+            "candidateSourceSha256": "bad3fd45e49ee805d57962c46d6590d4359510e39ce93ccc73a9f55c3161ec55",
+            "rawBase": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog/.tmp/frontend-style/source-diff-base-dQPz9P/tests/tools/test-replacement-transaction.test.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "rawCandidate": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog/tests/tools/test-replacement-transaction.test.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "importContext": {
+                "base": {
+                    "sourcePath": "tests/tools/test-replacement-transaction.test.mjs",
+                    "configurationIdentities": [
+                        {
+                            "file": ".editorconfig",
+                            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+                        },
+                        {
+                            "file": "config/development/frontend-style-policy.json",
+                            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+                        },
+                        {
+                            "file": "config/development/frontend-style-rule-registry.json",
+                            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+                        },
+                        {
+                            "file": "eslint.config.mjs",
+                            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+                        },
+                        {
+                            "file": "src/frontend/eslint.config.mjs",
+                            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+                        },
+                        {
+                            "file": "src/frontend/stylelint.config.mjs",
+                            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+                        },
+                        {
+                            "file": "stylelint.config.mjs",
+                            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+                            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package-lock.json",
+                            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package.json",
+                            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+                            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:assert/strict",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:child_process",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:crypto",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:fs",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:module",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:os",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:path",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:test",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        }
+                    ]
+                },
+                "candidate": {
+                    "sourcePath": "tests/tools/test-replacement-transaction.test.mjs",
+                    "configurationIdentities": [
+                        {
+                            "file": ".editorconfig",
+                            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+                        },
+                        {
+                            "file": "config/development/frontend-style-policy.json",
+                            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+                        },
+                        {
+                            "file": "config/development/frontend-style-rule-registry.json",
+                            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+                        },
+                        {
+                            "file": "eslint.config.mjs",
+                            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+                        },
+                        {
+                            "file": "src/frontend/eslint.config.mjs",
+                            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+                        },
+                        {
+                            "file": "src/frontend/stylelint.config.mjs",
+                            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+                        },
+                        {
+                            "file": "stylelint.config.mjs",
+                            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+                            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package-lock.json",
+                            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package.json",
+                            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+                            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:assert/strict",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:child_process",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:crypto",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:fs",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:module",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:os",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:path",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tests/tools/test-replacement-transaction.test.mjs",
+                            "specifier": "node:test",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        }
+                    ]
+                }
+            },
+            "existing": [],
+            "unexpected": [],
+            "failure": null
+        },
+        {
+            "file": "tools/test-inventory/ts-ast-adapter/index.mjs",
+            "baseSourceSha256": "abaabf83a88f4fa480dd7764e00c9373261b021a0ab17fde1f5c8e5182f88e1a",
+            "candidateSourceSha256": "59e2f6e258c78ff16d32a87a885e300388f5ad40252469bb4e54ba5e42fccbad",
+            "rawBase": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog/.tmp/frontend-style/source-diff-base-dQPz9P/tools/test-inventory/ts-ast-adapter/index.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "rawCandidate": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog/tools/test-inventory/ts-ast-adapter/index.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "importContext": {
+                "base": {
+                    "sourcePath": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                    "configurationIdentities": [
+                        {
+                            "file": ".editorconfig",
+                            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+                        },
+                        {
+                            "file": "config/development/frontend-style-policy.json",
+                            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+                        },
+                        {
+                            "file": "config/development/frontend-style-rule-registry.json",
+                            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+                        },
+                        {
+                            "file": "eslint.config.mjs",
+                            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+                        },
+                        {
+                            "file": "src/frontend/eslint.config.mjs",
+                            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+                        },
+                        {
+                            "file": "src/frontend/stylelint.config.mjs",
+                            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+                        },
+                        {
+                            "file": "stylelint.config.mjs",
+                            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+                            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package-lock.json",
+                            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package.json",
+                            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+                            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "owner": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                            "specifier": "node:crypto",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                            "specifier": "node:fs",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                            "specifier": "node:module",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                            "specifier": "node:path",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        }
+                    ]
+                },
+                "candidate": {
+                    "sourcePath": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                    "configurationIdentities": [
+                        {
+                            "file": ".editorconfig",
+                            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+                        },
+                        {
+                            "file": "config/development/frontend-style-policy.json",
+                            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+                        },
+                        {
+                            "file": "config/development/frontend-style-rule-registry.json",
+                            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+                        },
+                        {
+                            "file": "eslint.config.mjs",
+                            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+                        },
+                        {
+                            "file": "src/frontend/eslint.config.mjs",
+                            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+                        },
+                        {
+                            "file": "src/frontend/stylelint.config.mjs",
+                            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+                        },
+                        {
+                            "file": "stylelint.config.mjs",
+                            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+                            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package-lock.json",
+                            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package.json",
+                            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+                            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "owner": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                            "specifier": "node:crypto",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                            "specifier": "node:fs",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                            "specifier": "node:module",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        },
+                        {
+                            "owner": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                            "specifier": "node:path",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.19.0"
+                        }
+                    ]
+                }
+            },
+            "existing": [],
+            "unexpected": [],
+            "failure": null
+        },
+        {
+            "file": "tools/test-replacement/transaction.mjs",
+            "baseSourceSha256": "aa9df11015f0ca1a74ffffb61caa414010b0a5c5a33a9a9047ddea88a5e6866c",
+            "candidateSourceSha256": "aa9df11015f0ca1a74ffffb61caa414010b0a5c5a33a9a9047ddea88a5e6866c",
+            "rawBase": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog/.tmp/frontend-style/source-diff-base-dQPz9P/tools/test-replacement/transaction.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "rawCandidate": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog/tools/test-replacement/transaction.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "importContext": null,
+            "existing": [],
+            "unexpected": [],
+            "failure": null
+        }
+    ],
+    "failures": [],
+    "toolVersions": {
+        "eslint": "10.8.0",
+        "espree": "10.4.0",
+        "eslint-scope": "9.1.2"
+    },
+    "baseResolverInputs": {
+        "baseCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+        "files": [
+            {
+                "file": "tests/tools/package.json",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "e87915fda143144d01e6342e0995b2a61d3dc857",
+                "size": 182,
+                "sha256": "553a3def95f5b06bde33391361004fcd540a1d6f395f577a9227d20879e8b251",
+                "bytes": 182
+            },
+            {
+                "file": "tests/tools/test-replacement-transaction.test.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "a645ec4eb5e56d9e047c2c5cb0505694cae2e4ee",
+                "size": 41252,
+                "sha256": "bad3fd45e49ee805d57962c46d6590d4359510e39ce93ccc73a9f55c3161ec55",
+                "bytes": 41252
+            },
+            {
+                "file": "tools/test-inventory/ts-ast-adapter/index.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "9d0246398bd25b5c33a17ee8dfe8fd22557c0901",
+                "size": 59532,
+                "sha256": "abaabf83a88f4fa480dd7764e00c9373261b021a0ab17fde1f5c8e5182f88e1a",
+                "bytes": 59532
+            },
+            {
+                "file": "tools/test-inventory/ts-ast-adapter/package.json",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "2e93e85cf9870009e3b64b6340c3741ac42e9f09",
+                "size": 336,
+                "sha256": "7a22d8fefa969f57ebbfee2a8e619bda3a021731014f334a6e83fdd4c0a3ccae",
+                "bytes": 336
+            },
+            {
+                "file": "tools/test-replacement/package.json",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "f1e970cc31da63925ef47fda1d20276ac869d82a",
+                "size": 202,
+                "sha256": "0bf2d9a65e3d12292eed4ddfd7bb1712ed68f681e014b32dd2ecdf8a5a3de4ec",
+                "bytes": 202
+            },
+            {
+                "file": "tools/test-replacement/transaction.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "20006700774c879686d2ef3d60d3eb733ca6cb2c",
+                "size": 41246,
+                "sha256": "aa9df11015f0ca1a74ffffb61caa414010b0a5c5a33a9a9047ddea88a5e6866c",
+                "bytes": 41246
+            }
+        ],
+        "dependencies": [],
+        "unresolved": [],
+        "totalBytes": 142750,
+        "purpose": "static ESLint resolver inputs; no imported module execution",
+        "qualification": false
+    },
+    "sourceCheckPassed": true
+}

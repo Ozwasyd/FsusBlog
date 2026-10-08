@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-inventory/ts-ast-adapter/index.mjs"
+            ],
+            "reason": "Preserve existing Node/TypeScript and process-facing external spellings in the inventory adapter while removing only unused internal helper parameters; this change introduces no environment or API naming change."
+        }
+    ]
+}

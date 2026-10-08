@@ -1,0 +1,15 @@
+{
+    "base": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "testedCommit": "978f9af371ba5a946236baa42c6e2c13939aba9d",
+    "nodeVersion": "v24.19.0",
+    "files": 980,
+    "inputSha256": "752845b0d3eed1b054dd0e23742d89cba17b3c205752429ecaa6fb3e97ed3a6f",
+    "sourceTreeSha256": "b7c345ba763204a66a4dd7bd9b5aea6e92d78673477c2e2cfbf4aba229fba449",
+    "baselineOutputSha256": "871a85efe0b33a693b56c8af31f5000bcded5b10213ef9c603a47ac944f05c35",
+    "candidateOutputSha256": "871a85efe0b33a693b56c8af31f5000bcded5b10213ef9c603a47ac944f05c35",
+    "byteIdentical": true,
+    "testCases": 8251,
+    "suiteRecords": 473,
+    "diagnostics": 169,
+    "acceptanceLimit": "Output equality preserves current diagnostics; it does not qualify dynamic cases or product runtime."
+}
