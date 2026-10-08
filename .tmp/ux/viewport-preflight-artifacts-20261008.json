@@ -24,6 +24,11 @@
       "bytes": 203
     },
     {
+      "path": ".tmp/ux/viewport-followup-plan-20261008.log",
+      "sha256": "ab57c1102593f9997fb81dd78f39818d964d1c24ef79ec1b5c9151aac34f0e75",
+      "bytes": 266
+    },
+    {
       "path": ".tmp/ux/viewport-inventory-drift-observation-20261008.json",
       "sha256": "f805cc3f211182495c28cb384d57f05d09e5b78875033c013b4b92a3644a83f3",
       "bytes": 924
@@ -44,9 +49,14 @@
       "bytes": 2616
     },
     {
+      "path": ".tmp/ux/viewport-paired-upstream-diagnosis-20261008.json",
+      "sha256": "37014f3d7ae21599f716d6a607304cae52807126d64ff296dabe404ced3bc576",
+      "bytes": 11090
+    },
+    {
       "path": ".tmp/ux/viewport-preflight-20261008.md",
-      "sha256": "7d65276b1e24ab5dcf224fd7bed1a3b4a414c7aa61ae0704df215c880334e752",
-      "bytes": 19122
+      "sha256": "55351d9bd72e0b025594b4436560c953d78f246ea2c750f7c5a417155f1429a4",
+      "bytes": 22312
     },
     {
       "path": ".tmp/ux/viewport-smoke-first-attempt-20261008.log",

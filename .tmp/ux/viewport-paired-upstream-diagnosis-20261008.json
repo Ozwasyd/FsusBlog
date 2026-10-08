@@ -1,0 +1,116 @@
+{
+  "qualificationEligible": false,
+  "blogSourceRevision": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "blogInspectedHead": "c5803877927470b0638cc100de210d67244908ea",
+  "uiBaseline": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "uiRuntimeSource": "c325c600ea2760156d467bfaa375613879211cd9",
+  "uiEvidenceCandidate": "55f7951abb75ee5b28f4781ed91ee5aa11f70320",
+  "currentIssueBodies": [
+    {
+      "issue": 2228,
+      "state": "open",
+      "bodySHA256": "ed7d7ae5a4bc1c83d1ca046472a084bf097d6da00bd11b2fa3551b9a23f3a878",
+      "updatedAt": "2026-10-08T03:53:32Z"
+    },
+    {
+      "issue": 2229,
+      "state": "open",
+      "bodySHA256": "229a4537e115d79ddaf7d7d1aec7e2c46a8f4244fd5bc58bc3112239b1e3b74d",
+      "updatedAt": "2026-10-08T03:50:42Z"
+    },
+    {
+      "issue": 1789,
+      "state": "open",
+      "bodySHA256": "a5261e97eba4146e9ea9a8ce6d7a05af4e04887a33d94c423965abc428bdbcd6",
+      "updatedAt": "2026-10-08T03:53:35Z"
+    }
+  ],
+  "formalBlogPlan": {
+    "command": "./tools/test.sh ux-viewport-smoke --plan-only",
+    "node": "24.16.0",
+    "exitCode": 1,
+    "failure": "correctness attempt producer inventory differs from canonical authorities",
+    "warning": "ExperimentalWarning: stripTypeScriptTypes",
+    "runtimeSpawned": false
+  },
+  "uiBaselinePreview": {
+    "baseRevision": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "candidateRevision": "55f7951abb75ee5b28f4781ed91ee5aa11f70320",
+    "command": "pnpm exec playwright test --config=vue/playwright.config.ts vue/tests/visual/capture-all.spec.ts:67 vue/tests/visual/motion-transition-acceptance.spec.ts vue/tests/visual/markdown-editor-chrome.spec.ts:141 vue/tests/visual/markdown-editor-chrome.spec.ts:186 vue/tests/visual/markdown-editor-chrome.spec.ts:354 vue/tests/visual/markdown-editor-chrome.spec.ts:400 vue/tests/visual/markdown-editor-chrome.spec.ts:520 vue/tests/visual/form-production.spec.ts:63",
+    "exitCode": 1,
+    "total": 116,
+    "passed": 74,
+    "failed": 42,
+    "failedTests": [
+      "[desktop-dark] \u203a vue/tests/visual/capture-all.spec.ts:67:7 \u203a capture data",
+      "[desktop-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 \u203a markdown editor chrome variants matrix (#429) \u203a keeps one editor instance through rapid mode switches",
+      "[desktop-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 \u203a markdown editor chrome variants matrix (#429) \u203a renders toolbar, status, and slot visibility contract",
+      "[desktop-dark] \u203a vue/tests/visual/motion-transition-acceptance.spec.ts:25:5 \u203a zoom-in transitions use opacity+translate, no axis scale",
+      "[desktop-dark] \u203a vue/tests/visual/motion-transition-acceptance.spec.ts:50:5 \u203a list transitions use <=8px displacement",
+      "[desktop-dark] \u203a vue/tests/visual/motion-transition-acceptance.spec.ts:72:5 \u203a zoom-in overlay transitions have scale >= 0.98",
+      "[desktop-dark] \u203a vue/tests/visual/motion-transition-acceptance.spec.ts:94:5 \u203a no transition uses 500ms",
+      "[desktop-light] \u203a vue/tests/visual/capture-all.spec.ts:67:7 \u203a capture data",
+      "[desktop-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 \u203a markdown editor chrome variants matrix (#429) \u203a keeps one editor instance through rapid mode switches",
+      "[desktop-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 \u203a markdown editor chrome variants matrix (#429) \u203a renders toolbar, status, and slot visibility contract",
+      "[desktop-light] \u203a vue/tests/visual/motion-transition-acceptance.spec.ts:25:5 \u203a zoom-in transitions use opacity+translate, no axis scale",
+      "[desktop-light] \u203a vue/tests/visual/motion-transition-acceptance.spec.ts:50:5 \u203a list transitions use <=8px displacement",
+      "[desktop-light] \u203a vue/tests/visual/motion-transition-acceptance.spec.ts:72:5 \u203a zoom-in overlay transitions have scale >= 0.98",
+      "[desktop-light] \u203a vue/tests/visual/motion-transition-acceptance.spec.ts:94:5 \u203a no transition uses 500ms",
+      "[mobile-dark] \u203a vue/tests/visual/capture-all.spec.ts:67:7 \u203a capture data",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders embedded chrome in live mode with correct geometry and semantics",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders embedded chrome in source mode with correct geometry and semantics",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders embedded chrome in split mode with correct geometry and semantics",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders framed chrome in live mode with correct geometry and semantics",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders framed chrome in source mode with correct geometry and semantics",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders framed chrome in split mode with correct geometry and semantics",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders minimal chrome in live mode with correct geometry and semantics",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders minimal chrome in source mode with correct geometry and semantics",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders minimal chrome in split mode with correct geometry and semantics",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 \u203a markdown editor chrome variants matrix (#429) \u203a keeps one editor instance through rapid mode switches",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:354:13 \u203a markdown editor chrome variants matrix (#429) \u203a stays usable at 150% and 200% zoom",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 \u203a markdown editor chrome variants matrix (#429) \u203a renders toolbar, status, and slot visibility contract",
+      "[mobile-dark] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:520:13 \u203a markdown editor chrome variants matrix (#429) \u203a keeps framed geometry under forced colors",
+      "[mobile-light] \u203a vue/tests/visual/capture-all.spec.ts:67:7 \u203a capture data",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders embedded chrome in live mode with correct geometry and semantics",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders embedded chrome in source mode with correct geometry and semantics",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders embedded chrome in split mode with correct geometry and semantics",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders framed chrome in live mode with correct geometry and semantics",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders framed chrome in source mode with correct geometry and semantics",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders framed chrome in split mode with correct geometry and semantics",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders minimal chrome in live mode with correct geometry and semantics",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders minimal chrome in source mode with correct geometry and semantics",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 \u203a markdown editor chrome variants matrix (#429) \u203a renders minimal chrome in split mode with correct geometry and semantics",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 \u203a markdown editor chrome variants matrix (#429) \u203a keeps one editor instance through rapid mode switches",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:354:13 \u203a markdown editor chrome variants matrix (#429) \u203a stays usable at 150% and 200% zoom",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 \u203a markdown editor chrome variants matrix (#429) \u203a renders toolbar, status, and slot visibility contract",
+      "[mobile-light] \u203a vue/tests/visual/markdown-editor-chrome.spec.ts:520:13 \u203a markdown editor chrome variants matrix (#429) \u203a keeps framed geometry under forced colors"
+    ],
+    "originalFailedPreviewNotFailedNow": [
+      "[desktop-dark] \u203a vue/tests/visual/form-production.spec.ts:63:5 \u203a keeps production form columns aligned for its project viewport and 320px"
+    ],
+    "additionalFailures": [],
+    "qualificationEligible": false,
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "/workspace/.setup/playwright-browsers",
+      "FSUS_VISUAL_PREVIEW_PORT": "5195",
+      "FSUS_VISUAL_PROFILE": "issue-828-baseline-preview",
+      "activation": "/workspace/.setup/activate.sh"
+    }
+  },
+  "pairedMobileScreenshots": {
+    "count": 22,
+    "allEncodedBytesIdentical": true,
+    "allRgbaPixelsIdentical": true,
+    "independentlyVerifiedByRoot": true,
+    "comparisonJSONSHA256": "2269d7caa765dd7138387ad95742d2095d137dd2817b00fabffe82afcf8e87ac"
+  },
+  "publicTypeCapability": {
+    "commit": "384112ac023a49a8a4fb605f31c05fbd25dd09f5",
+    "changedFile": "vue/packages/demo-app/src/InteractionTraceFixture.vue",
+    "fileSHA256": "09cb941bee5ee09760f92a26ae97278d8cb12e5772e7b0ef16ee3dfdb707b37d",
+    "consumed": false,
+    "limit": "Public typing and existing fallthrough attribute only. Does not repair these 52 visual runtime failures."
+  },
+  "baselineDev": "in_progress",
+  "uiAcceptance": "rejected; unchanged runtime source and no current final-CI qualification inherited"
+}
