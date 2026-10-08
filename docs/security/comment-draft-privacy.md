@@ -15,7 +15,7 @@ There is no PRF-encrypted vault, and anonymous bodies never enter `sessionStorag
 
 The current public key is `fsus:comment-public-draft:v3:<local-scope>:<article>:<reply>`. `local-scope` is browser-cryptographic random data, never an account-id hash/encoding. Logout, account switch, expiry, deletion, and panic wipe delete the scope with its draft, so keys cannot compare account lifecycles. The existing payload contains only schema `version = 3`, public body, `savedAt`, `policyHash`, and `clientMutationId`; it excludes `authorMode`, `publicSendConfirmed`, account id, and anonymous credential/proof. Initialization does not migrate `fsus:comment-draft:v1:*` (which may contain raw account IDs and anonymous plaintext); it deletes those entries. Identity restoration changes neither this schema nor its storage owner.
 
-After explicit review, this composer may retain the existing mutation identity only in memory. An unchanged body with the same policy may reuse it after the user deliberately confirms public attribution, preserving retry idempotency. Anonymous submissions never use this public retry identity. Discard and the existing anonymous-memory/account/privacy purge clear it.
+After explicit review, this composer may retain the existing mutation identity only in memory. An unchanged body with the same policy and article/reply draft key may reuse it after the user deliberately confirms public attribution, preserving retry idempotency. Reading another draft key clears the reviewed retry identity, including when that key has no stored draft. Anonymous submissions never use this public retry identity. Discard and the existing anonymous-memory/account/privacy purge clear it.
 
 ## Lifecycle and cleanup
 

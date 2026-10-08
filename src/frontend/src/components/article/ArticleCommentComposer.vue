@@ -824,6 +824,8 @@ const refreshCommentDraftStorageKey = (): void =>
 
 const restoreCommentDraft = (): void =>
 {
+    // Retry identity belongs to the previous draft key, not another article or reply.
+    reviewedPublicDraft = null;
     const key = draftStorageKey.value;
     if (!key || !commentDraftStorage)
     {
@@ -846,7 +848,6 @@ const restoreCommentDraft = (): void =>
     localDraft.value = result.draft;
     restoredDraftVisible.value = true;
     draftNeedsReview.value = true;
-    reviewedPublicDraft = null;
     emit('update:authorMode', 'zk_anonymous');
     emit('update:publicSendConfirmed', false);
 };

@@ -74,6 +74,30 @@ for (const policy of ['matching', 'changed']) {
     })
 }
 
+test('reviewed public retry identity cannot cross the article draft key', async ({ page }) => {
+    await openComposer(page, 'light', '&draft=matching&priorIdentity=public')
+    await page.getByRole('button', { name: '审查草稿', exact: true }).click()
+    await page.evaluate(() => window.articleCommentComposerFixture.update({ articleId: 43 }))
+    await page.getByText('公开显示我的名称', { exact: true }).click()
+    await normalEditor(page).press('Control+Enter')
+    const submissions = await page.evaluate(() => window.articleCommentComposerFixture.submissions)
+    expect(submissions).toHaveLength(1)
+    expect(submissions[0]!.mutationId).not.toBe('018ff003-1234-7abc-8def-0123456789ab')
+    expect(submissions[0]!.content).toBe('待审公开草稿')
+})
+
+test('reviewed public retry identity cannot cross the reply draft key', async ({ page }) => {
+    await openComposer(page, 'light', '&draft=matching&priorIdentity=public')
+    await page.getByRole('button', { name: '审查草稿', exact: true }).click()
+    await page.evaluate(() => window.articleCommentComposerFixture.update({ replyTarget: { id: '101', rootId: '100', author: { mode: 'public', displayName: '回复作者', displayLanguage: 'zh-CN' }, depth: 1 } }))
+    await page.getByText('公开显示我的名称', { exact: true }).click()
+    await normalEditor(page).press('Control+Enter')
+    const submissions = await page.evaluate(() => window.articleCommentComposerFixture.submissions)
+    expect(submissions).toHaveLength(1)
+    expect(submissions[0]!.mutationId).not.toBe('018ff003-1234-7abc-8def-0123456789ab')
+    expect(submissions[0]!.content).toBe('待审公开草稿')
+})
+
 for (const theme of ['light', 'dark']) {
     for (const width of [375, 768, 1440]) {
         test(`content, backward selection and focus survive repeated expansion: ${theme}/${width}`, async ({ page }) => {

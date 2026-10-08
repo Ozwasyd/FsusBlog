@@ -508,6 +508,46 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     wrapper.unmount()
   })
 
+  it('does not reuse a reviewed public retry identity after the article draft key changes', async () => {
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '已审查正文', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff010-1234-7abc-8def-0123456789ab'
+    })
+    const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    await nextTick()
+    await wrapper.get('.comment-composer-draft__actions button').trigger('click')
+    await wrapper.setProps({ modelValue: '已审查正文' })
+    await wrapper.setProps({ articleId: 43 })
+    await wrapper.get<HTMLInputElement>('input[type=checkbox]').setValue(true)
+    await wrapper.setProps({ authorMode: 'public', publicSendConfirmed: true })
+    await wrapper.findAll('button').find(button => button.text().includes('发送'))!.trigger('click')
+    expect(wrapper.emitted('submit')![0]![0]).not.toBe('018ff010-1234-7abc-8def-0123456789ab')
+    expect(wrapper.props('modelValue')).toBe('已审查正文')
+    wrapper.unmount()
+  })
+
+  it('does not reuse a reviewed public retry identity after the reply draft key changes', async () => {
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '已审查正文', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff010-1234-7abc-8def-0123456789ab'
+    })
+    const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    await nextTick()
+    await wrapper.get('.comment-composer-draft__actions button').trigger('click')
+    await wrapper.setProps({ modelValue: '已审查正文' })
+    await wrapper.setProps({ replyTarget: { id: '101', rootId: '100', author: { mode: 'public', displayName: '回复作者', displayLanguage: 'zh-CN' }, depth: 1 } })
+    await wrapper.get<HTMLInputElement>('input[type=checkbox]').setValue(true)
+    await wrapper.setProps({ authorMode: 'public', publicSendConfirmed: true })
+    await wrapper.findAll('button').find(button => button.text().includes('发送'))!.trigger('click')
+    expect(wrapper.emitted('submit')![0]![0]).not.toBe('018ff010-1234-7abc-8def-0123456789ab')
+    expect(wrapper.props('modelValue')).toBe('已审查正文')
+    wrapper.unmount()
+  })
+
   it('clears anonymous memory on credential epoch rotation and public storage on account switch', async () => {
     const anonymous = mountComposer({ articleId: 42, accountId: 7, modelValue: '匿名内存草稿' })
     await purgeCommentPrivacyCredentialState('epoch-changed', { broadcast: false })
