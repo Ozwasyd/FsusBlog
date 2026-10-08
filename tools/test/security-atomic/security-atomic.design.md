@@ -96,6 +96,59 @@ journal reference, verified through `terminal`, and covered by the existing
 `hostRevalidation`/`hostFailureLedger` admission. A caller cannot omit the session's
 failure history. Candidate commit/run and catalog digest must match exactly.
 
+## Ordinary resident IPC and original result transport
+
+`serveSecurityScenarioSession({session, ipcRoot, evidenceRoot})` attaches a private
+Unix socket to one already-created original admitted session. It never constructs
+another resident host, initializes another shared runtime or exposes a TCP target.
+The socket directory is private and the socket mode is 0600. Request source commit,
+worktree and run must match the existing session; canonical scenario/fixture/state/
+isolation admission still runs inside that session for each request. The transport
+identity and filesystem permissions are not a new runtime/network authority.
+
+`requestSecurityScenarioDispatch({socketPath, identity, scenarioId, signal})`
+requests attempt one only. Request cancellation propagates to the original runner
+and waits for actual settlement. IPC shutdown stops new requests, cancels owned
+active requests and waits for the same original lease to settle. Bridge shutdown
+removes only its socket directory; the separately owned original evidence output
+and original host session lifetime remain with their existing owners.
+
+The original host writer is now exported as `writeRuntimeScenarioResultEvidence`
+and used by both grouped and atomic dispatch. `session.writeResult` only writes a
+settled actually dispatched observation from its local ledger. It retains the
+existing `runtime-scenario-result-evidence.v1`/`runtime-scenario-result.v1` shapes,
+original catalog metadata, raw runner return/error and actual timing. A refused
+request does not reuse a previous result as a new success. IPC transports the
+original producer's file bytes unchanged, including raw scan payload when present.
+Declared `expectedAssertions`/coverage remain metadata, not executed-test claims.
+
+`resident-ipc-client.mjs` is the new standalone client command. It requires
+explicit `--socket`, `--scenario`, `--run-id`, `--source-commit`,
+`--source-fingerprint`, `--output-file`; it writes an exclusive copy of the
+original result bytes and returns the original pass/failure/cancelled exit status.
+It does not generate an attempt sidecar. A clean client exit by itself still
+cannot pass the canonical runner's existing sidecar gate. Matrix command/input
+closure, replay, resident service resource reservation, state grant and scan-check
+mapping must be provided by their owners before active-lane admission.
+
+Current original scan APIs were read on the exact predecessor source:
+`runAuthenticatedDast` emits actual `checks`, `failedChecks`, `failureCategory`
+and `summary.json`; `runLocalRuntimeExposure` emits actual `targets`, `listeners`,
+`restrictedServices`, `failures` and its configured summary file. Neither exposes
+canonical `executedTestIds`, `failedTestIds`, `failureClass`, `failureKind` or
+attempt-relative artifact paths. Owner-approved mapping of actual observed checks,
+fixture/scan failure classes and original artifact custody remains required. The
+retained runtime producer also keeps catalog assertions as declaration metadata.
+
+Original-producer changes are prepared separately for coordination, not applied:
+a read-only result outlet after each original scan writer finishes, and returning
+already-validated original security cleanup observations through catalog ports.
+These changes would preserve existing result bytes and validation rules, but do
+not add missing before observations or qualify reset/native runtime. Exact patch
+bases/file objects and proposed digests are delivered to the coordinator. The sole
+#3521 owner must perform current-candidate fixture rebinding through its original
+producer; this partition does not hand-edit shared authority fixtures or ledgers.
+
 ## Independent canonical attempts
 
 `runSecurityScenarioAttempt` consumes an exact compiled DAG/matrix/authority set,
@@ -131,11 +184,11 @@ are retained; exit zero without a sidecar remains a canonical runner failure.
   before/after observation with run/namespace/profile/source/runtime/state-domain
   binding; real canonical security-state fixtures and finalizer integration in
   the active lane. Current fixture binding is pending with the sole #3521 owner.
-- #2259: matrix-owned standalone resident command/IPC bridge to the shared dispatch
-  session; exact scenario-to-inventory test mapping, input closure, state/isolation
+- #2259: matrix-owned standalone command registration and attempt result bridge for the
+  implemented local IPC session; exact scenario-to-inventory test mapping, input closure, state/isolation
   grants, replay/envelopes and journal-reference projection for host failure
-  revalidation. The programmatic seam executes real runners but is not an active
-  subprocess resident-service transport or lane replacement.
+  revalidation. The local IPC transport is implemented, but its native
+  admission/result mapping and active-lane replacement remain unverified.
 - #2260: canonical conditional/non-applicable and diagnostic terminal/attempt
   support. Supplied atomic v1 accepts correctness executable children only;
   its audit disposition API does not implement a conditional execution state.
@@ -152,7 +205,8 @@ fixture transport controls, actual active local run lock/immutable store/grant
 read, and actual subprocess success/product-failure/cancellation receipts. Their
 synthetic domain facts are not native security runtime or Production acceptance.
 Old negative consumer/semantic/cohort audits are not replayed for this increment.
-All three issues remain OPEN. Real backend, shared host IPC, physical conflict
-admission, legacy/resident parity, Fresh/resume and independent acceptance remain
-unrun. Rollback reverts only owned source and its additive host export; credentials,
+All three issues remain OPEN. Local IPC and real client subprocess controls are
+verified only as ordinary source behavior. Real backend, admitted shared service
+resource/state ownership, legacy/resident parity, Fresh/resume and independent
+acceptance remain unrun. Rollback reverts only owned source and its additive host export; credentials,
 security settings, runtime resources, publication and release authority are unchanged.
