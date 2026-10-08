@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const { loadCanonicalRequiredEvidenceCatalog } = await import(new URL('../test-matrix/required-evidence-catalog.mjs', import.meta.url));
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Validate exported requests against the existing locator schema.
+import { validateJsonSchema } from '../test-matrix/schema-validator/validate.mjs';
+
 import {
     governanceContentDigest,
+    validateEvidenceLocatorRegistry,
     verifyEvidenceLocationGovernance
 } from './evidence-location-contract.mjs';
 import { scanEvidenceLocations } from './evidence-location-scanner.mjs';
@@ -390,7 +395,143 @@ function checkpointCommandFor(consumerId)
     return `node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer ${consumerId}`;
 }
 
-function buildGovernance(scan)
+// Finite source/export recognition only. The producer owns the requested row;
+// parsing it never imports its runtime, publishes evidence or grants admission.
+const requireRegistrationParser = createRequire(new URL('../governance/javascript-format-parser/package.json', import.meta.url));
+const registrationParser = requireRegistrationParser('espree');
+const registrationParserLock = JSON.parse(fs.readFileSync(new URL('../governance/javascript-format-parser/package-lock.json', import.meta.url), 'utf8'));
+if (registrationParser.version !== registrationParserLock.packages['node_modules/espree'].version)
+{
+    throw new Error('embedded registration requires the locked JavaScript parser');
+}
+const embeddedRegistrationSources = new Map([
+    ['tools/release/publish-release-final-bindings.mjs', 'releaseFinalBindingOutputRegistration']
+]);
+
+export function parseEmbeddedEvidenceRegistration(source, producerSource, exportName)
+{
+    if (embeddedRegistrationSources.get(producerSource) !== exportName)
+    {
+        throw new Error('unrecognized embedded registration source/export');
+    }
+    const ast = registrationParser.parse(source, { ecmaVersion: 2025, sourceType: 'module' });
+    const declarations = new Map();
+    const exported = [];
+    for (const statement of ast.body)
+    {
+        const declaration = statement.type === 'ExportNamedDeclaration' ? statement.declaration : statement;
+        if (statement.type === 'ImportDeclaration'
+            && statement.specifiers.some((item) => item.local.name === 'Object'))
+        {
+            throw new Error('embedded registration cannot shadow Object');
+        }
+        if (declaration?.type === 'VariableDeclaration')
+        {
+            for (const item of declaration.declarations)
+            {
+                if (item.id.type === 'Identifier')
+                {
+                    if (item.id.name === 'Object')
+                    {
+                        throw new Error('embedded registration cannot shadow Object');
+                    }
+                    declarations.set(item.id.name, { kind: declaration.kind, init: item.init });
+                    if (statement.type === 'ExportNamedDeclaration' && item.id.name === exportName)
+                    {
+                        exported.push(item);
+                    }
+                }
+            }
+        }
+    }
+    if (exported.length !== 1 || declarations.get(exportName)?.kind !== 'const')
+    {
+        throw new Error('embedded registration requires one direct exported const');
+    }
+    const resolving = new Set();
+    function read(node)
+    {
+        if (node?.type === 'Literal' && typeof node.value === 'string')
+        {
+            return node.value;
+        }
+        if (node?.type === 'Identifier' && ['consumerId', 'producerSource'].includes(node.name))
+        {
+            const declaration = declarations.get(node.name);
+            if (declaration?.kind !== 'const' || resolving.has(node.name))
+            {
+                throw new Error('embedded registration requires finite local constants');
+            }
+            resolving.add(node.name);
+            const value = read(declaration.init);
+            resolving.delete(node.name);
+            return value;
+        }
+        if (node?.type === 'TemplateLiteral')
+        {
+            return node.quasis.reduce((value, quasi, index) =>
+                value + quasi.value.cooked + (index < node.expressions.length ? read(node.expressions[index]) : ''), '');
+        }
+        if (node?.type === 'ArrayExpression')
+        {
+            return node.elements.map(read);
+        }
+        if (node?.type === 'ObjectExpression')
+        {
+            const value = {};
+            for (const property of node.properties)
+            {
+                if (property.type !== 'Property' || property.computed || property.method || property.kind !== 'init')
+                {
+                    throw new Error('embedded registration rejects spread, computed properties and accessors');
+                }
+                const key = property.key.type === 'Identifier' ? property.key.name : property.key.value;
+                if (typeof key !== 'string' || Object.hasOwn(value, key))
+                {
+                    throw new Error('embedded registration rejects duplicate or non-string fields');
+                }
+                Object.defineProperty(value, key, { value: read(property.value), enumerable: true });
+            }
+            return value;
+        }
+        if (node?.type === 'CallExpression' && node.arguments.length === 1
+            && node.callee.type === 'MemberExpression' && !node.callee.computed
+            && node.callee.object.type === 'Identifier' && node.callee.object.name === 'Object'
+            && node.callee.property.name === 'freeze')
+        {
+            return read(node.arguments[0]);
+        }
+        throw new Error('embedded registration contains an unsupported expression');
+    }
+    const entry = read(exported[0].init);
+    const payload = { schema: 'fsusblog.evidence-locator-registry.v1', version: 1, entries: [entry] };
+    const registry = { ...payload, contentDigest: governanceContentDigest(payload) };
+    const schema = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'config/testing/evidence-locator-registry.schema.json'), 'utf8'));
+    const errors = validateJsonSchema(registry, schema);
+    if (errors.length > 0)
+    {
+        throw new Error(`embedded registration schema rejected: ${errors.join('; ')}`);
+    }
+    validateEvidenceLocatorRegistry(registry);
+    const consumerId = consumerIdFor(producerSource);
+    const expected = {
+        consumerId, authorityId: `${consumerId}.current-run`, producerId: `${consumerId}.producer`,
+        receiptSchema: 'fsusblog.current-run-evidence-reference.v1', locatorMode: 'explicit-run-path',
+        requiredIdentityFields: ['attemptId', 'buildIdentity', 'candidateIdentity', 'schedulerRunId', 'sourceCommit', 'worktreeFingerprint'],
+        requiredDigestFields: ['contentDigest', 'producerReceiptDigest'], expectedCardinality: 'exact-one',
+        allowedRoots: ['artifacts/current-run'], publicationMode: 'embedded', producerSource, producerCallsite: producerSource,
+        producerExecutable: `node ${producerSource}`, producerCommand: `node ${producerSource}`, producerBindingClass: 'cli',
+        outputBindingKey: bindingFor(consumerId), handoffBindingKey: handoffBindingFor(consumerId),
+        checkpointCommand: checkpointCommandFor(consumerId)
+    };
+    if (governanceContentDigest({ entry }) !== governanceContentDigest({ entry: expected }))
+    {
+        throw new Error('embedded registration differs from canonical source identity and required bindings');
+    }
+    return entry;
+}
+
+function buildGovernance(scan, root)
 {
     const entries = scan.findings.map((finding) =>
     {
@@ -558,6 +699,17 @@ function buildGovernance(scan)
             checkpointCommand: checkpointCommandFor(consumerId)
         });
     }
+    for (const [producerSource, exportName] of embeddedRegistrationSources)
+    {
+        const source = fs.readFileSync(path.join(root, producerSource), 'utf8');
+        const entry = parseEmbeddedEvidenceRegistration(source, producerSource, exportName);
+        if (registryEntries.some((registered) => registered.consumerId === entry.consumerId
+            || registered.authorityId === entry.authorityId))
+        {
+            throw new Error('embedded registration duplicates an existing consumer or authority');
+        }
+        registryEntries.push(entry);
+    }
     const registryPayload = {
         schema: 'fsusblog.evidence-locator-registry.v1',
         version: 1,
@@ -586,7 +738,7 @@ export function generateEvidenceLocationGovernance({ root = repositoryRoot } = {
 {
     const scan = scanEvidenceLocations({ root });
     validateEvidenceLocationClassificationOverrides(scan);
-    const { registry, ledger } = buildGovernance(scan);
+    const { registry, ledger } = buildGovernance(scan, root);
     verifyEvidenceLocationGovernance({ registry, ledger, scan });
     return { scan, registry, ledger };
 }
