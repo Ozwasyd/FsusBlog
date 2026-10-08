@@ -8,7 +8,6 @@ import {
     validateArticleDocumentContext,
     type ArticleDocumentContext,
     type ArticleDocumentContextAuthority,
-    type ArticleDocumentContextBinding,
     type ArticleDocumentTaskLease
 } from './articleDocumentContext';
 import { calculateOpenArticleDocumentDigest as digest } from './openArticleDocumentRegistry';
@@ -21,6 +20,12 @@ export interface ArticlePreviewSourceInput {
     readonly responsibility: ArticleDraftResponsibilitySource | null;
     readonly siteAuthor: string;
     readonly attachmentLifecycleHistory: readonly ArticleAttachmentLifecycleSnapshot[];
+}
+
+/** Minimal consumer projection of the real ArticleEditorRuntimeBinding public API. */
+export interface ArticlePreviewEditorRuntime {
+    readonly context: ArticleDocumentContext;
+    beginToolTask(tool: 'publish-preview'): ArticleDocumentTaskLease;
 }
 
 export interface ArticlePreviewSourceRequest {
@@ -52,7 +57,9 @@ export class ArticlePreviewSourceAdmission
     private disposed = false;
 
     private constructor(
-        private readonly binding: ArticleDocumentContextBinding,
+        private readonly currentContext: () => ArticleDocumentContext,
+        private readonly beginTask: () => ArticleDocumentTaskLease,
+        private readonly release: (() => void) | null,
         private readonly read: () => ArticlePreviewSourceInput
     )
     {}
@@ -73,7 +80,8 @@ export class ArticlePreviewSourceAdmission
         createArticleDocumentContext({ ...input.context, content: input.source });
         const binding = authority.acquire({ articleId: input.context.articleId,
             siteScope: input.context.siteScope, userScope: input.context.userScope, content: input.source });
-        const admission = new ArticlePreviewSourceAdmission(binding, read);
+        const admission = new ArticlePreviewSourceAdmission(() => binding.adapter.context,
+            () => binding.adapter.beginTask('preview', 'article-preview-source', 'version:1'), () => binding.release(), read);
         try
         {
             admission.capture();
@@ -86,11 +94,29 @@ export class ArticlePreviewSourceAdmission
         }
     }
 
+    /** Uses the writer's unified binding; its host retains ownership of editor release and continuity. */
+    public static attachRuntime(
+        runtime: ArticlePreviewEditorRuntime,
+        read: () => ArticlePreviewSourceInput
+    ): ArticlePreviewSourceAdmission
+    {
+        const admission = new ArticlePreviewSourceAdmission(() => runtime.context,
+            () => runtime.beginToolTask('publish-preview'), null, read);
+        admission.capture();
+        return admission;
+    }
+
     public begin(): ArticlePreviewSourceRequest
     {
         this.cancel();
         const input = this.capture();
-        const lease = this.binding.adapter.beginTask('preview', 'article-preview-source', 'version:1');
+        const lease = this.beginTask();
+        if (!lease.isCurrent() || lease.envelope.kind !== 'preview'
+            || lease.envelope.context.contextDigest !== input.context.contextDigest)
+        {
+            lease.cancel('preview-owner-changed');
+            throw new Error('article-preview-source-task-invalid');
+        }
         const request = Object.freeze({ schema: 'fsusblog.article-preview-source-request.v1' as const,
             ...input, requestId: lease.envelope.requestId, signal: lease.signal });
         this.requests.set(request, lease);
@@ -143,7 +169,7 @@ export class ArticlePreviewSourceAdmission
         }
         this.cancel();
         this.disposed = true;
-        this.binding.release();
+        this.release?.();
     }
 
     private capture(): CapturedInput
@@ -154,7 +180,7 @@ export class ArticlePreviewSourceAdmission
         }
         const input = this.read();
         if (!validateArticleDocumentContext(input.context)
-            || !this.binding.adapter.isCurrentContext(input.context))
+            || input.context.contextDigest !== this.currentContext().contextDigest)
         {
             throw new Error('article-preview-source-context-invalid');
         }

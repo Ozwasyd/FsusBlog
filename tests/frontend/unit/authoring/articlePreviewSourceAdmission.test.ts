@@ -62,6 +62,53 @@ function open(articleId: number | null = 1)
 
 describe('draft preview source admission through the existing document owner', () =>
 {
+    it('uses the unified binding tool lease and leaves editor lifecycle ownership with the host', () =>
+    {
+        const editor = open();
+        const starts: string[] = [];
+        const runtime = {
+            get context() { return editor.owner.context; },
+            beginToolTask(tool: 'publish-preview')
+            {
+                starts.push(tool);
+                return editor.owner.beginTask('preview', 'article-write:preview', 'article-editor-tools:v1');
+            }
+        };
+        const admission = ArticlePreviewSourceAdmission.attachRuntime(runtime, editor.read);
+        cleanups.push(() => admission.dispose());
+        const before = editor.owner.context;
+        const request = admission.begin();
+        expect(starts).toEqual(['publish-preview']);
+        expect(request.context).toBe(before);
+        expect(admission.accept(request, 'public-composition-ref').accepted).toBe(true);
+        const second = admission.begin();
+        admission.dispose();
+        expect(second.signal.aborted).toBe(true);
+        const hostTask = runtime.beginToolTask('publish-preview');
+        expect(hostTask.isCurrent()).toBe(true);
+        hostTask.cancel();
+    });
+
+    it('rejects a unified binding context mismatch and a task whose owner changed during admission', () =>
+    {
+        const editor = open();
+        const other = open(2);
+        expect(() => ArticlePreviewSourceAdmission.attachRuntime({
+            get context() { return other.owner.context; },
+            beginToolTask: () => other.owner.beginTask('preview', 'article-write:preview')
+        }, editor.read)).toThrow('article-preview-source-context-invalid');
+        const admission = ArticlePreviewSourceAdmission.attachRuntime({
+            get context() { return editor.owner.context; },
+            beginToolTask: () =>
+            {
+                editor.host.switchDocument({ articleId: 2, content: editor.source, reason: 'article-switch' });
+                return editor.owner.beginTask('preview', 'article-write:preview');
+            }
+        }, editor.read);
+        cleanups.push(() => admission.dispose());
+        expect(() => admission.begin()).toThrow('article-preview-source-task-invalid');
+    });
+
     it.each([null, 1])('retains canonical identity and registers an existing-owner preview task for %s', articleId =>
     {
         const editor = open(articleId);

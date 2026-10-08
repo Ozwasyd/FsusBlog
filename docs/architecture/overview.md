@@ -211,6 +211,14 @@ source admission slice does not qualify the complete preview request, rights,
 renderer identity, route authorization or editor history/selection continuity.
 Its caller must dispose the binding with the preview lifecycle.
 
+The unified Writer runtime is the production entry for this source slice:
+`ArticlePreviewSourceAdmission.attachRuntime(binding, read)` consumes the real
+`authoringEditorRuntime.bindEditor` result. Context is read from that binding and
+preview leases use its `beginToolTask('publish-preview')`; no additional authority
+binding, renderer or editor instance is created. Disposing the consumer cancels
+its own preview lease while the Writer host retains runtime release and
+continuity ownership. A tool switch or owner change rejects the old result.
+
 ## Standalone document export boundary
 
 Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
