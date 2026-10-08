@@ -97,7 +97,10 @@ function validateField(value, kind, field)
     }
     else if (kind === 'nullable-digest')
     {
-        if (value !== null) requireDigest(value, field);
+        if (value !== null)
+        {
+            requireDigest(value, field);
+        }
     }
     else if (kind.endsWith('digest-map'))
     {
@@ -108,7 +111,10 @@ function validateField(value, kind, field)
         }
         for (const [id, digest] of Object.entries(value))
         {
-            if (!/^[a-z][a-z0-9._-]*$/u.test(id)) throw new Error(`${field}: invalid semantic ID ${id}`);
+            if (!/^[a-z][a-z0-9._-]*$/u.test(id))
+            {
+                throw new Error(`${field}: invalid semantic ID ${id}`);
+            }
             requireDigest(digest, `${field}.${id}`);
         }
     }
@@ -130,9 +136,18 @@ function validateField(value, kind, field)
     }
     else if (kind === 'timezone')
     {
-        if (typeof value !== 'string') throw new Error(`${field} must be explicit`);
-        try { new Intl.DateTimeFormat('en', { timeZone: value }); }
-        catch { throw new Error(`${field} must be an explicit valid timezone`); }
+        if (typeof value !== 'string')
+        {
+            throw new Error(`${field} must be explicit`);
+        }
+        try
+        {
+            new Intl.DateTimeFormat('en', { timeZone: value });
+        }
+        catch
+        {
+            throw new Error(`${field} must be an explicit valid timezone`);
+        }
     }
     else if (kind === 'text' && (typeof value !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]*$/u.test(value)))
     {
@@ -143,7 +158,10 @@ function validateField(value, kind, field)
 function verifyPayload(payload)
 {
     exactKeys(payload, Object.keys(candidateIdentityFields), 'candidate identity');
-    for (const [field, kind] of Object.entries(candidateIdentityFields)) validateField(payload[field], kind, field);
+    for (const [field, kind] of Object.entries(candidateIdentityFields))
+    {
+        validateField(payload[field], kind, field);
+    }
     if (payload.schema !== candidateIdentitySchema || payload.identityVersion !== candidateIdentityVersion
         || payload.algorithm !== 'sha256' || payload.identitySchemaDigest !== candidateSchemaDigest
         || payload.identityPolicyDigest !== candidatePolicyDigest)
@@ -168,7 +186,10 @@ export function verifyCandidateIdentity(identity)
     const { candidateIdentityDigest, ...payload } = identity;
     verifyPayload(payload);
     requireDigest(candidateIdentityDigest, 'candidateIdentityDigest');
-    if (digestCanonical(payload) !== candidateIdentityDigest) throw new Error('candidate identity digest mismatch');
+    if (digestCanonical(payload) !== candidateIdentityDigest)
+    {
+        throw new Error('candidate identity digest mismatch');
+    }
     return identity;
 }
 
@@ -179,7 +200,10 @@ export function diffCandidateIdentities(left, right)
     const changes = [];
     const visit = (a, b, field) =>
     {
-        if (canonicalJson(a) === canonicalJson(b)) return;
+        if (canonicalJson(a) === canonicalJson(b))
+        {
+            return;
+        }
         if (a && b && typeof a === 'object' && typeof b === 'object')
         {
             for (const key of [...new Set([...Object.keys(a), ...Object.keys(b)])].sort())
@@ -187,8 +211,14 @@ export function diffCandidateIdentities(left, right)
                 visit(a[key] ?? null, b[key] ?? null, `${field}.${key}`);
             }
         }
-        else changes.push({ field, left: a, right: b });
+        else
+        {
+            changes.push({ field, left: a, right: b });
+        }
     };
-    for (const field of Object.keys(candidateIdentityFields)) visit(left[field], right[field], field);
+    for (const field of Object.keys(candidateIdentityFields))
+    {
+        visit(left[field], right[field], field);
+    }
     return changes;
 }

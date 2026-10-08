@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { candidateIdentityFields, candidateSchemaDigest, candidatePolicyDigest, createCandidateIdentity,
     verifyCandidateIdentity, diffCandidateIdentities } from '../../tools/release-candidate/identity-contract.mjs';
+
 import { candidatePayload, candidateIdentity, testDigest, otherDigest } from './release-candidate-test-support.mjs';
 
 test('candidate identity binds its closed schema and policy content', () =>
@@ -20,14 +21,35 @@ test('every candidate semantic input changes its identity and names the mismatch
     const baseline = candidateIdentity();
     for (const [field, kind] of Object.entries(candidateIdentityFields))
     {
-        if (['schema', 'version', 'algorithm', 'schema-digest', 'policy-digest'].includes(kind)) continue;
+        if (['schema', 'version', 'algorithm', 'schema-digest', 'policy-digest'].includes(kind))
+        {
+            continue;
+        }
         let value = otherDigest;
-        if (kind.endsWith('digest-map')) value = { local: otherDigest };
-        if (kind === 'commit') value = 'b'.repeat(40);
-        if (kind === 'seed') value = '1'.repeat(64);
-        if (kind === 'epoch') value = '2026-01-02T00:00:00.000Z';
-        if (kind === 'timezone') value = 'Europe/London';
-        if (kind === 'text') value = 'en-US';
+        if (kind.endsWith('digest-map'))
+        {
+            value = { local: otherDigest };
+        }
+        if (kind === 'commit')
+        {
+            value = 'b'.repeat(40);
+        }
+        if (kind === 'seed')
+        {
+            value = '1'.repeat(64);
+        }
+        if (kind === 'epoch')
+        {
+            value = '2026-01-02T00:00:00.000Z';
+        }
+        if (kind === 'timezone')
+        {
+            value = 'Europe/London';
+        }
+        if (kind === 'text')
+        {
+            value = 'en-US';
+        }
         const changed = candidateIdentity({ [field]: value });
         assert.notEqual(changed.candidateIdentityDigest, baseline.candidateIdentityDigest, field);
         assert.ok(diffCandidateIdentities(baseline, changed).some((change) => change.field.startsWith(field)), field);
