@@ -47,6 +47,8 @@ export async function consumeReleaseFinalVerifiedBindings(options)
     return verifyReleaseFinalVerifiedAuthorityBinding(binding, options);
 }
 
+export { assessReleaseFinalTerminalPrerequisites } from './test-evidence-receipts.mjs';
+
 function artifactPath(manifestFile, artifact)
 {
     if (!artifact || artifact === 'null')

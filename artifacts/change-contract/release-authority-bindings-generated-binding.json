@@ -14,12 +14,15 @@
         "tests/tools/required-evidence-dependencies.test.mjs",
         "config/schemas/test-execution-envelope-applicability.schema.json",
         "tools/test/run-matrix-governance-once.sh",
-        "tests/tools/execution-envelope-policy.test.mjs"
+        "tests/tools/execution-envelope-policy.test.mjs",
+        "tools/release/test-evidence-receipts.mjs",
+        "tools/release/check-release-final.mjs",
+        "tests/tools/release-final-verified-authority-binding.test.mjs"
     ],
     "outputs": [
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "7136105f9c58fd833124e98cc9e672d55ffc45de289a13aa7a9947f68efa22e5"
+            "sha256": "6f6f81391834ab73c160648a472a76a557d42dda6088ba49644cd68d4a10d1f1"
         },
         {
             "path": "config/testing/evidence-locator-registry.json",
@@ -27,7 +30,7 @@
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "fcdd9bb67e9ab36f1b373a5247d3ebd92a2b8ce46cdea9934cba2c9ee31ef24c"
+            "sha256": "1549c07069e21ce81458fa151af4ada82533d7b480eb23dde59548f8e5c86172"
         },
         {
             "path": "config/testing/release-final-execution-authority-index.json",
@@ -35,7 +38,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "70f7b2478d336fbf9698b2d46aac3b7bb3ae18ca77024ef545a3434075a54718"
+            "sha256": "3751c87244176b62cb37defd6e1a8ce317e230842ae638e8a697bc2ff2336f0f"
         },
         {
             "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",

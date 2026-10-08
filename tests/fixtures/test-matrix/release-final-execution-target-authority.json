@@ -525,8 +525,8 @@
         },
         {
             "path": "src/frontend/src/locales/routeLocaleDomains.ts",
-            "contentDigest": "sha256:7247439abba6b698bef938b72198c3b3a619e85a0239b1c9293e8a71d0ee16b4",
-            "indexDigest": "sha256:7247439abba6b698bef938b72198c3b3a619e85a0239b1c9293e8a71d0ee16b4"
+            "contentDigest": "sha256:67d3744142a48bf5eb188ff9e8dddab84ee04b18040e84867e5f8174febb3f14",
+            "indexDigest": "sha256:67d3744142a48bf5eb188ff9e8dddab84ee04b18040e84867e5f8174febb3f14"
         },
         {
             "path": "src/frontend/src/locales/ru-RU/admin.ts",
@@ -800,8 +800,8 @@
         },
         {
             "path": "tests/browser-contract/fixture-lifecycle.test.mjs",
-            "contentDigest": "sha256:8032164a3506cf6eac7a66255ba9afab9cdd17bb8900e235e91f5e6be5431c8b",
-            "indexDigest": "sha256:8032164a3506cf6eac7a66255ba9afab9cdd17bb8900e235e91f5e6be5431c8b"
+            "contentDigest": "sha256:e5db016fe36b9e3c351dd1c36dc6f11f8e2cefcc5c6ad3d29d438fbc80cc7731",
+            "indexDigest": "sha256:e5db016fe36b9e3c351dd1c36dc6f11f8e2cefcc5c6ad3d29d438fbc80cc7731"
         },
         {
             "path": "tests/browser-contract/fixture.mjs",
@@ -2535,8 +2535,8 @@
         },
         {
             "path": "tools/contracts/check-locale-catalog.mjs",
-            "contentDigest": "sha256:bd58cfb081361660334a94d972abf1d0a9cd5f709c50d5795cb9e2c94e9043f2",
-            "indexDigest": "sha256:bd58cfb081361660334a94d972abf1d0a9cd5f709c50d5795cb9e2c94e9043f2"
+            "contentDigest": "sha256:a895317216b8ce84415f5408e3efa5937bdb7f57f2183b7ccc164029c961d92d",
+            "indexDigest": "sha256:a895317216b8ce84415f5408e3efa5937bdb7f57f2183b7ccc164029c961d92d"
         },
         {
             "path": "tools/contracts/check-openapi-consumers.mjs",
@@ -2565,8 +2565,8 @@
         },
         {
             "path": "tools/contracts/generate-locale-catalog.mjs",
-            "contentDigest": "sha256:291bd2892861d55714f132dcdbbadc6d2f4dca74bf935fc40bb05cfa1bf2ab55",
-            "indexDigest": "sha256:291bd2892861d55714f132dcdbbadc6d2f4dca74bf935fc40bb05cfa1bf2ab55"
+            "contentDigest": "sha256:1aebfcda0ebe9e622ae4e8e65d82ca78c3b8ea22cbda1557e5de536631ddd636",
+            "indexDigest": "sha256:1aebfcda0ebe9e622ae4e8e65d82ca78c3b8ea22cbda1557e5de536631ddd636"
         },
         {
             "path": "tools/contracts/generate-perception-character-v3-release-target.mjs",
@@ -3095,8 +3095,8 @@
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
-            "contentDigest": "sha256:172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1",
-            "indexDigest": "sha256:172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1"
+            "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+            "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
         },
         {
             "path": "tools/fact-extractors/governance.mjs",
@@ -3675,8 +3675,8 @@
         },
         {
             "path": "tools/release/check-release-final.mjs",
-            "contentDigest": "sha256:dfe929d7d0bb363c0730cbf98bb1111a95ebd83781fcdc90002fbfc288e5acf5",
-            "indexDigest": "sha256:dfe929d7d0bb363c0730cbf98bb1111a95ebd83781fcdc90002fbfc288e5acf5"
+            "contentDigest": "sha256:96976c14b39d535899cab605513893b6aeffb9b4fb78065229412323532556a6",
+            "indexDigest": "sha256:96976c14b39d535899cab605513893b6aeffb9b4fb78065229412323532556a6"
         },
         {
             "path": "tools/release/clean-attempt-evidence-source.mjs",
@@ -3790,8 +3790,8 @@
         },
         {
             "path": "tools/release/test-evidence-receipts.mjs",
-            "contentDigest": "sha256:e1aaab40e980dfa7f65cc9356dd229a98fe3324ff1f2a5fcf05a2b482b998cf3",
-            "indexDigest": "sha256:e1aaab40e980dfa7f65cc9356dd229a98fe3324ff1f2a5fcf05a2b482b998cf3"
+            "contentDigest": "sha256:1f010397bea884c97f41d58b5b8b5bde0666e9776597586541af5ead4b1993ea",
+            "indexDigest": "sha256:1f010397bea884c97f41d58b5b8b5bde0666e9776597586541af5ead4b1993ea"
         },
         {
             "path": "tools/release/theme-css-safety-evidence.mjs",
@@ -4260,8 +4260,8 @@
         },
         {
             "path": "tools/test-inventory/discovery.mjs",
-            "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
-            "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+            "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+            "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
         },
         {
             "path": "tools/test-inventory/package.json",
@@ -4640,8 +4640,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "contentDigest": "sha256:91e3b63ea4da139bd475059f1a7cadce8b516d842e9f20fd84e065170c116a51",
-            "indexDigest": "sha256:91e3b63ea4da139bd475059f1a7cadce8b516d842e9f20fd84e065170c116a51"
+            "contentDigest": "sha256:9827add9c6816cd6ab8cda8dd83ec9b748343a718b81f3448587766ffa7c2592",
+            "indexDigest": "sha256:9827add9c6816cd6ab8cda8dd83ec9b748343a718b81f3448587766ffa7c2592"
         },
         {
             "path": "tools/test-matrix/schema-validator/package.json",

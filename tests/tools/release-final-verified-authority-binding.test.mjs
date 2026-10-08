@@ -11,18 +11,25 @@ const { parseMatrix } = await import(new URL('../../tools/test-matrix/parse-matr
 const { createRequiredEvidenceDependencies, requiredEvidencePlanDigest } = await import(new URL('../../tools/test-matrix/required-evidence-dependencies.mjs', import.meta.url));
 const { governanceContentDigest } = await import(new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url));
 const { evidenceContentDigest, evidenceProducerReceiptDigest } = await import(new URL('../../tools/test/current-run-evidence-locator.mjs', import.meta.url));
-const { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication } = await import(new URL('../../tools/test/current-run-evidence-publication.mjs', import.meta.url));
+const { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication, prepareCurrentRunEvidencePublication, readCurrentRunEvidencePublication } = await import(new URL('../../tools/test/current-run-evidence-publication.mjs', import.meta.url));
 const { createRequiredEvidenceBinding } = await import(new URL('../../tools/release/required-evidence-binding.mjs', import.meta.url));
-const { createReleaseFinalVerifiedAuthorityBinding, verifyReleaseFinalVerifiedAuthorityBinding } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
-const { consumeReleaseFinalVerifiedBindings } = await import(new URL('../../tools/release/check-release-final.mjs', import.meta.url));
+const { createReleaseFinalVerifiedAuthorityBinding, verifyReleaseFinalVerifiedAuthorityBinding, assessReleaseFinalTerminalPrerequisites } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
+const { consumeReleaseFinalVerifiedBindings, assessReleaseFinalTerminalPrerequisites: assessFinalizerPrerequisites } = await import(new URL('../../tools/release/check-release-final.mjs', import.meta.url));
 
 const matrix = parseMatrix(fs.readFileSync(new URL('../../tests/matrix.yml', import.meta.url), 'utf8'));
 
 // Enumerates the real catalog with explicitly controlled owners. These model
 // fixtures prove consumer refusal/replay, never actual product qualification.
-async function finalFixture(t)
+async function finalFixture(t, { includeFinalizerInput = false } = {})
 {
     const f = controlledRequiredEvidenceFixture(t, { preserveCanonicalVerifierRefs: true });
+    if (includeFinalizerInput)
+    {
+        const canonical = JSON.parse(fs.readFileSync(new URL('../../config/testing/evidence-locator-registry.json', import.meta.url)));
+        f.locatorRegistry.entries.push(canonical.entries.find((entry) =>
+            entry.consumerId === 'evidence-consumer.release.check-release-final'));
+        f.locatorRegistry.contentDigest = governanceContentDigest(f.locatorRegistry);
+    }
     const expectedPlanIdentity = { sourceCommit: f.context.sourceCommit,
         worktreeFingerprint: f.context.worktreeFingerprint, runId: f.context.schedulerRunId,
         attempt: f.context.attemptId, namespace: `sha256:${'a'.repeat(64)}`,
@@ -191,4 +198,183 @@ test('catalog-enumerated consumer controls refuse every cancelled/diagnostic/fai
         fs.writeFileSync(payloadFile, payloadBytes);
         fs.writeFileSync(referenceFile, referenceBytes);
     }
+});
+
+test('terminal intake replays every binding but requires canonical final-output and durable commit contracts with zero mutation/spawn', async (t) =>
+{
+    const bindings = await finalFixture(t);
+    const methods = new Map();
+    let mutations = 0;
+    for (const [owner, keys] of [[childProcess, ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork']],
+        [fs, ['writeFileSync', 'appendFileSync', 'renameSync', 'unlinkSync', 'rmSync', 'mkdirSync']]])
+    {
+        for (const key of keys)
+        {
+            methods.set(owner[key], { owner, key });
+            owner[key] = () =>
+            {
+                mutations += 1;
+                throw new Error('terminal intake must be read-only');
+            };
+        }
+    }
+    syncBuiltinESMExports();
+    try
+    {
+        const local = await assessReleaseFinalTerminalPrerequisites({ bindings });
+        const ci = await assessFinalizerPrerequisites({ bindings });
+        assert.deepEqual(local, ci);
+        assert.equal(local.status, 'blocked');
+        assert.equal(local.qualificationEligible, false);
+        assert.deepEqual(local.reasonCodes, ['CANONICAL_FINAL_OUTPUT_UNAVAILABLE', 'DURABLE_COMMIT_READBACK_UNAVAILABLE']);
+        assert.equal(local.missingContracts[0].owner, 'tools/test/generate-evidence-location-governance.mjs');
+        assert.ok(local.missingContracts[0].fields.includes('finalOutput.outputBindingKey'));
+        assert.equal(local.missingContracts[1].privateReadApi, 'readCheckpoint');
+        assert.equal(Object.isFrozen(local.observations), true);
+        for (const entry of bindings.catalog.entries)
+        {
+            const missing = await assessFinalizerPrerequisites({ bindings: { ...bindings,
+                bindingInputs: bindings.bindingInputs.filter((input) => input.authorityId !== entry.authorityId) } });
+            assert.deepEqual(missing.localProducerCommands, [entry.localProducerCommand]);
+            assert.equal(missing.status, 'blocked');
+        }
+        assert.equal(mutations, 0);
+    }
+    finally
+    {
+        for (const [original, { owner, key }] of methods)
+        {
+            owner[key] = original;
+        }
+        syncBuiltinESMExports();
+    }
+});
+
+test('terminal intake enumerates catalog missing commands and refuses binding fallback before inspecting alleged commit', async (t) =>
+{
+    const bindings = await finalFixture(t);
+    for (const entry of bindings.catalog.entries)
+    {
+        const result = await assessReleaseFinalTerminalPrerequisites({ bindings: { ...bindings,
+            bindingInputs: bindings.bindingInputs.filter((input) => input.authorityId !== entry.authorityId) },
+        durableCommit: { reference: { path: 'artifacts/current-run/never-read.json', digest: `sha256:${'0'.repeat(64)}` },
+            expectedRevision: 1 } });
+        assert.equal(result.status, 'blocked');
+        assert.deepEqual(result.reasonCodes, ['MISSING_BINDINGS']);
+        assert.deepEqual(result.localProducerCommands, [entry.localProducerCommand]);
+        assert.equal(result.observations.durableCommitInput, undefined);
+    }
+    const inputs = structuredClone(bindings.bindingInputs);
+    inputs[0].explicitInputs = inputs[0].verification.explicitInputs;
+    const result = await assessReleaseFinalTerminalPrerequisites({ bindings: { ...bindings, bindingInputs: inputs } });
+    assert.equal(result.status, 'rejected');
+    assert.deepEqual(result.reasonCodes, ['BINDING_NOT_SUCCESS']);
+});
+
+test('terminal intake rejects injected verdicts, callbacks, CI status and unsupported revision/reference inputs', async (t) =>
+{
+    const bindings = await finalFixture(t);
+    for (const extra of [{ status: 'success' }, { workflowUrl: 'https://example.invalid/success' },
+        { verifyCommit: () => true }, { manifest: { qualificationEligible: true } }])
+    {
+        await assert.rejects(assessReleaseFinalTerminalPrerequisites({ bindings, ...extra }), /only explicit/u);
+    }
+    await assert.rejects(assessReleaseFinalTerminalPrerequisites({ bindings,
+        finalOutput: { explicitInputs: [], status: 'success' } }), /only canonical locator/u);
+    await assert.rejects(assessReleaseFinalTerminalPrerequisites({ bindings,
+        finalOutput: { reference: { path: 'x', objectDigest: 'x', verified: true } } }), /only typed explicit/u);
+    for (const durableCommit of [{ expectedRevision: 0 }, { expectedRevision: 1, reference: {}, committed: true },
+        { expectedRevision: 1, reference: { path: 'x', digest: 'x', verify: () => true } }])
+    {
+        await assert.rejects(assessReleaseFinalTerminalPrerequisites({ bindings, durableCommit }), /independently expected revision/u);
+    }
+});
+
+test('raw committed checkpoint bytes cannot acquire durable CAS authority and tampered/escaping references reject', async (t) =>
+{
+    const bindings = await finalFixture(t);
+    const relative = 'artifacts/current-run/checkpoint.json';
+    const file = path.join(bindings.repositoryRoot, relative);
+    const bytes = Buffer.from(JSON.stringify({ status: 'success', committed: true, revision: 7,
+        runId: bindings.context.schedulerRunId, qualificationEligible: true }));
+    fs.writeFileSync(file, bytes);
+    const reference = { path: relative, digest: `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}` };
+    const result = await assessReleaseFinalTerminalPrerequisites({ bindings,
+        durableCommit: { reference, expectedRevision: 7 } });
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.qualificationEligible, false);
+    assert.equal(result.observations.durableCommitInput.inputDigest, reference.digest);
+    assert.ok(result.reasonCodes.includes('DURABLE_COMMIT_READBACK_UNAVAILABLE'));
+    for (const invalid of [{ ...reference, digest: `sha256:${'0'.repeat(64)}` },
+        { ...reference, path: '../checkpoint.json' }])
+    {
+        const rejected = await assessReleaseFinalTerminalPrerequisites({ bindings,
+            durableCommit: { reference: invalid, expectedRevision: 7 } });
+        assert.equal(rejected.status, 'rejected');
+        assert.deepEqual(rejected.reasonCodes, ['PERSISTENCE_INPUT_REJECTED']);
+    }
+});
+
+// Reuse the actual registered collector INPUT slot and publication API. These
+// controlled bytes never manufacture a canonical final-output authority.
+async function finalizerInputFixture(t, { prepareOnly = false } = {})
+{
+    const bindings = await finalFixture(t, { includeFinalizerInput: true });
+    const entry = bindings.locatorRegistry.entries.find((item) =>
+        item.consumerId === 'evidence-consumer.release.check-release-final');
+    const outputPath = 'artifacts/current-run/collector.ref.json';
+    const payloadPath = 'artifacts/current-run/collector.json';
+    const payload = await createReleaseFinalVerifiedAuthorityBinding(bindings);
+    const session = beginCurrentRunEvidencePublication({ authorityId: entry.authorityId,
+        producerId: entry.producerId, context: bindings.context, outputPath, payloadPath,
+        repositoryRoot: bindings.repositoryRoot });
+    fs.writeFileSync(path.join(bindings.repositoryRoot, payloadPath), JSON.stringify(payload));
+    const publicationOptions = { authorityId: entry.authorityId, producerId: entry.producerId,
+        context: bindings.context, outputPath, payloadPath, payloadSchema: payload.schema,
+        repositoryRoot: bindings.repositoryRoot, sessionId: session.sessionId, terminalStatus: 'success' };
+    if (prepareOnly)
+    {
+        const prepared = prepareCurrentRunEvidencePublication(publicationOptions);
+        fs.renameSync(prepared.staged, path.join(bindings.repositoryRoot, outputPath));
+    }
+    else
+    {
+        finalizeCurrentRunEvidencePublication(publicationOptions);
+    }
+    return { bindings, finalOutput: { explicitInputs: [outputPath] } };
+}
+
+test('finalized collector input with verified v2 payload remains blocked; resigned bytes and ambiguous inputs reject', async (t) =>
+{
+    const options = await finalizerInputFixture(t);
+    const result = await assessFinalizerPrerequisites(options);
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.qualificationEligible, false);
+    assert.equal(result.observations.finalizerInput.producerExecutable, 'bash tools/operations/collect-release-evidence.sh --require-ok');
+    assert.equal(result.observations.finalizerInput.payloadSchema, 'fsusblog.release-final-test-evidence-binding.v2');
+    const absolute = await assessFinalizerPrerequisites({ ...options,
+        finalOutput: { explicitInputs: [path.join(options.bindings.repositoryRoot, options.finalOutput.explicitInputs[0])] } });
+    assert.equal(absolute.status, 'blocked', 'the registered locator permits an explicit owned absolute path');
+    const ambiguous = await assessFinalizerPrerequisites({ ...options,
+        finalOutput: { explicitInputs: [...options.finalOutput.explicitInputs, ...options.finalOutput.explicitInputs] } });
+    assert.equal(ambiguous.status, 'rejected');
+    const file = path.join(options.bindings.repositoryRoot, options.finalOutput.explicitInputs[0]);
+    fs.appendFileSync(file, ' ');
+    const changed = await assessFinalizerPrerequisites(options);
+    assert.equal(changed.status, 'rejected');
+    assert.match(changed.failure, /publication reference mismatch/u);
+});
+
+test('interrupted publication exposes no qualified final output; prepared state and pointer tamper reject', async (t) =>
+{
+    const options = await finalizerInputFixture(t, { prepareOnly: true });
+    const result = await assessFinalizerPrerequisites(options);
+    assert.equal(result.status, 'rejected');
+    assert.match(result.failure, /not finalized/u);
+    const publication = readCurrentRunEvidencePublication({
+        outputPath: options.finalOutput.explicitInputs[0], repositoryRoot: options.bindings.repositoryRoot });
+    fs.appendFileSync(publication.stateFile, ' ');
+    const tampered = await assessFinalizerPrerequisites(options);
+    assert.equal(tampered.status, 'rejected');
+    assert.match(tampered.failure, /pointer target digest mismatch/u);
 });

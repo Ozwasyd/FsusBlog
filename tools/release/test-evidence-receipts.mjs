@@ -1585,6 +1585,158 @@ export async function verifyReleaseFinalVerifiedAuthorityBinding(binding, option
     return replayed;
 }
 
+// Read-only prerequisite assessment, not a receipt or a new manifest authority.
+// Publication pointers prove publication state, not scheduler journal/CAS commit.
+export async function assessReleaseFinalTerminalPrerequisites(options)
+{
+    const requireInput = (condition, message) =>
+    {
+        if (!condition)
+        {
+            throw new ReleaseFinalAuthorityBindingError('UNSUPPORTED_INPUT', message);
+        }
+    };
+    requireInput(options && typeof options === 'object' && !Array.isArray(options)
+        && Object.keys(options).every((key) => ['bindings', 'finalOutput', 'durableCommit'].includes(key)),
+    'terminal intake accepts only explicit bindings, finalOutput and durableCommit inputs');
+    const { bindings, finalOutput, durableCommit } = options;
+    if (finalOutput !== undefined)
+    {
+        requireInput(finalOutput && typeof finalOutput === 'object' && !Array.isArray(finalOutput)
+            && Object.keys(finalOutput).every((key) => ['explicitInputs', 'reference'].includes(key)),
+        'finalOutput accepts only canonical locator inputs');
+        requireInput((finalOutput.explicitInputs === undefined || (Array.isArray(finalOutput.explicitInputs)
+            && finalOutput.explicitInputs.every((input) => typeof input === 'string')))
+            && (finalOutput.reference === undefined || (finalOutput.reference
+                && typeof finalOutput.reference === 'object' && !Array.isArray(finalOutput.reference)
+                && Object.keys(finalOutput.reference).every((key) => ['path', 'objectDigest'].includes(key)))),
+        'finalOutput accepts only typed explicit paths or content-addressed references');
+    }
+    if (durableCommit !== undefined)
+    {
+        requireInput(durableCommit && typeof durableCommit === 'object' && !Array.isArray(durableCommit)
+            && Object.keys(durableCommit).every((key) => ['reference', 'expectedRevision'].includes(key))
+            && Number.isSafeInteger(durableCommit.expectedRevision) && durableCommit.expectedRevision > 0
+            && durableCommit.reference && typeof durableCommit.reference === 'object'
+            && !Array.isArray(durableCommit.reference)
+            && Object.keys(durableCommit.reference).every((key) => ['path', 'digest'].includes(key)),
+        'durableCommit requires an explicit owned reference and independently expected revision');
+    }
+    const assessment = { status: 'blocked', qualificationEligible: false,
+        reasonCodes: [], localProducerCommands: [], missingContracts: [], observations: {} };
+    const refuse = (error, fallbackCode) =>
+    {
+        const missing = ['MISSING_BINDINGS', 'MISSING_EVIDENCE'].includes(error.reasonCode) || error.code === 'ENOENT'
+            || error.message === 'exact-one evidence input is missing';
+        assessment.status = missing ? 'blocked' : 'rejected';
+        assessment.reasonCodes.push(error.reasonCode ?? fallbackCode);
+        assessment.localProducerCommands = [...(error.localProducerCommands ?? [])];
+        assessment.failure = error.message;
+    };
+    const freeze = (value) =>
+    {
+        if (value && typeof value === 'object')
+        {
+            Object.values(value).forEach(freeze);
+            Object.freeze(value);
+        }
+        return value;
+    };
+    let verified;
+    try
+    {
+        verified = await createReleaseFinalVerifiedAuthorityBinding(bindings);
+        await verifyReleaseFinalVerifiedAuthorityBinding(verified, bindings);
+    }
+    catch (error)
+    {
+        refuse(error, 'BINDING_REJECTED');
+        return freeze(assessment);
+    }
+    assessment.observations.bindingDigest = verified.contentDigest;
+    if (finalOutput !== undefined)
+    {
+        try
+        {
+            const requirePublication = (condition, message) =>
+            {
+                if (!condition)
+                {
+                    throw new ReleaseFinalAuthorityBindingError('FINAL_OUTPUT_REJECTED', message);
+                }
+            };
+            const { locateCurrentRunEvidence, verifyCurrentRunEvidenceBinding } = await import(new URL('../test/current-run-evidence-locator.mjs', import.meta.url));
+            const { readCurrentRunEvidencePublication, resolveEvidenceReferencePayload } = await import(new URL('../test/current-run-evidence-publication.mjs', import.meta.url));
+            const entries = bindings.locatorRegistry.entries.filter((entry) =>
+                entry.consumerId === 'evidence-consumer.release.check-release-final');
+            requirePublication(entries.length === 1, 'existing finalizer input locator must be exact-one');
+            const [registryEntry] = entries;
+            const located = locateCurrentRunEvidence({ ...finalOutput, context: bindings.context,
+                registry: bindings.locatorRegistry, registryEntry, repositoryRoot: bindings.repositoryRoot });
+            verifyCurrentRunEvidenceBinding(located.bindingReceipt, { context: bindings.context,
+                registry: bindings.locatorRegistry, registryEntry, repositoryRoot: bindings.repositoryRoot });
+            const resolved = resolveEvidenceReferencePayload(located.receipt,
+                { repositoryRoot: bindings.repositoryRoot, ownedRoots: bindings.context.ownedRoots });
+            const publication = readCurrentRunEvidencePublication({
+                outputPath: located.bindingReceipt.input.path, repositoryRoot: bindings.repositoryRoot });
+            requirePublication(publication.state.state === 'finalized', 'finalizer input publication is not finalized');
+            for (const field of ['authorityId', 'producerId', 'schedulerRunId', 'attemptId',
+                'sourceCommit', 'worktreeFingerprint', 'candidateIdentity', 'buildIdentity'])
+            {
+                requirePublication(JSON.stringify(canonicalize(publication.state[field]))
+                    === JSON.stringify(canonicalize(located.receipt[field])),
+                `finalizer input publication ${field} mismatch`);
+            }
+            const outputPath = path.relative(bindings.repositoryRoot,
+                path.resolve(bindings.repositoryRoot, located.bindingReceipt.input.path)).replaceAll(path.sep, '/');
+            requirePublication(publication.state.outputPath === outputPath
+                && publication.state.payloadPath === located.receipt.payload.path
+                && publication.state.reference?.inputDigest === located.bindingReceipt.inputDigest
+                && publication.state.reference?.contentDigest === located.receipt.contentDigest
+                && publication.state.reference?.producerReceiptDigest === located.receipt.producerReceiptDigest,
+            'finalizer input publication reference mismatch');
+            assessment.observations.finalizerInput = { authorityId: registryEntry.authorityId,
+                producerId: registryEntry.producerId, producerExecutable: registryEntry.producerExecutable,
+                outputBindingKey: registryEntry.outputBindingKey, locator: located.bindingReceipt,
+                payloadSchema: resolved.payload.schema, publicationDigest: publication.state.contentDigest };
+        }
+        catch (error)
+        {
+            refuse(error, 'FINAL_OUTPUT_REJECTED');
+            return freeze(assessment);
+        }
+    }
+    if (durableCommit !== undefined)
+    {
+        try
+        {
+            const { readOwnerEvidenceReference } = await import('./required-evidence-owner-input.mjs');
+            const inspected = readOwnerEvidenceReference(durableCommit.reference,
+                { repositoryRoot: bindings.repositoryRoot, context: bindings.context });
+            assessment.observations.durableCommitInput = { reference: structuredClone(durableCommit.reference),
+                inputDigest: inspected.digest, expectedRevision: durableCommit.expectedRevision };
+        }
+        catch (error)
+        {
+            refuse(error, 'PERSISTENCE_INPUT_REJECTED');
+            return freeze(assessment);
+        }
+    }
+    // The registered finalizer authority currently denotes collector INPUT.
+    // Do not relabel it as final output, trust raw checkpoint success/revision,
+    // accept a supplied callback, or invent a producer/receipt for either gap.
+    assessment.reasonCodes.push('CANONICAL_FINAL_OUTPUT_UNAVAILABLE', 'DURABLE_COMMIT_READBACK_UNAVAILABLE');
+    assessment.missingContracts.push({ owner: 'tools/test/generate-evidence-location-governance.mjs',
+        fields: ['finalOutput.authorityId', 'finalOutput.producerId', 'finalOutput.producerExecutable',
+            'finalOutput.outputBindingKey', 'finalOutput.payloadSchema'],
+        existingInputProducer: 'tools/operations/collect-release-evidence.sh' },
+    { owner: 'tools/test-matrix/scheduler.mjs',
+        fields: ['durableCommit.readbackVerifier', 'durableCommit.committedRevision',
+            'durableCommit.finalOutputRef', 'durableCommit.finalOutputDigest'],
+        existingWriteApi: 'attachCheckpointCurrentRunEvidence', privateReadApi: 'readCheckpoint' });
+    return freeze(assessment);
+}
+
 export const requiredEvidenceVerifier = Object.freeze({
     version: 1,
     successStatuses: Object.freeze(['success']),
