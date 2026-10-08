@@ -47,4 +47,3 @@ export function fixture({ targetAttemptId = 'aggregate-attempt-a' } = {})
     } });
     return { ...inputs, receipt, finalizedCheckpoint };
 }
-
