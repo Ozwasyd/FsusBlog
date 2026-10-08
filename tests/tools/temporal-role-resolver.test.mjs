@@ -334,31 +334,31 @@ function ordinaryEntityPlan()
     const article = (semanticIdentity, ordinal, revisionNumber, publicationNumber, state, revisionAt, metadataAt) => ({
         coordinate: { entityKind: 'article', semanticIdentity, operationIdentity: `revision-${revisionNumber}`, ordinal,
             revisionNumber, publicationNumber, publicationRevisionNumber: publicationNumber === null ? null : 1, articleIdentity: null },
-        state, stateFacts: { hasPublication: publicationNumber !== null }, facts: {
+        state, stateFacts: { hasRevision: true, hasPublication: publicationNumber !== null }, facts: {
             'article.created': fact('2024-02-29T23:59:40.000Z'), 'article.revision': fact(revisionAt),
             'article.metadata-updated': fact(metadataAt),
-            'article.publication': fact(publicationNumber === null ? null : '2024-02-29T23:59:50.000Z'),
+            'article.publication': (publicationNumber === null ? { applicability: 'not-generated', instantUtc: null } : fact('2024-02-29T23:59:50.000Z')),
             'article.published': fact(publicationNumber === null ? null : '2024-02-29T23:59:50.000Z')
         }
     });
     return {
         schema: 'fsusblog.temporal-entity-plan.v1', sourcePlanDigest: sourceFingerprint,
-        distribution: { kind: 'demo', tier: null, ordinalBase: 1, counts: { article: 2, comment: 1, row: 1 },
+        distribution: { kind: 'demo', tier: null, ordinalBase: 1, counts: { article: 2, comment: 1, audit: 1 },
             stateCounts: { article: { draft: 1, scheduled: 1, published: 0, archived: 0, deleted: 0 },
-                comment: { active: 1, deleted: 0 }, row: { present: 1 } },
-            rootNested: [{ commentIdentity: 'root-comment', parentIdentity: null, rootIdentity: 'root-comment' }] },
+                comment: { approved: 1, pending: 0, rejected: 0, deleted: 0 }, audit: { recorded: 1 } },
+            rootNested: [{ commentIdentity: 'root-comment', parentIdentity: null, rootIdentity: null }] },
         entities: [
             article('scheduled-article', 1, 1, 1, 'published', '2024-02-29T23:59:45.000Z', '2024-02-29T23:59:45.000Z'),
             article('scheduled-article', 1, 2, 1, 'scheduled', '2024-02-29T23:59:55.000Z', '2024-02-29T23:59:55.000Z'),
             article('draft-article', 2, 1, null, 'draft', '2024-02-29T23:59:45.000Z', '2024-02-29T23:59:45.000Z'),
             { coordinate: { entityKind: 'comment', semanticIdentity: 'root-comment', operationIdentity: 'moderation', ordinal: 1,
                 revisionNumber: 1, publicationNumber: null, publicationRevisionNumber: null, articleIdentity: 'scheduled-article' },
-            state: 'active', stateFacts: { edited: false, moderated: true }, facts: {
+            state: 'approved', stateFacts: { hasRevision: true, hasEditTime: false, hasModerationTime: true }, facts: {
                 'comment.created': fact('2024-02-29T23:59:46.000Z'), 'comment.edited': fact(null),
                 'comment.moderated': fact('2024-02-29T23:59:48.000Z') } },
-            { coordinate: { entityKind: 'row', semanticIdentity: 'fixture-row', operationIdentity: 'create', ordinal: 1,
+            { coordinate: { entityKind: 'audit', semanticIdentity: 'fixture-audit', operationIdentity: 'create', ordinal: 1,
                 revisionNumber: null, publicationNumber: null, publicationRevisionNumber: null, articleIdentity: null },
-            state: 'present', stateFacts: {}, facts: { 'scale.row-created': fact('2024-02-29T23:59:40.000Z') } }
+            state: 'recorded', stateFacts: {}, facts: { 'audit.occurred': fact('2024-02-29T23:59:40.000Z') } }
         ]
     };
 }
@@ -375,6 +375,11 @@ test('entity resolver consumes explicit histories and nullable states with compl
     assert.equal(artifact.schema, 'fsusblog.resolved-temporal-entities.v1');
     assert.equal(artifact.qualificationEligible, false);
     assert.equal(artifact.entities.length, 5);
+    const opaque = ordinaryEntityPlan();
+    opaque.entities[0].coordinate.semanticIdentity = 'demo:article:english';
+    opaque.entities[1].coordinate.semanticIdentity = 'demo:article:english';
+    opaque.entities[3].coordinate.articleIdentity = 'demo:article:english';
+    assert.equal(resolveOrdinaryEntityPlan(opaque).entities[0].coordinate.semanticIdentity, 'demo:article:english');
     assert.equal(requireResolvedTemporalEntityRole(artifact, { entityKind: 'comment', semanticIdentity: 'root-comment', operationIdentity: 'moderation' }, 'comment.edited', { temporalContext: context('development-demo') }).instantUtc, null);
     assert.equal(artifact.entities[1].relations[0].status, 'verified');
     assert.deepEqual(artifact.entities[2].relations[0].nullRoleIds, ['article.publication']);
@@ -395,7 +400,7 @@ test('entity producer registrations refuse absent ordinary inputs and incomplete
     delete plan.entities[3].facts['comment.edited'];
     assert.throws(() => resolveOrdinaryEntityPlan(plan), /complete entity role closure/u);
     const absentState = ordinaryEntityPlan();
-    delete absentState.entities[3].stateFacts.moderated;
+    delete absentState.entities[3].stateFacts.hasModerationTime;
     assert.throws(() => resolveOrdinaryEntityPlan(absentState), /stateFacts requires/u);
 });
 
@@ -418,7 +423,7 @@ test('entity plans reject ordinary inconsistent lifecycle coordinates and distri
     change((plan) =>
     {
         plan.entities[2].facts['article.publication'].instantUtc = '2024-02-29T23:59:50.000Z';
-    }, /explicitly null/u);
+    }, /explicitly declare/u);
     change((plan) =>
     {
         plan.distribution.counts.article = 3;
@@ -438,6 +443,9 @@ test('scale entity API requires the declared tier and actual complete distributi
     const plan = ordinaryEntityPlan();
     plan.distribution.kind = 'scale';
     plan.distribution.tier = 'scale-s';
+    plan.entities.pop();
+    plan.distribution.counts.audit = 0;
+    plan.distribution.stateCounts.audit.recorded = 0;
     const artifact = resolveOrdinaryEntityPlan(plan, 'scale-data');
     assert.equal(artifact.scalarRoles, null);
     assert.equal(artifact.entityPlan.distribution.tier, 'scale-s');
@@ -446,4 +454,113 @@ test('scale entity API requires the declared tier and actual complete distributi
     assert.throws(() => resolveTemporalEntityRoles({ temporalContext: context('scale-data'),
         fixtureIdentity: identity('scale-data', { fixtureId: 'entity-history', planDigest: sourceFingerprint }),
         shapeId: 'article-comment-entity-lifecycle', entityPlan: plan }), /distribution requires/u);
+});
+
+test('entity source facts preserve approved and pending nullable comments and distinct audits', () =>
+{
+    // Exact ordinary facts supplied from #2532 source b1fcfcb70d402e5e970804443d167530962b3b69.
+    // Other entities retain the isolated test plan; this is not a demo runtime distribution receipt.
+    const plan = ordinaryEntityPlan();
+    const comment = plan.entities[3];
+    comment.coordinate.operationIdentity = 'created';
+    comment.stateFacts.hasModerationTime = false;
+    comment.facts['comment.created'].instantUtc = '2026-06-02T11:00:00Z';
+    comment.facts['comment.moderated'] = { applicability: 'null', instantUtc: null };
+    comment.state = 'pending';
+    plan.distribution.stateCounts.comment.approved = 0;
+    plan.distribution.stateCounts.comment.pending = 1;
+    const temporalContext = context('development-demo', { businessEpochUtc: '2026-06-04T00:00:00.000Z' });
+    const resolve = () => resolveTemporalRolesForProducer({ temporalContext, namespace: 'ordinary',
+        fixtureId: 'source-facts', planDigest: sourceFingerprint, entityPlan: plan });
+    const audit = plan.entities[4];
+    audit.coordinate.semanticIdentity = 'audit-security';
+    audit.facts['audit.occurred'].instantUtc = '2026-06-01T12:00:00Z';
+    const moderationAudit = structuredClone(audit);
+    moderationAudit.coordinate.semanticIdentity = 'audit-moderation';
+    moderationAudit.coordinate.ordinal = 2;
+    moderationAudit.facts['audit.occurred'].instantUtc = '2026-06-02T12:00:00Z';
+    plan.entities.push(moderationAudit);
+    plan.distribution.counts.audit = 2;
+    plan.distribution.stateCounts.audit.recorded = 2;
+    const pending = resolve();
+    const schema = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/testing/resolved-temporal-roles.schema.json'), 'utf8'));
+    assert.deepEqual(validateJsonSchema(pending, schema), []);
+    assert.equal(pending.entities[3].roles.find((role) => role.roleId === 'comment.moderated').applicability, 'null');
+    assert.equal(pending.entities[3].roles.find((role) => role.roleId === 'comment.edited').applicability, 'null');
+    assert.equal(pending.entities[3].relations[1].parentIdentity, null);
+    assert.equal(pending.scalarRolesPurpose, 'canonical-planned-offsets');
+    assert.notEqual(pending.entities[4].roles[0].instantUtc, pending.entities[5].roles[0].instantUtc);
+    assert.ok(pending.unsupportedFields.some((field) => field.field === 'profile.created-at'));
+    comment.state = 'approved';
+    comment.coordinate.revisionNumber = null;
+    comment.stateFacts.hasRevision = false;
+    plan.distribution.stateCounts.comment.approved = 1;
+    plan.distribution.stateCounts.comment.pending = 0;
+    assert.equal(resolve().entities[3].coordinate.revisionNumber, null);
+});
+
+test('scale entity facts preserve ungenerated histories and reject invented generic rows', () =>
+{
+    const plan = ordinaryEntityPlan();
+    plan.distribution.kind = 'scale';
+    plan.distribution.tier = 'scale-s';
+    plan.entities.pop();
+    plan.distribution.counts.audit = 0;
+    plan.distribution.stateCounts.audit.recorded = 0;
+    const article = plan.entities[2];
+    article.state = 'scheduled';
+    article.stateFacts.hasRevision = false;
+    article.coordinate.revisionNumber = null;
+    article.facts['article.revision'] = { applicability: 'not-generated', instantUtc: null };
+    plan.distribution.stateCounts.article.draft = 0;
+    plan.distribution.stateCounts.article.scheduled = 2;
+    const artifact = resolveOrdinaryEntityPlan(plan, 'scale-data');
+    const schema = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/testing/resolved-temporal-roles.schema.json'), 'utf8'));
+    assert.deepEqual(validateJsonSchema(artifact, schema), []);
+    assert.equal(artifact.entities[2].roles.find((role) => role.roleId === 'article.revision').applicability, 'not-generated');
+    assert.equal(artifact.entities[2].roles.find((role) => role.roleId === 'article.published').applicability, 'null');
+    assert.ok(artifact.unsupportedFields.some((field) => field.field === 'row.created-at'));
+    article.coordinate.entityKind = 'row';
+    assert.throws(() => resolveOrdinaryEntityPlan(plan, 'scale-data'), /kind\/state is unsupported/u);
+});
+
+test('entity original demo and scale chronology conflicts remain refused without corrected facts', () =>
+{
+    const demo = ordinaryEntityPlan();
+    const article = demo.entities[0];
+    article.facts['article.created'].instantUtc = '2026-06-01T10:00:00Z';
+    article.facts['article.revision'].instantUtc = '2026-06-01T10:05:00Z';
+    article.facts['article.metadata-updated'].instantUtc = '2026-06-01T10:00:00Z';
+    article.facts['article.publication'].instantUtc = '2026-06-01T10:00:00Z';
+    article.facts['article.published'].instantUtc = '2026-06-01T10:00:00Z';
+    demo.entities.splice(1, 1);
+    demo.distribution.stateCounts.article.scheduled = 0;
+    demo.distribution.stateCounts.article.published = 1;
+    assert.throws(() => resolveTemporalRolesForProducer({ temporalContext: context('development-demo',
+        { businessEpochUtc: '2026-06-04T00:00:00.000Z' }), namespace: 'ordinary', fixtureId: 'source-facts',
+    planDigest: sourceFingerprint, entityPlan: demo }), /cross-field invariant/u);
+    const scale = ordinaryEntityPlan();
+    scale.entities[0].facts['article.created'].instantUtc = '2024-02-29T23:59:58.000Z';
+    scale.entities[0].facts['article.revision'].instantUtc = '2024-02-29T23:59:59.000Z';
+    scale.entities[0].facts['article.metadata-updated'].instantUtc = '2024-02-29T23:59:59.000Z';
+    scale.entities[0].facts['article.publication'].instantUtc = '2024-02-28T23:59:59.000Z';
+    scale.entities[0].facts['article.published'].instantUtc = '2024-02-28T23:59:59.000Z';
+    scale.entities.splice(1, 1);
+    scale.distribution.stateCounts.article.scheduled = 0;
+    scale.distribution.stateCounts.article.published = 1;
+    assert.throws(() => resolveOrdinaryEntityPlan(scale), /cross-field invariant/u);
+    const nested = ordinaryEntityPlan();
+    nested.entities[3].coordinate.revisionNumber = null;
+    nested.entities[3].stateFacts = { hasRevision: false, hasEditTime: false, hasModerationTime: false };
+    nested.entities[3].facts['comment.created'].instantUtc = '2024-02-29T23:59:58.000Z';
+    nested.entities[3].facts['comment.moderated'] = { applicability: 'null', instantUtc: null };
+    const child = structuredClone(nested.entities[3]);
+    child.coordinate.semanticIdentity = 'nested-comment';
+    child.coordinate.ordinal = 2;
+    child.facts['comment.created'].instantUtc = '2024-02-29T23:59:57.000Z';
+    nested.entities.push(child);
+    nested.distribution.counts.comment = 2;
+    nested.distribution.stateCounts.comment.approved = 2;
+    nested.distribution.rootNested.push({ commentIdentity: 'nested-comment', parentIdentity: 'root-comment', rootIdentity: 'root-comment' });
+    assert.throws(() => resolveOrdinaryEntityPlan(nested), /cross-field invariant/u);
 });

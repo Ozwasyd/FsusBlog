@@ -13,20 +13,21 @@ public sealed class ResolvedTemporalRoleContext
     public const string ArtifactDigestEnvironmentVariable = "FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST";
     private const string ResolvedRolesSchema = "fsusblog.resolved-temporal-roles.v1";
     private readonly IReadOnlyDictionary<string, DateTimeOffset> _roles;
-    private readonly IReadOnlyDictionary<(string Kind, string Identity, string Operation, string Role), DateTimeOffset?> _entityRoles;
+    private sealed record EntityRole(string Applicability, DateTimeOffset? Instant);
+    private readonly IReadOnlyDictionary<(string Kind, string Identity, string Operation, string Role), EntityRole> _entityRoles;
 
     private ResolvedTemporalRoleContext(
         string producerId,
         string schedulerRunId,
         string contentDigest,
         IReadOnlyDictionary<string, DateTimeOffset> roles,
-        IReadOnlyDictionary<(string Kind, string Identity, string Operation, string Role), DateTimeOffset?>? entityRoles = null)
+        IReadOnlyDictionary<(string Kind, string Identity, string Operation, string Role), EntityRole>? entityRoles = null)
     {
         ProducerId = producerId;
         SchedulerRunId = schedulerRunId;
         ContentDigest = contentDigest;
         _roles = roles;
-        _entityRoles = entityRoles ?? new Dictionary<(string, string, string, string), DateTimeOffset?>();
+        _entityRoles = entityRoles ?? new Dictionary<(string, string, string, string), EntityRole>();
     }
 
     public string ProducerId
@@ -108,8 +109,14 @@ public sealed class ResolvedTemporalRoleContext
     /// ordinary plan. An authorized null remains null; missing roles never become dates.
     /// </summary>
     public DateTimeOffset? RequireEntityInstant(string entityKind, string semanticIdentity, string operationIdentity, string roleId)
-        => _entityRoles.TryGetValue((entityKind, semanticIdentity, operationIdentity, roleId), out DateTimeOffset? instant)
-            ? instant
+        => _entityRoles.TryGetValue((entityKind, semanticIdentity, operationIdentity, roleId), out EntityRole? role)
+            ? role.Instant
+            : throw new InvalidOperationException("Resolved temporal artifact is missing the exact entity operation role.");
+
+    /// <summary>Preserves the distinction between a nullable field and an ungenerated history row.</summary>
+    public string RequireEntityApplicability(string entityKind, string semanticIdentity, string operationIdentity, string roleId)
+        => _entityRoles.TryGetValue((entityKind, semanticIdentity, operationIdentity, roleId), out EntityRole? role)
+            ? role.Applicability
             : throw new InvalidOperationException("Resolved temporal artifact is missing the exact entity operation role.");
 
     private static ResolvedTemporalRoleContext ParseEntities(JsonElement root, string expectedContentDigest)
@@ -122,7 +129,7 @@ public sealed class ResolvedTemporalRoleContext
         JsonElement identity = root.GetProperty("contextIdentity");
         string producer = RequireText(identity, "producerId");
         string run = RequireText(identity, "schedulerRunId");
-        var roles = new Dictionary<(string, string, string, string), DateTimeOffset?>();
+        var roles = new Dictionary<(string, string, string, string), EntityRole>();
         foreach (JsonElement entity in root.GetProperty("entities").EnumerateArray())
         {
             JsonElement coordinate = entity.GetProperty("coordinate");
@@ -134,7 +141,7 @@ public sealed class ResolvedTemporalRoleContext
                 string roleId = RequireText(role, "roleId");
                 string applicability = RequireText(role, "applicability");
                 DateTimeOffset? instant;
-                if (applicability == "null"
+                if ((applicability == "null" || applicability == "not-generated")
                     && role.GetProperty("instantUtc").ValueKind == JsonValueKind.Null
                     && role.GetProperty("epochMilliseconds").ValueKind == JsonValueKind.Null)
                 {
@@ -150,15 +157,16 @@ public sealed class ResolvedTemporalRoleContext
                 }
                 else
                 {
-                    throw new InvalidOperationException("Entity temporal applicability requires an instant or explicit null.");
+                    throw new InvalidOperationException("Entity temporal applicability requires an instant, explicit null, or ungenerated row.");
                 }
-                if (!roles.TryAdd((kind, semanticIdentity, operation, roleId), instant))
+                if (!roles.TryAdd((kind, semanticIdentity, operation, roleId), new EntityRole(applicability, instant)))
                 {
                     throw new InvalidOperationException("Entity temporal artifact has a duplicate operation role.");
                 }
             }
         }
         IReadOnlyDictionary<string, DateTimeOffset> scalarRoles = new Dictionary<string, DateTimeOffset>();
+        RequireString(root, "scalarRolesPurpose", "canonical-planned-offsets");
         JsonElement scalar = root.GetProperty("scalarRoles");
         if (scalar.ValueKind != JsonValueKind.Null)
         {

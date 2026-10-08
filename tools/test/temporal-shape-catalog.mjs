@@ -294,7 +294,7 @@ function validateShape(shape, context, index)
 
 function validateEntityShape(shape, context)
 {
-    exactKeys(shape, ['id', 'schema', 'entityKinds', 'contentDigest'], [], 'entityShape');
+    exactKeys(shape, ['id', 'schema', 'entityKinds', 'parentChronology', 'contentDigest'], [], 'entityShape');
     exactId(shape.id, 'entityShape.id');
     if (shape.schema !== 'fsusblog.temporal-entity-shape.v1'
         || shape.contentDigest !== temporalShapeDigest(shape)
@@ -303,6 +303,10 @@ function validateEntityShape(shape, context)
         fail('temporal.catalog-invalid', 'entity shape requires exact versioned content and entity kinds');
     }
     const kinds = new Set();
+    if (canonicalJson(shape.parentChronology) !== canonicalJson({ roleId: 'comment.created', operator: '<=' }))
+    {
+        fail('temporal.catalog-invalid', 'comment parent chronology must bind the existing creation role');
+    }
     for (const kind of shape.entityKinds)
     {
         exactKeys(kind, ['kind', 'states', 'revisionRequired', 'publicationAllowed', 'stateFacts', 'roles', 'invariantIds'], [], 'entityKind');
@@ -322,7 +326,8 @@ function validateEntityShape(shape, context)
         {
             exactKeys(role, ['roleId', 'presence', 'absent'], [], 'entityRole');
             if (!context.roleIds.has(role.roleId) || roleIds.has(role.roleId)
-                || role.absent !== 'null' || !(role.presence === 'always' || kind.stateFacts.includes(role.presence)))
+                || !['null', 'not-generated'].includes(role.absent)
+                || !(role.presence === 'always' || kind.stateFacts.includes(role.presence)))
             {
                 fail('temporal.catalog-invalid', 'entity role presence must bind explicit state facts');
             }

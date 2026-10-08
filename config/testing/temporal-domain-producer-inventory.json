@@ -377,23 +377,23 @@
                     "consumer": "entity-lifecycle"
                 },
                 {
-                    "field": "revision.created-at",
+                    "field": "article-revision.created-at",
                     "roleId": "article.revision",
                     "consumer": "entity-lifecycle"
                 },
                 {
-                    "field": "publication.published-at",
+                    "field": "article-publication.published-at",
                     "roleId": "article.publication",
                     "consumer": "entity-lifecycle"
                 },
                 {
-                    "field": "rights-policy.created-at",
+                    "field": "article-rights-policy.created-at",
                     "roleId": "article.created",
                     "consumer": "entity-lifecycle"
                 },
                 {
-                    "field": "rights-snapshot.created-at",
-                    "roleId": "article.publication",
+                    "field": "article-rights-snapshot.created-at",
+                    "roleId": "article.revision",
                     "consumer": "entity-lifecycle"
                 },
                 {
@@ -402,13 +402,23 @@
                     "consumer": "entity-lifecycle"
                 },
                 {
-                    "field": "comment.revision.created-at",
+                    "field": "comment-revision.created-at",
                     "roleId": "comment.created",
                     "consumer": "entity-lifecycle"
                 },
                 {
                     "field": "comment.moderated-at",
                     "roleId": "comment.moderated",
+                    "consumer": "entity-lifecycle"
+                },
+                {
+                    "field": "profile.created-at",
+                    "roleId": "profile.created",
+                    "consumer": "profile-source-meaning-unresolved"
+                },
+                {
+                    "field": "audit.occurred-at",
+                    "roleId": "audit.occurred",
                     "consumer": "entity-lifecycle"
                 }
             ],
@@ -421,11 +431,18 @@
                 "comment.created",
                 "comment.edited",
                 "comment.moderated",
-                "scale.row-created"
+                "audit.occurred"
             ],
             "scalarRoleIds": [
                 "profile.created",
                 "audit.occurred"
+            ],
+            "unsupportedFields": [
+                {
+                    "field": "profile.created-at",
+                    "roleId": "profile.created",
+                    "reason": "Existing sys_user creation is known; the requested profile entity correspondence is undefined."
+                }
             ]
         },
         {
@@ -439,7 +456,7 @@
                 {
                     "field": "row.created-at",
                     "roleId": "scale.row-created",
-                    "consumer": "entity-lifecycle"
+                    "consumer": "unsupported-source-field"
                 },
                 {
                     "field": "article.createtime",
@@ -457,12 +474,12 @@
                     "consumer": "entity-lifecycle"
                 },
                 {
-                    "field": "article.revision.created-at",
+                    "field": "article-revision.created-at",
                     "roleId": "article.revision",
                     "consumer": "entity-lifecycle"
                 },
                 {
-                    "field": "article.publication.published-at",
+                    "field": "article-publication.published-at",
                     "roleId": "article.publication",
                     "consumer": "entity-lifecycle"
                 },
@@ -481,9 +498,16 @@
                 "comment.created",
                 "comment.edited",
                 "comment.moderated",
-                "scale.row-created"
+                "audit.occurred"
             ],
-            "scalarRoleIds": []
+            "scalarRoleIds": [],
+            "unsupportedFields": [
+                {
+                    "field": "row.created-at",
+                    "roleId": "scale.row-created",
+                    "reason": "No generic row field or row-kind exists in the supplied producer source."
+                }
+            ]
         }
     ]
 }
