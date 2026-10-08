@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/article-vault/observations/LinuxVaultObservationAdapter.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAtomicWriteAssessment.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultEventNormalizer.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultMaterializationInstruction.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultObservationContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultRescanTracker.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultSnapshotAssessment.cs"
+            ],
+            "reason": "Declare the finite C# paths covered by the trusted environment-variable naming surface while preserving existing Vault schema, reason-code and native protocol literals. New internal identifiers follow repository C# naming; these files add no process environment access or naming exemption beyond the registered surface."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/article-vault-observations/packages.lock.json"
+            ],
+            "reason": "Preserve NuGet-generated lockfile version, dependency, package identity and content-hash keys without reformatting or hand-editing generated package-manager output."
+        }
+    ]
+}
