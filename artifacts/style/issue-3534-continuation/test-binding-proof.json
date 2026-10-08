@@ -1,0 +1,33 @@
+{
+    "sourceTestedCommit": "16b5a40148c19f6c7d48ba8dea04db2ee6a4bf4b",
+    "publishedCommit": "d9f47392a0c675073576670bdf81e030e6def19a",
+    "diff": [
+        "A\tartifacts/style/issue-3534-input-snapshot.json",
+        "A\tartifacts/style/issue-3534-verification.json",
+        "A\tartifacts/style/issue-3534-verification/baseline-full-style.log.gz",
+        "A\tartifacts/style/issue-3534-verification/final-boundary-tests.log",
+        "A\tartifacts/style/issue-3534-verification/final-boundary-tests.log.gz",
+        "A\tartifacts/style/issue-3534-verification/final-change-contract-tests.log",
+        "A\tartifacts/style/issue-3534-verification/final-contract-range-v2.log",
+        "A\tartifacts/style/issue-3534-verification/final-contract-repository-v2.log",
+        "A\tartifacts/style/issue-3534-verification/final-fast.log",
+        "A\tartifacts/style/issue-3534-verification/final-full-style.log.gz",
+        "A\tartifacts/style/issue-3534-verification/final-live-zero-legacy.log",
+        "A\tartifacts/style/issue-3534-verification/final-matrix.log",
+        "A\tartifacts/style/issue-3534-verification/final-original-bundle.log",
+        "A\tartifacts/style/issue-3534-verification/final-pr-contract.log",
+        "A\tartifacts/style/issue-3534-verification/final-producer-first.log",
+        "A\tartifacts/style/issue-3534-verification/final-producer-second.log",
+        "A\tartifacts/style/issue-3534-verification/final-residual.log",
+        "A\tartifacts/style/issue-3534-verification/final-scanner-strict-style.log",
+        "A\tartifacts/style/issue-3534-verification/final-selected-full-style.log",
+        "A\tartifacts/style/issue-3534-verification/final-v2-boundary-check.log",
+        "A\tartifacts/style/issue-3534-verification/final-v2-changed-style.log",
+        "A\tartifacts/style/issue-3534-verification/final-v2-docclaim.log",
+        "A\tartifacts/style/issue-3534-verification/final-v2-scanner-tests-configured.log",
+        "A\tartifacts/style/issue-3534-verification/inventory-differences.json",
+        "A\tartifacts/style/issue-3534-verification/pinned-clean-master-matrix.log"
+    ],
+    "onlyEvidenceAdditions": true,
+    "allPreExistingTreePathsIdentical": true
+}

@@ -1,0 +1,22 @@
+[
+    {
+        "providedCommit": "f7b29774ae4aebad286539cc033aa736b9dbe613",
+        "consumedCommit": "fa89c6e534459acc1c303af315cbd2fb87bcecda",
+        "onlyPath": "tests/governance/test-lifecycle-registry.json",
+        "exactProvidedBlob": true,
+        "sha256": "c8fa0b04bcaa9d2c7f04a0d3d981816e927477a0cf7d5c8649fe6d28d736191d",
+        "beforeCount": 590,
+        "afterCount": 589,
+        "distinctIdsAndAllReplacementEdgesAndReasonsPreserved": true
+    },
+    {
+        "providedCommit": "86841bac2fb0cdbeb8baa02b218869529abbf093",
+        "consumedCommit": "469d28fd4faf478a990adcfee0aa978866f2457b",
+        "onlyPath": "tests/test-retention-replacements.json",
+        "exactProvidedBlob": true,
+        "sha256": "c56c7f168af626392bc3dd5e0b38b653244e5b2c7d8b98e92b55c267dd11e1db",
+        "beforeCount": 1526,
+        "afterCount": 1518,
+        "distinctIdsAndAllReplacementEdgesAndReasonsPreserved": true
+    }
+]

@@ -1,0 +1,558 @@
+{
+    "schema": "fsusblog.issue-3534-continuation-evidence.v1",
+    "recordedAt": "2026-10-08T03:38:47.560007+00:00",
+    "runId": "issue-3534-continuation-20261008-fb3f43035",
+    "status": "partially-repaired-blocked",
+    "baseCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+    "branch": "codex/issue-3534-style-admission-v2-20261008",
+    "draftPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3837",
+    "scope": {
+        "executionIssues": [
+            3534
+        ],
+        "trackingIssues": [],
+        "allOwnedIssuesAccounted": true
+    },
+    "environment": {
+        "node": "v24.16.0",
+        "npm": "11.13.0",
+        "eslint": "10.8.0",
+        "espree": "10.4.0",
+        "dotnetInitial": "10.0.401",
+        "dotnetExactMatrixRerun": "10.0.302",
+        "caches": "task-scoped writable SDK/NuGet/npm under /tmp"
+    },
+    "sourceIdentities": [
+        {
+            "path": "tools/docs/behavior-document-consistency-final.mjs",
+            "sha256": "87ebe7a63017ed80e370928c25da59ac7dbd5f05265acc175e078b1177dad267"
+        },
+        {
+            "path": "tests/tools/behavior-document-consistency-final.test.mjs",
+            "sha256": "a369ca5ab21fb41e749e1d61cd3c2439adb52921c294fc5985f49818e49973cc"
+        },
+        {
+            "path": "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+            "sha256": "d2168a70770715add58d73a98babf9bfb2f4dc42b213f5cac846fb000955fff6"
+        },
+        {
+            "path": "src/frontend/package-lock.json",
+            "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+        },
+        {
+            "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+        },
+        {
+            "path": "config/development/frontend-style-policy.json",
+            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+        },
+        {
+            "path": "config/development/frontend-style-baseline.json",
+            "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+        },
+        {
+            "path": "config/development/frontend-style-reviewed-residual.json",
+            "sha256": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21"
+        }
+    ],
+    "results": [
+        {
+            "command": "umask 077; node --test tests/tools/behavior-document-consistency-final.test.mjs",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "58/60; zero skips; only the two original actual-lock canonical-format refusals",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-scanner-077.log.gz",
+            "compressedSha256": "902ef4f1e3a4fc553a1bac6d9adb586399bbdbf26bbc4b2ba491f873a94cb9a5",
+            "rawSha256": "1c1d87e02ae30076780c66010c2873508734f5ea0b74dee076e7bc6507abdbea"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file tools/docs/behavior-document-consistency-final.mjs --file tests/tools/behavior-document-consistency-final.test.mjs",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "One import-x/no-relative-parent-imports at test owner 18:8",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-changed-style.log.gz",
+            "compressedSha256": "448fc21cdd11f4933a042bf1b67d5aebff9f17cb36597b7be398208684cd49e1",
+            "rawSha256": "5abc6d10c385974e33c79f4bfa4e56fee0e19e99b5264f1b54e0e4dcc9c77b8d"
+        },
+        {
+            "command": "node --test tests/tools/correctness-attempt-migration.test.mjs tests/tools/correctness-attempt-test-producers.test.mjs",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "9/9, zero skips; includes freshly resealed omission/extra/duplicate/wrong-authority negatives",
+            "artifact": "artifacts/style/issue-3534-continuation/inventory-original-controls.log.gz",
+            "compressedSha256": "4c9bc921d5b1c005d8c757ec25c7f2b8483ba2e864139e6f8691dcfa547cac16",
+            "rawSha256": "d9d7bbea54e991604f1fc0e5de38df184812b8d54d93660364d1712895a9a9c5"
+        },
+        {
+            "command": "node tools/test/generate-correctness-attempt-producers.mjs --check",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Complete canonical inventory matches original producer; 226 entries, eight source bindings",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-inventory-check.log.gz",
+            "compressedSha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+            "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "command": "node tools/test-matrix/release-final-static-boundary.mjs --check",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original closed static authority on official pinned Node 24.16.0",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-boundary-check.log.gz",
+            "compressedSha256": "cf7c5934ea2055f97f2e3aab8694ce437c8edbbde0eeeef619ebdcab4bc128fb",
+            "rawSha256": "7cf970dddedf0702ca93cd264e8334715457c4268d91446b538b4b5f03164b2d"
+        },
+        {
+            "command": "node tools/governance/check-change-contract.mjs --range origin/master..HEAD",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "Both supplied inventory cherry-picks lack required Refs footer; supplied source identity is preserved, no force-push or checker bypass",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-commit-range.log.gz",
+            "compressedSha256": "d55c997403106b5e5c5bc1fb95d3e1a66f04aae263bde8b7ba5696a642e29de3",
+            "rawSha256": "82967e8621d9916c31eee24a5b86447acd26ca86d3ec9715808679a5821e4125"
+        },
+        {
+            "command": "node tools/run-test-matrix.mjs validate",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "Old inventory refusal cleared. Actual next envelope/risk/fixture/profile gates fail; includes missing exact SDK10.0.302 in SDK10.0.401 environment",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-matrix.log.gz",
+            "compressedSha256": "835f53d7fefc30f1760f9f8153a6a4617f46d1ee62fffc4ba49d0ec982a09215",
+            "rawSha256": "2a056a72ee93cfd80ba3ce87e513df1ea85a08c4edd0126a81a1e8787a114cbb"
+        },
+        {
+            "command": "node tools/run-test-matrix.mjs validate",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "Rerun after official task-local SDK10.0.302 installation; exact raw refusals retained",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-matrix-sdk302.log.gz",
+            "compressedSha256": "835f53d7fefc30f1760f9f8153a6a4617f46d1ee62fffc4ba49d0ec982a09215",
+            "rawSha256": "2a056a72ee93cfd80ba3ce87e513df1ea85a08c4edd0126a81a1e8787a114cbb"
+        },
+        {
+            "command": "node --test tests/tools/release-final-static-boundary.test.mjs",
+            "testedCommit": "469d28fd4faf478a990adcfee0aa978866f2457b",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "103/103; zero skips",
+            "artifact": "artifacts/style/issue-3534-continuation/candidate-boundary-regressions.log.gz",
+            "compressedSha256": "52e2f9e893b24558c785f4e01e66c05135afb5be3eded763c5093da2df0cc929",
+            "rawSha256": "b50813ba67fee789cdbb1e09978c3c1aaf7c1539392c4cccd42682527d7a779e"
+        },
+        {
+            "command": "node --test tests/tools/doc-claim.test.mjs",
+            "testedCommit": "469d28fd4faf478a990adcfee0aa978866f2457b",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "16/16; zero skips",
+            "artifact": "artifacts/style/issue-3534-continuation/candidate-docclaim.log.gz",
+            "compressedSha256": "7358988f174443708ff9c1d3b35315d88bbc2733ca678b27af7989b1576deac4",
+            "rawSha256": "0efa90ed452f44ab8f9247b67b512ce5df1f4338a0570db4f3b8ff31a9baa54c"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/docs/behavior-document-consistency-final.mjs",
+            "testedCommit": "469d28fd4faf478a990adcfee0aa978866f2457b",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Scanner production owner: zero violations",
+            "artifact": "artifacts/style/issue-3534-continuation/candidate-scanner-strict-style.log.gz",
+            "compressedSha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+            "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+        },
+        {
+            "command": "node tools/governance/check-change-contract.mjs --repository",
+            "testedCommit": "469d28fd4faf478a990adcfee0aa978866f2457b",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original repository contract",
+            "artifact": "artifacts/style/issue-3534-continuation/candidate-repository-contract.log.gz",
+            "compressedSha256": "d7f981890ec0783808b8ecd5a49b52fab6f5038536bd91dde8776cd137d46a8d",
+            "rawSha256": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885"
+        },
+        {
+            "command": "node --test tests/tools/canonical-article-lifecycle-authority.test.mjs tests/tools/canonical-article-publication-authority.test.mjs",
+            "testedCommit": "469d28fd4faf478a990adcfee0aa978866f2457b",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "27/27; zero skips",
+            "artifact": "artifacts/style/issue-3534-continuation/article-authority-controls.log.gz",
+            "compressedSha256": "718e82b30f4ce59b1192cac9784e1f6f00e559cbb824fc5fedbdfddc2e717293",
+            "rawSha256": "1954bd147d149e0575e052f33697cb8a56ca0e963232eeb1e8e051e4359c619d"
+        },
+        {
+            "command": "node --test tests/tools/test-suite-convergence.test.mjs tests/tools/test-retention-audit.test.mjs tests/tools/test-lifecycle-governance.test.mjs",
+            "testedCommit": "469d28fd4faf478a990adcfee0aa978866f2457b",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "62/63; CLI production-run identity control refused missing xunit Debug output/intermediate context; writable SDK/cache environment configured",
+            "artifact": "artifacts/style/issue-3534-continuation/shared-controls-configured.log.gz",
+            "compressedSha256": "5a64b1eb94684024249b23248b8d8b458e279e5abc9c0a588dea0cbf77c1b19c",
+            "rawSha256": "e7109c2c1a5fa5e21dac4c29cbd48c4a556a9d04df0f972788f3e10d609ce26e"
+        },
+        {
+            "command": "dotnet restore tests/backend/FsusBlog.Server.Tests.csproj --locked-mode",
+            "testedCommit": "53788be91ea400dd93c79871654741d7c4576e14",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Real locked restore; NU1903 warnings retained; no package versions changed",
+            "artifact": "artifacts/style/issue-3534-continuation/prereq-backend-restore.log.gz",
+            "compressedSha256": "ed1ac288a96992bfb985645e0b4cf8d2df54c70f1dc7282e2c553cc258ee2c4e",
+            "rawSha256": "8863947366abbbe1e1b85b81e81276268afe51b550c22ccb1a695ff2b132e6c4"
+        },
+        {
+            "command": "dotnet build tests/backend/FsusBlog.Server.Tests.csproj --configuration Debug --no-restore -v:q",
+            "testedCommit": "53788be91ea400dd93c79871654741d7c4576e14",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "13 errors,1509 warnings; no CS0182; remaining original compilation failures enumerated separately",
+            "artifact": "artifacts/style/issue-3534-continuation/prereq-backend-build.log.gz",
+            "compressedSha256": "9c749f8482040eb18a3a17a4fdf53fde824adf987dbcac2741b8739753a1aef1",
+            "rawSha256": "4e87fc79026ea4897e8952d8d14025cafd1ea0dd2cb7aed3042e327ff0455052"
+        },
+        {
+            "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --configuration Debug --no-restore --filter FullyQualifiedName~LifecycleHostedBootstrapServiceTests -v:q",
+            "testedCommit": "53788be91ea400dd93c79871654741d7c4576e14",
+            "exitCode": 1,
+            "status": "blocked",
+            "result": "Original affected test command cannot pass compilation; test cases not run",
+            "artifact": "artifacts/style/issue-3534-continuation/prereq-backend-filtered-tests.log.gz",
+            "compressedSha256": "28b0e4627a7e04a362586ccff6245c14e87643200849db4ba4b7b3d0257194cf",
+            "rawSha256": "91c66d2e13b05ebd6311105236fe5a46fb62369ebc6f547935607c08fce01cf3"
+        },
+        {
+            "command": "bash /tmp/issue-3534-dotnet-install.sh --version 10.0.302 --install-dir /tmp/issue-3534-dotnet-10.0.302 --no-path",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Official SDK10.0.302 installed and independently --list-sdks observed; SDK10.0.401 kept in separate task directory",
+            "artifact": "artifacts/style/issue-3534-continuation/dotnet-10.0.302-install.log.gz",
+            "compressedSha256": "549a309edaeaabc68639c6a1a52ea1e04ac959ecebdd4a27b7bed0f476a5471f",
+            "rawSha256": "8be3f451d681cbdabbbb7cc6e9dd6f85204ffec44a7691a86991e6193388346a"
+        },
+        {
+            "command": "umask 022; node --test tests/tools/behavior-document-consistency-final.test.mjs",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "58/60; zero skips; same actual-lock failures as077",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-scanner-022.log.gz",
+            "compressedSha256": "a0325329d96245e9c48c33aefc9c2b7008241dc0ad90bcd063ae1dcd6b32e529",
+            "rawSha256": "ac68e460f00fc5b97bcfbd280a77c27e55a46980558ef592f1803ad64fd789eb"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode full --file tools/docs/behavior-document-consistency-final.mjs --file tests/tools/behavior-document-consistency-final.test.mjs",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "One mandatory static parent-import diagnostic plus three original global baseline binding refusals",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-selected-full-style.log.gz",
+            "compressedSha256": "502fd5b334b9e996950b5129195fb687f40f3cad12bf29f3699f8dbf7869f42f",
+            "rawSha256": "7f9a9e8009463b11b6c7b7331d1ecb1074666cd65f09ea0d86bb0502ff63f7fd"
+        },
+        {
+            "command": "node --test tests/tools/doc-claim.test.mjs",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "16/16; zero skips on exact final source candidate",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-docclaim.log.gz",
+            "compressedSha256": "370d44345f1343268e3ecc95fdaa83d4e7189a07f8ce37d1a27734bd2a20501f",
+            "rawSha256": "42109f3039028fce75405e97a49da47d5b74be6e6dd6bc4081c382be5853ef2b"
+        },
+        {
+            "command": "node tools/frontend/reviewed-residual-classification.mjs",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "149 paths/329 parent-import diagnostics/zero other; trusted historical authority unchanged",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-residual.log.gz",
+            "compressedSha256": "d63f12d9b7abc477636fc4d84fe4b6b7fc3ebe03b491e679b710009c2bac300f",
+            "rawSha256": "682897450ec7bf2cd214d50205e51f3f347ccadcf6d0c342adaa0815f1cabff6"
+        },
+        {
+            "command": "node tools/governance/check-change-contract.mjs --github-event .tmp/issue-3534-continuation/pr-event.json",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "Original generated source/output and external naming manifest refusals after correcting PR field syntax; exact refusal log retained",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-pr-contract-correct-fields.log.gz",
+            "compressedSha256": "d69dad7b6badbd2722a15c5920a2a659a4fe1d1c1d0403780168fe81042fa2e7",
+            "rawSha256": "37dfd1607de6d191d909f922fa687be797a08cb89bcb60d17d5466062730e262"
+        },
+        {
+            "command": "FSUSBLOG_CONTENT_FIELD_DOTNET=/tmp/issue-3534-dotnet-10.0.302/dotnet node tools/run-test-matrix.mjs validate",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "Official SDK10.0.302/runtime10.0.10 observed by original configured host; tool availability refusal cleared, real content-field projection plus envelope/fixture/profile refusals remain",
+            "artifact": "artifacts/style/issue-3534-continuation/after-handoff-matrix-configured302.log.gz",
+            "compressedSha256": "ada205e6be2c32b182bef755c11f2c359f359df213d2b21f2ecd2ad443cfe7dd",
+            "rawSha256": "1e6bb70f63de1351e3d7d0346a13fc00e2db9f6f519f7ffa360022f2ebc1da7a"
+        },
+        {
+            "command": "node tools/test/generate-correctness-attempt-producers.mjs --write",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original producer output byte-identical before/after; repeat run fixed point proved",
+            "artifact": "artifacts/style/issue-3534-continuation/fixedpoint-inventory-1.log.gz",
+            "compressedSha256": "9a8a39cae3f223ffddbd4f22c5b47f612ac3fefea95e41b5b7692d25b0b74ac9",
+            "rawSha256": "d47550f01597eebc23c46efd64de516e88aa44edd7b52e95a673f104025f2074"
+        },
+        {
+            "command": "node tools/test/generate-correctness-attempt-producers.mjs --write",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original producer output byte-identical before/after; repeat run fixed point proved",
+            "artifact": "artifacts/style/issue-3534-continuation/fixedpoint-inventory-2.log.gz",
+            "compressedSha256": "9a8a39cae3f223ffddbd4f22c5b47f612ac3fefea95e41b5b7692d25b0b74ac9",
+            "rawSha256": "d47550f01597eebc23c46efd64de516e88aa44edd7b52e95a673f104025f2074"
+        },
+        {
+            "command": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original producer output byte-identical before/after; repeat run fixed point proved",
+            "artifact": "artifacts/style/issue-3534-continuation/fixedpoint-release-authority-1.log.gz",
+            "compressedSha256": "50a56c0d9f7f14b68a7b6213dfe4c2964b8e04e22e0ed73accd4782656dc9a1e",
+            "rawSha256": "5e4fceb53ec7aa7d5b8d2aee544215de9d83108e0dce15e2b914e6a80384e215"
+        },
+        {
+            "command": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+            "testedCommit": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original producer output byte-identical before/after; repeat run fixed point proved",
+            "artifact": "artifacts/style/issue-3534-continuation/fixedpoint-release-authority-2.log.gz",
+            "compressedSha256": "82dda27aa091a730b8dfc654dce830f38917b0d7d550d78c975f25a06e43f3d5",
+            "rawSha256": "ebccfdf286576ce2659884f9759270aeb125d2c5da09928e382f1f11c23259f0"
+        },
+        {
+            "command": "umask 077; node --test tests/tools/behavior-document-consistency-final.test.mjs",
+            "testedCommit": "d9f47392a0c675073576670bdf81e030e6def19a",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "19/60 before ordinary fixture mode repair; subsequent current candidate test independently demonstrates58/60",
+            "artifact": "artifacts/style/issue-3534-continuation/restrictive-umask-before.log.gz",
+            "compressedSha256": "a958122d75b6ed4f174d2b9c67e656eaa2676e2207e5f065f7961cad0f65f312",
+            "rawSha256": "a7687b04b1bf429ffa2582771d31cb4fc861ef198a785ccb4fdb56274bbef005"
+        }
+    ],
+    "proofs": [
+        {
+            "path": "artifacts/style/issue-3534-continuation/test-binding-proof.json",
+            "sha256": "53509f11f4bbad0dc69a3beb248dbf84154955faca9cb9e6a7736533539c1858"
+        },
+        {
+            "path": "artifacts/style/issue-3534-continuation/shared-handoff-proof.json",
+            "sha256": "e7d905f9ab7c4ac3a3a6bd8afd028fda9b69bcd11616a59f1a186ebd155c6f05"
+        },
+        {
+            "path": "artifacts/style/issue-3534-continuation/official-npm-format-probe.json",
+            "sha256": "594b85bfae04a4f8d6548a6fa45a3c6421b8fdff0339e45c3b6fd679040896af"
+        },
+        {
+            "path": "artifacts/style/issue-3534-continuation/import-lock-probe.json",
+            "sha256": "7b36ada74919ba9b405a589ed68162154c6f2d983e68db5112323218edc4501c"
+        },
+        {
+            "path": "artifacts/style/issue-3534-continuation/helper-mode-probe.json",
+            "sha256": "18d48bdd2d4d9c5fd30e6c2f4f47d7fa92de3ddaf73d9c80b7b42c985787d816"
+        },
+        {
+            "path": "artifacts/style/issue-3534-continuation/compiler-blockers.json",
+            "sha256": "2fa7ece42d5689a24993df6c4fa785b5017c0de6b04062091017b71ca80a6b55"
+        },
+        {
+            "path": "artifacts/style/issue-3534-continuation/after-handoff-fixedpoint.json",
+            "sha256": "df63e1239287e70b4ecc768a8d370dd6c27d6904d466d0ed82bb8332815ffdc6"
+        },
+        {
+            "path": "artifacts/style/issue-3534-continuation/current-issue.json",
+            "sha256": "8a96cc76a945a7441695190a2157830d649f78b0000422e0dda4a07071625bf8"
+        },
+        {
+            "path": "artifacts/style/issue-3534-continuation/import-lock-probe.mjs.gz",
+            "sha256": "7a37c2a2e474913a2e57e0e388354650800f4f3c8dd03159ec04b67d87815f9d",
+            "rawSha256": "d8c04d85eddaeaddc3eed255362ed5b54cfe971428d3c6feb181b0aafe3e03ac",
+            "purpose": "Diagnostic-only runnable differential; decompress to an ignored task directory and run with pinned Node from repository root. Synthetic lock input cannot qualify production."
+        }
+    ],
+    "narrowRepair": {
+        "commit": "4b24d981f04f31095dbefc9f41e4264749a13496",
+        "path": "tests/tools/behavior-document-consistency-final.test.mjs:123",
+        "behavior": "Ordinary repositoryFixture now chmods installed parser fixture files to already-required0644 independent of caller umask. Original mode0600/hardlink/symlink/byte/dependency negative remains and passed.",
+        "beforeRestrictiveUmask": {
+            "passed": 19,
+            "failed": 41
+        },
+        "afterRestrictiveUmask": {
+            "passed": 58,
+            "failed": 2
+        },
+        "normalUmaskAfter": {
+            "passed": 58,
+            "failed": 2
+        },
+        "reviewedHelperAndProductionScannerUnchanged": true
+    },
+    "ownedFailureAnalysis": [
+        {
+            "test": "owned scanner fixture preserves representative input bytes and rejection rules",
+            "declaration": "tests/tools/behavior-document-consistency-final.test.mjs:657",
+            "failingCall": "tests/tools/behavior-document-consistency-final.test.mjs:683",
+            "expected": "Copied representative bytes produce identical scanner findings;14 rejection checks execute; cleanup executes",
+            "actual": "canonicalJsoncParser throws at scanner321 through parseCanonicalAuthorityJson208 before rejection assertions; byte/root comparisons preceding call pass"
+        },
+        {
+            "test": "zero-legacy machine-field mutation corpus rejects separator variants and boolean self-certification",
+            "declaration": "tests/tools/behavior-document-consistency-final.test.mjs:709",
+            "failingCall": "tests/tools/behavior-document-consistency-final.test.mjs:731",
+            "expected": "Twelve machine-field and two boolean self-certification negative assertions execute",
+            "actual": "Same canonical-lock refusal before all mutation assertions"
+        }
+    ],
+    "parentDecisionsBeforeQualificationChanges": [
+        {
+            "id": "lock-format",
+            "locations": [
+                "tools/docs/behavior-document-consistency-final.mjs:202",
+                "tools/docs/behavior-document-consistency-final.mjs:321",
+                "tests/tools/support/zero-legacy-scanner-fixture.mjs:7",
+                "config/development/native-tooling-style-policy.json:64"
+            ],
+            "finding": "Actual NPM lock is canonical4, not canonical2; official offline npm11.13.0 emits both based on consumer indentation. Native style excludes package-lock; this is serialization coupling rather than mandatory generic JSON4 versus JSON2 style conflict.",
+            "proposedReview": "Canonical parser owner decide a narrow truthful accepted writer format while preserving duplicate-free exact serialization, original bytes, resolved/version/integrity/path/mode controls and all rejection cases; do not reformat real lock or helper copies merely to make tests green."
+        },
+        {
+            "id": "static-import",
+            "locations": [
+                "tests/tools/behavior-document-consistency-final.test.mjs:10",
+                "tools/docs/behavior-document-consistency-final.mjs:1361",
+                "tools/docs/behavior-document-consistency-final.mjs:1371",
+                "tools/docs/behavior-document-consistency-final.mjs:1391",
+                "tools/frontend/style-toolchain/eslint.config.mjs:60",
+                "config/development/frontend-style-rule-registry.json:55"
+            ],
+            "finding": "Qualifier collects static import declarations and explicitly requires scanner binding; original style refuses the same literal parent import. Runtime-equivalent explicit-URL import lints clean but loses all14 fixture exemptions under original qualifier. Synthetic differential is marked unqualified.",
+            "proposedReview": "Relevant owners choose an exact reviewed static-import exception/residual process or narrowly extend verified qualifier grammar for explicit URL with spoofing/shadowing/byte-mutation rejection; no blanket policy or residual rebind."
+        },
+        {
+            "id": "sealed-helper-mode",
+            "locations": [
+                "tests/tools/support/zero-legacy-scanner-fixture.mjs:49",
+                "tools/docs/behavior-document-consistency-final.mjs:1365",
+                "tools/docs/behavior-document-consistency-final.mjs:1462"
+            ],
+            "finding": "Unchanged reviewed helper itself writes installed parser files0644 under022 and0600 under077. Actual four-space-lock error currently masks this. Helper AST shape is sealed.",
+            "proposedReview": "Requalify narrowly explicit0644 writes plus updated sealed shape and original mode/byte/link negative controls; ordinary fixture repair does not claim to solve this helper coupling."
+        }
+    ],
+    "consumedInventoryCommits": [
+        {
+            "provided": "eeb4e84096571ecb3a989629825f2508e2de7b71",
+            "local": "de18f33c939a2f4809dc8a9846e9d0d93a32e606"
+        },
+        {
+            "provided": "e38a0badac3867560b5d0fdc1b8d1c648d15ee37",
+            "local": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273"
+        }
+    ],
+    "compilerProbe": {
+        "commit": "53788be91ea400dd93c79871654741d7c4576e14",
+        "branch": "codex/issue-3534-prereq-probe-20261008",
+        "mainCandidateAncestor": "469d28fd4faf478a990adcfee0aa978866f2457b",
+        "lockLineageHead": "2c380fee5cff5fa0e368b3da0a4052a4fe124263",
+        "compilerProvidedCommit": "a95de1defd39a46f34992bed9eee3c150d990456",
+        "fullSuppliedLockLineagePreserved": true,
+        "incorporatedIntoScannerPR": false,
+        "qualificationIssued": false,
+        "reason": "Independent capability probe. Actual build still fails, so no built-context admission or backend test pass can be claimed."
+    },
+    "remainingGates": [
+        "Final candidate parent-import style refusal requires canonical style/qualifier owner decision",
+        "Two real copied-input zero-legacy controls refuse canonical4 NPM lock under original canonical2 qualification",
+        "Latent sealed-helper mode0600 under077 requires narrowly requalified owner fix",
+        "Independent PR review/merge/current-master recheck is explicitly required by issue before downstream style acceptance, subject to separate phase barrier"
+    ],
+    "qualificationIssued": false,
+    "merged": false,
+    "issuesClosed": false,
+    "deployed": false,
+    "acceptanceAudit": [
+        {
+            "criterion": 1,
+            "required": "Seal current-master source/policy/baseline/diagnostic identities before changes",
+            "status": "passed",
+            "evidence": [
+                "artifacts/style/issue-3534-master-baseline.json",
+                "artifacts/style/issue-3534-input-snapshot.json",
+                "artifacts/style/issue-3534-verification.json"
+            ],
+            "master": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8"
+        },
+        {
+            "criterion": 2,
+            "required": "Separate reviewed AST/token/comment equivalent format-only migration, idempotence, classification and later blame-ignore",
+            "status": "source-verification-passed-independent-review-pending",
+            "formatCommit": "9044e70088d31898ba5b961a3a88b177e235c079",
+            "registrationCommit": "00889c42d32b986b558d3488f2abee924c256fdb",
+            "evidence": "artifacts/style/issue-3534-idempotence.json",
+            "limits": "Original format subcommit passed; current supplied inventory commits introduce separate Refs footer failures. Formal PR independent review still pending."
+        },
+        {
+            "criterion": 3,
+            "required": "Preserve149/329 reviewed residual or lawful owner re-review without weakening",
+            "status": "passed",
+            "result": "149 paths,329 parent-import diagnostics,0other; unchanged trusted residual; current executable validation passed"
+        },
+        {
+            "criterion": 4,
+            "required": "Final candidate changed/full style plus zero-legacy, DocClaim, release-final static boundary and affected output fixed points",
+            "status": "failed",
+            "candidate": "fb3f43035b9bbdd17aea029ca51d6fca86bd3273",
+            "changedStyle": "1 original static-parent-import error",
+            "selectedFullStyle": "Same1error plus three global stale baseline refusals",
+            "zeroLegacy": "58/60 under077 and022; actual-lock canonical-format refusals",
+            "docClaim": "16/16",
+            "staticBoundaryCheck": "passed",
+            "boundaryRegressions": "103/103 at469d28fd; not relabeled as a new-source run",
+            "producerFixedPoints": "Both original generators twice, exit0, byte-identical current outputs"
+        },
+        {
+            "criterion": 5,
+            "required": "Standard independent PR review, merge and current-master recheck before3533 treats style admission satisfied",
+            "status": "not-complete",
+            "reason": "Draft PR; no merge or independent qualification. This explicit issue criterion is separate from the global phase barrier; it does not prohibit independently ready source work."
+        }
+    ],
+    "stage1_ready_for_review": false,
+    "stage1ReadinessReason": "Whole assigned source-stage acceptance still has actual scoped style and zero-legacy failures. Published narrower test-mode repair and exact shared source capabilities remain available for independent ready sibling work; no wait for whole-chain completion or global merge is imposed.",
+    "requiredOwnedBlockers": [
+        "Final candidate parent-import style refusal requires canonical style/qualifier owner decision",
+        "Two real copied-input zero-legacy controls refuse canonical4 NPM lock under original canonical2 qualification",
+        "Latent sealed-helper mode0600 under077 requires narrowly requalified owner fix",
+        "Independent PR review/merge/current-master recheck is explicitly required by issue before downstream style acceptance, subject to separate phase barrier"
+    ],
+    "backgroundObservationsNotInventedOwnedAcceptanceCriteria": [
+        "Shared matrix/fixture/envelope/profile failures and content projection drift",
+        "Backend missing built xunit context and13 next compilation errors on exact supplied prerequisite probe",
+        "Generic generated-history/Refs footer/external naming evidence blockers of supplied shared inventory commits; preserve original governance gate",
+        "Full runtime/CI/finalizer receipts are not added as standalone3534 acceptance criteria; no runtime acceptance is claimed"
+    ]
+}

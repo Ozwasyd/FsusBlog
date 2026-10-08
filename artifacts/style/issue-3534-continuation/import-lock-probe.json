@@ -1,0 +1,127 @@
+{
+    "status": "diagnostic-only",
+    "qualificationEligible": false,
+    "productionScannerAndPoliciesModified": false,
+    "syntheticInputsDoNotReplaceCurrentLockOrReceipts": true,
+    "nativeExplicitUrlImportResolvesIdenticalScannerFunction": true,
+    "results": [
+        {
+            "name": "canonical-static-import-two-space-lock",
+            "lockIndent": 2,
+            "syntheticLockReserialization": true,
+            "lintRules": [
+                "import-x/no-relative-parent-imports"
+            ],
+            "scannerRules": [],
+            "error": null
+        },
+        {
+            "name": "equivalent-explicit-url-import-two-space-lock",
+            "lockIndent": 2,
+            "syntheticLockReserialization": true,
+            "lintRules": [],
+            "scannerRules": [
+                "forbidden-machine-field:allowStaleUntil",
+                "forbidden-machine-field:approvedContentDigest",
+                "forbidden-machine-field:baselineValue",
+                "forbidden-machine-field:contentBaselineSha",
+                "forbidden-machine-field:expectedValue",
+                "forbidden-machine-field:ignoreDifference",
+                "forbidden-machine-field:lastReviewedAt",
+                "forbidden-machine-field:lastReviewedCommit",
+                "forbidden-machine-field:lastVerifiedCommit",
+                "forbidden-machine-field:maximumVerificationDistance",
+                "forbidden-machine-field:verifiedAt",
+                "forbidden-machine-field:waiver",
+                "forbidden-self-certification:reviewed",
+                "forbidden-self-certification:verified"
+            ],
+            "error": null
+        },
+        {
+            "name": "fake-static-import-two-space-lock",
+            "lockIndent": 2,
+            "syntheticLockReserialization": true,
+            "lintRules": [
+                "import-x/order"
+            ],
+            "scannerRules": [
+                "forbidden-machine-field:allowStaleUntil",
+                "forbidden-machine-field:approvedContentDigest",
+                "forbidden-machine-field:baselineValue",
+                "forbidden-machine-field:contentBaselineSha",
+                "forbidden-machine-field:expectedValue",
+                "forbidden-machine-field:ignoreDifference",
+                "forbidden-machine-field:lastReviewedAt",
+                "forbidden-machine-field:lastReviewedCommit",
+                "forbidden-machine-field:lastVerifiedCommit",
+                "forbidden-machine-field:maximumVerificationDistance",
+                "forbidden-machine-field:verifiedAt",
+                "forbidden-machine-field:waiver",
+                "forbidden-self-certification:reviewed",
+                "forbidden-self-certification:verified"
+            ],
+            "error": null
+        },
+        {
+            "name": "missing-assertion-two-space-lock",
+            "lockIndent": 2,
+            "syntheticLockReserialization": true,
+            "lintRules": [
+                "import-x/no-relative-parent-imports"
+            ],
+            "scannerRules": [
+                "forbidden-machine-field:allowStaleUntil",
+                "forbidden-machine-field:approvedContentDigest",
+                "forbidden-machine-field:baselineValue",
+                "forbidden-machine-field:contentBaselineSha",
+                "forbidden-machine-field:expectedValue",
+                "forbidden-machine-field:ignoreDifference",
+                "forbidden-machine-field:lastReviewedAt",
+                "forbidden-machine-field:lastReviewedCommit",
+                "forbidden-machine-field:lastVerifiedCommit",
+                "forbidden-machine-field:maximumVerificationDistance",
+                "forbidden-machine-field:verifiedAt",
+                "forbidden-machine-field:waiver",
+                "forbidden-self-certification:reviewed",
+                "forbidden-self-certification:verified"
+            ],
+            "error": null
+        },
+        {
+            "name": "changed-helper-two-space-lock",
+            "lockIndent": 2,
+            "syntheticLockReserialization": true,
+            "lintRules": [
+                "import-x/no-relative-parent-imports"
+            ],
+            "scannerRules": [
+                "forbidden-machine-field:allowStaleUntil",
+                "forbidden-machine-field:approvedContentDigest",
+                "forbidden-machine-field:baselineValue",
+                "forbidden-machine-field:contentBaselineSha",
+                "forbidden-machine-field:expectedValue",
+                "forbidden-machine-field:ignoreDifference",
+                "forbidden-machine-field:lastReviewedAt",
+                "forbidden-machine-field:lastReviewedCommit",
+                "forbidden-machine-field:lastVerifiedCommit",
+                "forbidden-machine-field:maximumVerificationDistance",
+                "forbidden-machine-field:verifiedAt",
+                "forbidden-machine-field:waiver",
+                "forbidden-self-certification:reviewed",
+                "forbidden-self-certification:verified"
+            ],
+            "error": null
+        },
+        {
+            "name": "canonical-static-import-actual-four-space-lock",
+            "lockIndent": 4,
+            "syntheticLockReserialization": false,
+            "lintRules": [
+                "import-x/no-relative-parent-imports"
+            ],
+            "scannerRules": null,
+            "error": "[zero-legacy-governance] JSONC parser package lock must be canonical duplicate-free JSON"
+        }
+    ]
+}

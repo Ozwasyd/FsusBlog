@@ -1,0 +1,23 @@
+{
+    "status": "diagnostic-only-no-qualification",
+    "command": "npm install --package-lock-only --ignore-scripts --no-audit --offline --cache /tmp/issue-3534-npm-cache",
+    "npmVersion": "11.13.0",
+    "results": [
+        {
+            "consumerIndent": 2,
+            "npmExitCode": 0,
+            "lockCanonicalTwoSpace": true,
+            "lockCanonicalFourSpace": false,
+            "lockSha256": "a61ef169acb5e8d695519eb6182564390141ee1f4cb181e143e7f4086d4c2b6b",
+            "lock": "{\n  \"name\": \"issue-3534-npm-format-probe\",\n  \"version\": \"1.0.0\",\n  \"lockfileVersion\": 3,\n  \"requires\": true,\n  \"packages\": {\n    \"\": {\n      \"name\": \"issue-3534-npm-format-probe\",\n      \"version\": \"1.0.0\"\n    }\n  }\n}\n"
+        },
+        {
+            "consumerIndent": 4,
+            "npmExitCode": 0,
+            "lockCanonicalTwoSpace": false,
+            "lockCanonicalFourSpace": true,
+            "lockSha256": "93b4ec8dc062a6570260987782818a5099eeb6f9c6bb4a1ca4573a1440f0cd59",
+            "lock": "{\n    \"name\": \"issue-3534-npm-format-probe\",\n    \"version\": \"1.0.0\",\n    \"lockfileVersion\": 3,\n    \"requires\": true,\n    \"packages\": {\n        \"\": {\n            \"name\": \"issue-3534-npm-format-probe\",\n            \"version\": \"1.0.0\"\n        }\n    }\n}\n"
+        }
+    ]
+}

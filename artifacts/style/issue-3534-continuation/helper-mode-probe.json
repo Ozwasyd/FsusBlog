@@ -1,0 +1,16 @@
+{
+    "qualificationEligible": false,
+    "reviewedHelperWasNotModified": true,
+    "latentHelperModeCoupling": [
+        {
+            "umask": "22",
+            "installedParserPackageMode": "644",
+            "lockByteCopyUnchanged": true
+        },
+        {
+            "umask": "77",
+            "installedParserPackageMode": "600",
+            "lockByteCopyUnchanged": true
+        }
+    ]
+}
