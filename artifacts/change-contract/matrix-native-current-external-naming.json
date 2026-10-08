@@ -9,7 +9,8 @@
                 "tools/test/behavior-doc-nuget-preparation.mjs",
                 "tools/test/execution-envelope-directories.mjs",
                 "tools/test/run-deterministic-command.mjs",
-                "tools/testing/content-shape-catalog.mjs"
+                "tools/testing/content-shape-catalog.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
             ],
             "reason": "Preserve the existing process environment ingress spellings and exact SDK/run-bound preparation keys; internal purpose/project/tool variables follow their existing owner conventions."
         },
@@ -25,7 +26,8 @@
             "paths": [
                 "tests/backend/packages.lock.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/governance/test-lifecycle-registry.json"
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json"
             ],
             "reason": "Preserve original NuGet, canonical authority and lifecycle/retention JSON wire schema spellings; only current lock, source digest or owner mappings change."
         }
