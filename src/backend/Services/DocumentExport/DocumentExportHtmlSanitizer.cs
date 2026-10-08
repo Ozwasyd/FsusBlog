@@ -21,7 +21,7 @@ internal static class DocumentExportHtmlSanitizer
     private static readonly HashSet<string> s_svgElements = new(StringComparer.Ordinal)
     {
         "svg", "g", "path", "line", "polyline", "polygon", "circle", "ellipse", "rect", "text",
-        "tspan", "title", "desc"
+        "tspan", "title", "desc", "defs", "marker"
     };
 
     private static readonly HashSet<string> s_globalAttributes = new(StringComparer.Ordinal)
@@ -40,7 +40,8 @@ internal static class DocumentExportHtmlSanitizer
             ["ol"] = new(StringComparer.Ordinal) { "start", "reversed", "type" },
             ["details"] = new(StringComparer.Ordinal) { "open" },
             ["time"] = new(StringComparer.Ordinal) { "datetime" },
-            ["code"] = new(StringComparer.Ordinal) { "tabindex" }
+            ["code"] = new(StringComparer.Ordinal) { "tabindex" },
+            ["figure"] = new(StringComparer.Ordinal) { "data-mermaid-rendered", "data-mermaid-width", "data-mermaid-height" }
         };
 
     private static readonly HashSet<string> s_svgAttributes = new(StringComparer.Ordinal)
@@ -49,6 +50,15 @@ internal static class DocumentExportHtmlSanitizer
         "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry", "points", "transform",
         "text-anchor", "dominant-baseline", "role", "aria-label", "aria-describedby", "id", "class"
     };
+
+    private static readonly IReadOnlyDictionary<string, HashSet<string>> s_svgElementAttributes =
+        new Dictionary<string, HashSet<string>>(StringComparer.Ordinal)
+        {
+            ["svg"] = new(StringComparer.Ordinal) { "preserveAspectRatio" },
+            ["marker"] = new(StringComparer.Ordinal) { "refX", "refY", "markerWidth", "markerHeight", "orient" },
+            ["line"] = new(StringComparer.Ordinal) { "marker-end" },
+            ["text"] = new(StringComparer.Ordinal) { "font-size", "font-family" }
+        };
 
     internal static byte[] Sanitize(
         string fragment,
@@ -62,6 +72,7 @@ internal static class DocumentExportHtmlSanitizer
         var seenImages = new HashSet<string>(StringComparer.Ordinal);
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var anchorReferences = new HashSet<string>(StringComparer.Ordinal);
+        SvgScope? svgScope = null;
 
         XmlReaderSettings readerSettings = new()
         {
@@ -117,14 +128,24 @@ internal static class DocumentExportHtmlSanitizer
                 switch (reader.NodeType)
                 {
                     case XmlNodeType.Element:
-                        WriteStartElement(reader, writer, images, seenImages, ids, anchorReferences);
+                        if (reader.NamespaceURI == SvgNamespace && reader.LocalName == "svg")
+                        {
+                            if (svgScope is not null)
+                            {
+                                throw new InvalidDataException("Nested SVG documents are outside the closed diagram contract.");
+                            }
+                            svgScope = new SvgScope(reader.Depth);
+                        }
+                        WriteStartElement(reader, writer, images, seenImages, ids, anchorReferences, svgScope);
                         if (reader.IsEmptyElement)
                         {
                             writer.WriteEndElement();
+                            CloseSvgElement(reader, ref svgScope);
                         }
                         break;
                     case XmlNodeType.EndElement:
                         writer.WriteFullEndElement();
+                        CloseSvgElement(reader, ref svgScope);
                         break;
                     case XmlNodeType.Text:
                     case XmlNodeType.SignificantWhitespace:
@@ -163,13 +184,16 @@ internal static class DocumentExportHtmlSanitizer
         IReadOnlyDictionary<string, DocumentExportAsset> images,
         ISet<string> seenImages,
         ISet<string> ids,
-        ISet<string> anchorReferences)
+        ISet<string> anchorReferences,
+        SvgScope? svgScope)
     {
         bool svg = reader.NamespaceURI == SvgNamespace;
         string name = reader.LocalName;
         if (reader.Prefix.Length != 0
             || svg && !s_svgElements.Contains(name)
-            || !svg && (reader.NamespaceURI != XhtmlNamespace || !s_htmlElements.Contains(name)))
+            || svg && svgScope is null
+            || !svg && (svgScope is not null || name == "svg"
+                || reader.NamespaceURI != XhtmlNamespace || !s_htmlElements.Contains(name)))
         {
             throw new InvalidDataException($"Element '{reader.Name}' is outside the self-contained HTML allowlist.");
         }
@@ -197,7 +221,25 @@ internal static class DocumentExportHtmlSanitizer
         {
             throw new InvalidDataException("HTML ids must be non-empty, unique, and canonical.");
         }
-        ValidateScalarAttributes(attributes, anchorReferences);
+        if (svg)
+        {
+            if ((name == "defs" && svgScope!.Elements.Peek() != "svg")
+                || (name == "marker" && svgScope!.Elements.Peek() != "defs"))
+            {
+                throw new InvalidDataException("SVG marker definitions must belong to their containing document.");
+            }
+            svgScope!.Elements.Push(name);
+            if (id is not null)
+            {
+                svgScope.Ids.Add(id);
+                if (name == "marker")
+                {
+                    svgScope.MarkerIds.Add(id);
+                }
+            }
+        }
+        ValidateScalarAttributes(attributes, svg ? svgScope!.References : anchorReferences);
+        ValidateDiagramAttributes(attributes, svgScope);
         if (name == "a")
         {
             NormalizeAnchor(attributes, anchorReferences);
@@ -222,9 +264,79 @@ internal static class DocumentExportHtmlSanitizer
     private static bool AttributeAllowed(string element, bool svg, string attribute)
         => svg
             ? s_svgAttributes.Contains(attribute)
+                || s_svgElementAttributes.TryGetValue(element, out HashSet<string>? svgAllowed)
+                    && svgAllowed.Contains(attribute)
             : s_globalAttributes.Contains(attribute)
                 || s_htmlAttributes.TryGetValue(element, out HashSet<string>? allowed)
                     && allowed.Contains(attribute);
+
+    private static void CloseSvgElement(XmlReader reader, ref SvgScope? scope)
+    {
+        if (scope is null)
+        {
+            return;
+        }
+        scope.Elements.Pop();
+        if (reader.Depth != scope.Depth)
+        {
+            return;
+        }
+        SvgScope completedScope = scope;
+        if (completedScope.References.Any(reference => !completedScope.Ids.Contains(reference))
+            || completedScope.MarkerReferences.Any(reference => !completedScope.MarkerIds.Contains(reference)))
+        {
+            throw new InvalidDataException("SVG references must resolve inside their own document with the expected target type.");
+        }
+        scope = null;
+    }
+
+    private static void ValidateDiagramAttributes(
+        IReadOnlyDictionary<string, string> attributes,
+        SvgScope? svgScope)
+    {
+        foreach (string numeric in new[]
+        {
+            "data-mermaid-width", "data-mermaid-height", "markerWidth", "markerHeight", "refX", "refY", "font-size"
+        })
+        {
+            if (attributes.TryGetValue(numeric, out string? value)
+                && (!double.TryParse(value, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out double parsed)
+                    || !double.IsFinite(parsed) || parsed < 0 || parsed > 100000
+                    || ((numeric is "data-mermaid-width" or "data-mermaid-height" or "markerWidth" or "markerHeight" or "font-size")
+                        && parsed == 0)
+                    || (numeric == "font-size" && parsed > 512)))
+            {
+                throw new InvalidDataException($"Diagram attribute '{numeric}' is outside its numeric range.");
+            }
+        }
+        if (attributes.TryGetValue("data-mermaid-rendered", out string? rendered) && rendered != "true"
+            || attributes.TryGetValue("preserveAspectRatio", out string? aspect) && aspect != "xMidYMid meet"
+            || attributes.TryGetValue("orient", out string? orient) && orient != "auto-start-reverse"
+            || attributes.TryGetValue("font-family", out string? family)
+                && family != "Google Sans, Noto Sans SC, system-ui, sans-serif")
+        {
+            throw new InvalidDataException("Diagram attributes drifted from the closed canonical renderer values.");
+        }
+        if (attributes.TryGetValue("marker-end", out string? marker))
+        {
+            if (svgScope is null || !marker.StartsWith("url(#", StringComparison.Ordinal)
+                || !marker.EndsWith(')') || !IsIdentifier(marker[5..^1]))
+            {
+                throw new InvalidDataException("SVG marker references may only target one local canonical marker.");
+            }
+            svgScope.MarkerReferences.Add(marker[5..^1]);
+        }
+    }
+
+    private sealed class SvgScope(int depth)
+    {
+        internal int Depth { get; } = depth;
+        internal Stack<string> Elements { get; } = new();
+        internal HashSet<string> Ids { get; } = new(StringComparer.Ordinal);
+        internal HashSet<string> MarkerIds { get; } = new(StringComparer.Ordinal);
+        internal HashSet<string> References { get; } = new(StringComparer.Ordinal);
+        internal HashSet<string> MarkerReferences { get; } = new(StringComparer.Ordinal);
+    }
 
     private static void NormalizeAnchor(
         IDictionary<string, string> attributes,
