@@ -19,6 +19,16 @@
     },
     "closureFiles": [
         {
+            "path": ".clang-format",
+            "contentDigest": "sha256:b7c29b7917ba44ff530d240a226e6e3f1e5597507976de501ba2b2b98e0a12b4",
+            "indexDigest": "sha256:b7c29b7917ba44ff530d240a226e6e3f1e5597507976de501ba2b2b98e0a12b4"
+        },
+        {
+            "path": ".clang-tidy",
+            "contentDigest": "sha256:87be37c76d667a7ece0d2e718be576cbf65d347bbff77b8b7b90b989e0119526",
+            "indexDigest": "sha256:87be37c76d667a7ece0d2e718be576cbf65d347bbff77b8b7b90b989e0119526"
+        },
+        {
             "path": ".editorconfig",
             "contentDigest": "sha256:24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26",
             "indexDigest": "sha256:24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
@@ -2150,8 +2160,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc",
-            "indexDigest": "sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc"
+            "contentDigest": "sha256:c13d3bd9a4da6ff495283f2bc4d3159d04c2208e0a54a4e0343a92c5120736bd",
+            "indexDigest": "sha256:c13d3bd9a4da6ff495283f2bc4d3159d04c2208e0a54a4e0343a92c5120736bd"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -2474,9 +2484,19 @@
             "indexDigest": "sha256:9f5cc8ce64722a4c0bbd5377e046552daa997c14c26aef9ff916aa25db836887"
         },
         {
+            "path": "tools/configuration/check-cpp-source.mjs",
+            "contentDigest": "sha256:003d96c7000ff7bb342192ab3ddae93461ec87dadf0459f69c3d44aa31fb0d87",
+            "indexDigest": "sha256:003d96c7000ff7bb342192ab3ddae93461ec87dadf0459f69c3d44aa31fb0d87"
+        },
+        {
             "path": "tools/configuration/check-solution-source.mjs",
             "contentDigest": "sha256:a4a7df8597f598795f7ea22392bad6cb15da3433f2807bc2eb82f373cefabed1",
             "indexDigest": "sha256:a4a7df8597f598795f7ea22392bad6cb15da3433f2807bc2eb82f373cefabed1"
+        },
+        {
+            "path": "tools/configuration/cpp-source.test.mjs",
+            "contentDigest": "sha256:dd1a52779cee1c8bb7be80f9140f44ed3c8ef3ba8d6578b80b902dbebb94dcb1",
+            "indexDigest": "sha256:dd1a52779cee1c8bb7be80f9140f44ed3c8ef3ba8d6578b80b902dbebb94dcb1"
         },
         {
             "path": "tools/configuration/solution-source.test.mjs",
@@ -4380,8 +4400,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f",
-            "indexDigest": "sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f"
+            "contentDigest": "sha256:9e855ed4058f4573bb2759381e8e572fb54d7b14ae2460189f76a04c140f610b",
+            "indexDigest": "sha256:9e855ed4058f4573bb2759381e8e572fb54d7b14ae2460189f76a04c140f610b"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -6930,9 +6950,11 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502",
-            "indexDigest": "sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502",
+            "contentDigest": "sha256:1b251feaf606824ac935a6e6729d51c2570af81bc6f464c2096c6df8d1ffabad",
+            "indexDigest": "sha256:1b251feaf606824ac935a6e6729d51c2570af81bc6f464c2096c6df8d1ffabad",
             "dependencyClosure": [
+                ".clang-format",
+                ".clang-tidy",
                 ".editorconfig",
                 ".markdownlint-cli2.jsonc",
                 "config/development/authoritative-development-docs.json",
@@ -6953,7 +6975,9 @@
                 "tests/tools/pr-applicable-execution-authority.test.mjs",
                 "tests/tools/pr-impact-plan.test.mjs",
                 "tools/ci/production-build-artifacts.mjs",
+                "tools/configuration/check-cpp-source.mjs",
                 "tools/configuration/check-solution-source.mjs",
+                "tools/configuration/cpp-source.test.mjs",
                 "tools/configuration/solution-source.test.mjs",
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
@@ -7101,6 +7125,7 @@
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/measurement-noise-envelope.mjs",
                 "tools/test/mysql-fixture-admission.mjs",
+                "tools/test/native-test-runtime-support.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-nested-channel.mjs",
                 "tools/test/physical-execution-private-dotnet-scratch.mjs",

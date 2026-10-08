@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/configuration/check-cpp-source.mjs",
+        "tools/configuration/cpp-source.test.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs",
+        "tests/tools/pr-impact-plan.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "c28ac9ebdf5d38e4f8ac39e0b6e1f46873368bcf3e27ddd3460c96f501b41cee"
+        }
+    ]
+}
