@@ -1,0 +1,94 @@
+{
+  "formatter": {
+    "identity": "dotnet-format",
+    "version": "10.0.302-servicing.26329.109+35b593bebfcba58f8e78298cef14c2761f5d86c6",
+    "command": "dotnet format whitespace . --folder --include tests/backend/Unit/AuthoringExtensionRpcTests.cs src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs --verbosity quiet"
+  },
+  "paths": [
+    "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs"
+  ],
+  "firstPassTreeSha256": "16e3eb7da7380f6160aecabf006d1bc5362e2b49c8b939c5b9f0cb6b43bbb0d1",
+  "secondPassTreeSha256": "16e3eb7da7380f6160aecabf006d1bc5362e2b49c8b939c5b9f0cb6b43bbb0d1",
+  "idempotent": true,
+  "schema": "fsusblog.format-idempotence-evidence.v1",
+  "revision": "efe83b23aafed77f3653fb839a9d4b216d0e5e44",
+  "roslynEquivalence": {
+    "formats": [
+      {
+        "name": "rpc",
+        "completeSyntaxShapesAndAritiesEquivalent": true,
+        "normalizedFullSyntaxEquivalent": true,
+        "rawUnnormalizedSyntaxApiResult": false,
+        "rawTokensAndValuesEquivalent": true,
+        "anchoredNonWhitespaceTriviaEquivalent": true,
+        "tokenCount": 13317,
+        "tests": 50,
+        "assertions": 239,
+        "tokenSha256": "e613111ae4325aa005bcc4f9edd27e4d8304c1f726079474e7aaaf461f97e5fc"
+      },
+      {
+        "name": "resolver-production",
+        "completeSyntaxShapesAndAritiesEquivalent": true,
+        "normalizedFullSyntaxEquivalent": true,
+        "rawUnnormalizedSyntaxApiResult": true,
+        "rawTokensAndValuesEquivalent": true,
+        "anchoredNonWhitespaceTriviaEquivalent": true,
+        "tokenCount": 3179,
+        "tests": 0,
+        "assertions": 0,
+        "tokenSha256": "3add003b60472b0806605673cc6105f03c8803f7933f65e0d3db99aae01055ed"
+      }
+    ],
+    "rosters": [
+      {
+        "Name": "rpc",
+        "added": [
+          "AuthoringCanonicalDocumentRead",
+          "AuthoringDocumentReadReceipt",
+          "AuthoringDocumentReadResult",
+          "AuthoringFileBrokerProposal",
+          "AuthoringNetworkBrokerProposal",
+          "IAuthoringCanonicalDocumentReadTransaction",
+          "IAuthoringCapabilityBrokerGrantReadScope",
+          "IAuthoringCapabilityBrokerGrantReadScopeStore",
+          "IAuthoringCapabilityGrantReadScope",
+          "IAuthoringCapabilityGrantReadScopeStore"
+        ],
+        "beforeOwners": 16,
+        "afterOwners": 26,
+        "exactOldOwnersRetained": true,
+        "strictGuardTokensUnchanged": true,
+        "otherTokensUnchanged": true,
+        "tests": 50,
+        "assertions": 239
+      },
+      {
+        "Name": "resolver-test",
+        "added": [
+          "AuthoringTerminalReadScopes",
+          "IAuthoringInstalledPackageAsyncReadScope",
+          "IAuthoringInstalledPackageReadScope",
+          "IAuthoringInstalledPackageReadScopeAuthority",
+          "IAuthoringPackageReadScopeStore"
+        ],
+        "beforeOwners": 12,
+        "afterOwners": 17,
+        "exactOldOwnersRetained": true,
+        "strictGuardTokensUnchanged": true,
+        "otherTokensUnchanged": true,
+        "tests": 24,
+        "assertions": 119
+      }
+    ],
+    "comparison": "Complete Roslyn syntax shapes/arities and raw token values; anchored non-whitespace trivia; full AST NormalizeWhitespace comparison with topLevel:false",
+    "methodBodyMutationNegativeControlRefused": true,
+    "runtimeAcceptance": false
+  },
+  "sourceOnly": true,
+  "runtimeAcceptance": false,
+  "canonicalPatchInputs": [
+    "79a9d0735a54f30bbd266a753615e5ca0620cee0",
+    "9055818014779b0fe6a4bd554c78ca7ffc196c81"
+  ]
+}
