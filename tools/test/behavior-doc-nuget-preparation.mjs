@@ -8,6 +8,7 @@ import { resolveExecutablePath } from './execution-envelope-environment.mjs';
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+const { matrixNativeProjects } = await import(new URL('../testing/content-shape-catalog.mjs', import.meta.url));
 
 function regular(file)
 {
@@ -79,6 +80,40 @@ export function inventoryPreparedNuget(root, allocationBlockSize = 4096)
 export function behaviorDocNugetClosure(repositoryRoot)
 {
     const projects = Object.values(hostDeclarations).map((value) => value.project).sort();
+    return lockedNugetClosure(repositoryRoot, projects);
+}
+
+/** Bind the actual matrix semantic extractor and backend through their existing owner. */
+export function matrixNativeNugetClosure(repositoryRoot)
+{
+    const projects = Object.values(matrixNativeProjects).sort();
+    const solution = 'tools/contracts/MatrixNativeRestore.slnx';
+    const text = regular(path.join(repositoryRoot, solution)).toString('utf8');
+    const expected = '<Solution>\n' + projects.map((project) =>
+        `    <Project Path="${path.posix.relative(path.posix.dirname(solution), project)}" />\n`).join('')
+        + '</Solution>\n';
+    if (text !== expected)
+    {
+        throw new Error('Matrix native restore solution differs from the actual project owners');
+    }
+    const closure = lockedNugetClosure(repositoryRoot, projects);
+    for (const project of closure.sourceClosureDigests.filter((entry) => entry.path.endsWith('.csproj')))
+    {
+        const lock = path.posix.join(path.posix.dirname(project.path), 'packages.lock.json');
+        if (!closure.sourceClosureDigests.some((entry) => entry.path === lock))
+        {
+            throw new Error('Matrix native preparation requires every referenced project lock');
+        }
+    }
+    const bindings = [solution, 'ops/docker/FsusBlog.Server.Dockerfile', 'tools/testing/content-shape-catalog.mjs'];
+    return { purpose: 'matrix-native', ...closure,
+        sourceClosureDigests: [...closure.sourceClosureDigests,
+            ...bindings.map((file) => ({ path: file, sha256: digest(regular(path.join(repositoryRoot, file))) }))]
+            .sort((left, right) => left.path.localeCompare(right.path)) };
+}
+
+function lockedNugetClosure(repositoryRoot, projects)
+{
     const closure = resolveDotnetProjectSourceClosure(repositoryRoot, projects);
     const sourceClosureDigests = closure.map((file) => ({
         path: file, sha256: digest(regular(path.join(repositoryRoot, file)))
@@ -111,6 +146,74 @@ export function behaviorDocNugetClosure(repositoryRoot)
     if (packages.size === 0) throw new Error('NuGet preparation requires a nonempty locked graph');
     return { projects, sourceClosureDigests,
         packages: [...packages.values()].sort((left, right) => left.path.localeCompare(right.path)) };
+}
+
+/** Observe immutable SDK/compiler/runtime bytes without launching an SDK process. */
+export function observeMatrixNativeNugetToolInputs(repositoryRoot)
+{
+    const dockerfile = regular(path.join(repositoryRoot, 'ops/docker/FsusBlog.Server.Dockerfile')).toString('utf8');
+    const sdkVersion = dockerfile.match(/^ARG DOTNET_SDK_VERSION=([^\r\n]+)$/mu)?.[1];
+    const runtimeVersion = dockerfile.match(/^ARG DOTNET_RUNTIME_VERSION=([^\r\n]+)$/mu)?.[1];
+    if (![sdkVersion, runtimeVersion].every((value) => /^\d+\.\d+\.\d+$/u.test(value ?? '')))
+    {
+        throw new Error('Matrix native SDK/runtime pins are missing');
+    }
+    const executable = resolveExecutablePath('dotnet', { pathValue: process.env.PATH });
+    const root = path.dirname(executable);
+    if (fs.realpathSync(root) !== root || fs.realpathSync(executable) !== executable
+        || process.env.DOTNET_ROOT !== root || process.env.FSUSBLOG_CONTENT_FIELD_DOTNET !== executable
+        || !equal(fs.readdirSync(path.join(root, 'sdk')).sort(), [sdkVersion])
+        || !equal(fs.readdirSync(path.join(root, 'shared/Microsoft.NETCore.App')).sort(), [runtimeVersion])
+        || !equal(fs.readdirSync(path.join(root, 'shared/Microsoft.AspNetCore.App')).sort(), [runtimeVersion]))
+    {
+        throw new Error('Matrix native tool inputs differ from the single pinned SDK/runtime owner');
+    }
+    const required = [`sdk/${sdkVersion}/Roslyn/bincore/csc.dll`,
+        `sdk/${sdkVersion}/Roslyn/bincore/Microsoft.CodeAnalysis.CSharp.dll`,
+        `shared/Microsoft.NETCore.App/${runtimeVersion}/System.Private.CoreLib.dll`,
+        `shared/Microsoft.AspNetCore.App/${runtimeVersion}/Microsoft.AspNetCore.dll`];
+    for (const file of required)
+    {
+        regular(path.join(root, file));
+    }
+    const entries = [];
+    const visit = (directory) =>
+    {
+        for (const name of fs.readdirSync(directory).sort())
+        {
+            const file = path.join(directory, name);
+            const stat = fs.lstatSync(file);
+            if (fs.realpathSync(file) !== file || stat.isSymbolicLink())
+            {
+                throw new Error('Matrix native SDK input has a physical alias');
+            }
+            const relative = path.relative(root, file).replaceAll(path.sep, '/');
+            if (stat.isDirectory())
+            {
+                visit(file);
+            }
+            else
+            {
+                entries.push({ path: relative, sha256: digest(regular(file)) });
+            }
+        }
+    };
+    visit(root);
+    return { root, executable, sdkVersion, runtimeVersion, entries, treeDigest: digest(JSON.stringify(entries)) };
+}
+
+/** One ordered restore command shared by the producer and strict ingress. */
+export function nugetPreparationCommand({ purpose = 'behavior-doc', packagesRoot, artifactsRoot, feedRoot, configFile })
+{
+    if (!['behavior-doc', 'matrix-native'].includes(purpose))
+    {
+        throw new Error('Unknown NuGet preparation purpose');
+    }
+    return ['dotnet', 'restore', purpose === 'matrix-native'
+        ? 'tools/contracts/MatrixNativeRestore.slnx' : 'tools/contracts/BehaviorDocRestore.slnx',
+    '--locked-mode', '--packages', packagesRoot, '--artifacts-path', artifactsRoot,
+    '/p:NuGetAudit=false', '/p:Configuration=Release', '--disable-parallel', '--source', feedRoot,
+    '--configfile', configFile];
 }
 
 export function validatePreparedNugetPackages(seed, closure, feed)
@@ -216,7 +319,17 @@ export function behaviorDocNugetFeedConfiguration({ feedRoot, packagesRoot })
 /** Validate a completed independent transfer using the existing run-bound authority. */
 export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file })
 {
-    if (!file) throw new Error('BehaviorDoc correctness requires explicit offline NuGet preparation');
+    return readPreparedNuget({ repositoryRoot, runId, file, purpose: 'behavior-doc' });
+}
+
+export async function readPreparedMatrixNativeNuget({ repositoryRoot, runId, file })
+{
+    return readPreparedNuget({ repositoryRoot, runId, file, purpose: 'matrix-native' });
+}
+
+async function readPreparedNuget({ repositoryRoot, runId, file, purpose })
+{
+    if (!file) throw new Error(`${purpose} correctness requires explicit offline NuGet preparation`);
     const input = path.resolve(file);
     const bytes = regular(input);
     const preparation = JSON.parse(bytes);
@@ -231,14 +344,15 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
         || preparation.configFile !== path.join(attempt, 'NuGet.Config'))
     { throw new Error('NuGet preparation paths escape the exact task-owned transfer'); }
     const source = sealSourceIdentity(repositoryRoot);
-    const closure = behaviorDocNugetClosure(repositoryRoot);
+    const closure = purpose === 'matrix-native' ? matrixNativeNugetClosure(repositoryRoot) : behaviorDocNugetClosure(repositoryRoot);
     if (!equal(preparation.source, source) || !equal(preparation.closure, closure))
     {
         throw new Error('NuGet preparation source or locked graph drifted');
     }
     const transfer = preparation.transfer;
-    if (transfer?.runId !== runId || transfer.consumerId !== 'behavior-doc-nuget-transfer'
-        || !/^behavior-doc-nuget-transfer-[a-f0-9-]{36}$/u.test(transfer.key ?? '')
+    const consumerId = purpose === 'matrix-native' ? 'matrix-native-nuget-transfer' : 'behavior-doc-nuget-transfer';
+    if (transfer?.runId !== runId || transfer.consumerId !== consumerId
+        || !new RegExp(`^${consumerId}-[a-f0-9-]{36}$`, 'u').test(transfer.key ?? '')
         || transfer.root !== path.join(path.resolve(repositoryRoot), '.tmp/physical-executions'))
     { throw new Error('NuGet transfer is foreign to this scheduler run or original producer'); }
     const verified = await validateRunBoundProjection({ ...transfer, verifyOutputs: true });
@@ -252,10 +366,8 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
     }
     const allocationBlockSize = Number(fs.statfsSync(allocationRoot).bsize);
     const seed = inventoryPreparedNuget(preparation.root, allocationBlockSize);
-    const expectedCommand = ['dotnet', 'restore', 'tools/contracts/BehaviorDocRestore.slnx',
-        '--locked-mode', '--packages', seed.root, '--artifacts-path', preparation.artifactsRoot,
-        '/p:NuGetAudit=false', '/p:Configuration=Release', '--disable-parallel', '--source', preparation.feedRoot,
-        '--configfile', preparation.configFile];
+    const expectedCommand = nugetPreparationCommand({ purpose, packagesRoot: seed.root,
+        artifactsRoot: preparation.artifactsRoot, feedRoot: preparation.feedRoot, configFile: preparation.configFile });
     const physical = receipt.physicalExecution;
     const feed = inventoryNugetOfflineFeed(preparation.feedRoot, closure);
     const toolchain = receipt.physicalExecution?.toolchain;
@@ -311,6 +423,11 @@ export async function readPreparedBehaviorDocNuget({ repositoryRoot, runId, file
         || seed.treeDigest !== preparation.treeDigest)
     {
         throw new Error('NuGet transfer command, source, output or payload binding drifted');
+    }
+    if (purpose === 'matrix-native'
+        && !equal(physical.matrixNativeToolInputs, observeMatrixNativeNugetToolInputs(repositoryRoot)))
+    {
+        throw new Error('Matrix native SDK/compiler/runtime input bytes drifted');
     }
     validatePreparedNugetPackages(seed, closure, feed);
     return { ...seed, file: input, preparation, closure,

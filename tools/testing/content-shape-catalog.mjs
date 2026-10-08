@@ -72,9 +72,13 @@ function readJson(file)
 let extractorBuilt = false;
 const extractionCache = new Map();
 const projectionCache = new WeakMap();
-const extractorProject = path.join(repositoryRoot, 'tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj');
+export const matrixNativeProjects = Object.freeze({
+    extractor: 'tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj',
+    backend: 'src/backend/FsusBlog.Server.csproj'
+});
+const extractorProject = path.join(repositoryRoot, matrixNativeProjects.extractor);
 const extractorTargets = path.join(repositoryRoot, 'tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets');
-const backendProject = path.join(repositoryRoot, 'src/backend/FsusBlog.Server.csproj');
+const backendProject = path.join(repositoryRoot, matrixNativeProjects.backend);
 const extractionProcessRoot = path.join(repositoryRoot, '.tmp/content-field-contract-extractor', `process-${process.pid}`);
 const extractorArtifacts = path.join(extractionProcessRoot, 'extractor-artifacts');
 const backendArtifacts = path.join(extractionProcessRoot, 'backend-artifacts');

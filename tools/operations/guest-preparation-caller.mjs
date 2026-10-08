@@ -20,7 +20,13 @@ export function validateInputMounts(plan) {
 
 export function buildOriginalCall(plan) {
     closed(plan.source, ['repository', 'head', 'tree', 'filesystem']);
-    closed(plan.tool, ['node', 'nodeSha256', 'moduleSha256', 'sdk', 'feed', 'feedDigest']);
+    closed(plan.tool, ['node', 'nodeSha256', 'moduleSha256', 'sdk', 'feed', 'feedDigest',
+        ...(Object.hasOwn(plan.tool, 'purpose') ? ['purpose'] : [])]);
+    const purpose = plan.tool.purpose ?? 'behavior-doc';
+    if (!['behavior-doc', 'matrix-native'].includes(purpose))
+    {
+        throw new Error('Unknown original NuGet preparation purpose');
+    }
     closed(plan.guest, ['uid', 'gid', 'user', 'home', 'runtimeDirectory', 'userBus']);
     closed(plan.limits, ['logBytes', 'deadlineMs', 'killGraceMs', 'pollIntervalMs']);
     if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(plan.runId) || !/^[a-f0-9]{40,64}$/.test(plan.source.head) || !/^[a-f0-9]{40,64}$/.test(plan.source.tree) || !/^[a-f0-9]{64}$/.test(plan.tool.feedDigest) || !/^[a-z_][a-z0-9_-]*$/.test(plan.guest.user) || !Number.isSafeInteger(plan.guest.uid) || !Number.isSafeInteger(plan.guest.gid) || plan.guest.uid < 0 || plan.guest.gid < 0) throw new Error('explicit current guest/source/run identity required');
@@ -29,10 +35,12 @@ export function buildOriginalCall(plan) {
     const descriptor = path.join(plan.source.repository, '.tmp/behavior-doc-nuget-preparation', `${plan.runId}.json`);
     return {
         file: plan.tool.node,
-        args: [module, '--run-id', plan.runId, '--out', descriptor, '--feed-root', plan.tool.feed, '--feed-digest', plan.tool.feedDigest],
+        args: [module, '--run-id', plan.runId, '--out', descriptor, '--feed-root', plan.tool.feed, '--feed-digest', plan.tool.feedDigest,
+            ...(purpose === 'matrix-native' ? ['--purpose', purpose] : [])],
         module,
         descriptor,
-        env: { HOME: plan.guest.home, USER: plan.guest.user, LOGNAME: plan.guest.user, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC', XDG_RUNTIME_DIR: plan.guest.runtimeDirectory, DBUS_SESSION_BUS_ADDRESS: `unix:path=${plan.guest.userBus}`, DOTNET_ROOT: plan.tool.sdk, PATH: `${plan.tool.sdk}:${path.dirname(plan.tool.node)}:/usr/bin:/bin`, GIT_OPTIONAL_LOCKS: '0', GIT_NO_REPLACE_OBJECTS: '1' },
+        env: { HOME: plan.guest.home, USER: plan.guest.user, LOGNAME: plan.guest.user, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC', XDG_RUNTIME_DIR: plan.guest.runtimeDirectory, DBUS_SESSION_BUS_ADDRESS: `unix:path=${plan.guest.userBus}`, DOTNET_ROOT: plan.tool.sdk, PATH: `${plan.tool.sdk}:${path.dirname(plan.tool.node)}:/usr/bin:/bin`, GIT_OPTIONAL_LOCKS: '0', GIT_NO_REPLACE_OBJECTS: '1',
+            ...(purpose === 'matrix-native' ? { FSUSBLOG_CONTENT_FIELD_DOTNET: `${plan.tool.sdk}/dotnet` } : {}) }
     };
 }
 
