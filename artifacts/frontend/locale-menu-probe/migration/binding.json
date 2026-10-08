@@ -1,0 +1,223 @@
+{
+  "schema": "fsusblog.locale-selector-migration-wip.v1",
+  "qualification": false,
+  "createdAt": "2026-10-08T03:43:55.272Z",
+  "baseline": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "browserTestedBlogCommit": "b8b886fc25e4fc711a6e6a7a9570acb6bbab9276",
+  "browserTestedFsusUiCommit": "d4c9162e34ff002a0a34b491d4aea86d46ec2e4c",
+  "localRunId": "locale-menu-local-2026-10-08T03:41:47.665Z",
+  "publishedRunId": "locale-menu-published-2026-10-08T03:35:19.306Z",
+  "blogUnitTestedCommit": "b8b886fc25e4fc711a6e6a7a9570acb6bbab9276",
+  "fsusUiUnitTestedCommit": "d4c9162e34ff002a0a34b491d4aea86d46ec2e4c",
+  "sourceAndUnitBytesMatchFinalBrowserCandidate": true,
+  "sourceDigests": {
+    "src/frontend/src/components/ui/LocaleSelector.vue": "2124f2eec382f1b841d3d18677ffa95af3f9f7857a4f3bd62fe3c37ed61b7353",
+    "src/frontend/src/components/ui/localeSelectorTypes.ts": "eb24a55d368581327fc22f1f57add7d68d80f6b92a89362ff7e2018f9c7fe305",
+    "src/frontend/src/components/i18n/LocaleSelectorRuntimeAdapter.vue": "b4681b1b513b0cc63f5811f947ae515aedced1f4f52b9d246619b24d4c0eacb4",
+    "src/frontend/src/components/i18n/useLocaleSelectorRuntime.ts": "55a97189f5a84090a629c76b87a49b70c8932dca1a5a56670e5148589b061bd7",
+    "tests/frontend/unit/components/LocaleSelector.test.ts": "fa371526ed5421c27b28cabf9071a304944cdf50ac8ad6ca3d39e3b194d8fbfc",
+    "tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts": "e5f44b8e6aa73cfeac9b03668b7d7536a85492189dab994bf5bb1b70bc58bdcc"
+  },
+  "commands": [
+    {
+      "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI /tmp/chain-1891-d4c916-final",
+      "exitCode": 2,
+      "status": "failed capability gates",
+      "artifact": "local-probe.json"
+    },
+    {
+      "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs published /workspace/FsusBlog/src/frontend /tmp/chain-1891-b8b886-published",
+      "exitCode": 3,
+      "status": "blocked locked package unavailable",
+      "artifact": "published-probe.json"
+    },
+    {
+      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI node /workspace/FsusUI/node_modules/vitest/vitest.mjs run --config vitest.config.ts ../../tests/frontend/unit/components/LocaleSelector.test.ts ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts",
+      "cwd": "src/frontend",
+      "exitCode": 0,
+      "status": "33 tests passed",
+      "artifact": "blog-unit.log"
+    },
+    {
+      "command": "pnpm exec vitest run --config vue/vitest.config.ts vue/packages/components/dropdown/__tests__",
+      "cwd": "FsusUI",
+      "exitCode": 0,
+      "status": "36 tests passed",
+      "artifact": "fsusui-unit.log"
+    },
+    {
+      "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file src/frontend/src/components/ui/LocaleSelector.vue --file src/frontend/src/components/ui/localeSelectorTypes.ts --file src/frontend/src/components/i18n/LocaleSelectorRuntimeAdapter.vue --file src/frontend/src/components/i18n/useLocaleSelectorRuntime.ts --file tests/frontend/checks/runtime/probe-locale-menu.mjs",
+      "exitCode": 0,
+      "status": "five files checked",
+      "artifact": "style.log"
+    },
+    {
+      "command": "node tools/test/check-frontend-test-layout.mjs",
+      "exitCode": 0,
+      "status": "passed",
+      "artifact": "layout.log"
+    },
+    {
+      "command": "npm run typecheck:local-fsusui",
+      "cwd": "src/frontend",
+      "exitCode": 0,
+      "status": "public export contracts passed",
+      "artifact": "export-typecheck.log"
+    },
+    {
+      "command": "node node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p node_modules/.tmp/tsconfig.chain-1891.json",
+      "cwd": "src/frontend",
+      "exitCode": 0,
+      "status": "local export config plus isolated LocaleSelector.vue passed",
+      "artifact": "selector-typecheck.log"
+    },
+    {
+      "command": "pnpm typecheck:web",
+      "cwd": "FsusUI",
+      "exitCode": 1,
+      "status": "same two InteractionTraceFixture errors reproduced on clean f2b3bb baseline",
+      "artifact": "fsusui-web-typecheck.log",
+      "testedCommit": "d4c9162e34ff002a0a34b491d4aea86d46ec2e4c"
+    },
+    {
+      "command": "vue-tsc: broader consumer config including runtime adapter",
+      "exitCode": 2,
+      "status": "failed missing dependencies and wider app errors; no full acceptance claim",
+      "artifact": "broader-consumer-typecheck.log",
+      "sourceIdentity": "Historical dirty diagnostic workspace, not exact-candidate qualification evidence"
+    },
+    {
+      "command": "npm run build",
+      "cwd": "src/frontend",
+      "testedCommit": "b8b886fc25e4fc711a6e6a7a9570acb6bbab9276",
+      "exitCode": 1,
+      "status": "blocked incomplete install: @tailwindcss/vite missing in both Vite build stages",
+      "artifact": "build.log",
+      "testedFsusUiCommit": "377d0a884087d22a2346489c84e7115a5e76c110"
+    }
+  ],
+  "failed": [
+    "consumer-horizontal-overflow",
+    "consumer-label-clipping"
+  ],
+  "blocked": [
+    "locked published package access; no package publishing authorized",
+    "public multiline option content composition under closed #449 fixed-row contract"
+  ],
+  "notRun": [
+    "qualified production-route preference-service browser integration",
+    "independent screen-reader acceptance",
+    "real browser 200% zoom qualification",
+    "complete qualified theme/viewport/input matrix"
+  ],
+  "interruptedRuns": [
+    {
+      "directory": "/tmp/chain-1891-trigger-escape",
+      "exitCode": 143,
+      "reason": "stopped task-owned runner/browser while diagnosing infinite animation wait; no completed report"
+    },
+    {
+      "directory": "/tmp/chain-1891-a508-local",
+      "exitCode": 143,
+      "reason": "stopped task-owned runner/browser; spinner animation wait corrected; no completed report"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "README.md",
+      "sha256": "92272863e64584c7acbae8b17b3867f2c2cbe22e7d9776fdef5257445e265593"
+    },
+    {
+      "path": "blog-unit.log",
+      "sha256": "0b976e057a45adbed717249cb9907636a33ce5737c374f74bc8d754529078248"
+    },
+    {
+      "path": "broader-consumer-typecheck.log",
+      "sha256": "52cc2000e4f65c3acc58264ea80156aed77895873268c8e5e3ad9927d38b238e"
+    },
+    {
+      "path": "build.log",
+      "sha256": "1ea13c6e5158dcb6da7da1c033b6d6b8f7277afead26d4430715c839df73c617"
+    },
+    {
+      "path": "consumer-1440-dark-zoom1.png",
+      "sha256": "144cf291ef8bc49a5657221525ea5d9d8385414185a7730449925961390bbaa4"
+    },
+    {
+      "path": "consumer-375-dark-zoom2.png",
+      "sha256": "fc7af62341caba7b9ab0540656a085c15b576c2021b784e43ce54b962b2890db"
+    },
+    {
+      "path": "consumer-375-light-zoom1.png",
+      "sha256": "07f6ab49e8bea8f3d38d06fd7cd633c9afef26dd09a8ff635811be1569a416c5"
+    },
+    {
+      "path": "error-retry.png",
+      "sha256": "a60b715ee1965497bda45891cb000dbbb7cf32b572ccd43dee05f33b0f61d24a"
+    },
+    {
+      "path": "export-typecheck.log",
+      "sha256": "358509ba4e0ac2eccf2f50861bd8bb5c60a48d0369ba95bd553814f39be12805"
+    },
+    {
+      "path": "fsusui-377d0a88-introduced-type-error.log",
+      "sha256": "461acd09cccdf8ea644b95621395d5a680b3df4813a75ce4c9b0ca43717edd15"
+    },
+    {
+      "path": "fsusui-baseline-web-typecheck.log",
+      "sha256": "8bade51852ef575883abebae8bc1dcab4411c632121620f5a8712bd3b5c278ab"
+    },
+    {
+      "path": "fsusui-unit.log",
+      "sha256": "2f41f300cd6711c836b0952f8a5d32cf3c415645b857e484ec1da721b5c9e4b1"
+    },
+    {
+      "path": "fsusui-web-typecheck.log",
+      "sha256": "da7e9918a6bedf65a24dc95a5f382da0b8ea616461b9f0c9fb99b174fd45ebaa"
+    },
+    {
+      "path": "implementation-start-classification.json",
+      "sha256": "84acbb2a17947057eb3ad7792eed3776588ed01a19168b8fb343000e9e94fa5b"
+    },
+    {
+      "path": "layout.log",
+      "sha256": "54c7f56c7df3e73494f65d6c99d881fff8b6d69e561172e39df3cbb9c869c6d7"
+    },
+    {
+      "path": "local-command.log",
+      "sha256": "5ba8a9c7490541118b7f25fa6cbaed1ae7952a063222ad6f19b097f801d75caa"
+    },
+    {
+      "path": "local-probe.json",
+      "sha256": "9e1ef7acbe5e7587dff743ec79a9dd29d58133a0db994ba1b6e690c66df73fcf"
+    },
+    {
+      "path": "menu-alternative.png",
+      "sha256": "558ca8c7eed110f24c7f42d0ec193ca71d6aefd8bb62e605c2fc038fa2be53f2"
+    },
+    {
+      "path": "pending.png",
+      "sha256": "0ea8e13e676e3b4a894ab1b51a2781c23f9fa45ec145b97d1c287c6e4a1eb47d"
+    },
+    {
+      "path": "published-command.log",
+      "sha256": "cde388eff9fcc0e6da00ae720dbbb8b6d13a67cbe5a98ed8dfdaec2116b5bcba"
+    },
+    {
+      "path": "published-probe.json",
+      "sha256": "ff8d2e20236bf779888dc61e904dfb494223e36a0a3cea08d5d2e3b9c2bdf1be"
+    },
+    {
+      "path": "selector-typecheck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "style.log",
+      "sha256": "6a300504efe54bec9078e875eabb0087c6d59dec6a6b7fa3c66cc9782cfda02e"
+    },
+    {
+      "path": "upstream-implementation-start-classification.json",
+      "sha256": "f336a0f2c77efda2f873ea84b919793f46a8cb3ca904695b934eb94e643db971"
+    }
+  ]
+}

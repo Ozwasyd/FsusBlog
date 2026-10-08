@@ -2,7 +2,9 @@
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import * as localeApi from '@/locales'
 
 import LocaleSelectorRuntimeAdapter from '@/components/i18n/LocaleSelectorRuntimeAdapter.vue'
 import { projectLocaleSelectorItems } from '@/components/i18n/projectLocaleSelectorItems'
@@ -94,10 +96,58 @@ describe('useLocaleSelectorRuntime', () => {
 
     expect(activeLocale.value).toBe(previous)
     expect(runtime.errorMessage.value).toContain('Русский')
+    expect(runtime.retryLocale.value).toBe('ru-RU')
+    expect(runtime.pendingLocale.value).toBeNull()
     expect(runtime.menuOpen.value).toBe(false)
     runtime.handleOpenChange(true)
     expect(runtime.menuOpen.value).toBe(true)
   })
+  it('ignores an older rejection while the newest selection is pending', async () => {
+    let rejectOld!: (error: Error) => void
+    let finishNew!: () => void
+    const oldRequest = new Promise<never>((_, reject) => { rejectOld = reject })
+    const newRequest = new Promise<'ru-RU'>((resolve) => { finishNew = () => resolve('ru-RU') })
+    const request = vi.spyOn(localeApi, 'requestLocalePreference')
+      .mockImplementationOnce(() => oldRequest)
+      .mockImplementationOnce(() => newRequest)
+    const runtime = useLocaleSelectorRuntime()
+    runtime.handleOpenChange(true)
+    const oldSelection = runtime.commitFixedLocale('de-DE')
+    const newSelection = runtime.commitFixedLocale('ru-RU')
+    rejectOld(new Error('stale failure'))
+    await oldSelection
+    expect(runtime.errorMessage.value).toBeNull()
+    expect(runtime.retryLocale.value).toBeNull()
+    expect(runtime.menuOpen.value).toBe(true)
+    finishNew()
+    await newSelection
+    expect(runtime.menuOpen.value).toBe(false)
+    request.mockRestore()
+  })
+
+  it('ignores an older success while the newest selection remains pending', async () => {
+    let finishOld!: () => void
+    let rejectNew!: (error: Error) => void
+    const oldRequest = new Promise<'de-DE'>((resolve) => { finishOld = () => resolve('de-DE') })
+    const newRequest = new Promise<never>((_, reject) => { rejectNew = reject })
+    const request = vi.spyOn(localeApi, 'requestLocalePreference')
+      .mockImplementationOnce(() => oldRequest)
+      .mockImplementationOnce(() => newRequest)
+    const runtime = useLocaleSelectorRuntime()
+    runtime.handleOpenChange(true)
+    const oldSelection = runtime.commitFixedLocale('de-DE')
+    const newSelection = runtime.commitFixedLocale('ru-RU')
+    finishOld()
+    await oldSelection
+    expect(runtime.menuOpen.value).toBe(true)
+    rejectNew(new Error('latest failure'))
+    await newSelection
+    expect(runtime.retryLocale.value).toBe('ru-RU')
+    expect(runtime.errorMessage.value).toContain('Русский')
+    expect(runtime.activeLocale.value).toBe('ja-JP')
+    request.mockRestore()
+  })
+
 })
 
 describe('LocaleSelectorRuntimeAdapter', () => {
@@ -116,6 +166,7 @@ describe('LocaleSelectorRuntimeAdapter', () => {
       attachTo: document.body,
       global: {
         stubs: {
+          transition: false,
           Check: IconStub,
           Loading: IconStub,
           Refresh: IconStub
@@ -125,9 +176,10 @@ describe('LocaleSelectorRuntimeAdapter', () => {
     const root = wrapper.get('[data-locale-selector-runtime-adapter]')
     expect(root.attributes('data-active-locale')).toBe('ja-JP')
 
-    const codes = wrapper
-      .findAll('[data-locale-selector-item]')
-      .map((node) => node.attributes('data-locale-code'))
+    await wrapper.get('[data-locale-selector-trigger]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.get('[data-locale-selector-trigger]').attributes('aria-expanded')).toBe('true'))
+    const codes = [...document.querySelectorAll('[data-locale-selector-item]')]
+      .map((node) => node.getAttribute('data-locale-code'))
     expect(codes).toEqual(ENABLED_LOCALES.map((locale) => locale.code))
     expect(codes).toHaveLength(ENABLED_LOCALES.length)
     expect(codes).not.toEqual(['zh-CN', 'en-US'])
@@ -141,6 +193,7 @@ describe('LocaleSelectorRuntimeAdapter', () => {
       attachTo: document.body,
       global: {
         stubs: {
+          transition: false,
           Check: IconStub,
           Loading: IconStub,
           Refresh: IconStub

@@ -19,6 +19,8 @@ export type LocaleSelectorProps = Readonly<{
     items: readonly LocaleSelectorItem[];
     activeLocale: string;
     pendingLocale?: string | null;
+    /** Failed request target; independent of the committed and pending locale. */
+    retryLocale?: string | null;
     /** Controlled open state. Omit for internal open ownership. */
     open?: boolean;
     disabled?: boolean;

@@ -1,0 +1,49 @@
+{
+  "schema": "fsusblog-design-conformance.ui-classification-receipt.v2",
+  "domainPolicyDigest": "a0c0120751f77f81ecb32dad389fd1e8465035576a81444b8daec463fa76b82f",
+  "repository": "Ozwasyd/FsusBlog",
+  "issueId": "#1891",
+  "uiImpact": true,
+  "ownerRepository": "Ozwasyd/FsusBlog",
+  "affectedSurfaces": [
+    "LocaleSelector public-editorial utility and inherited overlay"
+  ],
+  "uiDecisionClass": "bounded-composition",
+  "verificationClass": "ux-path",
+  "requiredDesignAuthorities": [
+    {
+      "id": "FsusBlog design Skill",
+      "digest": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73"
+    },
+    {
+      "id": "FsusUI design Skill",
+      "digest": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+    }
+  ],
+  "fsusUIBaseline": {
+    "repository": "Ozwasyd/FsusUI",
+    "revision": "781a211875f6fdda775d461ea7673c5c2d09ef80",
+    "mode": "local-source",
+    "publishedPin": "1.5.1",
+    "publishedProbe": "blocked package access; no parity qualification"
+  },
+  "stateEvidenceMatrix": [
+    "Source prerequisite: checked role, pending/retry, commands/URL, keyboard and Escape/outside; 1440x900 light Chromium",
+    "Required consumer coverage: 10 locales plus RTL direction, 375/1440,200% zoom,light/dark,forced colors,reduced motion,keyboard/touch; independent screen-reader qualification pending"
+  ],
+  "inScope": [
+    "One-way removal of LocaleSelector generic menu kernel in favor of public Dropdown primitives",
+    "Consumer active/pending/error/failed retry target and latest-wins projection",
+    "Existing component/runtime tests and real consumer browser evidence"
+  ],
+  "outOfScope": [
+    "FsusUI shared Menu files",
+    "Catalog/translation/backend/resource transaction ownership",
+    "Package publishing and independent UX acceptance"
+  ],
+  "candidateSha": "2e96536a482a0202cc965e47f5ed921fe01251d2",
+  "candidateIdentityDigest": "e40b8dcc953e9e8aaba962eb191cb325b0baf55f268f745261003853e95a23da",
+  "classificationEvidenceDigest": "bf6ae542f14606f57cee1e3218cf597f3e5d9e5df4f96b63bb764415d3cf6d90",
+  "status": "frozen",
+  "receiptDigest": "38d15c5a9c03e0b52a4b78a86582f3cc87dfe6e7021c38446cfd0f1cfe43f4a3"
+}

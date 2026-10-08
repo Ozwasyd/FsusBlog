@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.locale-menu-api-probe.v1",
+    "runId": "locale-menu-published-2026-10-08T03:35:19.306Z",
+    "mode": "published",
+    "blogCommit": "b8b886fc25e4fc711a6e6a7a9570acb6bbab9276",
+    "blogStatus": "",
+    "localRoot": null,
+    "localCommit": null,
+    "localTree": null,
+    "localStatus": null,
+    "nodeVersion": "v24.19.0",
+    "harnessDigests": {
+        "tests/frontend/fixtures/localeMenuProbe/App.vue": "e7ba645a0d71cda83a8f36b15cbe6441e59f354ee1da9e6be43f71bd140ac600",
+        "tests/frontend/fixtures/localeMenuProbe/Consumer.vue": "d8fabac443ade7bbe40f1aa87dd5795a81a42b56aadb8455a7baeb44cb1ee918",
+        "tests/frontend/fixtures/localeMenuProbe/main.ts": "e295dd61fbd7e3c13ec4de264607f090240f918dfe9dc3b56cd6e8ce667eaf80",
+        "tests/frontend/fixtures/localeMenuProbe/index.html": "52f5c8e6b05020c7461fdf72535610a26b98cb6d3f2f73c1419e7ad7d9e372eb",
+        "tests/frontend/checks/runtime/probe-locale-menu.mjs": "b5a2d41318c73e82cb446d176f649a4d6bf2cce65b057398fc56724a7c6f61bf"
+    },
+    "authorityDigests": {},
+    "observations": {},
+    "errors": [
+        "Error: ENOENT: no such file or directory, open '/workspace/FsusBlog/src/frontend/node_modules/@ozwasyd/element-plus/package.json'\n    at async open (node:internal/fs/promises:697:25)\n    at async Object.readFile (node:internal/fs/promises:1348:14)\n    at async file:///workspace/FsusBlog/tests/frontend/checks/runtime/probe-locale-menu.mjs:72:40"
+    ],
+    "qualification": false,
+    "status": "blocked"
+}

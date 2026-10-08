@@ -1,0 +1,8 @@
+npm error code E401
+npm error 401 Unauthorized - GET https://npm.pkg.github.com/download/@ozwasyd/element-plus/1.5.1/7c16b0a4b4280f1bc623e421254a34a763dee27e - unauthenticated: User cannot be authenticated with the token provided.
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+npm error A complete log of this run can be found in: /tmp/chain-1891-npm-cache/_logs/2026-10-08T02_34_56_775Z-debug-0.log

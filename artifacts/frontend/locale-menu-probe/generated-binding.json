@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/frontend/checks/runtime/probe-locale-menu.mjs",
+        "tests/frontend/fixtures/localeMenuProbe/App.vue",
+        "tests/frontend/fixtures/localeMenuProbe/main.ts",
+        "tests/frontend/fixtures/localeMenuProbe/index.html"
+    ],
+    "outputs": [
+        {
+            "path": "artifacts/frontend/locale-menu-probe/local-probe.json",
+            "sha256": "9c43f3f134566e786c11ec50a6a4f406617496b720f3b01fa1c775c66cb19f12"
+        },
+        {
+            "path": "artifacts/frontend/locale-menu-probe/published-probe.json",
+            "sha256": "048233e25ea51ab20ae80aedacdabdf4195aeb49bbebbc6693defa00bb8ca61c"
+        },
+        {
+            "path": "artifacts/frontend/locale-menu-probe/pending.png",
+            "sha256": "a931a7b7a361c700e8cc1bd8c84efa79423dfeceeb9f8b6481a0eae50d0bfb6f"
+        },
+        {
+            "path": "artifacts/frontend/locale-menu-probe/error-retry.png",
+            "sha256": "5c73a289426f0425915ff82f1175dcc4282170b9128eae29bc06cce971c31642"
+        },
+        {
+            "path": "artifacts/frontend/locale-menu-probe/menu-alternative.png",
+            "sha256": "0f7ae13197ea2ba1633c60d615ceb15f595248c03b536bc53a92e7c26dce9645"
+        }
+    ]
+}
