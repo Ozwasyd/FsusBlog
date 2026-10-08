@@ -50,8 +50,6 @@ const allowedRuntimeEnvironmentKeys = new Set([
     'Jwt__Issuer',
     'Jwt__Audience',
     'Jwt__AccessTokenExpiresMinutes',
-    'Jwt__RotationWindowDays',
-    'Jwt__LegacyNoKidAcceptUntilUtc',
     'Security__Pow__SigningKey',
     'Security__Pow__BaseDifficulty',
     'Security__Pow__MaxDifficulty',

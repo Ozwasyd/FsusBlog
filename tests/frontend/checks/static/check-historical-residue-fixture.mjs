@@ -13,6 +13,17 @@ const runtimeBridgeMethod = ['BridgeToLegacy', 'Authoring', 'EndpointAsync'].joi
 
 const violationCases = [
     {
+        name: 'current session retired strength',
+        expected: 'current session authentication or signing compatibility residue detected',
+        files: { 'src/backend/Entities/UserSessionAuthenticationContext.cs': 'public const string LegacyVerified = "legacy_verified";\n' }
+    },
+    {
+        name: 'current session previous signing key',
+        expected: 'current session authentication or signing compatibility residue detected',
+        files: { 'src/backend/Infrastructure/Helpers/JwtHelper.cs': 'public string PreviousKeys { get; set; }\n' }
+    },
+
+    {
         name: 'current auth mode false switch',
         expected: 'current auth mode or password compatibility residue detected',
         files: { 'config/examples/.env.production.example': 'FSUSBLOG_ANONYMOUS_IDENTITY_MODE=false\n' }

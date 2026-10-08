@@ -1,3 +1,4 @@
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
@@ -14,6 +15,25 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class UserBootstrapLoginMfaBoundaryTests
 {
+    [Fact]
+    public void LoginPorts_RequireCurrentContextAndExposeNoAuthenticationOrDurationBooleanOverloads()
+    {
+        foreach (Type owner in new[] { typeof(IUserLoginWorkflowService), typeof(IUserSessionFixtureLoginWorkflow), typeof(UserLoginWorkflowService) })
+        {
+            var methods = owner.GetMethods().Where(static method =>
+                method.Name is "CompleteLoginAsync" or "CompleteFixtureLoginAsync").ToArray();
+            Assert.NotEmpty(methods);
+            foreach (var method in methods)
+            {
+                var parameters = method.GetParameters();
+                var context = Assert.Single(parameters, static parameter => parameter.Name == "authenticationContext");
+                Assert.Equal(typeof(UserSessionAuthenticationContext), context.ParameterType);
+                Assert.False(context.IsOptional);
+                Assert.DoesNotContain(parameters, static parameter => parameter.ParameterType == typeof(bool));
+            }
+        }
+    }
+
     [Fact]
     public void DependencyGraph_BootstrapAndLoginOwnPersistenceWithoutUserServiceCallback()
     {

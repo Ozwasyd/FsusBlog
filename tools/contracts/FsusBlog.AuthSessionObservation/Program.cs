@@ -10,6 +10,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.AuthSystem;
 
 return AuthSessionObservationHost.Run(args);
 
@@ -71,39 +72,25 @@ internal static class AuthSessionObservationHost
     {
         List<string> failures = [];
 
-        string[] methods = SortedUnique(
-            UserSessionAuthenticationMethods.Passkey,
-            UserSessionAuthenticationMethods.RecoveryKey,
-            UserSessionAuthenticationMethods.Enrollment,
-            UserSessionAuthenticationMethods.Other);
-
-        string[] activeStrengths = SortedUnique(
-            UserSessionAuthenticationStrengths.WebAuthnUv,
-            UserSessionAuthenticationStrengths.Mfa,
-            UserSessionAuthenticationStrengths.Recovery);
-
-        string[] legacyStrengths = SortedUnique(
-            UserSessionAuthenticationStrengths.LegacyVerified,
-            UserSessionAuthenticationStrengths.LegacyUnverified);
-
-        // Fail closed if production IsValid admits something outside active+legacy partition.
-        foreach (string strength in activeStrengths.Concat(legacyStrengths))
+        string[] methods = typeof(UserSessionAuthenticationMethods).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(static field => field.IsLiteral && field.FieldType == typeof(string))
+            .Select(static field => (string)field.GetRawConstantValue()!)
+            .OrderBy(static value => value, StringComparer.Ordinal).ToArray();
+        string[] activeStrengths = typeof(UserSessionAuthenticationStrengths).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(static field => field.IsLiteral && field.FieldType == typeof(string))
+            .Select(static field => (string)field.GetRawConstantValue()!)
+            .OrderBy(static value => value, StringComparer.Ordinal).ToArray();
+        foreach (string strength in activeStrengths)
         {
             if (!UserSessionAuthenticationStrengths.IsValid(strength))
             {
                 failures.Add($"strength catalog inconsistent for {strength}");
             }
         }
-
-        if (UserSessionAuthenticationStrengths.IsValid(UserSessionAuthenticationStrengths.LegacyUnverified) is false)
+        if (UserSessionAuthenticationMethods.IsValid("other")
+            || UserSessionAuthenticationContract.IsValid("recovery_key", "recovery", 1))
         {
-            failures.Add("legacy_unverified must remain readable for migration");
-        }
-
-        // Active current-auth strengths must not include legacy_* values.
-        if (activeStrengths.Any(static value => value.StartsWith("legacy_", StringComparison.Ordinal)))
-        {
-            failures.Add("active authentication strengths must not include legacy_* values");
+            failures.Add("unsupported authentication producer admitted by current catalog");
         }
 
         string[] durationModes = SortedUnique(
@@ -172,9 +159,10 @@ internal static class AuthSessionObservationHost
 
         // JWT claim names for authentication context (must match DB session validation).
         string[] jwtAuthClaims = SortedUnique(
-            "auth_method",
-            "auth_strength",
-            "auth_time",
+            CurrentAuthSessionClaims.AuthenticationMethod,
+            CurrentAuthSessionClaims.AuthenticationStrength,
+            CurrentAuthSessionClaims.AuthenticatedAt,
+            CurrentAuthSessionClaims.DurationPolicy,
             UserSessionModes.ClaimType,
             "mfa",
             "sid");
@@ -219,14 +207,14 @@ internal static class AuthSessionObservationHost
             }
         }
 
-        // MFA coarse flag must derive from strength catalog, not a parallel authority.
-        if (!UserSessionAuthenticationStrengths.IsCoarseMfa(UserSessionAuthenticationStrengths.WebAuthnUv)
-            || !UserSessionAuthenticationStrengths.IsCoarseMfa(UserSessionAuthenticationStrengths.Mfa)
-            || !UserSessionAuthenticationStrengths.IsCoarseMfa(UserSessionAuthenticationStrengths.Recovery)
-            || !UserSessionAuthenticationStrengths.IsCoarseMfa(UserSessionAuthenticationStrengths.LegacyVerified)
-            || UserSessionAuthenticationStrengths.IsCoarseMfa(UserSessionAuthenticationStrengths.LegacyUnverified))
+        // Coarse MFA is a projection of a complete valid producer context, never a strength-only upgrade.
+        if (!UserSessionAuthenticationContract.IsCoarseMfa(UserSessionAuthenticationMethods.Passkey, UserSessionAuthenticationStrengths.WebAuthnUv, 1)
+            || !UserSessionAuthenticationContract.IsCoarseMfa(UserSessionAuthenticationMethods.Passkey, UserSessionAuthenticationStrengths.Mfa, 1)
+            || UserSessionAuthenticationContract.IsCoarseMfa("other", UserSessionAuthenticationStrengths.Mfa, 1)
+            || UserSessionAuthenticationContract.IsCoarseMfa(UserSessionAuthenticationMethods.Passkey, "legacy_verified", 1)
+            || UserSessionAuthenticationContract.IsCoarseMfa(UserSessionAuthenticationMethods.Passkey, UserSessionAuthenticationStrengths.Mfa, null))
         {
-            failures.Add("IsCoarseMfa catalog partition drifted");
+            failures.Add("current authentication/coarse MFA projection drifted");
         }
 
         string[] mfaStates = SortedUnique("disabled", "pending_enrollment", "enabled");
@@ -299,31 +287,31 @@ internal static class AuthSessionObservationHost
                 "subject-to-object",
                 "all authentication and step-up scopes",
                 "false",
-                "UserSessionAuthenticationStrengths.IsCoarseMfa",
-                "src/backend/Entities/UserSessionAuthenticationContext.cs",
+                "UserSessionAuthenticationContract.IsCoarseMfa",
+                "src/shared/Contracts/AuthSystem/UserSessionAuthenticationContract.generated.cs",
                 ["UserBootstrapLoginMfaBoundaryTests.PasskeyAndTotpRemainDistinctAuthenticationMethods"]),
             Relation(
                 "auth.relation.recovery-auth-strength",
                 "auth.method.recovery_key",
                 "results-in",
-                $"auth.strength.{UserSessionAuthenticationStrengths.Recovery}",
+                "auth.strength.recovery",
                 "subject-to-object",
-                "successful Recovery Key login completion",
-                "true",
-                "UserLoginWorkflowService.CompleteRecoveryLoginAsync",
-                "src/backend/Services/UserLoginWorkflowService.cs",
-                ["RecoveryKeyServiceTests.VerifyCompletion_CreatesRecoveryAuthenticationContext"]),
+                "Recovery Key verification has no current ordinary-session JWT producer",
+                "false",
+                "UserSessionAuthenticationContract.IsSupportedCombination",
+                "src/shared/Contracts/AuthSystem/UserSessionAuthenticationContract.generated.cs",
+                ["UserSessionAuthenticationContextTests.UnsupportedContext_IsNeverRepairedOrUpgradedFromMfaBoolean"]),
             Relation(
                 "auth.relation.recovery-does-not-mint-step-up",
                 "auth.recovery.completion",
                 "mints",
                 "auth.step-up.proof",
                 "subject-to-object",
-                "successful Recovery Key login completion without a separate step-up flow",
+                "Recovery Key verification returns a recovery registration envelope, not an action-bound MFA proof",
                 "false",
-                "UserLoginWorkflowService.CompleteRecoveryLoginAsync",
-                "src/backend/Services/UserLoginWorkflowService.cs",
-                ["UserSecurityStepUpServiceTests.RecoveryContext_DoesNotReplaceActionBoundProof"]),
+                "RecoveryKeyService.VerifyAsync",
+                "src/backend/Services/Security/RecoveryKeyService.cs",
+                ["RecoveryKeyServiceTests.RecoveryKeyService_SessionEnvelopeRoundTripUsesAccountIdentity"]),
             Relation(
                 "auth.relation.step-up-binding",
                 "auth.step-up.proof",
@@ -400,13 +388,7 @@ internal static class AuthSessionObservationHost
             },
             ["auth.authentication-strengths"] = new JsonObject
             {
-                ["active"] = ToJsonArray(activeStrengths),
-                ["legacy"] = new JsonObject
-                {
-                    ["values"] = ToJsonArray(legacyStrengths),
-                    ["writeAllowed"] = false,
-                    ["readMigrationOnly"] = true
-                }
+                ["active"] = ToJsonArray(activeStrengths)
             },
             ["auth.session.duration-modes"] = new JsonObject
             {

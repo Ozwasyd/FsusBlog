@@ -448,7 +448,6 @@ public sealed class ProductionStartupValidatorTests
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["Jwt:KeyVersion"] = "v2-2026-07",
             ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
-            ["Jwt:RotationWindowDays"] = "30",
             ["AllowedHosts"] = "example.com;www.example.com",
             ["CORS_ALLOWED_HOSTS"] = "https://example.com,https://www.example.com",
             ["Seo:BaseUrl"] = "https://example.com",
@@ -590,13 +589,12 @@ public sealed class ProductionStartupValidatorTests
 
     [Fact]
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
-    public void ValidateCore_AcceptsBoundedIndependentPreviousJwtKey()
+    public void ValidateCore_AcceptsOneCurrentIndependentJwtKey()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
         {
-            ["Jwt:PreviousKeys:0:Version"] = "v1-2026-01",
-            ["Jwt:PreviousKeys:0:Key"] = TestSecrets.SecondaryJwtSigningKey,
-            ["Jwt:PreviousKeys:0:AcceptUntilUtc"] = DateTimeOffset.UtcNow.AddDays(7).ToString("O")
+            ["Jwt:KeyVersion"] = "v3-2026-10",
+            ["Jwt:SecretKey"] = TestSecrets.SecondaryJwtSigningKey
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
@@ -662,7 +660,7 @@ public sealed class ProductionStartupValidatorTests
 
     [Fact]
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "jwt-previous-key-rotation-bounded-independent")]
-    public void ValidateCore_RejectsDuplicateWeakOrUnboundedPreviousJwtKey()
+    public void ValidateCore_RejectsPreviousJwtKeyConfigurationEntirely()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
         {
@@ -673,9 +671,25 @@ public sealed class ProductionStartupValidatorTests
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
 
-        Assert.Contains(errors, static error => error.Contains("PreviousKeys:0:Version", StringComparison.Ordinal));
-        Assert.Contains(errors, static error => error.Contains("PreviousKeys:0:Key", StringComparison.Ordinal));
-        Assert.Contains(errors, static error => error.Contains("RotationWindowDays", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("PreviousKeys", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("current signing contract", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("LegacyNoKidAcceptUntilUtc", "2026-10-15T00:00:00Z")]
+    [InlineData("RotationWindowDays", "30")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "jwt-current-signing-contract-rejects-retired-windows")]
+    public void ValidateCore_RejectsRetiredJwtWindowConfiguration(string key, string value)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [$"Jwt:{key}"] = value
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, error => error.Contains(key, StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("current signing contract", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1056,7 +1070,6 @@ public sealed class ProductionStartupValidatorTests
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["Jwt:KeyVersion"] = "v2-2026-07",
             ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
-            ["Jwt:RotationWindowDays"] = "30",
             ["AllowedHosts"] = "example.com",
             ["CORS_ALLOWED_HOSTS"] = "https://example.com",
             ["Seo:BaseUrl"] = "https://example.com",
@@ -1178,7 +1191,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(21, report.SchemaVersion);
+        Assert.Equal(23, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -1186,7 +1199,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.DoesNotContain("FSUSBLOG_ANONYMOUS_IDENTITY_MODE", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Jwt:SecretKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Jwt:KeyVersion", ProductionStartupValidator.CurrentSchema.RequiredSettings);
-        Assert.Contains("Jwt:RotationWindowDays", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.DoesNotContain("Jwt:RotationWindowDays", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Audit:DetachedCheckpoint:Enabled", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AllowedHosts", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:ServerDomain", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -1278,7 +1291,6 @@ public sealed class ProductionStartupValidatorTests
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["Jwt:KeyVersion"] = "v2-2026-07",
             ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
-            ["Jwt:RotationWindowDays"] = "30",
             ["AllowedHosts"] = "example.com",
             ["CORS_ALLOWED_HOSTS"] = "https://example.com",
             ["Seo:BaseUrl"] = "https://example.com",
@@ -1526,7 +1538,6 @@ public sealed class ProductionStartupValidatorTests
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["Jwt:KeyVersion"] = "v2-2026-07",
             ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
-            ["Jwt:RotationWindowDays"] = "30",
             ["AllowedHosts"] = "example.com;www.example.com",
             ["CORS_ALLOWED_HOSTS"] = "https://example.com,https://www.example.com",
             ["Seo:BaseUrl"] = "https://example.com",

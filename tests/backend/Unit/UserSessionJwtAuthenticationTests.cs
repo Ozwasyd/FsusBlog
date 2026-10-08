@@ -9,6 +9,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Governance;
@@ -41,7 +42,7 @@ public sealed class UserSessionJwtAuthenticationTests
         IssuedAccessToken token = app.Services.GetRequiredService<IJwtHelper>().GenerateAccessToken(
             OrdinaryAccount(),
             sessionId: "revoked-session",
-            mfaVerified: true);
+            authenticationContext: CurrentContext());
         using HttpClient client = app.GetTestClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/binary/notification-stream/protected");
         request.Headers.Add("Cookie", $"AccessToken={token.Token}");
@@ -151,22 +152,18 @@ public sealed class UserSessionJwtAuthenticationTests
 
     [Fact]
     [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
-    public async Task ProtectedEndpoint_AcceptsPreviousKidInsideRotationWindow()
+    public async Task ProtectedEndpoint_AcceptsOnlyCurrentKidWithCurrentSessionBinding()
     {
         var userValidator = Substitute.For<IUserSessionValidationService>();
         userValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(UserSessionValidationResult.Valid));
         var adminValidator = Substitute.For<IAdminSessionValidationService>();
-        string acceptUntil = DateTimeOffset.UtcNow.AddDays(7).ToString("O");
         await using WebApplication app = await StartHostAsync(userValidator, adminValidator, new Dictionary<string, string?>
         {
             ["Jwt:KeyVersion"] = "v2-2026-07",
-            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
-            ["Jwt:PreviousKeys:0:Version"] = "v1-2026-01",
-            ["Jwt:PreviousKeys:0:Key"] = TestSecrets.SecondaryJwtSigningKey,
-            ["Jwt:PreviousKeys:0:AcceptUntilUtc"] = acceptUntil
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey
         });
-        string token = CreateOrdinaryToken(TestSecrets.SecondaryJwtSigningKey, "v1-2026-01");
+        string token = CreateOrdinaryToken(TestSecrets.JwtSigningKey, "v2-2026-07");
         using HttpClient client = app.GetTestClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
         request.Headers.Add("Cookie", $"AccessToken={token}");
@@ -175,8 +172,50 @@ public sealed class UserSessionJwtAuthenticationTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         await userValidator.Received(1).ValidateAsync(
-            Arg.Is<ClaimsPrincipal>(principal => principal.FindFirst("sid")!.Value == "rotation-session"),
+            Arg.Is<ClaimsPrincipal>(principal =>
+                principal.FindFirst("sid")!.Value == "rotation-session" &&
+                principal.FindFirst(CurrentAuthSessionClaims.AuthenticationMethod)!.Value == UserSessionAuthenticationMethods.Passkey &&
+                principal.FindFirst(CurrentAuthSessionClaims.AuthenticationStrength)!.Value == UserSessionAuthenticationStrengths.WebAuthnUv &&
+                principal.FindFirst(CurrentAuthSessionClaims.DurationPolicy)!.Value == UserSessionDurationPolicies.BrowserSession &&
+                principal.FindFirst(CurrentAuthSessionClaims.SessionMode)!.Value == "normal" &&
+                !principal.Claims.Any(claim => claim.Type.Contains("credential", StringComparison.OrdinalIgnoreCase))),
             Arg.Any<CancellationToken>());
+        await adminValidator.DidNotReceive().ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        Assert.False(response.Headers.TryGetValues("Set-Cookie", out _));
+    }
+
+    [Theory]
+    [InlineData("previous-key")]
+    [InlineData("current-key")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "jwt-previous-kid-rejected-before-former-deadline")]
+    public async Task ProtectedEndpoint_RejectsPreviousKidBeforeFormerAcceptanceDeadline(string signingMaterial)
+    {
+        var userValidator = Substitute.For<IUserSessionValidationService>();
+        userValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(UserSessionValidationResult.Valid));
+        var adminValidator = Substitute.For<IAdminSessionValidationService>();
+        DateTime formerAcceptUntilUtc = DateTime.UtcNow.AddDays(7);
+        DateTime tokenExpiresUtc = DateTime.UtcNow.AddMinutes(10);
+        Assert.True(tokenExpiresUtc < formerAcceptUntilUtc);
+        await using WebApplication app = await StartHostAsync(userValidator, adminValidator, new Dictionary<string, string?>
+        {
+            ["Jwt:KeyVersion"] = "v2-2026-07",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey
+        });
+        string secret = signingMaterial switch
+        {
+            "previous-key" => TestSecrets.SecondaryJwtSigningKey,
+            "current-key" => TestSecrets.JwtSigningKey,
+            _ => throw new ArgumentOutOfRangeException(nameof(signingMaterial))
+        };
+        string token = CreateOrdinaryToken(secret, "v1-2026-01", expires: tokenExpiresUtc);
+        using HttpClient client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        request.Headers.Add("Cookie", $"AccessToken={token}; RefreshToken=old-refresh; SessionId=old-session");
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        await AssertRejectedBeforeSessionEffectsAsync(app, response, userValidator, adminValidator);
     }
 
     [Fact]
@@ -190,20 +229,16 @@ public sealed class UserSessionJwtAuthenticationTests
         await using WebApplication app = await StartHostAsync(userValidator, adminValidator, new Dictionary<string, string?>
         {
             ["Jwt:KeyVersion"] = "v2-2026-07",
-            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
-            ["Jwt:PreviousKeys:0:Version"] = "v1-2026-01",
-            ["Jwt:PreviousKeys:0:Key"] = TestSecrets.SecondaryJwtSigningKey,
-            ["Jwt:PreviousKeys:0:AcceptUntilUtc"] = DateTimeOffset.UtcNow.AddDays(7).ToString("O")
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey
         });
-        string token = CreateOrdinaryToken(TestSecrets.SecondaryJwtSigningKey, "unknown-kid");
+        string token = CreateOrdinaryToken(TestSecrets.JwtSigningKey, "unknown-kid");
         using HttpClient client = app.GetTestClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
         request.Headers.Add("Cookie", $"AccessToken={token}");
 
         using HttpResponseMessage response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        await userValidator.DidNotReceive().ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>());
+        await AssertRejectedBeforeSessionEffectsAsync(app, response, userValidator, adminValidator);
     }
 
     [Theory]
@@ -252,11 +287,12 @@ public sealed class UserSessionJwtAuthenticationTests
             Arg.Any<ClaimsPrincipal>(),
             Arg.Any<string>(),
             Arg.Any<CancellationToken>());
+        await AssertRejectedBeforeSessionEffectsAsync(app, response, userValidator, adminValidator);
     }
 
     [Fact]
-    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Migration, InvariantId = "jwt-kid-migration-window")]
-    public async Task ProtectedEndpoint_AcceptsLegacyNoKidOnlyInsideExplicitMigrationWindow()
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "jwt-kid-migration-window")]
+    public async Task ProtectedEndpoint_RejectsCorrectlySignedTokenWithoutKid()
     {
         var userValidator = Substitute.For<IUserSessionValidationService>();
         userValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
@@ -265,8 +301,7 @@ public sealed class UserSessionJwtAuthenticationTests
         await using WebApplication app = await StartHostAsync(userValidator, adminValidator, new Dictionary<string, string?>
         {
             ["Jwt:KeyVersion"] = "v2-2026-07",
-            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
-            ["Jwt:LegacyNoKidAcceptUntilUtc"] = DateTimeOffset.UtcNow.AddHours(1).ToString("O")
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey
         });
         string token = CreateOrdinaryToken(TestSecrets.JwtSigningKey, keyVersion: null);
         using HttpClient client = app.GetTestClient();
@@ -275,7 +310,7 @@ public sealed class UserSessionJwtAuthenticationTests
 
         using HttpResponseMessage response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertRejectedBeforeSessionEffectsAsync(app, response, userValidator, adminValidator);
     }
 
     [Theory]
@@ -384,6 +419,69 @@ public sealed class UserSessionJwtAuthenticationTests
         Assert.Equal(0, projection.Snapshot().AuthorityReadCount);
     }
 
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("old-admin-kid", false)]
+    [InlineData("unknown", false)]
+    [InlineData("test-v1", true)]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "jwt-admin-single-current-key-refusal-clears-only-admin-cookies")]
+    public async Task AdminEndpoint_RejectsMissingOldUnknownKidOrOldSigningMaterial(string? kid, bool previousMaterial)
+    {
+        var userValidator = Substitute.For<IUserSessionValidationService>();
+        var adminValidator = Substitute.For<IAdminSessionValidationService>();
+        adminValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(AdminSessionValidationResult.Valid));
+        await using WebApplication app = await StartHostAsync(userValidator, adminValidator, new Dictionary<string, string?>
+        {
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey
+        });
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
+            previousMaterial ? TestSecrets.SecondaryJwtSigningKey : TestSecrets.JwtSigningKey)) { KeyId = kid };
+        var token = new JwtSecurityToken(
+            issuer: "issue-1052-tests", audience: "issue-1052-tests",
+            claims:
+            [
+                new Claim(CurrentAuthSessionClaims.IdentityKind, AnonymousIdentityRuntime.AdminPrincipalKind),
+                new Claim("admin_id", "7"),
+                new Claim("admin_sid", "old-admin-session"),
+                new Claim("sid", "old-admin-session")
+            ],
+            notBefore: DateTime.UtcNow.AddMinutes(-1), expires: DateTime.UtcNow.AddMinutes(10),
+            signingCredentials: new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256));
+        string encoded = new JwtSecurityTokenHandler().WriteToken(token);
+        using HttpClient client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/binary/admin/protected");
+        request.Headers.Add("Cookie", $"AdminAccessToken={encoded}; AdminSessionId=old-admin-session; RefreshToken=ordinary-refresh; SessionId=ordinary-session");
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        await AssertRejectedBeforeSessionEffectsAsync(app, response, userValidator, adminValidator, adminPlane: true);
+    }
+
+    private static async Task AssertRejectedBeforeSessionEffectsAsync(
+        WebApplication app,
+        HttpResponseMessage response,
+        IUserSessionValidationService userValidator,
+        IAdminSessionValidationService adminValidator,
+        bool adminPlane = false)
+    {
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await userValidator.DidNotReceive().ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>());
+        await adminValidator.DidNotReceive().ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        Assert.Empty(app.Services.GetRequiredService<IUserSessionCommandService>().ReceivedCalls());
+        Assert.Empty(app.Services.GetRequiredService<IUserLoginWorkflowService>().ReceivedCalls());
+        string[] cookies = response.Headers.GetValues("Set-Cookie").ToArray();
+        string[] clearedNames = adminPlane
+            ? ["AdminAccessToken", "AdminSessionId", "__Host-AdminAccessToken", "__Host-AdminSessionId"]
+            : ["AccessToken", "RefreshToken", "SessionId", "__Host-AccessToken", "__Host-RefreshToken", "__Host-SessionId"];
+        foreach (string name in clearedNames)
+        {
+            Assert.Contains(cookies, cookie => cookie.StartsWith(name + "=;", StringComparison.Ordinal) &&
+                cookie.Contains("expires=", StringComparison.OrdinalIgnoreCase));
+        }
+        Assert.Equal(clearedNames.Order(StringComparer.Ordinal), cookies.Select(cookie => cookie.Split('=', 2)[0]).Order(StringComparer.Ordinal));
+    }
+
     private static AdminSessionTouchScheduler CreateAdminTouches(IServiceProvider services)
         => new(services.GetRequiredService<IServiceScopeFactory>(),
             new AdminSessionProjectionRuntimeOptions(new AdminSessionProjectionLimits(16, 16, 1024 * 1024),
@@ -430,7 +528,6 @@ public sealed class UserSessionJwtAuthenticationTests
             ["Jwt:Issuer"] = "issue-1052-tests",
             ["Jwt:Audience"] = "issue-1052-tests",
             ["Jwt:AccessTokenExpiresMinutes"] = "15",
-            ["Jwt:RotationWindowDays"] = "30",
             ["AuthCookies:AllowInsecureTransportCookies"] = "true"
         };
         if (jwtOverrides is not null)
@@ -444,6 +541,8 @@ public sealed class UserSessionJwtAuthenticationTests
         builder.Services.AddSingleton<AuthCookieService>();
         builder.Services.AddSingleton(userValidator);
         builder.Services.AddSingleton(adminValidator);
+        builder.Services.AddSingleton(Substitute.For<IUserSessionCommandService>());
+        builder.Services.AddSingleton(Substitute.For<IUserLoginWorkflowService>());
         builder.Services.AddJwtAuthentication(builder.Configuration);
         builder.Services.AddAuthorization();
 
@@ -475,7 +574,13 @@ public sealed class UserSessionJwtAuthenticationTests
                 new Claim(ClaimTypes.NameIdentifier, "42"),
                 new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
                 new Claim(AccountSubjectHasher.ClaimType, new string('a', AccountSubjectHashRequirement.Sha256HexLength)),
-                new Claim("sid", "rotation-session")
+                new Claim("sid", "rotation-session"),
+                new Claim(CurrentAuthSessionClaims.AuthenticationMethod, UserSessionAuthenticationMethods.Passkey),
+                new Claim(CurrentAuthSessionClaims.AuthenticationStrength, UserSessionAuthenticationStrengths.WebAuthnUv),
+                new Claim(CurrentAuthSessionClaims.AuthenticatedAt, new DateTimeOffset(now).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                new Claim(CurrentAuthSessionClaims.DurationPolicy, UserSessionDurationPolicies.BrowserSession),
+                new Claim(CurrentAuthSessionClaims.SessionMode, "normal"),
+                new Claim("mfa", "1")
             ]),
             IssuedAt = notBefore ?? now,
             NotBefore = notBefore ?? now.AddMinutes(-1),
@@ -498,6 +603,10 @@ public sealed class UserSessionJwtAuthenticationTests
         segments[2] = new string(signature);
         return string.Join('.', segments);
     }
+
+    private static UserSessionAuthenticationContext CurrentContext()
+        => new(UserSessionAuthenticationMethods.Passkey, UserSessionAuthenticationStrengths.WebAuthnUv,
+            DateTime.UtcNow, CredentialRowId: 812, UserSessionDurationPolicies.BrowserSession);
 
     private static User OrdinaryAccount()
         => new()

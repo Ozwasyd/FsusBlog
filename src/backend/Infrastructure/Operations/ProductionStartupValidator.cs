@@ -63,7 +63,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 22;
+    private const int SchemaVersion = 23;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan s_coreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object s_coreValidationCacheLock = new();
@@ -154,7 +154,6 @@ public static class ProductionStartupValidator
         Value("RedisOptions:Configuration"),
         Value("Jwt:SecretKey"),
         Value("Jwt:KeyVersion"),
-        Value("Jwt:RotationWindowDays"),
         Value("AllowedHosts"),
         Value("CORS_ALLOWED_HOSTS"),
         Value("Seo:BaseUrl"),
@@ -324,11 +323,16 @@ public static class ProductionStartupValidator
 
         if (enforceProductionRules || !string.IsNullOrWhiteSpace(jwtSecret))
         {
-            JwtSettings jwtSettings = configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
-            errors.AddRange(JwtSigningKeyRing.Validate(
-                jwtSettings,
-                enforceProductionRules,
-                DateTimeOffset.UtcNow));
+            try
+            {
+                JwtSettings jwtSettings = configuration.GetSection("Jwt")
+                    .Get<JwtSettings>(static binder => binder.ErrorOnUnknownConfiguration = true) ?? new JwtSettings();
+                errors.AddRange(CurrentJwtSigningKey.Validate(jwtSettings, enforceProductionRules));
+            }
+            catch (InvalidOperationException exception)
+            {
+                errors.Add("Jwt configuration cannot bind to the current signing contract: " + exception.Message);
+            }
         }
 
         ValidateIndependentSecuritySecret("Security:Pow:SigningKey", powSigningKey, jwtSecret, [], errors);

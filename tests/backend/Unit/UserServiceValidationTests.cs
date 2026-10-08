@@ -608,6 +608,7 @@ public class UserServiceValidationTests
     [InlineData("deleted")]
     [InlineData("status")]
     [InlineData("identity")]
+    [InlineData("registration")]
     [InlineData("subject")]
     [InlineData("session")]
     [InlineData("proof")]
@@ -633,6 +634,9 @@ public class UserServiceValidationTests
                 break;
             case "identity":
                 account = account with { IdentityKind = AnonymousIdentityRuntime.AdminPrincipalKind };
+                break;
+            case "registration":
+                account = account with { RegistrationState = AccountRegistrationStates.Provisional };
                 break;
             case "subject":
                 account = account with { AccountSubjectHash = null };
@@ -688,7 +692,7 @@ public class UserServiceValidationTests
         var totp = Substitute.For<ITotpService>();
         var service = BuildService(db, Substitute.For<IJwtHelper>(), totp);
         UserMfaStepUpContext context = foreignAccount
-            ? await CreateMfaContextAsync(43, UserMfaManagementAction.Setup) : null!;
+            ? await CreateMfaContextAsync(43, UserMfaManagementAction.Setup) : default;
 
         var setup = await service.StartMfaSetupAsync(42, "FsusBlog", context);
         var disable = await service.DisableMfaAsync(42, context);
@@ -1370,6 +1374,56 @@ public class UserServiceValidationTests
             measurement.Name == "fsus.auth.refresh.family_revoke_window_count" && measurement.Value == 1);
     }
 
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("method")]
+    [InlineData("strength")]
+    [InlineData("credential")]
+    [InlineData("zero-credential")]
+    [InlineData("time")]
+    [InlineData("local-time")]
+    [InlineData("duration")]
+    [InlineData("mode")]
+    public async Task CompleteLoginAsync_InvalidCurrentContextRejectsBeforeDatabaseOrTokenEffects(string scenario)
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var jwt = Substitute.For<IJwtHelper>();
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        UserLoginWorkflowService service = BuildLoginService(db, jwt, cache);
+        UserSessionAuthenticationContext verified = VerifiedLoginAuthentication();
+        UserSessionAuthenticationContext invalid = scenario switch
+        {
+            "missing" => default,
+            "method" => verified with { Method = "unknown-method" },
+            "strength" => verified with { Strength = "unknown-strength" },
+            "credential" => verified with { CredentialRowId = null },
+            "zero-credential" => verified with { CredentialRowId = 0 },
+            "time" => verified with { AuthenticatedAtUtc = default },
+            "local-time" => verified with { AuthenticatedAtUtc = DateTime.SpecifyKind(verified.AuthenticatedAtUtc, DateTimeKind.Local) },
+            "duration" => verified with { DurationPolicy = "unknown-duration" },
+            "mode" => verified with { SessionMode = (UserSessionMode)byte.MaxValue },
+            _ => throw new ArgumentOutOfRangeException(nameof(scenario))
+        };
+        db.ClearReceivedCalls();
+        jwt.ClearReceivedCalls();
+        cache.ClearReceivedCalls();
+
+        var byId = await service.CompleteLoginAsync(42, "127.0.0.1", null, null, invalid);
+        var byEntity = await service.CompleteLoginAsync(new User { Id = 42, Status = 0 }, "127.0.0.1", null, null, invalid);
+        var byFixture = await service.CompleteFixtureLoginAsync(
+            42, "127.0.0.1", null, null, invalid, new UserSessionFixtureIdentity("fixture-session", "fixture-family"));
+
+        Assert.False(byId.Success);
+        Assert.False(byEntity.Success);
+        Assert.False(byFixture.Success);
+        Assert.Null(byId.Data);
+        Assert.Null(byEntity.Data);
+        Assert.Null(byFixture.Data);
+        Assert.Empty(db.ReceivedCalls());
+        Assert.Empty(jwt.ReceivedCalls());
+        Assert.Empty(cache.ReceivedCalls());
+    }
+
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
     public async Task CompleteLoginAsync_BannedUser_IssuesRestrictedSessionToken()
@@ -1394,8 +1448,7 @@ public class UserServiceValidationTests
             "127.0.0.1",
             deviceFingerprint: "device-1",
             userAgent: "test-agent",
-            mfaVerified: false,
-            rememberMe: false);
+            authenticationContext: VerifiedLoginAuthentication());
 
         Assert.True(success);
         Assert.Equal("登录成功", message);
@@ -1409,8 +1462,9 @@ public class UserServiceValidationTests
             bannedUser,
             Arg.Any<string>(),
             Arg.Is<UserSessionAuthenticationContext>(context =>
-                context.Method == UserSessionAuthenticationMethods.Other &&
-                context.Strength == UserSessionAuthenticationStrengths.LegacyUnverified &&
+                context.Method == UserSessionAuthenticationMethods.Passkey &&
+                context.Strength == UserSessionAuthenticationStrengths.WebAuthnUv &&
+                context.CredentialRowId == 41 &&
                 context.DurationPolicy == UserSessionDurationPolicies.BrowserSession &&
                 context.SessionMode == UserSessionMode.Restricted));
         _ = db.Received(1).Insertable(Arg.Is<UserSession>(session => session.SessionMode == UserSessionMode.Restricted));
@@ -1437,8 +1491,7 @@ public class UserServiceValidationTests
             "127.0.0.1",
             deviceFingerprint: "device-1",
             userAgent: "test-agent",
-            mfaVerified: true,
-            rememberMe: false);
+            authenticationContext: VerifiedLoginAuthentication());
 
         Assert.False(result.Success);
         Assert.Equal("账户已注销", result.Message);
@@ -1470,8 +1523,7 @@ public class UserServiceValidationTests
             "127.0.0.1",
             deviceFingerprint: "device-1",
             userAgent: "test-agent",
-            mfaVerified: true,
-            rememberMe: false);
+            authenticationContext: VerifiedLoginAuthentication());
 
         Assert.True(success);
         Assert.Equal("登录成功", message);
@@ -1485,8 +1537,9 @@ public class UserServiceValidationTests
             user,
             Arg.Any<string>(),
             Arg.Is<UserSessionAuthenticationContext>(context =>
-                context.Method == UserSessionAuthenticationMethods.Other &&
-                context.Strength == UserSessionAuthenticationStrengths.LegacyVerified &&
+                context.Method == UserSessionAuthenticationMethods.Passkey &&
+                context.Strength == UserSessionAuthenticationStrengths.WebAuthnUv &&
+                context.CredentialRowId == 41 &&
                 context.DurationPolicy == UserSessionDurationPolicies.BrowserSession &&
                 context.SessionMode == UserSessionMode.Normal));
         await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
@@ -1563,8 +1616,7 @@ public class UserServiceValidationTests
             "127.0.0.1",
             "device-42",
             "agent-42",
-            mfaVerified: true,
-            rememberMe: false);
+            authenticationContext: VerifiedLoginAuthentication());
 
         Assert.True(result.Success, result.Message);
         Assert.Equal(
@@ -1625,8 +1677,7 @@ public class UserServiceValidationTests
             "127.0.0.1",
             deviceFingerprint: null,
             userAgent: null,
-            mfaVerified: false,
-            rememberMe: false);
+            authenticationContext: VerifiedLoginAuthentication());
 
         Assert.False(result.Success);
         Assert.Equal("登录失败，请重试", result.Message);
@@ -1707,8 +1758,7 @@ public class UserServiceValidationTests
             "127.0.0.1",
             deviceFingerprint: null,
             userAgent: null,
-            mfaVerified: false,
-            rememberMe: false);
+            authenticationContext: VerifiedLoginAuthentication());
 
         Assert.False(result.Success);
         Assert.Equal(
@@ -1941,8 +1991,7 @@ public class UserServiceValidationTests
                 "127.0.0.1",
                 deviceFingerprint: null,
                 userAgent: null,
-                mfaVerified: false,
-                rememberMe: false));
+                authenticationContext: VerifiedLoginAuthentication()));
         Assert.Contains("login-restriction-audit", error.Message, StringComparison.Ordinal);
         jwt.DidNotReceive().GenerateRefreshToken();
     }
@@ -1965,6 +2014,11 @@ public class UserServiceValidationTests
 
     private static IDisposable SetAnonymousIdentityMode(string? value)
         => new EnvironmentVariableScope("FSUSBLOG_ANONYMOUS_IDENTITY_MODE", value);
+
+    // Login orchestration consumes this explicit verified-input fixture; FIDO acceptance has its own owner.
+    private static UserSessionAuthenticationContext VerifiedLoginAuthentication()
+        => new(UserSessionAuthenticationMethods.Passkey, UserSessionAuthenticationStrengths.WebAuthnUv,
+            DateTime.UnixEpoch.AddDays(1), 41, UserSessionDurationPolicies.BrowserSession);
 
     private static async Task<UserMfaStepUpContext> CreateMfaContextAsync(int accountId, UserMfaManagementAction action)
     {

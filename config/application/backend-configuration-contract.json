@@ -3103,97 +3103,6 @@
       "deprecation": null
     },
     {
-      "key": "Jwt:LegacyNoKidAcceptUntilUtc",
-      "owner": "authentication",
-      "purpose": "Authentication and session security setting: LegacyNoKidAcceptUntilUtc",
-      "valueType": "nullable-datetime",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [],
-      "secret": false,
-      "requiredStatus": "optional",
-      "requiredWhen": "optional",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": true,
-      "validation": {
-        "kind": "consumer",
-        "owner": "authentication runtime validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Infrastructure/Auth",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "Jwt:PreviousKeys",
-      "owner": "authentication",
-      "purpose": "Authentication and session security setting: PreviousKeys",
-      "valueType": "secret-array",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay",
-        "secret-store"
-      ],
-      "environmentVariables": [
-        "Jwt__PreviousKeys"
-      ],
-      "secret": true,
-      "requiredStatus": "conditional",
-      "requiredWhen": "when the owning feature is enabled",
-      "repositoryValuePolicy": "empty-only",
-      "allowEmptyBaseValue": true,
-      "validation": {
-        "kind": "feature-gate",
-        "owner": "authentication runtime validator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Infrastructure/Auth",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
-      "key": "Jwt:RotationWindowDays",
-      "owner": "authentication",
-      "purpose": "Authentication and session security setting: RotationWindowDays",
-      "valueType": "integer",
-      "environments": [
-        "Development",
-        "Production"
-      ],
-      "allowedSources": [
-        "environment",
-        "repository-base",
-        "repository-production-overlay"
-      ],
-      "environmentVariables": [
-        "Jwt__RotationWindowDays"
-      ],
-      "secret": false,
-      "requiredStatus": "required",
-      "requiredWhen": "Production",
-      "repositoryValuePolicy": "safe-non-secret-default",
-      "allowEmptyBaseValue": false,
-      "validation": {
-        "kind": "startup",
-        "owner": "ProductionStartupValidator"
-      },
-      "documentation": "docs/security.md",
-      "consumer": "src/backend/Infrastructure/Auth",
-      "runtimeOnly": false,
-      "deprecation": null
-    },
-    {
       "key": "Jwt:SecretKey",
       "owner": "authentication",
       "purpose": "Authentication and session security setting: SecretKey",
@@ -9421,19 +9330,6 @@
       "secret": false,
       "mapsTo": [
         "Jwt:KeyVersion"
-      ],
-      "sources": [
-        "config/examples/.env.production.example"
-      ],
-      "deprecation": null
-    },
-    {
-      "name": "Jwt__RotationWindowDays",
-      "category": "application-configuration",
-      "owner": "release-lifecycle",
-      "secret": false,
-      "mapsTo": [
-        "Jwt:RotationWindowDays"
       ],
       "sources": [
         "config/examples/.env.production.example"

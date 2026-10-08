@@ -12,6 +12,8 @@ This document defines ordinary-account `UserSession` login provenance, authentic
 
 ## Fields and login provenance
 
+The current authentication catalogs and producer combinations are owned by [the shared contract](../../src/shared/Contracts/AuthSystem/user-session-authentication-contract.json). `tools/contracts/generate-auth-session-contract.mjs` projects that source into C# and TypeScript; `--check` refuses projection drift. Session-list POD byte 19 carries the generated session-mode value without changing the 500-byte layout. Unsupported combinations, modes, and missing internal credential references are refused; public session lists and JWTs never expose that internal reference.
+
 The generated sections and controlled prose claims below carry the field list, methods, strengths, and current relations. The design rule is only that a Session records initial provenance and sensitive actions require separate action-bound proof.
 
 ## JWT and refresh
@@ -40,7 +42,7 @@ Generated sections alone specify duration-mode/Cookie projections and exact idle
 - login method and duration policy;
 - Passkey friendly name, only when present.
 
-Never return internal `AuthenticatedCredentialRowId`, raw WebAuthn credential ID, Refresh Token, JWT, proof, raw IP, full User-Agent, exact authenticator/device fingerprint, or cross-site high-entropy identifiers. Missing credential rows/names use a stable low-information fallback, never an internal ID. Displayed auth strength/MFA is not authorization; sensitive actions revalidate the current Session and consume action-bound proof.
+Never return internal `AuthenticatedCredentialRowId`, raw WebAuthn credential ID, Refresh Token, JWT, proof, raw IP, full User-Agent, exact authenticator/device fingerprint, or cross-site high-entropy identifiers. A missing internal credential reference invalidates the session context. Missing display names use a stable low-information fallback, never an internal ID. Displayed auth strength/MFA is not authorization; sensitive actions revalidate the current Session and consume action-bound proof.
 
 ## Migration and acceptance boundary
 

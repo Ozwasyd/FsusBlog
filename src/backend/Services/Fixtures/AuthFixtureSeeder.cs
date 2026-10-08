@@ -802,22 +802,24 @@ public sealed partial class AuthFixtureSeeder(
             return observedExisting;
         }
 
+        int firstCredentialRowId = await CompletePasskeyCeremonyAsync(user, subjectIdentity, cancellationToken);
         var outcomes = new List<(SessionTokenResponseDto Tokens, string DeviceSignal)>(count);
         for (int index = 0; index < count; index++)
         {
             bool remembered = role.CapabilityId == "session.remembered";
+            int credentialRowId = index == 0 ? firstCredentialRowId
+                : await CompletePasskeyAssertionAsync(user, subjectIdentity, cancellationToken);
             var authentication = new UserSessionAuthenticationContext(
-                UserSessionAuthenticationMethods.Other,
-                UserSessionAuthenticationStrengths.LegacyVerified,
+                UserSessionAuthenticationMethods.Passkey,
+                UserSessionAuthenticationStrengths.WebAuthnUv,
                 timeProvider.GetUtcNow().UtcDateTime,
+                credentialRowId,
                 DurationPolicy: UserSessionDurationPolicies.FromRememberMe(remembered));
             var login = await fixtureLoginWorkflow.CompleteFixtureLoginAsync(
                 user.Id,
                 "127.0.0.1",
                 role.DeviceSignals[index],
                 "fsusblog-auth-fixture",
-                mfaVerified: true,
-                rememberMe: remembered,
                 authentication,
                 new UserSessionFixtureIdentity(
                     role.SessionIdentities[index],
@@ -1070,8 +1072,6 @@ public sealed partial class AuthFixtureSeeder(
             "127.0.0.1",
             fixtureIdentity,
             "fsusblog-auth-fixture",
-            mfaVerified: true,
-            rememberMe: false,
             authentication,
             new UserSessionFixtureIdentity(
                 FixtureMfaIdentity(fixtureIdentity, "session"),
@@ -1085,8 +1085,8 @@ public sealed partial class AuthFixtureSeeder(
         string sessionId = login.Data.Value.SessionId;
         try
         {
-            const UserMfaManagementAction action = UserMfaManagementAction.Setup;
-            if (!UserMfaManagementActions.TryGetProofAction(action, out string proofAction)
+            const UserMfaManagementAction Action = UserMfaManagementAction.Setup;
+            if (!UserMfaManagementActions.TryGetProofAction(Action, out string proofAction)
                 || !AccountSubjectHashRequirement.TryResolve(login.User.Value.AccountSubjectHash, out string subjectHash))
             {
                 throw new InvalidOperationException("Current MFA fixture subject or action is invalid.");
@@ -1095,7 +1095,7 @@ public sealed partial class AuthFixtureSeeder(
                 user.Id, subjectHash, sessionId, proofAction,
                 UserSessionAuthenticationMethods.Passkey, TimeSpan.FromMinutes(5));
             UserMfaStepUpContext context = await UserMfaStepUpContext.VerifyAsync(
-                login.User.Value, sessionId, action, proofToken, mfaChallenges)
+                login.User.Value, sessionId, Action, proofToken, mfaChallenges)
                 ?? throw new InvalidOperationException("Current MFA fixture proof was rejected.");
             var setup = await mfaCommands.StartMfaSetupAsync(user.Id, "FsusBlog fixture", context);
             if (!setup.Success || !setup.Data.HasValue)
@@ -1144,6 +1144,19 @@ public sealed partial class AuthFixtureSeeder(
         if (!completed.Success)
         {
             throw new InvalidOperationException(completed.Message);
+        }
+        return await CompletePasskeyAssertionAsync(user, fixtureIdentity, cancellationToken);
+    }
+
+    private async Task<int> CompletePasskeyAssertionAsync(
+        User user,
+        string fixtureIdentity,
+        CancellationToken cancellationToken)
+    {
+        if (authenticator is null)
+        {
+            throw new InvalidOperationException(
+                "controlled WebAuthn authenticator is unavailable; validation cannot be weakened");
         }
         var assertionBegin = await passkeys.BeginAssertionAsync(cancellationToken);
         if (!assertionBegin.Success || assertionBegin.Data is null)

@@ -130,14 +130,14 @@ public class UserSession
         get; set;
     }
 
-    [SugarColumn(ColumnName = "authentication_method", Length = 24, DefaultValue = UserSessionAuthenticationMethods.Other)]
-    public string AuthenticationMethod { get; set; } = UserSessionAuthenticationMethods.Other;
+    [SugarColumn(ColumnName = "authentication_method", Length = 24)]
+    public string AuthenticationMethod { get; set; } = string.Empty;
 
-    [SugarColumn(ColumnName = "authentication_strength", Length = 24, DefaultValue = UserSessionAuthenticationStrengths.LegacyUnverified)]
-    public string AuthenticationStrength { get; set; } = UserSessionAuthenticationStrengths.LegacyUnverified;
+    [SugarColumn(ColumnName = "authentication_strength", Length = 24)]
+    public string AuthenticationStrength { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "authenticated_at_utc")]
-    public DateTime AuthenticatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime AuthenticatedAtUtc { get; set; }
 
     [SugarColumn(ColumnName = "authenticated_credential_row_id", IsNullable = true)]
     public int? AuthenticatedCredentialRowId

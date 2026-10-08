@@ -226,6 +226,12 @@ public static partial class PodBinaryCodec
         writer.WriteInt32(sessions.Count);
         foreach (UserSessionSummaryDto session in sessions)
         {
+            if (!UserSessionModes.TryParseClaim(session.SessionMode, out UserSessionMode mode)
+                || !UserSessionAuthenticationContract.IsSupportedCombination(session.AuthenticationMethod, session.AuthenticationStrength)
+                || !UserSessionDurationPolicies.IsValid(session.DurationPolicy))
+            {
+                throw new ArgumentException("Session summary authentication context is invalid.", nameof(sessions));
+            }
             var mutable = new MutableUserSessionSummaryPod
             {
                 CreatedAtUnixMs = PodTimeCodec.ToUnixMs(session.CreatedAt),
@@ -233,7 +239,7 @@ public static partial class PodBinaryCodec
                 IsCurrent = session.IsCurrent ? (byte)1 : (byte)0,
                 HasLastSeenAt = session.LastSeenAt.HasValue ? (byte)1 : (byte)0,
                 HasPasskeyFriendlyName = session.PasskeyFriendlyName is null ? (byte)0 : (byte)1,
-                Reserved0 = 0,
+                SessionMode = (byte)mode,
                 SessionId = PodUtf8Codec.ToFixed64(session.SessionId),
                 DeviceLabel = PodUtf8Codec.ToFixed64(session.DeviceLabel),
                 AuthenticationMethod = PodUtf8Codec.ToFixed32(session.AuthenticationMethod),
@@ -270,7 +276,10 @@ public static partial class PodBinaryCodec
                 pod.IsCurrent > 1 ||
                 pod.HasLastSeenAt > 1 ||
                 pod.HasPasskeyFriendlyName > 1 ||
-                pod.Reserved0 != 0)
+                !Enum.IsDefined((UserSessionMode)pod.SessionMode)
+                || !UserSessionAuthenticationContract.IsSupportedCombination(
+                    PodUtf8Codec.FromFixed32(pod.AuthenticationMethod), PodUtf8Codec.FromFixed32(pod.AuthenticationStrength))
+                || !UserSessionDurationPolicies.IsValid(PodUtf8Codec.FromFixed32(pod.DurationPolicy)))
             {
                 sessions = Array.Empty<UserSessionSummaryDto>();
                 return false;
@@ -287,7 +296,8 @@ public static partial class PodBinaryCodec
                     ? PodUtf8Codec.FromFixed256(pod.PasskeyFriendlyName)
                     : null,
                 DurationPolicy: PodUtf8Codec.FromFixed32(pod.DurationPolicy),
-                IsCurrent: pod.IsCurrent == 1));
+                IsCurrent: pod.IsCurrent == 1,
+                SessionMode: UserSessionModes.ToClaimValue((UserSessionMode)pod.SessionMode)));
         }
 
         sessions = items;
@@ -1011,7 +1021,7 @@ public static partial class PodBinaryCodec
         public byte IsCurrent;
         public byte HasLastSeenAt;
         public byte HasPasskeyFriendlyName;
-        public byte Reserved0;
+        public byte SessionMode;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 SessionId;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 DeviceLabel;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 AuthenticationMethod;

@@ -125,7 +125,7 @@ public readonly struct UserSessionSummaryPod
     public readonly byte IsCurrent;
     public readonly byte HasLastSeenAt;
     public readonly byte HasPasskeyFriendlyName;
-    public readonly byte Reserved0;
+    public readonly byte SessionMode;
     public readonly Utf8Fixed64 SessionId;
     public readonly Utf8Fixed64 DeviceLabel;
     public readonly Utf8Fixed32 AuthenticationMethod;

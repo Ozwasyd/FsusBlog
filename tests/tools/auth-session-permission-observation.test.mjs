@@ -76,15 +76,10 @@ function sampleObservation(overrides = {})
         observationDigest: 'a'.repeat(64),
         facts: {
             'auth.authentication-methods': {
-                active: ['enrollment', 'other', 'passkey', 'recovery_key']
+                active: ['enrollment', 'passkey']
             },
             'auth.authentication-strengths': {
-                active: ['mfa', 'recovery', 'webauthn_uv'],
-                legacy: {
-                    values: ['legacy_unverified', 'legacy_verified'],
-                    writeAllowed: false,
-                    readMigrationOnly: true
-                }
+                active: ['mfa', 'webauthn_uv']
             },
             'auth.session.duration-modes': {
                 modes: ['browser_session', 'persistent_30d'],
@@ -246,8 +241,7 @@ test('positive sample observation extracts typed auth/session/admin facts', () =
         assert.ok(result.observations.facts['admin.permissions.all'].includes('audit.investigate'));
         assert.equal(result.observations.facts['auth.step-up.freshness'].default.unit, 'minutes');
         assert.equal(result.observations.facts['auth.step-up.consume-once'], true);
-        assert.equal(result.observations.facts['auth.authentication-strengths'].legacy.writeAllowed, false);
-        assert.equal(result.observations.facts['auth.authentication-strengths'].legacy.readMigrationOnly, true);
+        assert.equal(Object.hasOwn(result.observations.facts['auth.authentication-strengths'], 'legacy'), false);
         assert.equal(result.observations.facts['auth.relations'].closed, true);
     }
     finally
@@ -350,12 +344,7 @@ test('4) legacy_unverified must not enter active authentication strengths', () =
         const observation = sampleObservation({
             facts: {
                 'auth.authentication-strengths': {
-                    active: ['legacy_unverified', 'mfa', 'webauthn_uv'],
-                    legacy: {
-                        values: ['legacy_unverified', 'legacy_verified'],
-                        writeAllowed: false,
-                        readMigrationOnly: true
-                    }
+                    active: ['legacy_unverified', 'mfa', 'webauthn_uv']
                 }
             }
         });
@@ -559,7 +548,7 @@ test('compiled observation host produces sealed production facts (live)', { time
     assert.ok(
         !produced.observation.facts['auth.authentication-strengths'].active.some((value) => value.startsWith('legacy_'))
     );
-    assert.equal(produced.observation.facts['auth.authentication-strengths'].legacy.writeAllowed, false);
+    assert.equal(Object.hasOwn(produced.observation.facts['auth.authentication-strengths'], 'legacy'), false);
     assert.equal(produced.observation.facts['auth.relations'].closed, true);
     assert.equal(produced.buildIdentity.artifactId, 'auth-session-permission-observation');
 
@@ -573,4 +562,23 @@ test('compiled observation host produces sealed production facts (live)', { time
         extracted.observations.facts['admin.permissions.all'],
         produced.observation.facts['admin.permissions.all']
     );
+});
+
+test('retired strengths cannot regain migration read authority', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'auth-session-obs-'));
+    try
+    {
+        const observation = sampleObservation();
+        observation.facts['auth.authentication-strengths'].legacy = {
+            values: ['legacy_verified'], writeAllowed: false, readMigrationOnly: true
+        };
+        const result = runExtract(directory, observation);
+        assert.equal(result.status, 'failed');
+        assert.ok(result.failureReasons.some((reason) => /must not retain a legacy/u.test(reason)));
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
 });

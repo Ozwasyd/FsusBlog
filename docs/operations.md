@@ -958,7 +958,7 @@ When rotating `Moderation:RegionPolicy:IpHashKey`, old `comment_region_complianc
 
 ## Incident Recovery
 
-- JWT rotation mismatch: stop traffic promotion and route traffic back to the prepared previous blue/green slot; do not restart it or enable key try-all. Confirm current/previous `kid` coverage and bounded deadlines with [JWT signing-key rotation](security/jwt-key-rotation.md), then redeploy the candidate and repeat cross-slot ordinary/admin probes.
+- JWT rotation mismatch: stop traffic promotion. Verify that every serving process uses the same exact current key/version and that the qualified offline cutover revoked all ordinary/admin sessions and refresh families. Follow [JWT signing-key rotation](security/jwt-key-rotation.md) for forward repair or restoration of the verified isolated backup; an earlier slot must not resume signing with a different key or retain old refresh families. Repeat current ordinary/admin positive and missing/old/unknown-kid refusal probes before resuming traffic.
 
 - App fails liveness: inspect container logs, then restart the app container.
 - App fails readiness only: inspect `/api/ops/health/ready-detail` to distinguish DB, Redis, config, or resource failure.

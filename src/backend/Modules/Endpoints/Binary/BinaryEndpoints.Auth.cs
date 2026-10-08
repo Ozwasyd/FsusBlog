@@ -854,7 +854,7 @@ public static partial class BinaryEndpoints
 
             var site = await systemService.GetSeoConfigAsync();
             string issuer = string.IsNullOrWhiteSpace(site.Title) ? "FsusBlog" : site.Title;
-            var result = await mfaCommands.StartMfaSetupAsync(stepUp.AccountId, issuer, stepUp);
+            var result = await mfaCommands.StartMfaSetupAsync(stepUp.Value.AccountId, issuer, stepUp.Value);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupStart, writer => PodBinaryCodec.WriteMfaSetupStart(result.Data.Value, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Validation));
@@ -925,7 +925,7 @@ public static partial class BinaryEndpoints
                     aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
             }
 
-            var result = await mfaCommands.DisableMfaAsync(stepUp.AccountId, stepUp);
+            var result = await mfaCommands.DisableMfaAsync(stepUp.Value.AccountId, stepUp.Value);
             return result.Success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status422UnprocessableEntity, ErrorCode.Validation));
@@ -955,7 +955,7 @@ public static partial class BinaryEndpoints
                     aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
             }
 
-            var result = await mfaCommands.RegenerateMfaRecoveryCodesAsync(stepUp.AccountId, stepUp);
+            var result = await mfaCommands.RegenerateMfaRecoveryCodesAsync(stepUp.Value.AccountId, stepUp.Value);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupVerify, writer => PodBinaryCodec.WriteMfaSetupVerify(result.Data, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status422UnprocessableEntity, ErrorCode.Validation));
@@ -1106,7 +1106,9 @@ public static partial class BinaryEndpoints
 
             EndpointUserContext endpointUser = EndpointUserContext.From(httpContext);
             int userId = endpointUser.AccountId;
-            if (string.IsNullOrWhiteSpace(endpointUser.SessionId))
+            string? currentAuthenticationMethod = httpContext.User.FindFirst(CurrentAuthSessionClaims.AuthenticationMethod)?.Value;
+            if (string.IsNullOrWhiteSpace(endpointUser.SessionId)
+                || !UserSessionAuthenticationMethods.IsValid(currentAuthenticationMethod))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Unauthorized, "SESSION_CONTEXT_REQUIRED"),
@@ -1148,7 +1150,7 @@ public static partial class BinaryEndpoints
                     accountSubjectHash,
                     endpointUser.SessionId,
                     action,
-                    UserSessionAuthenticationMethods.Other,
+                    currentAuthenticationMethod!,
                     TimeSpan.FromMinutes(5));
                 var noMfa = new MfaChallengeResultDto(true, action, proofToken, null);
                 return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(noMfa, writer));
@@ -1203,6 +1205,26 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "MFA_CHALLENGE_EXPIRED"), aeds);
             }
+            if (ticket.Type == "login")
+            {
+                if (!ticket.InitialAuthentication.HasValue
+                    || !ticket.InitialAuthentication.Value.IsValid()
+                    || ticket.InitialAuthentication.Value.Method != UserSessionAuthenticationMethods.Passkey
+                    || ticket.InitialAuthentication.Value.Strength != UserSessionAuthenticationStrengths.WebAuthnUv)
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "MFA_CHALLENGE_EXPIRED"), aeds);
+                }
+            }
+            else
+            {
+                EndpointUserContext principal = EndpointUserContext.From(httpContext);
+                if (ticket.Type != "action" || principal.AccountId != ticket.AccountId
+                    || string.IsNullOrWhiteSpace(principal.SessionId)
+                    || !UserSessionAuthenticationMethods.IsValid(httpContext.User.FindFirst(CurrentAuthSessionClaims.AuthenticationMethod)?.Value))
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "SESSION_CONTEXT_REQUIRED"), aeds);
+                }
+            }
 
             bool verified = await mfaVerification.VerifyMfaOrRecoveryCodeAsync(ticket.AccountId, request.Code, request.RecoveryCode, persistRecoveryConsumption: true, cancellationToken: cancellationToken);
             if (!verified)
@@ -1228,22 +1250,13 @@ public static partial class BinaryEndpoints
 
             if (ticket.Type == "login")
             {
+                UserSessionAuthenticationContext initialAuthentication = ticket.InitialAuthentication.Value;
                 var login = await loginWorkflow.CompleteLoginAsync(
                     ticket.AccountId,
                     httpContext.GetClientIp(),
                     deviceFp,
                     httpContext.GetUserAgent(),
-                    mfaVerified: true,
-                    rememberMe: ticket.RememberMe,
-                    authenticationContext: new UserSessionAuthenticationContext(
-                        string.IsNullOrWhiteSpace(request.RecoveryCode)
-                            ? UserSessionAuthenticationMethods.Other
-                            : UserSessionAuthenticationMethods.RecoveryKey,
-                        string.IsNullOrWhiteSpace(request.RecoveryCode)
-                            ? UserSessionAuthenticationStrengths.Mfa
-                            : UserSessionAuthenticationStrengths.Recovery,
-                        DateTime.UtcNow,
-                        DurationPolicy: UserSessionDurationPolicies.FromRememberMe(ticket.RememberMe)),
+                    authenticationContext: initialAuthentication with { Strength = UserSessionAuthenticationStrengths.Mfa },
                     cancellationToken: cancellationToken);
                 if (!login.Success || login.Data == null || login.User == null)
                 {
@@ -1281,8 +1294,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(loginResult, writer));
             }
 
-            string? currentSessionId = EndpointUserContext.From(httpContext).SessionId;
-            if (string.IsNullOrWhiteSpace(currentSessionId))
+            EndpointUserContext currentPrincipal = EndpointUserContext.From(httpContext);
+            string? currentSessionId = currentPrincipal.SessionId;
+            string? currentAuthenticationMethod = httpContext.User.FindFirst(CurrentAuthSessionClaims.AuthenticationMethod)?.Value;
+            if (ticket.Type != "action" || currentPrincipal.AccountId != ticket.AccountId
+                || string.IsNullOrWhiteSpace(currentSessionId)
+                || !UserSessionAuthenticationMethods.IsValid(currentAuthenticationMethod))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Unauthorized, "SESSION_CONTEXT_REQUIRED"),
@@ -1294,9 +1311,7 @@ public static partial class BinaryEndpoints
                 ticket.AccountSubjectHash,
                 currentSessionId,
                 ticket.Action,
-                string.IsNullOrWhiteSpace(request.RecoveryCode)
-                    ? UserSessionAuthenticationMethods.Other
-                    : UserSessionAuthenticationMethods.RecoveryKey,
+                currentAuthenticationMethod!,
                 TimeSpan.FromMinutes(5));
             var result = new MfaChallengeResultDto(true, ticket.Action, proofToken, null);
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(result, writer));
@@ -1731,7 +1746,7 @@ public static partial class BinaryEndpoints
             }
 
             var (success, message, user, credentialRowId) = await passkeyService.CompleteAssertionAsync(request, cancellationToken);
-            if (!success || user == null)
+            if (!success || user == null || credentialRowId is not > 0)
             {
                 await RecordPasskeyAssertionFailureAsync(httpContext, riskSignals, cancellationToken);
                 string? details = string.Equals(message, PasskeyService.CredentialNotFoundMessage, StringComparison.Ordinal)
@@ -1743,6 +1758,12 @@ public static partial class BinaryEndpoints
             string clientIp = httpContext.GetClientIp();
             string? deviceFp = GetDeviceFingerprint(httpContext);
             string? userAgent = httpContext.GetUserAgent();
+            var authentication = new UserSessionAuthenticationContext(
+                UserSessionAuthenticationMethods.Passkey,
+                UserSessionAuthenticationStrengths.WebAuthnUv,
+                DateTime.UtcNow,
+                credentialRowId,
+                UserSessionDurationPolicies.FromRememberMe(request.RememberMe));
             if (user.MfaEnabled)
             {
                 if (!AccountSubjectHashRequirement.TryResolve(
@@ -1758,7 +1779,7 @@ public static partial class BinaryEndpoints
                     user.Id,
                     accountSubjectHash,
                     riskTriggered: false,
-                    rememberMe: request.RememberMe,
+                    authenticationContext: authentication,
                     deviceSignal: deviceFp,
                     cancellationToken: cancellationToken);
                 await RecordPasskeyAssertionAcceptedAsync(httpContext, riskSignals, cancellationToken);
@@ -1779,14 +1800,7 @@ public static partial class BinaryEndpoints
                 clientIp,
                 deviceFp,
                 userAgent,
-                mfaVerified: true,
-                rememberMe: request.RememberMe,
-                authenticationContext: new UserSessionAuthenticationContext(
-                    UserSessionAuthenticationMethods.Passkey,
-                    UserSessionAuthenticationStrengths.WebAuthnUv,
-                    DateTime.UtcNow,
-                    credentialRowId,
-                    UserSessionDurationPolicies.FromRememberMe(request.RememberMe)),
+                authenticationContext: authentication,
                 cancellationToken: cancellationToken);
             if (!login.Success || login.Data == null || login.User == null)
             {

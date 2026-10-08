@@ -733,11 +733,12 @@ public class PodBinaryCodecTests
                 DeviceLabel: "Firefox on Other",
                 CreatedAt: createdAt,
                 LastSeenAt: null,
-                AuthenticationMethod: "other",
-                AuthenticationStrength: "legacy_unverified",
+                AuthenticationMethod: "passkey",
+                AuthenticationStrength: "mfa",
                 PasskeyFriendlyName: null,
                 DurationPolicy: "browser_session",
-                IsCurrent: false)
+                IsCurrent: false,
+                SessionMode: UserSessionModes.RestrictedWireValue)
         ];
 
         byte[] encoded = PodBinaryCodec.EncodeUserSessions(sessions);
@@ -755,6 +756,8 @@ public class PodBinaryCodecTests
         Assert.Equal("Work security key", decoded[0].PasskeyFriendlyName);
         Assert.Equal("persistent_30d", decoded[0].DurationPolicy);
         Assert.True(decoded[0].IsCurrent);
+        Assert.Equal(UserSessionModes.NormalWireValue, decoded[0].SessionMode);
+        Assert.Equal(UserSessionModes.RestrictedWireValue, decoded[1].SessionMode);
         Assert.Null(decoded[1].LastSeenAt);
         Assert.Null(decoded[1].PasskeyFriendlyName);
         Assert.Null(typeof(UserSessionSummaryDto).GetProperty("DeviceFingerprint"));
@@ -772,7 +775,7 @@ public class PodBinaryCodecTests
         Assert.Equal(16, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.IsCurrent)).ToInt32());
         Assert.Equal(17, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.HasLastSeenAt)).ToInt32());
         Assert.Equal(18, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.HasPasskeyFriendlyName)).ToInt32());
-        Assert.Equal(19, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.Reserved0)).ToInt32());
+        Assert.Equal(19, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.SessionMode)).ToInt32());
         Assert.Equal(20, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.SessionId)).ToInt32());
         Assert.Equal(84, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.DeviceLabel)).ToInt32());
         Assert.Equal(148, Marshal.OffsetOf<UserSessionSummaryPod>(nameof(UserSessionSummaryPod.AuthenticationMethod)).ToInt32());
@@ -782,7 +785,7 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void UserSessions_DecodeRejectsNonZeroReservedByte()
+    public void UserSessions_DecodeRejectsUnknownSessionMode()
     {
         UserSessionSummaryDto[] sessions =
         [
@@ -798,9 +801,33 @@ public class PodBinaryCodecTests
                 IsCurrent: true)
         ];
         byte[] encoded = PodBinaryCodec.EncodeUserSessions(sessions);
-        encoded[sizeof(int) + 19] = 1;
+        encoded[sizeof(int) + 19] = byte.MaxValue;
 
         Assert.False(PodBinaryCodec.TryDecodeUserSessions(encoded, out _));
+    }
+
+    [Theory]
+    [InlineData("other", "webauthn_uv", "browser_session")]
+    [InlineData("passkey", "legacy_verified", "browser_session")]
+    [InlineData("passkey", "legacy_unverified", "browser_session")]
+    [InlineData("recovery_key", "recovery", "browser_session")]
+    [InlineData("passkey", "webauthn_uv", "unknown")]
+    public void UserSessions_RejectUnsupportedAuthenticationContext(string method, string strength, string duration)
+    {
+        var row = new UserSessionSummaryDto(
+            "session-1", "Browser", DateTime.UnixEpoch, null, method, strength, null, duration, true);
+        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodeUserSessions([row]));
+
+        byte[] bytes = PodBinaryCodec.EncodeUserSessions([
+            row with { AuthenticationMethod = "passkey", AuthenticationStrength = "webauthn_uv", DurationPolicy = "browser_session" }
+        ]);
+        Encoding.UTF8.GetBytes(method).CopyTo(bytes.AsSpan(sizeof(int) + 148, 32));
+        bytes.AsSpan(sizeof(int) + 148 + Encoding.UTF8.GetByteCount(method), 32 - Encoding.UTF8.GetByteCount(method)).Clear();
+        Encoding.UTF8.GetBytes(strength).CopyTo(bytes.AsSpan(sizeof(int) + 180, 32));
+        bytes.AsSpan(sizeof(int) + 180 + Encoding.UTF8.GetByteCount(strength), 32 - Encoding.UTF8.GetByteCount(strength)).Clear();
+        Encoding.UTF8.GetBytes(duration).CopyTo(bytes.AsSpan(sizeof(int) + 212, 32));
+        bytes.AsSpan(sizeof(int) + 212 + Encoding.UTF8.GetByteCount(duration), 32 - Encoding.UTF8.GetByteCount(duration)).Clear();
+        Assert.False(PodBinaryCodec.TryDecodeUserSessions(bytes, out _));
     }
 
     [Fact]

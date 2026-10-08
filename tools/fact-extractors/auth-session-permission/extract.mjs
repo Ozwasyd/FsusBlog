@@ -230,7 +230,6 @@ export function extract(context)
 
     const strengths = facts['auth.authentication-strengths'];
     const activeStrengths = strengths?.active;
-    const legacy = strengths?.legacy;
     if (!isSortedUniqueStrings(activeStrengths))
     {
         failureReasons.push('auth.authentication-strengths.active must be a sorted unique string set');
@@ -239,16 +238,9 @@ export function extract(context)
     {
         failureReasons.push('legacy strengths must not enter active current-auth facts');
     }
-    if (legacy == null
-    || legacy.writeAllowed !== false
-    || legacy.readMigrationOnly !== true
-    || !isSortedUniqueStrings(legacy.values))
+    if (Object.hasOwn(strengths ?? {}, 'legacy'))
     {
-        failureReasons.push('legacy strengths must declare writeAllowed=false and readMigrationOnly=true');
-    }
-    if (Array.isArray(legacy?.values) && legacy.values.some((value) => !String(value).startsWith('legacy_')))
-    {
-        failureReasons.push('legacy.values must only contain legacy_* strengths');
+        failureReasons.push('current strength facts must not retain a legacy read/write catalog');
     }
 
     const durationModes = facts['auth.session.duration-modes'];

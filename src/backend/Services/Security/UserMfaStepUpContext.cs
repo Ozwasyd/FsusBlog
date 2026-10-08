@@ -31,7 +31,7 @@ public static class UserMfaManagementActions
 }
 
 /// <summary>Retains only the account, session and action after the original proof owner accepts and consumes a proof.</summary>
-public sealed class UserMfaStepUpContext
+public readonly struct UserMfaStepUpContext
 {
     private UserMfaStepUpContext(int accountId, string sessionId, UserMfaManagementAction action)
     {
@@ -65,6 +65,7 @@ public sealed class UserMfaStepUpContext
     {
         ArgumentNullException.ThrowIfNull(mfaChallenges);
         if (account.Id <= 0 || account.DeletedAt.HasValue || account.Status == 2
+            || !AccountRegistrationStates.IsActive(account.RegistrationState)
             || !string.Equals(account.IdentityKind, AnonymousIdentityRuntime.AnonymousAccountKind, StringComparison.Ordinal)
             || string.IsNullOrWhiteSpace(sessionId) || string.IsNullOrWhiteSpace(proofToken)
             || !AccountSubjectHashRequirement.TryResolve(account.AccountSubjectHash, out string accountSubjectHash)
@@ -80,5 +81,5 @@ public sealed class UserMfaStepUpContext
 
     /// <summary>Rejects a context issued for a different account or MFA mutation.</summary>
     public bool IsValidFor(int accountId, UserMfaManagementAction action)
-        => AccountId == accountId && Action == action;
+        => AccountId > 0 && !string.IsNullOrWhiteSpace(SessionId) && AccountId == accountId && Action == action;
 }

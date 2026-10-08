@@ -758,8 +758,7 @@ public sealed class AdminPrincipalService(
             IssuedAccessToken issued = jwtHelper.GenerateAdminAccessToken(
                 principal,
                 session,
-                ParsePermissions(principal.Permissions),
-                session.StepUpVerified);
+                ParsePermissions(principal.Permissions));
             string tokenHash = HashForStorage(issued.Token);
             int updated = await db.Ado.ExecuteCommandAsync(
                 """
@@ -1179,7 +1178,7 @@ public sealed class AdminPrincipalService(
             StepUpVerified = stepUpVerified
         };
 
-        IssuedAccessToken token = jwtHelper.GenerateAdminAccessToken(principal, session, ParsePermissions(principal.Permissions), stepUpVerified);
+        IssuedAccessToken token = jwtHelper.GenerateAdminAccessToken(principal, session, ParsePermissions(principal.Permissions));
         session.AccessTokenHash = HashForStorage(token.Token);
         await db.Insertable(session).ExecuteCommandAsync();
         PreparedAdminSessionProjectionMutation? mutation = await PrepareSessionProjectionMutationAsync(

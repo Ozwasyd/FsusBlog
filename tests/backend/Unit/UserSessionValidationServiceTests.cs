@@ -40,13 +40,15 @@ public sealed class UserSessionValidationServiceTests
             UserSessionAuthenticationStrengths.WebAuthnUv,
             s_authenticatedAtUtc,
             UserSessionMode.Restricted,
-            "2147483652");
+            "2147483652",
+            100,
+            UserSessionDurationPolicies.BrowserSession);
 
         string payload = UserSessionValidationCache.Encode(state);
         UserSessionValidationCacheState? decoded = UserSessionValidationCache.Decode(payload, state.SessionId);
 
         Assert.Equal(state, decoded);
-        Assert.StartsWith("v3|2147483651|42|", payload, StringComparison.Ordinal);
+        Assert.StartsWith("v4|2147483651|42|", payload, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -328,6 +330,11 @@ public sealed class UserSessionValidationServiceTests
     [InlineData("auth_strength", null)]
     [InlineData("auth_time", null)]
     [InlineData("auth_time", "not-a-unix-time")]
+    [InlineData("auth_method", "other")]
+    [InlineData("auth_strength", "legacy_verified")]
+    [InlineData("auth_strength", "legacy_unverified")]
+    [InlineData("duration_policy", null)]
+    [InlineData("duration_policy", "unknown")]
     [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-cached-session-rejects-missing-malformed-or-mismatched-jwt-authentication-context")]
     public async Task CachedSession_RejectsMissingMalformedOrMismatchedJwtAuthenticationContext(
         string claimType,
@@ -499,7 +506,7 @@ public sealed class UserSessionValidationServiceTests
         await unified.Received(1).TrySetVersionedStringAsync(
             CachePolicyId.SecurityUserSessionValidation,
             state.SessionId,
-            Arg.Is<string>(payload => payload.StartsWith("v3|19|42|", StringComparison.Ordinal)),
+            Arg.Is<string>(payload => payload.StartsWith("v4|19|42|", StringComparison.Ordinal)),
             "19",
             true,
             TimeSpan.FromMinutes(2),
@@ -555,7 +562,9 @@ public sealed class UserSessionValidationServiceTests
             UserSessionAuthenticationStrengths.WebAuthnUv,
             s_authenticatedAtUtc,
             UserSessionMode.Normal,
-            "8");
+            "8",
+            100,
+            UserSessionDurationPolicies.BrowserSession);
 
     private static ClaimsPrincipal CreatePrincipal(int accountId, string sessionId, string? sessionMode = null)
         => new(new ClaimsIdentity(
@@ -566,7 +575,8 @@ public sealed class UserSessionValidationServiceTests
             new Claim("auth_method", UserSessionAuthenticationMethods.Passkey),
             new Claim("auth_strength", UserSessionAuthenticationStrengths.WebAuthnUv),
             new Claim("auth_time", new DateTimeOffset(s_authenticatedAtUtc).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            .. sessionMode is null ? [] : new[] { new Claim(UserSessionModes.ClaimType, sessionMode) }
+            new Claim(CurrentAuthSessionClaims.DurationPolicy, UserSessionDurationPolicies.BrowserSession),
+            new Claim(UserSessionModes.ClaimType, sessionMode ?? UserSessionModes.ToClaimValue(UserSessionMode.Normal))
         ], "Bearer"));
 
     private static IDataReader CreateDatabaseStateReader(
@@ -591,6 +601,8 @@ public sealed class UserSessionValidationServiceTests
         table.Columns.Add("authentication_method", typeof(string));
         table.Columns.Add("authentication_strength", typeof(string));
         table.Columns.Add("authenticated_at_utc", typeof(DateTime));
+        table.Columns.Add("authenticated_credential_row_id", typeof(int));
+        table.Columns.Add("duration_policy", typeof(string));
         table.Rows.Add(
             sessionId,
             accountId,
@@ -605,7 +617,9 @@ public sealed class UserSessionValidationServiceTests
             "23",
             UserSessionAuthenticationMethods.Passkey,
             UserSessionAuthenticationStrengths.WebAuthnUv,
-            s_authenticatedAtUtc);
+            s_authenticatedAtUtc,
+            100,
+            UserSessionDurationPolicies.BrowserSession);
         return table.CreateDataReader();
     }
 

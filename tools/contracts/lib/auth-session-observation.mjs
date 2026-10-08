@@ -53,7 +53,7 @@ export function produceAuthSessionObservation({
   {
     const build = spawnSync(
       'dotnet',
-      ['build', project, '-c', configuration, '-v', 'minimal'],
+      ['build', project, '-c', configuration, '--no-incremental', '-v', 'minimal'],
       { cwd: repositoryRoot, encoding: 'utf8', env: process.env }
     )
     if (build.status !== 0)
