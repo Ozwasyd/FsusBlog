@@ -132,9 +132,14 @@ describe('article command entry with real alias-resolved FsusUI editor', () => {
         input.dispatchEvent(new Event('input', { bubbles: true }));
         await nextTick();
         test.enabled.value = false;
+        await test.editor.setProps({ loading: true });
+        const textarea = test.editor.get('textarea').element as HTMLTextAreaElement;
+        expect(textarea.disabled).toBe(true);
         const disabled = new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, repeat: true, bubbles: true, cancelable: true });
         input.dispatchEvent(disabled);
         expect(disabled.defaultPrevented).toBe(false);
+        await test.editor.setProps({ loading: false });
+        expect(textarea.disabled).toBe(false);
         test.enabled.value = true;
         const cancelled = new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true, cancelable: true });
         cancelled.preventDefault();
