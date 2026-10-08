@@ -133,13 +133,13 @@ test('identity binding covers policy, repeatability, required catalog and receip
 test('qualification receipt schema requires all parent fields and rejects status-only, missing blocker IDs and unknown states', () =>
 {
     const schema = JSON.parse(fs.readFileSync(qualificationReceiptSchemaPath, 'utf8'));
-    const validate = new Ajv({ strict: false, allErrors: true }).compile(schema);
+    const validate = new Ajv({ strict: true, allErrors: true }).compile(schema);
     assert.equal(validate({ finalStatus: 'sealed-qualified' }), false);
     for (const field of ['candidateIdentity', 'cohortLedgerDigest', 'runReceiptRefs', 'runAttemptEligibility', 'failureTopologyComparison', 'perRunAuthorityVerification', 'localReproduction', 'contentDigest'])
     {
         assert.ok(schema.required.includes(field));
     }
-    const validateBlocker = new Ajv({ strict: false }).compile(schema.properties.blockers.items);
+    const validateBlocker = new Ajv({ strict: true }).compile(schema.properties.blockers.items);
     const blocker = { reasonCode: 'incomplete', field: 'runReceiptRefs', ordinals: [2], producerIds: [], testIds: [] };
     assert.equal(validateBlocker(blocker), true);
     assert.equal(validateBlocker({ ...blocker, reasonCode: 'ignored' }), false);
@@ -147,4 +147,90 @@ test('qualification receipt schema requires all parent fields and rejects status
     assert.equal(validateBlocker(blocker), false);
     assert.equal(schema.properties.finalStatus.enum.includes('qualified-with-warning'), false);
     assert.equal(schema.properties.requiredRunCount.const, 3);
+});
+
+test('qualified shape requires complete three-round success, eligibility and comparisons while unqualified shape retains blockers', () =>
+{
+    const schema = JSON.parse(fs.readFileSync(qualificationReceiptSchemaPath, 'utf8'));
+    const validate = new Ajv({ strict: true, allErrors: true }).compile(schema);
+    const digest = `sha256:${'a'.repeat(64)}`;
+    const reference = { path: 'objects/fixture.json', digest };
+    const receipt = {
+        schema: 'fsusblog.release-candidate-qualification-receipt.v1',
+        qualificationPolicyVersion: 1,
+        qualificationPolicyDigest: digest,
+        repeatabilityCatalogDigest: digest,
+        qualificationPlanDigest: digest,
+        qualificationReceiptSchemaDigest: digest,
+        candidateIdentity: { schema: 'controlled-shape-fixture', contentDigest: digest },
+        candidateIdentityDigest: digest,
+        cohortLedgerPath: reference.path,
+        cohortLedgerDigest: digest,
+        requiredRunCount: 3,
+        runIds: ['shape-run-1', 'shape-run-2', 'shape-run-3'],
+        runOrdinals: [1, 2, 3],
+        runReceiptRefs: [reference, reference, reference],
+        runReceiptDigests: [digest, digest, digest],
+        runStatuses: ['success', 'success', 'success'],
+        runOutcomeFingerprints: [digest, digest, digest],
+        runStateDigests: [{}, {}, {}],
+        runArtifactDigests: [{}, {}, {}],
+        runAttemptEligibility: [1, 2, 3].map(() => ({ cleanFirstAttempt: true, qualificationEligible: true, recoveredRetry: false, diagnostic: false })),
+        requiredAuthorityIds: ['shape-authority'],
+        perRunAuthorityVerification: [1, 2, 3].map((ordinal) => ({ ordinal, runId: `shape-run-${ordinal}`, authorities: [{ authorityId: 'shape-authority', reference, verified: true, status: 'success' }] })),
+        identityComparison: { equal: true, differences: [] },
+        outcomeComparison: { equal: true, differences: [] },
+        stateComparison: { equal: true, differences: [] },
+        artifactComparison: { equal: true, differences: [] },
+        failureTopologyComparison: { equal: true, differences: [] },
+        finalStatus: 'sealed-qualified',
+        blockers: [],
+        localReproduction: { command: ['controlled-shape-fixture'], cohortReference: reference, planReference: reference },
+        contentDigest: digest
+    };
+    // This synthetic shape passes schema only; shared refs and fake digests have no authority.
+    assert.equal(validate(receipt), true, JSON.stringify(validate.errors));
+    for (const mutate of [
+        (value) =>
+        {
+            value.runReceiptRefs.pop();
+        },
+        (value) =>
+        {
+            value.runOrdinals = [1, 3, 2];
+        },
+        (value) =>
+        {
+            value.runStatuses[0] = 'failed';
+        },
+        (value) =>
+        {
+            value.runAttemptEligibility[1].recoveredRetry = true;
+        },
+        (value) =>
+        {
+            value.runAttemptEligibility[1].cleanFirstAttempt = false;
+        },
+        (value) =>
+        {
+            value.stateComparison.equal = false;
+        },
+        (value) =>
+        {
+            value.perRunAuthorityVerification[2].authorities[0].verified = false;
+        },
+        (value) =>
+        {
+            value.blockers.push({ reasonCode: 'incomplete', field: 'runReceiptRefs', ordinals: [1], producerIds: [], testIds: [] });
+        }
+    ])
+    {
+        const changed = structuredClone(receipt);
+        mutate(changed);
+        assert.equal(validate(changed), false);
+    }
+    const unqualified = { ...receipt, finalStatus: 'sealed-unqualified-incomplete' };
+    assert.equal(validate(unqualified), false);
+    unqualified.blockers = [{ reasonCode: 'incomplete', field: 'runReceiptRefs', ordinals: [1], producerIds: [], testIds: [] }];
+    assert.equal(validate(unqualified), true);
 });

@@ -730,33 +730,41 @@
                     "finalStatus": {
                         "const": "sealed-qualified"
                     }
-                }
+                },
+                "type": "object"
             },
             "then": {
                 "properties": {
                     "runIds": {
-                        "minItems": 3
+                        "minItems": 3,
+                        "type": "array"
                     },
                     "runReceiptRefs": {
-                        "minItems": 3
+                        "minItems": 3,
+                        "type": "array"
                     },
                     "runReceiptDigests": {
-                        "minItems": 3
+                        "minItems": 3,
+                        "type": "array"
                     },
                     "runStatuses": {
                         "minItems": 3,
                         "items": {
                             "const": "success"
-                        }
+                        },
+                        "type": "array"
                     },
                     "runOutcomeFingerprints": {
-                        "minItems": 3
+                        "minItems": 3,
+                        "type": "array"
                     },
                     "runStateDigests": {
-                        "minItems": 3
+                        "minItems": 3,
+                        "type": "array"
                     },
                     "runArtifactDigests": {
-                        "minItems": 3
+                        "minItems": 3,
+                        "type": "array"
                     },
                     "runAttemptEligibility": {
                         "minItems": 3,
@@ -774,8 +782,10 @@
                                 "diagnostic": {
                                     "const": false
                                 }
-                            }
-                        }
+                            },
+                            "type": "object"
+                        },
+                        "type": "array"
                     },
                     "perRunAuthorityVerification": {
                         "minItems": 3,
@@ -790,11 +800,15 @@
                                             "status": {
                                                 "const": "success"
                                             }
-                                        }
-                                    }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "type": "array"
                                 }
-                            }
-                        }
+                            },
+                            "type": "object"
+                        },
+                        "type": "array"
                     },
                     "runOrdinals": {
                         "const": [
@@ -804,7 +818,8 @@
                         ]
                     },
                     "blockers": {
-                        "maxItems": 0
+                        "maxItems": 0,
+                        "type": "array"
                     },
                     "identityComparison": {
                         "properties": {
@@ -812,9 +827,11 @@
                                 "const": true
                             },
                             "differences": {
-                                "maxItems": 0
+                                "maxItems": 0,
+                                "type": "array"
                             }
-                        }
+                        },
+                        "type": "object"
                     },
                     "outcomeComparison": {
                         "properties": {
@@ -822,9 +839,11 @@
                                 "const": true
                             },
                             "differences": {
-                                "maxItems": 0
+                                "maxItems": 0,
+                                "type": "array"
                             }
-                        }
+                        },
+                        "type": "object"
                     },
                     "stateComparison": {
                         "properties": {
@@ -832,9 +851,11 @@
                                 "const": true
                             },
                             "differences": {
-                                "maxItems": 0
+                                "maxItems": 0,
+                                "type": "array"
                             }
-                        }
+                        },
+                        "type": "object"
                     },
                     "artifactComparison": {
                         "properties": {
@@ -842,9 +863,11 @@
                                 "const": true
                             },
                             "differences": {
-                                "maxItems": 0
+                                "maxItems": 0,
+                                "type": "array"
                             }
-                        }
+                        },
+                        "type": "object"
                     },
                     "failureTopologyComparison": {
                         "properties": {
@@ -852,18 +875,23 @@
                                 "const": true
                             },
                             "differences": {
-                                "maxItems": 0
+                                "maxItems": 0,
+                                "type": "array"
                             }
-                        }
+                        },
+                        "type": "object"
                     }
-                }
+                },
+                "type": "object"
             },
             "else": {
                 "properties": {
                     "blockers": {
-                        "minItems": 1
+                        "minItems": 1,
+                        "type": "array"
                     }
-                }
+                },
+                "type": "object"
             }
         }
     ]
