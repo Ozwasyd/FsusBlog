@@ -14,6 +14,7 @@
             "id": "css-like-contract",
             "paths": [
                 "docs/architecture/article-property-value-boundary.md",
+                "docs/architecture/article-vault-dependencies.md",
                 "docs/architecture/article-vault-linux-watcher.md",
                 "docs/architecture/article-vault-macos-watcher.md"
             ],
@@ -42,7 +43,10 @@
                 "src/article-vault/windows/WindowsVaultTestAccess.cs",
                 "src/article-vault/windows/WindowsVaultWatchContracts.cs",
                 "src/article-vault/windows/WindowsVaultWatcherSession.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultMaterializationPreflightVerifier.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultPropertyMetadataMerge.cs",
+                "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetConflictDiagnostics.cs",
+                "src/backend/Services/ArticleVault/Assets/ArticleVaultAssetValidator.cs",
                 "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
                 "src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs",
                 "src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs",
@@ -63,6 +67,7 @@
                 "src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs",
                 "src/shared/Contracts/ArticleVault/ArticleVaultEventNormalizer.cs",
                 "src/shared/Contracts/ArticleVault/ArticleVaultGitFacts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultMaterializationInstruction.cs",
                 "src/shared/Contracts/ArticleVault/ArticleVaultObservationContracts.cs",
                 "src/shared/Contracts/ArticleVault/ArticleVaultOperationContracts.cs",
                 "src/shared/Contracts/ArticleVault/ArticleVaultOperationVerifier.cs",
@@ -81,6 +86,7 @@
                 "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyVerifier.cs",
                 "tools/governance/article-vault-conflict-terminal-ui.mjs",
                 "tools/governance/check-article-vault-conflicts.mjs",
+                "tools/governance/check-article-vault-dependency-boundary.mjs",
                 "tools/test/build-macos-vault-native.mjs",
                 "tools/test/check-macos-vault-observer-source.mjs",
                 "tools/test/correctness-attempt-migration.mjs"

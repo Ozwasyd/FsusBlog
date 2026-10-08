@@ -1,0 +1,428 @@
+{
+    "FixtureQualification": "contract-only; no canonical provider/store/runtime authority; zero nodes",
+    "Request": {
+        "RootManifest": {
+            "Schema": "fsusblog.article-vault.root.v1",
+            "SchemaVersion": 1,
+            "ControlTreeVersion": "fsusblog.article-vault.control-tree.v1",
+            "ControlTree": {
+                "RootManifestPath": ".fsus/vault.json",
+                "ArticleManifestDirectory": ".fsus/articles",
+                "ReceiptDirectory": ".fsus/receipts"
+            },
+            "SiteIdentity": "site-primary",
+            "VaultIdentity": "vault-primary",
+            "DeviceIdentity": "device-primary",
+            "Articles": [
+                {
+                    "PortableArticleIdentity": "article:11111111-1111-4111-8111-111111111111",
+                    "ManifestPath": ".fsus/articles/article:11111111-1111-4111-8111-111111111111.json",
+                    "ManifestSha256": "bc08991f8086326561ca72458e21a41c7820ea22220ee0bc5a692914fed78f12",
+                    "RelativePath": "articles/article:11111111-1111-4111-8111-111111111111.md"
+                }
+            ],
+            "OperationReceipts": [],
+            "ContentSha256": "3e18d139f7ae2eac0ea6e3a4f8c4c22d690f842ddb9beb4fb90de8a8ac40b5c5"
+        },
+        "ArticleManifests": [
+            {
+                "Schema": "fsusblog.article-vault.article.v1",
+                "SchemaVersion": 1,
+                "SiteIdentity": "site-primary",
+                "VaultIdentity": "vault-primary",
+                "DeviceIdentity": "device-primary",
+                "PortableArticleIdentity": "article:11111111-1111-4111-8111-111111111111",
+                "ServerArticleIdentity": "server-portable-article-a",
+                "PathProjection": {
+                    "RelativePath": "articles/article:11111111-1111-4111-8111-111111111111.md",
+                    "ProjectionSha256": "3de6754c04542360ab2a9d5a5cec9bacaec888f299d6819adbe4affe0d24411f"
+                },
+                "Coordinates": {
+                    "Base": {
+                        "Schema": "fsusblog.article-vault.coordinate.v1",
+                        "SchemaVersion": 1,
+                        "Present": true,
+                        "Deleted": false,
+                        "ServerRevision": 4,
+                        "Source": {
+                            "Sha256": "8dc210b4c688cca17ded276cc8c4530d15d42fa623ef64cb58586f8109761588",
+                            "ByteLength": 26,
+                            "HasUtf8Bom": false,
+                            "NewlineStyle": 1,
+                            "TrailingWhitespaceLineCount": 0,
+                            "HasFinalNewline": true
+                        },
+                        "MetadataManifestSha256": "23d16dbe1d03b11d60406cdd25e033262bf3b866928da12dd4b3e6a86fdf56a9",
+                        "DependencySha256": "0d7bd8a2dcfb3cdbb3ec1a10e01abc1a67d77e42acf80612b47fd6e655f67264",
+                        "Lifecycle": "draft",
+                        "PermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                        "ContentSha256": "ced394e04e6843730ab2e3ca8f104bf0fc466c488aaa4f6a209d0ec1b315a0d2"
+                    },
+                    "Local": {
+                        "Schema": "fsusblog.article-vault.coordinate.v1",
+                        "SchemaVersion": 1,
+                        "Present": true,
+                        "Deleted": false,
+                        "ServerRevision": 4,
+                        "Source": {
+                            "Sha256": "8dc210b4c688cca17ded276cc8c4530d15d42fa623ef64cb58586f8109761588",
+                            "ByteLength": 26,
+                            "HasUtf8Bom": false,
+                            "NewlineStyle": 1,
+                            "TrailingWhitespaceLineCount": 0,
+                            "HasFinalNewline": true
+                        },
+                        "MetadataManifestSha256": "23d16dbe1d03b11d60406cdd25e033262bf3b866928da12dd4b3e6a86fdf56a9",
+                        "DependencySha256": "0d7bd8a2dcfb3cdbb3ec1a10e01abc1a67d77e42acf80612b47fd6e655f67264",
+                        "Lifecycle": "draft",
+                        "PermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                        "ContentSha256": "ced394e04e6843730ab2e3ca8f104bf0fc466c488aaa4f6a209d0ec1b315a0d2"
+                    },
+                    "Server": {
+                        "Schema": "fsusblog.article-vault.coordinate.v1",
+                        "SchemaVersion": 1,
+                        "Present": true,
+                        "Deleted": false,
+                        "ServerRevision": 4,
+                        "Source": {
+                            "Sha256": "8dc210b4c688cca17ded276cc8c4530d15d42fa623ef64cb58586f8109761588",
+                            "ByteLength": 26,
+                            "HasUtf8Bom": false,
+                            "NewlineStyle": 1,
+                            "TrailingWhitespaceLineCount": 0,
+                            "HasFinalNewline": true
+                        },
+                        "MetadataManifestSha256": "23d16dbe1d03b11d60406cdd25e033262bf3b866928da12dd4b3e6a86fdf56a9",
+                        "DependencySha256": "0d7bd8a2dcfb3cdbb3ec1a10e01abc1a67d77e42acf80612b47fd6e655f67264",
+                        "Lifecycle": "draft",
+                        "PermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                        "ContentSha256": "ced394e04e6843730ab2e3ca8f104bf0fc466c488aaa4f6a209d0ec1b315a0d2"
+                    }
+                },
+                "OperationWatermarks": {
+                    "Sequence": 0,
+                    "LastPlannedOperationIdentity": null,
+                    "LastAppliedOperationIdentity": null,
+                    "LastReceiptSha256": null,
+                    "ApplyingOperationIdentity": null,
+                    "ConflictOperationIdentity": null,
+                    "BlockedReasonCode": null
+                },
+                "State": 1,
+                "ContentSha256": "bc08991f8086326561ca72458e21a41c7820ea22220ee0bc5a692914fed78f12"
+            }
+        ],
+        "ServerObservations": [
+            {
+                "Schema": "fsusblog.article-vault.server-observation.v1",
+                "SchemaVersion": 1,
+                "SiteIdentity": "site-primary",
+                "VaultIdentity": "vault-primary",
+                "DeviceIdentity": "device-primary",
+                "PortableArticleIdentity": "article:11111111-1111-4111-8111-111111111111",
+                "ServerArticleIdentity": "server-portable-article-a",
+                "ServerCoordinate": {
+                    "Schema": "fsusblog.article-vault.coordinate.v1",
+                    "SchemaVersion": 1,
+                    "Present": true,
+                    "Deleted": false,
+                    "ServerRevision": 5,
+                    "Source": {
+                        "Sha256": "356834a7c4aeebcef5c271b6d963a9f3b8b307a9886a873b77aafe2507fedfcd",
+                        "ByteLength": 24,
+                        "HasUtf8Bom": false,
+                        "NewlineStyle": 1,
+                        "TrailingWhitespaceLineCount": 0,
+                        "HasFinalNewline": true
+                    },
+                    "MetadataManifestSha256": "23d16dbe1d03b11d60406cdd25e033262bf3b866928da12dd4b3e6a86fdf56a9",
+                    "DependencySha256": "721edf54c996a281335b53abadfed64077e1a5db0fd4fe0c2efc2011508714b6",
+                    "Lifecycle": "draft",
+                    "PermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                    "ContentSha256": "583627d86d67747aea70e04f4f0c90805412026a1cf75c60a82a4a414b9c3113"
+                },
+                "ContentSha256": "0357f833720fc6df61e36fdc74ce15b7ad8101a5fbc5f98a133da37ec4d3bf2a"
+            }
+        ],
+        "Groups": [
+            {
+                "GroupIdentity": "group-primary",
+                "PortableArticleIdentities": [
+                    "article:11111111-1111-4111-8111-111111111111"
+                ],
+                "Dependencies": []
+            }
+        ],
+        "Direction": 0,
+        "CreatedAtUnixMs": 1800000000000,
+        "ExpiresAtUnixMs": 1800000060000,
+        "CancellationRequested": false
+    },
+    "Context": {
+        "NowUnixMs": 1800000000000,
+        "Direction": 0,
+        "CancellationRequested": false
+    },
+    "OriginalSyncPlan": {
+        "Schema": "fsusblog.article-vault.sync-plan.v1",
+        "SchemaVersion": 1,
+        "SiteIdentity": "site-primary",
+        "VaultIdentity": "vault-primary",
+        "DeviceIdentity": "device-primary",
+        "Direction": 0,
+        "CreatedAtUnixMs": 1800000000000,
+        "ExpiresAtUnixMs": 1800000060000,
+        "CancelPolicy": 0,
+        "CancellationRequested": false,
+        "Status": 0,
+        "RootManifestSha256": "3e18d139f7ae2eac0ea6e3a4f8c4c22d690f842ddb9beb4fb90de8a8ac40b5c5",
+        "Groups": [
+            {
+                "GroupIdentity": "group-primary",
+                "AllOrNothing": true,
+                "PortableArticleIdentities": [
+                    "article:11111111-1111-4111-8111-111111111111"
+                ],
+                "Dependencies": [],
+                "Items": [
+                    {
+                        "OperationIdentity": "operation-da87d6102c2659ab8785c17cdcc56b61",
+                        "Sequence": 0,
+                        "GroupIdentity": "group-primary",
+                        "PortableArticleIdentity": "article:11111111-1111-4111-8111-111111111111",
+                        "ServerArticleIdentity": "server-portable-article-a",
+                        "DerivedState": 3,
+                        "Decision": 2,
+                        "Base": {
+                            "Schema": "fsusblog.article-vault.coordinate.v1",
+                            "SchemaVersion": 1,
+                            "Present": true,
+                            "Deleted": false,
+                            "ServerRevision": 4,
+                            "Source": {
+                                "Sha256": "8dc210b4c688cca17ded276cc8c4530d15d42fa623ef64cb58586f8109761588",
+                                "ByteLength": 26,
+                                "HasUtf8Bom": false,
+                                "NewlineStyle": 1,
+                                "TrailingWhitespaceLineCount": 0,
+                                "HasFinalNewline": true
+                            },
+                            "MetadataManifestSha256": "23d16dbe1d03b11d60406cdd25e033262bf3b866928da12dd4b3e6a86fdf56a9",
+                            "DependencySha256": "0d7bd8a2dcfb3cdbb3ec1a10e01abc1a67d77e42acf80612b47fd6e655f67264",
+                            "Lifecycle": "draft",
+                            "PermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                            "ContentSha256": "ced394e04e6843730ab2e3ca8f104bf0fc466c488aaa4f6a209d0ec1b315a0d2"
+                        },
+                        "Local": {
+                            "Schema": "fsusblog.article-vault.coordinate.v1",
+                            "SchemaVersion": 1,
+                            "Present": true,
+                            "Deleted": false,
+                            "ServerRevision": 4,
+                            "Source": {
+                                "Sha256": "8dc210b4c688cca17ded276cc8c4530d15d42fa623ef64cb58586f8109761588",
+                                "ByteLength": 26,
+                                "HasUtf8Bom": false,
+                                "NewlineStyle": 1,
+                                "TrailingWhitespaceLineCount": 0,
+                                "HasFinalNewline": true
+                            },
+                            "MetadataManifestSha256": "23d16dbe1d03b11d60406cdd25e033262bf3b866928da12dd4b3e6a86fdf56a9",
+                            "DependencySha256": "0d7bd8a2dcfb3cdbb3ec1a10e01abc1a67d77e42acf80612b47fd6e655f67264",
+                            "Lifecycle": "draft",
+                            "PermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                            "ContentSha256": "ced394e04e6843730ab2e3ca8f104bf0fc466c488aaa4f6a209d0ec1b315a0d2"
+                        },
+                        "Server": {
+                            "Schema": "fsusblog.article-vault.coordinate.v1",
+                            "SchemaVersion": 1,
+                            "Present": true,
+                            "Deleted": false,
+                            "ServerRevision": 5,
+                            "Source": {
+                                "Sha256": "356834a7c4aeebcef5c271b6d963a9f3b8b307a9886a873b77aafe2507fedfcd",
+                                "ByteLength": 24,
+                                "HasUtf8Bom": false,
+                                "NewlineStyle": 1,
+                                "TrailingWhitespaceLineCount": 0,
+                                "HasFinalNewline": true
+                            },
+                            "MetadataManifestSha256": "23d16dbe1d03b11d60406cdd25e033262bf3b866928da12dd4b3e6a86fdf56a9",
+                            "DependencySha256": "721edf54c996a281335b53abadfed64077e1a5db0fd4fe0c2efc2011508714b6",
+                            "Lifecycle": "draft",
+                            "PermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                            "ContentSha256": "583627d86d67747aea70e04f4f0c90805412026a1cf75c60a82a4a414b9c3113"
+                        },
+                        "Preconditions": {
+                            "ArticleManifestSha256": "bc08991f8086326561ca72458e21a41c7820ea22220ee0bc5a692914fed78f12",
+                            "ServerObservationSha256": "0357f833720fc6df61e36fdc74ce15b7ad8101a5fbc5f98a133da37ec4d3bf2a",
+                            "ExpectedServerRevision": 5,
+                            "ExpectedPermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                            "ExpectedLifecycle": "draft"
+                        },
+                        "DependsOnOperationIdentities": []
+                    }
+                ]
+            }
+        ],
+        "Conflicts": [],
+        "OperationOrder": [
+            "operation-da87d6102c2659ab8785c17cdcc56b61"
+        ],
+        "IdempotencyKey": "5ebd800bcfd67379efb37162164f55266deca8ecf242428fba871a951f3d6758",
+        "PlanCandidateIdentity": "plan-5ebd800bcfd67379efb37162164f5526",
+        "ResultCandidateIdentity": "result-5ebd800bcfd67379efb37162164f5526",
+        "ContentSha256": "93e5e7ad426112c84f4c7ef9a4efa67119a43f107f06c1f5f19ac930f9c8ee4b"
+    },
+    "OldDependencyManifest": {
+        "Schema": "fsusblog.portable-dependency-manifest.v1",
+        "SchemaVersion": 1,
+        "Binding": {
+            "SiteIdentity": "site-primary",
+            "VaultIdentity": "vault-primary",
+            "PortableArticleIdentity": "article:11111111-1111-4111-8111-111111111111"
+        },
+        "ServerArticleIdentity": "server-portable-article-a",
+        "Coordinates": {
+            "Base": {
+                "Schema": "fsusblog.article-vault.coordinate.v1",
+                "SchemaVersion": 1,
+                "Present": true,
+                "Deleted": false,
+                "ServerRevision": 4,
+                "Source": {
+                    "Sha256": "8dc210b4c688cca17ded276cc8c4530d15d42fa623ef64cb58586f8109761588",
+                    "ByteLength": 26,
+                    "HasUtf8Bom": false,
+                    "NewlineStyle": 1,
+                    "TrailingWhitespaceLineCount": 0,
+                    "HasFinalNewline": true
+                },
+                "MetadataManifestSha256": "23d16dbe1d03b11d60406cdd25e033262bf3b866928da12dd4b3e6a86fdf56a9",
+                "DependencySha256": "0d7bd8a2dcfb3cdbb3ec1a10e01abc1a67d77e42acf80612b47fd6e655f67264",
+                "Lifecycle": "draft",
+                "PermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                "ContentSha256": "ced394e04e6843730ab2e3ca8f104bf0fc466c488aaa4f6a209d0ec1b315a0d2"
+            },
+            "Local": {
+                "Schema": "fsusblog.article-vault.coordinate.v1",
+                "SchemaVersion": 1,
+                "Present": true,
+                "Deleted": false,
+                "ServerRevision": 4,
+                "Source": {
+                    "Sha256": "8dc210b4c688cca17ded276cc8c4530d15d42fa623ef64cb58586f8109761588",
+                    "ByteLength": 26,
+                    "HasUtf8Bom": false,
+                    "NewlineStyle": 1,
+                    "TrailingWhitespaceLineCount": 0,
+                    "HasFinalNewline": true
+                },
+                "MetadataManifestSha256": "23d16dbe1d03b11d60406cdd25e033262bf3b866928da12dd4b3e6a86fdf56a9",
+                "DependencySha256": "0d7bd8a2dcfb3cdbb3ec1a10e01abc1a67d77e42acf80612b47fd6e655f67264",
+                "Lifecycle": "draft",
+                "PermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                "ContentSha256": "ced394e04e6843730ab2e3ca8f104bf0fc466c488aaa4f6a209d0ec1b315a0d2"
+            },
+            "Server": {
+                "Schema": "fsusblog.article-vault.coordinate.v1",
+                "SchemaVersion": 1,
+                "Present": true,
+                "Deleted": false,
+                "ServerRevision": 4,
+                "Source": {
+                    "Sha256": "8dc210b4c688cca17ded276cc8c4530d15d42fa623ef64cb58586f8109761588",
+                    "ByteLength": 26,
+                    "HasUtf8Bom": false,
+                    "NewlineStyle": 1,
+                    "TrailingWhitespaceLineCount": 0,
+                    "HasFinalNewline": true
+                },
+                "MetadataManifestSha256": "23d16dbe1d03b11d60406cdd25e033262bf3b866928da12dd4b3e6a86fdf56a9",
+                "DependencySha256": "0d7bd8a2dcfb3cdbb3ec1a10e01abc1a67d77e42acf80612b47fd6e655f67264",
+                "Lifecycle": "draft",
+                "PermissionSha256": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3",
+                "ContentSha256": "ced394e04e6843730ab2e3ca8f104bf0fc466c488aaa4f6a209d0ec1b315a0d2"
+            }
+        },
+        "SourceSide": 3,
+        "Source": {
+            "Sha256": "8dc210b4c688cca17ded276cc8c4530d15d42fa623ef64cb58586f8109761588",
+            "ByteLength": 26,
+            "HasUtf8Bom": false,
+            "NewlineStyle": 1,
+            "TrailingWhitespaceLineCount": 0,
+            "HasFinalNewline": true
+        },
+        "RelationSha256": "4b9c0352448c812f3857d6fa28e90bf90911081f820a742b5fe73b495dd092b5",
+        "Nodes": [],
+        "Edges": [],
+        "GraphSha256": "0d7bd8a2dcfb3cdbb3ec1a10e01abc1a67d77e42acf80612b47fd6e655f67264",
+        "ContentSha256": "b283269121916a1d73bbb25d6b9c2a78177ec27568d68b2f7dd429d008d7c616"
+    },
+    "OldRelationSet": {
+        "Schema": "fsusblog.article-embed-edge-set.v1",
+        "SchemaVersion": 1,
+        "HostPortableArticleIdentity": "article:11111111-1111-4111-8111-111111111111",
+        "HostDocument": {
+            "Id": "contract-probe-document",
+            "Epoch": 1
+        },
+        "HostSourceRevision": 4,
+        "Scope": 1,
+        "AuthorityGeneration": 1,
+        "Actor": {
+            "ActorIdentity": "contract-probe-actor",
+            "SiteIdentity": "site-primary",
+            "PermissionContextDigest": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3"
+        },
+        "Runtime": {
+            "ProviderId": "contract-probe-empty-fixture",
+            "ProviderVersion": 1,
+            "RuntimeVersion": "fsusblog.article-embed-provider.v1",
+            "RuntimeDigest": "46ee91d2628497f021c4f1e77c47fc37cf252cef571ddf5827954baacb51ff6a"
+        },
+        "MaterialLocale": null,
+        "MaterialTheme": null,
+        "SourceArtifactDigest": "689bd90361bb1c69b4829ce810f91605c88a8feb0cd85fba50c9303b57dc162d",
+        "Edges": [],
+        "SetDigest": "4b9c0352448c812f3857d6fa28e90bf90911081f820a742b5fe73b495dd092b5"
+    },
+    "FreshRelationSet": {
+        "Schema": "fsusblog.article-embed-edge-set.v1",
+        "SchemaVersion": 1,
+        "HostPortableArticleIdentity": "article:11111111-1111-4111-8111-111111111111",
+        "HostDocument": {
+            "Id": "contract-probe-document",
+            "Epoch": 1
+        },
+        "HostSourceRevision": 5,
+        "Scope": 1,
+        "AuthorityGeneration": 1,
+        "Actor": {
+            "ActorIdentity": "contract-probe-actor",
+            "SiteIdentity": "site-primary",
+            "PermissionContextDigest": "4f42d09215ad046a992e288caa8ac592941a69d32b0afeadd842290273f533b3"
+        },
+        "Runtime": {
+            "ProviderId": "contract-probe-empty-fixture",
+            "ProviderVersion": 1,
+            "RuntimeVersion": "fsusblog.article-embed-provider.v1",
+            "RuntimeDigest": "46ee91d2628497f021c4f1e77c47fc37cf252cef571ddf5827954baacb51ff6a"
+        },
+        "MaterialLocale": null,
+        "MaterialTheme": null,
+        "SourceArtifactDigest": "130038dba8ab533b94270a3791a86753cef3fe967296f013e201e30fb7e60bac",
+        "Edges": [],
+        "SetDigest": "f127153fcb4703ddf3029c899b29e19620a5232afd5cf9966152af867facec17"
+    },
+    "Budgets": {
+        "MaxDepth": 8,
+        "MaxExpandedNodes": 64,
+        "MaxSourceBytes": 1048576,
+        "MaxElapsedMilliseconds": 30000,
+        "MaxAuthorityMessages": 128
+    },
+    "OldSourceBytesBase64": "T3JpZ2luYWwgcGxhaW4gcGFyYWdyYXBoLgo=",
+    "FreshSourceBytesBase64": "RnJlc2ggc2VydmVyIHBhcmFncmFwaC4K"
+}
