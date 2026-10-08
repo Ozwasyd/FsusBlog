@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
-import { digestCanonical, sealContentDigest } from '../../tools/test/attempt-provenance.mjs';
-import { validateAtomicProducerDeclarations } from '../../tools/test-matrix/atomic-producers/contract.mjs';
-import { compositeObservationDigest, renderCompositeLeafDisposition, validateCompositeLeafDisposition } from '../../tools/test-matrix/atomic-producers/disposition.mjs';
+import { URL } from 'node:url';
 
 import { atomicFixture, atomicReference, rebindAtomicFixture } from './support/atomic-producer-fixture.mjs';
+
+const { digestCanonical, sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
+const { validateAtomicProducerDeclarations } = await import(new URL('../../tools/test-matrix/atomic-producers/contract.mjs', import.meta.url));
+const { compositeObservationDigest, renderCompositeLeafDisposition, validateCompositeLeafDisposition } = await import(new URL('../../tools/test-matrix/atomic-producers/disposition.mjs', import.meta.url));
 
 function validate(fixture)
 {

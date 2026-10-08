@@ -1,8 +1,9 @@
 import fs from 'node:fs';
+import { URL } from 'node:url';
 
-import { digestCanonical, readRetryPolicyRegistry, retryPolicyById, sha256 } from '../../test/attempt-provenance.mjs';
-import { validateReplayPlan } from '../../test/execution-replay-contract.mjs';
-import { validateJsonSchema } from '../schema-validator/validate.mjs';
+const { digestCanonical, readRetryPolicyRegistry, retryPolicyById, sha256 } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
+const { validateReplayPlan } = await import(new URL('../../test/execution-replay-contract.mjs', import.meta.url));
+const { validateJsonSchema } = await import(new URL('../schema-validator/validate.mjs', import.meta.url));
 
 const schema = JSON.parse(fs.readFileSync(new URL('./contract.schema.json', import.meta.url), 'utf8'));
 const physicalKinds = new Set(['atomic-producer', 'hard-prerequisite']);

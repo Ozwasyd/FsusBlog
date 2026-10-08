@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-
-import { digestCanonical, sealContentDigest, validateExternalAuthorityReferences } from '../../test/attempt-provenance.mjs';
-import { runProducerAttempts } from '../../test/attempt-runner.mjs';
-import { buildSettledPhaseJoinEvidence, executeWeightedStepDag, StepDagExecutionError, StepTerminalError } from '../../test/bundles/bundle-steps.mjs';
+import { URL } from 'node:url';
 
 import { verifyCompiledAtomicProducerDag } from './compiler.mjs';
 import { isAtomicExecutable, resolveAtomicReplayPlan } from './contract.mjs';
+
+const { digestCanonical, sealContentDigest, validateExternalAuthorityReferences } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
+const { runProducerAttempts } = await import(new URL('../../test/attempt-runner.mjs', import.meta.url));
+const { buildSettledPhaseJoinEvidence, executeWeightedStepDag, StepDagExecutionError, StepTerminalError } = await import(new URL('../../test/bundles/bundle-steps.mjs', import.meta.url));
 
 export class AtomicProducerExecutionError extends Error
 {

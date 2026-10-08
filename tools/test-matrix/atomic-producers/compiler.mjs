@@ -1,6 +1,8 @@
-import { digestCanonical, sealContentDigest } from '../../test/attempt-provenance.mjs';
+import { URL } from 'node:url';
 
 import { isAtomicExecutable, resolveAtomicReference, validateAtomicProducerDeclarations } from './contract.mjs';
+
+const { digestCanonical, sealContentDigest } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
 
 function freezeTree(value)
 {
