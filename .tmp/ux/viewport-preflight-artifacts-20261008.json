@@ -4,6 +4,11 @@
     "sourceRevision": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
     "artifacts": [
         {
+            "path": ".tmp/ux/viewport-actual-pr-contract-20261008.log",
+            "sha256": "5fc4ee555790f922924e4a8a9c4f6bb7f60d5ab9f7ac5843c202233732f06ffa",
+            "bytes": 43
+        },
+        {
             "path": ".tmp/ux/viewport-boundaries-first-attempt-20261008.log",
             "sha256": "1ab68a15e3f6034c50cb1e5fd0f142b64a0049f9d76df0b10f1d3bad5fc048ca",
             "bytes": 815
@@ -35,8 +40,8 @@
         },
         {
             "path": ".tmp/ux/viewport-preflight-20261008.md",
-            "sha256": "670bea7992d0c2555415342a54c2bc5082b4cf9a22a7bc903563828970f28bc9",
-            "bytes": 13868
+            "sha256": "0dd37f4c50db65e819d787ce82ec9a9f3f37fafe7809db9f1ca0ffdfedec5806",
+            "bytes": 15817
         },
         {
             "path": ".tmp/ux/viewport-smoke-first-attempt-20261008.log",
