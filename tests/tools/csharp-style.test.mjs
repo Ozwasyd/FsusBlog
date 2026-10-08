@@ -1292,7 +1292,9 @@ test('contextual record expressions do not exempt lowercase types named with', (
     record with;
 }`,
             'public class @new(int value)\n{\n    record with;\n}',
-            'namespace @new\n{\n    record with;\n}'
+            'namespace @new\n{\n    record with;\n}',
+            'public class Container(SomeRecord record) : Base(\n    record with\n    {\n        Name = "Updated"\n    })\n{\n    record with;\n}',
+            'public class Container() : Base(() =>\n{\n    return 1;\n})\n{\n    record with;\n}'
         ])
         {
             writeFixture(fixtureRoot, 'src/sample/BadType.cs', `namespace Fixture;\n\n${declaration}${/[;}]$/u.test(declaration) ? '\n' : '\n{\n}\n'}`);
