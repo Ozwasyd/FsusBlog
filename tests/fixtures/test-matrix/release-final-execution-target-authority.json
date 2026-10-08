@@ -525,8 +525,8 @@
         },
         {
             "path": "src/frontend/src/locales/routeLocaleDomains.ts",
-            "contentDigest": "sha256:7247439abba6b698bef938b72198c3b3a619e85a0239b1c9293e8a71d0ee16b4",
-            "indexDigest": "sha256:7247439abba6b698bef938b72198c3b3a619e85a0239b1c9293e8a71d0ee16b4"
+            "contentDigest": "sha256:67d3744142a48bf5eb188ff9e8dddab84ee04b18040e84867e5f8174febb3f14",
+            "indexDigest": "sha256:67d3744142a48bf5eb188ff9e8dddab84ee04b18040e84867e5f8174febb3f14"
         },
         {
             "path": "src/frontend/src/locales/ru-RU/admin.ts",
@@ -2520,8 +2520,8 @@
         },
         {
             "path": "tools/contracts/check-locale-catalog.mjs",
-            "contentDigest": "sha256:bd58cfb081361660334a94d972abf1d0a9cd5f709c50d5795cb9e2c94e9043f2",
-            "indexDigest": "sha256:bd58cfb081361660334a94d972abf1d0a9cd5f709c50d5795cb9e2c94e9043f2"
+            "contentDigest": "sha256:a895317216b8ce84415f5408e3efa5937bdb7f57f2183b7ccc164029c961d92d",
+            "indexDigest": "sha256:a895317216b8ce84415f5408e3efa5937bdb7f57f2183b7ccc164029c961d92d"
         },
         {
             "path": "tools/contracts/check-openapi-consumers.mjs",
@@ -2550,8 +2550,8 @@
         },
         {
             "path": "tools/contracts/generate-locale-catalog.mjs",
-            "contentDigest": "sha256:291bd2892861d55714f132dcdbbadc6d2f4dca74bf935fc40bb05cfa1bf2ab55",
-            "indexDigest": "sha256:291bd2892861d55714f132dcdbbadc6d2f4dca74bf935fc40bb05cfa1bf2ab55"
+            "contentDigest": "sha256:1aebfcda0ebe9e622ae4e8e65d82ca78c3b8ea22cbda1557e5de536631ddd636",
+            "indexDigest": "sha256:1aebfcda0ebe9e622ae4e8e65d82ca78c3b8ea22cbda1557e5de536631ddd636"
         },
         {
             "path": "tools/contracts/generate-perception-character-v3-release-target.mjs",
@@ -3080,8 +3080,8 @@
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
-            "contentDigest": "sha256:172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1",
-            "indexDigest": "sha256:172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1"
+            "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+            "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
         },
         {
             "path": "tools/fact-extractors/governance.mjs",
@@ -4585,8 +4585,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "contentDigest": "sha256:e7fbf540795bd70fb566a9ff0d5ea0e586a101a83b2dde4a5461c920b9425808",
-            "indexDigest": "sha256:e7fbf540795bd70fb566a9ff0d5ea0e586a101a83b2dde4a5461c920b9425808"
+            "contentDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7",
+            "indexDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7"
         },
         {
             "path": "tools/test-matrix/schema-validator/package.json",

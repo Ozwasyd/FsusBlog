@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import {
     mkdirSync,
     mkdtempSync,
@@ -174,6 +175,12 @@ public sealed record ExpressionBraces(string Name)
         {
             _ = fallback;
         }
+        ExpressionBraces record = this;
+        _ = ComputeRecord(
+            record with
+            {
+                Name = Name.Trim()
+            });
         ExpressionBraces normalized = this with
         {
             Name = Name.Trim()
@@ -187,6 +194,8 @@ public sealed record ExpressionBraces(string Name)
     }
 
     private static string Compute(string value) => value;
+
+    private static ExpressionBraces ComputeRecord(ExpressionBraces value) => value;
 }
 
 public sealed record MultiLineRecord(
@@ -1254,5 +1263,202 @@ internal sealed class TypeTokens
         {
             assert.ok(output(refused).includes(` ${rule}:`), output(refused));
         }
+    });
+});
+
+
+test('contextual record expressions do not exempt lowercase types named with', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        for (const declaration of [
+            'record with;',
+            'record with(int Value);',
+            'record class with;',
+            'class with',
+            'struct with',
+            'record lowerCase;',
+            '[System.Obsolete]\npublic class Container\n{\n    record with;\n}',
+            '#nullable enable\npublic class Container(int Value)\n{\n    record with;\n}',
+            '[System.Xml.Serialization.XmlInclude(typeof(int[]))]\npublic class Container(int value)\n{\n    record with;\n}',
+            '[System.Xml.Serialization.XmlInclude(\n    typeof(int[]))]\npublic class Container(int value)\n{\n    record with;\n}',
+            '[Some(new int[] { 1 })]\npublic class Container(int value)\n{\n    record with;\n}',
+            '[System.Obsolete]\n[Some(new int[] { 1 })]\npublic class Container(int value)\n{\n    record with;\n}',
+            'public class Container([Some(new int[] { 1 })] int value)\n{\n    record with;\n}',
+            'public class @Container(int value)\n{\n    record with;\n}',
+            'public class ΔContainer(int value)\n{\n    record with;\n}',
+            String.raw`public class \u0043ontainer(int value)
+{
+    record with;
+}`,
+            'public class @new(int value)\n{\n    record with;\n}',
+            'namespace @new\n{\n    record with;\n}',
+            'public class Container(SomeRecord record) : Base(\n    record with\n    {\n        Name = "Updated"\n    })\n{\n    record with;\n}',
+            'public class Container() : Base(() =>\n{\n    return 1;\n})\n{\n    record with;\n}'
+        ])
+        {
+            writeFixture(fixtureRoot, 'src/sample/BadType.cs', `namespace Fixture;\n\n${declaration}${/[;}]$/u.test(declaration) ? '\n' : '\n{\n}\n'}`);
+            const result = runChecker(fixtureRoot, ['--mode', 'full']);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), / type-name:/u);
+        }
+    });
+});
+
+test('singular Miss enums and plural flags retain both naming refusal controls', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        for (const [name, flags, rule] of [
+            ['PublicHotReadServingMiss', false, null],
+            ['PublicHotReadServingMisses', false, 'enum-name'],
+            ['Permissions', false, 'enum-name'],
+            ['Permissions', true, null],
+            ['Permission', true, 'flags-enum-name'],
+            ['PublicHotReadServingMiss', true, 'flags-enum-name']
+        ])
+        {
+            writeFixture(fixtureRoot, 'src/sample/Enum.cs', `using System;\n\nnamespace Fixture;\n\n${flags ? '[Flags]\n' : ''}public enum ${name}\n{\n    None = 0\n}\n`);
+            const result = runChecker(fixtureRoot, ['--mode', 'full']);
+            assert.equal(result.status, rule ? 1 : 0, output(result));
+            if (rule)
+            {
+                assert.match(output(result), new RegExp(` ${rule}:`, 'u'));
+            }
+        }
+    });
+});
+
+test('policy-only rebind preserves the real original baseline and refuses substituted inputs', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const policyPath = 'config/development/csharp-style-policy.json';
+        const baselinePath = 'config/development/csharp-style-baseline.json';
+        const original = spawnSync('git', ['show', 'b19b3dc715691b871f0e3cab598ec5da8f27633c:' + baselinePath], {
+            cwd: root, encoding: 'utf8', env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+        });
+        assert.equal(original.status, 0, original.stderr);
+        const originalBytes = original.stdout;
+        assert.equal(crypto.createHash('sha256').update(originalBytes).digest('hex'),
+            '0ab4b1ebfecbba054015209fcb30f62dbd6395a1390da67a87b9e9fd057fd011');
+        const candidatePolicy = `${JSON.stringify(sourcePolicy, null, 4)}\n`;
+        writeFixture(fixtureRoot, policyPath, candidatePolicy);
+        const run = (args = []) => spawnSync(process.execPath, [checker, '--root', fixtureRoot,
+            '--mode', 'full', '--rebind-baseline-policy', ...args], { cwd: fixtureRoot, encoding: 'utf8' });
+        writeFixture(fixtureRoot, baselinePath, originalBytes);
+        const stale = spawnSync(process.execPath, [checker, '--root', fixtureRoot, '--mode', 'full'], {
+            cwd: fixtureRoot, encoding: 'utf8'
+        });
+        assert.equal(stale.status, 1, output(stale));
+        assert.match(output(stale), /policy digest is stale/u);
+        const accepted = run();
+        assert.equal(accepted.status, 0, output(accepted));
+        const rebound = readFileSync(path.join(fixtureRoot, baselinePath), 'utf8');
+        const expected = JSON.parse(originalBytes);
+        expected.policySha256 = crypto.createHash('sha256').update(candidatePolicy).digest('hex');
+        assert.deepEqual(JSON.parse(rebound), expected);
+        assert.equal(run().status, 0);
+        const ordinary = spawnSync(process.execPath, [checker, '--root', fixtureRoot, '--mode', 'full'], {
+            cwd: fixtureRoot, encoding: 'utf8'
+        });
+        assert.equal(ordinary.status, 0, output(ordinary));
+        for (const mutate of [
+            (value) =>
+            {
+                value.schema = 'wrong';
+            },
+            (value) =>
+            {
+                value.generatedFrom = 'wrong';
+            },
+            (value) =>
+            {
+                value.violationCount += 1;
+            },
+            (value) =>
+            {
+                value.fileCount += 1;
+            },
+            (value) =>
+            {
+                value.policySha256 = '0'.repeat(64);
+            },
+            (value) =>
+            {
+                value.files[0].sourceSha256 = '0'.repeat(64);
+            },
+            (value) =>
+            {
+                value.files[0].violationDigest = '0'.repeat(64);
+            },
+            (value) =>
+            {
+                value.files[0].rules['type-name'] += 1;
+            },
+            (value) =>
+            {
+                value.files[0].path = 'src/other.cs';
+            },
+            (value) =>
+            {
+                value.files.push(value.files[0]);
+            }
+        ])
+        {
+            const corrupted = JSON.parse(originalBytes);
+            mutate(corrupted);
+            const bytes = `${JSON.stringify(corrupted, null, 4)}\n`;
+            writeFixture(fixtureRoot, baselinePath, bytes);
+            const result = run();
+            assert.equal(result.status, 1, output(result));
+            assert.match(output(result), /intact original baseline/u);
+            assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), bytes);
+        }
+        writeFixture(fixtureRoot, baselinePath, originalBytes);
+        for (const extra of [['--fix'], ['--update-baseline'], ['--file', 'src/Other.cs'], ['--mode', 'strict-full'], ['--base', 'HEAD'], ['--policy', path.join(fixtureRoot, 'config/csharp-style-policy.json')]])
+        {
+            assert.equal(run(extra).status, 1);
+            assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
+        }
+        const expanded = structuredClone(sourcePolicy);
+        expanded.excludedPaths.push('src/**');
+        writeFixture(fixtureRoot, policyPath, `${JSON.stringify(expanded, null, 4)}\n`);
+        assert.equal(run().status, 1);
+        assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
+        writeFixture(fixtureRoot, policyPath, candidatePolicy);
+        rmSync(path.join(fixtureRoot, baselinePath));
+        assert.equal(run().status, 1);
+        writeFixture(fixtureRoot, 'original-baseline.json', originalBytes);
+        symlinkSync(path.join(fixtureRoot, 'original-baseline.json'), path.join(fixtureRoot, baselinePath));
+        assert.equal(run().status, 1);
+        assert.equal(readFileSync(path.join(fixtureRoot, 'original-baseline.json'), 'utf8'), originalBytes);
+    });
+});
+
+
+test('array-valued attributes retain genuine contextual record expressions', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        writeFixture(fixtureRoot, 'src/sample/AttributedRecord.cs', `namespace Fixture;
+
+[System.Xml.Serialization.XmlInclude(typeof(int[]))]
+public sealed record AttributedRecord(string Name)
+{
+    public AttributedRecord Normalize(AttributedRecord record)
+    {
+        return Copy(
+            record with
+            {
+                Name = Name.Trim()
+            });
+    }
+
+    private static AttributedRecord Copy(AttributedRecord value) => value;
+}
+`);
+        const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/AttributedRecord.cs']);
+        assert.equal(result.status, 0, output(result));
     });
 });
