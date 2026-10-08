@@ -1,0 +1,33 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/ci/check-job-summaries.mjs",
+                "tools/ci/run-stage.mjs",
+                "tools/test-matrix/release-final-evidence-contract.mjs",
+                "tools/test-matrix/required-evidence-dependencies.mjs",
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve existing caller-visible process environment names while projecting and recording catalog dependencies."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Preserve canonical shell environment names while adding the dependency contract regression suite."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/execution-dependency-contract.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve canonical execution graph, producer inventory and execution-target snapshot schemas and serialized keys while binding current derived digests."
+        }
+    ]
+}
