@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -12,7 +13,6 @@ namespace FsusBlog.ArticleVault.MacOS;
 /// </summary>
 public sealed class MacVaultWatcherSession : IDisposable
 {
-    private static readonly FSEventsNative.Callback s_callback = ObserveCallback;
     private static readonly UTF8Encoding s_utf8 = new(false, true);
     private readonly object _gate = new();
     private readonly MacVaultRootPathScope _scope;
@@ -44,14 +44,15 @@ public sealed class MacVaultWatcherSession : IDisposable
     }
 
     /// <summary>Creates the sole stream with fresh identity; rejects unsupported platforms without fallback.</summary>
-    public static MacVaultWatcherSession Open(MacVaultWatchRequest request)
+    public static unsafe MacVaultWatcherSession Open(MacVaultWatchRequest request)
     {
         MacVaultRootPathScope scope = MacVaultRootPathScope.Open(request);
         var session = new MacVaultWatcherSession(scope, request.Options);
         try
         {
             nint context = scope.Handle.SetCallbackTarget(session);
-            int error = FSEventsNative.Start(scope.Handle, Marshal.GetFunctionPointerForDelegate(s_callback), context,
+            nint callback = (nint)(delegate* unmanaged[Cdecl]<nint, nint, uint, ulong, int, void>)&ObserveCallback;
+            int error = FSEventsNative.Start(scope.Handle, callback, context,
                 request.Options.MaxNativeBatch);
             if (error != 0)
             {
@@ -78,6 +79,7 @@ public sealed class MacVaultWatcherSession : IDisposable
         }
     }
 
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void ObserveCallback(nint context, nint path, uint flags, ulong eventId, int error)
     {
         var target = (WeakReference<MacVaultWatcherSession>)GCHandle.FromIntPtr(context).Target!;
