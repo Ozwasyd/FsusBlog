@@ -263,11 +263,13 @@
                                         <small>{{ field.description }}</small>
                                         <ElSwitch
                                             v-if="field.type === 'boolean'"
-                                            v-model="configDraft[field.name]"
+                                            :model-value="configSwitchValue(field.name)"
+                                            @update:model-value="setConfigValue(field.name, $event)"
                                         />
                                         <ElSelect
                                             v-else-if="field.enumValues.length"
-                                            v-model="configDraft[field.name]"
+                                            :model-value="configChoiceValue(field.name)"
+                                            @update:model-value="setConfigValue(field.name, $event)"
                                             :placeholder="field.title"
                                         >
                                             <ElOption
@@ -279,13 +281,15 @@
                                         </ElSelect>
                                         <ElInputNumber
                                             v-else-if="field.type === 'integer' || field.type === 'number'"
-                                            v-model="configDraft[field.name]"
+                                            :model-value="configNumberValue(field.name)"
+                                            @update:model-value="setConfigValue(field.name, $event)"
                                             :min="field.minimum"
                                             :max="field.maximum"
                                         />
                                         <ElInput
                                             v-else
-                                            v-model="configDraft[field.name]"
+                                            :model-value="configInputValue(field.name)"
+                                            @update:model-value="setConfigValue(field.name, $event)"
                                             :placeholder="field.title"
                                         />
                                     </label>
@@ -530,12 +534,14 @@ import {
 import { confirmDanger, confirmWarning, toast } from '@/fsusui/feedback';
 import { showErrorToast } from '@/utils/errorPresentation';
 
+type ConfigOptionValue = string | number | boolean | Record<string, unknown>;
+
 interface ConfigField {
     name: string;
     title: string;
     description: string;
     type: string;
-    enumValues: unknown[];
+    enumValues: ConfigOptionValue[];
     minimum?: number;
     maximum?: number;
 }
@@ -554,7 +560,7 @@ let overviewRequestId = 0;
 let detailRequestId = 0;
 let disposed = false;
 const pluginRows = computed(() => overview.value?.plugins.map((plugin) => ({ ...plugin })) ?? []);
-const configDraft = ref<Record<string, any>>({});
+const configDraft = ref<PluginAdminDetail['config']['value']>({});
 const pluginColumns = [
     { key: 'identity', label: '插件', grid: 'minmax(0, 1fr)' },
     { key: 'status', label: '状态', grid: 'minmax(90px, 0.5fr)', align: 'end' as const }
@@ -567,16 +573,70 @@ const configFields = computed<ConfigField[]>(() =>
     {
         return [];
     }
-    return Object.entries(properties as Record<string, Record<string, unknown>>).map(([name, schema]) => ({
-        name,
-        title: String(schema.title ?? name),
-        description: String(schema.description ?? ''),
-        type: String(schema.type ?? 'string'),
-        enumValues: Array.isArray(schema.enum) ? schema.enum : [],
-        minimum: typeof schema.minimum === 'number' ? schema.minimum : undefined,
-        maximum: typeof schema.maximum === 'number' ? schema.maximum : undefined
-    }));
+    return Object.entries(properties).flatMap(([name, schema]) =>
+    {
+        if (!isConfigRecord(schema))
+        {
+            return [];
+        }
+        return [{
+            name,
+            title: schemaText(schema.title, name),
+            description: schemaText(schema.description, ''),
+            type: schemaText(schema.type, 'string'),
+            enumValues: Array.isArray(schema.enum) ? schema.enum.filter(isConfigOptionValue) : [],
+            minimum: typeof schema.minimum === 'number' ? schema.minimum : undefined,
+            maximum: typeof schema.maximum === 'number' ? schema.maximum : undefined
+        }];
+    });
 });
+
+function isConfigRecord(value: unknown): value is Record<string, unknown>
+{
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isConfigOptionValue(value: unknown): value is ConfigOptionValue
+{
+    return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || isConfigRecord(value);
+}
+
+function schemaText(value: unknown, fallback: string): string
+{
+    return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+        ? String(value)
+        : fallback;
+}
+
+// Project only the public control value. Keep the original JSON draft until an explicit edit.
+function configSwitchValue(name: string): string | number | boolean
+{
+    const value = configDraft.value[name];
+    return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? value : false;
+}
+
+function configChoiceValue(name: string): ConfigOptionValue | ConfigOptionValue[] | undefined
+{
+    const value = configDraft.value[name];
+    return Array.isArray(value) ? value.filter(isConfigOptionValue) : isConfigOptionValue(value) ? value : undefined;
+}
+
+function configNumberValue(name: string): number | undefined
+{
+    const value = configDraft.value[name];
+    return typeof value === 'number' ? value : undefined;
+}
+
+function configInputValue(name: string): string | number | null | undefined
+{
+    const value = configDraft.value[name];
+    return value === null || typeof value === 'string' || typeof value === 'number' ? value : undefined;
+}
+
+function setConfigValue(name: string, value: unknown): void
+{
+    configDraft.value[name] = value;
+}
 
 async function loadOverview(): Promise<void>
 {
@@ -928,6 +988,13 @@ onMounted(loadOverview);
     background: var(--fsusblog-panel-bg);
 }
 
+.plugin-admin-list,
+.plugin-admin-detail
+ {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .plugin-admin-layout
  {
     display: grid;
@@ -948,6 +1015,12 @@ onMounted(loadOverview);
     border-bottom: 1px solid var(--fsusblog-panel-border);
     color: var(--fsusblog-text-secondary);
     font-size: 13px;
+}
+
+.plugin-admin-list__summary > span
+ {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .plugin-admin-list__identity,
@@ -1046,7 +1119,7 @@ onMounted(loadOverview);
  {
     .plugin-admin-layout
  {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .plugin-admin-list

@@ -58,3 +58,17 @@ An optional second argument selects `data-list`, `responsive-collection` or
 checks the chosen DataList capability without claiming the other candidates
 support single selection. DataList includes public collection/keyed disabling,
 loading, pointer, keyboard, synthetic-click and touch rejection plus recovery.
+
+The production PluginAdmin regression uses the real component, public FsusUI
+controls and application CSS with disposable deferred API responses:
+
+```bash
+node tests/frontend/checks/runtime/check-plugin-admin-production.mjs
+```
+
+It checks 375/768/1440px, light/dark, normal/long metadata, overview/detail
+loading, keyboard selection, errors, recovery, empty refresh and disposal.
+Grid-area bounds and every metadata text rectangle must fit; no overflow-hiding
+repair or screenshot-baseline update can admit clipping. Reports and screenshots
+use fresh `.tmp/chain-1894/plugin-admin-production-*` directories. This diagnostic
+does not qualify a real backend, authenticated route, published package or device.
