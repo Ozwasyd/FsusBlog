@@ -164,6 +164,7 @@ public static class PodContractValidation
             && IsReferenceFree<UploadPartRangePod>()
             && IsReferenceFree<UploadPartAckPod>()
             && IsReferenceFree<UploadCompletePod>()
+            && IsReferenceFree<UploadAssetPreviewPod>()
             && IsReferenceFree<UploadInitRequestPod>()
             && IsReferenceFree<UploadCompleteRequestPod>()
             && IsReferenceFree<PowChallengePod>();

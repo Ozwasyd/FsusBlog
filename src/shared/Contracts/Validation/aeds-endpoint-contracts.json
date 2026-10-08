@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "18ce5e8db6d450bbeb0e742a0c29d8c9b4b6334b985dac781a6e2f20884b3801",
+    "contentDigest": "7baf70780f0e89c6f73881e65b8ca2e699067d6959d051c89126bdbfd4655cc5",
     "operations": [
         {
             "method": "DELETE",
@@ -2778,6 +2778,17 @@
             "requestType": "FsusBlog.Core.Mapping.Models.UploadCompleteRequestCoreModel",
             "requestEncoding": "binary-layout",
             "responseFrame": "UploadComplete",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/upload/{uploadId}/preview",
+            "operationId": "binary_post_upload_uploadId_preview",
+            "requestFrame": "UploadCompleteRequest",
+            "requestType": "FsusBlog.Core.Mapping.Models.UploadCompleteRequestCoreModel",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "UploadAssetPreview",
             "errorFrame": "ApiError",
             "successStatus": 200
         },

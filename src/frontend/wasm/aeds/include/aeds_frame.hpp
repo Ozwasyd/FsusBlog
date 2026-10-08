@@ -284,6 +284,7 @@ enum class FrameType : std::uint16_t
     ThemeActivation = 250,
     ApiError = 251,
     ThemeActivationHistory = 252,
+    UploadAssetPreview = 253,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -553,6 +554,7 @@ enum class FrameType : std::uint16_t
         case FrameType::ThemeActivation:
         case FrameType::ApiError:
         case FrameType::ThemeActivationHistory:
+        case FrameType::UploadAssetPreview:
             return true;
         default:
             return false;

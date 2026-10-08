@@ -259,6 +259,7 @@
     { "name": "ThemeRegistryDetail", "value": 248, "family": "theme-registry-response" },
     { "name": "ThemeActivationList", "value": 249, "family": "theme-activation-response" },
     { "name": "ThemeActivation", "value": 250, "family": "theme-activation-response" },
-    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" }
+    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" },
+    { "name": "UploadAssetPreview", "value": 253, "family": "upload-response" }
   ]
 }

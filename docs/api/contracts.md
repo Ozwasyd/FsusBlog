@@ -1784,6 +1784,16 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 }
 ```
 
+### `UploadAssetPreviewDto`（受保护的当前字节观察）
+
+`POST /api/binary/upload/{uploadId}/preview` 沿用原 upload group 的 admin `article.write`、PoW 和 `X-Fsus-Upload-Token`；请求为原 `UploadCompleteRequest` AEDS v2，必须包含完整 SHA-256。响应为新增 frame `253 / UploadAssetPreview`，固定 `private, no-store`。原 session 必须属于当前 principal、未过期且已完成；服务在唯一 AssetId advisory lock 下重新检查 active/public 账本、ownership、实际原生 regular file identity、SHA、media 与尺寸，以及完整有界引用集合。错误仍使用原 `ApiError`。
+
+Shared `UploadAssetPreviewPod` 是 760-byte packed header，随后是恰好 `SizeBytes` 的原始观察字节（最多 20 MiB）。header 顺序为 schema/UploadId/AssetId/public URL/MIME/extension（64/64/64/256/64/32-byte ASCII）、Int64 size、Int32 width/height、三个 64-byte SHA-256（bytes、asset version、reference ledger）、Int32 reference row count、Int32 zero reserved。未知尺寸表示为 width/height 同为 0。固定字符串拒绝非法 ASCII、非零 padding、截断；C#/C++/TS 同步拒绝非规范 ID、非 display-only URL projection、media/extension 不匹配、非法 size/count/reserved、缺失和尾随 bytes。原 producer 同步生成 frame enum、C++/TS 注册与 golden catalog；原 compiled observer 生成 HTTP/OpenAPI projection。
+
+`IFileService.ReadCommittedUploadPreviewAsync` 保留同一次原生读取的 bytes 与 `UploadAssetObservation`，序列化不再次通过 URL/path 打开文件。响应不包含 upload token、内部物理路径、完整 reference source/alt text、管理员权限或 article/Vault authority；frontend 原 binary decoder 注册新的封闭投影，`readCommittedUploadPreview` 重算返回字节 SHA 并核对请求 upload ID/digest、拒绝取消后的迟到结果。展示 URL 仍只是投影，消费者不能从 URL 推断 AssetId。
+
+这项观察不是 article/document/source revision eligibility，也不是 durable read/write grant、Vault operation receipt 或 attachment success。完整 provider 必须继续消费原 verified intent 和 current document context；article/operation/revision、reference 更新与 orphan cleanup 由各原 authority 验证，不能把这份 session 观察包装为已资格化的 `verifiedAssets`。本入口不改变公共资产热路径或账本写入语义。
+
 ---
 
 ## System configuration contract

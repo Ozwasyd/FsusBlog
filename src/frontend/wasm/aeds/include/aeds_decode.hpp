@@ -18,7 +18,8 @@ enum class ErrorCode : std::uint8_t
     ArticlePayloadInvalid = 7,
     FrameTypeUnsupported = 8,
     FrameTypeRetired = 9,
-    FontThemePayloadInvalid = 10
+    FontThemePayloadInvalid = 10,
+    UploadAssetPreviewInvalid = 11
 };
 
 struct DecodeResult

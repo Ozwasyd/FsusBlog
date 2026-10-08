@@ -1517,6 +1517,12 @@
             "value": 252,
             "goldenFamily": "theme-activation-response",
             "goldenOrder": 243
+        },
+        {
+            "name": "UploadAssetPreview",
+            "value": 253,
+            "goldenFamily": "upload-response",
+            "goldenOrder": 244
         }
     ],
     "goldenCatalog": {

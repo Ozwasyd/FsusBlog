@@ -14,7 +14,7 @@ import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStats
 import { mapSiteSubscriptionResponseFromPayload } from '@/adapters/binary/subscriptionAdapter';
 import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceConfigFromPayload } from '@/adapters/binary/systemAdapter';
 import { mapCategoryListFromPayload, mapTagListFromPayload, mapTaxonomyExactMetadataFromPayload } from '@/adapters/binary/taxonomyAdapter';
-import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
+import { mapUploadAssetPreviewFromPayload, mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import { AppErrorCode, createAppError } from '@/utils/appError';
@@ -104,6 +104,7 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.UploadStatus,
     FrameType.UploadPartAck,
     FrameType.UploadComplete,
+    FrameType.UploadAssetPreview,
     FrameType.UploadPartMap,
     FrameType.AuthorDraftResponse,
     FrameType.AuthorDraftDiscardResponse,
@@ -306,6 +307,7 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.UploadStatus, mapUploadStatusFromPayload],
     [FrameType.UploadPartAck, mapUploadPartAckFromPayload],
     [FrameType.UploadComplete, mapUploadCompleteFromPayload],
+    [FrameType.UploadAssetPreview, mapUploadAssetPreviewFromPayload],
     [FrameType.UploadPartMap, mapUploadPartMapFromPayload],
     [FrameType.AuthorDraftResponse, mapAuthoringJsonFromPayload],
     [FrameType.AuthorDraftDiscardResponse, mapAuthoringJsonFromPayload],

@@ -24,6 +24,7 @@ public sealed class BackendGoldenCatalogTests
     }
 
     [Theory]
+    [InlineData("UploadAssetPreview", 253, "upload-response")]
     [InlineData("FontRegistryList", 244, "font-registry-response")]
     [InlineData("FontRegistryDetail", 245, "font-registry-response")]
     [InlineData("FontActivationList", 246, "font-activation-response")]

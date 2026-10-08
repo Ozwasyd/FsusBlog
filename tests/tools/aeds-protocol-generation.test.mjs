@@ -54,7 +54,7 @@ test('the original producer owns five products with manifest-derived identities 
     assert.deepEqual(golden.frames, [...manifest.frameTypes]
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
-    assert.equal(golden.frames.length, 244);
+    assert.equal(golden.frames.length, 245);
 });
 
 test('the original 236 golden records, evidence and retirement remain unchanged', () =>
@@ -75,6 +75,7 @@ test('the original four renderer outputs and complete golden bytes are preserved
 });
 
 for (const [name, value, family] of [
+    ['UploadAssetPreview', 253, 'upload-response'],
     ['FontRegistryList', 244, 'font-registry-response'],
     ['FontRegistryDetail', 245, 'font-registry-response'],
     ['FontActivationList', 246, 'font-activation-response'],
@@ -135,7 +136,7 @@ for (const [label, mutate, expected] of [
 test('every frame, including future registrations, must explicitly provide complete golden metadata', () =>
 {
     const source = structuredClone(manifest);
-    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 244 });
+    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 245 });
     const golden = goldenFrom(source);
     assert.deepEqual(golden.frames.at(-1), { name: 'FutureFrame', value: 65535, family: 'test-response' });
 });
