@@ -168,5 +168,13 @@
             "backendLock": "bd3dbde7939dc95c81cef4ab6b50f883459ee85d"
         },
         "status": "supplied-ready-capabilities-consumed-qualified-runtime-gates-still-open"
+    },
+    "followupCompilerPrerequisite": {
+        "evidence": "compiler-prerequisite-verification.json",
+        "testedCandidate": "342f0176145be43dd020334ec83f662d5b95fbae",
+        "CS0182Cleared": true,
+        "actualRemainingCompilerErrors": 10,
+        "affectedSourceFiles": 6,
+        "acceptance": "bounded-source-capability-consumed-runtime-compile-gates-open"
     }
 }

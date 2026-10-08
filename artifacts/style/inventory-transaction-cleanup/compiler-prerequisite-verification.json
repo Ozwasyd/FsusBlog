@@ -1,0 +1,161 @@
+{
+    "schema": "fsusblog.issue-3242-compiler-prerequisite-verification.v1",
+    "issue": 3242,
+    "runId": "issue-3242-compiler-20261008T032903Z",
+    "testedCandidate": "342f0176145be43dd020334ec83f662d5b95fbae",
+    "compilerPrerequisite": "a95de1defd39a46f34992bed9eee3c150d990456",
+    "nodeVersion": "v24.16.0",
+    "sdkVersion": "10.0.401",
+    "sourceParity": {
+        "exactFourInlineDataArgumentsOnly": true,
+        "allAssertionsAndCasesPreserved": true
+    },
+    "originalCheck": {
+        "command": "node --test tests/tools/ts-ast-adapter.test.mjs tests/tools/test-replacement-transaction.test.mjs tests/tools/test-inventory.test.mjs tests/tools/repository-governance-authority.test.mjs",
+        "exitCode": 1,
+        "passed": 61,
+        "failed": 3,
+        "skipped": 0,
+        "artifact": "compiler-prerequisite-original.log",
+        "rawLog": "/tmp/issue-3242-evidence/compiler-prerequisite-original.log",
+        "rawSha256": "6127ba17e4562b4e56cd3e2d81c9cb03ea8c1b4d945665ac202724e3956a263a",
+        "storedSha256": "aaf54e8e7a072e63c0d4eff44ef7f6eda21abf26dfef248e748d6f3276ad490f",
+        "logLastWriteBeforeNextCommit": true
+    },
+    "CS0182Cleared": true,
+    "newCompilerErrors": [
+        {
+            "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+            "line": 505,
+            "column": 17,
+            "code": "CS0246",
+            "message": "The type or namespace name 'CanonicalAuthoringFilePathVerifier' could not be found (are you missing a using directive or an assembly reference?)"
+        },
+        {
+            "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+            "line": 200,
+            "column": 22,
+            "code": "CS0103",
+            "message": "The name 'ErrorCode' does not exist in the current context"
+        },
+        {
+            "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+            "line": 1006,
+            "column": 14,
+            "code": "CS1061",
+            "message": "'ConfigurationBuilder' does not contain a definition for 'AddInMemoryCollection' and no accessible extension method 'AddInMemoryCollection' accepting a first argument of type 'ConfigurationBuilder' could be found (are you missing a using directive or an assembly reference?)"
+        },
+        {
+            "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+            "line": 14,
+            "column": 9,
+            "code": "CS0619",
+            "message": "'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.'"
+        },
+        {
+            "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+            "line": 15,
+            "column": 9,
+            "code": "CS0619",
+            "message": "'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.'"
+        },
+        {
+            "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+            "line": 16,
+            "column": 9,
+            "code": "CS0619",
+            "message": "'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.'"
+        },
+        {
+            "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+            "line": 566,
+            "column": 52,
+            "code": "CS0117",
+            "message": "'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval'"
+        },
+        {
+            "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+            "line": 568,
+            "column": 52,
+            "code": "CS0117",
+            "message": "'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval'"
+        },
+        {
+            "path": "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+            "line": 121,
+            "column": 28,
+            "code": "CS0246",
+            "message": "The type or namespace name 'IArticlePublicationValidator' could not be found (are you missing a using directive or an assembly reference?)"
+        },
+        {
+            "path": "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+            "line": 130,
+            "column": 33,
+            "code": "CS0246",
+            "message": "The type or namespace name 'ArticleWriteValidationException' could not be found (are you missing a using directive or an assembly reference?)"
+        }
+    ],
+    "sourceRouting": {
+        "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs": {
+            "sourceCommit": "60ebe20169b4c6cc7b296b058ce83bfd7eae45f1",
+            "associatedIssueReferences": [
+                "#2142, #2141, #3564, #3665"
+            ],
+            "ownerAssignment": "coordinator must route; this task does not implement those sources"
+        },
+        "tests/backend/Unit/TaxonomyExactMetadataTests.cs": {
+            "sourceCommit": "4983cd6b28e2ab20e5ec4c3e61a0cdd81f16ffda",
+            "associatedIssueReferences": [
+                "#3745, #3737, #2918"
+            ],
+            "ownerAssignment": "coordinator must route; this task does not implement those sources"
+        },
+        "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs": {
+            "sourceCommit": "508e63637b9627e48d347ddb608e681ea7366d87",
+            "associatedIssueReferences": [
+                "#3737, #2918, #2207, #2208"
+            ],
+            "ownerAssignment": "coordinator must route; this task does not implement those sources"
+        },
+        "tests/backend/Unit/RealConcurrencyHarnessTests.cs": {
+            "sourceCommit": "4983cd6b28e2ab20e5ec4c3e61a0cdd81f16ffda",
+            "associatedIssueReferences": [
+                "#3745, #3737, #2918"
+            ],
+            "ownerAssignment": "coordinator must route; this task does not implement those sources"
+        },
+        "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs": {
+            "sourceCommit": "59a5b73272ff27a87b5f6efe7ef222e4206ec5d7",
+            "associatedIssueReferences": [
+                "#2175"
+            ],
+            "ownerAssignment": "coordinator must route; this task does not implement those sources"
+        },
+        "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs": {
+            "sourceCommit": "76bb98d039670044e7c328b6a028d05a7675d2b7",
+            "associatedIssueReferences": [
+                "#2174, #2175"
+            ],
+            "ownerAssignment": "coordinator must route; this task does not implement those sources"
+        }
+    },
+    "remainingOriginalFailures": [
+        "xunit discovery missing-expected-exception negative control",
+        "byte-stable canonical inventory producer refuses genuine backend compilation",
+        "CI .NET setup assertion"
+    ],
+    "blockedAcceptance": [
+        "genuine backend Debug compile context",
+        "runtime bootstrap cases",
+        "compile-dependent static host/retention producers",
+        "current-epoch retirement admission",
+        "full selected execution graph and independent qualification",
+        "global style baseline authority"
+    ],
+    "notConsumed": {
+        "eeb4e84096571ecb3a989629825f2508e2de7b71": "correctness-attempt roster is a separate producer, not a prerequisite of the original #3242 test-inventory/adapter command",
+        "e38a0badac3867560b5d0fdc1b8d1c648d15ee37": "dependent correctness migration target metadata; no need to expand owned implementation scope"
+    },
+    "noOracleOrAuthorityWeakening": true,
+    "noMergeDeploymentOrIssueClosure": true
+}
