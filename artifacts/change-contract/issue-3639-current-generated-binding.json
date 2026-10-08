@@ -10,7 +10,17 @@
         "tools/test/correctness-attempt-migration.mjs",
         "tests/tools/test-matrix-scheduler.test.mjs",
         "tests/tools/support/esm-fixture-materializer-contracts.mjs",
-        "tests/tools/support/locked-schema-validator-fixture.mjs"
+        "tests/tools/support/locked-schema-validator-fixture.mjs",
+        "tools/testing/content-shape-catalog.mjs",
+        "tools/testing/FsusBlog.ContentFieldContractExtractor/Program.cs",
+        "tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets",
+        "src/backend/Services/Articles/ArticlePublicationValidator.cs",
+        "src/backend/Models/Dtos/CommentDto.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs",
+        "config/schemas/test-execution-envelope-applicability.schema.json",
+        "tests/tools/execution-envelope-policy.test.mjs",
+        "tools/test/run-matrix-governance-once.sh"
     ],
     "outputs": [
         {
@@ -23,11 +33,15 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "c7649041881f2b3c4b1df2d334c2a31e8bfe5f26d9aa8b96f08ebcd0c01822a6"
+            "sha256": "7bf6dc0030d76b6b69aefde352fc5e9535c0186ffae6c81c6843bfdcea383968"
         },
         {
             "path": "config/testing/test-execution-envelope-applicability.json",
             "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
+        },
+        {
+            "path": "config/testing/content-field-contracts.generated.json",
+            "sha256": "1da6bef00ab75ab9acc7c413ec78ee7797d90969efe0324e097a3488610d4fb3"
         }
     ]
 }
