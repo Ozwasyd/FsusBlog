@@ -2,7 +2,7 @@
 import path from 'node:path';
 import process from 'node:process';
 
-import { readCurrentSchemaReceiptReleaseBinding, readReleaseManifest } from './release-manifest.mjs';
+import { readExplicitReleaseArtifact, readCurrentSchemaReceiptReleaseBinding, readReleaseManifest } from './release-manifest.mjs';
 
 function parseArgs(argv)
 {
@@ -31,7 +31,17 @@ try
     {
         throw new Error('receipt-byte-binding mode must be explicitly true');
     }
-    if (options['receipt-byte-binding'] === 'true')
+    if (options['identity-roster-byte-binding'] !== undefined)
+    {
+        if (options['identity-roster-byte-binding'] !== 'true' || options.manifest || options['receipt-byte-binding'])
+        {
+            throw new Error('identity roster byte binding is explicit and cannot substitute for manifest admission');
+        }
+        const bytes = readExplicitReleaseArtifact(options['identity-roster'], options['identity-roster-sha256']);
+        JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+        console.log(JSON.stringify({ status: 'roster-byte-bound', qualificationEligible: false }));
+    }
+    else if (options['receipt-byte-binding'] === 'true')
     {
         if (options.manifest)
         {

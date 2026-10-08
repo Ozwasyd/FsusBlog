@@ -19,7 +19,7 @@ import {
     writeReleaseManifestAtomic
 } from '../../tools/release/release-manifest.mjs';
 
-import { createCurrentSchemaReleaseBindingFixture } from './support/release-readiness-test-helpers.mjs';
+import { createCurrentSchemaReleaseBindingFixture, createReleaseIdentityRosterFixture } from './support/release-readiness-test-helpers.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const releaseId = '20260711010101-0123456789ab';
@@ -38,6 +38,7 @@ function createInput(overrides = {})
         frontendManifestHash: `sha256:${'b'.repeat(64)}`,
         wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
         currentSchema: createCurrentSchemaReleaseBindingFixture(),
+        identity: createReleaseIdentityRosterFixture({ commitSha: '0123456789abcdef0123456789abcdef01234567', imageDigest: digest, frontendManifestHash: `sha256:${'b'.repeat(64)}`, wasmArtifactHash: `sha256:${'c'.repeat(64)}` }),
         dotnetVersion: '10.0.100',
         nodeVersion: 'v20.19.0',
         dockerVersion: '28.0.0',
@@ -299,6 +300,8 @@ test('manifest creator CLI writes the same digest-bound schema consumed by deplo
     };
     fs.writeFileSync(receiptFile, JSON.stringify(receiptProjection));
     const receiptSha256 = crypto.createHash('sha256').update(fs.readFileSync(receiptFile)).digest('hex');
+    const rosterFile = path.join(directory, 'identity-roster.json');
+    fs.writeFileSync(rosterFile, JSON.stringify(input.identity));
     const result = spawnSync(process.execPath, [
         path.join(root, 'tools/release/create-release-manifest.mjs'),
         '--output', manifestFile,
@@ -309,6 +312,8 @@ test('manifest creator CLI writes the same digest-bound schema consumed by deplo
         '--image-digest', input.imageDigest,
         '--frontend-manifest-hash', input.frontendManifestHash,
         '--wasm-artifact-hash', input.wasmArtifactHash,
+        '--identity-roster', rosterFile,
+        '--identity-roster-sha256', crypto.createHash('sha256').update(fs.readFileSync(rosterFile)).digest('hex'),
         '--current-schema-receipt', receiptFile,
         '--current-schema-receipt-sha256', receiptSha256,
         '--dotnet-version', input.dotnetVersion,
@@ -723,4 +728,69 @@ test('candidate identity follows content while manifest sealing binds deployment
     {
         assert.ok(validateReleaseManifest({ ...manifest, [alias]: 'green' }).some(error => /not allowed/u.test(error)));
     }
+});
+
+
+test('closed identity roster binds one current build and rejects missing range mixed and alias identities', () =>
+{
+    const original = createReleaseManifest(createInput());
+    for (const mutation of [
+        manifest =>
+        {
+            delete manifest.identity;
+        },
+        manifest =>
+        {
+            manifest.identity.frontend.buildId = 'other-build';
+        },
+        manifest =>
+        {
+            manifest.identity.backend.imageDigest = `sha256:${'9'.repeat(64)}`;
+        },
+        manifest =>
+        {
+            manifest.identity.source.commitSha = '9'.repeat(40);
+        },
+        manifest =>
+        {
+            manifest.identity.contracts.wasmAbi.minimum = '1';
+        },
+        manifest =>
+        {
+            manifest.identity.contracts.aeds.version = '>=1';
+        },
+        manifest =>
+        {
+            manifest.identity.serviceWorker.previousNamespace = 'old';
+        },
+        manifest =>
+        {
+            manifest.identity.runtime.config.artifact.reference = '/artifacts/latest/config.json';
+        },
+        manifest =>
+        {
+            manifest.identity.signing.algorithm = 'none';
+        },
+        manifest =>
+        {
+            delete manifest.identity.provenance;
+        }
+    ])
+    {
+        const changed = structuredClone(original);
+        mutation(changed);
+        changed.candidateId = deriveReleaseCandidateId(changed);
+        changed.contentDigest = deriveReleaseManifestContentDigest(changed);
+        assert.ok(validateReleaseManifest(changed).length > 0);
+    }
+    for (const key of ['aeds', 'protocol', 'wasmAbi', 'notification'])
+    {
+        const changed = structuredClone(original);
+        changed.identity.contracts[key].artifact.sha256 = `sha256:${'9'.repeat(64)}`;
+        assert.notEqual(deriveReleaseCandidateId(changed), original.candidateId);
+    }
+    const moved = structuredClone(original);
+    moved.identity.frontend.assetManifest.reference = '/other/artifacts/assets.json';
+    assert.equal(deriveReleaseCandidateId(moved), original.candidateId);
+    assert.notEqual(deriveReleaseManifestContentDigest(moved), original.contentDigest);
 });

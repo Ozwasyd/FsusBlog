@@ -19,14 +19,13 @@ export function sha256File(file)
  * The C# receipt codec, offline verifier and live Server admission remain the
  * only owners of receipt integrity, database verification and runtime readiness.
  */
-export function readCurrentSchemaReceiptReleaseBinding(reference, expectedSha256)
+export function readExplicitReleaseArtifact(reference, expectedSha256, maximumBytes = 1024 * 1024)
 {
     if (typeof reference !== 'string' || !path.isAbsolute(reference) || path.resolve(reference) !== reference
         || !/^[0-9a-f]{64}$/u.test(String(expectedSha256 ?? '')))
     {
         throw new Error('current-schema receipt requires an explicit canonical path and artifact SHA-256');
     }
-    const maximumBytes = 1024 * 1024;
     const before = fs.lstatSync(reference, { bigint: true });
     if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n
         || before.size === 0n || before.size > BigInt(maximumBytes) || fs.realpathSync(reference) !== reference
@@ -72,6 +71,12 @@ export function readCurrentSchemaReceiptReleaseBinding(reference, expectedSha256
     {
         throw new Error('current-schema receipt artifact digest mismatch');
     }
+    return bytes;
+}
+
+export function readCurrentSchemaReceiptReleaseBinding(reference, expectedSha256)
+{
+    const bytes = readExplicitReleaseArtifact(reference, expectedSha256);
     const receipt = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
     if (receipt.format !== 'fsusblog.current-schema-receipt.v1' || receipt.status !== 'verified-current')
     {

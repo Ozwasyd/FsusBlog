@@ -2,7 +2,7 @@
 import path from 'node:path';
 import process from 'node:process';
 
-import { createReleaseManifest, readCurrentSchemaReceiptReleaseBinding, writeReleaseManifestAtomic } from './release-manifest.mjs';
+import { createReleaseManifest, readExplicitReleaseArtifact, readCurrentSchemaReceiptReleaseBinding, writeReleaseManifestAtomic } from './release-manifest.mjs';
 
 function parseArgs(argv)
 {
@@ -30,7 +30,7 @@ try
     const required = [
         'output', 'release-id', 'created-at-utc', 'commit-sha', 'image-repository', 'image-tag', 'image-digest',
         'frontend-manifest-hash', 'wasm-artifact-hash',
-        'current-schema-receipt', 'current-schema-receipt-sha256',
+        'current-schema-receipt', 'current-schema-receipt-sha256', 'identity-roster', 'identity-roster-sha256',
         'dotnet-version', 'node-version', 'docker-version', 'dockerfile-digest'
     ];
     for (const field of required)
@@ -41,6 +41,8 @@ try
         }
     }
     const manifest = createReleaseManifest({
+        identity: JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(readExplicitReleaseArtifact(
+            options['identity-roster'], options['identity-roster-sha256']))),
         releaseId: options['release-id'],
         commitSha: options['commit-sha'],
         imageRepository: options['image-repository'],

@@ -55,6 +55,24 @@ export function createCurrentSchemaReleaseBindingFixture()
     return binding;
 }
 
+// A structural source fixture, never an artifact verifier, signing authority or native receipt.
+export function createReleaseIdentityRosterFixture({ commitSha, imageDigest, frontendManifestHash, wasmArtifactHash })
+{
+    const artifact = (name, sha256 = digest('7')) => ({ reference: `/unit-fixture/${name}`, sha256 });
+    const contract = name => ({ version: 'unit-current-v1', artifact: artifact(name) });
+    return {
+        source: { commitSha, worktreeFingerprint: digest('8'), buildId: 'unit-build-v1', buildReceipt: artifact('build.json') },
+        backend: { imageDigest, artifact: artifact('backend.bin') },
+        frontend: { buildId: 'unit-build-v1', buildReceipt: artifact('frontend-build.json'),
+            assetManifest: artifact('assets.json', frontendManifestHash), wasmArtifact: artifact('decoder.wasm', wasmArtifactHash) },
+        serviceWorker: { namespace: 'unit-current-sw', version: 'unit-sw-v1', artifact: artifact('sw.js') },
+        contracts: { aeds: contract('aeds.json'), protocol: contract('protocol.json'), wasmAbi: contract('wasm-abi.json'), notification: contract('notification.json') },
+        runtime: { roles: contract('roles.json'), config: contract('config.json'), dependencies: contract('dependencies.json') },
+        provenance: contract('provenance.json'),
+        signing: { algorithm: 'ed25519', keyId: 'unit-signing-key', publicKey: artifact('public.pem'), trustPolicy: contract('trust.json') }
+    };
+}
+
 export function createReadinessManifest(releaseId, commit)
 {
     return createReleaseManifest({
@@ -68,6 +86,7 @@ export function createReadinessManifest(releaseId, commit)
         frontendManifestHash: digest('2'),
         wasmArtifactHash: digest('3'),
         currentSchema: createCurrentSchemaReleaseBindingFixture(),
+        identity: createReleaseIdentityRosterFixture({ commitSha: commit, imageDigest: digest('1'), frontendManifestHash: digest('2'), wasmArtifactHash: digest('3') }),
         dotnetVersion: '10.0.100',
         nodeVersion: '24.0.0',
         dockerVersion: '28.0.0',
