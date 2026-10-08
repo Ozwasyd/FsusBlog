@@ -25,17 +25,9 @@
             "paths": [
                 "tests/backend/packages.lock.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/governance/test-lifecycle-registry.json",
-                "tests/test-retention-replacements.json"
+                "tests/governance/test-lifecycle-registry.json"
             ],
             "reason": "Preserve original NuGet, canonical authority and lifecycle/retention JSON wire schema spellings; only current lock, source digest or owner mappings change."
-        },
-        {
-            "id": "css-like-contract",
-            "paths": [
-                "docs/testing.md"
-            ],
-            "reason": "Preserve documented caller-visible CLI/environment and contract spellings while extending the original matrix preparation documentation."
         }
     ]
 }
