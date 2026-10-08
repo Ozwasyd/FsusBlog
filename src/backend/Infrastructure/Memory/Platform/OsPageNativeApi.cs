@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
 
+using FsusBlog.Server.Infrastructure.Memory.Capabilities;
+
 namespace FsusBlog.Server.Infrastructure.Memory.Platform;
 
 internal readonly record struct OsPageCall(bool Succeeded, int Error);
@@ -31,11 +33,16 @@ internal enum OsPageStrategy
 internal static class OsPageNativeApi
 {
     // Detection alone never certifies release qualification or online activation.
-    public static IOsPageNativeApi? Detect(OsPageStrategy strategy = OsPageStrategy.Normal, int explicitPageBytes = 2097152)
+    public static IOsPageNativeApi? Detect(OsPageStrategy strategy = OsPageStrategy.Normal,
+        int explicitPageBytes = 2097152, MemoryCapabilityMode mode = MemoryCapabilityMode.Auto)
     {
         if (!Enum.IsDefined(strategy))
         {
             throw new ArgumentOutOfRangeException(nameof(strategy));
+        }
+        if (MemoryCapabilityPolicy.Validate(mode) == MemoryCapabilityMode.Disabled)
+        {
+            return null;
         }
         if (OperatingSystem.IsLinux())
         {

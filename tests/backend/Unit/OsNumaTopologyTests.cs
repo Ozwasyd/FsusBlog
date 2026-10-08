@@ -7,6 +7,16 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OsNumaTopologyTests
 {
+    [Fact]
+    public void DisabledObservationLeavesDetectionUnknownWithoutReadingTheOs()
+    {
+        OsNumaTopologyObservation observation = OsNumaTopologySource.Observe(MemoryCapabilityMode.Disabled);
+        Assert.Equal(MemoryDetection.Unknown, observation.Detection);
+        Assert.Null(observation.AllowedNodes);
+        Assert.Empty(observation.OnlineNodes);
+        Assert.Contains("no NUMA source probes", observation.Reason);
+    }
+
     [Theory]
     [InlineData("0", "0", 1, 1)]
     [InlineData("0-3", "1,3", 4, 2)]
