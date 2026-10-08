@@ -1,0 +1,964 @@
+{
+  "schema": "fsusblog.issue-3593-source-review-boundary.v1",
+  "issue": 3593,
+  "status": "OPEN / source implementation and narrow review preparation verified; original admission unresolved",
+  "runId": "issue-3593-narrow-review-20261008T141341Z",
+  "sourceCandidate": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+  "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "sourceBranch": "task/3593-leaf-review-boundary",
+  "sourceCompareUrl": "https://github.com/Ozwasyd/FsusBlog/compare/6e287562b3f861d3eb81dcb23f93e6243205abd8...task/3593-leaf-review-boundary",
+  "evidenceBranch": "task/3593-leaf-review-evidence",
+  "preservedOldBranches": {
+    "roster": "088d732331305253a7369bf1f55df66c459a49bd",
+    "masterContinuation": "b62ca4b1a666a9b63594fd4950db53167dfd6a2b",
+    "leafCurrent": "3b901b7ebab3c59b4cc145b3645a659bb562f6b0",
+    "wide": "8c4579fa323bd887a250f935c3446a0915cce530"
+  },
+  "commitsThisContinuation": [
+    {
+      "sha": "35595bf8ab8f4646df4920368012d1116eb69f35",
+      "scope": "Remove only 116 evidence-only HEAD copies; preserve immutable historical evidence, original sequence and six necessary source/metadata paths"
+    },
+    {
+      "sha": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+      "scope": "Generate real complete current execution authority using unchanged original producer; exactly two source/index digest row pairs"
+    }
+  ],
+  "completeCurrentPathClassification": {
+    "schema": "fsusblog.issue-review-path-classification.v1",
+    "issue": 3593,
+    "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "sourceCandidate": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+    "preservedWideEvidenceHead": "088d732331305253a7369bf1f55df66c459a49bd",
+    "sourceBoundaryCount": 7,
+    "categoryCounts": {
+      "indispensable-governed-metadata": 3,
+      "consumed-canonical-prerequisite": 3,
+      "owned-js-leaf-source": 1
+    },
+    "completeSourceBoundary": [
+      {
+        "path": ".git-blame-ignore-revs",
+        "category": "indispensable-governed-metadata",
+        "blob": "02ffa70e5adf9a8aca340aa97562aebce9280b26",
+        "sha256": "d8ab2deb7f0af5e1550e5a0e4f19f2610606027cf38658d47c4b73c269519f1e",
+        "bytes": 1226,
+        "productionSource": false,
+        "executableSource": false,
+        "sourceRole": "governed-metadata",
+        "reason": "docs/development/change-contract.md:96; validateCommitRange/validateRepositoryBlameIgnore requires reachable format-only SHA registration.",
+        "sourceHeadRequired": true
+      },
+      {
+        "path": "artifacts/style/suite-convergence-leaf-idempotence.json",
+        "category": "indispensable-governed-metadata",
+        "blob": "006da5ebf875e0628dc694da59fa27bd22b3cecf",
+        "sha256": "2a30d09a647c1010d6d6b79a783313c922ea3b549a32f06574cc3d15f3cee1b0",
+        "bytes": 2414,
+        "productionSource": false,
+        "executableSource": false,
+        "sourceRole": "governed-metadata",
+        "reason": "validateCommitRange -> validateFormatCommitEvidence -> validateFormatEvidence/loadEvidence requires the exact Idempotence-Evidence footer path at candidate HEAD and in the PR changed path set, with candidate source digests.",
+        "sourceHeadRequired": true
+      },
+      {
+        "path": "config/testing/correctness-attempt-producers.json",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+        "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+        "bytes": 315968,
+        "productionSource": false,
+        "executableSource": false,
+        "sourceRole": "canonical-generated-metadata",
+        "reason": "Parent-supplied fae117436a4c829748c04c6381d86db6be764e76 plus separate import-order-only test correction; required current catalog/migration capability.",
+        "sourceHeadRequired": true
+      },
+      {
+        "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "category": "indispensable-governed-metadata",
+        "sourceRole": "canonical-generated-execution-authority",
+        "productionSource": false,
+        "executableSource": false,
+        "sourceHeadRequired": true,
+        "bytes": 3014594,
+        "blob": "b58f17ff1d2d1fce4a0d6c1dfa0708971e98376b",
+        "sha256": "fdb76ed44cc10c1151ce700e89057d23363bea9971c0c66370c8ef91efd88e16",
+        "reason": "Unchanged original canonical producer, real full declarations/parser/index/target closure, two fresh exit-0 byte-identical executions. Full original static reader passes on this candidate. Exactly two actual source/index digest row pairs refreshed; unchanged master discovery source retained. This is candidate-owned output, not trusted policy promotion or normal PR metadata qualification."
+      },
+      {
+        "path": "tests/tools/correctness-attempt-migration.test.mjs",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "33e14abbbed9b3d7d074aae96cc679e9e313b8b3",
+        "sha256": "0103479f0ce7ccf2a30a6a2460fd3fcb82f48e8b518c6c14528a4c548fa1aac7",
+        "bytes": 3358,
+        "productionSource": false,
+        "executableSource": true,
+        "sourceRole": "test-source",
+        "reason": "Parent-supplied fae117436a4c829748c04c6381d86db6be764e76 plus separate import-order-only test correction; required current catalog/migration capability.",
+        "sourceHeadRequired": true
+      },
+      {
+        "path": "tests/tools/test-suite-convergence.test.mjs",
+        "category": "owned-js-leaf-source",
+        "blob": "4cad13021658379c7189cf5de84af0fe6d60daea",
+        "sha256": "17b6d8622108eb53421af1f830f0cd37dba60ede4ed65c9c554b596e20cdd238",
+        "bytes": 25764,
+        "productionSource": false,
+        "executableSource": true,
+        "sourceRole": "test-source",
+        "reason": "Exact original #3593 JS owner with preserved 17 canonical IDs and format/syntax history.",
+        "sourceHeadRequired": true
+      },
+      {
+        "path": "tools/test/correctness-attempt-migration.mjs",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+        "sha256": "f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+        "bytes": 4104,
+        "productionSource": false,
+        "executableSource": true,
+        "sourceRole": "tooling-source",
+        "reason": "Parent-supplied fae117436a4c829748c04c6381d86db6be764e76 plus separate import-order-only test correction; required current catalog/migration capability.",
+        "sourceHeadRequired": true
+      }
+    ],
+    "productionRuntimeSourceCount": 0,
+    "testSourceCount": 2,
+    "toolingSourceCount": 1,
+    "evidenceOnlyPathsInSourceDiff": 0,
+    "completePrevious122PathClassification": "suite-convergence-review-boundary-original-path-classification.json",
+    "original109UnsupportedPaths": {
+      "mandatoryGitMetadata": 1,
+      "evidenceOnlyGzipArtifacts": 108,
+      "productionSource": 0
+    },
+    "preservedMandatorySequence": [
+      "f6e6aa2455489c4d3fe65b9cbd6ad5831f6d2f04",
+      "e8def31887dab241d74ad712226290f715ace23d",
+      "27a09aa6223ca61922c08e96fb1d1760e912c163",
+      "f1291150a5b2ff6a7c327fe1bc3b4355bca7f12c"
+    ],
+    "mandatoryHeadMetadata": [
+      ".git-blame-ignore-revs",
+      "artifacts/style/suite-convergence-leaf-idempotence.json",
+      "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+    ],
+    "additionalRequiredPrAdmissionMetadata": [
+      {
+        "role": "generated-output-binding",
+        "status": "missing / original v1 refuses eight actual unchanged catalog inputs",
+        "rule": "docs/development/change-contract.md:117-118; tools/governance/change-contract.mjs:3118,3185-3236,3890-3985 requires changed-head JSON binding, actual source/output paths changed by PR and exact output digests",
+        "qualification": false
+      },
+      {
+        "role": "external-naming-exceptions",
+        "status": "missing; original registry requires a separate current changed-head manifest for these registered paths",
+        "paths": [
+          "config/testing/correctness-attempt-producers.json",
+          "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+          "tools/test/correctness-attempt-migration.mjs"
+        ],
+        "rule": "tools/governance/change-contract.mjs:3690-3790; config/development/native-tooling-style-exceptions.json",
+        "qualification": false
+      }
+    ],
+    "evidenceSeparationRules": {
+      "beforeEvidenceCommit": "docs/development/change-contract.md:66 requires a separate pre-migration evidence commit. f6e6aa2455489c4d3fe65b9cbd6ad5831f6d2f04 remains immutable, reachable and accessible together with original 088d7323 branch; no requirement places all step-2 raw artifacts in the final HEAD diff.",
+      "formatProof": "docs/development/change-contract.md:82 and tools/governance/change-contract.mjs:2404,2429,2494,4701 require candidate-head idempotence JSON in the changed path set.",
+      "blame": "docs/development/change-contract.md:96 and tools/governance/change-contract.mjs:4394,4701 require unchanged original format-only revision registration and actual parent-diff validation.",
+      "remainingEvidence": "No candidate-HEAD or changed-path rule found for the other 116 paths; they remain accessible on preserved immutable branches and historical commits, not discarded or relabeled."
+    },
+    "normalPrAdmissionGranted": false
+  },
+  "sourcePublication": {
+    "command": [
+      "git",
+      "ls-remote",
+      "origin",
+      "refs/heads/task/3593-leaf-review-boundary",
+      "refs/heads/task/3593-leaf-roster-continuation",
+      "refs/heads/task/3593-leaf-master-continuation",
+      "refs/heads/task/3593-leaf-current-master",
+      "refs/heads/task/3593-suite-style"
+    ],
+    "exitCode": 0,
+    "verifiedAt": "2026-10-08T14:22:07.358415+00:00",
+    "remoteBranchHeads": {
+      "refs/heads/task/3593-leaf-current-master": "3b901b7ebab3c59b4cc145b3645a659bb562f6b0",
+      "refs/heads/task/3593-leaf-master-continuation": "b62ca4b1a666a9b63594fd4950db53167dfd6a2b",
+      "refs/heads/task/3593-leaf-review-boundary": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+      "refs/heads/task/3593-leaf-roster-continuation": "088d732331305253a7369bf1f55df66c459a49bd",
+      "refs/heads/task/3593-suite-style": "8c4579fa323bd887a250f935c3446a0915cce530"
+    },
+    "oldBranchesUnchanged": true
+  },
+  "currentSourceChecks": {
+    "runId": "issue-3593-narrow-review-20261008T141341Z",
+    "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "sourceCandidate": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+    "results": [
+      {
+        "name": "leaf17",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "tests/tools/test-suite-convergence.test.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:41.024206+00:00",
+        "exitCode": 0,
+        "log": "leaf17.log",
+        "logSha256": "41187e6948ed55115a1ac58219aaef95ee2a788cade53cfb03eedc2e184f0980"
+      },
+      {
+        "name": "canonical7",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "tests/tools/correctness-attempt-migration.test.mjs",
+          "tests/tools/correctness-attempt-test-producers.test.mjs",
+          "tests/tools/correctness-attempt-build-release.test.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:41.024644+00:00",
+        "exitCode": 0,
+        "log": "canonical7.log",
+        "logSha256": "718515b06f64bf9cb76c31c9d3911d1b647d0cdc7b25bc2297bc71122569adb0"
+      },
+      {
+        "name": "replacement23",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "tests/tools/test-replacement-transaction.test.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:41.024928+00:00",
+        "exitCode": 0,
+        "log": "replacement23.log",
+        "logSha256": "36625b9d187fb718b95a677ba38651e8c6a115428d68a0c3f7d775ecd5052ca7"
+      },
+      {
+        "name": "history14",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "tools/post-baseline-history.test.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:41.025210+00:00",
+        "exitCode": 0,
+        "log": "history14.log",
+        "logSha256": "c86f007134c1f47151b8f86a4b95bdbcfded85343c7427bddc642ded3f1ffdee"
+      },
+      {
+        "name": "strict-style",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "strict-full",
+          "--file",
+          "tests/tools/test-suite-convergence.test.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:41.321148+00:00",
+        "exitCode": 0,
+        "log": "strict-style.log",
+        "logSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+      },
+      {
+        "name": "prerequisite-style",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "source-diff",
+          "--base",
+          "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+          "--file",
+          "tools/test/correctness-attempt-migration.mjs",
+          "--file",
+          "tests/tools/correctness-attempt-migration.test.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:42.239164+00:00",
+        "exitCode": 0,
+        "log": "prerequisite-style.log",
+        "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+      },
+      {
+        "name": "retention",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/test-replacement-transaction.mjs",
+          "check-diff",
+          "6e287562b3f861d3eb81dcb23f93e6243205abd8"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:46.388868+00:00",
+        "exitCode": 0,
+        "log": "retention.log",
+        "logSha256": "39c1bf43db736e095b544d56d091d80d9833934033d43810919069ddb9e958f9"
+      },
+      {
+        "name": "catalog-check",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/test/generate-correctness-attempt-producers.mjs",
+          "--check"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:47.669035+00:00",
+        "exitCode": 0,
+        "log": "catalog-check.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "trusted-range",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "/tmp/fsusblog-3593/roster-base-authority/tools/governance/check-change-contract.mjs",
+          "--root",
+          "/workspace/FsusBlog-3593-review",
+          "--range",
+          "6e287562b3f861d3eb81dcb23f93e6243205abd8..e0dde8879de5fa4fb8ae5b866e6effdb937b66e2"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:47.781097+00:00",
+        "exitCode": 0,
+        "log": "trusted-range.log",
+        "logSha256": "6b803e4dbd9e736bcf30415c268c363d73bf18c616f4f51d16e1144ddd82c686"
+      },
+      {
+        "name": "diff-check",
+        "command": [
+          "git",
+          "diff",
+          "--check",
+          "6e287562b3f861d3eb81dcb23f93e6243205abd8..e0dde8879de5fa4fb8ae5b866e6effdb937b66e2"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:49.856064+00:00",
+        "exitCode": 0,
+        "log": "diff-check.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "convergence",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/check-test-suite-convergence.mjs",
+          "--out",
+          "/tmp/fsusblog-3593/review-boundary/matrix-convergence.json"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:49.906228+00:00",
+        "exitCode": 1,
+        "log": "convergence.log",
+        "logSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2"
+      },
+      {
+        "name": "full-static-authority",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--input-type=module",
+          "-e",
+          "import {validateRepositoryReleaseFinalStaticBoundary} from './tools/test-matrix/release-final-static-boundary.mjs'; const errors=validateRepositoryReleaseFinalStaticBoundary(process.cwd()); console.log(JSON.stringify({errors},null,2)); if(errors.length)process.exitCode=1;"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-review",
+        "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+        "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "startedAt": "2026-10-08T14:13:50.317515+00:00",
+        "exitCode": 0,
+        "log": "full-static-authority.log",
+        "logSha256": "a44e9898eb3ee443eee4602c47505e7407900be0ead2f9dd80bbb12e50ce329b"
+      }
+    ]
+  },
+  "originalSourceIntegration": {
+    "name": "original-source-integration",
+    "command": [
+      "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/run-test-matrix.mjs",
+      "ci-pr-smart",
+      "--stage",
+      "source-integration",
+      "--base-ref",
+      "6e287562b3f861d3eb81dcb23f93e6243205abd8"
+    ],
+    "cwd": "/workspace/FsusBlog-3593-review",
+    "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+    "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "exitCode": 1,
+    "log": "original-source-integration.log",
+    "logSha256": "6db091497ca56423e782854866004915c90ba80fd54913714bbf9658f0b3d1f3"
+  },
+  "originalSourceResult": {
+    "schema": "fsusblog.source-governance-result.v1",
+    "sourceState": {
+      "commit": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+      "worktreeFingerprint": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    "executionStage": "source-integration",
+    "deferredQualificationTierIds": [
+      "aeds-compression-profile",
+      "aeds-frame-cost",
+      "app-config-local-tuning",
+      "backend-api-integration",
+      "backend-auth-state-machine",
+      "backend-benchmark-regression",
+      "backend-build-governance",
+      "backend-concurrency",
+      "backend-fast",
+      "backend-golden",
+      "backend-mutation-changed-critical",
+      "backend-perf",
+      "backend-property",
+      "backend-test-governance",
+      "backend-unit",
+      "behavior-doc-static-admission",
+      "behavior-evidence-pre-runtime",
+      "behavior-test-evidence",
+      "bootstrap",
+      "browser-contract",
+      "ci",
+      "coverage-backend",
+      "coverage-frontend",
+      "coverage-gate",
+      "coverage-merge",
+      "coverage-threshold",
+      "cross-stack-contract",
+      "csrf-browser-matrix",
+      "current-schema-bootstrap-integration",
+      "data-scale-evidence-summary",
+      "data-scale-s",
+      "data-scale-xs",
+      "distributed-contract-fast",
+      "endpoint-depth",
+      "fast",
+      "fault-injection",
+      "frontend-build",
+      "frontend-fast-summary",
+      "frontend-property-model-perf",
+      "frontend-render-structure",
+      "frontend-runtime-contracts",
+      "frontend-static-governance",
+      "frontend-unit-shard",
+      "integration",
+      "integrity-proof-verification",
+      "load",
+      "load-baseline",
+      "load-peak",
+      "native-smoke",
+      "perception-character-v3-release-gate",
+      "perception-v2-redteam-pr",
+      "perception-v2-test-matrix",
+      "performance-evidence-summary",
+      "privacy-zk-comment-matrix",
+      "production",
+      "production-build-artifacts",
+      "production-correctness",
+      "production-xss-release",
+      "public-hydration-fast",
+      "release",
+      "release-evidence",
+      "resilience",
+      "rights-v3-test-matrix",
+      "risk-control-test-matrix",
+      "runtime-cache-article-detail-l1",
+      "runtime-cache-cache-miss-singleflight",
+      "runtime-cache-distributed-invalidation",
+      "runtime-cache-evidence",
+      "runtime-cache-hot-featured-frame",
+      "runtime-cache-l1-residency",
+      "runtime-cache-pagination",
+      "runtime-cache-public-hot-read",
+      "runtime-cache-redis-fault-classes",
+      "runtime-cache-related-reading",
+      "runtime-cache-revocation",
+      "runtime-cache-security-projections",
+      "runtime-cache-sitemap",
+      "runtime-cache-telemetry",
+      "security",
+      "security-authenticated-dast",
+      "static-governance",
+      "test-inventory",
+      "ux-viewport-plan-progress",
+      "validate-matrix",
+      "wasm-build-artifacts",
+      "wasm-fuzz-regression"
+    ],
+    "fullQualificationTierIds": [
+      "acceptance",
+      "aeds-compression-profile",
+      "aeds-frame-cost",
+      "app-config-local-tuning",
+      "article-private-preview",
+      "backend-api-integration",
+      "backend-auth-state-machine",
+      "backend-benchmark-regression",
+      "backend-build-governance",
+      "backend-concurrency",
+      "backend-fast",
+      "backend-golden",
+      "backend-mutation",
+      "backend-mutation-changed-critical",
+      "backend-nightly",
+      "backend-perf",
+      "backend-property",
+      "backend-test-governance",
+      "backend-unit",
+      "behavior-doc-static-admission",
+      "behavior-document-consistency-final",
+      "behavior-evidence-post-runtime",
+      "behavior-evidence-pre-runtime",
+      "behavior-test-evidence",
+      "bootstrap",
+      "browser-contract",
+      "browser-diagnostics",
+      "browser-diagnostics-manual",
+      "browser-diagnostics-nightly",
+      "browser-performance-regression",
+      "browser-runtime-risk-diagnostics",
+      "changed-code-coverage",
+      "ci",
+      "coverage-backend",
+      "coverage-frontend",
+      "coverage-gate",
+      "coverage-gate-strict",
+      "coverage-merge",
+      "coverage-threshold",
+      "cross-browser-smoke",
+      "cross-stack-contract",
+      "csrf-browser-matrix",
+      "current-schema-bootstrap-integration",
+      "data-scale-evidence-summary",
+      "data-scale-m",
+      "data-scale-nightly",
+      "data-scale-s",
+      "data-scale-xs",
+      "distributed-contract-fast",
+      "endpoint-depth",
+      "fast",
+      "fault-injection",
+      "frontend-build",
+      "frontend-fast-summary",
+      "frontend-property-model-perf",
+      "frontend-render-structure",
+      "frontend-runtime-contracts",
+      "frontend-static-governance",
+      "frontend-unit-shard",
+      "homogeneous-two-node-fixture",
+      "integration",
+      "integrity-proof-verification",
+      "legacy-20260517-real-dump",
+      "load",
+      "load-2x-peak",
+      "load-baseline",
+      "load-burst",
+      "load-peak",
+      "markdown-preview-release-performance",
+      "native-fuzz-sanitizer",
+      "native-smoke",
+      "perception-character-v3-release-gate",
+      "perception-v2-redteam-nightly",
+      "perception-v2-redteam-pr",
+      "perception-v2-test-matrix",
+      "performance-evidence-summary",
+      "pr-smart-gate-plan",
+      "privacy-zk-comment-matrix",
+      "production",
+      "production-build-artifacts",
+      "production-correctness",
+      "production-xss-fast",
+      "production-xss-release",
+      "public-hydration-fast",
+      "public-hydration-nightly",
+      "release",
+      "release-admin-console",
+      "release-aot-consumption",
+      "release-aot-generation",
+      "release-auth-flow",
+      "release-authoring-flow",
+      "release-closeout",
+      "release-data-scale-m",
+      "release-error-boundary",
+      "release-evidence",
+      "release-final",
+      "release-final-flaky-governance",
+      "release-final-shard-completeness",
+      "release-load-burst",
+      "release-load-peak",
+      "release-memory-leak-budget",
+      "release-mutation-critical-slice",
+      "release-open-handle-budget",
+      "release-private-preview",
+      "release-rbac-negative",
+      "release-reliability-fresh",
+      "release-soak-min",
+      "release-static-asset-digest-coherence",
+      "resilience",
+      "rights-v3-test-matrix",
+      "risk-control-test-matrix",
+      "runtime-cache-article-detail-l1",
+      "runtime-cache-cache-miss-singleflight",
+      "runtime-cache-distributed-invalidation",
+      "runtime-cache-evidence",
+      "runtime-cache-hot-featured-frame",
+      "runtime-cache-l1-residency",
+      "runtime-cache-pagination",
+      "runtime-cache-public-hot-read",
+      "runtime-cache-redis-fault-classes",
+      "runtime-cache-related-reading",
+      "runtime-cache-revocation",
+      "runtime-cache-security-projections",
+      "runtime-cache-sitemap",
+      "runtime-cache-telemetry",
+      "runtime-order-equivalence",
+      "security",
+      "security-authenticated-dast",
+      "soak-long-evidence-import",
+      "soak-long-scheduled",
+      "soak-short-runtime",
+      "source-governance",
+      "static-governance",
+      "test-inventory",
+      "test-quality-lint",
+      "ux-viewport-boundaries",
+      "ux-viewport-plan-progress",
+      "ux-viewport-smoke",
+      "ux-viewport-visual",
+      "validate-declarations",
+      "validate-matrix",
+      "visual",
+      "visual-console",
+      "visual-public",
+      "wasm-build-artifacts",
+      "wasm-fuzz-regression"
+    ],
+    "changedPathEvidence": {
+      "baseCommit": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+      "headCommit": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+      "mergeBase": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+      "changedFiles": [
+        ".git-blame-ignore-revs",
+        "artifacts/style/suite-convergence-leaf-idempotence.json",
+        "config/testing/correctness-attempt-producers.json",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/correctness-attempt-migration.test.mjs",
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tools/test/correctness-attempt-migration.mjs"
+      ],
+      "changedPathsDigest": "sha256:fa51d62261e93f19c89e63f5ce686da610f673f681b0de09868c89ba1cb44b72"
+    },
+    "planContentDigest": "sha256:8e684e555d4691159b3994b19f45a6961aa4973e6518973b6f5dc0142b9acc2c",
+    "qualificationEligible": false,
+    "results": [
+      {
+        "checker": "unsupported-source-stage-language",
+        "files": [
+          ".git-blame-ignore-revs"
+        ],
+        "exitCode": null,
+        "status": "unsupported",
+        "qualificationEligible": false
+      },
+      {
+        "checker": "tools/frontend/check-frontend-style.mjs",
+        "files": [
+          "tests/tools/correctness-attempt-migration.test.mjs",
+          "tests/tools/test-suite-convergence.test.mjs",
+          "tools/test/correctness-attempt-migration.mjs"
+        ],
+        "exitCode": 0
+      },
+      {
+        "checker": "tests/tools/pr-impact-plan.test.mjs",
+        "exitCode": 0,
+        "qualificationEligible": false
+      },
+      {
+        "checker": "tests/tools/pr-applicable-execution-authority.test.mjs",
+        "exitCode": 0,
+        "qualificationEligible": false
+      },
+      {
+        "checker": "tools/frontend/source-unit-style-diff.test.mjs",
+        "exitCode": 0,
+        "qualificationEligible": false
+      },
+      {
+        "checker": "tests/tools/native-tooling-style.test.mjs",
+        "exitCode": 0,
+        "qualificationEligible": false
+      },
+      {
+        "checker": "tools/configuration/solution-source.test.mjs",
+        "exitCode": 0,
+        "qualificationEligible": false
+      }
+    ],
+    "status": "failure",
+    "deferredQualification": "Unselected compiled/native/runtime/release qualification remains unrun."
+  },
+  "originalSourceCallbacks": {
+    "total": 93,
+    "passed": 93,
+    "failed": 0,
+    "skipped": 0,
+    "qualification": false,
+    "entries": [
+      "tests/tools/pr-impact-plan.test.mjs",
+      "tests/tools/pr-applicable-execution-authority.test.mjs",
+      "tools/frontend/source-unit-style-diff.test.mjs",
+      "tests/tools/native-tooling-style.test.mjs",
+      "tools/configuration/solution-source.test.mjs"
+    ]
+  },
+  "original61Cases": {
+    "total": 61,
+    "passed": 61,
+    "failed": 0,
+    "skipped": 0,
+    "groups": {
+      "root": 17,
+      "canonical": 7,
+      "replacementNegativeControls": 23,
+      "historyNegativeControls": 14
+    }
+  },
+  "actualAstIdentityProof": {
+    "runId": "issue-3593-narrow-review-20261008T141452Z",
+    "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "sourceCandidate": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+    "exactCaseOwners": [
+      {
+        "path": "tests/tools/test-suite-convergence.test.mjs",
+        "beforeIds": [
+          "node-test:tests/tools/test-suite-convergence.test.mjs#2348-canonical-mfa-retirement-retains-before-identities--a4fe4944c8",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-accepts-runtime-artifacts-a-e2dc7d58d1",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-does-not-mistake-a-temporar-a8f8c27204",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-reconstructs-segmented-repo-86e7108d25",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#child-issue-evidence-requires-the-exact-closed-1032-thro-d560990262",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#compact-retention-audit-resolves-hashed-deletions-replac-2ab62f815c",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#convergence-plan-enforces-all-child-issues-exactly-once--b6ef7911c7",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#final-evidence-contracts-report-every-invalid-status-fie-0f187ef8af",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#issue-local-replacement-manifest-count-is-exact-e028734d05",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#matrix-is-the-single-current-command-and-retention-gover-2d95901b5e",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#path-migration-expansion-emits-every-exact-baseline-test-1ad9e3dc8a",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-chains-remain-acyclic-without-a-fixed-histor-d6df85c3cf",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-merge-accepts-identical-declarations-and-rep-96f182811c",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-accepts-a-declared-deletion-whose-replac-c6090891ca",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-inherits-pre-baseline-declarations-but-r-ab0022c0f5",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304"
+        ],
+        "afterIds": [
+          "node-test:tests/tools/test-suite-convergence.test.mjs#2348-canonical-mfa-retirement-retains-before-identities--a4fe4944c8",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-accepts-runtime-artifacts-a-e2dc7d58d1",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-does-not-mistake-a-temporar-a8f8c27204",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-reconstructs-segmented-repo-86e7108d25",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#child-issue-evidence-requires-the-exact-closed-1032-thro-d560990262",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#compact-retention-audit-resolves-hashed-deletions-replac-2ab62f815c",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#convergence-plan-enforces-all-child-issues-exactly-once--b6ef7911c7",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#final-evidence-contracts-report-every-invalid-status-fie-0f187ef8af",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#issue-local-replacement-manifest-count-is-exact-e028734d05",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#matrix-is-the-single-current-command-and-retention-gover-2d95901b5e",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#path-migration-expansion-emits-every-exact-baseline-test-1ad9e3dc8a",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-chains-remain-acyclic-without-a-fixed-histor-d6df85c3cf",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-merge-accepts-identical-declarations-and-rep-96f182811c",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-accepts-a-declared-deletion-whose-replac-c6090891ca",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-inherits-pre-baseline-declarations-but-r-ab0022c0f5",
+          "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304"
+        ],
+        "exactEquality": true,
+        "countOnlyComparison": false
+      },
+      {
+        "path": "tests/tools/correctness-attempt-migration.test.mjs",
+        "beforeIds": [
+          "node-test:tests/tools/correctness-attempt-migration.test.mjs#all-225-correctness-producers-bind-canonical-attempt-and-ced1a75c0b",
+          "node-test:tests/tools/correctness-attempt-migration.test.mjs#matrix-and-physical-producers-fail-closed-on-a-crossed-e-f5553eb348"
+        ],
+        "afterIds": [
+          "node-test:tests/tools/correctness-attempt-migration.test.mjs#all-225-correctness-producers-bind-canonical-attempt-and-ced1a75c0b",
+          "node-test:tests/tools/correctness-attempt-migration.test.mjs#matrix-and-physical-producers-fail-closed-on-a-crossed-e-f5553eb348"
+        ],
+        "exactEquality": true,
+        "countOnlyComparison": false
+      }
+    ],
+    "all226EntryRecordsUnchanged": true,
+    "canonicalProducerCommand": [
+      "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/test/generate-correctness-attempt-producers.mjs"
+    ],
+    "canonicalProducerExitCodes": [
+      0,
+      0
+    ],
+    "canonicalProducerOutputBytesExactAndIdempotent": true,
+    "frozenBeforeUnchanged": true,
+    "frozenBeforeSha256": "d7f94274b023110ba2ebaa1fc97f654118ffb3bef1d971a828891925651fcc46",
+    "frozenBeforeBlob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f"
+  },
+  "actualOriginalAstTokenCommentNegativeControlProof": {
+    "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+    "formatOnlyCommit": "e8def31887dab241d74ad712226290f715ace23d",
+    "laterBlameRegistration": "27a09aa6223ca61922c08e96fb1d1760e912c163",
+    "canonicalSyntaxCommit": "f1291150a5b2ff6a7c327fe1bc3b4355bca7f12c",
+    "originalCommitObjectsPreserved": true,
+    "currentMasterOriginalOwnerBytesEqualFormatParent": true,
+    "currentHeadBytesEqualCanonicalSyntax": true,
+    "mechanicalAstRawTokensAnchoredCommentsEquivalent": true,
+    "literalMutationNegativeControlRefused": true,
+    "trustedFormatOnlyErrors": [],
+    "fingerprintSha256": "abdf890d4f51e3a1e8799a69a3e405b5e1dc655df8cbdcfc9637495bd66c3c8b",
+    "canonicalCompleteAstEqualAfterOnlyImportOrderAndOneTrustedPathsStatementWrapperNormalization": true,
+    "canonicalSyntaxNotFormatOnly": true,
+    "commentsAndLiteralRawValuesAndAssertionsPreserved": true
+  },
+  "actualCanonicalAuthorityDoubleReplay": {
+    "originalProducerCommand": [
+      "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "firstExitCode": 0,
+    "secondExitCode": 0,
+    "secondBytesIdentical": true,
+    "fullCanonicalOutputSha256": "fdb76ed44cc10c1151ce700e89057d23363bea9971c0c66370c8ef91efd88e16",
+    "targetDeclarationsParserIndexAndAllOtherFieldsUnchanged": true,
+    "onlyActualSourceAndIndexDigestRowsChanged": [
+      {
+        "path": "tools/test-inventory/discovery.mjs",
+        "baseBlob": "321a60d2ed1a2ce70cad0daae74334e8899e9bb6",
+        "candidateBlob": "321a60d2ed1a2ce70cad0daae74334e8899e9bb6",
+        "actualDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+        "oldRow": {
+          "path": "tools/test-inventory/discovery.mjs",
+          "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
+          "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+        },
+        "newRow": {
+          "path": "tools/test-inventory/discovery.mjs",
+          "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+          "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
+        },
+        "preExistingMasterSource": true
+      },
+      {
+        "path": "tools/test/correctness-attempt-migration.mjs",
+        "baseBlob": "03cc98b74786d6a2d4c80337b57dd093f74ebb39",
+        "candidateBlob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+        "actualDigest": "sha256:f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+        "oldRow": {
+          "path": "tools/test/correctness-attempt-migration.mjs",
+          "contentDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
+          "indexDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+        },
+        "newRow": {
+          "path": "tools/test/correctness-attempt-migration.mjs",
+          "contentDigest": "sha256:f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+          "indexDigest": "sha256:f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e"
+        },
+        "preExistingMasterSource": false
+      }
+    ],
+    "allFactsReadFromRealCandidateSourceAndIndex": true,
+    "handEdited": false,
+    "qualificationGranted": false
+  },
+  "normalPreparedMetadataOriginalGate": {
+    "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "head": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+    "originalChecker": "/tmp/fsusblog-3593/roster-base-authority/tools/governance/change-contract.mjs",
+    "preparedMetadataOnly": true,
+    "actualPullRequest": false,
+    "errors": [
+      "generated change requires Digest/evidence",
+      "generated binding path is not changed in this PR: config/testing/release-reliability-scenario-catalog.json",
+      "generated binding path is not changed in this PR: tests/matrix.yml",
+      "generated binding path is not changed in this PR: tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+      "generated binding path is not changed in this PR: config/testing/replay-qualification-producers.json",
+      "generated binding path is not changed in this PR: config/testing/test-execution-envelope-applicability.json",
+      "generated binding path is not changed in this PR: tools/test/attempt-runner.mjs",
+      "generated binding path is not changed in this PR: tools/test/temporal-context.mjs",
+      "generated binding path is not changed in this PR: tools/test/temporal-context-contract.mjs",
+      "Generated Digest/evidence must be one repository-relative .json path",
+      "changes to registered external naming surfaces require External naming exception classification: config/testing/correctness-attempt-producers.json, tests/fixtures/test-matrix/release-final-execution-target-authority.json, tools/test/correctness-attempt-migration.mjs"
+    ],
+    "exitCode": 1,
+    "qualification": false
+  },
+  "actualPrGate": "NOT RUN: no new PR and API content writes paused. Prepared local metadata validation failed; it is not a live PR event or PR acceptance.",
+  "blockers": [
+    {
+      "owner": "canonical SOURCE policy owner / parent routing",
+      "kind": "failed",
+      "gate": "Original source-integration rejects mandatory .git-blame-ignore-revs as unsupported-source-stage-language. Other six paths and original JS checks/93 callbacks pass. Change-contract simultaneously requires this immutable format revision registration; do not omit or self-waive."
+    },
+    {
+      "owner": "canonical generated admission owner / parent routing",
+      "kind": "failed / missing binding",
+      "gate": "Catalog actual producer/source unchanged in current master; all 226 entry records preserved. Eight actual catalog sourceDigest inputs are unchanged and original ordinary v1 binding refuses them; absent changed-head generated binding cannot be promoted. Execution authority canonical producer success does not cure PR metadata/history qualification."
+    },
+    {
+      "owner": "this source boundary plus original generated-admission owner",
+      "kind": "missing current PR metadata",
+      "gate": "Original external naming registry separately requires changed-head naming-exception manifest for the three canonical registered paths; no invented exception or blanket policy relaxation supplied."
+    },
+    {
+      "owner": "canonical Node post-anchor history owner / parent routing",
+      "kind": "failed",
+      "gate": "Original convergence rejects precisely two backend-QPS IDs with replacement declaration does not resolve in compact before snapshot. Frozen before untouched; actual transition71932bb4333248ae82559fa1bf0983822086a766 occurs after original anchor d653afbde02b75814d8384777886b10419fb38a1; original reader admits exact legacy xUnit owners, not these Node identities."
+    },
+    {
+      "owner": "independent review and qualification",
+      "kind": "not run / not granted",
+      "gate": "No independent approval, current PR gate, compiled/native/PG/full CI/runtime or #3543 prerequisite acceptance. After original SOURCE failure later mandatory validate-declarations has not executed in that CLI run."
+    }
+  ],
+  "prohibitionsObserved": {
+    "githubContentWrites": false,
+    "newPullRequest": false,
+    "issueClosed": false,
+    "merged": false,
+    "pushedMaster": false,
+    "deployed": false,
+    "broadCSharpOraclesExecuted": false,
+    "heldAuditExecuted": false,
+    "policyEdited": false,
+    "frozenBeforeEdited": false,
+    "handEditedProducerDigestOrPass": false
+  },
+  "rawEvidenceArchive": "suite-convergence-review-boundary-raw.tar.gz",
+  "sealedAt": "2026-10-08T14:22:21.378686+00:00",
+  "rawEvidenceArchiveSha256": "66ef49c91e06145f04fc77266fd8b8505ecd8cba0273e48a1a08b91c8a4dbb98",
+  "rawEvidenceFilesVerified": 92,
+  "original116EvidenceBlobsPreserved": true
+}

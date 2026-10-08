@@ -1,0 +1,146 @@
+{
+  "schema": "fsusblog.issue-review-path-classification.v1",
+  "issue": 3593,
+  "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "sourceCandidate": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+  "preservedWideEvidenceHead": "088d732331305253a7369bf1f55df66c459a49bd",
+  "sourceBoundaryCount": 7,
+  "categoryCounts": {
+    "indispensable-governed-metadata": 3,
+    "consumed-canonical-prerequisite": 3,
+    "owned-js-leaf-source": 1
+  },
+  "completeSourceBoundary": [
+    {
+      "path": ".git-blame-ignore-revs",
+      "category": "indispensable-governed-metadata",
+      "blob": "02ffa70e5adf9a8aca340aa97562aebce9280b26",
+      "sha256": "d8ab2deb7f0af5e1550e5a0e4f19f2610606027cf38658d47c4b73c269519f1e",
+      "bytes": 1226,
+      "productionSource": false,
+      "executableSource": false,
+      "sourceRole": "governed-metadata",
+      "reason": "docs/development/change-contract.md:96; validateCommitRange/validateRepositoryBlameIgnore requires reachable format-only SHA registration.",
+      "sourceHeadRequired": true
+    },
+    {
+      "path": "artifacts/style/suite-convergence-leaf-idempotence.json",
+      "category": "indispensable-governed-metadata",
+      "blob": "006da5ebf875e0628dc694da59fa27bd22b3cecf",
+      "sha256": "2a30d09a647c1010d6d6b79a783313c922ea3b549a32f06574cc3d15f3cee1b0",
+      "bytes": 2414,
+      "productionSource": false,
+      "executableSource": false,
+      "sourceRole": "governed-metadata",
+      "reason": "validateCommitRange -> validateFormatCommitEvidence -> validateFormatEvidence/loadEvidence requires the exact Idempotence-Evidence footer path at candidate HEAD and in the PR changed path set, with candidate source digests.",
+      "sourceHeadRequired": true
+    },
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+      "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+      "bytes": 315968,
+      "productionSource": false,
+      "executableSource": false,
+      "sourceRole": "canonical-generated-metadata",
+      "reason": "Parent-supplied fae117436a4c829748c04c6381d86db6be764e76 plus separate import-order-only test correction; required current catalog/migration capability.",
+      "sourceHeadRequired": true
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "category": "indispensable-governed-metadata",
+      "sourceRole": "canonical-generated-execution-authority",
+      "productionSource": false,
+      "executableSource": false,
+      "sourceHeadRequired": true,
+      "bytes": 3014594,
+      "blob": "b58f17ff1d2d1fce4a0d6c1dfa0708971e98376b",
+      "sha256": "fdb76ed44cc10c1151ce700e89057d23363bea9971c0c66370c8ef91efd88e16",
+      "reason": "Unchanged original canonical producer, real full declarations/parser/index/target closure, two fresh exit-0 byte-identical executions. Full original static reader passes on this candidate. Exactly two actual source/index digest row pairs refreshed; unchanged master discovery source retained. This is candidate-owned output, not trusted policy promotion or normal PR metadata qualification."
+    },
+    {
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "33e14abbbed9b3d7d074aae96cc679e9e313b8b3",
+      "sha256": "0103479f0ce7ccf2a30a6a2460fd3fcb82f48e8b518c6c14528a4c548fa1aac7",
+      "bytes": 3358,
+      "productionSource": false,
+      "executableSource": true,
+      "sourceRole": "test-source",
+      "reason": "Parent-supplied fae117436a4c829748c04c6381d86db6be764e76 plus separate import-order-only test correction; required current catalog/migration capability.",
+      "sourceHeadRequired": true
+    },
+    {
+      "path": "tests/tools/test-suite-convergence.test.mjs",
+      "category": "owned-js-leaf-source",
+      "blob": "4cad13021658379c7189cf5de84af0fe6d60daea",
+      "sha256": "17b6d8622108eb53421af1f830f0cd37dba60ede4ed65c9c554b596e20cdd238",
+      "bytes": 25764,
+      "productionSource": false,
+      "executableSource": true,
+      "sourceRole": "test-source",
+      "reason": "Exact original #3593 JS owner with preserved 17 canonical IDs and format/syntax history.",
+      "sourceHeadRequired": true
+    },
+    {
+      "path": "tools/test/correctness-attempt-migration.mjs",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+      "sha256": "f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+      "bytes": 4104,
+      "productionSource": false,
+      "executableSource": true,
+      "sourceRole": "tooling-source",
+      "reason": "Parent-supplied fae117436a4c829748c04c6381d86db6be764e76 plus separate import-order-only test correction; required current catalog/migration capability.",
+      "sourceHeadRequired": true
+    }
+  ],
+  "productionRuntimeSourceCount": 0,
+  "testSourceCount": 2,
+  "toolingSourceCount": 1,
+  "evidenceOnlyPathsInSourceDiff": 0,
+  "completePrevious122PathClassification": "suite-convergence-review-boundary-original-path-classification.json",
+  "original109UnsupportedPaths": {
+    "mandatoryGitMetadata": 1,
+    "evidenceOnlyGzipArtifacts": 108,
+    "productionSource": 0
+  },
+  "preservedMandatorySequence": [
+    "f6e6aa2455489c4d3fe65b9cbd6ad5831f6d2f04",
+    "e8def31887dab241d74ad712226290f715ace23d",
+    "27a09aa6223ca61922c08e96fb1d1760e912c163",
+    "f1291150a5b2ff6a7c327fe1bc3b4355bca7f12c"
+  ],
+  "mandatoryHeadMetadata": [
+    ".git-blame-ignore-revs",
+    "artifacts/style/suite-convergence-leaf-idempotence.json",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "additionalRequiredPrAdmissionMetadata": [
+    {
+      "role": "generated-output-binding",
+      "status": "missing / original v1 refuses eight actual unchanged catalog inputs",
+      "rule": "docs/development/change-contract.md:117-118; tools/governance/change-contract.mjs:3118,3185-3236,3890-3985 requires changed-head JSON binding, actual source/output paths changed by PR and exact output digests",
+      "qualification": false
+    },
+    {
+      "role": "external-naming-exceptions",
+      "status": "missing; original registry requires a separate current changed-head manifest for these registered paths",
+      "paths": [
+        "config/testing/correctness-attempt-producers.json",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tools/test/correctness-attempt-migration.mjs"
+      ],
+      "rule": "tools/governance/change-contract.mjs:3690-3790; config/development/native-tooling-style-exceptions.json",
+      "qualification": false
+    }
+  ],
+  "evidenceSeparationRules": {
+    "beforeEvidenceCommit": "docs/development/change-contract.md:66 requires a separate pre-migration evidence commit. f6e6aa2455489c4d3fe65b9cbd6ad5831f6d2f04 remains immutable, reachable and accessible together with original 088d7323 branch; no requirement places all step-2 raw artifacts in the final HEAD diff.",
+    "formatProof": "docs/development/change-contract.md:82 and tools/governance/change-contract.mjs:2404,2429,2494,4701 require candidate-head idempotence JSON in the changed path set.",
+    "blame": "docs/development/change-contract.md:96 and tools/governance/change-contract.mjs:4394,4701 require unchanged original format-only revision registration and actual parent-diff validation.",
+    "remainingEvidence": "No candidate-HEAD or changed-path rule found for the other 116 paths; they remain accessible on preserved immutable branches and historical commits, not discarded or relabeled."
+  },
+  "normalPrAdmissionGranted": false
+}
