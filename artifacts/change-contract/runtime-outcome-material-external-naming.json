@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/outcomes/runtime-bundle-material.mjs"
+            ],
+            "reason": "preserve the existing runtime producer contract and process-level authority spellings within the new DATA_ONLY outcome material consumer"
+        }
+    ]
+}
