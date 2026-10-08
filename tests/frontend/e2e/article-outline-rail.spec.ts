@@ -118,6 +118,8 @@ test.describe('article outline current rendered contract', () => {
         await openOutline(page, 10, 'dark')
         await page.getByRole('button', { name: '打开文章大纲' }).click()
         const drawer = page.getByRole('dialog', { name: '文章大纲' })
+        await expect(drawer.getByRole('heading', { name: '文章大纲', exact: true })).toHaveCount(1)
+        await expect(drawer.getByRole('button', { name: /关闭|close/i })).toHaveCount(1)
         await drawer.getByRole('treeitem').nth(1).click()
         await expect(drawer).toBeHidden()
         await expect(page.locator('#article-content')).toBeFocused()

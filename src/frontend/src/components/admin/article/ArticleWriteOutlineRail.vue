@@ -407,6 +407,7 @@ const outlineHostProperties = computed(() => isCompact.value
     ? {
         modelValue: isOpen.value,
         title: '文章大纲',
+        withHeader: false,
         direction: 'ltr',
         size: 'min(86vw, 22rem)',
         modal: true,
