@@ -111,22 +111,14 @@ public sealed partial class CommentThreadFixturePort
         RequireOwnedMutation(beforeRow, plan.Binding, operation, identity);
         if (beforeRow.CurrentVersion != plan.ExpectedVersion || beforeRow.ModerationStatus != plan.ExpectedStatus)
             throw new InvalidOperationException("Comment mutation revision or status is stale.");
-        if (identity.ActorMode == CommentAuthorModes.ZkAnonymous)
-        {
-            // Initial ledger identity and capability custody survive edits; content is a revision fact.
-            CommentAnonymousFixtureOperationReference? reference = await anonymousOperations.ReadAsync(
-                RawDigest(identity.OperationPlanDigest), cancellationToken).ConfigureAwait(false);
-            var owned = new CommentThreadFixtureOwnedIdentity(beforeRow.Id, beforeRow.ArticleId, plan.SemanticRole,
-                identity.ActorMode, identity.AccountId, Digest(beforeRow.Content), beforeRow.CurrentVersion,
-                beforeRow.IsDeleted, identity.OperationPlanDigest);
-            string secret = RequireAnonymousCapability(plan.Binding.Owner, plan.Binding.TestSession, beforeRow.Id);
-            if (!IsExactAnonymousOperationReference(reference, plan.Binding, owned)
-                || !managementCapabilities.VerifyCapability(secret, beforeRow.ManagementCapabilityHash!))
-                throw new InvalidOperationException("Comment mutation has no matching initial anonymous authority.");
-        }
-
         CommentFixtureMutationObservation before = await ReadMutationObservationAsync(beforeRow, cancellationToken)
             .ConfigureAwait(false);
+        if (identity.ActorMode == CommentAuthorModes.ZkAnonymous)
+        {
+            // Compare immutable initial content, not a later edited revision, against the initial ledger.
+            await RequireAnonymousOwnershipAsync(plan.Binding, plan.SemanticRole, identity, beforeRow, cancellationToken,
+                before.Revisions.Single(revision => revision.Version == 1).Content).ConfigureAwait(false);
+        }
         if (before.ModerationEvents[^1].Id != plan.ExpectedLastModerationEventId)
             throw new InvalidOperationException("Comment mutation moderation event is stale.");
 
