@@ -30,6 +30,7 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         {
             throw new PlatformNotSupportedException("Owned spill descriptor boundary requires Linux x64/arm64 qualification.");
         }
+        ArgumentNullException.ThrowIfNull(path);
         if (path.Length > 4096 || !Path.IsPathFullyQualified(path) || path.Split('/').Any(part => part is "." or ".."))
         {
             throw new ArgumentException("An absolute owner-selected root without traversal is required.", nameof(path));
@@ -165,8 +166,16 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         {
             throw new IOException("Filesystem counters exceed supported bounds.", exception);
         }
+        DiskBackingKind backing = fileSystem.Type switch
+        {
+            0x01021994 or 0x858458f6 or 0x958458f6 => DiskBackingKind.MemoryBacked,
+            0xef53 or 0x58465342 or 0x9123683e or 0x2fc12fc1 => DiskBackingKind.Independent,
+            // Overlay, FUSE and other unresolved layers may be backed by host memory.
+            // Their free-space counters alone cannot certify independent escape capacity.
+            _ => DiskBackingKind.Unknown
+        };
         return new($"linux-device:{_identity.DeviceMajor}:{_identity.DeviceMinor}", bytes, inodes,
-            fileSystem.Type is 0x01021994 or 0x858458f6, (volume.Flags & 1) != 0);
+            backing, (volume.Flags & 1) != 0);
     }
 
     public void Dispose() => _directory.Dispose();
@@ -310,4 +319,4 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
 }
 
 internal sealed record LinuxDiskSample(string CapacityIdentity, long AvailableBytes, long AvailableInodes,
-    bool MemoryBacked, bool ReadOnly);
+    DiskBackingKind Backing, bool ReadOnly);

@@ -81,7 +81,9 @@ public sealed class DiskBudgetAdmissionTests
     {
         var fixture = new Fixture();
         DiskCapacityObservation valid = fixture.Sample;
-        fixture.Sample = valid with { MemoryBacked = true };
+        fixture.Sample = valid with { Backing = DiskBackingKind.MemoryBacked };
+        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
+        fixture.Sample = valid with { Backing = DiskBackingKind.Unknown };
         Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
         fixture.Sample = valid with { ValidUntil = DateTimeOffset.MinValue };
         Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
@@ -137,7 +139,7 @@ public sealed class DiskBudgetAdmissionTests
             Coordinator = new(topology, Limits(80), 1, 64, 128);
             Sample = new("volume", Observation(Volume, MemoryResourceUnit.Bytes, 100),
                 Observation(Volume, MemoryResourceUnit.Bytes, 100),
-                Observation(Slot, MemoryResourceUnit.OperationSlots, 16), false,
+                Observation(Slot, MemoryResourceUnit.OperationSlots, 16), DiskBackingKind.Independent,
                 DateTimeOffset.UtcNow.AddMinutes(1), 1);
             Admission = Create(Disk);
         }
