@@ -14,6 +14,7 @@ public sealed class ArticleVaultBlockLinkRefactorTests
 {
     private const string Host = "article:01991e72-9a2c-7b60-8f47-b339f58e4a11";
     private const string Target = "article:01991e72-a611-7d16-9fd4-38f7d2e65498";
+    private const string CollidingTarget = "article:cccccccc-cccc-cccc-cccc-cccccccccccc";
     private const string Digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     [Theory]
@@ -31,6 +32,36 @@ public sealed class ArticleVaultBlockLinkRefactorTests
         Assert.Equal(input.SourceRange.MatchedText, candidate.ExpectedText);
         Assert.True(ArticleVaultBlockLinkRefactor.Verify(input, bytes, candidate));
         Assert.Equal(Encoding.UTF8.GetString(bytes)[candidate.Start!.Value..candidate.End!.Value], candidate.ExpectedText);
+    }
+
+    [Fact]
+    public void IndependentQaFencedOccurrenceSubstitutionIsRejected()
+    {
+        (ArticleVaultBlockLinkRefactorInput input, byte[] bytes) = Input("new", qaSource: true);
+        const string Markdown = "[display](/posts/old#stable)";
+        Assert.Equal(Markdown, Encoding.UTF8.GetString(bytes)[42..70]);
+        input = input with
+        {
+            SourceRange = new ArticleRelationSourceRange(42, 70, Markdown)
+        };
+        ArticleVaultBlockLinkRewriteCandidate candidate = ArticleVaultBlockLinkRefactor.Propose(input, bytes);
+        Assert.False(candidate.Permitted);
+        Assert.False(ArticleVaultBlockLinkRefactor.Verify(input, bytes, candidate));
+    }
+
+    [Fact]
+    public void IndependentQaCollidingRouteCannotSubstitutePortableTargetIdentity()
+    {
+        (ArticleVaultBlockLinkRefactorInput input, byte[] bytes) = Input("new", qaSource: true, collision: true);
+        ArticleBlockTarget collision = ArticleBlockTarget.Create(CollidingTarget, BlockAnchorId.Create("stable"));
+        input = input with
+        {
+            Before = new ArticleBlockRouteProjection(collision, "old"),
+            After = new ArticleBlockRouteProjection(collision, "new")
+        };
+        ArticleVaultBlockLinkRewriteCandidate candidate = ArticleVaultBlockLinkRefactor.Propose(input, bytes);
+        Assert.False(candidate.Permitted);
+        Assert.False(ArticleVaultBlockLinkRefactor.Verify(input, bytes, candidate));
     }
 
     [Fact]
@@ -160,11 +191,15 @@ public sealed class ArticleVaultBlockLinkRefactorTests
         Assert.Null(candidate.InputSha256);
     }
 
-    private static (ArticleVaultBlockLinkRefactorInput Input, byte[] Bytes) Input(string slug)
+    private static (ArticleVaultBlockLinkRefactorInput Input, byte[] Bytes) Input(
+        string slug, bool qaSource = false, bool collision = false)
     {
         ArticleBlockTarget target = ArticleBlockTarget.Create(Target, BlockAnchorId.Create("stable"));
-        string markdown = BlockAnchorMarkdownBuilder.Build("显示", "old", target);
-        byte[] bytes = Encoding.UTF8.GetBytes($"\uFEFF前文 😀\r\n{markdown}\r\n");
+        string markdown = BlockAnchorMarkdownBuilder.Build(qaSource ? "display" : "显示", "old", target);
+        string raw = qaSource
+            ? $"{markdown}\n\n```markdown\n{markdown}\n```\n{(collision ? markdown + "\n" : string.Empty)}"
+            : $"\uFEFF前文 😀\r\n{markdown}\r\n";
+        byte[] bytes = Encoding.UTF8.GetBytes(raw);
         VaultSourceByteIdentity sourceBytes = ArticleVaultManifestCodec.CaptureSourceBytes(bytes);
         var coordinate = new VaultArticleCoordinate(ArticleVaultSchemas.Coordinate, ArticleVaultSchemas.Version,
             true, false, 8, sourceBytes, Digest, Digest, "draft", Digest, string.Empty);
@@ -192,9 +227,19 @@ public sealed class ArticleVaultBlockLinkRefactorTests
             {
                 PortableArticleIdentity = Target
             }, Digest);
+        VaultDependencyNode[] nodes = collision
+            ? [node, node with
+            {
+                Target = new ArticleEmbedTargetIdentity(CollidingTarget, ArticleEmbedTargetKind.Block, null, "stable"),
+                TargetBinding = binding with
+                {
+                    PortableArticleIdentity = CollidingTarget
+                }
+            }]
+            : [node];
         var graph = new PortableDependencyManifest(PortableDependencySchemas.Manifest, PortableDependencySchemas.Version,
             binding, manifest.ServerArticleIdentity, manifest.Coordinates, VaultDependencySourceSide.Server,
-            sourceBytes, Digest, [node], [], string.Empty, string.Empty);
+            sourceBytes, Digest, nodes, [], string.Empty, string.Empty);
         string graphSha256 = PortableDependencyCodec.GraphDigest(graph);
         coordinate = coordinate with
         {
@@ -221,8 +266,8 @@ public sealed class ArticleVaultBlockLinkRefactorTests
         var range = new ArticleRelationSourceRange(start, start + markdown.Length, markdown);
         var budgets = new ArticleEmbedResolutionBudgetLimits(8, 64, 1_048_576, 60_000, 128);
         Assert.True(ArticleVaultManifestValidator.Validate(manifest).IsValid);
-        Assert.True(PortableDependencyVerifier.VerifyCurrent(graph, manifest, bytes, [node], [], Digest, budgets).IsValid);
-        return (new ArticleVaultBlockLinkRefactorInput(manifest, graph, [node], [], Digest, budgets, range,
+        Assert.True(PortableDependencyVerifier.VerifyCurrent(graph, manifest, bytes, nodes, [], Digest, budgets).IsValid);
+        return (new ArticleVaultBlockLinkRefactorInput(manifest, graph, nodes, [], Digest, budgets, range,
             new ArticleBlockRouteProjection(target, "old"), new ArticleBlockRouteProjection(target, slug), 8), bytes);
     }
 }
