@@ -89,6 +89,24 @@ public sealed class CommentModerationService(
         CommentActor actor,
         RegionModerationDecision regionDecision)
     {
+        if (regionDecision.HideUntilReviewed || regionDecision.RequiresManualReview || actor.RequiresModeration)
+        {
+            return ResolveInitialState(actor, regionDecision, modelEnabled: false, modelProviderAvailable: false);
+        }
+
+        return ResolveInitialState(
+            actor,
+            regionDecision,
+            configuration?.GetValue<bool?>("Moderation:AntiSpamModel:Enabled") ?? antiSpam is not null,
+            antiSpam is not null);
+    }
+
+    public static CommentInitialModerationDecision ResolveInitialState(
+        CommentActor actor,
+        RegionModerationDecision regionDecision,
+        bool modelEnabled,
+        bool modelProviderAvailable)
+    {
         if (regionDecision.HideUntilReviewed)
         {
             return new(CommentModerationStatus.Hidden, "hidden_region_review");
@@ -104,13 +122,11 @@ public sealed class CommentModerationService(
             return new(CommentModerationStatus.Pending, "pending_anonymous_policy");
         }
 
-        bool modelEnabled = configuration?.GetValue<bool?>("Moderation:AntiSpamModel:Enabled")
-            ?? antiSpam is not null;
         if (modelEnabled)
         {
             return new(
                 CommentModerationStatus.Pending,
-                antiSpam is null ? "pending_model_provider_unavailable" : "pending_model_review");
+                modelProviderAvailable ? "pending_model_review" : "pending_model_provider_unavailable");
         }
 
         return new(CommentModerationStatus.Approved, "approved_deterministic_low_risk");

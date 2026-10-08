@@ -668,7 +668,7 @@ public partial class CommentCommandService(
         return childCount < maxChildren;
     }
 
-    private static int? ResolveReplyRecipientId(int? targetAuthorAccountId, int? replyingActorAccountId)
+    public static int? ResolveReplyRecipientId(int? targetAuthorAccountId, int? replyingActorAccountId)
         => targetAuthorAccountId is > 0 && targetAuthorAccountId != replyingActorAccountId
             ? targetAuthorAccountId
             : null;
