@@ -1,5 +1,6 @@
 using FsusBlog.Shared.Contracts.ArticleEmbeds;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Graph;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Publication;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Relations;
 
@@ -41,7 +42,7 @@ public sealed class ArticleEmbedRelationDeriverTests
             AuthoringFacts(ArticleB, 6));
         ArticleEmbedProviderRequest[] requests = [AuthoringRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
         ArticleEmbedAuthoringResolution resolution =
-            ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+            ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedRelationDerivation derivation =
             ArticleEmbedRelationDeriver.DeriveFromAuthoring(requests, snapshot, s_budgets, resolution);
@@ -75,7 +76,7 @@ public sealed class ArticleEmbedRelationDeriverTests
             AuthoringRequest("request:missing", ArticleB, ArticleEmbedTargetKind.Article, 40)
         ];
         ArticleEmbedAuthoringResolution resolution =
-            ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+            ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedRelationDerivation derivation =
             ArticleEmbedRelationDeriver.DeriveFromAuthoring(requests, snapshot, s_budgets, resolution);
@@ -131,7 +132,10 @@ public sealed class ArticleEmbedRelationDeriverTests
         ArticleEmbedPublicationPlan plan = ArticleEmbedPublicationPlanner.Plan(requests, authority, s_budgets);
         ArticleEmbedRelationDerivation original = ArticleEmbedRelationDeriver.DeriveFromPlan(requests, authority, s_budgets, plan);
         var mutableReceipts = original.DependencyReceipts.ToList();
-        ArticleEmbedRelationDerivation derivation = original with { DependencyReceipts = mutableReceipts };
+        ArticleEmbedRelationDerivation derivation = original with
+        {
+            DependencyReceipts = mutableReceipts
+        };
 
         Assert.True(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, derivation, out var first).IsValid);
         Assert.Equal(2, first.Length);
@@ -196,7 +200,10 @@ public sealed class ArticleEmbedRelationDeriverTests
         });
         ArticleEmbedRelationDerivation mutation = original with
         {
-            EdgeSet = ArticleEmbedRelationContractValidator.Seal(original.EdgeSet with { Edges = [changed] })
+            EdgeSet = ArticleEmbedRelationContractValidator.Seal(original.EdgeSet with
+            {
+                Edges = [changed]
+            })
         };
         Assert.False(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, mutation, out var dependencies).IsValid);
         Assert.Empty(dependencies);
@@ -212,7 +219,10 @@ public sealed class ArticleEmbedRelationDeriverTests
         Assert.True(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, derivation, out var empty).IsValid);
         Assert.Empty(empty);
 
-        var nonPublic = Authority(PublicFacts(ArticleA, 4) with { Visibility = ArticleEmbedVisibilityStatus.Private });
+        var nonPublic = Authority(PublicFacts(ArticleA, 4) with
+        {
+            Visibility = ArticleEmbedVisibilityStatus.Private
+        });
         ArticleEmbedProviderRequest[] blockedRequests = [PublicationRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
         ArticleEmbedPublicationPlan blocked = ArticleEmbedPublicationPlanner.Plan(blockedRequests, nonPublic, s_budgets);
         Assert.False(ArticleEmbedFrozenDependencyProjection.Project(blocked.PlanDigest, blocked, derivation, out var refused).IsValid);
@@ -220,7 +230,7 @@ public sealed class ArticleEmbedRelationDeriverTests
 
         var snapshot = Snapshot(AuthoringFacts(ArticleA, 4));
         ArticleEmbedProviderRequest[] authoringRequests = [AuthoringRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(authoringRequests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(authoringRequests, snapshot, s_budgets);
         ArticleEmbedRelationDerivation authoring = ArticleEmbedRelationDeriver.DeriveFromAuthoring(authoringRequests, snapshot, s_budgets, resolution);
         Assert.False(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, authoring, out var current).IsValid);
         Assert.Empty(current);
@@ -234,7 +244,10 @@ public sealed class ArticleEmbedRelationDeriverTests
         var budgets = new ArticleEmbedResolutionBudgetLimits(4, 1000, 1_048_576, 60_000, 4096);
         ArticleEmbedProviderRequest[] requests = Enumerable.Range(0, 1000)
             .Select(index => PublicationRequest($"request:{index}", ArticleA, ArticleEmbedTargetKind.Article, index * 100)
-                with { AbortSignal = cancellation.Token })
+                with
+            {
+                AbortSignal = cancellation.Token
+            })
             .ToArray();
         ArticleEmbedPublicationPlan plan = ArticleEmbedPublicationPlanner.Plan(requests, authority, budgets);
         ArticleEmbedRelationDerivation derivation = ArticleEmbedRelationDeriver.DeriveFromPlan(requests, authority, budgets, plan);
@@ -273,7 +286,7 @@ public sealed class ArticleEmbedRelationDeriverTests
         ArticleEmbedProviderRequest[] authoringRequests =
             [AuthoringRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
         ArticleEmbedAuthoringResolution resolution =
-            ArticleEmbedAuthoringResolver.Resolve(authoringRequests, snapshot, s_budgets);
+            ResolveGraph(authoringRequests, snapshot, s_budgets);
         ArticleEmbedAuthoringResolution tampered = resolution with
         {
             Receipt = resolution.Receipt with
@@ -328,7 +341,7 @@ public sealed class ArticleEmbedRelationDeriverTests
         ];
         ArticleEmbedRelationEdgeSet set = ArticleEmbedRelationDeriver
             .DeriveFromAuthoring(requests, before, s_budgets,
-                ArticleEmbedAuthoringResolver.Resolve(requests, before, s_budgets))
+                ResolveGraph(requests, before, s_budgets))
             .EdgeSet!;
 
         var after = Snapshot(
@@ -360,7 +373,7 @@ public sealed class ArticleEmbedRelationDeriverTests
         ArticleEmbedProviderRequest[] requests = [AuthoringRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
         ArticleEmbedRelationEdgeSet set = ArticleEmbedRelationDeriver
             .DeriveFromAuthoring(requests, before, s_budgets,
-                ArticleEmbedAuthoringResolver.Resolve(requests, before, s_budgets))
+                ResolveGraph(requests, before, s_budgets))
             .EdgeSet!;
 
         var moved = SnapshotAt(9, null, AuthoringFacts(ArticleA, 4));
@@ -414,7 +427,7 @@ public sealed class ArticleEmbedRelationDeriverTests
             [AuthoringRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
         ArticleEmbedRelationEdgeSet authoringSet = ArticleEmbedRelationDeriver
             .DeriveFromAuthoring(authoringRequests, snapshot, s_budgets,
-                ArticleEmbedAuthoringResolver.Resolve(authoringRequests, snapshot, s_budgets))
+                ResolveGraph(authoringRequests, snapshot, s_budgets))
             .EdgeSet!;
 
         var authority = Authority(PublicFacts(ArticleA, 4));
@@ -480,7 +493,7 @@ public sealed class ArticleEmbedRelationDeriverTests
         var snapshot = Snapshot(AuthoringFacts(ArticleA, 4));
         ArticleEmbedProviderRequest[] requests = [AuthoringRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
         ArticleEmbedAuthoringResolution resolution =
-            ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+            ResolveGraph(requests, snapshot, s_budgets);
         ArticleEmbedRelationDerivation derivation =
             ArticleEmbedRelationDeriver.DeriveFromAuthoring(requests, snapshot, s_budgets, resolution);
         ArticleEmbedRelationEdgeSet set = derivation.EdgeSet!;
@@ -540,7 +553,7 @@ public sealed class ArticleEmbedRelationDeriverTests
         ArticleEmbedProviderRequest[] requests = [AuthoringRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
         ArticleEmbedRelationEdgeSet set = ArticleEmbedRelationDeriver
             .DeriveFromAuthoring(requests, snapshot, s_budgets,
-                ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets))
+                ResolveGraph(requests, snapshot, s_budgets))
             .EdgeSet!;
 
         Assert.Equal(
@@ -584,6 +597,14 @@ public sealed class ArticleEmbedRelationDeriverTests
         int start,
         long sourceRevision = 8)
         => Request(requestId, token, mode, start, ArticleEmbedRequestedScope.PublicationPlan, sourceRevision);
+
+    private static ArticleEmbedAuthoringResolution ResolveGraph(
+        IReadOnlyList<ArticleEmbedProviderRequest>? requests, ArticleEmbedAuthoritySnapshot? snapshot,
+        ArticleEmbedResolutionBudgetLimits? budgets, TimeProvider? time = null)
+    {
+        ArticleEmbedAuthoringResolution projection = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, budgets, time);
+        return ArticleEmbedDependencyGraphPlanner.Expand(requests, snapshot, budgets, projection, time);
+    }
 
     private static ArticleEmbedProviderRequest Request(
         string requestId,

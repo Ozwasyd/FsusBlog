@@ -1,3 +1,5 @@
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Graph;
+
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Publication;
 
@@ -20,7 +22,7 @@ public static class ArticleEmbedRelationVerifier
     {
         var reasons = new List<string>();
         ArticleEmbedAuthoringVerification sourceCheck =
-            ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, budgets, resolution);
+            ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, resolution);
         bool expectAccept = sourceCheck.Valid
             && resolution is not null
             && resolution.Status == ArticleEmbedAuthoringResolutionStatus.Completed;

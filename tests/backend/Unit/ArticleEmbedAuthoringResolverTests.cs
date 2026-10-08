@@ -1,5 +1,6 @@
 using FsusBlog.Shared.Contracts.ArticleEmbeds;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Graph;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -42,7 +43,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             Request("request:block", $"{ArticleA}#release-notes-2026", ArticleEmbedTargetKind.Block, 80)
         ];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         Assert.Equal(ArticleEmbedAuthoringResolutionStatus.Completed, resolution.Status);
         Assert.Equal(3, resolution.Results.Count);
@@ -58,7 +59,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         Assert.Equal("projection:block", resolution.Results[2].Result.Projection!.ProjectionIdentity);
         Assert.Equal(17, resolution.Results[0].Result.Coordinate!.ResolvedRevision);
         Assert.Equal(17, resolution.Results[0].OpenSource!.ResolvedRevision);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Theory]
@@ -77,14 +78,14 @@ public sealed class ArticleEmbedAuthoringResolverTests
         });
         ArticleEmbedProviderRequest[] requests = [Request("request:one", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedAuthoringEmbedResult result = Assert.Single(resolution.Results);
         Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, result.Result.Status);
         Assert.Equal(ArticleEmbedPublicationEligibility.AuthoringOnly, result.Eligibility);
         Assert.Equal(visibility, result.Result.Visibility);
         Assert.Equal(lifecycle, result.Result.Lifecycle);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Theory]
@@ -101,14 +102,14 @@ public sealed class ArticleEmbedAuthoringResolverTests
         });
         ArticleEmbedProviderRequest[] requests = [Request("request:one", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedAuthoringEmbedResult result = Assert.Single(resolution.Results);
         Assert.Equal(ArticleEmbedProviderResultStatus.Failed, result.Result.Status);
         Assert.Equal(expected, result.Result.Error!.Code);
         Assert.Null(result.OpenSource);
         Assert.Equal(ArticleEmbedPublicationEligibility.AuthoringOnly, result.Eligibility);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Theory]
@@ -124,11 +125,11 @@ public sealed class ArticleEmbedAuthoringResolverTests
         });
         ArticleEmbedProviderRequest[] requests = [Request("request:one", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         Assert.Equal(expected, Assert.Single(resolution.Results).Result.Error!.Code);
         Assert.Equal(permission, resolution.Results[0].Result.Permission);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Theory]
@@ -152,7 +153,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         });
         ArticleEmbedProviderRequest[] requests = [Request("request:hidden", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedAuthoringEmbedResult result = Assert.Single(resolution.Results);
         Assert.Equal(permission == ArticleEmbedPermissionStatus.Denied
@@ -172,7 +173,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         Assert.Equal(ArticleEmbedLifecycleStatus.Unknown, item.Lifecycle);
         Assert.Null(item.ResolvedRevision);
         Assert.Equal(0, item.ChildCount);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Fact]
@@ -189,7 +190,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         });
         ArticleEmbedProviderRequest[] requests = [Request("request:site", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedProviderResult result = Assert.Single(resolution.Results).Result;
         Assert.Equal(ArticleEmbedErrorCode.PermissionUnknown, result.Error!.Code);
@@ -197,7 +198,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         Assert.Equal(ArticleEmbedVisibilityStatus.Unknown, result.Visibility);
         Assert.Equal(ArticleEmbedLifecycleStatus.Unknown, result.Lifecycle);
         Assert.Equal(ArticleEmbedPermissionStatus.Unknown, result.Permission);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Theory]
@@ -230,7 +231,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             Request("request:valid", ArticleB, ArticleEmbedTargetKind.Article, 40)
         ];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedAuthoringEmbedResult result = resolution.Results[0];
         Assert.Equal(ArticleEmbedProviderResultStatus.Failed, result.Result.Status);
@@ -242,7 +243,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         Assert.False(result.UpdateAvailable);
         Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, resolution.Results[1].Result.Status);
         Assert.Equal(5, resolution.Results[1].Result.Coordinate!.ResolvedRevision);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Theory]
@@ -256,7 +257,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             Permission = ArticleEmbedPermissionStatus.Denied
         });
         ArticleEmbedProviderRequest[] requests = [Request("request:sealed", ArticleA, ArticleEmbedTargetKind.Article, 0)];
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
         ArticleEmbedProviderResult result = resolution.Results[0].Result;
         ArticleEmbedProviderResult altered = field switch
         {
@@ -292,7 +293,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         ArticleEmbedValidationResult providerCheck = ArticleEmbedContractValidator.Validate(altered, requests[0]);
         Assert.Equal(field != "permission", providerCheck.IsValid);
 
-        ArticleEmbedAuthoringVerification verification = ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, candidate);
+        ArticleEmbedAuthoringVerification verification = ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, candidate);
 
         Assert.False(verification.Valid);
         Assert.Contains("failure_metadata_mismatch:request:sealed", verification.ReasonCodes);
@@ -309,7 +310,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             });
         ArticleEmbedProviderRequest[] requests = [Request("request:nested", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedAuthoringEmbedResult result = Assert.Single(resolution.Results);
         Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, result.Result.Status);
@@ -317,7 +318,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         Assert.Equal(ArticleEmbedErrorCode.StaleTarget, child.Error!.Code);
         Assert.Null(child.Coordinate);
         Assert.Empty(child.Children);
-        ArticleEmbedAuthoringVerification verification = ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution);
+        ArticleEmbedAuthoringVerification verification = ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution);
         Assert.True(verification.Valid, string.Join(",", verification.ReasonCodes));
     }
 
@@ -335,7 +336,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             });
         ArticleEmbedProviderRequest[] requests = [Request("request:nested-permission", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedResolvedNode child = Assert.Single(Assert.Single(resolution.Results).Children);
         Assert.Equal(ArticleB, child.Target!.PortableArticleIdentity);
@@ -344,7 +345,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         Assert.Null(child.Coordinate);
         Assert.Empty(child.Children);
         Assert.Equal(128, resolution.Receipt.Observed.Bytes);
-        ArticleEmbedAuthoringVerification verification = ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution);
+        ArticleEmbedAuthoringVerification verification = ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution);
         Assert.True(verification.Valid, string.Join(",", verification.ReasonCodes));
     }
 
@@ -361,7 +362,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         var snapshot = Snapshot(facts);
         ArticleEmbedProviderRequest[] requests = [Request("request:bounded", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         Assert.Equal(10000, snapshot.Targets.Count);
         Assert.Single(resolution.Results);
@@ -371,7 +372,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         Assert.Equal(1, resolution.Receipt.Observed.Nodes);
         Assert.Equal(0, resolution.Receipt.Observed.Bytes);
         Assert.Equal(ArticleEmbedVisibilityStatus.Unknown, resolution.Results[0].Result.Visibility);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Fact]
@@ -390,14 +391,14 @@ public sealed class ArticleEmbedAuthoringResolverTests
             Request("request:block-duplicate", $"{ArticleA}#dup-anchor", ArticleEmbedTargetKind.Block, 120)
         ];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         Assert.Equal(ArticleEmbedErrorCode.Missing, resolution.Results[0].Result.Error!.Code);
         Assert.Equal(ArticleEmbedErrorCode.Ambiguous, resolution.Results[1].Result.Error!.Code);
         Assert.Equal(ArticleEmbedErrorCode.HeadingMissing, resolution.Results[2].Result.Error!.Code);
         Assert.Equal(ArticleEmbedErrorCode.BlockDuplicate, resolution.Results[3].Result.Error!.Code);
         Assert.All(resolution.Results, result => Assert.Equal(ArticleEmbedProviderResultStatus.Failed, result.Result.Status));
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Fact]
@@ -414,7 +415,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             Request("request:cycles", ArticleA, ArticleEmbedTargetKind.Article, 0)
         ];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedAuthoringEmbedResult result = Assert.Single(resolution.Results);
         Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, result.Result.Status);
@@ -424,7 +425,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, b.Status);
         ArticleEmbedResolvedNode backToA = Assert.Single(b.Children);
         Assert.Equal(ArticleEmbedErrorCode.Cycle, backToA.Error!.Code);
-        ArticleEmbedAuthoringVerification verification = ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution);
+        ArticleEmbedAuthoringVerification verification = ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution);
         Assert.True(verification.Valid, string.Join(",", verification.ReasonCodes));
     }
 
@@ -443,12 +444,12 @@ public sealed class ArticleEmbedAuthoringResolverTests
             Request("request:again", ArticleC, ArticleEmbedTargetKind.Article, 80)
         ];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         Assert.All(resolution.Results, result => Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, result.Result.Status));
         Assert.True(resolution.Receipt.Items[2].CacheHit);
         Assert.Equal(1, resolution.Receipt.CacheHitCount);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Fact]
@@ -463,25 +464,25 @@ public sealed class ArticleEmbedAuthoringResolverTests
         ArticleEmbedProviderRequest[] requests = [Request("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
         var depthLimited = new ArticleEmbedResolutionBudgetLimits(2, 64, 1_048_576, 60_000, 128);
-        ArticleEmbedAuthoringResolution deep = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, depthLimited);
+        ArticleEmbedAuthoringResolution deep = ResolveGraph(requests, snapshot, depthLimited);
         Assert.Equal(ArticleEmbedErrorCode.DepthExceeded, Assert.Single(deep.Results[0].Children[0].Children).Error!.Code);
-        ArticleEmbedAuthoringVerification deepVerification = ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, depthLimited, deep);
+        ArticleEmbedAuthoringVerification deepVerification = ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, depthLimited, deep);
         Assert.True(deepVerification.Valid, string.Join(",", deepVerification.ReasonCodes));
 
         var nodeLimited = new ArticleEmbedResolutionBudgetLimits(8, 2, 1_048_576, 60_000, 128);
-        ArticleEmbedAuthoringResolution nodes = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, nodeLimited);
+        ArticleEmbedAuthoringResolution nodes = ResolveGraph(requests, snapshot, nodeLimited);
         Assert.Equal(ArticleEmbedErrorCode.SizeExceeded, nodes.Results[0].Children[0].Children[0].Error!.Code);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, nodeLimited, nodes).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, nodeLimited, nodes).Valid);
 
         var byteLimited = new ArticleEmbedResolutionBudgetLimits(8, 64, 1_000, 60_000, 128);
-        ArticleEmbedAuthoringResolution bytes = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, byteLimited);
+        ArticleEmbedAuthoringResolution bytes = ResolveGraph(requests, snapshot, byteLimited);
         Assert.Equal(ArticleEmbedErrorCode.SizeExceeded, bytes.Results[0].Children[0].Error!.Code);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, byteLimited, bytes).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, byteLimited, bytes).Valid);
 
         var messageLimited = new ArticleEmbedResolutionBudgetLimits(8, 64, 1_048_576, 60_000, 2);
-        ArticleEmbedAuthoringResolution messages = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, messageLimited);
+        ArticleEmbedAuthoringResolution messages = ResolveGraph(requests, snapshot, messageLimited);
         Assert.Equal(ArticleEmbedErrorCode.SizeExceeded, messages.Results[0].Children[0].Children[0].Error!.Code);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, messageLimited, messages).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, messageLimited, messages).Valid);
     }
 
     [Fact]
@@ -492,10 +493,10 @@ public sealed class ArticleEmbedAuthoringResolverTests
         var time = new StepTimeProvider();
         var budgets = new ArticleEmbedResolutionBudgetLimits(8, 64, 1_048_576, 1, 128);
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, budgets, time);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, budgets, time);
 
         Assert.Equal(ArticleEmbedErrorCode.TimeExceeded, Assert.Single(resolution.Results).Result.Error!.Code);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, resolution).Valid);
     }
 
     [Fact]
@@ -524,15 +525,15 @@ public sealed class ArticleEmbedAuthoringResolverTests
         ];
 
         Assert.Equal(ArticleEmbedErrorCode.StaleSource,
-            Assert.Single(ArticleEmbedAuthoringResolver.Resolve(driftedSource, snapshot, s_budgets).Results).Result.Error!.Code);
+            Assert.Single(ResolveGraph(driftedSource, snapshot, s_budgets).Results).Result.Error!.Code);
         Assert.Equal(ArticleEmbedErrorCode.StaleSource,
-            Assert.Single(ArticleEmbedAuthoringResolver.Resolve(driftedEpoch, snapshot, s_budgets).Results).Result.Error!.Code);
+            Assert.Single(ResolveGraph(driftedEpoch, snapshot, s_budgets).Results).Result.Error!.Code);
         Assert.Equal(ArticleEmbedErrorCode.StaleSource,
-            Assert.Single(ArticleEmbedAuthoringResolver.Resolve(driftedActor, snapshot, s_budgets).Results).Result.Error!.Code);
+            Assert.Single(ResolveGraph(driftedActor, snapshot, s_budgets).Results).Result.Error!.Code);
         Assert.Equal(ArticleEmbedErrorCode.StaleRuntime,
-            Assert.Single(ArticleEmbedAuthoringResolver.Resolve(driftedRuntime, snapshot, s_budgets).Results).Result.Error!.Code);
+            Assert.Single(ResolveGraph(driftedRuntime, snapshot, s_budgets).Results).Result.Error!.Code);
         Assert.Equal(ArticleEmbedErrorCode.StaleSource,
-            Assert.Single(ArticleEmbedAuthoringResolver.Resolve(driftedHost, snapshot, s_budgets).Results).Result.Error!.Code);
+            Assert.Single(ResolveGraph(driftedHost, snapshot, s_budgets).Results).Result.Error!.Code);
     }
 
     [Fact]
@@ -543,9 +544,9 @@ public sealed class ArticleEmbedAuthoringResolverTests
             AuthorityGeneration = 9
         });
         ArticleEmbedProviderRequest[] requests = [Request("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
-        ArticleEmbedAuthoringResolution stale = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution stale = ResolveGraph(requests, snapshot, s_budgets);
         Assert.Equal(ArticleEmbedErrorCode.StaleTarget, Assert.Single(stale.Results).Result.Error!.Code);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, stale).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, stale).Valid);
 
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
@@ -554,7 +555,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             Request("request:b", ArticleA, ArticleEmbedTargetKind.Article, 0, cancellationToken: cancellation.Token)
         ];
         var clean = Snapshot(PublicFacts(ArticleA, 4));
-        ArticleEmbedAuthoringResolution cancelled = ArticleEmbedAuthoringResolver.Resolve(aborted, clean, s_budgets);
+        ArticleEmbedAuthoringResolution cancelled = ResolveGraph(aborted, clean, s_budgets);
         Assert.Equal(ArticleEmbedErrorCode.StaleSource, Assert.Single(cancelled.Results).Result.Error!.Code);
     }
 
@@ -568,7 +569,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             Request("request:bad", ArticleB, ArticleEmbedTargetKind.Article, 40)
         ];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, resolution.Results[0].Result.Status);
         Assert.Equal(ArticleEmbedErrorCode.Missing, resolution.Results[1].Result.Error!.Code);
@@ -585,12 +586,12 @@ public sealed class ArticleEmbedAuthoringResolverTests
         });
         ArticleEmbedProviderRequest[] requests = [Request("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedAuthoringEmbedResult result = Assert.Single(resolution.Results);
         Assert.True(result.UpdateAvailable);
         Assert.Equal(4, result.Result.Coordinate!.ResolvedRevision);
-        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
     [Fact]
@@ -644,22 +645,22 @@ public sealed class ArticleEmbedAuthoringResolverTests
 
         Assert.Equal(
             ArticleEmbedAuthoringResolutionStatus.Rejected,
-            ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, null).Status);
+            ResolveGraph(requests, snapshot, null).Status);
         Assert.Equal(
             ArticleEmbedAuthoringResolutionStatus.Rejected,
-            ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, new ArticleEmbedResolutionBudgetLimits(0, 1, 1, 1, 1)).Status);
+            ResolveGraph(requests, snapshot, new ArticleEmbedResolutionBudgetLimits(0, 1, 1, 1, 1)).Status);
         Assert.Equal(
             ArticleEmbedAuthoringResolutionStatus.Rejected,
-            ArticleEmbedAuthoringResolver.Resolve(requests, snapshot with
+            ResolveGraph(requests, snapshot with
             {
                 HostSourceRevision = 99
             }, s_budgets).Status);
         Assert.Equal(
             ArticleEmbedAuthoringResolutionStatus.Rejected,
-            ArticleEmbedAuthoringResolver.Resolve(null, snapshot, s_budgets).Status);
+            ResolveGraph(null, snapshot, s_budgets).Status);
         Assert.Equal(
             ArticleEmbedAuthoringResolutionStatus.Rejected,
-            ArticleEmbedAuthoringResolver.Resolve(
+            ResolveGraph(
                 Enumerable.Range(0, 3)
                     .Select(index => Request($"request:{index}", ArticleA, ArticleEmbedTargetKind.Article, index * 40))
                     .ToArray(),
@@ -672,28 +673,28 @@ public sealed class ArticleEmbedAuthoringResolverTests
     {
         var snapshot = Snapshot(PublicFacts(ArticleA, 17));
         ArticleEmbedProviderRequest[] requests = [Request("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
-        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution resolution = ResolveGraph(requests, snapshot, s_budgets);
 
-        Assert.False(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, null).Valid);
-        Assert.False(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution with
+        Assert.False(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, null).Valid);
+        Assert.False(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution with
         {
             Results = [resolution.Results[0] with { UpdateAvailable = true }]
         }).Valid);
-        Assert.False(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution with
+        Assert.False(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution with
         {
             Receipt = resolution.Receipt with
             {
                 ResolvedCount = 0
             }
         }).Valid);
-        Assert.False(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution with
+        Assert.False(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, resolution with
         {
             Results = [resolution.Results[0] with
             {
                 Result = resolution.Results[0].Result with { Visibility = ArticleEmbedVisibilityStatus.Private }
             }]
         }).Valid);
-        Assert.False(ArticleEmbedAuthoringVerifier.Verify(
+        Assert.False(ArticleEmbedDependencyGraphVerifier.Verify(
             requests,
             Snapshot(PublicFacts(ArticleA, 18)),
             s_budgets,
@@ -734,7 +735,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         {
             LatestObservedRevision = 10
         });
-        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(input.Requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution current = ResolveGraph(input.Requests, snapshot, s_budgets);
         Assert.True(current.Results[0].UpdateAvailable);
 
         ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
@@ -755,7 +756,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             Visibility = ArticleEmbedVisibilityStatus.Private,
             Lifecycle = ArticleEmbedLifecycleStatus.Draft
         });
-        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(previous.Requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution current = ResolveGraph(previous.Requests, snapshot, s_budgets);
 
         ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
             previous.Requests, snapshot, s_budgets, current, previous.Requests[0].RequestId,
@@ -790,7 +791,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             _ => facts
         };
         var snapshot = failure == "missing" ? Snapshot() : Snapshot(facts);
-        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(previous.Requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution current = ResolveGraph(previous.Requests, snapshot, s_budgets);
 
         ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
             previous.Requests, snapshot, s_budgets, current, previous.Requests[0].RequestId,
@@ -847,7 +848,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         var snapshot = Snapshot(PublicFacts(ArticleA, 9));
         ArticleEmbedProviderRequest[] requests =
             [Request("request:cancel-refresh", ArticleA, ArticleEmbedTargetKind.Article, 0, cancellationToken: cancellation.Token)];
-        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution current = ResolveGraph(requests, snapshot, s_budgets);
         cancellation.Cancel();
 
         ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
@@ -864,7 +865,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         var input = RefreshInput(ArticleEmbedTargetKind.Article, 9);
         var snapshot = Snapshot(PublicFacts(ArticleB, 9));
         ArticleEmbedProviderRequest[] otherRequests = [Request("request:other", ArticleB, ArticleEmbedTargetKind.Article, 0)];
-        ArticleEmbedAuthoringResolution other = ArticleEmbedAuthoringResolver.Resolve(otherRequests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution other = ResolveGraph(otherRequests, snapshot, s_budgets);
 
         ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
             input.Requests, input.Snapshot, s_budgets, input.Resolution, input.Requests[0].RequestId,
@@ -921,7 +922,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         ];
         var snapshot = Snapshot(PublicFacts(ArticleA, 10, nested: [Nested(ArticleB, ArticleEmbedTargetKind.Article, 10)]),
             PublicFacts(ArticleB, 7));
-        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution current = ResolveGraph(requests, snapshot, s_budgets);
         string unchangedDigest = current.ResolutionDigest;
 
         ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
@@ -959,7 +960,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
         {
             MaxExpandedNodes = 1
         } : s_budgets;
-        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(previous.Requests, snapshot, budgets);
+        ArticleEmbedAuthoringResolution current = ResolveGraph(previous.Requests, snapshot, budgets);
         Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, current.Results[0].Result.Status);
         Assert.Equal(ArticleEmbedProviderResultStatus.Failed, current.Results[0].Children[0].Status);
 
@@ -983,7 +984,7 @@ public sealed class ArticleEmbedAuthoringResolverTests
             Request(selection == "duplicate" ? previous.Requests[0].RequestId : "request:b", ArticleB, ArticleEmbedTargetKind.Article, 40)
         ];
         var snapshot = Snapshot(PublicFacts(ArticleA, 10), PublicFacts(ArticleB, 7));
-        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedAuthoringResolution current = ResolveGraph(requests, snapshot, s_budgets);
 
         ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
             requests, snapshot, s_budgets, current, selection == "unknown" ? "request:absent" : requests[0].RequestId,
@@ -1031,7 +1032,15 @@ public sealed class ArticleEmbedAuthoringResolverTests
         var snapshot = Snapshot(PublicFacts(ArticleA, revision,
             headings: [new ArticleEmbedHeadingFact(HeadingA, Projection("projection:heading"))],
             blocks: [new ArticleEmbedBlockFact("exact-anchor", Projection("projection:block"))]));
-        return (requests, snapshot, ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets));
+        return (requests, snapshot, ResolveGraph(requests, snapshot, s_budgets));
+    }
+
+    private static ArticleEmbedAuthoringResolution ResolveGraph(
+        IReadOnlyList<ArticleEmbedProviderRequest>? requests, ArticleEmbedAuthoritySnapshot? snapshot,
+        ArticleEmbedResolutionBudgetLimits? budgets, TimeProvider? time = null)
+    {
+        ArticleEmbedAuthoringResolution projection = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, budgets, time);
+        return ArticleEmbedDependencyGraphPlanner.Expand(requests, snapshot, budgets, projection, time);
     }
 
     private static ArticleEmbedProviderRequest Request(

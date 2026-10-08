@@ -122,7 +122,7 @@ test("regex, rendered payloads, pipeline reuse, title resolution and second stor
 test("missing source verification, scope or transition guards fail closed", () =>
 {
     const guards = [
-        ["ArticleEmbedAuthoringVerifier.Verify", /authoring source re-verification/u],
+        ["ArticleEmbedDependencyGraphVerifier.Verify", /authoring source re-verification/u],
         ["ArticleEmbedPublicationVerifier.Verify", /publication source re-verification/u],
         ["ArticleEmbedPublicationPlanStatus.Sealed", /sealed-plan requirement/u],
         ["article_embed_relation_plan_blocked", /blocked-plan rejection/u],
@@ -265,7 +265,7 @@ test("verifier must not call the deriver entry points and must recompute digests
                 verifierPath,
                 fixture
                     .get(verifierPath)
-                    .replaceAll("ArticleEmbedAuthoringVerifier.Verify", "TrueMethod")
+                    .replaceAll("ArticleEmbedDependencyGraphVerifier.Verify", "TrueMethod")
             )
         ),
         /re-verify sources, re-derive edges and recompute digests/u

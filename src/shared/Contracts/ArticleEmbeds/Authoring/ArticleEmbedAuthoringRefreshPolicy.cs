@@ -1,7 +1,9 @@
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Graph;
+
 namespace FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 
 /// <summary>
-/// Compares a caller-owned host draft dependency with an existing current authoring candidate.
+/// Compares a caller-owned host draft dependency with an existing complete current authoring graph candidate.
 /// A valid comparison means unchanged or update-available, not authorization, result admission,
 /// an executable refresh plan or a committed revision. Persisted reads, revalidation, expected-revision
 /// writes and audit/outbox remain the canonical draft owner's responsibility.
@@ -9,7 +11,7 @@ namespace FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 public static class ArticleEmbedAuthoringRefreshPolicy
 {
     /// <summary>
-    /// Reuses the independent authoring verifier and exact target coordinates. It never looks up
+    /// Reuses the independent complete-graph verifier and exact target coordinates. It never looks up
     /// latest targets, changes source/directive bytes, mutates either coordinate or touches publications.
     /// Failure leaves <paramref name="updateAvailable"/> false. Callers must obtain the recorded
     /// coordinate from the exact authorized host draft, not an imported or unrelated publication.
@@ -38,7 +40,7 @@ public static class ArticleEmbedAuthoringRefreshPolicy
             return Invalid("article_embed_refresh_candidate_unbounded_or_missing");
         }
         if (current.Status != ArticleEmbedAuthoringResolutionStatus.Completed
-            || !ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, budgets, current).Valid)
+            || !ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, current).Valid)
         {
             return Invalid("article_embed_refresh_candidate_invalid");
         }
