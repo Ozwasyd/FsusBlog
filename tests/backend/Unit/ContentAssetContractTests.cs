@@ -1,7 +1,11 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Services;
+
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using SqlSugar;
 
@@ -12,6 +16,128 @@ public sealed class ContentAssetContractTests
     private const string CanonicalUuid = "3f3b2e7a-1d2e-4f8a-9c5b-6a7b8c9d0e1f";
 
     private static readonly DateTimeOffset s_utcNow = new(2026, 8, 9, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public void ProductionSource_RejectsRetiredAssetAuthorityAndDuplicateLedger()
+    {
+        DirectoryInfo? root = new(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "AGENTS.md")))
+        {
+            root = root.Parent;
+        }
+        Assert.NotNull(root);
+
+        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (string project in new[] { "backend", "core" })
+        {
+            string directory = Path.Combine(root.FullName, "src", project);
+            foreach (string file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+            {
+                string relative = Path.GetRelativePath(directory, file);
+                if (relative.Split(Path.DirectorySeparatorChar).Any(static part => part is "bin" or "obj"))
+                {
+                    continue;
+                }
+                sources.Add(Path.GetRelativePath(root.FullName, file), File.ReadAllText(file));
+            }
+        }
+
+        Assert.Empty(AssetAuthorityViolations(sources));
+    }
+
+    [Theory]
+    [InlineData("class DualWrite { string Sql = \"INSERT INTO article_asset_reference VALUES (1)\"; }")]
+    [InlineData("class Fallback { string Sql = \"SELECT * FROM asset_library_item\"; }")]
+    [InlineData("class OldQueue { string Sql = \"CREATE TABLE article_asset_cleanup_queue (url text)\"; }")]
+    [InlineData("class OldView { string Sql = \"CREATE VIEW asset_library_article_ref AS SELECT 1\"; }")]
+    [InlineData("class UrlDelete { void DeleteImageAsync(string imageUrl) { } }")]
+    [InlineData("class PathDelete { void TryNormalizeImageDeletePath(string path) { } }")]
+    [InlineData("class UrlIdentity { ArticleAssetUrlNormalizer normalizer; }")]
+    [InlineData("[SugarTable(\"content_asset_reference\")] class DuplicateLedger { }")]
+    [InlineData("[SugarTable(\"second_asset_ledger\")] class SecondLedger { public Guid AssetId { get; set; } public string SourceKind { get; set; } public string SourceKey { get; set; } }")]
+    [InlineData("class RuntimeDdl { string Sql = \"CREATE TABLE IF NOT EXISTS content_asset (id uuid)\"; }")]
+    [InlineData("class EscapedFallback { string Sql = \"SELECT * FROM \\u0061sset_library_item\"; }")]
+    public void AssetAuthorityGuard_KillsResurrectionMutations(string mutation)
+    {
+        Dictionary<string, string> sources = CanonicalAssetAuthoritySources();
+        sources.Add("src/backend/Services/Assets/Resurrection.cs", mutation);
+
+        Assert.NotEmpty(AssetAuthorityViolations(sources));
+    }
+
+    [Fact]
+    public void AssetAuthorityGuard_RequiresAllThreeMappingsAndIgnoresComments()
+    {
+        Dictionary<string, string> sources = CanonicalAssetAuthoritySources();
+        sources.Add("src/backend/Services/Assets/Documentation.cs", "// asset_library_item DeleteImageAsync ArticleAssetUrlNormalizer");
+        Assert.Empty(AssetAuthorityViolations(sources));
+
+        sources.Remove("src/backend/Entities/Reference.cs");
+        Assert.NotEmpty(AssetAuthorityViolations(sources));
+    }
+
+    private static Dictionary<string, string> CanonicalAssetAuthoritySources()
+        => new(StringComparer.Ordinal)
+        {
+            ["src/backend/Entities/Asset.cs"] = "[SugarTable(\"content_asset\")] class Asset { }",
+            ["src/backend/Entities/Reference.cs"] = "[SugarTable(\"content_asset_reference\")] class Reference { }",
+            ["src/backend/Entities/Queue.cs"] = "[SugarTable(\"content_asset_cleanup_queue\")] class Queue { }"
+        };
+
+    private static List<string> AssetAuthorityViolations(IReadOnlyDictionary<string, string> sources)
+    {
+        string[] tables = ["content_asset", "content_asset_reference", "content_asset_cleanup_queue"];
+        var mappingCounts = tables.ToDictionary(static table => table, static _ => 0, StringComparer.Ordinal);
+        var violations = new List<string>();
+        var retired = new Regex(@"\b(?:article_asset_reference|article_asset_cleanup_queue|asset_library_article_ref|asset_library_item|TryNormalizeImageDeletePath|ArticleAssetUrlNormalizer|DeleteImageAsync)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var ddl = new Regex(@"\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[""`\[]?(?:content_asset|content_asset_reference|content_asset_cleanup_queue)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        foreach ((string file, string source) in sources)
+        {
+            var syntax = CSharpSyntaxTree.ParseText(source).GetRoot();
+            foreach (var token in syntax.DescendantTokens())
+            {
+                if (retired.IsMatch(token.ValueText) || ddl.IsMatch(token.ValueText))
+                {
+                    violations.Add(file + ": retired identity or runtime asset DDL at " + token.SpanStart);
+                }
+            }
+
+            foreach (var entity in syntax.DescendantNodes().OfType<TypeDeclarationSyntax>())
+            {
+                foreach (var attribute in entity.AttributeLists.SelectMany(static list => list.Attributes))
+                {
+                    if (attribute.Name.ToString().Split('.').Last() is not ("SugarTable" or "SugarTableAttribute"))
+                    {
+                        continue;
+                    }
+                    string? table = (attribute.ArgumentList?.Arguments.FirstOrDefault()?.Expression as LiteralExpressionSyntax)?.Token.ValueText;
+                    if (table is not null && mappingCounts.ContainsKey(table))
+                    {
+                        mappingCounts[table]++;
+                    }
+                    string[] properties = [.. entity.Members.OfType<PropertyDeclarationSyntax>().Select(static property => property.Identifier.ValueText)];
+                    if (properties.Contains("AssetId", StringComparer.Ordinal)
+                        && properties.Contains("SourceKind", StringComparer.Ordinal)
+                        && properties.Contains("SourceKey", StringComparer.Ordinal)
+                        && table != "content_asset_reference")
+                    {
+                        violations.Add(file + ": second persistent asset reference ledger");
+                    }
+                }
+            }
+        }
+        foreach ((string table, int count) in mappingCounts)
+        {
+            if (count != 1)
+            {
+                violations.Add(table + ": expected exactly one entity mapping, got " + count);
+            }
+        }
+        return violations;
+    }
 
     [Theory]
     [InlineData("")]
