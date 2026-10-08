@@ -149,6 +149,104 @@ public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSche
     }
 
     [Fact]
+    public async Task Store_RetentionEvictsOldestFactsWithoutLosingReceiptsOrCrossingSiteScope()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO article(id, status, isdeleted, current_revision_id)
+            SELECT id, 0, FALSE, id + 700
+            FROM generate_series(3, 1001) AS id;
+            """);
+        var store = new AuthorRecentArticleHistoryStore(
+            db,
+            new FixedTimeProvider(
+                new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero)),
+            new LocalMutationAuthorizer());
+        var otherSite = new AuthorRecentArticleHistoryOwner(s_owner.AdminPrincipalId, "other-site");
+        AuthorRecentArticleHistoryReceipt otherSiteReceipt = await store.RecordOpenedAsync(
+            otherSite,
+            1,
+            701,
+            0,
+            Guid.CreateVersion7());
+
+        Guid firstRequestId = Guid.CreateVersion7();
+        AuthorRecentArticleHistoryReceipt first = await store.RecordOpenedAsync(
+            s_owner,
+            1,
+            701,
+            0,
+            firstRequestId);
+        long revision = first.Revision;
+        for (int articleId = 2; articleId <= 1001; articleId++)
+        {
+            AuthorRecentArticleHistoryReceipt receipt = await store.RecordOpenedAsync(
+                s_owner,
+                articleId,
+                articleId + 700,
+                revision,
+                Guid.CreateVersion7());
+            revision = receipt.Revision;
+        }
+
+        AuthorRecentArticleHistoryCollectionSnapshot retained = await store.GetAuthoritySnapshotAsync(s_owner);
+        Assert.Equal(1001, retained.Revision);
+        Assert.Equal(1000, retained.ItemCount);
+        Assert.Equal(
+            Enumerable.Range(2, 1000).Reverse(),
+            retained.Entries
+                .OrderByDescending(RecentArticleHistoryOrdering.LatestFactAtUtc)
+                .ThenByDescending(static entry => entry.ArticleId)
+                .Select(static entry => entry.ArticleId));
+
+        AuthorRecentArticleHistoryReceipt replay = await store.RecordOpenedAsync(
+            s_owner,
+            1,
+            701,
+            0,
+            firstRequestId);
+        Assert.True(replay.IdempotentReplay);
+        Assert.Equal(first.ReceiptId, replay.ReceiptId);
+        AuthorRecentArticleHistoryCollectionSnapshot afterReplay = await store.GetAuthoritySnapshotAsync(s_owner);
+        Assert.Equal(retained.Revision, afterReplay.Revision);
+        Assert.Equal(retained.ContentDigest, afterReplay.ContentDigest);
+        Assert.DoesNotContain(afterReplay.Entries, static entry => entry.ArticleId == 1);
+
+        AuthorRecentArticleHistoryReceipt reactivated = await store.RecordActivatedAsync(
+            s_owner,
+            1,
+            701,
+            retained.Revision,
+            Guid.CreateVersion7());
+        AuthorRecentArticleHistoryCollectionSnapshot afterReactivation =
+            await store.GetAuthoritySnapshotAsync(s_owner);
+        Assert.Equal(1002, reactivated.Revision);
+        Assert.Equal(1000, afterReactivation.ItemCount);
+        Assert.Contains(afterReactivation.Entries, static entry => entry.ArticleId == 1);
+        Assert.DoesNotContain(afterReactivation.Entries, static entry => entry.ArticleId == 2);
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+
+        foreach (string table in new[]
+        {
+            "author_recent_history_receipt",
+            "author_recent_history_idempotency",
+            "author_recent_history_outbox",
+            "author_recent_history_audit"
+        })
+        {
+            Assert.Equal(1002, await db.Ado.GetIntAsync(
+                $"SELECT COUNT(*) FROM {table} WHERE owner_admin_principal_id = 1 AND site_scope = 'primary-site';"));
+        }
+        AuthorRecentArticleHistoryCollectionSnapshot otherSiteSnapshot =
+            await store.GetAuthoritySnapshotAsync(otherSite);
+        Assert.Equal(otherSiteReceipt.Revision, otherSiteSnapshot.Revision);
+        Assert.Equal(otherSiteReceipt.ContentDigest, otherSiteSnapshot.ContentDigest);
+        Assert.Equal(1, Assert.Single(otherSiteSnapshot.Entries).ArticleId);
+        Assert.True((await store.VerifyAsync(otherSite)).Valid);
+    }
+
+    [Fact]
     public async Task Verifier_RejectsEntryAndReceiptTamperWithoutExposingArticleMetadata()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
