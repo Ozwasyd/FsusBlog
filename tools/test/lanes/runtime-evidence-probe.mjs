@@ -5636,6 +5636,12 @@ async function soak(mode, outFile)
     const startResources = target.status === 'ok' ? readSoakResourceReadings(target) : null;
     const policy = readCacheChurnPolicy(readPerfPolicy().text);
     const runId = `soak-${randomBytes(12).toString('hex')}`;
+    const { readCacheChurnBoundary } = await import('./soak-cache-churn-boundary.mjs');
+    const boundary = await readCacheChurnBoundary({
+        baseUrl, namespace, runId,
+        secret: process.env.FSUSBLOG_RUNTIME_CACHE_EVIDENCE_SECRET,
+        timeoutMs: policy.cycleTimeoutMs
+    });
     const cacheChurn = await runCacheChurnWindow({
         // No current repository observer binds the DB mutation, durable delivery,
         // Redis frame, HotRead and AOT receipt to one generation. Do not invent an
@@ -5655,6 +5661,11 @@ async function soak(mode, outFile)
             }
         }
     });
+    cacheChurn.boundary = boundary;
+    if (boundary.failureKind !== 'cache-churn-observation-secret-unavailable')
+    {
+        cacheChurn.failureKind = boundary.failureKind;
+    }
     const endResources = target.status === 'ok' ? readSoakResourceReadings(target) : null;
     const resourceMetricSummary = target.status === 'ok'
         ? buildSoakResourceSummary(target, startResources, endResources)

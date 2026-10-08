@@ -16,8 +16,7 @@ internal static class RuntimeCacheEvidenceEndpoints
 
     internal static WebApplication MapRuntimeCacheEvidenceEndpoints(this WebApplication app)
     {
-        if ((!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Test")) ||
-            string.IsNullOrWhiteSpace(app.Configuration[RuntimeCacheEvidenceMiddleware.SecretConfigurationKey]))
+        if (!IsEnabled(app))
         {
             return app;
         }
@@ -30,8 +29,13 @@ internal static class RuntimeCacheEvidenceEndpoints
             .WithMetadata(new FsusRouteKindMetadata("testing"));
         app.MapCacheMissSingleFlightScenarioEndpoints();
         app.MapRuntimeCacheFaultAndRevocationScenarioEndpoints();
+        app.MapRuntimeCacheChurnEvidenceEndpoints();
         return app;
     }
+
+    internal static bool IsEnabled(WebApplication app)
+        => (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Test"))
+            && !string.IsNullOrWhiteSpace(app.Configuration[RuntimeCacheEvidenceMiddleware.SecretConfigurationKey]);
 
     private static IResult TakeObservation(
         HttpContext context,
