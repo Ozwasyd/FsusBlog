@@ -446,7 +446,8 @@
         "reservationComment": "Failed once with GitHub HTTP403 secondary content-creation limit; intended text preserved; no subsequent creation/comment retry",
         "retryAfter": "not exposed by connector result; await coordinator release",
         "draftBody": "draft-pr.md",
-        "draftTitle": "feat(backend): add sealed native artifact indexes with counted leases"
+        "draftTitle": "feat(backend): add sealed native artifact indexes with counted leases",
+        "draftReleaseLabel": "release-note:internal"
     },
     "integrationRequests": [
         {
