@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs"
+            ],
+            "reason": "The facade consumes the existing SITE_BASEURL configuration through ResolveSiteScope instead of introducing or renaming process configuration. Its companion tests retain SITE_BASEURL to exercise that external boundary; internal facade and test symbols follow repository naming. Only the registered source path is covered, with no new environment names or policy scope."
+        }
+    ]
+}
