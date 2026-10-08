@@ -3,9 +3,8 @@
 This module is an implementation input for issues [#2278](https://github.com/Ozwasyd/FsusBlog/issues/2278)
 and [#2254](https://github.com/Ozwasyd/FsusBlog/issues/2254). It is not a second matrix,
 scheduler, attempt runner, coverage implementation or release authority. The maintained
-execution topology remains `tests/matrix.yml`. These source contracts are consumable
-before the upstream [#2248](https://github.com/Ozwasyd/FsusBlog/issues/2248) compiler
-is available; their output always declares `qualificationEligible: false`.
+execution topology remains `tests/matrix.yml`. These source contracts now consume the published upstream
+[#2248](https://github.com/Ozwasyd/FsusBlog/issues/2248) compiler; their output always declares `qualificationEligible: false`.
 
 ## APIs
 
@@ -107,21 +106,86 @@ remove `RunCoverageGateOnly` and `RunCoverageThresholdOnly` when canonical migra
 The old merger's standalone partial-input behavior remains outside this owned increment;
 canonical migration must make the verified two-input preparation unavoidable.
 
+## Canonical compiler and action bridge
+
+The continuation consumes exact framework `ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c`
+(including cancellation/finalizer correction `653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0`)
+and scheduler terminal source `2eda290cc6098971b685b3fb1465d7193bd3dde2` as unchanged
+ancestry. `compileCoverageProducerDag` calls the original `compileAtomicProducerDag`
+and `verifyCompiledAtomicProducerDag`; `executeCoverageProducerDag` calls the original
+`executeCompiledAtomicProducerDag`. There is no additional scheduler or attempt runner.
+The canonical terminal vector is reread and compared with the actual returned/failed
+vector through `verifyAtomicTerminalVector` before domain projection.
+
+`createCoverageExecutionRequests` prepares explicit run-owned request bytes. The request
+binds the domain plan, replay path, bridge source bytes and an independently supplied
+external authority verifier module/export/source digest. `writeCoverageExecutionRequests`
+publishes only those exact immutable run-local requests. Stable relative argv is
+`node tools/coverage/atomic-coverage-command.mjs <explicit request path>`; host checkout
+paths are not placed in that argv. Its real transitive closure and toolchain authority
+still require canonical owner admission.
+
+`createCoverageAtomicAttachment(plan, producerBindings, projectionOwner)` returns a narrow
+matrix attachment request with seven physical children and two command-free logical
+projections. Every physical ownership, command/input closure, fixture, resource, state,
+service and replay reference is supplied by its owner. It does not seal those authorities
+or write the shared matrix. Artifact/evidence declarations use the canonical schema's
+stable IDs; public paths remain in the request and attempt snapshot roster.
+`compileCoverageProducerDag` verifies the attachment's local hard edges, all projection
+members, artifact IDs, actual command, replay path and the input closure's exact
+`coverageBinding` (plan digest, request path/byte digest, bridge source digests and authority
+verifier identity) before calling the canonical compiler. Additional build/state edges
+are supplied by the matrix owner. Actual blocked records retain that compiled direct
+prerequisite set, including external prerequisites, through the independent vector bridge.
+
+The one-action adapter verifies hard predecessor attempts and their retained output bytes,
+starts exactly one unchanged original shell command and records the actual child spawn
+PID/command/input refs. It does not retry. Its result sidecar records the observed process
+exit and captured artifact roster. It retains immutable request/replay/output snapshots
+inside the original attempt root. For merge/scope/threshold actions, executed test IDs are
+empty because those commands are checkers, not test framework executions.
+
+Native backend/frontend collection must additionally provide the original canonical
+execution receipt and framework actuals paths. The adapter uses existing
+`verifyExecutionReplay` against the sealed plan and captures the exact native receipt/
+actual bytes in the attempt. It never copies planned test IDs into a result when native
+receipts are absent. The only receipt-less collection mode allowed by the source controls
+is an explicitly diagnostic, empty-test fixture action; this is not native qualification.
+The real unmodified collectors do not yet export the required coverage-specific native
+replay material, so successful native collection admission remains an owner handoff.
+
+Execution output separately records `attemptSpawnCount` and `physicalSpawnCount`. A
+canonical blocked node with no attempt yields zero for both. A wrapper input refusal can
+have one outer attempt and zero physical coverage child launches. Timeout/internal-error
+observations missing verified launch evidence retain unknown counts rather than inventing
+zero. These source observations and projections always remain DATA_ONLY.
+
 ## Acceptance still required
 
-- #2248: actual canonical compiler/settled execution API, exact-one attempt invocation,
-  independent blocked verifier, terminal receipt with input/evidence refs, replay handoff,
-  resource safety and spawn-boundary input isolation.
-- #1686/matrix owner: seven producers, two settled projection memberships, existing build,
-  dedicated-lane and physical ownership edges, test membership registration and canonical
-  local/CI compiled digest.
-- Shared wrapper/workflow owners: retire both support functions and the active sequential
-  threshold lane; consume the same compiled set in `quality-gate.yml` and local entry.
-- #2278: actual backend/frontend collections with independent complete raw/test/shard evidence,
-  failure isolation and merge spawn=0 controls under the canonical scheduler.
-- #2254: all four actions running through that scheduler with actual terminal/blocked refs;
-  real scope/checker failures fully retained in the authoritative aggregate.
+- Framework owner: pre-attempt admission hook for independently verified hard input
+  material under the input/resource grant. A failed collection already hard-blocks merge
+  before any attempt; a late missing/invalid input currently refuses inside its wrapper,
+  so only the physical child has zero spawn. This is not the stricter whole-producer
+  zero-spawn acceptance for all invalid inputs. Keep original terminal causes and scopes.
+- Collection/replay owners: actual current-candidate backend/frontend sealed coverage
+  selection, shard/worker/seed and native receipt/actuals material matching unchanged
+  instrumentation and membership. The new bridge does not infer this from an exit code,
+  planned IDs, raw summary or standalone TRX filename.
+- Sole matrix/integration owner: adopt seven physical IDs, two settled memberships,
+  artifact ID/path bindings, source test membership, real physical input closure/ownership,
+  build/dedicated-lane/state/resource prerequisites and local/CI canonical compiled identity.
+  No shared source is edited by this partition.
+- Wrapper/workflow owners: consume the same compiled plan and retire old support functions
+  and the active sequential threshold lane only after actual replacement acceptance.
+- Correctness terminal owner: use existing checkpoint/CAS, journal, finalizer and
+  `readCurrentSchedulerCorrectness` APIs for eventual authoritative publication. The
+  source vector is not a finalized checkpoint or a correctness final receipt; the coverage
+  bridge does not mint a terminal seal or perform a CAS without the actual run owner.
 
-Focused tests use synthetic receipts and external-verifier fixtures. They additionally invoke
-the unchanged weighted merger and threshold checker on isolated fixture summaries. They are
-not real coverage collection, scheduler qualification, runtime acceptance or remote CI.
+Five additional ordinary controls execute real child processes through the canonical
+compiler/weighted DAG/attempt runner, using explicit diagnostic synthetic collectors.
+They invoke the unchanged merger, scope and threshold scripts, preserve both domain
+failure directions, prove failed-collection merge attempt/physical spawn=0, and retain
+all threshold terminals. These controls complement the original 41 tests. They are
+not real native coverage collection, Production Fresh, resume, CI or release acceptance.
+No denied semantic/cohort audits are replayed.
