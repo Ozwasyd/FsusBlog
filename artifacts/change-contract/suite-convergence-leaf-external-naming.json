@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing canonical catalog and execution-authority schema keys, producer IDs and external target paths while binding the actual current source digests through their unchanged original producers."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the canonical attempt migration tool owner and its externally invoked process/tooling interfaces while validating the complete actual producer inventory; no external environment spelling or command key is renamed."
+        }
+    ]
+}
