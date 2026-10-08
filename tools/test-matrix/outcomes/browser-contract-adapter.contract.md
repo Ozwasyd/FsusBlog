@@ -122,10 +122,10 @@ The current Browser Contract runner does not yet emit this complete sealed
 member/assertion input set. Its scenario-level receipt alone is insufficient.
 The original runner/report owner must supply individual assertion emission
 without changing tests, projects, workers, retries or assertions, including
-canonical failure identity and explicit correctness artifact disposition. The global outcome registry
-owner must register these candidate membership fields and relations before
-canonical producer analysis can admit this profile. This adapter does not
-modify either shared owner, authorize sealed outcomes, execute browsers,
+canonical failure identity and explicit correctness artifact disposition. The
+shared capability below supplies its DATA_ONLY member profile. Canonical source
+registration and execution-owner verification remain required before runtime
+admission. This adapter does not modify shared authority, authorize sealed outcomes, execute browsers,
 compute fingerprints, aggregate results or claim runtime qualification.
 
 ## Original runner binding
