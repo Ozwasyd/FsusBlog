@@ -1,0 +1,56 @@
+{
+    "candidate": "e1d9c841d1ccdf5e4905676c15ba5f177b731c07",
+    "endCandidate": "e1d9c841d1ccdf5e4905676c15ba5f177b731c07",
+    "workingTreeAtStart": "",
+    "workingTreeAtEnd": "",
+    "startedAt": "2026-10-08T14:28:31.434638+00:00",
+    "endedAt": "2026-10-08T14:28:33.809870+00:00",
+    "command": [
+        "dotnet",
+        "test",
+        "tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj",
+        "--configuration",
+        "Release",
+        "-p:RestoreLockedMode=true",
+        "--filter",
+        "FullyQualifiedName~ArticleVaultAgentDispatchTests|FullyQualifiedName~ArticleVaultAgentLifecycleInventoryTests|FullyQualifiedName~ArticleVaultLeaseProtocolTests",
+        "--logger",
+        "trx;LogFileName=dispatch.trx",
+        "--results-directory",
+        "/workspace/FsusBlog/.tmp/chain-3582-expanded/native-closure-frozen/results"
+    ],
+    "exitCode": 0,
+    "nativeOrProductQualified": false,
+    "realPostgres": false,
+    "counts": {
+        "total": "38",
+        "executed": "38",
+        "passed": "38",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "runId": "42ddca86-5280-4e7c-a8bb-144ae900b544",
+    "classes": {
+        "ArticleVaultAgentDispatchTests": 16,
+        "ArticleVaultLeaseProtocolTests": 18,
+        "ArticleVaultAgentLifecycleInventoryTests": 4
+    },
+    "assemblies": {
+        "src/shared/bin/Release/net10.0/FsusBlog.Shared.dll": "2ccd77853d7b8e5ac8ab0954fecbc57b94f5bd31292aca2416217ad2a7b76c14",
+        "src/backend/bin/Release/net10.0/FsusBlog.Server.dll": "299cedfcd6a8ae99e14eda4e885024735e9a0de97236c472540fe8aadd1bf331",
+        "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "2e09675e1dfd08b97b9c132dc60aefa7ce97cd91e28f2ac516c3048425c4d0b6",
+        "src/article-vault/linux/bin/Release/net10.0/FsusBlog.ArticleVault.Linux.dll": "918243ed790171fd80788595449db400acac11ebd68293e2d158b0b63aeceb0a",
+        "tests/article-vault/linux/bin/Release/net10.0/FsusBlog.ArticleVault.Linux.Tests.dll": "6ffd213bc6ceaceb36ae307c5b8749c9d128bd258d253734266ce6fade4d7415"
+    }
+}
