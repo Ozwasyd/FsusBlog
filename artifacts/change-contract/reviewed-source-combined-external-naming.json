@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/csharp-style-baseline.json",
+                "config/development/csharp-style-policy.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing external JSON field schemas while the reviewed CSharp policy and baseline binding remain exact and the unchanged canonical authority producer binds both the CSharp checker and PublicShell locale sources against current master. Preserve all roster, ownership and permission fields."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/csharp-style-enforcement.md"
+            ],
+            "reason": "Document existing external .editorconfig, CLI and tooling spellings accurately; internal naming conventions remain enforced."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/dotnet/check-csharp-style.mjs"
+            ],
+            "reason": "Retain process environment names and add GIT_NO_REPLACE_OBJECTS for the pinned original authority read; internal variables follow repository naming."
+        }
+    ]
+}
