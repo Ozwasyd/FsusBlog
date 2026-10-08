@@ -67,10 +67,10 @@
             "type": "object", "additionalProperties": false,
             "required": ["canonicalTables", "referenceTable", "retiredTables", "retiredSymbols", "owner", "proofId"],
             "properties": {
-                "canonicalTables": { "$ref": "#/$defs/names", "minItems": 3, "maxItems": 3 },
+                "canonicalTables": { "$ref": "#/$defs/names", "type": "array", "minItems": 3, "maxItems": 3 },
                 "referenceTable": { "type": "string", "minLength": 1 },
-                "retiredTables": { "$ref": "#/$defs/names", "minItems": 4, "maxItems": 4 },
-                "retiredSymbols": { "$ref": "#/$defs/names", "minItems": 3, "maxItems": 3 },
+                "retiredTables": { "$ref": "#/$defs/names", "type": "array", "minItems": 4, "maxItems": 4 },
+                "retiredSymbols": { "$ref": "#/$defs/names", "type": "array", "minItems": 3, "maxItems": 3 },
                 "owner": { "type": "string", "minLength": 1 },
                 "proofId": { "type": "string", "minLength": 1 }
             }
