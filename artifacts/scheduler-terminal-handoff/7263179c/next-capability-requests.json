@@ -1,0 +1,46 @@
+{
+  "exactSource": "7263179c059f8b119577ff83954c637bdc1a128f",
+  "consumerSourceInspected": "64d9a862ce3a8a62bc95d98dbd80166d55ce6adc",
+  "actualConsumerHeadObserved": "64d9a862ce3a8a62bc95d98dbd80166d55ce6adc",
+  "receiptOwnerHeadObserved": "dba3469945a915466b91c6f95a8282a56606581d",
+  "missing": [
+    {
+      "owner": "#2060/#2061 receipt consumer owner",
+      "paths": [
+        "tools/release/test-evidence-receipts.mjs",
+        "tools/release/check-release-final.mjs"
+      ],
+      "request": "Consume the exact owned canonical-reader baseline and new public version1 verifier. Pass an independently expected AFTER-write revision and actual current context/registry entry/payload schema. Existing consumer durableCommit expectedRevision must be explicitly interpreted or renamed; do not infer it from private readCheckpoint or baseline+1. Map the returned retained wrapper reference and wrapper byte digest without substituting payload/content digests.",
+      "readyCapability": "7263179c059f8b119577ff83954c637bdc1a128f",
+      "noConsumerEditsHere": true
+    },
+    {
+      "owner": "original final-output producer and evidence-location registry owners",
+      "paths": [
+        "tools/test/generate-evidence-location-governance.mjs",
+        "config/testing/evidence-locator-registry.json",
+        "tools/release/check-release-final.mjs"
+      ],
+      "request": "Publish the genuine v2 final output with its real authorityId, producerId, command/executable, outputBindingKey, handoffBindingKey, wrapper schema and payload schema, through owning source/generator. The current collector entry points to collect-release-evidence.sh input and release-evidence-manifest.v2 payload; it cannot satisfy final-output release-final-test-evidence-binding.v2.",
+      "genuineDependencyStillMissing": true,
+      "registryUntouched": true
+    },
+    {
+      "owner": "original3521 canonical execution-binding owner",
+      "paths": [
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+      ],
+      "request": "Bind final integrated candidate through the official pinned Node24.16 generator; scheduler bytes/import closure changed. Do not transplant old6ed/83d/0d SOURCE receipts.",
+      "SOURCE": "UNRUN"
+    },
+    {
+      "owner": "generic live-grant adapter owner",
+      "paths": [
+        "tools/test/run-command-manifest.mjs"
+      ],
+      "request": "For next assigned #1934 implementation, supply an actually usable generation/current-owner adapter to existing readCanonicalSchedulerResourceGrant. Observed readManifestSchedulerResourceGrant still returns only CPU/memory envelope; no owned nested fixture can replace this missing owner capability.",
+      "realNestedTimeline": "UNRUN"
+    }
+  ],
+  "stopBoundary": "Current public API increment complete. Remaining next steps require original producer/registry/consumer/adapter source owners or held physical/cohort acceptance; none independently rewritten here."
+}

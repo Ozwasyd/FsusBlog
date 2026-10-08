@@ -1,0 +1,21 @@
+{
+  "candidate": "7263179c059f8b119577ff83954c637bdc1a128f",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--operation",
+    "lint",
+    "--mode",
+    "changed",
+    "--domain",
+    "docs",
+    "--base",
+    "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+    "--file",
+    "tools/test-matrix/scheduler-committed-evidence-readback.md",
+    "--require-tools"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.24229382699923008,
+  "logSha256": "b608acafb63a002126a587f683eb22e426cb681ff44d215c85f96dee49eb5ec4"
+}

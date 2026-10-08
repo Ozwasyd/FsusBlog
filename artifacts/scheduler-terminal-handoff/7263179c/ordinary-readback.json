@@ -1,0 +1,11 @@
+{
+  "candidate": "7263179c059f8b119577ff83954c637bdc1a128f",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/scheduler-committed-evidence-readback.test.mjs"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.5986605870020867,
+  "logSha256": "44746071f3c4c2d8bef9e13ecc84dc1e179860ada0da33c046632dadb5195e38"
+}

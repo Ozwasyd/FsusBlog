@@ -1,0 +1,38 @@
+{
+  "exactSource": "7263179c059f8b119577ff83954c637bdc1a128f",
+  "baseWithRequiredCanonicalReader": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "module": "tools/test-matrix/scheduler.mjs",
+  "exports": {
+    "schedulerCommittedEvidenceReadbackVersion": 1,
+    "verifyCommittedSchedulerEvidence": "synchronous ({checkpointFile, expectedCommittedRevision, context, registry, registryEntry, repositoryRoot, expectedPayloadSchema})"
+  },
+  "requiredInputs": [
+    "checkpointFile",
+    "expectedCommittedRevision",
+    "context",
+    "registry",
+    "registryEntry",
+    "repositoryRoot",
+    "expectedPayloadSchema"
+  ],
+  "resultOnly": [
+    "committedRevision",
+    "finalOutputRef",
+    "finalOutputDigest"
+  ],
+  "schemas": {
+    "checkpoint": "fsusblog.test-matrix.checkpoint.v1",
+    "currentContext": "fsusblog.current-run-evidence-context.v1",
+    "wrapper": "fsusblog.current-run-evidence-reference.v1",
+    "retainedReferenceBlock": "fsusblog.test-matrix.current-run-evidence-references.v1",
+    "payload": "explicit expectedPayloadSchema from actual producer owner; not invented by this API"
+  },
+  "revisionSemantics": "expectedCommittedRevision must independently name the persisted AFTER-write revision; attachCheckpointCurrentRunEvidence.expectedRevision names BEFORE-write baseline. Reader never increments or derives expected revision.",
+  "finalOutputRef": "Copy of the actual retained reference matching explicit canonical registry entry: consumerId, authorityId, producerId, path, inputDigest, contentDigest, producerReceiptDigest. No reseal.",
+  "finalOutputDigest": "Actual retained inputDigest, independently checked against serialized WRAPPER byte SHA-256. Not payload.digest, wrapper.contentDigest, producerReceiptDigest or checkpointDigest.",
+  "payloadLayer": "Existing resolveEvidenceReferencePayload verifies wrapper.payload.digest against payload bytes and checks payload schema. It is not returned as the wrapper digest.",
+  "identityValidation": "Existing validateCurrentRunEvidenceContext/validateEvidenceLocatorRegistry/locateCurrentRunEvidence, plus exact current block and checkpoint run/source fields.",
+  "noMutation": "Default canonical reader repairProjection=false; no write, repair, publication, retry, extra lock, reseal or latest selection.",
+  "terminalAuthority": "Not granted; running canonical checkpoints may retain committed references. Output is facts, not a success/qualification receipt.",
+  "noReleaseProducerInvented": true
+}

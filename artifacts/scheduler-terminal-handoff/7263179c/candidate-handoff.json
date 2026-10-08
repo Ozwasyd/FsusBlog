@@ -1,0 +1,110 @@
+{
+  "source": "7263179c059f8b119577ff83954c637bdc1a128f",
+  "sourceBranch": "task/scheduler-committed-evidence-readback",
+  "base": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "masterObservedBeforeWork": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "exactChangedPaths": [
+    {
+      "path": "tests/tools/scheduler-committed-evidence-readback.test.mjs",
+      "gitBlob": "82cb87e93ecba8f70376f2ceb126455e7427fc4c"
+    },
+    {
+      "path": "tools/test-matrix/scheduler-committed-evidence-readback.md",
+      "gitBlob": "0e264b7667907adfcd23d09d79f259647d06ea67"
+    },
+    {
+      "path": "tools/test-matrix/scheduler.mjs",
+      "gitBlob": "48f91376931f598562adc3e2ca7dd5935f8a5a4d"
+    }
+  ],
+  "ordinaryControls": 3,
+  "qualificationEligible": false,
+  "frozenAndSeparateIdentitiesPreserved": [
+    "83d4908a1420c519dddb5fbb87f225880a731f13",
+    "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+    "bb8a98e3ed66e0fda056e0da44bb2fad83686eb4",
+    "daa14c2f54be6961791aa2eb77166e762355915f"
+  ],
+  "exportManifest": [
+    {
+      "path": "api-contract.json",
+      "sha256": "68d8dddb7220ca362557fdc9d638ea6c79f30ea56b72cb0b5b3ef308a88485da",
+      "bytes": 2480
+    },
+    {
+      "path": "bounded-range.json",
+      "sha256": "e973abaac9e6e4cfd6b15d6665e4c3c2abf022bba886215418da908e5bc51d2a",
+      "bytes": 421
+    },
+    {
+      "path": "bounded-range.log",
+      "sha256": "8f1ff2275f2725076686f097187741fec3859d4f09d758f839b0d8f4be63fd5c",
+      "bytes": 117
+    },
+    {
+      "path": "changed-eslint.json",
+      "sha256": "eaf40f83befbc97d1b3a8798a1a6216c57aec853f7030a808f67f40016437ba7",
+      "bytes": 443
+    },
+    {
+      "path": "changed-eslint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "changed-markdown.json",
+      "sha256": "c413a6388134c7852efb1afebad34675853008a2c402bbe55bf4cafa72a612bf",
+      "bytes": 570
+    },
+    {
+      "path": "changed-markdown.log",
+      "sha256": "b608acafb63a002126a587f683eb22e426cb681ff44d215c85f96dee49eb5ec4",
+      "bytes": 111
+    },
+    {
+      "path": "next-capability-requests.json",
+      "sha256": "3d594b275a1d5863274ade33d7fc7a6696e232a07971b8696ae195951462be0b",
+      "bytes": 2967
+    },
+    {
+      "path": "ordinary-readback.json",
+      "sha256": "36468ad12f63e63051591fb7d032097c678569711865aab465c6a369530b0ec5",
+      "bytes": 346
+    },
+    {
+      "path": "ordinary-readback.log",
+      "sha256": "44746071f3c4c2d8bef9e13ecc84dc1e179860ada0da33c046632dadb5195e38",
+      "bytes": 433
+    },
+    {
+      "path": "pre-test-inspection.json",
+      "sha256": "1982e3d508cf031652df2b5b858eb6b247f174fc08534d24015c2a9d26102cf3",
+      "bytes": 38202
+    },
+    {
+      "path": "prior-fixture-failure.json",
+      "sha256": "af70635ef40422631da5349324d5e29ec344842a9576fb5e589e603a0262999f",
+      "bytes": 346
+    },
+    {
+      "path": "prior-fixture-failure.log",
+      "sha256": "b39832066c3901da772cbd50d4cf9f5b41064707702381de83c381b002530b3b",
+      "bytes": 4214
+    },
+    {
+      "path": "prior-registry-fixture-failure.json",
+      "sha256": "113617deb4874b19f1d85c969d0c0daed10e7431872ec5796a5f7d5ea8cbed48",
+      "bytes": 346
+    },
+    {
+      "path": "prior-registry-fixture-failure.log",
+      "sha256": "b43f08f44d3483ff39005806ebb8517d69177d4a554fe82144e0a27b1bfa6201",
+      "bytes": 4474
+    },
+    {
+      "path": "verification-summary.json",
+      "sha256": "9cbaf0d7ad018881c6ee1f035e0f97e7836d57151d96de75f2cba11467f0c253",
+      "bytes": 2888
+    }
+  ]
+}
