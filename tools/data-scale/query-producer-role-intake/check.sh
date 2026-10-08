@@ -2,7 +2,7 @@
 set -euo pipefail
 
 scriptRoot="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-articleCommit=21a20129b3127fdcfb6f34bff7f80b1ef8b5f239
+articleCommit=eca3afcf011caead9647c6854b6382a187a9644c
 commentCommit=8822207ec995f4346eed20f27393b172dd51343a
 articleSourceRoot=""
 commentSourceRoot=""
@@ -29,7 +29,7 @@ while [[ $# -gt 0 ]]; do
 Usage: check.sh --article-source-root <absolute Git root> --comment-source-root <absolute Git root> --evidence-directory <new absolute directory>
 
 Compile test/evidence-only refusal controls using immutable writer backend source
-21a20129b3127fdcfb6f34bff7f80b1ef8b5f239 with nine original comment source
+eca3afcf011caead9647c6854b6382a187a9644c with nine original comment source
 files from 8822207ec995f4346eed20f27393b172dd51343a. The configured Git roots
 must contain these commits; working-tree producer contents are not consumed.
 

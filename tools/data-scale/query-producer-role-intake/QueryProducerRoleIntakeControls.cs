@@ -50,7 +50,8 @@ internal static class QueryProducerRoleIntakeControls
                 "article_actual_publication_result_and_current_invocation_missing"
             ];
             Require(missingPostgres.Production is null && missingPostgres.ResolvedBatch is null
-                && missingPostgres.CurrentIdentity is null && !missingPostgres.ComponentBindingsMatched,
+                && missingPostgres.CurrentIdentity is null && !missingPostgres.ComponentBindingsMatched
+                && missingPostgres.NativeAllocationEvidenceDigest is null,
                 "Absent PostgreSQL producer inputs cannot become matched components.");
             Require(missingPostgres.Blockers.SequenceEqual(requiredPostgresBlockers),
                 "All PostgreSQL missing-input and physical admission blockers must survive.");
@@ -59,12 +60,14 @@ internal static class QueryProducerRoleIntakeControls
             var emptyPostgresBlockers = new QueryPostgresProducerInspection(null, null, null, true, Array.Empty<string>());
             RequireRefusal(emptyPostgresBlockers);
             RequireBlockedBeforeSubsequentStatement(emptyPostgresBlockers);
+            RequireOriginalHandoffRefusal();
             Console.WriteLine("PASS: null producer inputs preserve all four blockers.");
             Console.WriteLine("PASS: refusal prevents the subsequent statement.");
             Console.WriteLine("PASS: manually empty blockers cannot authorize queries.");
             Console.WriteLine("PASS: null PostgreSQL inputs preserve all eleven blockers without matching components.");
             Console.WriteLine("PASS: PostgreSQL refusal prevents the subsequent statement.");
             Console.WriteLine("PASS: manually empty PostgreSQL blockers cannot authorize queries.");
+            Console.WriteLine("PASS: original handoff missing-resolved failure propagates before any producer work.");
             Console.WriteLine("Scope: compiled refusal controls only; qualification and release eligibility are false.");
             return 0;
         }
@@ -73,6 +76,24 @@ internal static class QueryProducerRoleIntakeControls
             Console.Error.WriteLine($"FAIL: {exception.GetType().Name}: {exception.Message}");
             return 1;
         }
+    }
+
+    private static void RequireOriginalHandoffRefusal()
+    {
+        bool refused = false;
+        try
+        {
+            QueryPostgresProducerIntake.ProduceAndInspectResolvedAsync(
+                null!, null!, null!, null!, null!, null!,
+                string.Empty, string.Empty, string.Empty, string.Empty,
+                ReadOnlyMemory<byte>.Empty, null!, default).GetAwaiter().GetResult();
+        }
+        catch (ArgumentNullException exception)
+        {
+            Require(exception.ParamName == "resolvedBatch", "Original missing-resolved failure must remain exact.");
+            refused = true;
+        }
+        Require(refused, "Missing resolved input must fail in the original handoff before native producer work.");
     }
 
     private static void RequireRefusal(QueryProducerRoleInspection inspection)

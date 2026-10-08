@@ -13,6 +13,33 @@ namespace FsusBlog.QueryEvidence;
 internal static class QueryPostgresProducerIntake
 {
     /// <summary>
+    /// Delegates production and persistence to the original same-task handoff.
+    /// Its callback consumes the original live objects and rereads allocation
+    /// evidence without retaining the key or granting query admission.
+    /// </summary>
+    internal static Task<QueryPostgresProducerInspection> ProduceAndInspectResolvedAsync(
+        DbConnection connection, ArticleScalePlan plan,
+        IReadOnlyList<ArticleScaleArticleGraph> factoryBatch, ArticleScaleResolvedGraphBatch resolvedBatch,
+        IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema,
+        IReadOnlyDictionary<string, long> externalIdentities,
+        string runId, string runtimeIdentity, string sourceCommit, string factoryBatchReference,
+        ReadOnlyMemory<byte> taskKey, DataScaleBatchCheckpointStore store,
+        CancellationToken cancellationToken, DataScaleArticleTaxonomySchema? taxonomySchema = null)
+    {
+        return DataScalePostgresArticleProducer.ProduceAndConsumeResolvedAsync<QueryPostgresProducerInspection>(
+            connection, plan, factoryBatch, resolvedBatch, schema, externalIdentities,
+            runId, runtimeIdentity, sourceCommit, factoryBatchReference, taskKey, store,
+            async (production, originalPlan, originalResolved, liveConnection, currentIdentity, key, allocationEvidence, token) =>
+            {
+                QueryPostgresProducerInspection inspection = Inspect(production, originalPlan, originalResolved,
+                    liveConnection, currentIdentity, key.Span);
+                await store.VerifyNativeAllocationEvidenceAsync(allocationEvidence, production.NativeAllocation,
+                    production.NativeBindings, token).ConfigureAwait(false);
+                return inspection with { NativeAllocationEvidenceDigest = allocationEvidence };
+            }, cancellationToken, taxonomySchema);
+    }
+
+    /// <summary>
     /// Links one actual bounded producer batch to its independently supplied
     /// current identity. Missing resolved input refuses diagnostic fallback.
     /// Native keys are borrowed for the original validator and never retained.
@@ -111,7 +138,8 @@ internal static class QueryPostgresProducerIntake
 
         // These exact invariants are absent from the current native component
         // contract. Committed authenticated batches are not complete seed/query
-        // admission; the original owner must supply their actual receipt APIs.
+        // admission. The handoff's persisted allocation evidence is raw data;
+        // its verified digest does not supply a sealed allocation admission receipt.
         blockers.Add("article_native_allocation_persistence_receipt_missing");
         blockers.Add("article_query_epoch_fixture_generation_and_seed_receipt_binding_missing");
         blockers.Add("article_whole_plan_materialization_receipt_missing");
@@ -141,6 +169,9 @@ internal sealed record QueryPostgresProducerInspection(
     bool ComponentBindingsMatched,
     IReadOnlyList<string> Blockers)
 {
+    /// <summary>Original store-verified raw evidence reference; never an admission receipt.</summary>
+    internal string? NativeAllocationEvidenceDigest { get; init; }
+
     internal bool CanExecuteQueries => false;
     internal bool Qualification => false;
     internal bool ReleaseEvidenceEligible => false;

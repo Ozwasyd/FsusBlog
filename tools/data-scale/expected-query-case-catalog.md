@@ -12,7 +12,7 @@ canonical owners; those implementations are outside this closure.
 ## Exact source dependencies
 
 The harness archives the complete original writer backend at
-`21a20129b3127fdcfb6f34bff7f80b1ef8b5f239` and overlays nine original comment
+`eca3afcf011caead9647c6854b6382a187a9644c` and overlays nine original comment
 source files from `8822207ec995f4346eed20f27393b172dd51343a`:
 
 - `src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphFactory.cs`
@@ -57,8 +57,22 @@ result, canonical plan, resolved graph batch, open Npgsql connection,
 independently supplied current checkpoint identity and authentic task key.
 `ProduceAsync`, resolved-input validation, native allocation, checkpoint
 persistence/HMAC validation and publication binding exist in the original source.
-The producer result does not retain the optional resolved batch; its caller must
-retain the actual input and hand it off with the result.
+The original `ProduceAndConsumeResolvedAsync<TResult>` now provides a real
+same-task handoff: it persists and rereads allocation/maps before product rows,
+persists and authenticates the committed checkpoint, and invokes the consumer
+while the original connection remains live. The supplied plan/resolved batch,
+current identity, borrowed key and original allocation evidence digest reach the
+callback directly. Its identity comes from the executed authority and live
+connection, rather than the checkpoint being verified.
+
+`ProduceAndInspectResolvedAsync` delegates to that exact native API. The callback
+runs the existing intake over original objects and reuses the original store's
+`VerifyNativeAllocationEvidenceAsync`. Only after verification does it retain
+`NativeAllocationEvidenceDigest` as a raw diagnostic reference. It retains no key,
+serializes no receipt and supplies no alternative writer, allocator or digest.
+The handoff/persistence API gap is closed; genuine assignment/content/time/media,
+prepared schema/external identities and task-key inputs must still come from the
+current original producers. Diagnostic native tests do not supply that bundle.
 
 The intake verifies bounded batch ordinals, whole-plan coverage's plan binding,
 native allocation role/ID maps, original alias groups and graph digests.
@@ -110,9 +124,11 @@ Even matched components preserve five unresolved admission boundaries:
 
 Whole-plan assignment coverage does not prove whole-plan physical materialization.
 The current checkpoint record lacks query epoch, fixture generation, seed receipt
-and assignment coverage digest. The allocation persistence callback is real and
-awaited, but returns no typed durable admission receipt. Original
-`CompleteSeedAccepted` remains false.
+and assignment coverage digest. Allocation/maps now have actual persisted,
+content-addressed evidence and an original reread verifier. That raw evidence is
+not a sealed allocation admission receipt; the corresponding admission blocker
+remains even when its digest is verified. Original `CompleteSeedAccepted` remains
+false. No 35 GiB or production-scale resource limit is waived by this handoff.
 
 Both inspections keep `CanExecuteQueries`, `Qualification` and
 `ReleaseEvidenceEligible` false. `ThrowBeforeQueryExecution()` refuses even if a
@@ -134,8 +150,10 @@ naming a new absolute task-owned directory. Existing evidence is never replaced.
 The configured saved environment supplies the SDK and locked dependency cache;
 other environments must provide the required SDK and dependencies.
 
-The six compiled controls cover null-input blocker preservation, refusal before
-subsequent statements and manual-empty blocker refusal for both inspections.
+The seven compiled controls preserve the original six null-input, stop-before-
+subsequent-statement and manual-empty refusal controls. The additional control
+calls the actual original handoff with missing resolved input and checks that its
+exact first exception propagates before any native producer work.
 They construct no producer objects, native IDs, keys, expected values or receipts.
 The manifest and logs establish exact-source compilation and refusal behavior.
 They do not establish nonempty PostgreSQL matching, physical acceptance, query

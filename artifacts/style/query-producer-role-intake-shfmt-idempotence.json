@@ -8,8 +8,8 @@
     "paths": [
         "tools/data-scale/query-producer-role-intake/check.sh"
     ],
-    "firstPassTreeSha256": "5d2a1f8c7cf454c686675ccbfb0d74fcff756f0e2f61832ec1ca20c0507fd654",
-    "secondPassTreeSha256": "5d2a1f8c7cf454c686675ccbfb0d74fcff756f0e2f61832ec1ca20c0507fd654",
+    "firstPassTreeSha256": "9459492270a748e2d49173c0e59606ba362e8a48fdcf51b20e7f8b3d4bfc1280",
+    "secondPassTreeSha256": "9459492270a748e2d49173c0e59606ba362e8a48fdcf51b20e7f8b3d4bfc1280",
     "idempotent": true,
-    "sourceRevisionBeforeCorrection": "2edf92bd89044abb722988ee10cf2c46a163d698"
+    "sourceRevisionBeforeCorrection": "022a11fbbfeb05b598ff0555d9055fde5a24e2ee"
 }
