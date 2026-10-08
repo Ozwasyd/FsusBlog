@@ -216,6 +216,22 @@ public static class ArticleEmbedAuthoringVerifier
             {
                 reasons.Add($"expected_failure_mismatch:{request.RequestId}");
             }
+            bool concealed = expectation.Error.Code is ArticleEmbedErrorCode.PermissionDenied
+                or ArticleEmbedErrorCode.PermissionUnknown;
+            ArticleEmbedPermissionStatus expectedPermission = expectation.Error.Code switch
+            {
+                ArticleEmbedErrorCode.PermissionDenied => ArticleEmbedPermissionStatus.Denied,
+                ArticleEmbedErrorCode.PermissionUnknown => ArticleEmbedPermissionStatus.Unknown,
+                _ => expectation.Facts?.Permission ?? ArticleEmbedPermissionStatus.Unknown
+            };
+            if (result.Result.Visibility != (concealed ? ArticleEmbedVisibilityStatus.Unknown
+                    : expectation.Facts?.Visibility ?? ArticleEmbedVisibilityStatus.Unknown)
+                || result.Result.Lifecycle != (concealed ? ArticleEmbedLifecycleStatus.Unknown
+                    : expectation.Facts?.Lifecycle ?? ArticleEmbedLifecycleStatus.Unknown)
+                || result.Result.Permission != expectedPermission)
+            {
+                reasons.Add($"failure_metadata_mismatch:{request.RequestId}");
+            }
         }
         else
         {
@@ -499,10 +515,6 @@ public static class ArticleEmbedAuthoringVerifier
         ArticleEmbedAuthoritySnapshot snapshot,
         ArticleEmbedTargetIdentity target)
     {
-        if (facts.AuthorityGeneration != snapshot.AuthorityGeneration)
-        {
-            return new ArticleEmbedError(ArticleEmbedErrorCode.StaleTarget, "authority_generation_drift");
-        }
         if (facts.SiteIdentity != snapshot.Actor.SiteIdentity)
         {
             return new ArticleEmbedError(ArticleEmbedErrorCode.PermissionUnknown, "site_mismatch");
@@ -514,6 +526,14 @@ public static class ArticleEmbedAuthoringVerifier
         if (facts.Permission == ArticleEmbedPermissionStatus.Unknown)
         {
             return new ArticleEmbedError(ArticleEmbedErrorCode.PermissionUnknown, "permission_unknown");
+        }
+        if (facts.AuthorityGeneration != snapshot.AuthorityGeneration)
+        {
+            return new ArticleEmbedError(ArticleEmbedErrorCode.StaleTarget, "authority_generation_drift");
+        }
+        if (facts.SourceRevision != facts.ResolvedRevision)
+        {
+            return new ArticleEmbedError(ArticleEmbedErrorCode.StaleTarget, "target_source_revision_drift");
         }
         if (facts.Lifecycle == ArticleEmbedLifecycleStatus.Archived)
         {
@@ -641,7 +661,7 @@ public static class ArticleEmbedAuthoringVerifier
         ArticleEmbedError? failure = ExpectedFailure(facts, snapshot, target);
         if (failure is not null)
         {
-            return NodeExpectation.Failed(failure);
+            return new NodeExpectation(failure, facts, null);
         }
 
         ArticleEmbedSafeProjectionReference? projection = target.Kind switch

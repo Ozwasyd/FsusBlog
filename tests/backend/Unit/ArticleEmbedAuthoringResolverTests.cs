@@ -131,6 +131,249 @@ public sealed class ArticleEmbedAuthoringResolverTests
         Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
     }
 
+    [Theory]
+    [InlineData(ArticleEmbedPermissionStatus.Denied, false)]
+    [InlineData(ArticleEmbedPermissionStatus.Denied, true)]
+    [InlineData(ArticleEmbedPermissionStatus.Unknown, false)]
+    [InlineData(ArticleEmbedPermissionStatus.Unknown, true)]
+    public void UnauthorizedTargetFactsDoNotExposeLifecycleOrRevisionDrift(
+        ArticleEmbedPermissionStatus permission,
+        bool drifted)
+    {
+        var snapshot = Snapshot(PublicFacts(ArticleA, 9, nested: [Nested(ArticleB, ArticleEmbedTargetKind.Article, 10)]) with
+        {
+            Permission = permission,
+            Visibility = ArticleEmbedVisibilityStatus.Private,
+            Lifecycle = ArticleEmbedLifecycleStatus.Archived,
+            AuthorityGeneration = drifted ? 99 : 1,
+            SourceRevision = drifted ? 12 : 9,
+            LatestObservedRevision = 12,
+            AttributionDisplayText = "Unauthorized title"
+        });
+        ArticleEmbedProviderRequest[] requests = [Request("request:hidden", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+
+        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+
+        ArticleEmbedAuthoringEmbedResult result = Assert.Single(resolution.Results);
+        Assert.Equal(permission == ArticleEmbedPermissionStatus.Denied
+            ? ArticleEmbedErrorCode.PermissionDenied : ArticleEmbedErrorCode.PermissionUnknown, result.Result.Error!.Code);
+        Assert.Equal(ArticleEmbedVisibilityStatus.Unknown, result.Result.Visibility);
+        Assert.Equal(ArticleEmbedLifecycleStatus.Unknown, result.Result.Lifecycle);
+        Assert.Equal(permission, result.Result.Permission);
+        Assert.Null(result.Result.Coordinate);
+        Assert.Null(result.Result.Projection);
+        Assert.Null(result.Result.Attribution);
+        Assert.Null(result.OpenSource);
+        Assert.False(result.UpdateAvailable);
+        Assert.Empty(result.Children);
+        Assert.Equal(0, resolution.Receipt.Observed.Bytes);
+        ArticleEmbedAuthoringReceiptItem item = Assert.Single(resolution.Receipt.Items);
+        Assert.Equal(ArticleEmbedVisibilityStatus.Unknown, item.Visibility);
+        Assert.Equal(ArticleEmbedLifecycleStatus.Unknown, item.Lifecycle);
+        Assert.Null(item.ResolvedRevision);
+        Assert.Equal(0, item.ChildCount);
+        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+    }
+
+    [Fact]
+    public void CrossSiteTargetRejectsBeforeGenerationOrPermissionFacts()
+    {
+        var snapshot = Snapshot(PublicFacts(ArticleA, 9) with
+        {
+            SiteIdentity = "site:foreign",
+            AuthorityGeneration = 99,
+            SourceRevision = 12,
+            Visibility = ArticleEmbedVisibilityStatus.Private,
+            Lifecycle = ArticleEmbedLifecycleStatus.Deleted,
+            Permission = ArticleEmbedPermissionStatus.Denied
+        });
+        ArticleEmbedProviderRequest[] requests = [Request("request:site", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+
+        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+
+        ArticleEmbedProviderResult result = Assert.Single(resolution.Results).Result;
+        Assert.Equal(ArticleEmbedErrorCode.PermissionUnknown, result.Error!.Code);
+        Assert.Equal("site_mismatch", result.Error.SafeReasonCode);
+        Assert.Equal(ArticleEmbedVisibilityStatus.Unknown, result.Visibility);
+        Assert.Equal(ArticleEmbedLifecycleStatus.Unknown, result.Lifecycle);
+        Assert.Equal(ArticleEmbedPermissionStatus.Unknown, result.Permission);
+        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+    }
+
+    [Theory]
+    [InlineData(ArticleEmbedTargetKind.Article, 8)]
+    [InlineData(ArticleEmbedTargetKind.Article, 10)]
+    [InlineData(ArticleEmbedTargetKind.Heading, 8)]
+    [InlineData(ArticleEmbedTargetKind.Heading, 10)]
+    [InlineData(ArticleEmbedTargetKind.Block, 8)]
+    [InlineData(ArticleEmbedTargetKind.Block, 10)]
+    public void ProjectionRevisionMustMatchCurrentAuthorizedSource(
+        ArticleEmbedTargetKind mode,
+        long sourceRevision)
+    {
+        var snapshot = Snapshot(PublicFacts(ArticleA, 9,
+            headings: [new ArticleEmbedHeadingFact(HeadingA, Projection("projection:heading"))],
+            blocks: [new ArticleEmbedBlockFact("exact-anchor", Projection("projection:block"))]) with
+        {
+            SourceRevision = sourceRevision,
+            LatestObservedRevision = 10
+        }, PublicFacts(ArticleB, 5));
+        string token = mode switch
+        {
+            ArticleEmbedTargetKind.Heading => $"{ArticleA}#{HeadingA}",
+            ArticleEmbedTargetKind.Block => $"{ArticleA}#exact-anchor",
+            _ => ArticleA
+        };
+        ArticleEmbedProviderRequest[] requests =
+        [
+            Request("request:stale", token, mode, 0),
+            Request("request:valid", ArticleB, ArticleEmbedTargetKind.Article, 40)
+        ];
+
+        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+
+        ArticleEmbedAuthoringEmbedResult result = resolution.Results[0];
+        Assert.Equal(ArticleEmbedProviderResultStatus.Failed, result.Result.Status);
+        Assert.Equal(ArticleEmbedErrorCode.StaleTarget, result.Result.Error!.Code);
+        Assert.Equal("target_source_revision_drift", result.Result.Error.SafeReasonCode);
+        Assert.Null(result.Result.Coordinate);
+        Assert.Null(result.Result.Projection);
+        Assert.Null(result.OpenSource);
+        Assert.False(result.UpdateAvailable);
+        Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, resolution.Results[1].Result.Status);
+        Assert.Equal(5, resolution.Results[1].Result.Coordinate!.ResolvedRevision);
+        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+    }
+
+    [Theory]
+    [InlineData("visibility")]
+    [InlineData("lifecycle")]
+    [InlineData("permission")]
+    public void IndependentVerifierRejectsResealedUnauthorizedMetadata(string field)
+    {
+        var snapshot = Snapshot(PublicFacts(ArticleA, 9) with
+        {
+            Permission = ArticleEmbedPermissionStatus.Denied
+        });
+        ArticleEmbedProviderRequest[] requests = [Request("request:sealed", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        ArticleEmbedProviderResult result = resolution.Results[0].Result;
+        ArticleEmbedProviderResult altered = field switch
+        {
+            "visibility" => result with { Visibility = ArticleEmbedVisibilityStatus.Private },
+            "lifecycle" => result with { Lifecycle = ArticleEmbedLifecycleStatus.Published },
+            _ => result with { Permission = ArticleEmbedPermissionStatus.Allowed }
+        };
+        altered = ArticleEmbedContractValidator.Seal(altered);
+        var receipt = resolution.Receipt with
+        {
+            Items = [resolution.Receipt.Items[0] with
+            {
+                Visibility = altered.Visibility,
+                Lifecycle = altered.Lifecycle,
+                Permission = altered.Permission,
+                ResultDigest = altered.ResultDigest
+            }]
+        };
+        receipt = receipt with
+        {
+            ReceiptDigest = ArticleEmbedAuthoringDigest.ComputeReceipt(receipt)
+        };
+        var candidate = resolution with
+        {
+            Results = [resolution.Results[0] with { Result = altered }],
+            Receipt = receipt
+        };
+        candidate = candidate with
+        {
+            ResolutionDigest = ArticleEmbedAuthoringDigest.ComputeResolution(candidate)
+        };
+        Assert.True(ArticleEmbedAuthoringContractValidator.Validate(candidate).IsValid);
+        ArticleEmbedValidationResult providerCheck = ArticleEmbedContractValidator.Validate(altered, requests[0]);
+        Assert.Equal(field != "permission", providerCheck.IsValid);
+
+        ArticleEmbedAuthoringVerification verification = ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, candidate);
+
+        Assert.False(verification.Valid);
+        Assert.Contains("failure_metadata_mismatch:request:sealed", verification.ReasonCodes);
+    }
+
+    [Fact]
+    public void NestedTargetRevisionDriftFailsLocallyWithoutProjectionFallback()
+    {
+        var snapshot = Snapshot(
+            PublicFacts(ArticleA, 9, nested: [Nested(ArticleB, ArticleEmbedTargetKind.Article, 10)]),
+            PublicFacts(ArticleB, 5) with
+            {
+                SourceRevision = 6
+            });
+        ArticleEmbedProviderRequest[] requests = [Request("request:nested", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+
+        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+
+        ArticleEmbedAuthoringEmbedResult result = Assert.Single(resolution.Results);
+        Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, result.Result.Status);
+        ArticleEmbedResolvedNode child = Assert.Single(result.Children);
+        Assert.Equal(ArticleEmbedErrorCode.StaleTarget, child.Error!.Code);
+        Assert.Null(child.Coordinate);
+        Assert.Empty(child.Children);
+        ArticleEmbedAuthoringVerification verification = ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution);
+        Assert.True(verification.Valid, string.Join(",", verification.ReasonCodes));
+    }
+
+    [Theory]
+    [InlineData(ArticleEmbedPermissionStatus.Denied)]
+    [InlineData(ArticleEmbedPermissionStatus.Unknown)]
+    public void NestedPermissionFailureRetainsOnlyTheSuppliedTargetIdentity(ArticleEmbedPermissionStatus permission)
+    {
+        var snapshot = Snapshot(
+            PublicFacts(ArticleA, 9, nested: [Nested(ArticleB, ArticleEmbedTargetKind.Article, 10)]),
+            PublicFacts(ArticleB, 5) with
+            {
+                Permission = permission,
+                Lifecycle = ArticleEmbedLifecycleStatus.Deleted
+            });
+        ArticleEmbedProviderRequest[] requests = [Request("request:nested-permission", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+
+        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+
+        ArticleEmbedResolvedNode child = Assert.Single(Assert.Single(resolution.Results).Children);
+        Assert.Equal(ArticleB, child.Target!.PortableArticleIdentity);
+        Assert.Equal(permission == ArticleEmbedPermissionStatus.Denied
+            ? ArticleEmbedErrorCode.PermissionDenied : ArticleEmbedErrorCode.PermissionUnknown, child.Error!.Code);
+        Assert.Null(child.Coordinate);
+        Assert.Empty(child.Children);
+        Assert.Equal(128, resolution.Receipt.Observed.Bytes);
+        ArticleEmbedAuthoringVerification verification = ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution);
+        Assert.True(verification.Valid, string.Join(",", verification.ReasonCodes));
+    }
+
+    [Fact]
+    public void TenThousandSuppliedAuthorityFactsDoNotExpandUnrequestedTargetsOrReceiptCounts()
+    {
+        ArticleEmbedTargetFacts[] facts = Enumerable.Range(0, 9999)
+            .Select(index => PublicFacts($"article:01991e72-a611-7d16-9fd4-{index:x12}", 9))
+            .Prepend(PublicFacts(ArticleA, 9) with
+            {
+                Permission = ArticleEmbedPermissionStatus.Denied,
+                Visibility = ArticleEmbedVisibilityStatus.Private
+            }).ToArray();
+        var snapshot = Snapshot(facts);
+        ArticleEmbedProviderRequest[] requests = [Request("request:bounded", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+
+        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+
+        Assert.Equal(10000, snapshot.Targets.Count);
+        Assert.Single(resolution.Results);
+        Assert.Single(resolution.Receipt.Items);
+        Assert.Equal(1, resolution.Receipt.RequestCount);
+        Assert.Equal(1, resolution.Receipt.FailedCount);
+        Assert.Equal(1, resolution.Receipt.Observed.Nodes);
+        Assert.Equal(0, resolution.Receipt.Observed.Bytes);
+        Assert.Equal(ArticleEmbedVisibilityStatus.Unknown, resolution.Results[0].Result.Visibility);
+        Assert.True(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution).Valid);
+    }
+
     [Fact]
     public void MissingAmbiguousMissingDuplicateCoordinatesFailWithoutFirstMatch()
     {

@@ -6,6 +6,8 @@
             "paths": [
                 "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs",
                 "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractValidator.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
                 "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs"
             ],
             "reason": "Preserve the existing serialized embed contract identifiers and dependency receipt names while rejecting unmapped payloads, verifying attribution and projecting frozen facts; no environment names or accesses are introduced or renamed."

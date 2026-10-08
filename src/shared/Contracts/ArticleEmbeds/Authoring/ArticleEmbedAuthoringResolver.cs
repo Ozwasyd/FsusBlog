@@ -284,7 +284,10 @@ public static class ArticleEmbedAuthoringResolver
         NodeOutcome? factFailure = Classify(context, facts);
         if (factFailure is not null)
         {
-            return Memoized(context, key, factFailure);
+            return Memoized(context, key, factFailure with
+            {
+                NodeTarget = target
+            });
         }
 
         context.Meter.ObserveBytes(facts.SourceByteCount);
@@ -305,7 +308,8 @@ public static class ArticleEmbedAuthoringResolver
                     : "block_duplicate",
                 facts.Visibility,
                 facts.Lifecycle,
-                facts.Permission));
+                facts.Permission,
+                nodeTarget: target));
         }
 
         var coordinate = ArticleEmbedContractValidator.Seal(new ArticleEmbedDependencyCoordinate(
@@ -403,41 +407,32 @@ public static class ArticleEmbedAuthoringResolver
 
     private static NodeOutcome? Classify(Context context, ArticleEmbedTargetFacts facts)
     {
-        if (facts.AuthorityGeneration != context.Snapshot.AuthorityGeneration)
-        {
-            return NodeOutcome.Failed(
-                ArticleEmbedErrorCode.StaleTarget,
-                "authority_generation_drift",
-                facts.Visibility,
-                facts.Lifecycle,
-                facts.Permission);
-        }
+        // Check the actor/site boundary before exposing target generation or lifecycle facts.
         if (facts.SiteIdentity != context.Snapshot.Actor.SiteIdentity)
         {
-            return NodeOutcome.Failed(
-                ArticleEmbedErrorCode.PermissionUnknown,
-                "site_mismatch",
-                ArticleEmbedVisibilityStatus.Unknown,
-                ArticleEmbedLifecycleStatus.Unknown,
-                ArticleEmbedPermissionStatus.Unknown);
+            return NodeOutcome.Failed(ArticleEmbedErrorCode.PermissionUnknown, "site_mismatch");
         }
         if (facts.Permission == ArticleEmbedPermissionStatus.Denied)
         {
             return NodeOutcome.Failed(
                 ArticleEmbedErrorCode.PermissionDenied,
                 "permission_denied",
-                facts.Visibility,
-                facts.Lifecycle,
-                ArticleEmbedPermissionStatus.Denied);
+                permission: ArticleEmbedPermissionStatus.Denied);
         }
         if (facts.Permission == ArticleEmbedPermissionStatus.Unknown)
         {
+            return NodeOutcome.Failed(ArticleEmbedErrorCode.PermissionUnknown, "permission_unknown");
+        }
+        if (facts.AuthorityGeneration != context.Snapshot.AuthorityGeneration
+            || facts.SourceRevision != facts.ResolvedRevision)
+        {
             return NodeOutcome.Failed(
-                ArticleEmbedErrorCode.PermissionUnknown,
-                "permission_unknown",
+                ArticleEmbedErrorCode.StaleTarget,
+                facts.AuthorityGeneration != context.Snapshot.AuthorityGeneration
+                    ? "authority_generation_drift" : "target_source_revision_drift",
                 facts.Visibility,
                 facts.Lifecycle,
-                ArticleEmbedPermissionStatus.Unknown);
+                facts.Permission);
         }
         return facts.Lifecycle switch
         {
