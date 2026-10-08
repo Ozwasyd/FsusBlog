@@ -62,6 +62,10 @@
                     </dl>
                 </li>
             </ol>
+            <VaultDependencyPlanReview
+                :extension="dependencyPlan ?? null"
+                :plan="plan"
+            />
             <ul aria-label="精确冲突原因">
                 <li
                     v-for="conflict in plan.conflicts"
@@ -79,6 +83,9 @@
 import { ElInput } from '@ozwasyd/element-plus';
 import { computed, ref } from 'vue';
 
+import VaultDependencyPlanReview from '@/components/admin/article/vault/VaultDependencyPlanReview.vue';
+import type { VaultDependencyPlanReviewDocument } from '@/services/articleVault/dependencyPlanPresentation';
+
 import {
     filterVaultPlanItems,
     presentVaultPlan,
@@ -86,7 +93,7 @@ import {
     type VaultPlanReviewDocument
 } from '@/services/articleVault/planReview';
 
-const props = defineProps<{ plan: VaultPlanReviewDocument | null; }>();
+const props = defineProps<{ plan: VaultPlanReviewDocument | null; dependencyPlan?: VaultDependencyPlanReviewDocument | null; }>();
 const query = ref('');
 const presentation = computed(() => props.plan ? presentVaultPlan(props.plan) : null);
 const visibleItems = computed(() => filterVaultPlanItems(presentation.value?.items ?? [], query.value));
