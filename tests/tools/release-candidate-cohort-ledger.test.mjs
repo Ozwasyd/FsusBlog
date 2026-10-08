@@ -4,14 +4,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-
-import { createCohortLedger, verifyCohortLedger, appendCohortLedger, sealCohortLedger }
-    from '../../tools/release-candidate/cohort-ledger.mjs';
-import { createCohortStore, readCohortStore, appendCohortStore, sealCohortStore }
-    from '../../tools/release-candidate/cohort-store.mjs';
-import { digestCanonical, sealContentDigest } from '../../tools/test/attempt-provenance.mjs';
+import { URL } from 'node:url';
 
 import { candidateIdentity, testDigest, otherDigest } from './release-candidate-test-support.mjs';
+
+const { createCohortLedger, verifyCohortLedger, appendCohortLedger, sealCohortLedger } = await import(new URL('../../tools/release-candidate/cohort-ledger.mjs', import.meta.url));
+const { createCohortStore, readCohortStore, appendCohortStore, sealCohortStore } = await import(new URL('../../tools/release-candidate/cohort-store.mjs', import.meta.url));
+const { digestCanonical, sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 
 const metadataTime = '2026-01-01T00:00:00.000Z';
 

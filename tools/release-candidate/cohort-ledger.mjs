@@ -1,6 +1,8 @@
-import { canonicalJson, digestCanonical, sealContentDigest } from '../test/attempt-provenance.mjs';
+import { URL } from 'node:url';
 
 import { exactKeys, requireDigest, verifyCandidateIdentity, diffCandidateIdentities } from './identity-contract.mjs';
+
+const { canonicalJson, digestCanonical, sealContentDigest } = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 
 export const cohortLedgerSchema = 'fsusblog.release-candidate-cohort-ledger.v1';
 const memberFields = ['candidateIdentity', 'runId', 'schedulerRunId', 'runtimeNamespace', 'freshCleanupReceiptDigest',

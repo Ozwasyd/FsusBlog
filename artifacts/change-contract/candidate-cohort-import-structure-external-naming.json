@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release-candidate/cohort-ledger.mjs",
+                "tools/release-candidate/cohort-store.mjs"
+            ],
+            "reason": "preserve the registered tooling naming surface and canonical named bindings while expressing existing cross-directory dependencies as literal module URLs with the real node:url URL constructor; no source target, public contract or security admission change"
+        }
+    ]
+}

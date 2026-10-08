@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-
-import { canonicalJson } from '../test/attempt-provenance.mjs';
+import { URL } from 'node:url';
 
 import { createCohortLedger, verifyCohortLedger, appendCohortLedger, sealCohortLedger, validateRunReceiptRef } from './cohort-ledger.mjs';
+
+const { canonicalJson } = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 
 function physicalDirectory(root)
 {
