@@ -426,6 +426,35 @@ extension commands and this slice remains Draft/Refs rather than production
 activation evidence. No HTTP, AEDS, or second editor authority may be added to
 fill that gap implicitly.
 
+## Bounded frontend contribution consumers
+
+The internal `authoringInspector.ts` consumer accepts a closed read-only model:
+values, lists, tables, status, and diagnostics with bounded text, rows, columns,
+and command references. Its binding includes package/runtime and lifecycle
+identity, article/document epoch and revision, view/request, deadline, and an
+exact read grant and scope. Plain data snapshots reject accessors, unknown fields,
+foreign prototypes, and sparse or executable collections. The host-owned session
+owns cancellation and accepted results; a string digest does not grant read
+authority. The existing article inspector check slot renders these records with
+public FsusUI controls and text interpolation. It creates no second inspector
+renderer, editable property model, or arbitrary component/HTML/CSS channel.
+
+The internal `authoringMarkdownProviders.ts` consumer adapts only the existing
+public FsusUI embed slot and safe result gateway. It introduces no syntax, parser,
+renderer, direct document write, network client, or privileged fallback. Requests
+bind the exact source range, package/runtime/configuration/lifecycle, read grant,
+document epoch/revision, and node identity. Pending operations and cache entries
+have independent bounds; concurrent replacement charges only the live cache
+entry. Results are rechecked after host callbacks and before publication.
+
+These consumers require a real host authority and isolated dispatch composition.
+Their controlled component and browser fixtures do not supply production grants,
+register contribution packages, or qualify native execution. Neither consumer is
+a stable AEDS or browser API. Property, filter, panel, import/export, and prepublish
+diagnostic adapters remain separate owners; their enum declarations alone are not
+implementations. Full accessibility, scale, current-run receipts, production
+composition, and independent conformance remain acceptance gates.
+
 ## Closed lifecycle and generation ownership
 
 The lifecycle coordinator is the sole internal state machine for install/enable,
