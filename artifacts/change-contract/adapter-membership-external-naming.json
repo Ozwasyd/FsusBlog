@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/outcomes/immutable-build-adapter.mjs",
+                "tools/test-matrix/outcomes/release-projection-adapter.mjs",
+                "tools/test-matrix/outcomes/release-finalizer-adapter.mjs"
+            ],
+            "reason": "preserve existing process environment authority spellings while enforcing membership within the three original semantic adapter owners"
+        }
+    ]
+}
