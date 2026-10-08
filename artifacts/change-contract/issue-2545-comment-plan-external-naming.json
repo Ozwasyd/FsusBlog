@@ -10,15 +10,18 @@
                 "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
                 "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
                 "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+                "src/backend/Services/Fixtures/DataScale/ArticleScaleGraphIdentityBindings.cs",
                 "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphFactory.cs",
                 "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphModels.cs",
                 "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphResolution.cs",
+                "src/backend/Services/Fixtures/DataScale/CommentScaleArticleBindingAdapter.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScaleDeliveryBatchReader.cs",
+                "src/backend/Services/Fixtures/DataScale/CommentScaleMutationSchedule.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScalePlan.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScalePolicyResolver.cs",
                 "src/backend/Services/Security/AnonymousCommentPolicyService.cs"
             ],
-            "reason": "Consume exact original pure policies and mutation/delivery ports without changing their rules. Owned canonical comment modules resolve the closed plan occurrence roster and original-owner fact references, calling actual policies/read ports only; they do not allocate native IDs, create physical rows or invent qualification. These paths fall under registered src/**/*.cs environment consumer discovery; no external environment key or naming rule is added."
+            "reason": "Consume unchanged original pure policies, mutation/delivery ports and dd4fdd02b article identity map. Owned comment modules validate the one closed plan and ordered reference mutation schedule, call actual original article/content/temporal policies and readers, and retain unresolved native/row/admission authority. No external environment key or private production construction is introduced."
         },
         {
             "id": "json-wire-key",
@@ -33,7 +36,7 @@
                 "docs/architecture/comment-command-boundary.md",
                 "docs/testing.md"
             ],
-            "reason": "Consume unchanged canonical comment-command and mutation/delivery-observation documentation hunks from 617c4e162b5faaa3af1e7deb965f1dbe94c9ec43,6656a73e5588f09e11f1320c43ca3f8fd153c7e3 and b570346e5e374ae2f53807e9666cc41c42fa2afd, preserving registered external contract spelling and existing document content."
+            "reason": "Consume unchanged canonical comment-command and mutation/delivery-observation documentation hunks from 617c4e162b5faaa3af1e7deb965f1dbe94c9ec43,6656a73e5588f09e11f1320c43ca3f8fd153c7e3 b570346e5e374ae2f53807e9666cc41c42fa2afd and ef65043daec41df104dc65ce26cd93ff9996574f, preserving registered external contract spelling and existing document content."
         }
     ]
 }

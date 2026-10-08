@@ -1,3 +1,5 @@
+using FsusBlog.Server.Entities;
+
 namespace FsusBlog.Server.Services.Fixtures.DataScale;
 
 /// <summary>Plan occurrence coordinates, not a resource ID or physical thread coordinate.</summary>
@@ -5,6 +7,18 @@ public sealed record CommentScaleGraphOccurrence(string ScenarioRole, long Repet
 
 /// <summary>A symbolic requested edge within one article occurrence; no native ID is inferred.</summary>
 public sealed record CommentScaleRequestCoordinate(CommentScaleGraphOccurrence Occurrence, string CommentRole);
+
+/// <summary>
+/// Already normalized original-owner comment and allocated identity for initial
+/// outbox construction. These supplied facts carry no admission or allocation proof.
+/// The explicit temporal role is independent of the comment's creation timestamp.
+/// </summary>
+public sealed record CommentScaleInitialOutboxFacts(
+    CommentScaleRequestCoordinate Coordinate,
+    int ArticleId,
+    long AllocatedCommentId,
+    Comment NormalizedComment,
+    string OccurredAtRole);
 
 /// <summary>
 /// Caller-supplied original-owner facts. The article mapping and generated-content
@@ -31,6 +45,11 @@ public sealed record CommentScaleRequestFactBinding(
 /// <summary>Requested moderation step with its original resolved-role instant, not a generated event.</summary>
 public sealed record CommentScaleResolvedModerationRequest(
     CommentScaleModerationStep Request,
+    DateTime OccurredAtUtc);
+
+/// <summary>Original requested command facts and instant, not an executable mutation or observed state.</summary>
+public sealed record CommentScaleResolvedMutationRequest(
+    CommentScaleMutationRequest Request,
     DateTime OccurredAtUtc);
 
 /// <summary>
@@ -60,4 +79,12 @@ public sealed record CommentScaleResolvedGraphIntent(
     int ArticleId,
     CommentScaleArtifactReference NativeArticleBinding,
     CommentScaleGraphRequirements Requirements,
-    IReadOnlyList<CommentScaleResolvedRequestIntent> Comments);
+    IReadOnlyList<CommentScaleResolvedRequestIntent> Comments)
+{
+    /// <summary>Ordered requests preserved by the sole factory; no command is executed.</summary>
+    public IReadOnlyList<CommentScaleResolvedMutationRequest> Mutations
+    {
+        get; init;
+    }
+        = Array.Empty<CommentScaleResolvedMutationRequest>();
+}

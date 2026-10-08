@@ -34,7 +34,20 @@ public sealed record CommentScaleScenario(
     string ArticleTargetRole,
     long Repetitions,
     IReadOnlyList<CommentScaleCommentRequest> Comments,
-    CommentScaleGraphRequirements Graph);
+    CommentScaleGraphRequirements Graph)
+{
+    /// <summary>
+    /// Explicit ordered mutation requests. Comment roles reference initial owner
+    /// states; each mutation role references its eventual owner-observed result.
+    /// Empty is allowed, but omission at the closed JSON boundary is refused.
+    /// </summary>
+    [JsonRequired]
+    public IReadOnlyList<CommentScaleMutationRequest> Mutations
+    {
+        get; init;
+    }
+        = Array.Empty<CommentScaleMutationRequest>();
+}
 
 /// <summary>
 /// Comment request referencing content, actor, region and time facts. ContentRole
@@ -79,7 +92,7 @@ public sealed record CommentScalePlanInspection(
 /// </summary>
 public static class CommentScalePlanContract
 {
-    public const string Schema = "fsusblog.comment-scale-plan.v1";
+    public const string Schema = "fsusblog.comment-scale-plan.v2";
     public const string GraphSchema = "fsusblog.comment-scale-graph-requirements.v1";
     private static readonly JsonSerializerOptions s_json = new()
     {
@@ -171,6 +184,7 @@ public static class CommentScalePlanContract
                 == (scenario.Comments.Count == 0), "zero_comment_allocation", errors);
             InspectGraph(scenario.Graph, errors);
             InspectRequests(scenario.Comments, temporal, errors);
+            CommentScaleMutationScheduleContract.Inspect(scenario, temporal, errors);
         }
         Require(comments == plan.CommentCount && articles == plan.ArticleCount, "allocation_counts", errors);
         return new CommentScalePlanInspection(errors.AsReadOnly());
@@ -304,7 +318,7 @@ public static class CommentScalePlanContract
         => value is not null && value.Length == 71 && value.StartsWith("sha256:", StringComparison.Ordinal)
             && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
 
-    private static bool IsCommit(string value)
+    internal static bool IsCommit(string value)
         => value is not null && value.Length == 40 && value.AsSpan().IndexOfAnyExcept("0123456789abcdef") < 0;
 
     internal static bool IsRole(string value)

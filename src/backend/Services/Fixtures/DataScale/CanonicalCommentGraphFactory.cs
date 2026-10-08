@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Testing;
 
 namespace FsusBlog.Server.Services.Fixtures.DataScale;
@@ -13,6 +14,41 @@ public static class CanonicalCommentGraphFactory
 {
     /// <summary>Bounds graph-intent count per batch, not physical rows, memory or throughput.</summary>
     public const int MaximumIntentsPerBatch = 256;
+
+    /// <summary>
+    /// Calls only the original production initial-event selector and envelope
+    /// builder with supplied final comment facts, allocated ID and resolved time.
+    /// Does not derive final moderation, actor, thread, recipient or privacy facts.
+    /// Caller admission remains required; returned entity defaults include fresh
+    /// event GUIDs, ambient NextAttemptAt and unpersisted IDs. Only OccurredAtUtc
+    /// is role-bound; these are not pure deterministic graph rows or receipts.
+    /// </summary>
+    public static IReadOnlyList<CommentMutationOutboxEvent> ResolveInitialOutbox(
+        CommentScaleInitialOutboxFacts facts,
+        ResolvedTemporalRoleContext temporal)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        ArgumentNullException.ThrowIfNull(temporal);
+        ArgumentNullException.ThrowIfNull(facts.Coordinate);
+        ArgumentNullException.ThrowIfNull(facts.Coordinate.Occurrence);
+        ArgumentNullException.ThrowIfNull(facts.NormalizedComment);
+        if (string.IsNullOrWhiteSpace(facts.Coordinate.CommentRole)
+            || string.IsNullOrWhiteSpace(facts.Coordinate.Occurrence.ScenarioRole)
+            || string.IsNullOrWhiteSpace(facts.Coordinate.Occurrence.ArticleTargetRole)
+            || facts.Coordinate.Occurrence.Repetition < 0
+            || facts.ArticleId <= 0 || facts.NormalizedComment.ArticleId != facts.ArticleId
+            || facts.AllocatedCommentId <= 0 || string.IsNullOrWhiteSpace(facts.OccurredAtRole)
+            || !Enum.IsDefined(facts.NormalizedComment.ModerationStatus))
+        {
+            throw new InvalidOperationException("Initial outbox facts have invalid or crossed structural bindings.");
+        }
+        DateTime occurredAt = temporal.RequireInstant(facts.OccurredAtRole).UtcDateTime;
+        Comment comment = facts.NormalizedComment;
+        return Array.AsReadOnly(CommentCommandService.ResolveInitialOutboxEventTypes(
+            comment.ModerationStatus, comment.ReplyToUserId).Select(eventType =>
+                CommentCommandService.BuildOutboxEvent(eventType, comment,
+                    facts.AllocatedCommentId, occurredAt, null, comment.ModerationStatus)).ToArray());
+    }
 
     /// <summary>
     /// Resolves the exact scenario/repetition roster from the one closed plan.
@@ -45,6 +81,8 @@ public static class CanonicalCommentGraphFactory
             var requirements = new CommentScaleGraphRequirements(
                 Array.AsReadOnly(scenario.Graph.Relations.ToArray()),
                 Array.AsReadOnly(scenario.Graph.Authorities.ToArray()));
+            var mutations = Array.AsReadOnly(scenario.Mutations.Select(step => new CommentScaleResolvedMutationRequest(
+                step, temporal.RequireInstant(step.OccurredAtRole).UtcDateTime)).ToArray());
             for (long repetition = 0; repetition < scenario.Repetitions; repetition++)
             {
                 var occurrence = new CommentScaleGraphOccurrence(scenario.Role, repetition, scenario.ArticleTargetRole);
@@ -58,7 +96,7 @@ public static class CanonicalCommentGraphFactory
                     || binding.ArticlePlanDigest != snapshot.ArticlePlan.ContentDigest
                     || string.IsNullOrWhiteSpace(binding.ArticleSemanticRole) || binding.ArticleId <= 0
                     || binding.NativeArticleBinding is null
-                    || binding.NativeArticleBinding.Schema != "fsusblog.article-scale-graph-identity-bindings.v1"
+                    || binding.NativeArticleBinding.Schema != ArticleScaleGraphIdentityBindings.Schema
                     || !CommentScalePlanContract.IsDigest(binding.NativeArticleBinding.ContentDigest)
                     || binding.Comments is null || binding.Comments.Count != scenario.Comments.Count)
                 {
@@ -88,7 +126,10 @@ public static class CanonicalCommentGraphFactory
                 }
                 yield return new(occurrence, snapshot.ContentDigest, binding.ArticlePlanDigest,
                     binding.ArticleSemanticRole, binding.ArticleId, binding.NativeArticleBinding,
-                    requirements, resolved.AsReadOnly());
+                    requirements, resolved.AsReadOnly())
+                {
+                    Mutations = mutations
+                };
             }
         }
         if (input.MoveNext())
