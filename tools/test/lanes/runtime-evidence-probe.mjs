@@ -50,6 +50,10 @@ import {
     DATA_SCALE_AOT_REBUILD_COMMAND
 } from '../../data-scale/aot-evidence.mjs';
 
+const { buildOpenLoopLoadSchedule, dispatchOpenLoopLoadSchedule, validateLoadArrivalPolicy } = await import(
+    new URL('../open-loop-load-schedule.mjs', import.meta.url).href
+);
+
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
 if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
 {
@@ -217,6 +221,41 @@ export function readLoadProfilePolicy(profile)
         declared,
         thresholds
     };
+}
+
+export function readLoadArrivalPolicy(profile, { policyText = readPerfPolicy().text } = {})
+{
+    if (typeof profile !== 'string' || !/^[a-z][a-z0-9-]*$/u.test(profile)
+        || typeof policyText !== 'string')
+    {
+        throw new Error('arrival policy requires a canonical profile identity and actual policy text');
+    }
+    const profileDeclarations = policyText.split(/\r?\n/u).filter((line) => line === `  ${profile}:`);
+    if (profileDeclarations.length !== 1)
+    {
+        throw new Error('arrival policy requires exactly one canonical profile declaration');
+    }
+    const section = yamlSection(yamlSection(policyText, 'loadProfiles'), profile, 2);
+    const declarations = [...section.matchAll(/^ {4}arrivalPolicy: (.+)$/gmu)];
+    if (declarations.length !== 1)
+    {
+        throw new Error(`load profile ${profile} requires one explicit arrivalPolicy in ${perfPolicyRelativeFile}; closed-loop concurrency/rounds and minRps cannot declare offered load`);
+    }
+    let arrival;
+    try
+    {
+        arrival = JSON.parse(declarations[0][1]);
+    }
+    catch (error)
+    {
+        throw new Error(`load profile ${profile} arrivalPolicy must be one inline JSON policy object`, { cause: error });
+    }
+    const policy = validateLoadArrivalPolicy(arrival, safeBinaryRouteIds);
+    if (policy.profileId !== profile || policy.durationMs !== yamlScalarMap(section).durationMs)
+    {
+        throw new Error('arrival profile identity or duration differs from the canonical load profile');
+    }
+    return policy;
 }
 
 function envOverrideInt(name)
@@ -457,6 +496,11 @@ async function runRouteContractProbe(routeIds, options = {})
     }
 
     await Promise.all(Array.from({ length: Math.min(concurrency, iterations) }, () => worker()));
+    return summarizeRouteContractProbe(samples, started, concurrency);
+}
+
+function summarizeRouteContractProbe(samples, started, concurrency)
+{
     const durationMs = performance.now() - started;
     const failures = samples.filter((sample) => !sample.ok);
     const latencies = samples.filter((sample) => sample.ok).map((sample) => sample.latencyMs);
@@ -484,6 +528,22 @@ async function runRouteContractProbe(routeIds, options = {})
         status: failures.length === 0 ? 'ok' : 'failed', samples, failures
     };
     return attachExtendedObservability(probe);
+}
+
+async function runOpenLoopRouteContractProbe(schedule)
+{
+    const started = performance.now();
+    const result = await dispatchOpenLoopLoadSchedule(schedule, {
+        request: (arrival, { signal, requestTimeoutMs }) => fetchRouteSample({
+            routeId: arrival.routeId, baseUrl, headers: defaultHeaders, timeoutMs: requestTimeoutMs,
+            fetchImpl: (url, options) => fetch(url, { ...options,
+                signal: AbortSignal.any([signal, options.signal]) })
+        })
+    });
+    const samples = result.timeline.records.filter((record) => record.sample !== null).map((record) => record.sample);
+    const probe = summarizeRouteContractProbe(samples, started, schedule.policy.maximumInFlight);
+    return { ...probe, status: probe.status === 'ok' && result.validation.passed ? 'ok' : 'failed',
+        openLoop: result, qualificationEligible: false };
 }
 
 async function runHttpProbe(paths, options = {})
@@ -4475,8 +4535,14 @@ async function backendQpsSequential(outFile)
 async function loadProfile(profile, outFile)
 {
     const policy = resolveLoadProfilePolicy(profile);
-    const iterations = policy.effective.concurrency * policy.effective.rounds;
-    const probe = await runRouteContractProbe(safeBinaryRouteIds, {
+    const requiresOpenLoop = ['expected-peak', 'burst'].includes(profile);
+    const schedule = requiresOpenLoop ? buildOpenLoopLoadSchedule(readLoadArrivalPolicy(profile), safeBinaryRouteIds) : null;
+    if (schedule && policy.overrideSource !== 'policy')
+    {
+        throw new Error('open-loop arrival policy cannot inherit closed-loop ambient execution overrides');
+    }
+    const iterations = schedule?.plannedCount ?? policy.effective.concurrency * policy.effective.rounds;
+    const probe = schedule ? await runOpenLoopRouteContractProbe(schedule) : await runRouteContractProbe(safeBinaryRouteIds, {
         iterations,
         concurrency: policy.effective.concurrency
     });
@@ -4521,6 +4587,7 @@ async function loadProfile(profile, outFile)
             concurrency: policy.effective.concurrency,
             rounds: policy.effective.rounds,
             durationMs: policy.effective.durationMs,
+            arrivalModel: schedule?.policy.arrivalModel ?? 'closed-loop-diagnostic',
             routeIds: safeBinaryRouteIds
         },
         performance_baseline: performanceBaselineMetadata(),
@@ -4531,7 +4598,10 @@ async function loadProfile(profile, outFile)
     });
     if (status !== 'ok')
     {
-        throw new Error(`load profile ${profile} failed ${probe.status !== 'ok' ? `route contract: ${probe.failures[0]?.failureKind}` : 'threshold evaluation'}`);
+        const reason = probe.openLoop && !probe.openLoop.validation.passed
+            ? `arrival conformance: ${JSON.stringify(probe.openLoop.validation.counts)}`
+            : probe.status !== 'ok' ? `route contract: ${probe.failures[0]?.failureKind}` : 'threshold evaluation';
+        throw new Error(`load profile ${profile} failed ${reason}`);
     }
 }
 
