@@ -191,15 +191,65 @@ describe('Same-key canonical block mutation command guard (#2444/#2445/#2449)', 
         expect(owner.context.sourceRevision).toBe(0);
     });
 
-    it('reports the actual missing transaction consumer before insert instead of guessing an ID or duplicating its form', () =>
+    it('keeps unsupported insertion positions closed instead of guessing an offset or duplicating the form', () =>
     {
         const { binding, context, dispatch } = fixture('# Heading');
         const current = collapsedContext(context);
         const guarded = guardArticleBlockAnchorCoreCommands(fsusUiMarkdownCoreCommands, binding, guardCopy)
             .find(command => command.key === 'anchor-insert')!;
         expect(guarded.when?.(current)).toBe(true);
-        expect(guarded.disabledReason?.(current)).toBe('诊断：anchor-transactions-unavailable');
-        expect(() => guarded.run(current)).toThrow('诊断：anchor-transactions-unavailable');
+        expect(guarded.disabledReason?.(current)).toBe('诊断：anchor-create-position-required');
+        expect(() => guarded.run(current)).toThrow('诊断：anchor-create-position-required');
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it.each(['full', 'content'] as const)('keeps the actual paragraph %s endpoint closed until native form target binding is safe', async endpoint =>
+    {
+        const { binding, context, dispatch, owner } = fixture('First.\r\n\r\nSecond.');
+        const resolved = context.projection!.resolve(context.syntax!.nodeId);
+        expect(resolved.status).toBe('current');
+        const node = resolved.node!;
+        const offset = endpoint === 'full' ? node.rawRange.end : node.rawContentRanges.at(-1)!.end;
+        const current = { ...context, selection: { start: offset, end: offset, direction: 'none' as const } };
+        const core = fsusUiMarkdownCoreCommands.find(command => command.key === 'anchor-insert')!;
+        const guarded = guardArticleBlockAnchorCoreCommands(fsusUiMarkdownCoreCommands, binding, guardCopy)
+            .find(command => command.key === core.key)!;
+        expect(guarded.when?.(current)).toBe(true);
+        expect(core.enabled?.(current)).not.toBe(false);
+        expect(await core.run(current)).toEqual({ focus: 'surface', surface: 'anchor-properties' });
+        expect(guarded.enabled?.(current)).toBe(false);
+        expect(guarded.disabledReason?.(current)).toBe('诊断：anchor-surface-target-unbound');
+        expect(await runMarkdownEditorCommand(guarded, current)).toBeUndefined();
+        expect(() => guarded.run(current)).toThrow('诊断：anchor-surface-target-unbound');
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(owner.context.sourceRevision).toBe(0);
+    });
+
+    it.each(['caret', 'selection', 'tampered-content'] as const)('denies unsupported paragraph %s from current public node facts', variant =>
+    {
+        const { binding, context, dispatch } = fixture('Paragraph');
+        const current = { ...context, selection: { start: 0, end: variant === 'selection' ? 3 : 0, direction: 'none' as const },
+            syntax: variant === 'tampered-content' ? { ...context.syntax!, contentRanges: [{ start: 0, end: 0 }] } : context.syntax };
+        const guarded = guardArticleBlockAnchorCoreCommands(fsusUiMarkdownCoreCommands, binding, guardCopy)
+            .find(command => command.key === 'anchor-insert')!;
+        expect(guarded.enabled?.(current)).toBe(false);
+        expect(guarded.disabledReason?.(current)).toBe('诊断：anchor-create-position-required');
+        expect(() => guarded.run(current)).toThrow('诊断：anchor-create-position-required');
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('denies a second marker on the actual current anchor without inventing another paragraph owner', () =>
+    {
+        const { binding, context, dispatch } = fixture('First. ^intro\n\nSecond.');
+        expect(context.syntax!.type).toBe('anchor');
+        expect(context.projection!.nodes.filter(node => node.kind === 'paragraph').map(node => node.rawRange))
+            .toEqual([{ start: 15, end: 22 }]);
+        const current = collapsedContext(context);
+        const guarded = guardArticleBlockAnchorCoreCommands(fsusUiMarkdownCoreCommands, binding, guardCopy)
+            .find(command => command.key === 'anchor-insert')!;
+        expect(guarded.enabled?.(current)).toBe(false);
+        expect(guarded.disabledReason?.(current)).toBe('诊断：anchor-already-present');
+        expect(() => guarded.run(current)).toThrow('诊断：anchor-already-present');
         expect(dispatch).not.toHaveBeenCalled();
     });
 

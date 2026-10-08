@@ -14,7 +14,9 @@ export type ArticleBlockAnchorCommandReason = ArticleBlockAnchorAdmissionReason
     | 'editor-binding-unavailable'
     | 'editor-binding-stale'
     | 'reveal-map-invalid'
-    | 'anchor-transactions-unavailable';
+    | 'anchor-transactions-unavailable'
+    | 'anchor-create-position-required'
+    | 'anchor-surface-target-unbound';
 
 export interface ArticleBlockAnchorCommandCopy {
     readonly label: string;
@@ -60,7 +62,7 @@ function resolveBinding(binding: ArticleEditorRuntimeBinding, context: CommandCo
     return { reason: null, document, map: position.map };
 }
 
-/** Decorate existing same-key core commands until their sole transaction/impact consumers exist. */
+/** Keep native anchor mutation surfaces closed until target binding and current impact are safe. */
 export function guardArticleBlockAnchorCoreCommands(
     coreCommands: readonly FsusUiAuthoringCommand[],
     binding: ArticleEditorRuntimeBinding,
@@ -89,7 +91,22 @@ export function guardArticleBlockAnchorCoreCommands(
             {
                 return admission.reason;
             }
-            return key === 'anchor-insert' ? 'anchor-transactions-unavailable' : 'current-impact-required';
+            if (key === 'anchor-properties')
+            {
+                return 'current-impact-required';
+            }
+            const resolved = context.projection?.resolve(admission.nodeId!);
+            const paragraph = resolved?.status === 'current' ? resolved.node : undefined;
+            if (paragraph?.kind !== 'paragraph'
+                || context.selection.start !== context.selection.end
+                || (context.selection.start !== paragraph.rawRange.end
+                    && context.selection.start !== paragraph.rawContentRanges.at(-1)?.end))
+            {
+                return 'anchor-create-position-required';
+            }
+            // The native form currently follows selection changes into existing-anchor edits.
+            // Only FsusUI can bind its mutation intent/target; Blog must not duplicate that handler.
+            return command.enabled?.(context) === false ? 'anchor-transactions-unavailable' : 'anchor-surface-target-unbound';
         };
         return Object.freeze<FsusUiAuthoringCommand>({
             ...command,
