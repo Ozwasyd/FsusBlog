@@ -49,6 +49,10 @@ function open(authority = new ArticleDocumentContextAuthority(), content = 'para
     });
     if (initialize) expect(runtime.initialize()).toBe(true);
     const binding = runtime;
+    const focusIn = () => binding.consumeFocus('focusin');
+    const focusOut = () => binding.consumeFocus('focusout');
+    wrapper.element.addEventListener('focusin', focusIn);
+    wrapper.element.addEventListener('focusout', focusOut);
     const insert = (files = [file]) => {
         const anchor = anchors.capture(binding.positionBinding(), { start: 0, end: 0, direction: 'none' }, capture);
         const input = attachments.capture({ source, origin: 'pick', anchor, files });
@@ -60,7 +64,12 @@ function open(authority = new ArticleDocumentContextAuthority(), content = 'para
             alt: handle.snapshot.intent.candidate.name, mimeType: 'image/png' } });
     const release = () => {
         // Same public ordering as canonical Writer: runtime, attachment binding, component context binding.
-        binding.dispose(); attachments.cancelPending('article-attachment-editor-release'); wrapper.unmount(); lease.release();
+        binding.dispose();
+        attachments.cancelPending('article-attachment-editor-release');
+        wrapper.element.removeEventListener('focusin', focusIn);
+        wrapper.element.removeEventListener('focusout', focusOut);
+        wrapper.unmount();
+        lease.release();
     };
     cleanups.push(() => { release(); attachments.dispose(); });
     return { authority, lease, owner, anchors, attachments, binding, wrapper, editor, port, insert, resolved,
@@ -85,7 +94,9 @@ describe('composed canonical editor lifecycle integration regressions', () =>
         const f = open();
         const handles = f.insert([file, { ...file, name: 'two.png' }]);
         const second = handles[1]!;
-        f.binding.consumeFocus('focusin');
+        const initialTextarea = f.wrapper.find('textarea').element as HTMLTextAreaElement;
+        initialTextarea.focus();
+        expect(document.activeElement).toBe(initialTextarea);
         const task = f.binding.beginToolTask('source-compare');
         f.binding.continuity.setTaskOwners({ search: null, outline: null, attachments: f.binding.attachmentTaskLeases, diagnostic: null });
         const opened = f.binding.continuity.toolLifecycle('source-compare-open', f.binding.positionBinding(), capture, restore);
@@ -101,9 +112,9 @@ describe('composed canonical editor lifecycle integration regressions', () =>
         const applied = f.binding.continuity.apply(closed.requestRef);
         expect(applied.status).toBe('awaiting-ack');
         await nextTick(); await nextTick();
-        f.binding.consumeFocus('focusin');
         const observed = f.binding.continuity.capture(f.binding.positionBinding(), capture);
         const textarea = f.wrapper.find('textarea').element as HTMLTextAreaElement;
+        expect(document.activeElement).toBe(textarea);
         const ack = createArticleEditorContinuityAcknowledgement({ requestRef: closed.requestRef, document: f.owner.context,
             instanceRef: f.binding.continuity.instanceRef, sessionRef: f.owner.context.editorSessionId,
             historyRef: observed.historyRef, history: observed.history,
