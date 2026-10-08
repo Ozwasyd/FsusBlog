@@ -1,0 +1,28 @@
+{
+  "observedAt": "2026-10-08T15:23:17.531996+00:00",
+  "qualificationEligible": false,
+  "uiTestedCandidate": "6d52b389b03bcaecdc01a3ed9531e43efdc7e2ce",
+  "blogVerifiedMaster": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "files": [
+    {
+      "path": ".tmp/ux/viewport-root-label-visibility-current-issues-20261008.json",
+      "bytes": 230012,
+      "sha256": "cb8063ecced397606cf3ed2c6e7cca074cad5194bc3b07fc551c39214f9e2333"
+    },
+    {
+      "path": ".tmp/ux/viewport-root-label-visibility-latest-master-canonical-first-20261008.log",
+      "bytes": 205,
+      "sha256": "2828e2d69087d9d34f9a12b9ff83f6ab06f9efefe17f31621c4cbc6fc0c07d37"
+    },
+    {
+      "path": ".tmp/ux/viewport-root-label-visibility-prepared-draft-pr-body-20261008.md",
+      "bytes": 897,
+      "sha256": "edcb13a8ccaf1ef1e30dd8aa2ab4cc905b47fded0dcff6e02bdc1664a5b16293"
+    },
+    {
+      "path": ".tmp/ux/viewport-root-label-visibility-source-handoff-20261008.md",
+      "bytes": 7311,
+      "sha256": "2cb2aa56680f4cf3b19abf8e7b85a71440b6b22182eaa388536bbe65071f56d7"
+    }
+  ]
+}
