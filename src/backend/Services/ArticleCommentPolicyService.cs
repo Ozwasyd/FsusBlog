@@ -237,7 +237,7 @@ public sealed class ArticleCommentPolicyService(
         return await ResolveAsync(articleId, rootCommentId, cancellationToken);
     }
 
-    internal static EffectiveArticleCommentPolicy Compose(
+    public static EffectiveArticleCommentPolicy Compose(
         int articleId,
         AnonymousCommentPolicySnapshot site,
         ArticleCommentPolicy? article,
@@ -261,7 +261,7 @@ public sealed class ArticleCommentPolicyService(
             thread?.LockedAtUtc.HasValue == true, threadVersion, hash);
     }
 
-    internal static CommentPolicyWriteDecision EvaluateWrite(
+    public static CommentPolicyWriteDecision EvaluateWrite(
         EffectiveArticleCommentPolicy policy,
         string authorMode,
         DateTime utcNow)

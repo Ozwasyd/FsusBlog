@@ -22,6 +22,30 @@ semantics. Both `ICommentEndpointService` and the core bridge's
 `ICommentCommandService` resolve to the same scoped command implementation.
 Rollback can independently disable anonymous policy or automatic moderation
 while public create/delete commands remain available.
+
+## Production-shared pure policy inputs
+
+Compiled callers can evaluate existing policy without constructing database services:
+`AnonymousCommentPolicyService.EvaluateAuthorMode(policy, requestedAuthorMode, publicSendExplicitlySelected)`,
+`ArticleCommentPolicyService.Compose(articleId, site, article, thread)`, and
+`ArticleCommentPolicyService.EvaluateWrite(policy, authorMode, utcNow)` are public static
+entry points used by the production services. Author-mode admission must precede the
+article write-policy decision; the latter does not authenticate an actor or reject
+every unsupported author mode. `utcNow` is an explicit business-time input, while
+the article ID and policy snapshots come from the caller's authoritative article-role
+mapping. These functions allocate no comment, revision, outbox or security facts.
+
+`CommentModerationService.ResolveInitialState(actor, regionDecision, modelEnabled,
+modelProviderAvailable)` shares the production initial-state decision with explicit
+model settings. Production region rejection precedes this decision, which preserves
+the ordering of hidden-region, manual-region, actor-review and model-review rules.
+`CommentModerationTransitions.IsAllowed` owns later transition legality and
+`CommentCommandService.ResolveReplyRecipientId(targetAuthorAccountId,
+replyingActorAccountId)` owns target-derived recipient/self-reply suppression.
+`AnonymousCommentScopePolicy` owns versioned top/thread scopes and credential quotas.
+These source APIs do not verify proofs, reserve nullifiers, validate persisted thread
+visibility, sign fixture receipts or substitute for canonical command transactions.
+
 ## Current thread invariants
 
 <!-- fsus-doc-claim
@@ -78,3 +102,23 @@ render: key-value-table
 | operations | ["created","deleted","edited"] |
 | softDeleteProjectsAsHiddenNextStatus | true |
 <!-- FSUSBLOG-GENERATED:END content.comment.edit-delete-version -->
+
+## Production initial outbox construction
+
+`CommentCommandService.ResolveInitialOutboxEventTypes(status, replyToAccountId)`
+returns the production create transaction's ordered obligations: created and
+visibility-changed, followed by reply-notification-requested only for an approved
+comment with an observed positive recipient. The transaction consumes this same
+selection and retains its original enqueue order and cancellation behavior.
+
+`CommentCommandService.BuildOutboxEvent(eventType, comment, commentId, occurredAt,
+previousStatus, nextStatus)` exposes the existing production envelope constructor.
+The caller supplies an already normalized authoritative comment, its allocated ID
+and explicit business time. The method preserves the normalized root/parent and
+account/recipient facts; a top-level root falls back to the allocated comment ID.
+It does not resolve an actor, validate a persisted thread, enforce an event kind or
+qualify those inputs. In-memory envelopes retain existing entity defaults, including
+a fresh event GUID; they are not deterministic persisted identities or receipts.
+Persistence and delivery fields remain the outbox writer and worker's responsibility.
+The envelope still has no exact comment-revision field. These APIs do not reserve a
+nullifier, create rows, prove atomicity or satisfy transaction/derived-edge acceptance.
