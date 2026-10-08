@@ -71,6 +71,7 @@ public sealed record VaultLinkDependency(
     VaultDependencyBinding Binding,
     VaultDependencyAdmission Admission,
     ArticleEmbedTargetIdentity Target,
+    VaultDependencyBinding TargetBinding,
     string MappingSha256) : VaultDependencyNode(Binding, Admission);
 
 /// <summary>A canonical source-owned block target; no sidecar IDs or source scanning are admitted here.</summary>
@@ -85,6 +86,7 @@ public sealed record VaultFrozenEmbedDependency(
     VaultDependencyBinding Binding,
     VaultDependencyAdmission Admission,
     ArticleEmbedDependencyCoordinate Coordinate,
+    VaultDependencyBinding TargetBinding,
     string PublicationReceiptSha256,
     long FrozenSourceByteLength) : VaultDependencyNode(Binding, Admission);
 

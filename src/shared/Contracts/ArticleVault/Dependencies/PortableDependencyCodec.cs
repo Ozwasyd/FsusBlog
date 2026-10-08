@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using FsusBlog.Shared.Contracts.ArticleEmbeds;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 using FsusBlog.Shared.Contracts.BlockLinks;
 
 namespace FsusBlog.Shared.Contracts.ArticleVault.Dependencies;
@@ -101,8 +102,39 @@ public static class PortableDependencyCodec
         return JsonSerializer.SerializeToUtf8Bytes(Canonicalize(manifest), s_options);
     }
 
+    public static byte[] Serialize(ArticleVaultDependencyPlan plan)
+    {
+        EnsureValid(ArticleVaultDependencyPlanner.ValidateStructure(plan));
+        return JsonSerializer.SerializeToUtf8Bytes(plan, s_options);
+    }
+
+    public static ArticleVaultDependencyPlan DeserializePlan(ReadOnlySpan<byte> utf8)
+    {
+        if (utf8.Length > ArticleEmbedResolutionBudgetLimits.SourceBytesBound)
+        {
+            throw new InvalidDataException("portable_dependency_serialized_size_exceeded");
+        }
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(utf8.ToArray());
+            RejectDuplicateProperties(document.RootElement);
+            ArticleVaultDependencyPlan plan = JsonSerializer.Deserialize<ArticleVaultDependencyPlan>(utf8, s_options)
+                ?? throw new InvalidDataException("portable_dependency_extension_missing");
+            EnsureValid(ArticleVaultDependencyPlanner.ValidateStructure(plan));
+            return plan;
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException("portable_dependency_schema_invalid", exception);
+        }
+    }
+
     public static PortableDependencyManifest Deserialize(ReadOnlySpan<byte> utf8)
     {
+        if (utf8.Length > ArticleEmbedResolutionBudgetLimits.SourceBytesBound)
+        {
+            throw new InvalidDataException("portable_dependency_serialized_size_exceeded");
+        }
         try
         {
             using JsonDocument document = JsonDocument.Parse(utf8.ToArray());
@@ -178,9 +210,42 @@ public static class PortableDependencyCodec
             RespectRequiredConstructorParameters = true,
             MaxDepth = 64
         };
-        options.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
+        options.Converters.Add(new ClosedEnumConverter<VaultDependencySourceSide>());
+        options.Converters.Add(new ClosedEnumConverter<VaultDependencyRight>());
+        options.Converters.Add(new ClosedEnumConverter<VaultDependencyEdgeKind>());
+        options.Converters.Add(new ClosedEnumConverter<VaultNewlineStyle>());
+        options.Converters.Add(new ClosedEnumConverter<ArticleEmbedPermissionStatus>());
+        options.Converters.Add(new ClosedEnumConverter<ArticleEmbedTargetKind>());
         options.Converters.Add(new AnchorConverter());
         return options;
+    }
+
+    private sealed class ClosedEnumConverter<T> : JsonConverter<T> where T : struct, Enum
+    {
+        public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            string? text = reader.TokenType == JsonTokenType.String ? reader.GetString() : null;
+            if (text is null || !Enum.TryParse(text.Replace("-", "", StringComparison.Ordinal), true, out T value)
+                || text != CanonicalName(value))
+            {
+                throw new JsonException("portable_dependency_enum_unknown");
+            }
+            return value;
+        }
+
+        public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
+            => writer.WriteStringValue(CanonicalName(value));
+
+        private static string CanonicalName(T value)
+        {
+            string name = value.ToString();
+            if (name.Length == 0 || !char.IsAsciiLetter(name[0]))
+            {
+                throw new JsonException("portable_dependency_enum_unknown");
+            }
+            return string.Join(", ", name.Split(", ", StringSplitOptions.None)
+                .Select(JsonNamingPolicy.KebabCaseLower.ConvertName));
+        }
     }
 
     private sealed class AnchorConverter : JsonConverter<BlockAnchorId>
