@@ -1,10 +1,12 @@
 # Public runtime producer source contracts
 
-This module owns source-stage declarations and a read-only settled projection for
+This module owns source-stage declarations, canonical compiler/attempt binding,
+reset postflight adaptation and a read-only settled projection for
 [release-public](https://github.com/Ozwasyd/FsusBlog/issues/2255),
 [resilience](https://github.com/Ozwasyd/FsusBlog/issues/2262), and
 [load](https://github.com/Ozwasyd/FsusBlog/issues/2264). Its outputs explicitly carry
-`authority: DATA_ONLY` and `qualificationEligible: false`. They cannot admit a
+`qualificationEligible: false`; declaration and projection outputs also carry
+`authority: DATA_ONLY`. They cannot independently admit a
 process, verify a runtime postcondition, seal a correctness attempt, or qualify a
 release. Integration remains proposed until the canonical owners supply those
 capabilities.
@@ -73,9 +75,12 @@ independent canonical verification is a mandatory integration prerequisite.
 
 ## Required integration contracts
 
-- Atomic compiler/attempt owners (#2248/#2009/#2010) must compile these declarations
-  into the existing weighted DAG, admit exactly one first attempt per child, bind
-  fixture/state/replay/environment identities, and supply immutable terminal inputs.
+- Atomic compiler/attempt source now exists and is consumed through the adapter
+  below. Integration owners (#2248/#2009/#2010) still must supply real matrix-owned
+  attachments, complete input closures, fixture/state/resource/replay references,
+  runtime verification and immutable terminal inputs. The current runner still
+  refuses native exit-zero lane commands without result sidecars; no sidecar is
+  fabricated for those commands here.
 - State owners (#1598/#1599) must resolve each child's access proof and corruption
   edges. Reusing a coarse parent state declaration cannot grant child parallelism.
 - Fixture owners (#2055/#2056) must supply each child's exact current profile,
@@ -103,3 +108,69 @@ using synthetic fixtures. These fixtures do not stand in for real runtime,
 independent authority verification, native provider acceptance, or local/CI/resume
 compiler parity. The old sequential lanes remain active until the owned handoff is
 implemented. All three issues remain open with runtime acceptance unmet.
+
+## Canonical compiler and attempt adapter
+
+The ordinary merge consumes framework `653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0`
+and structural follow-up `ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c` through
+scheduler-terminal provider `2eda290cc6098971b685b3fb1465d7193bd3dde2`. Their
+compiler, executor, scheduler, attempt runner and finalizer/receipt sources remain
+unchanged. This module does not create a scheduler, runner, matrix or host.
+
+`publicRuntimeAtomicNodes({ declarations, attachment, authorities }, options)`
+translates the existing domain nodes into the canonical closed atomic schema.
+`attachment` supplies explicit logical parent/projection ownership and exactly one
+producer binding per executable child. State predecessor edges come from the
+referenced state owner's explicit `requiredPredecessors`; missing or unknown
+access is refused. Release argv remains exact. Load argv invokes the original
+`performance-admission.mjs` and keeps its window IDs, noise paths and client npm
+commands. Host/reset command sources must bind their exact source execution
+contract; the adapter does not infer single-scenario execution from a phase CLI.
+
+`compilePublicRuntimeProducerDag(inputs, options)` compares these mapped nodes
+with the caller's existing matrix attachment and invokes the actual
+`compileAtomicProducerDag(matrix, authorities)`. It never writes or constructs a
+replacement matrix. The result retains `runtimeAuthorityStatus: unverified` and
+the unresolved domain requirements alongside the actual compiled plan.
+
+`preparePublicRuntimeAttemptContexts(binding, inputs, execution, options)` verifies
+current run/source/worktree, exact client cwd, backend/preview URLs, original HTTP
+timeout profiles, special governance environment and the original replay plan's
+environment/source/run binding. It returns the same owner-supplied producer
+contexts for `executeCompiledAtomicProducerDag`, which directly calls the original
+`runProducerAttempts`. The prep result is not execution admission: installed
+fixture, postcondition, quiescence and host/lease verification remains required.
+
+`publicRuntimeSettledResetContract()` reports the actual canonical verifier's
+support for `pre-notification-stream-ready`; it is currently unsupported. Reset
+maps to executable `hard-prerequisite`, with a settled incoming first-window edge,
+an ordinary second-window edge, and its own first attempt. It must not become a
+settled join or an always-run finalizer.
+
+`adaptPublicRuntimeSettledReset(...)` is the executor owner's postflight adapter.
+It preserves non-success terminals. For success it independently validates the
+original aggregate/attempt and artifact refs through `validateAggregateAttemptReceipt`
+and `verifyFileDigest`, requires actual postcondition support, exact run/source and
+`producerStep.atomicCommand` argv, then calls the existing
+`consumeResetPostconditionReceipt`. The canonical reset owner must also supply its
+original string `producerStep.command`/`reset.producerCommand` contract; argv is
+never joined into an invented shell command. Missing postcondition capability
+continues to refuse even an actual clean first attempt.
+
+The framework executor currently has no per-executable postflight transformation
+hook. Exact request to its owner: call this adapter after the original reset
+attempt is validated and before terminal success can unlock the second window;
+retain its failure in the complete vector. This hook, real reset command/verifier,
+shared-host single-scenario API and native result bridge must be supplied before
+production shell adoption. The production-correctness terminal finalizer in the
+supplied scheduler provider is aggregate-scoped; this module does not rename its
+target tier or mint aggregate qualification for a domain child.
+
+New ordinary integration controls compile all three domain shapes and execute
+only temporary synthetic release source fixtures through the real canonical
+runner. Those fixtures use the provider's existing isolated command fixture,
+produce actual attempt files and remain explicitly non-qualified. AOT assertion
+failure retains SEO's healthy attempt; actual exit-zero reset fixture attempt still
+fails postcondition admission. These are not native product, browser, runtime,
+semantic audit or production-cohort evidence. No denied audit cases or content
+API mutations are executed.
