@@ -681,6 +681,29 @@ refuse. MySQL and SQLite do not acquire an expression-key implementation from
 this PostgreSQL capability. Fresh v5 target/source identities are required; old
 artifacts remain unchanged and cannot grant current admission.
 
+The sole PostgreSQL entity-projection compiler preserves the original CodeFirst
+physical policies from the declared entity facts: nullable bounded strings with
+no explicit default retain their native NULL default; text and non-nullable
+strings do not acquire one. Declared Int64 defaults keep their original logical
+input literal. The extractor's generated primary role uses PostgreSQL's native
+implicit constraint/backing-index name; explicit names remain explicit. These
+policies apply to the entity projection only. Recipe/control renderers and other
+provider owners remain responsible for their original facts. The complete
+original-vs-compiled PostgreSQL snapshot comparison stays unfiltered.
+
+For a direct comparison against an independently typed double-precision column,
+only a closed literal operand is interpreted in PostgreSQL's `float8` domain.
+The existing physical-float64 node preserves the exact IEEE operand bits. Proven
+in-range integer casts and unmodified numeric literals can enter that conversion;
+intermediate `real` precision, numeric typmods, arithmetic, overflow and column
+casts retain their original facts. Unsupported overflow/underflow cannot acquire
+a finite or zero threshold identity. This comparison context does not change
+unbound arithmetic or the single-precision operator domain. An untyped string
+default on a declared `jsonb` column receives its assignment cast while retaining
+the complete literal bytes; explicit other casts, changed values, SQL NULL and
+JSON null stay distinct. There is no JSON rewriting or general equivalence
+fallback. Fresh original producer/verifier bytes remain required under model v5.
+
 The original apply-journal control's non-nullability remains owned by its seven
 canonical column facts. PostgreSQL 18 additionally records each inline `NOT NULL`
 declaration in `pg_constraint` with type `n`. The sole native catalog observer
@@ -691,7 +714,12 @@ representation onto `IsNullable=false`. PostgreSQL 17 retains its original colum
 representation without those catalog rows. Unknown, missing or changed `n` facts
 refuse; they are not ignored or treated as extra permitted objects. This preserves
 the v5 model and current control semantics; fresh producer/verifier byte bindings
-and independent native qualification remain required.
+and independent native qualification remain required. The original `default-null`
+native negative retains a real NULL-valued default expression and measures its
+`pg_attrdef` object before requiring refusal. Bare `SET DEFAULT NULL` (including
+literal casts) removes that object on the tested PostgreSQL; it cannot stand in
+for an actual undeclared default. The original case identity and no-default
+refusal gate are retained.
 
 The original Server executable exposes `export-current-schema-owned-target
 --output <new-absolute-file>` before Web host, DI or database configuration.

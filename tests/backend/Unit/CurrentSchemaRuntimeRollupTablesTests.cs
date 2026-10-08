@@ -340,7 +340,7 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
             string sql = drift switch
             {
                 "default" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload SET DEFAULT 'changed';",
-                "default-null" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload SET DEFAULT NULL;",
+                "default-null" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload SET DEFAULT NULLIF('same', 'same');",
                 "collation" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload TYPE text COLLATE \"C\";",
                 "check" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_sequence_check; ALTER TABLE public.{Journal} ADD CONSTRAINT {Journal}_sequence_check CHECK (sequence >= 0);",
                 "index" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_entry_digest_key; CREATE UNIQUE INDEX {Journal}_entry_digest_key ON public.{Journal} (entry_digest DESC);",
@@ -356,6 +356,19 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
                 _ => throw new InvalidOperationException("Unknown native control drift.")
             };
             await db.Ado.ExecuteCommandAsync(sql);
+            if (drift == "default-null")
+            {
+                // Bare SET DEFAULT NULL removes pg_attrdef on current PostgreSQL.
+                // This original negative needs a retained, actually NULL-valued
+                // default object so the measured no-default contract is violated.
+                PgCurrentSchemaEffectObservation effects = await PgCurrentSchemaEffectObserver.ReadControlTableAsync(
+                    (System.Data.Common.DbConnection)db.Ado.Connection,
+                    (System.Data.Common.DbTransaction)caller, Journal, CancellationToken.None);
+                PgCurrentRawExpression retained = Assert.Single(effects.Expressions, static expression =>
+                    expression.Kind == "default" && expression.Name == "entry_payload");
+                Assert.StartsWith("NULLIF(", retained.Expression, StringComparison.Ordinal);
+                Assert.Equal(1, await db.Ado.GetIntAsync("SELECT (NULLIF('same', 'same') IS NULL)::integer;"));
+            }
             await Assert.ThrowsAsync<CurrentSchemaMismatchException>(() => observer.ReadAsync(CancellationToken.None));
             if (drift == "same-shape-standalone-index")
             {
@@ -367,6 +380,69 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
             }
             Assert.Same(caller, db.Ado.Transaction);
             Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+        }
+        finally
+        {
+            await db.Ado.RollbackTranAsync();
+        }
+    }
+
+    [Fact]
+    public async Task CompleteRuntimeObserver_OriginalFloatingChecksAndJsonDefaultRejectDriftAndRestore()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        var inspector = new SchemaModelInspector();
+        db.CodeFirst.InitTables(inspector.GetManagedEntityTypes().ToArray());
+        await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, CancellationToken.None);
+        CurrentSchemaBootstrapInput input = await CurrentSchemaOwnedProjectionExporter.ExportAsync(CancellationToken.None);
+        CurrentSchemaCompletePhysicalProjection expected = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(input, SchemaProviderKind.PostgreSql);
+        SchemaConstraintModel viewport = expected.Tables.Tables["authoring_canvas_document"].Constraints["ck_authoring_canvas_document_viewport"];
+        SchemaConstraintModel geometry = expected.Tables.Tables["authoring_canvas_node"].Constraints["ck_authoring_canvas_node_geometry"];
+        Assert.Contains("viewport_zoom BETWEEN 0.1 AND 4", viewport.Expression, StringComparison.Ordinal);
+        Assert.Contains("width BETWEEN 24 AND 4096", geometry.Expression, StringComparison.Ordinal);
+        Assert.Equal("'{}'", expected.Tables.Tables["customization_draft"].Columns["payload"].DefaultValue);
+        await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead);
+        System.Data.IDbTransaction caller = db.Ado.Transaction;
+        try
+        {
+            await PgCurrentSchemaControlShape.EnsureApplyJournalAsync(
+                (System.Data.Common.DbConnection)db.Ado.Connection,
+                (System.Data.Common.DbTransaction)caller, CancellationToken.None);
+            var observer = new CurrentSchemaReadObserver(db, inspector);
+            CurrentSchemaReadObservation original = await observer.ReadAsync(CancellationToken.None);
+            (string Difference, string Sql)[] drifts =
+            [
+                ("authoring_canvas_document.ck_authoring_canvas_document_viewport",
+                    $"ALTER TABLE public.authoring_canvas_document DROP CONSTRAINT {viewport.Name}; ALTER TABLE public.authoring_canvas_document ADD CONSTRAINT {viewport.Name} CHECK ({viewport.Expression!.Replace("0.1", "0.10000000000000002", StringComparison.Ordinal)});"),
+                ("authoring_canvas_document.ck_authoring_canvas_document_viewport",
+                    $"ALTER TABLE public.authoring_canvas_document DROP CONSTRAINT {viewport.Name}; ALTER TABLE public.authoring_canvas_document ADD CONSTRAINT {viewport.Name} CHECK ({viewport.Expression!.Replace("0.1", "'0.1'::real::double precision", StringComparison.Ordinal)});"),
+                ("authoring_canvas_node.ck_authoring_canvas_node_geometry",
+                    $"ALTER TABLE public.authoring_canvas_node DROP CONSTRAINT {geometry.Name}; ALTER TABLE public.authoring_canvas_node ADD CONSTRAINT {geometry.Name} CHECK ({geometry.Expression!.Replace("width BETWEEN 24 AND 4096", "width BETWEEN 25 AND 4096", StringComparison.Ordinal)});"),
+                ("customization_draft.payload", "ALTER TABLE public.customization_draft ALTER COLUMN payload SET DEFAULT '[]'::jsonb;"),
+                ("customization_draft.payload", "ALTER TABLE public.customization_draft ALTER COLUMN payload SET DEFAULT 'null'::jsonb;"),
+                ("customization_draft.payload", "ALTER TABLE public.customization_draft ALTER COLUMN payload SET DEFAULT NULL;")
+            ];
+            foreach ((string difference, string sql) in drifts)
+            {
+                await db.Ado.ExecuteCommandAsync("SAVEPOINT actual_ast_drift;");
+                try
+                {
+                    await db.Ado.ExecuteCommandAsync(sql);
+                    CurrentSchemaMismatchException rejected = await Assert.ThrowsAsync<CurrentSchemaMismatchException>(() =>
+                        observer.ReadAsync(CancellationToken.None));
+                    Assert.Contains(difference, rejected.Message, StringComparison.Ordinal);
+                    Assert.Same(caller, db.Ado.Transaction);
+                    Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+                }
+                finally
+                {
+                    await db.Ado.ExecuteCommandAsync("ROLLBACK TO SAVEPOINT actual_ast_drift; RELEASE SAVEPOINT actual_ast_drift;");
+                }
+                CurrentSchemaReadObservation restored = await observer.ReadAsync(CancellationToken.None);
+                Assert.Equal(original.CanonicalIdentity, restored.CanonicalIdentity);
+                Assert.Equal(original.ActualDigest, restored.ActualDigest);
+            }
+            Assert.Same(caller, db.Ado.Transaction);
         }
         finally
         {
