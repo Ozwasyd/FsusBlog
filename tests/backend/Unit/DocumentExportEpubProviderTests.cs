@@ -57,6 +57,9 @@ public sealed class DocumentExportEpubProviderTests
     [Theory]
     [InlineData("ar", "rtl", "العربية שלום 🌍")]
     [InlineData("zh-Hant", "ltr", "中文 日本語 🌍")]
+    [InlineData("en-US", "ltr", "English 🌍")]
+    [InlineData("zh-Hant-TW", "ltr", "中文 🌍")]
+    [InlineData("de-CH-1901", "ltr", "Deutsch 🌍")]
     public void PreservesExplicitLanguageDirectionAndUnicode(string language, string direction, string text)
     {
         EpubPublicationMetadata metadata = Metadata() with
@@ -74,6 +77,24 @@ public sealed class DocumentExportEpubProviderTests
         Assert.Contains("dir=\"" + direction + "\"", content, StringComparison.Ordinal);
         Assert.Contains("lang=\"" + language + "\"", content, StringComparison.Ordinal);
         Assert.Contains("fonts:reader-glyph-coverage-not-certified", result.Validation.Warnings);
+    }
+
+    [Theory]
+    [InlineData("en-a")]
+    [InlineData("en-US-US")]
+    [InlineData("en-1234-1234")]
+    [InlineData("en-variant-VARIANT")]
+    [InlineData("en-u-ca-gregory")]
+    [InlineData("en-x-private")]
+    public void RefusesFrozenLanguageOutsideClosedSupportedPolicy(string language)
+    {
+        EpubPublicationMetadata metadata = Metadata() with
+        {
+            Language = language
+        };
+        DocumentExportFrozenInput input = Input(metadata);
+        DocumentExportRendererResponse response = Response(input, metadata);
+        Assert.Throws<InvalidDataException>(() => EpubPackageBuilder.Build(input, response, metadata, Budgets));
     }
 
     [Fact]
