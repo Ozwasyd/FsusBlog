@@ -34,6 +34,8 @@ function retainedManifest()
 {
     const source = structuredClone(manifest);
     source.frameTypes = source.frameTypes.filter((frame) => frame.goldenOrder < 236);
+    source.goldenCatalog.defaultEvidence = source.goldenCatalog.defaultEvidence.filter((entry) =>
+        !entry.endsWith('/ArticlePropertyValueReadWireTests.cs') && !entry.endsWith('/AuthoringWorkspaceSnapshotWireTests.cs'));
     return source;
 }
 
@@ -55,7 +57,7 @@ test('the original producer owns five products with manifest-derived identities 
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
     assert.equal(golden.frames.filter(frame => frame.value <= 252).length, 244);
-    assert.equal(golden.frames.length, 260);
+    assert.equal(golden.frames.length, 263);
 });
 
 test('the Canvas and article-link additions retain independently named roots and wire identities', () =>
@@ -78,7 +80,7 @@ test('the Canvas and article-link additions retain independently named roots and
         ['ArticleCanvasLinkReceipt', 267, 'article-canvas-link'],
         ['ArticleCanvasLinkHistoryResponse', 268, 'article-canvas-link']
     ];
-    const actual = goldenFrom(manifest).frames.filter(frame => frame.value >= 253)
+    const actual = goldenFrom(manifest).frames.filter(frame => frame.value >= 253 && frame.value <= 268)
         .map(frame => [frame.name, frame.value, frame.family]);
     assert.deepEqual(actual, expected);
 });
@@ -161,7 +163,7 @@ for (const [label, mutate, expected] of [
 test('every frame, including future registrations, must explicitly provide complete golden metadata', () =>
 {
     const source = structuredClone(manifest);
-    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 260 });
+    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: source.frameTypes.length });
     const golden = goldenFrom(source);
     assert.deepEqual(golden.frames.at(-1), { name: 'FutureFrame', value: 65535, family: 'test-response' });
 });
@@ -178,3 +180,55 @@ test('source values and explicit metadata, not old output values, determine the 
         family: 'test-source-response'
     });
 });
+
+test('pending allocations stay outside every generated active frame and golden catalog', () =>
+{
+    const outputs = new Map(renderAedsProtocolOutputs(manifest));
+    assert.deepEqual(manifest.reservedFrameValues.map(({ name, value, ownerIssue }) => [name, value, ownerIssue]), [
+        ['WritingAidPreferenceSnapshotResponse', 272, 2286],
+        ['WritingAidPreferenceUpdateRequest', 273, 2286],
+        ['WritingAidPreferenceReceiptResponse', 274, 2286],
+        ['UploadAssetPreview', 275, 1975]
+    ]);
+    for (const reservation of manifest.reservedFrameValues)
+    {
+        assert.ok(manifest.frameTypes.every(frame => frame.value !== reservation.value && frame.name !== reservation.name));
+        for (const text of outputs.values())
+        {
+            assert.ok(!text.includes(reservation.name));
+        }
+    }
+});
+
+test('pending allocations leave the original five generated products byte-for-byte unchanged', () =>
+{
+    const source = structuredClone(manifest);
+    delete source.reservedFrameValues;
+    assert.deepEqual(renderAedsProtocolOutputs(manifest), renderAedsProtocolOutputs(source));
+});
+
+for (const [label, mutate, expected] of [
+    ['non-array reservations', source => { source.reservedFrameValues = {}; }, /complete arrays/u],
+    ['null reservation', source => { source.reservedFrameValues[0] = null; }, /closed valid identity/u],
+    ['extra reservation field', source => { source.reservedFrameValues[0].extra = true; }, /closed valid identity/u],
+    ['invalid reservation owner', source => { source.reservedFrameValues[0].ownerIssue = 0; }, /closed valid identity/u],
+    ['fractional reservation ID', source => { source.reservedFrameValues[0].value = 272.5; }, /closed valid identity/u],
+    ['oversized reservation ID', source => { source.reservedFrameValues[0].value = 65536; }, /closed valid identity/u],
+    ['terminal LF reservation name', source => { source.reservedFrameValues[0].name += '\n'; }, /closed valid identity/u],
+    ['blank reservation reason', source => { source.reservedFrameValues[0].reason = ' '; }, /closed valid identity/u],
+    ['duplicate reserved value', source => { source.reservedFrameValues[1].value = source.reservedFrameValues[0].value; }, /Duplicate reserved/u],
+    ['duplicate reserved name', source => { source.reservedFrameValues[1].name = source.reservedFrameValues[0].name; }, /Duplicate reserved/u],
+    ['retired reservation ID', source => { source.reservedFrameValues[0].value = source.retiredFrameValues[0].value; }, /reuses retired value/u],
+    ['already active reservation ID', source => { source.reservedFrameValues[0].value = 253; }, /collides with an unadmitted reservation/u],
+    ['already active reservation name', source => { source.reservedFrameValues[0].name = source.frameTypes[0].name; }, /collides with an unadmitted reservation/u],
+    ['active frame takes reserved ID', source => { source.frameTypes[0].value = 275; }, /collides with an unadmitted reservation/u],
+    ['active frame takes reserved name', source => { source.frameTypes[0].name = 'UploadAssetPreview'; }, /collides with an unadmitted reservation/u]
+])
+{
+    test(`the original renderer refuses ${label} before producing admitted frames`, () =>
+    {
+        const source = structuredClone(manifest);
+        mutate(source);
+        assert.throws(() => renderAedsProtocolOutputs(source), expected);
+    });
+}

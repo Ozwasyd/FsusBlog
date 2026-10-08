@@ -35,6 +35,32 @@
             "reason": "precise-anonymous-credential-ticket-response"
         }
     ],
+    "reservedFrameValues": [
+        {
+            "name": "WritingAidPreferenceSnapshotResponse",
+            "value": 272,
+            "ownerIssue": 2286,
+            "reason": "domain payload source prerequisite and cross-stack codec admission pending"
+        },
+        {
+            "name": "WritingAidPreferenceUpdateRequest",
+            "value": 273,
+            "ownerIssue": 2286,
+            "reason": "domain payload source prerequisite and cross-stack codec admission pending"
+        },
+        {
+            "name": "WritingAidPreferenceReceiptResponse",
+            "value": 274,
+            "ownerIssue": 2286,
+            "reason": "device-bound receipt codec admission pending"
+        },
+        {
+            "name": "UploadAssetPreview",
+            "value": 275,
+            "ownerIssue": 1975,
+            "reason": "supersedes conflicting candidate frame 253; exact consumer regeneration and admission pending"
+        }
+    ],
     "anonymousPrivacyContract": {
         "circuitId": "fsus.anonymous.comment.v5",
         "publicInputLayoutVersion": 6,
