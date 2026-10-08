@@ -1432,6 +1432,159 @@ export function writeJsonAtomic(file, value)
 }
 
 
+export const releaseFinalVerifiedAuthorityBindingSchema = 'fsusblog.release-final-test-evidence-binding.v2';
+
+export class ReleaseFinalAuthorityBindingError extends Error
+{
+    constructor(reasonCode, message, localProducerCommands = [])
+    {
+        super(message);
+        this.name = 'ReleaseFinalAuthorityBindingError';
+        this.reasonCode = reasonCode;
+        this.localProducerCommands = localProducerCommands;
+    }
+}
+
+// The existing final-binding owner now has a source-stage consumer for #2060
+// bindings. This does not publish a manifest or replace the scheduler's CAS.
+// A caller must supply the independently expected plan/run and original input
+// refs; no producer discovery or callback can qualify a forged binding.
+export async function createReleaseFinalVerifiedAuthorityBinding(options)
+{
+    const { governanceContentDigest, validateCurrentRunEvidenceContext } = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
+    const { validateRequiredEvidenceTestPlan } = await import(new URL('../test-matrix/required-evidence-dependencies.mjs', import.meta.url));
+    const { locateCurrentRunEvidence, verifyCurrentRunEvidenceBinding } = await import(new URL('../test/current-run-evidence-locator.mjs', import.meta.url));
+    const { resolveEvidenceReferencePayload } = await import(new URL('../test/current-run-evidence-publication.mjs', import.meta.url));
+    const { requiredEvidenceBindingSchema, verifyRequiredEvidenceBinding } = await import('./required-evidence-binding.mjs');
+    const allowed = ['bindingInputs', 'catalog', 'context', 'expectedPlanIdentity', 'locatorRegistry',
+        'repositoryRoot', 'testPlan', 'verifierRegistry'];
+    if (!options || Object.keys(options).some((key) => !allowed.includes(key)))
+    {
+        throw new ReleaseFinalAuthorityBindingError('UNSUPPORTED_INPUT', 'final binding accepts only explicit authority inputs');
+    }
+    const { bindingInputs, catalog, context, expectedPlanIdentity, locatorRegistry,
+        repositoryRoot, testPlan, verifierRegistry } = options;
+    const commands = catalog?.entries?.map((entry) => entry.localProducerCommand) ?? [];
+    const requireCheck = (condition, code, message, localCommands = commands) =>
+    {
+        if (!condition)
+        {
+            throw new ReleaseFinalAuthorityBindingError(code, message, localCommands);
+        }
+    };
+    validateCurrentRunEvidenceContext(context);
+    requireCheck(expectedPlanIdentity?.mode === 'current-run'
+        && expectedPlanIdentity.sourceCommit === context.sourceCommit
+        && expectedPlanIdentity.worktreeFingerprint === context.worktreeFingerprint
+        && expectedPlanIdentity.runId === context.schedulerRunId
+        && expectedPlanIdentity.attempt === context.attemptId
+        && JSON.stringify(canonicalize(expectedPlanIdentity.candidateIdentity))
+            === JSON.stringify(canonicalize(context.candidateIdentity)),
+    'PLAN_IDENTITY_MISMATCH', 'final binding requires independently supplied current-run plan identity');
+    const errors = validateRequiredEvidenceTestPlan(testPlan, expectedPlanIdentity, catalog);
+    requireCheck(errors.length === 0, 'PLAN_REJECTED', errors.join('; '));
+    requireCheck(Array.isArray(bindingInputs), 'MISSING_BINDINGS', 'explicit authority binding inputs are required');
+    const projection = testPlan.requiredEvidenceDependencies;
+    const expected = projection.dependencies;
+    const actualIds = bindingInputs.map((input) => input?.authorityId);
+    requireCheck(new Set(actualIds).size === actualIds.length, 'DUPLICATE_AUTHORITY', 'duplicate authority binding inputs');
+    requireCheck(actualIds.every((id) => expected.some((entry) => entry.authorityId === id)),
+        'UNDECLARED_AUTHORITY', 'undeclared correctness input cannot enter the final binding');
+    const missing = expected.filter((entry) => !actualIds.includes(entry.authorityId));
+    requireCheck(missing.length === 0, 'MISSING_BINDINGS',
+        `missing authority bindings: ${missing.map((entry) => entry.authorityId).join(', ')}`,
+        missing.map((entry) => entry.localProducerCommand));
+    const authorities = [];
+    for (const dependency of expected)
+    {
+        const matches = bindingInputs.filter((input) => input.authorityId === dependency.authorityId);
+        const [input] = matches;
+        const localCommands = [dependency.localProducerCommand];
+        requireCheck(matches.length === 1 && input.outputBindingKey === dependency.outputBindingKey
+            && Object.keys(input).every((key) => ['authorityId', 'outputBindingKey', 'explicitInputs',
+                'reference', 'verification'].includes(key)),
+        'OUTPUT_BINDING_MISMATCH', `${dependency.authorityId}: exact projected binding slot is required`, localCommands);
+        requireCheck(input.verification && Object.keys(input.verification).every((key) =>
+            ['domainInputs', 'expectedIdentity', 'explicitInputs', 'reference'].includes(key)),
+        'UNSUPPORTED_VERIFICATION_INPUT', `${dependency.authorityId}: explicit original producer inputs are required`, localCommands);
+        if (dependency.requiredIdentityFields.includes('namespace'))
+        {
+            requireCheck(input.verification.expectedIdentity?.namespace === expectedPlanIdentity.namespace,
+                'PLAN_NAMESPACE_MISMATCH', `${dependency.authorityId}: expected namespace differs from the plan`, localCommands);
+        }
+        const locators = locatorRegistry.entries.filter((entry) => entry.authorityId === dependency.locatorBindingKey);
+        requireCheck(locators.length === 1 && locators[0].producerId === dependency.canonicalOwner,
+            'LOCATOR_OWNER_MISMATCH', `${dependency.authorityId}: exact canonical locator is required`, localCommands);
+        try
+        {
+            const [registryEntry] = locators;
+            const located = locateCurrentRunEvidence({ context, registry: locatorRegistry, registryEntry,
+                repositoryRoot, ...(input.explicitInputs === undefined ? {} : { explicitInputs: input.explicitInputs }),
+                ...(input.reference === undefined ? {} : { reference: input.reference }) });
+            verifyCurrentRunEvidenceBinding(located.bindingReceipt,
+                { context, registry: locatorRegistry, registryEntry, repositoryRoot });
+            const resolved = resolveEvidenceReferencePayload(located.receipt,
+                { repositoryRoot, ownedRoots: context.ownedRoots });
+            const binding = resolved.payload;
+            requireCheck(binding?.schema === requiredEvidenceBindingSchema
+                && binding.authorityId === dependency.authorityId && binding.status === 'success'
+                && binding.qualificationEligible === true && binding.reasonCodes?.length === 0,
+            'BINDING_NOT_SUCCESS', `${dependency.authorityId}: required binding is not successful`, localCommands);
+            await verifyRequiredEvidenceBinding(binding, { ...input.verification,
+                authorityId: dependency.authorityId, catalog, context, locatorRegistry,
+                repositoryRoot, verifierRegistry });
+            authorities.push({ authorityId: dependency.authorityId,
+                producerId: dependency.canonicalOwner, outputBindingKey: dependency.outputBindingKey,
+                bindingReference: { path: path.relative(repositoryRoot, resolved.file).replaceAll(path.sep, '/'),
+                    schema: binding.schema, fileDigest: located.receipt.payload.digest, contentDigest: binding.contentDigest },
+                bindingLocator: located.bindingReceipt, verifiedBinding: structuredClone(binding) });
+        }
+        catch (error)
+        {
+            if (error instanceof ReleaseFinalAuthorityBindingError)
+            {
+                throw error;
+            }
+            throw new ReleaseFinalAuthorityBindingError(error.reasonCode ?? 'BINDING_REJECTED',
+                `${dependency.authorityId}: ${error.message}`, localCommands);
+        }
+    }
+    const body = { schema: releaseFinalVerifiedAuthorityBindingSchema,
+        status: 'verified-bindings-unpublished', qualificationEligible: false,
+        catalog: structuredClone(projection.catalog), catalogVersion: projection.catalogVersion,
+        testPlanDigest: testPlan.contentDigest, projectionDigest: projection.contentDigest,
+        context: structuredClone(context), planIdentity: structuredClone(expectedPlanIdentity),
+        authorities, reasonCodes: [], publicationRequired: 'canonical-scheduler-CAS',
+        failurePath: 'fail-closed-without-fallback' };
+    const result = { ...body, contentDigest: governanceContentDigest(body) };
+    const freeze = (value) =>
+    {
+        if (value && typeof value === 'object')
+        {
+            Object.values(value).forEach(freeze);
+            Object.freeze(value);
+        }
+        return value;
+    };
+    return freeze(result);
+}
+
+export async function verifyReleaseFinalVerifiedAuthorityBinding(binding, options)
+{
+    const { governanceContentDigest } = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
+    if (binding?.schema !== releaseFinalVerifiedAuthorityBindingSchema
+        || binding.contentDigest !== governanceContentDigest(binding))
+    {
+        throw new ReleaseFinalAuthorityBindingError('FINAL_BINDING_TAMPER', 'final binding schema/digest mismatch');
+    }
+    const replayed = await createReleaseFinalVerifiedAuthorityBinding(options);
+    if (JSON.stringify(canonicalize(replayed)) !== JSON.stringify(canonicalize(binding)))
+    {
+        throw new ReleaseFinalAuthorityBindingError('FINAL_BINDING_REPLAY_MISMATCH', 'final binding differs from fresh authority verification');
+    }
+    return replayed;
+}
+
 export const requiredEvidenceVerifier = Object.freeze({
     version: 1,
     successStatuses: Object.freeze(['success']),
