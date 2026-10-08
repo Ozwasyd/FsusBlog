@@ -369,17 +369,15 @@ public sealed class ClosedTrustedAuthoringAdapterRegistry(
                 string.IsNullOrWhiteSpace(descriptor.SourcePath) || descriptor.SourcePath.Length > 256 ||
                 !descriptor.SourcePath.StartsWith("src/backend/", StringComparison.Ordinal) ||
                 descriptor.SourcePath.Contains("..", StringComparison.Ordinal) || descriptor.SourcePath.Contains('\\') ||
-                descriptor.SourcePath.Any(char.IsControl) ||
+                HasControlCharacters(descriptor.SourcePath) ||
                 string.IsNullOrWhiteSpace(descriptor.ModuleName) || descriptor.ModuleName.Length > 128 ||
-                descriptor.ModuleName.Any(static character =>
-                    character is not (>= 'A' and <= 'Z') and not (>= 'a' and <= 'z') and
-                    not (>= '0' and <= '9') and not '.' and not '-') ||
+                !IsModuleName(descriptor.ModuleName) ||
                 string.IsNullOrWhiteSpace(descriptor.ReviewOwner) || descriptor.ReviewOwner.Length > 128 ||
-                descriptor.ReviewOwner.Any(char.IsControl) ||
+                HasControlCharacters(descriptor.ReviewOwner) ||
                 descriptor.SupportedPlatforms.IsDefaultOrEmpty ||
                 descriptor.SupportedPlatforms.Length > Enum.GetValues<AuthoringHostPlatform>().Length ||
                 descriptor.SupportedPlatforms.Distinct().Count() != descriptor.SupportedPlatforms.Length ||
-                descriptor.SupportedPlatforms.Any(static platform => !Enum.IsDefined(platform)) ||
+                !ArePlatformsDefined(descriptor.SupportedPlatforms) ||
                 !IsSha256(descriptor.SourceSha256) ||
                 !IsSha256(descriptor.ModuleSha256) ||
                 !builder.TryAdd(descriptor.AdapterId, descriptor))
@@ -391,9 +389,63 @@ public sealed class ClosedTrustedAuthoringAdapterRegistry(
         return builder.ToImmutable();
     }
 
-    private static bool IsSha256(string value) =>
-        value.Length == 64 && value.All(static character =>
-            character is >= '0' and <= '9' or >= 'a' and <= 'f');
+    private static bool HasControlCharacters(string value)
+    {
+        foreach (char character in value)
+        {
+            if (char.IsControl(character))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsModuleName(string value)
+    {
+        foreach (char character in value)
+        {
+            if (character is not (>= 'A' and <= 'Z') and not (>= 'a' and <= 'z') and
+                not (>= '0' and <= '9') and not '.' and not '-')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool ArePlatformsDefined(ImmutableArray<AuthoringHostPlatform> platforms)
+    {
+        foreach (AuthoringHostPlatform platform in platforms)
+        {
+            if (!Enum.IsDefined(platform))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsSha256(string value)
+    {
+        if (value.Length != 64)
+        {
+            return false;
+        }
+
+        foreach (char character in value)
+        {
+            if (character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 public sealed class AuthoringExecutionResolver(
