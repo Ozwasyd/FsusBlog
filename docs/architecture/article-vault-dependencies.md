@@ -176,3 +176,20 @@ canonical lease owner's codec and transition-verification APIs. These source API
 validate receipt shape and chain transitions; they do not establish native lock
 ownership or qualify host IPC/session cleanup. Shared DI remains explicit and
 does not start a native session or supply first-execution admission.
+
+`ArticleVaultAssetInputVerifier.VerifyCurrent` is the sole supplied consistency
+check for an original asset record and bytes against an exact sealed operation,
+dependency plan/item, fresh request/dependency inputs, authenticated principal,
+trusted site and deadline. It reuses the original dependency and asset validators
+and rechecks currentness after byte inspection. It performs no acquisition IO and
+does not create an asset grant, upload/reuse receipt or execution/base permission.
+
+The root's current revision reader does not provide an AssetRecord, authorized
+asset bytes, fresh dependency read rights or an asset revision/reference ledger.
+Its long administrator ID context is not an authenticated ClaimsPrincipal.
+Full verified-candidate admission must call the consistency check only after the
+original supplier supplies those real bindings. Existing original ticket issuance
+and redemption, metadata FindAsync, private OpenReadAsync and committed-upload
+observation remain the acquisition/ledger owners. A display cover URL, current
+record timestamps, plain private handle or sealed historical request cannot stand
+in for the missing current operation/source-revision/rights/reuse results.
