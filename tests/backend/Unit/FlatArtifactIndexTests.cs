@@ -304,6 +304,88 @@ public sealed class FlatArtifactIndexTests
         Assert.Equal(index.Descriptor.Layout.CapacityBytes, Used(ledger));
     }
 
+    [Fact]
+    public void DifferentialUpdatesCoverAllRecordsAndPreserveContentIdentityAcrossGenerations()
+    {
+        var (ledger, domain) = Ledger();
+        var random = new Random(3464);
+        FlatArtifactIndexEntry[] initial = Enumerable.Range(1, 128)
+            .Select(id => Entry(id, $"article:{id}", id % 7 == 0 ? 0 : id)).ToArray();
+        using FlatArtifactIndex original = Build(ledger, domain, initial);
+        using FlatArtifactIndexLease source = Acquire(original);
+        var expected = initial.ToDictionary(entry => entry.Descriptor.Id);
+        var mutations = new List<FlatArtifactIndexMutation>();
+        for (int index = 1; index <= 128; index++)
+        {
+            if (random.Next(4) == 0)
+            {
+                expected.Remove(index);
+                mutations.Add(new(index, null));
+            }
+            else
+            {
+                FlatArtifactIndexEntry replacement = initial[index - 1] with
+                {
+                    RouteKey = $"文章:{index}"
+                };
+                expected[index] = replacement;
+                mutations.Add(new(index, replacement));
+            }
+        }
+        for (int index = 129; index <= 192; index++)
+        {
+            FlatArtifactIndexEntry added = Entry(index, $"new:{index}");
+            expected.Add(index, added);
+            mutations.Add(new(index, added));
+        }
+        using FlatArtifactIndex next = FlatArtifactIndex.TryUpdate(ledger, domain, Content(), source, mutations, s_limits).Value!;
+        using FlatArtifactIndexLease updated = Acquire(next);
+        FlatArtifactIndexEntry[] expectedEntries = expected.Values.ToArray();
+        var oracle = new ReferenceArtifactIndex(expectedEntries, s_limits);
+        Compare(oracle, updated, expectedEntries);
+        foreach (FlatArtifactIndexEntry entry in initial)
+        {
+            Assert.Equal(oracle.TryGetId(entry.Descriptor.Id, out FlatArtifactDescriptor oracleId),
+                updated.TryGetId(entry.Descriptor.Id, out FlatArtifactDescriptor actualId));
+            Assert.Equal(oracleId, actualId);
+            Assert.False(updated.TryGetRoute(entry.RouteKey, out _));
+        }
+        Compare(new(initial, s_limits), source, initial);
+        Assert.Equal(MemoryFailure.StaleLocation, next.TryAcquire(original.Location).Failure);
+    }
+
+    [Fact]
+    public async Task CompetingBuildsNeverExceedAdmissionAndLeaveNoPartialGrant()
+    {
+        FlatArtifactIndexLayout worst = FlatArtifactIndexLayout.TryPlan(1, s_limits.MaximumKeyBytes, s_limits).Value!;
+        long peak = worst.Allocation.CapacityBytes + 64 + 16 + s_limits.MaximumKeyBytes * 8;
+        var (ledger, domain) = Ledger(peak);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<MemoryOperationResult<FlatArtifactIndex>>[] attempts = Enumerable.Range(1, 32)
+            .Select(id => Task.Run(async () =>
+            {
+                await start.Task;
+                return FlatArtifactIndex.TryBuild(ledger, domain, Content(), [Entry(id, $"article:{id}")], s_limits);
+            })).ToArray();
+        start.SetResult();
+        MemoryOperationResult<FlatArtifactIndex>[] results = await Task.WhenAll(attempts).WaitAsync(TimeSpan.FromSeconds(30));
+        MemoryOperationResult<FlatArtifactIndex> admitted = Assert.Single(results, result => result.Succeeded);
+        foreach (MemoryOperationResult<FlatArtifactIndex> rejected in results.Where(result => !result.Succeeded))
+        {
+            Assert.Equal(MemoryFailure.BudgetRejected, rejected.Failure);
+        }
+        using FlatArtifactIndex owner = admitted.Value!;
+        Assert.Equal(owner.Descriptor.Layout.CapacityBytes, Used(ledger));
+        Assert.Equal(0, ledger.Snapshot().Reservations);
+        long observed = 0;
+        foreach (MemoryAccountingEvent observation in ledger.EventWindow().Events)
+        {
+            observed += observation.Delta.GetValueOrDefault("flat-index-host");
+            Assert.InRange(observed, 0, peak);
+        }
+        Assert.Equal(Used(ledger), observed);
+    }
+
     private static void Compare(ReferenceArtifactIndex reference, FlatArtifactIndexLease flat,
         IReadOnlyList<FlatArtifactIndexEntry> entries)
     {
