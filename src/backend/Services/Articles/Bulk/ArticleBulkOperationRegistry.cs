@@ -311,7 +311,52 @@ internal static class ArticleBulkDigest
 
     internal static string Of<T>(T value)
     {
-        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(value, s_options);
-        return $"sha256:{Convert.ToHexStringLower(SHA256.HashData(payload))}";
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        using var stream = new HashWriteStream(hash);
+        using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
+        {
+            Encoder = s_options.Encoder,
+            Indented = s_options.WriteIndented,
+            MaxDepth = s_options.MaxDepth == 0 ? 64 : s_options.MaxDepth
+        }))
+        {
+            JsonSerializer.Serialize(writer, value, s_options);
+            writer.Flush();
+        }
+        return $"sha256:{Convert.ToHexStringLower(hash.GetHashAndReset())}";
+    }
+
+    // Hash the same canonical UTF-8 JSON as it is written. Materializing a large plan
+    // rents multi-megabyte serializer buffers that remain in each worker's shared pool.
+    private sealed class HashWriteStream(IncrementalHash hash) : Stream
+    {
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+            => hash.AppendData(buffer, offset, count);
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+            => hash.AppendData(buffer);
+
+        public override int Read(byte[] buffer, int offset, int count)
+            => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin)
+            => throw new NotSupportedException();
+
+        public override void SetLength(long value)
+            => throw new NotSupportedException();
     }
 }
