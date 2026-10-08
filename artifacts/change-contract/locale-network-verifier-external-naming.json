@@ -6,7 +6,8 @@
             "paths": [
                 "tools/test-matrix/verify-public-shell-locale.mjs",
                 "tools/contracts/generate-locale-catalog.mjs",
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/contracts/check-locale-catalog.mjs"
             ],
             "reason": "Preserve the existing environment inputs while consuming the supplied canonical catalog and migration source capabilities and rechecking immutable locale network budgets."
         },
