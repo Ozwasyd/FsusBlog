@@ -42,6 +42,13 @@ numeric alias or suppress the error. The frozen earlier review candidate remains
 on its original branch with its original wire identity. Compilation of this new
 composition and original runtime/product acceptance are separate pending gates.
 
+The shared worker handoff is
+`IAuthorRecentArticleHistoryWorkerPermissionProjectionProvider.ResolveForSessionAsync`.
+Its implementation reuses the existing SQL authority and accepts the authenticated
+server's captured administrator/session and exact site scope without constructing
+an HTTP context. The job owner must still supply its authorization adapter and
+prove frozen coordinates, revisions and resource custody; this permission port
+alone cannot qualify a job or a download.
 
 Construct `DocumentExportJobService` with the existing `ReleaseStorageLayout`,
 shared `IDataProtectionProvider`, the exact permission adapter and `TimeProvider`.
