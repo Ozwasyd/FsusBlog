@@ -1,6 +1,5 @@
-using FsusBlog.Shared.Contracts.ArticleEmbeds.Graph;
-
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Graph;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Publication;
 
 namespace FsusBlog.Shared.Contracts.ArticleEmbeds.Relations;
