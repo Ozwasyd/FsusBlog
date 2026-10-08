@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/correctness-attempt-migration.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "597f4118855beb4f28612a846e92ffae5f846b3b5aebadfa58e745a5e72d1ba4"
+        }
+    ]
+}
