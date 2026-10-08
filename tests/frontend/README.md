@@ -34,3 +34,20 @@ Cross-stack contract governance:
 - `npm run check:cross-stack-contract` validates the full frontend/backend contract ledger in `fixtures/cross-stack-contract-matrix.json`, covering binary endpoint routes, API wrapper parity, shared AEDS schema sync, negative cases, runtime/distribution/notification stream/upload/auth/SW/perf coherence profiles, fixture families, and eventual-consistency evidence fields.
 
 Keep `../../tools/frontend/` for build, Wasm, public hydration generation, and local utility scripts only.
+
+The standalone article anchor prerequisite probe runs real FsusUI public commands
+and semantic maps without the unit setup's runtime mocks. From the repository
+root, run:
+
+```bash
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/path/to/pinned/FsusUI node tests/frontend/checks/runtime/probe-article-anchor-boundary.mjs
+```
+
+The checkout must be clean and match `config/testing/fsusui-baseline.json`, with
+its documented dependency, icon, WASM and theme builds completed. The probe
+preserves each run's logs, Vitest JSON and commit/input bindings under
+`.tmp/article-anchor-boundary/run-*`. An unavailable public map fails the probe;
+it never substitutes a Blog mapper. `--exploratory` permits inspecting another
+exact FsusUI commit and records that distinction. Neither a passing probe nor an
+exploratory run constitutes article editor implementation, browser UX, native
+IME or complete issue acceptance.
