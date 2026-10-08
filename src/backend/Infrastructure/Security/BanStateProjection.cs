@@ -150,7 +150,8 @@ public readonly record struct BanStateProjectionSnapshot(
 /// <summary>
 /// Loads one authoritative ban-state fact. Implementations may use a database or
 /// another authority, but the projection itself has no dependency on either.
-/// A missing row is represented by <see langword="null"/> and remains unknown.
+/// A missing row is represented by <see langword="null"/> and supplies no fact.
+/// The projection then rereads local state, which may contain a concurrent update.
 /// </summary>
 public interface IBanStateProjectionSource
 {
