@@ -10,7 +10,9 @@
         "tools/test/attempt-runner.mjs",
         "tools/test/temporal-context.mjs",
         "tools/test/temporal-context-contract.mjs",
-        "tools/test/correctness-attempt-migration.mjs"
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/docs/generate-testing-docs.mjs",
+        "tools/docs/lib/matrix.mjs"
     ],
     "outputs": [
         {
@@ -32,6 +34,10 @@
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
             "sha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "0cfab691fea5b3837863fe778bf62af2fedfc6cb2a02e11e3e3f0c8fd1435c22"
         }
     ]
 }
