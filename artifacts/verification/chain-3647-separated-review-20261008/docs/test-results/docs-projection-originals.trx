@@ -1,0 +1,118 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="f7c4973b-0175-42c9-8c38-8634c43a9893" name="@b913ada63f7d 2026-10-08 09:38:45" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-08T09:38:45.4460725+00:00" queuing="2026-10-08T09:38:45.4460726+00:00" start="2026-10-08T09:38:43.3784734+00:00" finish="2026-10-08T09:38:46.8078515+00:00" />
+  <TestSettings name="default" id="72c4203b-14ea-4da5-a0f0-68f60986ecc9">
+    <Deployment runDeploymentRoot="_b913ada63f7d_2026-10-08_09_38_45" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="8a949d66-f947-419d-9e1e-6408429fb639" testId="53b77d2b-4d25-a8df-d57a-57b5b082b526" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.ApplyAndRead_RepresentsEveryAuthoritativeStatus(status: Banned, reasonCode: &quot;manual_ban&quot;)" computerName="b913ada63f7d" duration="00:00:00.0003738" startTime="2026-10-08T09:38:45.3028163+00:00" endTime="2026-10-08T09:38:45.3028923+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8a949d66-f947-419d-9e1e-6408429fb639" />
+    <UnitTestResult executionId="ac148819-350b-429d-9dec-6403ea1089c3" testId="2e53a2ef-650c-1529-6dfc-f1a9234a5a96" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests.PreparedEvent_IsDurableBeforePublish_AndDegradedPublishRemainsTrackable" computerName="b913ada63f7d" duration="00:00:00.1615228" startTime="2026-10-08T09:38:45.2773572+00:00" endTime="2026-10-08T09:38:45.4156357+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ac148819-350b-429d-9dec-6403ea1089c3" />
+    <UnitTestResult executionId="e200063d-b546-4688-801c-d6ff25acaefc" testId="3919832e-bd25-c54f-02e0-3ef519102a74" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.Apply_RejectsStaleAndDuplicateAndFailsClosedOnSameGenerationConflict" computerName="b913ada63f7d" duration="00:00:00.0017128" startTime="2026-10-08T09:38:45.3045149+00:00" endTime="2026-10-08T09:38:45.3049091+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e200063d-b546-4688-801c-d6ff25acaefc" />
+    <UnitTestResult executionId="55b8147e-c79f-4362-8e7e-618bfc0eaf44" testId="5ba1be11-aea8-da1b-97f3-fee070afe81d" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.ApplyAndRead_RepresentsEveryAuthoritativeStatus(status: Normal, reasonCode: null)" computerName="b913ada63f7d" duration="00:00:00.0299527" startTime="2026-10-08T09:38:45.2758856+00:00" endTime="2026-10-08T09:38:45.2875643+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="55b8147e-c79f-4362-8e7e-618bfc0eaf44" />
+    <UnitTestResult executionId="ef59cbbb-25ab-456a-a8bd-96756e5e6147" testId="5d350ed7-85ee-e937-a0bb-df794449798f" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.KnownHotRead_OneThousandConcurrentCallersNeverInvokeSource" computerName="b913ada63f7d" duration="00:00:00.0025868" startTime="2026-10-08T09:38:46.7245572+00:00" endTime="2026-10-08T09:38:46.7270483+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ef59cbbb-25ab-456a-a8bd-96756e5e6147" />
+    <UnitTestResult executionId="2388cf04-6586-4dad-977c-9a6c909449e9" testId="bd605559-d213-f103-75ea-9e75188c53ba" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownRead_OneThousandConcurrentCallersUseOneWholeSubjectSourceLoad" computerName="b913ada63f7d" duration="00:00:00.0138929" startTime="2026-10-08T09:38:46.7013758+00:00" endTime="2026-10-08T09:38:46.7182921+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2388cf04-6586-4dad-977c-9a6c909449e9" />
+    <UnitTestResult executionId="302e222e-3e09-4990-83cd-7e3c4bf9a71b" testId="d3f75189-013b-4262-78dc-4eb344f4e29c" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownRead_CanceledFirstWaiterDoesNotBreakWholeSubjectSingleflight" computerName="b913ada63f7d" duration="00:00:00.0051470" startTime="2026-10-08T09:38:46.7185821+00:00" endTime="2026-10-08T09:38:46.7225208+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="302e222e-3e09-4990-83cd-7e3c4bf9a71b" />
+    <UnitTestResult executionId="973f9ab7-111d-4682-85eb-fe57de72d27b" testId="365aa1d6-084a-b043-0fd7-a045bb6f5884" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.ApplyAndRead_RepresentsEveryAuthoritativeStatus(status: Deleted, reasonCode: null)" computerName="b913ada63f7d" duration="00:00:00.0003954" startTime="2026-10-08T09:38:45.3017944+00:00" endTime="2026-10-08T09:38:45.3019182+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="973f9ab7-111d-4682-85eb-fe57de72d27b" />
+    <UnitTestResult executionId="dc4aa7bc-d8c8-4eb8-b6b1-9932dd5e8cb4" testId="c07e26e2-e539-9123-f146-c2963a4fc03f" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.Apply_OneHundredThousandSubjectsNeverExceedsResidentBudgets" computerName="b913ada63f7d" duration="00:00:01.3937156" startTime="2026-10-08T09:38:45.3056409+00:00" endTime="2026-10-08T09:38:46.6997191+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="dc4aa7bc-d8c8-4eb8-b6b1-9932dd5e8cb4" />
+    <UnitTestResult executionId="0ea62c3d-096a-414d-b546-480b9213d76f" testId="77b0ad19-5326-8a80-7d2e-7f930efc72a9" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownSourceFailure_FailsClosedAndDoesNotCreateNormalState" computerName="b913ada63f7d" duration="00:00:00.0017386" startTime="2026-10-08T09:38:46.7227101+00:00" endTime="2026-10-08T09:38:46.7243646+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0ea62c3d-096a-414d-b546-480b9213d76f" />
+    <UnitTestResult executionId="5a96381e-84eb-495a-bc6e-497edfa280a7" testId="e7603cd1-15d2-6932-e0e6-5b8e92938a9b" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests.BanUnbanBan_OutOfOrderAndDuplicateDeliveryConvergesAcrossTwoNodes" computerName="b913ada63f7d" duration="00:00:00.0035718" startTime="2026-10-08T09:38:45.4265528+00:00" endTime="2026-10-08T09:38:45.4266520+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5a96381e-84eb-495a-bc6e-497edfa280a7" />
+    <UnitTestResult executionId="077d99cd-6985-4319-b395-5fa3282368cc" testId="35843119-6524-50c3-0896-0e349b5d7a07" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.OversizedHigherGenerationFailsClosedInsteadOfPreservingKnownNormal" computerName="b913ada63f7d" duration="00:00:00.0004262" startTime="2026-10-08T09:38:45.3051604+00:00" endTime="2026-10-08T09:38:45.3054354+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="077d99cd-6985-4319-b395-5fa3282368cc" />
+    <UnitTestResult executionId="caaebeaf-967d-42e4-88a3-6225b452c846" testId="7e561a0e-2776-0029-3774-a4fe342eb151" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownSourceMissingOrSubjectMismatchNeverBecomesNormal" computerName="b913ada63f7d" duration="00:00:00.0143625" startTime="2026-10-08T09:38:45.3041409+00:00" endTime="2026-10-08T09:38:45.3042128+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="caaebeaf-967d-42e4-88a3-6225b452c846" />
+    <UnitTestResult executionId="4ee77a06-b7d2-46f5-8692-d2e0d661975e" testId="d84f4ba8-57f6-1114-61d8-0efb06c4d3fa" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests.DurableTarget_RoundTripsBoundedReasonCodeAndCanReplayAfterRestart" computerName="b913ada63f7d" duration="00:00:00.0010539" startTime="2026-10-08T09:38:45.4162944+00:00" endTime="2026-10-08T09:38:45.4167184+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4ee77a06-b7d2-46f5-8692-d2e0d661975e" />
+    <UnitTestResult executionId="11c010ac-ff6a-493a-b8d9-30d235ca4e1f" testId="d2b2f6ca-1210-72e6-e1a5-ea8e12fb3705" testName="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.Apply_EnforcesEntryAndUtf8ResidentByteBudgetsAndEvictionReturnsUnknown" computerName="b913ada63f7d" duration="00:00:00.0004307" startTime="2026-10-08T09:38:46.7271882+00:00" endTime="2026-10-08T09:38:46.7275348+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="11c010ac-ff6a-493a-b8d9-30d235ca4e1f" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownSourceFailure_FailsClosedAndDoesNotCreateNormalState" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="77b0ad19-5326-8a80-7d2e-7f930efc72a9">
+      <Execution id="0ea62c3d-096a-414d-b546-480b9213d76f" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="UnknownSourceFailure_FailsClosedAndDoesNotCreateNormalState" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.Apply_OneHundredThousandSubjectsNeverExceedsResidentBudgets" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="c07e26e2-e539-9123-f146-c2963a4fc03f">
+      <Execution id="dc4aa7bc-d8c8-4eb8-b6b1-9932dd5e8cb4" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="Apply_OneHundredThousandSubjectsNeverExceedsResidentBudgets" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests.DurableTarget_RoundTripsBoundedReasonCodeAndCanReplayAfterRestart" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="d84f4ba8-57f6-1114-61d8-0efb06c4d3fa">
+      <Execution id="4ee77a06-b7d2-46f5-8692-d2e0d661975e" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests" name="DurableTarget_RoundTripsBoundedReasonCodeAndCanReplayAfterRestart" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownSourceMissingOrSubjectMismatchNeverBecomesNormal" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="7e561a0e-2776-0029-3774-a4fe342eb151">
+      <Execution id="caaebeaf-967d-42e4-88a3-6225b452c846" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="UnknownSourceMissingOrSubjectMismatchNeverBecomesNormal" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownRead_CanceledFirstWaiterDoesNotBreakWholeSubjectSingleflight" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="d3f75189-013b-4262-78dc-4eb344f4e29c">
+      <Execution id="302e222e-3e09-4990-83cd-7e3c4bf9a71b" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="UnknownRead_CanceledFirstWaiterDoesNotBreakWholeSubjectSingleflight" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests.BanUnbanBan_OutOfOrderAndDuplicateDeliveryConvergesAcrossTwoNodes" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="e7603cd1-15d2-6932-e0e6-5b8e92938a9b">
+      <Execution id="5a96381e-84eb-495a-bc6e-497edfa280a7" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests" name="BanUnbanBan_OutOfOrderAndDuplicateDeliveryConvergesAcrossTwoNodes" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.ApplyAndRead_RepresentsEveryAuthoritativeStatus(status: Banned, reasonCode: &quot;manual_ban&quot;)" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="53b77d2b-4d25-a8df-d57a-57b5b082b526">
+      <Execution id="8a949d66-f947-419d-9e1e-6408429fb639" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="ApplyAndRead_RepresentsEveryAuthoritativeStatus" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests.PreparedEvent_IsDurableBeforePublish_AndDegradedPublishRemainsTrackable" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="2e53a2ef-650c-1529-6dfc-f1a9234a5a96">
+      <Execution id="ac148819-350b-429d-9dec-6403ea1089c3" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests" name="PreparedEvent_IsDurableBeforePublish_AndDegradedPublishRemainsTrackable" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.OversizedHigherGenerationFailsClosedInsteadOfPreservingKnownNormal" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="35843119-6524-50c3-0896-0e349b5d7a07">
+      <Execution id="077d99cd-6985-4319-b395-5fa3282368cc" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="OversizedHigherGenerationFailsClosedInsteadOfPreservingKnownNormal" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownRead_OneThousandConcurrentCallersUseOneWholeSubjectSourceLoad" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="bd605559-d213-f103-75ea-9e75188c53ba">
+      <Execution id="2388cf04-6586-4dad-977c-9a6c909449e9" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="UnknownRead_OneThousandConcurrentCallersUseOneWholeSubjectSourceLoad" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.Apply_RejectsStaleAndDuplicateAndFailsClosedOnSameGenerationConflict" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="3919832e-bd25-c54f-02e0-3ef519102a74">
+      <Execution id="e200063d-b546-4688-801c-d6ff25acaefc" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="Apply_RejectsStaleAndDuplicateAndFailsClosedOnSameGenerationConflict" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.ApplyAndRead_RepresentsEveryAuthoritativeStatus(status: Deleted, reasonCode: null)" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="365aa1d6-084a-b043-0fd7-a045bb6f5884">
+      <Execution id="973f9ab7-111d-4682-85eb-fe57de72d27b" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="ApplyAndRead_RepresentsEveryAuthoritativeStatus" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.ApplyAndRead_RepresentsEveryAuthoritativeStatus(status: Normal, reasonCode: null)" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="5ba1be11-aea8-da1b-97f3-fee070afe81d">
+      <Execution id="55b8147e-c79f-4362-8e7e-618bfc0eaf44" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="ApplyAndRead_RepresentsEveryAuthoritativeStatus" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.KnownHotRead_OneThousandConcurrentCallersNeverInvokeSource" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="5d350ed7-85ee-e937-a0bb-df794449798f">
+      <Execution id="ef59cbbb-25ab-456a-a8bd-96756e5e6147" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="KnownHotRead_OneThousandConcurrentCallersNeverInvokeSource" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.BanStateProjectionTests.Apply_EnforcesEntryAndUtf8ResidentByteBudgetsAndEvictionReturnsUnknown" storage="/workspace/fsusblog-3647-docs-only/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="d2b2f6ca-1210-72e6-e1a5-ea8e12fb3705">
+      <Execution id="11c010ac-ff6a-493a-b8d9-30d235ca4e1f" />
+      <TestMethod codeBase="/workspace/FsusBlog-3647-docs-only/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.BanStateProjectionTests" name="Apply_EnforcesEntryAndUtf8ResidentByteBudgetsAndEvictionReturnsUnknown" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="53b77d2b-4d25-a8df-d57a-57b5b082b526" executionId="8a949d66-f947-419d-9e1e-6408429fb639" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2e53a2ef-650c-1529-6dfc-f1a9234a5a96" executionId="ac148819-350b-429d-9dec-6403ea1089c3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3919832e-bd25-c54f-02e0-3ef519102a74" executionId="e200063d-b546-4688-801c-d6ff25acaefc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5ba1be11-aea8-da1b-97f3-fee070afe81d" executionId="55b8147e-c79f-4362-8e7e-618bfc0eaf44" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5d350ed7-85ee-e937-a0bb-df794449798f" executionId="ef59cbbb-25ab-456a-a8bd-96756e5e6147" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bd605559-d213-f103-75ea-9e75188c53ba" executionId="2388cf04-6586-4dad-977c-9a6c909449e9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d3f75189-013b-4262-78dc-4eb344f4e29c" executionId="302e222e-3e09-4990-83cd-7e3c4bf9a71b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="365aa1d6-084a-b043-0fd7-a045bb6f5884" executionId="973f9ab7-111d-4682-85eb-fe57de72d27b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c07e26e2-e539-9123-f146-c2963a4fc03f" executionId="dc4aa7bc-d8c8-4eb8-b6b1-9932dd5e8cb4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="77b0ad19-5326-8a80-7d2e-7f930efc72a9" executionId="0ea62c3d-096a-414d-b546-480b9213d76f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e7603cd1-15d2-6932-e0e6-5b8e92938a9b" executionId="5a96381e-84eb-495a-bc6e-497edfa280a7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="35843119-6524-50c3-0896-0e349b5d7a07" executionId="077d99cd-6985-4319-b395-5fa3282368cc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e561a0e-2776-0029-3774-a4fe342eb151" executionId="caaebeaf-967d-42e4-88a3-6225b452c846" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d84f4ba8-57f6-1114-61d8-0efb06c4d3fa" executionId="4ee77a06-b7d2-46f5-8692-d2e0d661975e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d2b2f6ca-1210-72e6-e1a5-ea8e12fb3705" executionId="11c010ac-ff6a-493a-b8d9-30d235ca4e1f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="15" executed="15" passed="15" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.36]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:01.43]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:01.47]   Starting:    FsusBlog.Server.Tests
+[xUnit.net 00:00:02.97]   Finished:    FsusBlog.Server.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

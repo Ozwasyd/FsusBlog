@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored /workspace/FsusBlog-3647-docs-only/src/backend/FsusBlog.Server.csproj (in 724 ms).
+  Restored /workspace/FsusBlog-3647-docs-only/src/shared/FsusBlog.Shared.csproj (in 3 ms).
+  Restored /workspace/FsusBlog-3647-docs-only/src/core/FsusBlog.Core.csproj (in 7 ms).
+  Restored /workspace/FsusBlog-3647-docs-only/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 31 ms).
+/workspace/FsusBlog-3647-docs-only/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  Restored /workspace/FsusBlog-3647-docs-only/tests/backend/FsusBlog.Server.Tests.csproj (in 83 ms).
+/workspace/FsusBlog-3647-docs-only/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog-3647-docs-only/tests/backend/FsusBlog.Server.Tests.csproj]
+  Restored /workspace/FsusBlog-3647-docs-only/src/migration/FsusBlog.Migration.csproj (in 30 ms).

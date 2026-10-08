@@ -1,0 +1,15 @@
+{
+  "scope": "trusted exact-base prospective local PR metadata and complete-diff scoped intent; not actual GitHub PR admission or global intent qualification",
+  "base": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+  "head": "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2",
+  "changedFiles": [
+    "artifacts/change-contract/ban-projection-docs-external-naming.json",
+    "src/backend/Infrastructure/Security/BanStateProjection.cs"
+  ],
+  "errors": [],
+  "intent": {
+    "errors": [],
+    "checkedFiles": 1,
+    "scopedFiles": 0
+  }
+}
