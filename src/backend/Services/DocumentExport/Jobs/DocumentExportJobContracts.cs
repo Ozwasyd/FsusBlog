@@ -175,3 +175,11 @@ public sealed class DocumentExportJobDeniedException : Exception
     {
     }
 }
+
+/// <summary>
+/// Internal publication fence marker. An invalid canonical completion state
+/// cannot release the durable worker/source or replace its cleanup obligation.
+/// This marker provides no independent resource or quiescence authority.
+/// </summary>
+internal sealed class DocumentExportJobResourceStateException(InvalidDataException inner)
+    : IOException("document_export_attempt_resources_unqualified", inner);

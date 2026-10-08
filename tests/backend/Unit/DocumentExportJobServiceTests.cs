@@ -467,7 +467,18 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         Assert.Equal(DocumentExportDigest.Serialize(result),
             DocumentExportDigest.Serialize(await Service().GetAsync(_actor, task.TaskId, default)));
         await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => service.GrantAsync(_actor, task.TaskId, default));
+        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v2");
+        DocumentExportJobState state = DocumentExportDigest.Deserialize<DocumentExportJobState>(protector.Unprotect(File.ReadAllBytes(StatePath)));
+        Assert.NotNull(state.Jobs[0].WorkerDigest);
+        Assert.NotNull(state.Jobs[0].Input);
+        Assert.NotNull(state.Jobs[0].PendingOutput);
+        Assert.Null(result.Output);
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => service.RecoverInterruptedAsync(task.TaskId, new TestRecovery(false), default));
         await service.CleanupAsync(default);
+        Assert.Single(Directory.GetFiles(JobRoot, "*.object", SearchOption.AllDirectories));
+        DocumentExportJobSnapshot recovered = await service.RecoverInterruptedAsync(task.TaskId, new TestRecovery(true), default);
+        Assert.Equal(DocumentExportTaskStatus.Failed, recovered.Task.Status);
+        Assert.Equal(result.Attempts[0], recovered.Attempts[0]);
         Assert.Empty(Directory.GetFiles(JobRoot, "*.object", SearchOption.AllDirectories));
     }
 
