@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest 05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest d905eeb37d0ffe25699eef55aaa9005d940223b2f7962d6d84ac03b3f214bb55; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff' as const;
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = 'd905eeb37d0ffe25699eef55aaa9005d940223b2f7962d6d84ac03b3f214bb55' as const;
 export const BEHAVIOR_CONTRACTS = [
     {
         "id": "test-asset-audit-reconciliation",
@@ -304,10 +304,10 @@ export const BEHAVIOR_CONTRACTS = [
                 "owner": "release",
                 "anchor": "release.finalizer-contract",
                 "claimIds": [
-                    "release-final-aggregate-contract.finalizer"
+                    "release-final-aggregate-contract.finalizer-authority"
                 ],
                 "sectionIds": [
-                    "release.finalizer-contract"
+                    "release.finalizer-authority"
                 ],
                 "proofIds": [
                     "release-final-coverage-thresholds",
@@ -319,10 +319,12 @@ export const BEHAVIOR_CONTRACTS = [
                 "owner": "release",
                 "anchor": "release.current-run-identity",
                 "claimIds": [
-                    "release-final-aggregate-contract.current-run-binding"
+                    "release-final-aggregate-contract.aggregate-only",
+                    "release-final-aggregate-contract.aggregate-artifact-only",
+                    "release-final-aggregate-contract.aggregate-contract"
                 ],
                 "sectionIds": [
-                    "release.current-run-binding"
+                    "release.aggregate-contract"
                 ],
                 "proofIds": [
                     "immutable-release-identity",
@@ -366,7 +368,8 @@ export const BEHAVIOR_CONTRACTS = [
                 "owner": "release",
                 "anchor": "deployment.blue-green-contract",
                 "claimIds": [
-                    "deployment-blue-green-runtime-role.blue-green"
+                    "deployment-blue-green-runtime-role.claims-blocked-until-authority-verified",
+                    "deployment-blue-green-runtime-role.blue-green-contract"
                 ],
                 "sectionIds": [
                     "deployment.blue-green-contract"
@@ -381,10 +384,12 @@ export const BEHAVIOR_CONTRACTS = [
                 "owner": "backend",
                 "anchor": "deployment.runtime-role-contract",
                 "claimIds": [
-                    "deployment-blue-green-runtime-role.runtime-role"
+                    "deployment-blue-green-runtime-role.distributed-issue-rationale",
+                    "deployment-blue-green-runtime-role.monolithic-distributed-rationale",
+                    "deployment-blue-green-runtime-role.runtime-roles"
                 ],
                 "sectionIds": [
-                    "deployment.runtime-role-contract"
+                    "deployment.runtime-roles"
                 ],
                 "proofIds": [
                     "deployment-runtime-lifecycle"

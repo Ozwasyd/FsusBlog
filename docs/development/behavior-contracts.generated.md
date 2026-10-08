@@ -1,4 +1,4 @@
-<!-- Generated from config/contracts/behavior-contracts.json; digest 05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff; do not edit by hand. -->
+<!-- Generated from config/contracts/behavior-contracts.json; digest d905eeb37d0ffe25699eef55aaa9005d940223b2f7962d6d84ac03b3f214bb55; do not edit by hand. -->
 
 # Behavior Contract Index
 

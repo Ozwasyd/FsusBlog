@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/contracts/behavior-contracts.json"
+    ],
+    "outputs": [
+        {
+            "path": "docs/development/behavior-contracts.generated.md",
+            "sha256": "70e60fc64371a8d37041a33829095f7aca3537ecce44f826b1c7d7526b18b972"
+        },
+        {
+            "path": "src/frontend/src/contracts/behaviorContractCatalog.ts",
+            "sha256": "a84c2cbd318dbf832af777911e5d074715f93526f06871b316a77839ef326087"
+        },
+        {
+            "path": "src/shared/Contracts/Governance/BehaviorContractCatalog.g.cs",
+            "sha256": "06b2d466660849fd1cfccc45f3cfb0ceee8bc9e314c7c4e2ab4c3815e2f42d27"
+        }
+    ]
+}
