@@ -12,6 +12,13 @@ const { bindProductionBuildLayoutSource, finalizeProductionBuildLayout, prepareP
 const { collectSchedulerProcessGroupOrJobIdentity, createSchedulerRunOwner, finalizeSchedulerRunOwner, heartbeatSchedulerRunOwner, readSchedulerProducerTerminalFailure, schedulerCandidateIdentityDigest, schedulerProcessGroupOrJobIdentityIsComplete, schedulerRunOwnerFields, schedulerRunOwnerSchema, sealSchedulerRunOwner, verifySchedulerProcessAuthority, verifySchedulerRunOwner } = await import(new URL("../../tools/test-matrix/scheduler-run-owner.mjs", import.meta.url));
 const { findLatestRunId, reclaimSchedulerRunLock, runDag, schedulerRunLockActivity, schedulerRunLockIsActive } = await import(new URL("../../tools/test-matrix/scheduler.mjs", import.meta.url));
 const { runWindowsJobSupervisorStateMachine, windowsJobSupervisorStateSchema } = await import(new URL("../../tools/test-matrix/windows-job-supervisor-state.mjs", import.meta.url));
+const {
+    acquireSchedulerRunLock,
+    createSchedulerTierAdmission,
+    schedulerTierAdmissionActivity,
+    writeSchedulerTierAdmission
+} = await import(new URL('../../tools/test-matrix/scheduler-run-owner.mjs', import.meta.url));
+const { RunEvidenceObjectStore } = await import(new URL('../../tools/test-matrix/content-addressed-evidence-store.mjs', import.meta.url));
 
 import {
     createBehaviorDocAdmissionFixture,
@@ -1089,4 +1096,116 @@ test('PowerShell supervisor declares the same tested Job state-machine schema', 
         'utf8'
     );
     assert.match(script, new RegExp(windowsJobSupervisorStateSchema.replaceAll('.', '\\.'), 'u'));
+});
+
+test('scheduler tier admission observation preserves custody and refuses missing evidence directories', (t) =>
+{
+    const root = fixture(t, 'scheduler-admission-read-only');
+    const runsRoot = path.join(root, 'runs');
+    const runId = 'admission-read-only';
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
+    const candidateIdentityDigest = schedulerCandidateIdentityDigest({
+        runId,
+        targetTierId: 'release-final',
+        namespace: 'test-matrix',
+        sourceState,
+        budgetPolicyDigest: null
+    });
+    const lock = acquireSchedulerRunLock({
+        runsRoot,
+        runId,
+        candidateIdentityDigest,
+        targetTierId: 'release-final'
+    });
+    t.after(() => lock.finalize('complete'));
+    assert.equal(lock.markRunning(), true);
+    const storeRoot = path.join(runsRoot, runId, 'evidence-store');
+    const writer = new RunEvidenceObjectStore({ root: storeRoot, runId, sourceState });
+    const admission = createSchedulerTierAdmission({
+        runId,
+        targetTierId: 'release-final',
+        currentTierId: 'behavior-evidence-post-runtime',
+        namespace: 'test-matrix',
+        mode: 'fresh',
+        sourceState,
+        schedulerCandidateIdentityDigest: candidateIdentityDigest,
+        schedulerOwnerToken: lock.owner.ownerToken,
+        budgetPolicyDigest: null,
+        schedulerCheckpointRevision: 1,
+        admissionSequence: 1,
+        activeTierIds: [],
+        releaseFinalSpawnCountBeforeAdmission: 0
+    });
+    const published = writeSchedulerTierAdmission({ runsRoot, admission });
+    const reference = {
+        schema: published.schema,
+        ref: path.relative(root, published.file).replaceAll(path.sep, '/'),
+        fileDigest: published.fileDigest,
+        contentDigest: published.contentDigest,
+        currentTierId: published.currentTierId,
+        admissionSequence: published.admissionSequence
+    };
+    writer.appendJournalEvent({
+        eventType: 'tier-admitted',
+        tier: admission.currentTierId,
+        step: 'scheduler',
+        status: 'running',
+        payload: { operations: [{ kind: 'set', path: ['schedulerAdmissions', admission.currentTierId], value: reference }] }
+    });
+    const snapshot = () => ['.', ...fs.readdirSync(storeRoot, { recursive: true }).sort()].map((file) =>
+    {
+        const target = path.join(storeRoot, file);
+        const stat = fs.lstatSync(target, { bigint: true });
+        return {
+            file,
+            inode: stat.ino,
+            mode: stat.mode,
+            mtimeNs: stat.mtimeNs,
+            ctimeNs: stat.ctimeNs,
+            bytes: stat.isFile() ? fs.readFileSync(target).toString('base64') : null
+        };
+    });
+    const observe = () => schedulerTierAdmissionActivity({ runsRoot, admission, reference });
+    const before = snapshot();
+    assert.equal(observe().status, 'active');
+    assert.equal(observe().status, 'active');
+    assert.deepEqual(snapshot(), before, 'repeated valid observation must not mutate evidence custody');
+    for (const name of ['objects', 'receipts', 'journals', 'checkpoints'])
+    {
+        const directory = path.join(storeRoot, name);
+        const retained = path.join(root, `${name}-retained`);
+        fs.renameSync(directory, retained);
+        try
+        {
+            const missingSnapshot = snapshot();
+            for (let attempt = 0; attempt < 2; attempt += 1)
+            {
+                assert.equal(observe().status, 'invalid', `${name}: incomplete store must refuse admission`);
+                assert.equal(fs.existsSync(directory), false, `${name}: observation must not recreate missing authority`);
+                assert.deepEqual(snapshot(), missingSnapshot, `${name}: refusal must preserve surviving custody`);
+            }
+        }
+        finally
+        {
+            if (fs.existsSync(directory))
+            {
+                fs.rmSync(directory, { recursive: true });
+            }
+            fs.renameSync(retained, directory);
+        }
+    }
+    const retainedStore = path.join(root, 'store-retained');
+    fs.renameSync(storeRoot, retainedStore);
+    try
+    {
+        assert.equal(observe().status, 'invalid');
+        assert.equal(fs.existsSync(storeRoot), false, 'observation must not recreate the missing store');
+    }
+    finally
+    {
+        fs.renameSync(retainedStore, storeRoot);
+    }
+    const restoredSnapshot = snapshot();
+    assert.equal(observe().status, 'active');
+    assert.deepEqual(snapshot(), restoredSnapshot, 'restored custody must remain unchanged after observation');
 });
