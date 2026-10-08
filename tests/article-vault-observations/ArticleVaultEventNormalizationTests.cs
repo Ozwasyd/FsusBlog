@@ -368,6 +368,23 @@ public sealed class ArticleVaultEventNormalizationTests
             static item => item == "vault_observation_sequence_gap");
     }
 
+    [Theory]
+    [InlineData("linux_vault_descriptor_permission_denied", VaultNormalizedEventClass.PermissionBlocked)]
+    [InlineData("vault_snapshot_native_metadata_changed", VaultNormalizedEventClass.IncompleteWrite)]
+    public void NativeReadDenials_RetainExactRescanReasonAndCannotBecomeRemovalOrOldContentChange(
+        string reason, VaultNormalizedEventClass expected)
+    {
+        ArticleVaultRootManifest root = Root();
+        VaultFilesystemObservation denied = new(PathA, false, null, reason);
+        VaultObservationBatch batch = Normalize(root, [Fact(1, VaultRawObservationClass.Modified)],
+            [Present(root, "old")], [denied]);
+        Assert.Contains(batch.Events, item => item.Class == expected && item.ReasonCode == reason);
+        Assert.Contains(reason, Assert.Single(batch.RescanObligations).ReasonCodes);
+        Assert.DoesNotContain(batch.Events, static item => item.Class is VaultNormalizedEventClass.Removed
+            or VaultNormalizedEventClass.ContentChanged);
+        Assert.False(batch.CanAdmitSynchronization);
+    }
+
     private static ArticleVaultRootManifest Root(params string[] paths)
         => ArticleVaultSnapshotAssessmentTests.CreateRoot(paths);
 

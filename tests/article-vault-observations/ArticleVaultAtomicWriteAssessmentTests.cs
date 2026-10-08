@@ -81,6 +81,7 @@ public sealed class ArticleVaultAtomicWriteAssessmentTests
         foreach (ArticleVaultMaterializationInstruction altered in new[]
         {
             instruction with { AgentIdentity = "other" },
+            instruction with { RootManifestSha256 = new string('b', 64) },
             instruction with { PortableArticleIdentity = "other" },
             instruction with { Action = VaultMaterializationSourceAction.Remove },
             instruction with { Action = VaultMaterializationSourceAction.Update },
@@ -120,6 +121,26 @@ public sealed class ArticleVaultAtomicWriteAssessmentTests
         }
     }
 
+    [Theory]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "vault_atomic_metadata_observation_unavailable")]
+    [InlineData("invalid", "vault_atomic_metadata_expectation_invalid")]
+    public void CanonicalMetadataExpectation_CannotBeIgnoredOrInferredFromSourceBytes(string metadataDigest, string reason)
+    {
+        ArticleVaultRootManifest root = Root();
+        byte[] bytes = Encoding.UTF8.GetBytes("complete");
+        ArticleVaultMaterializationInstruction instruction = Instruction(root, VaultMaterializationSourceAction.VerifyUnchanged,
+            ArticleVaultManifestCodec.CaptureSourceBytes(bytes), ArticleVaultManifestCodec.CaptureSourceBytes(bytes));
+        instruction = Seal(instruction with
+        {
+            ExpectedOldMetadataManifestSha256 = metadataDigest
+        });
+        VaultAtomicWriteAssessment result = ArticleVaultAtomicWriteAssessor.Assess(root, Scope(root), instruction,
+            Current(root, true, bytes), bytes);
+        Assert.Contains(reason, result.BlockedReasonCodes);
+        Assert.False(result.CanExecuteAtomicWrite);
+        Assert.False(result.CanCommitBase);
+    }
+
     private static ArticleVaultRootManifest Root()
         => ArticleVaultSnapshotAssessmentTests.CreateRoot();
 
@@ -142,8 +163,8 @@ public sealed class ArticleVaultAtomicWriteAssessmentTests
         VaultMaterializationSourceAction action, VaultSourceByteIdentity? oldSource, VaultSourceByteIdentity? newSource)
         => Seal(new ArticleVaultMaterializationInstruction(ArticleVaultMaterializationInstructionCodec.Schema, 1,
             root.SiteIdentity, root.VaultIdentity, root.DeviceIdentity, Scope(root).AgentIdentity,
-            "plan-ref", Digest, "result-ref", Digest, "group", "operation", "portable-a",
-            new(PathA, Digest), action, oldSource, newSource, Digest, "journal", string.Empty));
+            "plan-ref", Digest, root.ContentSha256, "result-ref", Digest, "group", "operation", "portable-a",
+            new(PathA, Digest), action, oldSource, newSource, null, Digest, "journal", string.Empty));
 
     private static ArticleVaultMaterializationInstruction Seal(ArticleVaultMaterializationInstruction instruction)
         => instruction with

@@ -93,6 +93,16 @@ public static class ArticleVaultEventNormalizer
                 root, binding.Scope, file.RelativePath, paths);
             long[] sequences = Sequences(raw, file.RelativePath);
             string? identity = path.PortableArticleIdentity;
+            if (file.NativeFailureReasonCode is { } nativeFailure)
+            {
+                reasons.Add(nativeFailure);
+                bool permissionFailure = nativeFailure is "linux_vault_descriptor_permission_denied"
+                    or "linux_vault_path_permission_blocked" or "vault_snapshot_permission_blocked";
+                AddEvent(events, new(permissionFailure ? VaultNormalizedEventClass.PermissionBlocked
+                    : VaultNormalizedEventClass.IncompleteWrite, file.RelativePath, null,
+                    identity, sequences, null, nativeFailure));
+                continue;
+            }
             if (path.Classification == VaultPathStructuralClass.RegisteredControlPath)
             {
                 if (sequences.Length > 0)
@@ -324,6 +334,11 @@ public static class ArticleVaultEventNormalizer
             foreach (VaultFilesystemObservation file in inventory)
             {
                 ValidatePath(file.RelativePath);
+                if (file.NativeFailureReasonCode is not null
+                    && (!IsReason(file.NativeFailureReasonCode) || file.Assessment is not null))
+                {
+                    throw new InvalidDataException("vault_observation_native_failure_invalid");
+                }
                 VaultSnapshotAssessment? snapshot = file.Assessment;
                 if (!file.Present && snapshot is not null
                     || snapshot is not null && (snapshot.Scope != binding.Scope

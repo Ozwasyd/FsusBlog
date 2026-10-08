@@ -67,12 +67,19 @@ public static class ArticleVaultAtomicWriteAssessor
 
         if (instruction.SiteIdentity != scope.SiteIdentity || instruction.VaultIdentity != scope.VaultIdentity
             || instruction.DeviceIdentity != scope.DeviceIdentity || instruction.AgentIdentity != scope.AgentIdentity
+            || instruction.RootManifestSha256 != scope.RootManifestSha256
             || instruction.PortableArticleIdentity != path.PortableArticleIdentity
             || current.RelativePath != instruction.PathProjection.RelativePath
             || path.Classification != VaultPathStructuralClass.ManifestSourceProjection
             || !ArticleVaultManifestValidator.IsSha256(instruction.PathProjection.ProjectionSha256))
         {
             blocked.Add("vault_atomic_instruction_binding_invalid");
+        }
+
+        if (instruction.ExpectedOldMetadataManifestSha256 is not null)
+        {
+            blocked.Add(ArticleVaultManifestValidator.IsSha256(instruction.ExpectedOldMetadataManifestSha256)
+                ? "vault_atomic_metadata_observation_unavailable" : "vault_atomic_metadata_expectation_invalid");
         }
 
         if (!ArticleVaultManifestValidator.IsIdentity(instruction.OperationIdentity)
