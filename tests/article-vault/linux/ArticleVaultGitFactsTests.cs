@@ -22,6 +22,8 @@ public sealed class ArticleVaultGitFactsTests
         Assert.Equal(1, facts.Untracked);
         Assert.Equal(1, facts.Unmerged);
         Assert.Single(facts.RenameHints);
+        Assert.Equal(ArticleVaultManifestCodec.ComputeProjectionSha256("articles/old.md"), facts.RenameHints[0].OldProjectionSha256);
+        Assert.Equal(ArticleVaultManifestCodec.ComputeProjectionSha256("articles/moved.md"), facts.RenameHints[0].NewProjectionSha256);
         string json = Encoding.UTF8.GetString(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(facts));
         Assert.DoesNotContain("articles/", json, StringComparison.Ordinal);
         Assert.DoesNotContain("PortableArticleIdentity", json, StringComparison.Ordinal);
