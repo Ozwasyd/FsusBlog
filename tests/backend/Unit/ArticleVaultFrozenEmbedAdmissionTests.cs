@@ -213,7 +213,7 @@ public sealed class ArticleVaultFrozenEmbedAdmissionTests
                 new ArticleEmbedDirectiveProjection(ArticleEmbedSchemas.ParserContract, Target, ArticleEmbedTargetKind.Article, new ArticleEmbedSourceRange(0, 40)),
                 target, ArticleEmbedRequestedScope.Authoring, actor, runtime, Digest, string.Empty, _signal.Token));
             var facts = new ArticleEmbedTargetFacts(
-                Target, actor.SiteIdentity, 1, revision, revision, latest, visibility, lifecycle, permission,
+                Target, actor.SiteIdentity, 1, revision, revision, Math.Max(latest, revision), visibility, lifecycle, permission,
                 Digest, $"revision:{revision}", 128, "Private test target label",
                 new ArticleEmbedSafeProjectionReference(ArticleEmbedProjectionKind.SafeProjection, "projection:target", Digest), [], [], []);
             ArticleEmbedAuthoritySnapshot snapshot = ArticleEmbedAuthoringContractValidator.Seal(new ArticleEmbedAuthoritySnapshot(
