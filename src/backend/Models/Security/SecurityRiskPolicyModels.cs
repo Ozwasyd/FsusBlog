@@ -1,4 +1,3 @@
-using FsusBlog.Shared.Contracts.Security;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Security.Cryptography;
@@ -140,7 +139,11 @@ public sealed record SecurityRiskActionPolicy(
     bool AnonymousWriteAllowed)
 {
     [System.Text.Json.Serialization.JsonIgnore]
-    internal bool IsSealed { get; init; }
+    internal bool IsSealed
+    {
+        get;
+        init;
+    }
 
     public IReadOnlyList<string> HardChallengeKinds { get; init; } = [];
 
@@ -235,7 +238,10 @@ public sealed record SecurityRiskPolicy(
         {
             WriteCanonical(document.RootElement, writer);
         }
-        return policy with { Digest = Convert.ToHexStringLower(SHA256.HashData(canonical.ToArray())) };
+        return policy with
+        {
+            Digest = Convert.ToHexStringLower(SHA256.HashData(canonical.ToArray()))
+        };
     }
 
     private static void WriteCanonical(JsonElement element, Utf8JsonWriter writer)
