@@ -3,7 +3,7 @@
 import { mount } from '@vue/test-utils';
 import { effectScope, nextTick, ref, shallowRef } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ElIcon } from '@ozwasyd/element-plus';
+import { ElDrawer, ElIcon } from '@ozwasyd/element-plus';
 
 import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue';
 import MarkdownTextEditor from '@/components/ui/MarkdownTextEditor.vue';
@@ -40,7 +40,7 @@ describe('article palette host composition lifecycle', () => {
         'preserves composition in the actual Writer and resumes normal shortcuts afterward %j', async modifier => {
             const host = document.createElement('section');
             document.body.append(host);
-            const writer = mount(ArticleWriteEditor, { attachTo: host, global: { components: { ElIcon } }, props: {
+            const writer = mount(ArticleWriteEditor, { attachTo: host, global: { components: { ElDrawer, ElIcon } }, props: {
                 modelValue: 'Unchanged writer source',
                 documentIdentity: { id: 'article:writer-composition', epoch: 1 }
             } });
