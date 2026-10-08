@@ -7,8 +7,7 @@
                 "config/testing/correctness-attempt-producers.json",
                 "tests/backend/packages.lock.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/governance/test-lifecycle-registry.json",
-                "tests/test-retention-replacements.json"
+                "tests/governance/test-lifecycle-registry.json"
             ],
             "reason": "Preserve NuGet lock schema and canonical lifecycle registry keys while consuming only the coordinator-verified publication acceptance prerequisites."
         },
