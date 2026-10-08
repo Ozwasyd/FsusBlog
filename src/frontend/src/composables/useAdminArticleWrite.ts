@@ -1,4 +1,3 @@
-import { type FormInstance } from '@ozwasyd/element-plus';
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -80,6 +79,8 @@ import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegis
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
+
+import type { FormItemContext, FormValidateCallback, FormValidationResult } from '@ozwasyd/element-plus';
 
 interface ArticleParams {
     title: string;
@@ -474,7 +475,10 @@ export function useAdminArticleWrite()
     const router = useRouter();
     const powProvider = usePow();
     const adminStore = useAdminStore();
-    const formRef = useTemplateRef<FormInstance>('formRef');
+    const formRef = useTemplateRef<{
+        validate: (callback?: FormValidateCallback) => FormValidationResult;
+        fields: readonly FormItemContext[];
+    }>('formRef');
     const articleId = computed(() =>
     {
         const raw = route.params.id ?? route.query.id;
