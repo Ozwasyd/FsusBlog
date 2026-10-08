@@ -12,6 +12,127 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class DataScalePhysicalBatchReadbackTests
 {
     [Theory]
+    [InlineData(false, null, (int)DataScalePhysicalRecoveryState.Empty, 0)]
+    [InlineData(true, null, (int)DataScalePhysicalRecoveryState.Exact, 2)]
+    [InlineData(true, "DELETE FROM readback_rows WHERE id = 1", (int)DataScalePhysicalRecoveryState.Conflict, 1)]
+    [InlineData(true, "UPDATE readback_rows SET text_value = 'tampered' WHERE id = 1", (int)DataScalePhysicalRecoveryState.Conflict, 2)]
+    public async Task RecoveryObservation_DistinguishesEmptyExactPartialAndTamperWithoutWriting(
+        bool insert, string? tamper, int expectedState, long rows)
+    {
+        var state = (DataScalePhysicalRecoveryState)expectedState;
+        await using SqliteConnection connection = await OpenAsync();
+        await using (DbCommand sentinel = connection.CreateCommand())
+        {
+            sentinel.CommandText = "INSERT INTO readback_rows VALUES (9001, 7, 1, 'nonowned', NULL, '2026-01-01T00:00:00Z')";
+            await sentinel.ExecuteNonQueryAsync();
+        }
+        DataScaleArticlePhysicalBatch batch = Batch(2);
+        if (insert)
+        {
+            DataScaleBulkExecution result = await DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
+                connection, DataScaleBulkProvider.Sqlite, batch.Tables, DataScalePhysicalBatchReadback.ExpectedDigest(batch),
+                (db, transaction, token) => DataScalePhysicalBatchReadback.ObserveAsync(db, transaction,
+                    DataScaleBulkProvider.Sqlite, batch, token), CancellationToken.None);
+            Assert.Equal(DataScaleBulkCommitState.Committed, result.State);
+        }
+        if (tamper is not null)
+        {
+            await using DbCommand command = connection.CreateCommand();
+            command.CommandText = tamper;
+            await command.ExecuteNonQueryAsync();
+        }
+        await using DbTransaction transaction = await connection.BeginTransactionAsync();
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            DataScalePhysicalRecoveryObservation observation = await DataScalePhysicalBatchReadback.ObserveRecoveryAsync(
+                connection, transaction, DataScaleBulkProvider.Sqlite, batch, CancellationToken.None);
+            Assert.Equal(state, observation.State);
+            Assert.Equal(rows, observation.RowsObserved);
+            Assert.Equal(state == DataScalePhysicalRecoveryState.Exact, observation.Violations.Count == 0);
+            Assert.Equal(DataScalePhysicalBatchReadback.ExpectedDigest(batch), observation.ExpectedDigest);
+            Assert.Equal(state == DataScalePhysicalRecoveryState.Exact, observation.ExpectedDigest == observation.ObservedDigest);
+        }
+        await using DbCommand count = connection.CreateCommand();
+        count.Transaction = transaction;
+        count.CommandText = "SELECT COUNT(*) FROM readback_rows";
+        Assert.Equal(rows + 1, await count.ExecuteScalarAsync());
+        count.CommandText = "SELECT text_value FROM readback_rows WHERE id = 9001";
+        Assert.Equal("nonowned", await count.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task RecoveryObservation_OnePresentTableCannotAcceptAMissingDependentTable()
+    {
+        await using SqliteConnection connection = await OpenAsync();
+        await using (DbCommand create = connection.CreateCommand())
+        {
+            create.CommandText = "CREATE TABLE readback_children(id INTEGER PRIMARY KEY, number INTEGER NOT NULL, flag INTEGER NOT NULL, text_value TEXT NOT NULL, nullable_value TEXT NULL, instant TEXT NOT NULL)";
+            await create.ExecuteNonQueryAsync();
+        }
+        DataScaleArticlePhysicalBatch parent = Batch(2);
+        DataScaleBulkExecution result = await DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
+            connection, DataScaleBulkProvider.Sqlite, parent.Tables, DataScalePhysicalBatchReadback.ExpectedDigest(parent),
+            (db, transaction, token) => DataScalePhysicalBatchReadback.ObserveAsync(db, transaction,
+                DataScaleBulkProvider.Sqlite, parent, token), CancellationToken.None);
+        Assert.Equal(DataScaleBulkCommitState.Committed, result.State);
+        var expected = parent with
+        {
+            Tables = [parent.Tables[0], parent.Tables[0] with { Table = "readback_children" }],
+            PrimaryKeyColumns = new Dictionary<string, int> { ["readback_rows"] = 0, ["readback_children"] = 0 }
+        };
+        await using DbTransaction transaction = await connection.BeginTransactionAsync();
+        DataScalePhysicalRecoveryObservation observation = await DataScalePhysicalBatchReadback.ObserveRecoveryAsync(
+            connection, transaction, DataScaleBulkProvider.Sqlite, expected, CancellationToken.None);
+        Assert.Equal(DataScalePhysicalRecoveryState.Conflict, observation.State);
+        Assert.Equal(2, observation.RowsObserved);
+        Assert.Contains("physical_key_set_mismatch:readback_children", observation.Violations);
+    }
+
+    [Fact]
+    public async Task RecoveryObservation_MissingTableAndCancellationDoNotBecomeEmptyEvidence()
+    {
+        await using SqliteConnection connection = await OpenAsync();
+        await using DbTransaction transaction = await connection.BeginTransactionAsync();
+        DataScaleArticlePhysicalBatch batch = Batch(2);
+        var missing = batch with
+        {
+            Tables = [batch.Tables[0] with { Table = "missing_rows" }],
+            PrimaryKeyColumns = new Dictionary<string, int> { ["missing_rows"] = 0 }
+        };
+        await Assert.ThrowsAsync<SqliteException>(() => DataScalePhysicalBatchReadback.ObserveRecoveryAsync(
+            connection, transaction, DataScaleBulkProvider.Sqlite, missing, CancellationToken.None));
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => DataScalePhysicalBatchReadback.ObserveRecoveryAsync(
+            connection, transaction, DataScaleBulkProvider.Sqlite, batch, cancelled.Token));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(2)]
+    public async Task RecoveryObservation_RefusesNonpositiveOrDuplicateCheckpointKeys(long invalidId)
+    {
+        await using SqliteConnection connection = await OpenAsync();
+        await using DbTransaction transaction = await connection.BeginTransactionAsync();
+        DataScaleArticlePhysicalBatch batch = Batch(2);
+        object?[] row = batch.Tables[0].Rows[0].ToArray();
+        row[0] = invalidId;
+        batch = batch with { Tables = [batch.Tables[0] with { Rows = [row, batch.Tables[0].Rows[1]] }] };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => DataScalePhysicalBatchReadback.ObserveRecoveryAsync(
+            connection, transaction, DataScaleBulkProvider.Sqlite, batch, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RecoveryObservation_EmptyExpectedBatchCannotBecomeAnExactCheckpoint()
+    {
+        await using SqliteConnection connection = await OpenAsync();
+        await using DbTransaction transaction = await connection.BeginTransactionAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => DataScalePhysicalBatchReadback.ObserveRecoveryAsync(
+            connection, transaction, DataScaleBulkProvider.Sqlite, Batch(0), CancellationToken.None));
+    }
+
+    [Theory]
     [InlineData(DateTimeKind.Local)]
     [InlineData(DateTimeKind.Unspecified)]
     public void NonUtcExpectedTimestamp_IsRefusedBeforeDatabaseWrite(DateTimeKind kind)

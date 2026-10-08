@@ -7,6 +7,20 @@ using DbType = System.Data.DbType;
 
 namespace FsusBlog.Server.Services.Fixtures.DataScale;
 
+internal enum DataScalePhysicalRecoveryState
+{
+    Empty,
+    Exact,
+    Conflict
+}
+
+internal sealed record DataScalePhysicalRecoveryObservation(
+    DataScalePhysicalRecoveryState State,
+    long RowsObserved,
+    string ExpectedDigest,
+    string ObservedDigest,
+    IReadOnlyList<string> Violations);
+
 /// <summary>
 /// Independently reads every persisted column for an explicitly bound physical batch.
 /// This is a physical integrity check; logical reference persistence, external FK existence,
@@ -31,21 +45,71 @@ internal static class DataScalePhysicalBatchReadback
         DataScaleArticlePhysicalBatch expected,
         CancellationToken cancellationToken)
     {
+        ValidateExpected(expected);
+        var (observed, violations) = await ReadAsync(connection, transaction, provider, expected,
+            cancellationToken).ConfigureAwait(false);
+        string digest = Digest(observed, expected.PrimaryKeyColumns);
+        if (digest != ExpectedDigest(expected))
+        {
+            violations.Add("physical_value_digest_mismatch");
+        }
+        return new(digest, violations);
+    }
+
+    // Read-only evidence for reconciling an interrupted physical batch. Exact keys must come
+    // from the authenticated run checkpoint, never from discovery. This does not establish
+    // ownership, authorize cleanup, allocate IDs, or accept logical/derived graph obligations.
+    // The host must keep reconciliation and any subsequent write in the same transaction.
+    internal static async Task<DataScalePhysicalRecoveryObservation> ObserveRecoveryAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        DataScaleBulkProvider provider,
+        DataScaleArticlePhysicalBatch expected,
+        CancellationToken cancellationToken)
+    {
+        ValidateExpected(expected);
+        long expectedRows = expected.Tables.Sum(table => (long)table.Rows.Count);
+        if (expectedRows == 0)
+        {
+            throw new InvalidOperationException("physical_recovery_expected_batch_empty");
+        }
+        string expectedDigest = ExpectedDigest(expected);
+        var (observed, violations) = await ReadAsync(connection, transaction, provider, expected,
+            cancellationToken).ConfigureAwait(false);
+        long observedRows = observed.Sum(table => (long)table.Rows.Count);
+        string observedDigest = Digest(observed, expected.PrimaryKeyColumns);
+        if (observedDigest != expectedDigest)
+        {
+            violations.Add("physical_value_digest_mismatch");
+        }
+        DataScalePhysicalRecoveryState state = observedRows == 0
+            ? DataScalePhysicalRecoveryState.Empty
+            : violations.Count == 0 && observedDigest == expectedDigest
+                ? DataScalePhysicalRecoveryState.Exact
+                : DataScalePhysicalRecoveryState.Conflict;
+        return new(state, observedRows, expectedDigest, observedDigest, violations);
+    }
+
+    private static async Task<(List<DataScaleBulkTableRows> Tables, List<string> Violations)> ReadAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        DataScaleBulkProvider provider,
+        DataScaleArticlePhysicalBatch expected,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         var observed = new List<DataScaleBulkTableRows>();
         var violations = new List<string>();
         foreach (DataScaleBulkTableRows table in expected.Tables)
         {
             int key = expected.PrimaryKeyColumns[table.Table];
             long[] ids = table.Rows.Select(row => Convert.ToInt64(row[key], CultureInfo.InvariantCulture)).Order().ToArray();
-            if (ids.Length != ids.Distinct().Count())
-            {
-                throw new InvalidOperationException("physical_expected_duplicate_key");
-            }
             var rows = new List<IReadOnlyList<object?>>();
             var seen = new HashSet<long>();
             int size = provider == DataScaleBulkProvider.Sqlite ? 999 : 2000;
             for (int offset = 0; offset < ids.Length; offset += size)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 await using DbCommand command = connection.CreateCommand();
                 command.Transaction = transaction;
                 command.CommandTimeout = 30;
@@ -95,12 +159,33 @@ internal static class DataScalePhysicalBatchReadback
                 Rows = rows
             });
         }
-        string digest = Digest(observed, expected.PrimaryKeyColumns);
-        if (digest != ExpectedDigest(expected))
+        return (observed, violations);
+    }
+
+    private static void ValidateExpected(DataScaleArticlePhysicalBatch expected)
+    {
+        if (expected.Tables.Count is < 1 or > 32
+            || expected.Tables.Sum(table => (long)table.Rows.Count) > 50_000
+            || expected.Tables.Select(table => table.Table).Distinct(StringComparer.Ordinal).Count() != expected.Tables.Count
+            || !expected.Tables.Select(table => table.Table).ToHashSet(StringComparer.Ordinal).SetEquals(expected.PrimaryKeyColumns.Keys))
         {
-            violations.Add("physical_value_digest_mismatch");
+            throw new InvalidOperationException("physical_expected_batch_shape_invalid");
         }
-        return new(digest, violations);
+        foreach (DataScaleBulkTableRows table in expected.Tables)
+        {
+            int key = expected.PrimaryKeyColumns[table.Table];
+            if (table.Columns.Count is < 1 or > 128 || key < 0 || key >= table.Columns.Count
+                || table.Columns[key].Type is not (DbType.Int32 or DbType.Int64)
+                || table.Rows.Any(row => row.Count != table.Columns.Count || row[key] is not (int or long)))
+            {
+                throw new InvalidOperationException("physical_expected_key_shape_invalid");
+            }
+            long[] ids = table.Rows.Select(row => Convert.ToInt64(row[key], CultureInfo.InvariantCulture)).ToArray();
+            if (ids.Any(id => id <= 0) || ids.Length != ids.Distinct().Count())
+            {
+                throw new InvalidOperationException("physical_expected_duplicate_or_nonpositive_key");
+            }
+        }
     }
 
     private static DateTime NormalizeDatabaseUtc(DateTime value)
