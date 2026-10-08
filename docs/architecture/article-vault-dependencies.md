@@ -69,12 +69,30 @@ storage-class and metadata drift. Matching content never combines authorization
 facts. Missing local observations never create a server deletion instruction.
 Diagnostics do not choose a winner or produce an upload/materialization receipt.
 
+The [committed upload observer](../../src/backend/Services/ArticleVault/Assets/ArticleVaultCommittedUploadObserver.cs)
+consumes the canonical `IFileService.ObserveCommittedUploadAsync` capability from
+`982430c1c696e51715e1fb9587acbc2f61ec8902`. The original service verifies the upload
+grant, native file bytes and unique asset/reference ledger. The adapter checks
+the resulting AssetId, content digest, MIME, extension, size, dimensions and owner
+against the supplied asset dependency, preserving original failures and returned
+version/reference digests. Public URLs never participate in matching.
+
+This method returns the original observation, not a Vault receipt or permission
+decision. It does not establish the dependency's rights or server revision, bind
+plan/operation identities, start an upload, decide reuse, materialize bytes or
+advance a synced base. Version/reference digests come from the original authority;
+the adapter neither recomputes them nor creates another ledger. Canonical Vault
+authorization and current observation revalidation remain mandatory before any
+business write. Unit adapter controls use synthetic responses and do not qualify
+real native IO or a live ledger.
+
 ## Outstanding integration
 
 The canonical package owner must provide its actual portable mapping and manifest
-extension API. The current `IAssetStore` exposes deletion only; `FileService`
-upload completion exposes a relative display URL, without the required intended
-AssetId, operation/plan, rights, revision and explicit reuse receipt. Those APIs,
+extension API. The current `IAssetStore` exposes deletion only; the committed
+upload observation now supplies verified upload bytes and asset/reference facts,
+but no intended AssetId operation/plan binding, Vault rights, revision or explicit
+reuse receipt. Those APIs,
 and the canonical stable snapshot/path capability, are required before pull,
 upload, local materialization, recovery obligations and ledger receipts can be
 implemented. No replacement port, direct database/storage writer or production
