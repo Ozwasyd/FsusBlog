@@ -36,7 +36,10 @@ node/edge kinds and noncanonical enum tokens. It verifies coordinate and manifes
 seals. Structural decoding establishes integrity, not authorization; execution
 must also call `PortableDependencyVerifier.VerifyCurrent` with the real current
 article manifest, exact source bytes, current canonical nodes and edges, and
-current relation digest. That gate delegates article/source validation to the
+current relation digest. A pull binds the fresh canonical server observation,
+even when the stored local article manifest still contains an older server
+coordinate; the extension cannot freeze the older source or dependency graph.
+That gate delegates article/source validation to the
 existing manifest authority and rejects missing, ambiguous, denied or drifted
 facts. It applies the existing embed owner's bounded budgets and uses iterative
 cycle detection and deterministic prerequisite ordering.

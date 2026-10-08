@@ -100,7 +100,8 @@ public static class PortableDependencyVerifier
         IReadOnlyList<VaultDependencyEdge>? currentAuthorityEdges,
         string currentRelationSha256,
         ArticleEmbedResolutionBudgetLimits? budgets,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        VaultArticleCoordinate? currentServerCoordinate = null)
     {
         ArticleVaultValidationResult structure = ValidateStructure(manifest);
         if (!structure.IsValid)
@@ -114,7 +115,10 @@ public static class PortableDependencyVerifier
         }
         if (manifest!.Binding != new VaultDependencyBinding(article!.SiteIdentity, article.VaultIdentity, article.PortableArticleIdentity)
             || manifest.ServerArticleIdentity != article.ServerArticleIdentity
-            || manifest.Coordinates != article.Coordinates || manifest.RelationSha256 != currentRelationSha256)
+            || manifest.Coordinates.Base != article.Coordinates.Base
+            || manifest.Coordinates.Local != article.Coordinates.Local
+            || manifest.Coordinates.Server != (currentServerCoordinate ?? article.Coordinates.Server)
+            || manifest.RelationSha256 != currentRelationSha256)
         {
             return Invalid("article_or_relation_drift");
         }
