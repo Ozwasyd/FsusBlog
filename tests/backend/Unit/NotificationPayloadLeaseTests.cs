@@ -60,6 +60,8 @@ public sealed class NotificationPayloadLeaseTests
         using var cancellation = new CancellationTokenSource();
         var write = await connection.ReadForWriteAsync(cancellation.Token);
         connection.Complete();
+        Assert.Equal(1, connection.QueuedFrameCount);
+        connection.Drain();
         pool.Dispose();
         Assert.Equal(0, connection.QueuedFrameCount);
         Assert.Equal(1, connection.InFlightWriteCount);
