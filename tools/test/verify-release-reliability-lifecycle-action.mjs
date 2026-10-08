@@ -1072,8 +1072,16 @@ export function verifyFailedMeasurementReceipt({
     {
         throw new Error('measurement evidence has no attributable failure');
     }
+    if (!noisy && !expected.schema && !document.measurementNoiseEnvelope)
+    {
+        throw new Error('runtime measurement failure has no qualified measurement-window evidence');
+    }
     if (!noisy && document.measurementNoiseEnvelope)
     {
+        if (document.measurementNoiseEnvelope.authority?.runId !== runId)
+        {
+            throw new Error('measurement failure window belongs to another run');
+        }
         validateMeasurementNoiseReceipt(document.measurementNoiseEnvelope, {
             authoritySequence: document.measurementNoiseAuthoritySequence
         });

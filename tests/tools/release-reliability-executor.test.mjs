@@ -801,13 +801,17 @@ test('exact-seven admission failure retains its event and never spawns later mem
 
 test('real controlled producer failure and noisy window keep distinct bound terminal evidence', async () =>
 {
-    for (const mode of ['product-failure', 'noisy', 'nonzero'])
+    for (const mode of ['product-failure', 'noisy', 'nonzero', 'missing-window'])
     {
         const fixture = createFixture();
         try
         {
             const catalog = catalogFor(fixture);
-            catalog.scenarios[2].command.args[2] = mode;
+            catalog.scenarios[2].command.args[2] = mode === 'missing-window' ? 'product-failure' : mode;
+            if (mode === 'missing-window')
+            {
+                delete catalog.scenarios[2].authoritativeEvidence.expectedSchema.schema;
+            }
             const results = await executeScenarios({
                 catalog, evidenceClass: 'correctness', qualificationEligible: true,
                 repositoryRoot: fixture.root, invocationId, runId,
@@ -824,7 +828,7 @@ test('real controlled producer failure and noisy window keep distinct bound term
             ]);
             assert.equal(events[2].producerSpawned, true);
             assert.equal(events[2].exitCode, 19);
-            assert.equal(Boolean(events[2].authoritativeEvidence), mode !== 'nonzero');
+            assert.equal(Boolean(events[2].authoritativeEvidence), !['nonzero', 'missing-window'].includes(mode));
             if (events[2].authoritativeEvidence)
             {
                 assert.equal(fs.existsSync(path.join(fixture.root, events[2].authoritativeEvidence.path)), true);
