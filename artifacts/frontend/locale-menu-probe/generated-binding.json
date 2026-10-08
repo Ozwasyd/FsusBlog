@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/frontend/probes/locale-menu/run.mjs",
+        "tests/frontend/probes/locale-menu/App.vue",
+        "tests/frontend/probes/locale-menu/main.ts",
+        "tests/frontend/probes/locale-menu/index.html"
+    ],
+    "outputs": [
+        {
+            "path": "artifacts/frontend/locale-menu-probe/local-probe.json",
+            "sha256": "3b689d0c0b99db5154003bd9bbac5255c7cb34b3961ecca2f9f2edd26817af12"
+        },
+        {
+            "path": "artifacts/frontend/locale-menu-probe/published-probe.json",
+            "sha256": "cbcddc8e3bb13f95d822c8bdc0ff65f34e8c6109bc787ac0f1ff946c2d2c29fe"
+        },
+        {
+            "path": "artifacts/frontend/locale-menu-probe/pending.png",
+            "sha256": "442155ee9ecc34ec3db653808b8d2dcad042f0dc4a945837c365657017a4752b"
+        },
+        {
+            "path": "artifacts/frontend/locale-menu-probe/error-retry.png",
+            "sha256": "5c73a289426f0425915ff82f1175dcc4282170b9128eae29bc06cce971c31642"
+        },
+        {
+            "path": "artifacts/frontend/locale-menu-probe/menu-alternative.png",
+            "sha256": "0f7ae13197ea2ba1633c60d615ceb15f595248c03b536bc53a92e7c26dce9645"
+        }
+    ]
+}
