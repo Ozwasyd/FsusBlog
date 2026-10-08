@@ -703,6 +703,66 @@ test('Landlock failures preserve exact diagnostics and exit 125 after diagnostic
     }
 });
 
+test('Landlock null path fails before open and its removed-guard control is detected', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-null-path-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = fs.readFileSync(fileURLToPath(new URL('../../tools/test/native/execution-envelope-landlock.c', import.meta.url)), 'utf8');
+    const guard = '    if (path == NULL)\n    {\n        errno = EINVAL;\n        Fail("cannot open declared filesystem path");\n    }\n';
+    assert.ok(source.includes(guard));
+    const environment = { PATH: process.env.PATH, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' };
+    for (const [name, content] of [['original', source], ['removed-guard', source.replace(guard, '')]])
+    {
+        const candidate = path.join(directory, `${name}.c`);
+        const wrapper = path.join(directory, `${name}-wrapper.c`);
+        const output = path.join(directory, `${name}-helper`);
+        fs.writeFileSync(candidate, content);
+        // Exercise the real private boundary; the fault adapter provides no confinement.
+        fs.writeFileSync(wrapper, [
+            '#define main CommandWrapperMain',
+            `#include ${JSON.stringify(candidate)}`,
+            '#undef main',
+            'int __wrap_open(const char* filename, int flags, ...)',
+            '{',
+            '    (void)filename;',
+            '    (void)flags;',
+            '    fputs("observed open\\n", stderr);',
+            '    errno = ENOENT;',
+            '    return -1;',
+            '}',
+            'int main(int argc, char** argv)',
+            '{',
+            '    errno = EIO;',
+            '    AllowPath(10, argc == 1 ? NULL : argv[1], 0);',
+            '    return 124;',
+            '}',
+            ''
+        ].join('\n'));
+        const compilation = spawnSync('cc', ['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+            '-o', output, wrapper, '-Wl,--wrap=open'], { encoding: 'utf8', timeout: 30_000 });
+        assert.equal(compilation.status, 0, compilation.stderr);
+        const rejected = spawnSync(output, [], { encoding: 'utf8', env: environment, timeout: 30_000 });
+        assert.equal(rejected.status, 125, rejected.stderr);
+        assert.equal(rejected.stdout, '');
+        const expected = 'execution-envelope-landlock: cannot open declared filesystem path: Invalid argument\n';
+        if (name === 'original')
+        {
+            assert.equal(rejected.stderr, expected);
+        }
+        else
+        {
+            assert.notEqual(rejected.stderr, expected);
+            assert.equal(rejected.stderr, 'observed open\nexecution-envelope-landlock: cannot open declared filesystem path: No such file or directory\n');
+        }
+        const declared = spawnSync(output, ['/declared path;opaque'], { encoding: 'utf8', env: environment, timeout: 30_000 });
+        assert.equal(declared.status, 125, declared.stderr);
+        assert.equal(declared.stdout, '');
+        assert.equal(declared.stderr, 'observed open\nexecution-envelope-landlock: cannot open declared filesystem path: No such file or directory\n');
+    }
+});
+
 test('Landlock owned alias keeps descriptor identity, exact diagnostics and opaque arguments', {
     skip: process.platform !== 'linux'
 }, (context) =>

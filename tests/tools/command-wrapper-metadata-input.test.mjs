@@ -13,9 +13,18 @@ const ownedCliOriginal = fs.readFileSync(path.join(root, 'tools/test/native/exec
 const signature = 'int main(int argc, char** argv)';
 const anchor = `${signature}\n{`;
 const inject = text => ownedCliOriginal.replace(anchor, `${anchor}\n    ${text}`);
+const nullPathGuard = '    if (path == NULL)\n    {\n        errno = EINVAL;\n        Fail("cannot open declared filesystem path");\n    }\n';
+assert.ok(ownedCliOriginal.includes(nullPathGuard));
 const ownedCliVariants = [
     ['ownedCliOriginal', ownedCliOriginal, true],
     ['different-bytes-same-semantics', '/* Semantic admission does not waive by source hash. */\n' + ownedCliOriginal.replace(/\bargc\b/gu, 'argumentCount').replace(/\bargv\b/gu, 'argumentVector'), true],
+    ['missing-null-path-guard', ownedCliOriginal.replace(nullPathGuard, ''), false],
+    ['inverted-null-path-guard', ownedCliOriginal.replace('if (path == NULL)', 'if (path != NULL)'), false],
+    ['wrong-null-path-error', ownedCliOriginal.replace(nullPathGuard, nullPathGuard.replace('EINVAL', 'EACCES')), false],
+    ['null-path-open-substitution', ownedCliOriginal.replace('static void AllowPath', '#define open(path, flags) open(NULL, flags)\nstatic void AllowPath')
+        .replace('static unsigned long long ParseIdentity', '#undef open\nstatic unsigned long long ParseIdentity'), false],
+    ['null-path-close-substitution', ownedCliOriginal.replace('static void AllowPath', '#define close(fd) close(-1)\nstatic void AllowPath')
+        .replace('static unsigned long long ParseIdentity', '#undef close\nstatic unsigned long long ParseIdentity'), false],
     ['envp', ownedCliOriginal.replace(signature, 'int main(int argc, char** argv, char** envp)'), false],
     ['environ', inject('extern char** environ; if (environ[0]) return 125;'), false],
     ['getenv', inject('if (getenv("FSUSBLOG_COMMAND")) return 125;'), false],

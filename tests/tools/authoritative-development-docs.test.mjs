@@ -311,6 +311,16 @@ test('authoritative development documentation rejects the packed migration input
     });
 });
 
+test('authoritative development documentation plain patches retain their independent non-source classification', () =>
+{
+    withOverlay((overlay) =>
+    {
+        writeOverlay(overlay, 'config/dependencies/fsusui-public-npm-migration.patch', 'independently classified patch');
+        const result = runChecker(overlay);
+        assert.equal(result.status, 0, output(result));
+    });
+});
+
 for (const relativePath of [
     'config/dependencies/unowned-migration.patch.gz',
     'tools/dependencies/fsusui-public-npm-migration.patch.gz',
@@ -322,6 +332,15 @@ for (const relativePath of [
         withOverlay((overlay) =>
         {
             writeOverlay(overlay, relativePath, 'unclassified migration input');
+            // .patch has an independent non-source classification; remove it only
+            // in this overlay so the archive's exact path is the sole exemption.
+            if (relativePath.endsWith('.patch'))
+            {
+                const manifest = readManifest();
+                assert.ok(manifest.nonSourceExtensions.includes('.patch'));
+                manifest.nonSourceExtensions = manifest.nonSourceExtensions.filter((extension) => extension !== '.patch');
+                writeManifest(overlay, manifest);
+            }
 
             const result = runChecker(overlay);
             assert.notEqual(result.status, 0);

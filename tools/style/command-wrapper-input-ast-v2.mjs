@@ -9,7 +9,7 @@ const functions = new Set(['ParseIdentity', 'AllowOwnedTemporaryAlias', 'CreateR
 const externalCalls = new Map([
     ['strcmp', new Set(['main'])], ['puts', new Set(['main'])],
     ['syscall', new Set(['CreateRuleset', 'AddRule', 'RestrictSelf'])],
-    ['__errno_location', new Set(['Fail', 'ParseIdentity', 'AllowOwnedTemporaryAlias'])], ['strerror_r', new Set(['Fail'])],
+    ['__errno_location', new Set(['Fail', 'AllowPath', 'ParseIdentity', 'AllowOwnedTemporaryAlias'])], ['strerror_r', new Set(['Fail'])],
     ['fputs', new Set(['Fail', 'main', 'AllowOwnedTemporaryAlias'])], ['fputc', new Set(['Fail', 'AllowOwnedTemporaryAlias'])], ['_Exit', new Set(['Fail'])],
     ['open', new Set(['AllowPath', 'AllowOwnedTemporaryAlias'])], ['close', new Set(['AllowPath', 'main', 'AllowOwnedTemporaryAlias'])],
     ['strtoull', new Set(['ParseIdentity'])], ['fstat', new Set(['AllowOwnedTemporaryAlias'])],
@@ -62,6 +62,14 @@ function sourceTokens(node, bytes, names)
 // Each statement is a finite effect/guard production, not a digest exemption or an analyzer filter.
 // The old v1 authority does not import this grammar or acquire controlled-environment options.
 const metadataProductions = new Map([
+    ['AllowPath', [
+        'if (path == NULL) { errno = EINVAL; Fail("cannot open declared filesystem path"); }',
+        'int pathFd = open(path, O_PATH | O_CLOEXEC);',
+        'if (pathFd < 0) { Fail("cannot open declared filesystem path"); }',
+        'LandlockPathBeneathAttr rule = {.allowed_access = access, .parent_fd = pathFd,};',
+        'if (AddRule(rulesetFd, &rule) < 0) { Fail("cannot add filesystem rule"); }',
+        'if (close(pathFd) < 0) { Fail("cannot close filesystem rule path"); }'
+    ]],
     ['ParseIdentity', [
         'char* end = NULL;',
         'errno = 0',
@@ -114,11 +122,13 @@ function validateMetadataGrammar(owned, bytes, parameters, metadataIds)
 {
     const roleMaps = new Map();
     const roles = new Map([
+        ['AllowPath', { parameters: ['rulesetFd', 'path', 'access'], locals: ['pathFd', 'rule'] }],
         ['ParseIdentity', { parameters: ['value'], locals: ['end', 'parsed'] }],
         ['AllowOwnedTemporaryAlias', { parameters: ['rulesetFd', 'source', 'device', 'inode', 'uid', 'access'],
             locals: ['sourceFd', 'aliasFd', 'sourceStat', 'aliasStat', 'rule'] }]
     ]);
     const expectedCalls = new Map([
+        ['AllowPath', ['__errno_location', 'open', 'AddRule', 'close', 'Fail', 'Fail', 'Fail', 'Fail']],
         ['ParseIdentity', ['__errno_location', '__errno_location', '__errno_location', 'strtoull', 'Fail']],
         ['AllowOwnedTemporaryAlias', ['open', 'open', 'fstat', 'fstat', 'ParseIdentity', 'ParseIdentity',
             'ParseIdentity', '__errno_location', 'AddRule', 'close', 'close', 'Fail', 'Fail', 'Fail', 'Fail',
@@ -179,6 +189,10 @@ function validateMetadataGrammar(owned, bytes, parameters, metadataIds)
                 assert.equal(role(unwrap(argumentsValue[1]?.inner?.[0])), 'end', 'foreign decimal end cursor');
                 assert.equal(constantValue(argumentsValue[2]), 10n, 'decimal base macro semantic drift');
             }
+            if (callee === 'open' && name === 'AllowPath')
+            {
+                assert.equal(role(argumentsValue[0]), 'path', 'declared path open operand drift');
+            }
             if (callee === 'fstat')
             {
                 const descriptor = role(argumentsValue[0]);
@@ -200,8 +214,8 @@ function validateMetadataGrammar(owned, bytes, parameters, metadataIds)
             }
         });
         assert.deepEqual(calls.sort(), [...expectedCalls.get(name)].sort(), 'metadata effect macro closure drift');
-        assert.deepEqual(closedDescriptors, name === 'AllowOwnedTemporaryAlias' ? ['aliasFd', 'sourceFd'] : [],
-            'metadata close descriptor macro semantic drift');
+        const expectedDescriptors = new Map([['AllowPath', ['pathFd']], ['AllowOwnedTemporaryAlias', ['aliasFd', 'sourceFd']]]);
+        assert.deepEqual(closedDescriptors, expectedDescriptors.get(name) ?? [], 'metadata close descriptor macro semantic drift');
     }
     const main = owned.find(node => node.name === 'main');
     const body = main.inner.find(node => node.kind === 'CompoundStmt');
@@ -500,7 +514,7 @@ export function validateUnpromotedMetadataCliAst(ast, { sourceBytes, sourceFile 
             if (node.kind === 'UnaryOperator' && node.opcode === '*')
             {
                 const target = unwrap(node.inner[0]);
-                assert.ok((['Fail', 'ParseIdentity', 'AllowOwnedTemporaryAlias'].includes(definition.name)
+                assert.ok((['Fail', 'AllowPath', 'ParseIdentity', 'AllowOwnedTemporaryAlias'].includes(definition.name)
                     && target?.kind === 'CallExpr' && calleeNames(target.inner[0]).every(callee => callee === '__errno_location'))
                     || (definition.name === 'ParseIdentity' && target?.kind === 'DeclRefExpr'
                         && metadataRoles.get(definition.name).get(target.referencedDecl?.name) === 'end'), 'undeclared indirect memory input');
@@ -518,7 +532,7 @@ export function validateUnpromotedMetadataCliAst(ast, { sourceBytes, sourceFile 
                 assert.ok(target?.kind === 'DeclRefExpr' && localIds.has(target.referencedDecl?.id)
                     && (!target.type?.qualType?.includes('*') || (definition.name === 'main' && metadataIds.has(target.referencedDecl.id)
                         && metadataAssignments.has(sourceTokens(node, sourceBytes).replaceAll(parameters[1].name, 'argv'))))
-                    || (['ParseIdentity', 'AllowOwnedTemporaryAlias'].includes(definition.name)
+                    || (['AllowPath', 'ParseIdentity', 'AllowOwnedTemporaryAlias'].includes(definition.name)
                         && target?.kind === 'UnaryOperator' && target.opcode === '*'
                         && calleeNames(unwrap(target.inner[0]).inner?.[0]).every(callee => callee === '__errno_location')),
                 'indirect or pointer write outside local scalar ownership');
