@@ -128,6 +128,10 @@ retain their own focus target, and reopening invalidates delayed close restorati
 No private editor element, copied selection/history store, or viewport completion
 receipt is introduced.
 
+The Writer's inspector command entry sits above the body surface, keeping it
+reachable when the native selection toolbar is open. The same public command
+palette and editor instance remain in use; the native toolbar remains enabled.
+
 Writer consumer retention is bounded to 4 MiB per retained result, 60 seconds and
 64 receipts. These are storage bounds, not automatic-render eligibility thresholds
 or a performance qualification. The existing refresh-policy owner still decides

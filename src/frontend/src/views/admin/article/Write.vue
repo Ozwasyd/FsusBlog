@@ -146,6 +146,11 @@
                         :disabled="submitting"
                     />
 
+                    <ArticleAuthorCommandEntry
+                        :palette="authorCommandPalette"
+                        :label="authorCommandLabel"
+                    />
+
                     <h2
                         id="article-body-heading"
                         class="sr-only"
@@ -175,12 +180,6 @@
                                 @selection-change="consumeAuthoringSelection"
                                 @editor-focus="consumeAuthoringFocus"
                             >
-                                <template #secondary-action>
-                                    <ArticleAuthorCommandEntry
-                                        :palette="authorCommandPalette"
-                                        :label="authorCommandLabel"
-                                    />
-                                </template>
                             </ArticleWriteEditor>
                         </ElFormItem>
                     </div>
