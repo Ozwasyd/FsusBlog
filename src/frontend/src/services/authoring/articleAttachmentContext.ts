@@ -187,6 +187,7 @@ export function validateArticleAttachmentIntent(value: unknown): value is Articl
 export class ArticleAttachmentContextAdapter
 {
     private readonly owner: ArticleDocumentContextAdapter;
+    private readonly anchors: ArticleAnchorContextAdapter | undefined;
     private readonly provider: string;
     private readonly providerVersion: string;
     private readonly captureSession = createMarkdownAttachmentCaptureSession();
@@ -202,8 +203,9 @@ export class ArticleAttachmentContextAdapter
     private readonly unsubscribe: () => void;
 
     public constructor(owner: ArticleDocumentContextAdapter, provider: string, providerVersion: string,
-        private readonly anchors?: ArticleAnchorContextAdapter)
+        anchors?: ArticleAnchorContextAdapter)
     {
+        this.anchors = anchors;
         if (![provider, providerVersion].every(value => /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/u.test(value)))
         {
             throw new Error('article-attachment-provider-identity-invalid');

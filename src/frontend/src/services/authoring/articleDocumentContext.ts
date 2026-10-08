@@ -552,14 +552,20 @@ class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
 {
     private currentEnvelope: ArticleDocumentTaskEnvelope;
     private finished = false;
+    private readonly owner: ArticleDocumentContextAdapter;
+    private readonly controller: AbortController;
+    private readonly taskKey: string;
 
     public constructor(
-        private readonly owner: ArticleDocumentContextAdapter,
-        private readonly controller: AbortController,
-        private readonly taskKey: string,
+        owner: ArticleDocumentContextAdapter,
+        controller: AbortController,
+        taskKey: string,
         envelope: ArticleDocumentTaskEnvelope
     )
     {
+        this.owner = owner;
+        this.controller = controller;
+        this.taskKey = taskKey;
         this.currentEnvelope = envelope;
     }
 

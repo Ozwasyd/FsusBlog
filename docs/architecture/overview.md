@@ -133,6 +133,12 @@ retain their own focus target, and reopening invalidates delayed close restorati
 No private editor element, copied selection/history store, or viewport completion
 receipt is introduced.
 
+Writer submit validation captures the first invalid property through the public
+FsusUI Form validation callback and scrolls with its exposed `scrollToField`.
+Product-owned field markers locate the corresponding focusable control when it
+has no invalid-state attribute. No private Form field array or field element is
+read; each submission clears the previous invalid-property observation.
+
 The publish inspector borrows the canonical `ArticleMetadataRead` consumer and
 its original typed model. It uses the live Writer binding context, persisted
 article identity and explicit global definition scope (`null`), never the actor

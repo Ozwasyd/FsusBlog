@@ -293,15 +293,23 @@ export class ArticleEditorContinuityAdapter
     private readonly unsubscribe: () => void;
     private disposed = false;
     private refreshing = false;
+    private readonly owner: ArticleDocumentContextAdapter;
+    private readonly anchors: ArticleAnchorContextAdapter;
+    private readonly cache: ArticleRenderCache;
+    private readonly editor: ArticleEditorContinuityPort;
 
     public constructor(
-        private readonly owner: ArticleDocumentContextAdapter,
-        private readonly anchors: ArticleAnchorContextAdapter,
-        private readonly cache: ArticleRenderCache,
-        private readonly editor: ArticleEditorContinuityPort,
+        owner: ArticleDocumentContextAdapter,
+        anchors: ArticleAnchorContextAdapter,
+        cache: ArticleRenderCache,
+        editor: ArticleEditorContinuityPort,
         initialSurface: ArticleAnchorSurface
     )
     {
+        this.owner = owner;
+        this.anchors = anchors;
+        this.cache = cache;
+        this.editor = editor;
         if (!surface(initialSurface) || typeof editor.dispatchTransaction !== 'function')
         {
             throw new Error('continuity-input-invalid');

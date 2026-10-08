@@ -12,12 +12,16 @@ export class ArticleEditorSearchRuntime
     private readonly listeners = new Set<(presentation: ArticleSearchRevealPresentation | null) => void>();
     private readonly unsubscribeContext: () => void;
     private removeAbortListener: (() => void) | null = null;
+    private readonly owner: ArticleDocumentContextAdapter;
+    private readonly binding: ArticleEditorRuntimeBinding;
 
     public constructor(
-        private readonly owner: ArticleDocumentContextAdapter,
-        private readonly binding: ArticleEditorRuntimeBinding
+        owner: ArticleDocumentContextAdapter,
+        binding: ArticleEditorRuntimeBinding
     )
     {
+        this.owner = owner;
+        this.binding = binding;
         if (!owner.isCurrentContext(binding.context))
         {
             throw new Error('article-editor-search-binding-invalid');

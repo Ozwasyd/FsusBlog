@@ -162,7 +162,10 @@
                         class="write-editor-panel"
                         data-editor-panel="true"
                     >
-                        <ElFormItem prop="content">
+                        <ElFormItem
+                            prop="content"
+                            data-article-form-property="content"
+                        >
                             <ArticleWriteEditor
                                 ref="articleEditorRef"
                                 v-model="articleForm.content"
@@ -894,6 +897,7 @@ const {
     articleRightsExcerptMax,
     rules,
     validateBeforeSubmit,
+    firstInvalidFormProperty,
     formRef,
     saveDraftNow,
     handleUploadImg,
@@ -1406,8 +1410,15 @@ const requestSubmit = async (): Promise<void> =>
     }
 
     await nextTick();
-    const firstErrorField = formRef.value?.fields.find((field) => field.validateState === 'error');
-    focusFirstArticleValidationError(firstErrorField?.$el);
+    const invalidProperty = firstInvalidFormProperty.value;
+    if (invalidProperty !== null)
+    {
+        formRef.value?.scrollToField(invalidProperty);
+    }
+    const invalidFieldRoot = invalidProperty === null ? null : document.querySelector<HTMLElement>(
+        `.write-validation-form [data-article-form-property="${CSS.escape(invalidProperty)}"]`
+    );
+    focusFirstArticleValidationError(invalidFieldRoot);
 };
 
 const insertAssetIntoEditor = (asset: AssetLibraryItemResponse): void =>

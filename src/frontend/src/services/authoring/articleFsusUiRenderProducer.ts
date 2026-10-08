@@ -51,13 +51,17 @@ export class ArticleFsusUiRenderProducer implements ArticleRenderProducer
     private readonly results = new Map<string, RetainedFsusUiResult>();
     private sequence = 0;
     private readonly configuration: ArticleFsusUiRenderConfiguration;
+    private readonly readSource: (request: ArticleRenderRequest) => string;
+    private readonly maxResultBytes: number;
 
     public constructor(
-        private readonly readSource: (request: ArticleRenderRequest) => string,
+        readSource: (request: ArticleRenderRequest) => string,
         configuration: ArticleFsusUiRenderConfiguration,
-        private readonly maxResultBytes: number
+        maxResultBytes: number
     )
     {
+        this.readSource = readSource;
+        this.maxResultBytes = maxResultBytes;
         if (!Number.isSafeInteger(maxResultBytes) || maxResultBytes < 1
             || Object.keys(configuration).sort().join(',') !== 'allowLatex,allowMermaid,baseUrl'
             || typeof configuration.allowLatex !== 'boolean' || typeof configuration.allowMermaid !== 'boolean'

@@ -1,6 +1,7 @@
 <template>
     <ElFormItem
         class="write-title-item"
+        data-article-form-property="title"
         prop="title"
     >
         <div class="write-title-field">
