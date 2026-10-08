@@ -160,11 +160,13 @@ static void AllowOwnedTemporaryAlias(
     {
         Fail("cannot close owned temporary alias descriptors");
     }
-    fprintf(stderr,
-            "execution-envelope-landlock: owned-private-tmp-verified device=%s inode=%s uid=%s\n",
-            device,
-            inode,
-            uid);
+    fputs("execution-envelope-landlock: owned-private-tmp-verified device=", stderr);
+    fputs(device, stderr);
+    fputs(" inode=", stderr);
+    fputs(inode, stderr);
+    fputs(" uid=", stderr);
+    fputs(uid, stderr);
+    fputc('\n', stderr);
 }
 
 int main(int argc, char** argv)
