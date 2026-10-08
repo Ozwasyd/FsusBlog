@@ -214,6 +214,10 @@ scope through another reservation call. It never increases the configured hard c
 drops a live charge or erases an existing scoped key. Fault/disable paths keep the
 last bound; recovery requires a newer compatible input-bound decision. The existing
 configuration revision remains independent of this decision sequence. These APIs
+expose both configured and actually enforced caps through the immutable accounting
+snapshot. A missing prior decision cannot conceal a retained bound; invalid inputs
+cannot raise it. Fresh qualified recovery still grows independent slot budgets
+only after the declared stable window and within its growth limit. These APIs
 have no qualification or scheduler authority. The pure governor and explicit ledger
 adapter are not registered for production startup; authoritative P01 inputs, actual
 scoped sources and operating/performance acceptance remain required.

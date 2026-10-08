@@ -6,6 +6,24 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class MemoryGovernorAdmissionTests
 {
     [Fact]
+    public void SnapshotsDistinguishConfiguredAndActuallyEnforcedBoundsAcrossRevisions()
+    {
+        ResourceDomainId host = new(Guid.NewGuid());
+        var topology = new MemoryResourceTopology([new(host, "host", MemoryResourceUnit.Bytes, null)]);
+        var ledger = new MemoryReservationCoordinator(topology, [new(host, MemoryResourceUnit.Bytes, 100)], 1, 8, 16);
+        Assert.Null(ledger.ApplyGovernedBounds(1, 1, new Dictionary<string, long> { ["host"] = 20 }));
+        MemoryAccountingSnapshot frozen = ledger.Snapshot();
+        Assert.Equal(100, frozen.HardCaps["host"]);
+        Assert.Equal(20, frozen.EnforcedHardCaps["host"]);
+        ledger.ReviseLimits(2, [new(host, MemoryResourceUnit.Bytes, 200)]);
+        Assert.Equal(20, ledger.Snapshot().EnforcedHardCaps["host"]);
+        Assert.Null(ledger.ApplyGovernedBounds(1, 2, new Dictionary<string, long> { ["host"] = 40 }));
+        Assert.Equal(40, ledger.Snapshot().EnforcedHardCaps["host"]);
+        Assert.Equal(20, frozen.EnforcedHardCaps["host"]);
+        Assert.Equal(MemoryFailure.BudgetRejected, ledger.TryReserve([new(host, MemoryResourceUnit.Bytes, 41)]).Failure);
+    }
+
+    [Fact]
     public void PublishedScopeAlsoGatesExistingRawAllocatorsAndSurvivesFailureOrDisable()
     {
         ResourceDomainId host = new(Guid.NewGuid());

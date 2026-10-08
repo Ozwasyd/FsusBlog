@@ -79,14 +79,30 @@ public static class MemoryGovernor
                 throw new ArgumentException("Canonical accounting snapshot is malformed.", nameof(input));
             }
             long lastBound = previous?.EffectiveHardCaps.GetValueOrDefault(key, cap) ?? cap;
-            effective.Add(key, Math.Min(cap, lastBound));
+            long enforced = input.Accounting.EnforcedHardCaps.GetValueOrDefault(key, cap);
+            if (enforced < 0 || enforced > cap)
+            {
+                throw new ArgumentException("Canonical enforced bound is malformed.", nameof(input));
+            }
+            effective.Add(key, Math.Min(enforced, lastBound));
             if ((policy is null || policy.Resources.ContainsKey(key)) && previous?.Targets.TryGetValue(key, out long target) == true)
             {
                 targets.Add(key, Math.Min(target, effective[key]));
             }
         }
+        var retained = new Dictionary<string, long>(effective, StringComparer.Ordinal);
         MemoryGovernorDecision Freeze(MemoryGovernorReason reason, MemoryGovernorState state = MemoryGovernorState.UnmetPrerequisite)
-            => Result(state, reason, false, null, []);
+        {
+            foreach ((string key, long bound) in retained)
+            {
+                effective[key] = Math.Min(bound, effective[key]);
+                if (targets.TryGetValue(key, out long target))
+                {
+                    targets[key] = Math.Min(target, effective[key]);
+                }
+            }
+            return Result(state, reason, false, null, []);
+        }
         MemoryGovernorDecision Result(MemoryGovernorState state, MemoryGovernorReason reason,
             bool grow, DateTimeOffset? recovery, IReadOnlyList<MemoryGovernorReclaimFeedback> feedback)
             => new(sequence, input.CandidateCommit, policy?.Revision ?? previous?.PolicyRevision ?? 0, input.Accounting.PolicyRevision, input.DomainRevision,
@@ -198,6 +214,10 @@ public static class MemoryGovernor
                 pressure |= headroom <= plan.Policy.EntryHeadroom;
                 critical |= headroom <= plan.Policy.CriticalHeadroom;
                 exitStable &= headroom >= plan.Policy.ExitHeadroom;
+            }
+            else
+            {
+                effective[key] = input.Accounting.HardCaps[key];
             }
         }
         if (input.ProtectedAndInFlight.Any(item => !policy.Resources.ContainsKey(item.Key)

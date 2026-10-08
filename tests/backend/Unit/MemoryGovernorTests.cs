@@ -255,6 +255,51 @@ public sealed class MemoryGovernorTests
     }
 
     [Fact]
+    public void MissingPreviousDecisionCannotHideTheCanonicalEnforcedBound()
+    {
+        var setup = Setup();
+        Assert.Null(setup.Ledger.ApplyGovernedBounds(1, 1, new Dictionary<string, long> { ["host"] = 20 }));
+        MemoryGovernorInput input = Input(setup.Ledger, 1);
+        Assert.Equal(1000, input.Accounting.HardCaps["host"]);
+        Assert.Equal(20, input.Accounting.EnforcedHardCaps["host"]);
+        MemoryGovernorDecision missingPolicy = MemoryGovernor.Evaluate(null, null, input);
+        AssertFrozen(missingPolicy, MemoryGovernorReason.MissingPolicy);
+        Assert.Equal(20, missingPolicy.EffectiveHardCaps["host"]);
+        MemoryGovernorDecision missingSource = MemoryGovernor.Evaluate(setup.Policy, null, input with
+        {
+            ExternalConstraints = []
+        });
+        AssertFrozen(missingSource, MemoryGovernorReason.MissingPressure);
+        Assert.Equal(20, missingSource.EffectiveHardCaps["host"]);
+        MemoryGovernorDecision invalidFeedback = MemoryGovernor.Evaluate(setup.Policy, null, input with
+        {
+            Feedback = [new(1, "host", 1, 0, 0, 0, 0)]
+        });
+        AssertFrozen(invalidFeedback, MemoryGovernorReason.InvalidInput);
+        Assert.Equal(20, invalidFeedback.EffectiveHardCaps["host"]);
+    }
+
+    [Fact]
+    public void QualifiedRecoveryCanGrowIndependentSlotsAfterTheStableWindow()
+    {
+        var setup = Setup();
+        MemoryGovernorDecision pressure = MemoryGovernor.Evaluate(setup.Policy, null, Input(setup.Ledger, 1, usage: 185));
+        Assert.Equal(MemoryGovernorState.Pressure, pressure.State);
+        Assert.Null(setup.Ledger.ApplyGovernedBounds(pressure.Sequence, 1, pressure.Targets));
+        Assert.Equal(4, setup.Ledger.Snapshot().EnforcedHardCaps["slots"]);
+        MemoryGovernorDecision recovering = MemoryGovernor.Evaluate(setup.Policy, pressure, Input(setup.Ledger, 2));
+        Assert.Equal(MemoryGovernorState.Recovering, recovering.State);
+        Assert.Equal(4, recovering.Targets["slots"]);
+        Assert.Null(setup.Ledger.ApplyGovernedBounds(recovering.Sequence, 1, recovering.Targets));
+        MemoryGovernorDecision stable = MemoryGovernor.Evaluate(setup.Policy, recovering, Input(setup.Ledger, 5));
+        Assert.Equal(MemoryGovernorState.Normal, stable.State);
+        Assert.Equal(8, stable.EffectiveHardCaps["slots"]);
+        Assert.Equal(7, stable.Targets["slots"]);
+        Assert.Null(setup.Ledger.ApplyGovernedBounds(stable.Sequence, 1, stable.Targets));
+        Assert.Equal(7, setup.Ledger.Snapshot().EnforcedHardCaps["slots"]);
+    }
+
+    [Fact]
     public void MissingPolicyStillReportsCanonicalOverCapCommitments()
     {
         var setup = Setup();

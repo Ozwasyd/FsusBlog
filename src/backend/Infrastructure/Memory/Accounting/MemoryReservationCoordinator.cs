@@ -7,7 +7,13 @@ namespace FsusBlog.Server.Infrastructure.Memory.Accounting;
 public sealed record MemoryResourceLimit(ResourceDomainId Domain, MemoryResourceUnit Unit, long HardCap);
 public sealed record MemoryAccountingEvent(ulong Sequence, string Kind, Guid Reservation, AllocationId? Allocation, IReadOnlyDictionary<string, long> Delta);
 public sealed record MemoryAccountingSnapshot(ulong PolicyRevision, int Reservations, int Allocations,
-    bool Faulted, bool OverTarget, IReadOnlyDictionary<string, long> Used, IReadOnlyDictionary<string, long> HardCaps);
+    bool Faulted, bool OverTarget, IReadOnlyDictionary<string, long> Used, IReadOnlyDictionary<string, long> HardCaps)
+{
+    public IReadOnlyDictionary<string, long> EnforcedHardCaps
+    {
+        get; internal init;
+    } = HardCaps;
+}
 public sealed record MemoryAccountingEventWindow(bool CompleteFromStart, IReadOnlyList<MemoryAccountingEvent> Events);
 public sealed record MemoryAllocationObservation(AllocationId Allocation, MemoryAllocationDescriptor? Descriptor,
     IReadOnlyList<MemoryResourceCharge> ActualCharges);
@@ -195,7 +201,11 @@ public sealed class MemoryReservationCoordinator
         lock (_gate)
         {
             return new(_policyRevision, _reservations.Count, _allocations.Count, _faulted,
-                _used.Any(entry => entry.Value > Math.Min(_caps[entry.Key], _governedCaps.GetValueOrDefault(entry.Key, long.MaxValue))), ReadOnly(_used), ReadOnly(_caps));
+                _used.Any(entry => entry.Value > Math.Min(_caps[entry.Key], _governedCaps.GetValueOrDefault(entry.Key, long.MaxValue))), ReadOnly(_used), ReadOnly(_caps))
+            {
+                EnforcedHardCaps = ReadOnly(_caps.ToDictionary(item => item.Key,
+                    item => Math.Min(item.Value, _governedCaps.GetValueOrDefault(item.Key, long.MaxValue)), StringComparer.Ordinal))
+            };
         }
     }
 
