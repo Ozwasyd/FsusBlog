@@ -4,7 +4,7 @@
   "trackingIssue": 3551,
   "mode": "tracking-only",
   "testedCandidate": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
-  "master": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+  "master": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
   "originalInventoryCommit": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
   "accepted": false,
   "scopeDiscrepancy": "Original body retains its historical b19 baseline. Current master source findings are zero; original inventory and every child gate remain accounted, without rewriting scope.",
@@ -1907,7 +1907,8 @@
   },
   "latestRepairVerification": "artifacts/style/suite-convergence-classified-repair-verification.json",
   "currentCanonicalMsbuildBoundary": {
-    "testedCommit": "d58ef0a57d69e77cd975edec42f549cd4ce9d95b",
+    "testedCommit": "98f5999e663d34747ccf8f3dc06b68bdff852adc",
+    "readerCommit": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
     "configuration": "Debug",
     "actualProjectionExitCode": 0,
     "sourceCount": 694,
@@ -1921,9 +1922,9 @@
         "targetDigest": "sha256:93e2c4a4e08fa8db6af3b5907205741ad5184e642181bfdbe949c5109e19aa2f"
       }
     },
-    "externalCacheStillRefused": true,
     "fullInventoryAccepted": false,
-    "remainingRefusal": "Migration output/intermediate missing due two original CS0246 errors"
+    "remainingRefusal": "Migration output/intermediate missing due two original CS0246 errors",
+    "nativeOrRetainedBuildQualification": false
   },
   "latestSharedCompatibilityVerification": "artifacts/style/suite-convergence-shared-fixture-style-verification.json",
   "currentSevenClassExecution": {
@@ -2041,14 +2042,31 @@
     "trxSha256": "331e410c9b1b784fde51d9d5260272fb58662d2922f9044209e4db49481d60b6"
   },
   "latestMasterRecheck": {
-    "sha": "b9c076e4b763130075218ff9d50f9a6c36784f59",
-    "sourceIntegrated": false,
+    "sha": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+    "acceptedSdkCompileSourceIntegrated": true,
+    "candidateSdkSourceAlreadyIdentical": true,
     "actualMergePerformed": false,
     "mergeTreePreview": {
       "exitCode": 0,
-      "tree": "99c9f17309e1b7863966fa9e73c530bb836c2dcf",
+      "tree": "4e4043001eb50a6a908a1394e8beaaf930ff4c6e",
       "actualMergePerformed": false
     }
   },
-  "gitHubWritePause": "Coordinator secondary-rate-limit instruction: no new issue comments or nonessential writes; WIP handoff retained locally."
+  "gitHubWritePause": "Coordinator secondary-rate-limit instruction: no new issue comments or nonessential writes; WIP handoff retained locally.",
+  "latestAcceptedSdkMasterVerification": "artifacts/style/suite-convergence-after-accepted-sdk-master.json",
+  "currentOriginalInventoryRetention": {
+    "testedCommit": "98f5999e663d34747ccf8f3dc06b68bdff852adc",
+    "runId": "issue-3593-after-4008-20261008T065548Z",
+    "inventoryExit": 1,
+    "retentionCliExit": 1,
+    "lifecycleControls": {
+      "total": 64,
+      "passed": 63,
+      "failed": 1,
+      "skipped": 0,
+      "reason": "Migration Debug output/intermediate DLL missing; actual original compilation still has two CS0246 errors."
+    },
+    "generatedInventoryPresent": false,
+    "generatedRetentionPresent": false
+  }
 }
