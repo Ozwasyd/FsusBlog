@@ -5,15 +5,16 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const probeRoot = path.dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = path.resolve(probeRoot, '../../../..');
+const runnerFile = fileURLToPath(import.meta.url);
+const repositoryRoot = path.resolve(path.dirname(runnerFile), '../../../..');
+const probeRoot = path.join(repositoryRoot, 'tests/frontend/fixtures/localeMenuProbe');
 const { createFsusUiAliases, resolveLocalFsusUiRoot } = await import(
     pathToFileURL(path.join(repositoryRoot, 'src/frontend/scripts/fsusui-local.ts'))
 );
 const [mode, dependencyRootArgument, evidenceRootArgument] = process.argv.slice(2);
 if (!['local', 'published'].includes(mode) || !dependencyRootArgument || !evidenceRootArgument)
 {
-    throw new Error('usage: node run.mjs local|published DEPENDENCY_ROOT EVIDENCE_ROOT');
+    throw new Error('usage: node probe-locale-menu.mjs local|published DEPENDENCY_ROOT EVIDENCE_ROOT');
 }
 const dependencyRoot = path.resolve(dependencyRootArgument);
 const evidenceRoot = path.resolve(evidenceRootArgument);
@@ -39,9 +40,9 @@ const report = {
     qualification: false
 };
 await fs.mkdir(evidenceRoot, { recursive: true });
-for (const name of ['App.vue', 'main.ts', 'index.html', 'run.mjs'])
+for (const file of [...['App.vue', 'main.ts', 'index.html'].map((name) => path.join(probeRoot, name)), runnerFile])
 {
-    report.harnessDigests[name] = sha256(await fs.readFile(path.join(probeRoot, name)));
+    report.harnessDigests[path.relative(repositoryRoot, file)] = sha256(await fs.readFile(file));
 }
 if (localRoot)
 {

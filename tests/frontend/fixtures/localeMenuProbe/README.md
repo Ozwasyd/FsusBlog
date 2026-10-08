@@ -5,8 +5,8 @@ This disposable browser fixture probes the prerequisite public API for [#1891](h
 Use Node 24 and installed Vite, the Vue Vite plugin, Vue, and Playwright from `DEPENDENCY_ROOT`. Local mode uses the repository's canonical FsusUI resolver and aliases, including its built-asset checks. Published mode requires the actually installed, locked `@ozwasyd/element-plus@1.5.1`; an unavailable package is a blocker, never substituted with local source.
 
 ```bash
-PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/probes/locale-menu/run.mjs local /workspace/FsusUI /tmp/chain-1891-local-final
-PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/probes/locale-menu/run.mjs published /workspace/FsusBlog/src/frontend /tmp/chain-1891-published-final
+PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI /tmp/chain-1891-local-final
+PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs published /workspace/FsusBlog/src/frontend /tmp/chain-1891-published-final
 ```
 
 The runner writes `probe.json` and screenshots, records the tested Blog commit, local source commit/tree/status, harness and authority digests, runtime and browser identity, and closes its browser/server in `finally`. It waits for DOM/focus conditions and animation completion; no fixed sleep establishes an async or focus result. Exit 0 means the tested Dropdown capability checks passed, 2 means an observed capability gap, and 3 means the probe could not complete. None of these statuses establishes product UX acceptance.
@@ -23,7 +23,7 @@ The runner writes `probe.json` and screenshots, records the tested Blog commit, 
 - Mixed items: a nested anchor navigates by pointer, but Enter on its DropdownItem emits a command without navigation. An explicit product activation adapter is allowed by #1891 and remains to be validated; this observation is not promoted to a separate upstream capability gap.
 - Published probe: exit 3, `blocked`, because the locked package could not be installed. `npm ci --ignore-scripts --no-audit --no-fund --cache /tmp/chain-1891-npm-cache` returned 401 for the GitHub Packages tarball. A query from `/tmp` against `https://registry.npmjs.org` returned 404. No credentials were invented or persisted.
 
-Raw current reports, screenshots, and the failed locked-install log are under `artifacts/frontend/locale-menu-probe/`. The screenshots were inspected for pending, visible error/retry, and the alternate Menu composition; they are minimal primitive fixtures rather than production-route evidence. The evidence-only follow-up commit does not change the tested harness bytes.
+Raw current reports, screenshots, and the failed locked-install log are under `artifacts/frontend/locale-menu-probe/`. The screenshots were inspected for pending, visible error/retry, and the alternate Menu composition; they are minimal primitive fixtures rather than production-route evidence. The first published probe was subsequently moved into the canonical fixture/check ownership directories; current evidence is regenerated after that move.
 
 ## Remaining acceptance gates
 
