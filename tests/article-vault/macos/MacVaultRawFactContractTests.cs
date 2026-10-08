@@ -1,4 +1,5 @@
 using FsusBlog.ArticleVault.MacOS;
+using FsusBlog.Shared.Contracts.ArticleVault;
 
 using Xunit;
 
@@ -153,5 +154,105 @@ public sealed class MacVaultRawFactContractTests
                 new("/unavailable", null!, "agent-a", new())));
             Assert.Equal("mac_vault_platform_required", exception.ReasonCode);
         }
+    }
+
+    [Fact]
+    public void CanonicalObservationAdapterRetainsNativeDigestWithoutPromotingAdmission()
+    {
+        MacVaultRawFact fact = Fact();
+        VaultObservationBinding binding = MacVaultObservationAdapter.Binding(Identity());
+        VaultRawObservation observation = Assert.Single(MacVaultObservationAdapter.Convert(binding, Identity(), [fact]));
+        Assert.Equal(VaultRawObservationClass.Created, observation.Class);
+        Assert.Equal(fact.Sequence, observation.Sequence);
+        Assert.Equal(fact.ContentSha256, observation.NativeFactSha256);
+        Assert.True(observation.RescanRequired);
+        Assert.False(observation.WatermarkValid);
+        Assert.Null(observation.MoveCookie);
+        Assert.Equal(VaultPathComparisonPolicy.CanonicalUnicodeIgnoreCase, binding.Scope.ComparisonPolicy);
+    }
+
+    [Fact]
+    public void CanonicalObservationAdapterRejectsCrossWatchComparisonAndResealedIdentity()
+    {
+        VaultObservationBinding binding = MacVaultObservationAdapter.Binding(Identity());
+        Assert.Throws<InvalidDataException>(() => MacVaultObservationAdapter.Convert(
+            binding with
+            {
+                WatchInstanceIdentity = "other-watch"
+            }, Identity(), [Fact()]));
+        Assert.Throws<InvalidDataException>(() => MacVaultObservationAdapter.Convert(
+            binding with
+            {
+                Scope = binding.Scope with
+                {
+                    ComparisonPolicy = VaultPathComparisonPolicy.Ordinal
+                }
+            }, Identity(), [Fact()]));
+        MacVaultRawFact changed = MacVaultRawFactCodec.Seal(Fact() with
+        {
+            Identity = Identity() with
+            {
+                AgentIdentity = "other-agent"
+            }
+        });
+        Assert.Throws<InvalidDataException>(() => MacVaultObservationAdapter.Convert(binding, Identity(), [changed]));
+    }
+
+    [Fact]
+    public void CanonicalObservationAdapterKeepsUnpairedRenameAndCoalescedOperationsUnknown()
+    {
+        VaultObservationBinding binding = MacVaultObservationAdapter.Binding(Identity());
+        MacVaultRawFact rename = MacVaultRawFactCodec.Seal(Fact() with
+        {
+            NativeFlags = 0x800,
+            RawNewRelativePath = null
+        });
+        MacVaultRawFact coalesced = MacVaultRawFactCodec.Seal(Fact(2) with
+        {
+            NativeFlags = 0x1100
+        });
+        IReadOnlyList<VaultRawObservation> observations = MacVaultObservationAdapter.Convert(binding, Identity(), [rename, coalesced]);
+        Assert.All(observations, static observation => Assert.Equal(VaultRawObservationClass.Unknown, observation.Class));
+        Assert.All(observations, static observation => Assert.Null(observation.MoveCookie));
+        Assert.Equal(rename.ContentSha256, observations[0].NativeFactSha256);
+        Assert.Equal(coalesced.ContentSha256, observations[1].NativeFactSha256);
+    }
+
+    [Fact]
+    public void CanonicalObservationAdapterRefusesOverBoundDeliveryAndMapsLoss()
+    {
+        VaultObservationBinding binding = MacVaultObservationAdapter.Binding(Identity());
+        MacVaultRawFact[] overBound = Enumerable.Range(1, ArticleVaultEventNormalizer.MaxRawFacts + 1)
+            .Select(static sequence => Fact(sequence)).ToArray();
+        Assert.Throws<InvalidDataException>(() => MacVaultObservationAdapter.Convert(binding, Identity(), overBound));
+        MacVaultRawFact gap = MacVaultRawFactCodec.Seal(Fact() with
+        {
+            NativeFlags = 0x101,
+            ErrorCode = "mac_vault_native_gap"
+        });
+        VaultRawObservation observed = Assert.Single(MacVaultObservationAdapter.Convert(binding, Identity(), [gap]));
+        Assert.Equal(VaultRawObservationClass.WatchInvalidated, observed.Class);
+        Assert.True(observed.RescanRequired);
+        Assert.False(observed.WatermarkValid);
+    }
+
+    [Theory]
+    [InlineData(0x100u, VaultRawObservationClass.Created)]
+    [InlineData(0x1000u, VaultRawObservationClass.Modified)]
+    [InlineData(0x400u, VaultRawObservationClass.AttributesChanged)]
+    [InlineData(0x400000u, VaultRawObservationClass.Unknown)]
+    [InlineData(0x80000100u, VaultRawObservationClass.WatchInvalidated)]
+    public void CanonicalObservationAdapterMapsOnlyFiniteUnambiguousRoles(uint flags, VaultRawObservationClass expected)
+    {
+        MacVaultRawFact fact = MacVaultRawFactCodec.Seal(Fact() with
+        {
+            NativeFlags = flags
+        });
+        VaultRawObservation observation = Assert.Single(MacVaultObservationAdapter.Convert(
+            MacVaultObservationAdapter.Binding(Identity()), Identity(), [fact]));
+        Assert.Equal(expected, observation.Class);
+        Assert.Equal(fact.ContentSha256, observation.NativeFactSha256);
+        Assert.True(observation.RescanRequired);
+        Assert.False(observation.WatermarkValid);
     }
 }

@@ -60,6 +60,16 @@ bound to the watch instance, event cut, outstanding queue loss and verified root
 the watermark and clean/sync admission remain invalid. This is a deliberate WIP
 integration boundary, not completed normalization or runtime qualification.
 
+`MacVaultObservationAdapter` projects validated native facts into the canonical
+`VaultRawObservation` contract from capability
+`e1b4ffba4781bf6729e38b240df8c7647f19768e`. It verifies the independently held
+watch identity and comparison policy, retains native fact digests, and preserves
+the canonical input bound. It does not invoke normalization. Unpaired rename
+and combined operations map to unknown/rescan rather than invented move pairs.
+That capability's structural rescan tracker stops at
+`AwaitingNativeVerification`; it cannot release this observer's invalid native
+watermark or substitute for actual native snapshots.
+
 ## Reads, teardown and verification
 
 The only native content read is the bounded, fixed `.fsus/vault.json` control
