@@ -153,6 +153,43 @@ public static class ArticleVaultGitFactDecoder
         return new(Digest(bytes), records.Length, unmerged);
     }
 
+    /// <summary>
+    /// Rejects configured clean/process filters before status can hash worktree bytes and invoke them.
+    /// Only finite correctness-relevant configuration values are read; remote/credential values are absent.
+    /// </summary>
+    public static string DecodeConfiguration(ReadOnlySpan<byte> names, ReadOnlySpan<byte> relevantValues)
+    {
+        string[] keys = Records(names);
+        if (keys.Any(static key => key.StartsWith("filter.", StringComparison.OrdinalIgnoreCase)
+            || key.StartsWith("diff.", StringComparison.OrdinalIgnoreCase)
+                && (key.EndsWith(".command", StringComparison.OrdinalIgnoreCase) || key.EndsWith(".textconv", StringComparison.OrdinalIgnoreCase))
+            || key.StartsWith("merge.", StringComparison.OrdinalIgnoreCase) && key.EndsWith(".driver", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw Invalid("external_driver_configured");
+        }
+
+        foreach (string record in Records(relevantValues))
+        {
+            string[] fields = record.Split('\n');
+            if (fields.Length != 2 || (fields[0] switch
+            {
+                "core.repositoryformatversion" => fields[1] is not ("0" or "1"),
+                "core.bare" or "core.ignorecase" or "core.filemode" => fields[1] is not ("true" or "false"),
+                "extensions.objectformat" => fields[1] is not ("sha1" or "sha256"),
+                _ => true
+            }))
+            {
+                throw Invalid("configuration_malformed");
+            }
+        }
+
+        return Digest(ArticleVaultManifestCodec.SerializeCanonical(new
+        {
+            NamesSha256 = Digest(names),
+            RelevantValuesSha256 = Digest(relevantValues)
+        }));
+    }
+
     public static ImmutableArray<VaultConflictSourceChange> FindMarkers(ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length > MaxSourceBytes)
@@ -248,7 +285,9 @@ public static class ArticleVaultGitFactDecoder
         else if (facts.Index is not null || facts.Status is not null || facts.RepositoryRootSha256 is not null
             || facts.WorktreeIdentitySha256 is not null || facts.HeadFactsSha256 is not null
             || facts.GitVersionSha256 is not null || facts.ConfigPolicySha256 is not null || facts.Operations.Length != 0
-            || facts.ReasonCode != (facts.Availability == VaultGitAvailability.NotPresent ? "git-not-present" : "git-observation-blocked"))
+            || facts.Availability == VaultGitAvailability.NotPresent && facts.ReasonCode != "git-not-present"
+            || facts.Availability == VaultGitAvailability.Blocked && facts.ReasonCode is not
+                ("git-observation-blocked" or "git-readonly-configuration-admission-missing"))
         {
             return Rejected("availability_facts_invalid");
         }
@@ -276,7 +315,10 @@ public static class ArticleVaultGitFactDecoder
     }
 
     public static string ComputeContentSha256(ArticleVaultGitFacts facts)
-        => Digest(ArticleVaultManifestCodec.SerializeCanonical(facts with { ContentSha256 = string.Empty }));
+        => Digest(ArticleVaultManifestCodec.SerializeCanonical(facts with
+        {
+            ContentSha256 = string.Empty
+        }));
 
     public static string ComputeWorktreeSha256(ImmutableArray<VaultGitSourceFacts> sources)
         => Digest(ArticleVaultManifestCodec.SerializeCanonical(sources));
