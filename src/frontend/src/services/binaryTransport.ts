@@ -563,7 +563,8 @@ async function loadBinaryAndDecode<T>(
     frameType: FrameType,
     accessProfile?: AedsAccessProfileId,
     requestOptions?: BinaryRequestOptions,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    decodeWorkerEnabled = true
 ): Promise<T>
 {
     if (!isBinaryEnabled())
@@ -579,7 +580,7 @@ async function loadBinaryAndDecode<T>(
         requestOptions.signal = signal;
     }
     const buffer = await binaryRequest(url, requestOptions);
-    if (buffer.byteLength <= MAIN_THREAD_DECODE_MAX_BYTES || !canUseDecodeWorker())
+    if (buffer.byteLength <= MAIN_THREAD_DECODE_MAX_BYTES || !decodeWorkerEnabled || !canUseDecodeWorker())
     {
         const decodeStartedAt = typeof performance !== 'undefined' ? performance.now() : 0;
         const frame = decode(buffer);
@@ -637,10 +638,11 @@ async function loadBinaryAndDecodeSafe<T>(
     frameType: FrameType,
     accessProfile?: AedsAccessProfileId,
     requestOptions?: BinaryRequestOptions,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    decodeWorkerEnabled = true
 ): Promise<BinaryDecodeResult<T>>
 {
-    return loadBinaryAndDecode<T>(decodeFramePayload, url, frameType, accessProfile, requestOptions, signal)
+    return loadBinaryAndDecode<T>(decodeFramePayload, url, frameType, accessProfile, requestOptions, signal, decodeWorkerEnabled)
         .then((value): BinaryDecodeSuccess<T> => ({ ok: true, value }))
         .catch(async (error: unknown) =>
         {
@@ -770,7 +772,8 @@ function decodeApiErrorPayload(payloadView: Uint8Array): {
 
 async function requestBinaryOnlyWithDecoder<T>(
     decodeFramePayload: BinaryFramePayloadDecoder,
-    options: BinaryTransportRequest
+    options: BinaryTransportRequest,
+    decodeWorkerEnabled: boolean
 ): Promise<T>
 {
     const resolved = resolveBinaryRequest(options);
@@ -781,7 +784,7 @@ async function requestBinaryOnlyWithDecoder<T>(
     });
     try
     {
-        const value = await executeBinaryRequest<T>(decodeFramePayload, options, resolved, lease.signal);
+        const value = await executeBinaryRequest<T>(decodeFramePayload, options, resolved, lease.signal, decodeWorkerEnabled);
         lease.assertCurrent();
         return value;
     }
@@ -795,7 +798,8 @@ async function executeBinaryRequest<T>(
     decodeFramePayload: BinaryFramePayloadDecoder,
     options: BinaryTransportRequest,
     resolved: ReturnType<typeof resolveBinaryRequest>,
-    requestSignal?: AbortSignal
+    requestSignal: AbortSignal | undefined,
+    decodeWorkerEnabled: boolean
 ): Promise<T>
 {
     const { requestUrl, requestOptions } = resolved;
@@ -805,7 +809,8 @@ async function executeBinaryRequest<T>(
         options.frameType,
         options.accessProfile,
         requestOptions,
-        requestSignal
+        requestSignal,
+        decodeWorkerEnabled
     );
     if (shouldRetryPublicReadWithPow(binaryResult, resolved))
     {
@@ -819,7 +824,8 @@ async function executeBinaryRequest<T>(
                 requiresPow: true,
                 powScope: requestOptions?.powScope ?? `public-read:${requestUrl}`
             },
-            requestSignal
+            requestSignal,
+            decodeWorkerEnabled
         );
     }
     if (binaryResult.ok)
@@ -957,13 +963,16 @@ function riskChallengeHandoffFromResponse(status: number, headers: Headers): Ris
     return { decision, action, routeKey, policyVersion };
 }
 
-export function createBinaryTransport(decodeFramePayload: BinaryFramePayloadDecoder): {
+export function createBinaryTransport(
+    decodeFramePayload: BinaryFramePayloadDecoder,
+    decodeWorkerEnabled = true
+): {
     requestBinaryOnly<T>(options: BinaryTransportRequest): Promise<T>;
 }
 {
     return {
         requestBinaryOnly: async <T>(options: BinaryTransportRequest): Promise<T> =>
-            await requestBinaryOnlyWithDecoder<T>(decodeFramePayload, options)
+            await requestBinaryOnlyWithDecoder<T>(decodeFramePayload, options, decodeWorkerEnabled)
     };
 }
 

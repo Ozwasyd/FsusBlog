@@ -2,6 +2,10 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decode } from '@wasm/aeds'
+
+vi.mock('@/workers/wasmDecode.worker.ts?worker&url', () => ({
+  default: 'https://fsusblog.test/assets/wasmDecode.worker-unit.js'
+}))
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 import { AppErrorCode } from '@/utils/appError'
 import { encodeAedsFrame } from '@/api/binaryFrame'
@@ -114,6 +118,91 @@ describe('binaryTransport ApiError mapping', () => {
     })).resolves.toBe(injectedValue)
     expect(decodeFramePayload).toHaveBeenCalledOnce()
     expect(decodeFramePayload).toHaveBeenCalledWith(FrameType.EmptySuccess, expect.any(Uint8Array), undefined)
+  })
+
+  it('keeps large management JSON with its decoder when a packed worker is available', async () => {
+    const worker = vi.fn(() => { throw new Error('packed worker must not decode management JSON') })
+    vi.stubGlobal('Worker', worker)
+    const value = { description: 'x'.repeat(5000) }
+    const payload = new TextEncoder().encode(JSON.stringify(value))
+    mockBinaryRequest.mockResolvedValue(encodeAedsFrame(FrameType.CommentPolicySnapshot, payload))
+    const transport = createBinaryTransport((_type, bytes) => JSON.parse(new TextDecoder().decode(bytes)), false)
+
+    await expect(transport.requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_author_moderation_anonymous_comment_policy' },
+      frameType: FrameType.CommentPolicySnapshot
+    })).resolves.toEqual(value)
+    expect(worker).not.toHaveBeenCalled()
+    expect(mockBinaryRequest).toHaveBeenCalledOnce()
+    expect(mockBinaryRequest).toHaveBeenCalledWith('/api/binary/author/moderation/anonymous-comment-policy',
+      expect.objectContaining({ method: 'GET', credentials: 'include', signal: expect.any(AbortSignal) }))
+  })
+
+  it('keeps the packed worker path for large typed frames', async () => {
+    const listeners = new Map<string, (event: unknown) => void>()
+    const value = { decodedBy: 'packed-worker' }
+    const postMessage = vi.fn((request: { requestId: number }) => {
+      queueMicrotask(() => listeners.get('message')?.({ data: {
+        requestId: request.requestId, ok: true, data: value
+      } }))
+    })
+    vi.stubGlobal('Worker', class {
+      addEventListener(name: string, listener: (event: unknown) => void) { listeners.set(name, listener) }
+      postMessage = postMessage
+      terminate() {}
+    })
+    const decoder = vi.fn()
+    const transport = createBinaryTransport(decoder)
+    mockBinaryRequest.mockResolvedValue(encodeAedsFrame(FrameType.EmptySuccess, new Uint8Array(5000)))
+    try {
+      await expect(transport.requestBinaryOnly({
+        binaryRoute: { operationId: 'binary_get_admin_article' }, frameType: FrameType.EmptySuccess
+      })).resolves.toBe(value)
+      expect(decoder).not.toHaveBeenCalled()
+      expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'decode', expectedFrameType: FrameType.EmptySuccess
+      }), [expect.any(ArrayBuffer)])
+    } finally {
+      listeners.get('messageerror')?.({})
+    }
+  })
+
+  it.each(['wrong-frame', 'malformed-header'])('refuses %s before decoding large management JSON', async (failure) => {
+    const worker = vi.fn(() => { throw new Error('packed worker must not decode management JSON') })
+    vi.stubGlobal('Worker', worker)
+    const decoder = vi.fn((_type, bytes) => JSON.parse(new TextDecoder().decode(bytes)))
+    const transport = createBinaryTransport(decoder, false)
+    const buffer = encodeAedsFrame(failure === 'wrong-frame' ? FrameType.EmptySuccess : FrameType.CommentPolicySnapshot,
+      new TextEncoder().encode(JSON.stringify({ description: 'x'.repeat(5000) })))
+    if (failure === 'malformed-header') new DataView(buffer).setUint32(0, 0, true)
+    mockBinaryRequest.mockResolvedValue(buffer)
+    await expect(transport.requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_author_moderation_anonymous_comment_policy' },
+      frameType: FrameType.CommentPolicySnapshot
+    })).rejects.toMatchObject({ kind: 'decode_failed' })
+    expect(decoder).not.toHaveBeenCalled()
+    expect(worker).not.toHaveBeenCalled()
+  })
+
+  it('rejects a large management JSON response after its admin generation changes', async () => {
+    let resolveResponse!: (value: ArrayBuffer) => void
+    const response = new Promise<ArrayBuffer>(resolve => { resolveResponse = resolve })
+    let requestSignal: AbortSignal | undefined
+    mockBinaryRequest.mockImplementation(async (_url, options) => {
+      requestSignal = options?.signal
+      return await response
+    })
+    const transport = createBinaryTransport((_type, bytes) => JSON.parse(new TextDecoder().decode(bytes)), false)
+    const pending = transport.requestBinaryOnly({
+      binaryRoute: { operationId: 'binary_get_author_moderation_anonymous_comment_policy' },
+      frameType: FrameType.CommentPolicySnapshot
+    })
+    await vi.waitFor(() => expect(requestSignal).toBeDefined())
+    privateRequestRuntime.advance('admin')
+    expect(requestSignal?.aborted).toBe(true)
+    resolveResponse(encodeAedsFrame(FrameType.CommentPolicySnapshot,
+      new TextEncoder().encode(JSON.stringify({ description: 'x'.repeat(5000) }))))
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
   })
 
   it('rejects a decoded legacy admin response from an older generation', async () => {
@@ -344,7 +433,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
     expect(mockBinaryRequest).toHaveBeenLastCalledWith(
       '/api/binary/system/page/about',
-      expect.objectContaining({ credentials: 'omit' })
+      expect.objectContaining({ credentials: 'include' })
     )
   })
 
