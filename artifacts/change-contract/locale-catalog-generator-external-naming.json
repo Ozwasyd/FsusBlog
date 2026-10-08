@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/contracts/generate-locale-catalog.mjs",
+                "tools/contracts/check-locale-catalog.mjs"
+            ],
+            "reason": "Preserve external tooling identifiers on the registered tools/**/*.mjs surface. Generator byte parity and canonical consumer-parser reuse add no environment-variable names and keep all locale codes, JSON fields, public exports and digests unchanged."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve execution-authority serialized names while the unchanged canonical producer refreshes only the two changed catalog tooling byte bindings. Retain the original Node parser, complete closure roster, source index, finite registration and all history policies."
+        }
+    ]
+}

@@ -217,13 +217,12 @@ test('6. route requiring unknown domain fails', () =>
     const original = readFileSync(target, 'utf8');
     try
     {
-        writeFileSync(
-            target,
-            original.replace(
-                "const PUBLIC_SHELL_DOMAINS = Object.freeze(['common', 'layout', 'public', 'security'] as const)",
-                "const PUBLIC_SHELL_DOMAINS = Object.freeze(['common', 'layout', 'public', 'security', 'future'] as const)"
-            )
+        const mutated = original.replace(
+            "const PUBLIC_SHELL_DOMAINS = Object.freeze(['common', 'layout', 'public'] as const)",
+            "const PUBLIC_SHELL_DOMAINS = Object.freeze(['common', 'layout', 'public', 'future'] as const)"
         );
+        assert.notEqual(mutated, original, 'unknown-domain control must mutate the actual route manifest');
+        writeFileSync(target, mutated);
         const result = checkLocaleDomainStatic({ rootDir: root });
         assert.equal(result.ok, false);
         const hit = result.errors.find((item) =>
