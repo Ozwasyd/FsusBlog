@@ -59,13 +59,29 @@ public sealed class ArticlePropertyValueValidator(
             throw new ArticlePropertyDefinitionValidationException("article_property_value_input_invalid");
         }
         cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyList<ArticlePropertyDefinition> current = heldInputs.Length == 0
+            ? Array.Empty<ArticlePropertyDefinition>()
+            : await definitions.GetManyAsync(actor, owner,
+                heldInputs.Select(static input => input.DefinitionId).Order().ToArray(), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        var requested = heldInputs.Select(static input => input.DefinitionId).ToHashSet();
+        var byId = new Dictionary<Guid, ArticlePropertyDefinition>(heldInputs.Length);
+        foreach (ArticlePropertyDefinition definition in current)
+        {
+            if (definition is null || !requested.Contains(definition.DefinitionId)
+                || !byId.TryAdd(definition.DefinitionId, definition))
+            {
+                throw new ArticlePropertyDefinitionValidationException("article_property_definition_batch_invalid");
+            }
+        }
         var result = new List<ArticlePropertyValueEntry>(heldInputs.Length);
         foreach (ArticlePropertyValueInput input in heldInputs.OrderBy(static input => input.DefinitionId))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ArticlePropertyDefinition definition = await definitions.GetAsync(actor, owner,
-                input.DefinitionId, cancellationToken).ConfigureAwait(false)
-                ?? throw new ArticlePropertyDefinitionValidationException("article_property_definition_unavailable");
+            if (!byId.TryGetValue(input.DefinitionId, out ArticlePropertyDefinition? definition))
+            {
+                throw new ArticlePropertyDefinitionValidationException("article_property_definition_unavailable");
+            }
             cancellationToken.ThrowIfCancellationRequested();
             ArticlePropertyDefinitionContract.ValidateDefinition(definition);
             if (definition.Owner != owner || definition.DefinitionId != input.DefinitionId
