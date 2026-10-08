@@ -34,6 +34,7 @@ public sealed class ManagedMemoryBacking : IMemoryHostViewSource, IDisposable
     private readonly TaskCompletionSource _drained = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly int[] _roleCounts = new int[4];
     private byte[]? _buffer;
+    private byte[]? _retiringBuffer;
     private MemoryRetirementState _state;
     private int _roles = 1;
     private int _readers;
@@ -96,23 +97,31 @@ public sealed class ManagedMemoryBacking : IMemoryHostViewSource, IDisposable
         // ADMISSION: Exact array capacity is reserved before allocation; padding starts
         // initialized and only the logical payload range is exposed by a host lease.
         var buffer = new byte[capacity];
-        payload.CopyTo(buffer);
-        var location = new MemoryLocationToken(new(Guid.NewGuid()), new(Guid.NewGuid()), revision, epoch);
-        MemoryOperationResult<IMemoryAllocationCharge> conversion = reservation.Commit(location.Allocation, vector);
-        if (!conversion.Succeeded)
-        {
-            return MemoryOperationResult<ManagedMemoryBacking>.Reject(conversion.Failure!.Value);
-        }
+        IMemoryAllocationCharge? charge = null;
+        bool transferred = false;
         try
         {
-            var owner = new ManagedMemoryBacking(ledger, operationDomain, conversion.Value!, content,
+            payload.CopyTo(buffer);
+            var location = new MemoryLocationToken(new(Guid.NewGuid()), new(Guid.NewGuid()), revision, epoch);
+            MemoryOperationResult<IMemoryAllocationCharge> conversion = reservation.Commit(location.Allocation, vector);
+            if (!conversion.Succeeded)
+            {
+                return MemoryOperationResult<ManagedMemoryBacking>.Reject(conversion.Failure!.Value);
+            }
+            charge = conversion.Value!;
+            var owner = new ManagedMemoryBacking(ledger, operationDomain, charge, content,
                 location, buffer, payload.Length, holdLimit, releaseRecorder);
-            return MemoryOperationResult<ManagedMemoryBacking>.Success(owner);
+            MemoryOperationResult<ManagedMemoryBacking> result = MemoryOperationResult<ManagedMemoryBacking>.Success(owner);
+            transferred = true;
+            return result;
         }
-        catch
+        finally
         {
-            conversion.Value!.Dispose();
-            throw;
+            if (!transferred)
+            {
+                Array.Clear(buffer);
+                charge?.Dispose();
+            }
         }
     }
 
@@ -325,6 +334,7 @@ public sealed class ManagedMemoryBacking : IMemoryHostViewSource, IDisposable
             return false;
         }
         _state = MemoryRetirementState.Releasing;
+        _retiringBuffer = _buffer;
         _buffer = null;
         return true;
     }
@@ -335,6 +345,10 @@ public sealed class ManagedMemoryBacking : IMemoryHostViewSource, IDisposable
         // No timer, GC callback or canceled waiter can force this release transition.
         try
         {
+            // SECURITY: Generic content has no approved public-immutable clear exemption.
+            // Clear the whole capacity only after every actual consumer/pin/role ends.
+            Array.Clear(_retiringBuffer!);
+            _retiringBuffer = null;
             _charge.Dispose();
             _releaseRecorder?.Invoke(Capacity);
             lock (_gate)

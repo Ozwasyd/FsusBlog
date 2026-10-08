@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Reflection;
 using System.Threading.Tasks.Sources;
 
 using FsusBlog.Server.Infrastructure.Cache;
@@ -10,6 +11,25 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ManagedMemoryBackingTests
 {
+    [Fact]
+    public async Task UnclassifiedBackingIsClearedOnlyAfterTheFinalReaderEnds()
+    {
+        var fixture = new Fixture(64);
+        using ManagedMemoryBacking owner = fixture.Create(64);
+        // Independent forensic observation of the actual managed allocation; this
+        // fixture reference prevents GC reclaim and is not a product serving lease.
+        byte[] allocation = (byte[])typeof(ManagedMemoryBacking).GetField("_buffer",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(owner)!;
+        IMemoryHostReadLease reader = owner.TryAcquireHostView(owner.Location).Value!;
+        owner.Close();
+        Assert.Equal(new byte[] { 1, 2, 3 }, allocation.AsSpan(0, 3).ToArray());
+        Assert.Equal(64, fixture.Ledger.Snapshot().Used["payload"]);
+        reader.Dispose();
+        await owner.Drained;
+        Assert.All(allocation, value => Assert.Equal((byte)0, value));
+        Assert.Equal(0, fixture.Ledger.Snapshot().Used["payload"]);
+    }
+
     [Fact]
     public async Task ActualConsumerAndSlotSurviveOuterCancellationUntilTerminalRead()
     {
