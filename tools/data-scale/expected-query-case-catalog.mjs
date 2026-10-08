@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { inspectQueryScenarioApplicability } from './distribution-query-binding.mjs';
 import { queryCaseIds } from './query-case-registry.mjs';
 import { computeSha256 } from './runtime-plan.mjs';
 
@@ -13,6 +14,17 @@ const schemaBytes = fs.readFileSync(path.join(repositoryRoot, schemaPath));
 const catalogSchema = JSON.parse(schemaBytes);
 const schemaDigest = computeSha256(schemaBytes);
 const registryDigest = computeSha256(fs.readFileSync(path.join(repositoryRoot, registryPath)));
+
+/**
+ * Consume the original distribution inspector with the original query inventory.
+ * Applicability must come from the query owner; no case-name inference, receipt,
+ * statistics fabrication or qualification is performed by this consumer.
+ * Noncanonical JavaScript inputs retain the original serializer's exceptions.
+ */
+export function inspectExpectedQueryScenarioApplicability(applicability)
+{
+    return inspectQueryScenarioApplicability({ caseIds: queryCaseIds, applicability });
+}
 
 /** Required semantic kinds are schema vocabulary, never a second case registry. */
 export function expectedQueryKinds()

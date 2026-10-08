@@ -74,6 +74,26 @@ sources. Its result is a static reference control. Runtime reads, package
 contents, indirect imports and compiled assembly isolation still need separate
 actual acceptance through the existing owners.
 
+## Canonical distribution consumption
+
+`inspectExpectedQueryScenarioApplicability(applicability)` directly consumes
+the original [distribution inspector](distribution-query-binding.mjs) with
+the original query registry's IDs. Callers supply explicit owner applicability;
+this module never infers it from query names or maintains another case/scenario
+table. Missing intake and the current catalog's unresolved capabilities remain
+blocked. Non-uniform policy eligibility does not grant qualification.
+Noncanonical or lossy JavaScript applicability inputs retain the original
+serializer's exceptions; this seam does not swallow them into a successful
+report.
+
+The catalog, contract, inspector and their original catalog/query controls are
+consumed byte-for-byte from distribution owner source
+`f5abc68cb455ceff9d23e025cba1b617b3a7e567`. The source catalog is recomputed from
+the integrated checkout's actual content/media/temporal/article/variant
+authority bytes and validated there. Its eight unavailable capabilities are
+preserved. No assignment compiler, actual DB statistics reader, scenario
+receipt or query-runner admission is supplied by this seam.
+
 ## Current integration limits
 
 The actual canonical registry has 16 query IDs, while the closed schema requires
@@ -81,7 +101,9 @@ The actual canonical registry has 16 query IDs, while the closed schema requires
 consistency and moderation/visibility/region/actor/permission/deleted-thread
 coverage are incomplete. The validator preserves these failures; no complete
 catalog artifact is checked in. There is no canonical owner projection export
-or complete comment/distribution intake currently connected to this module.
+or complete comment/assignment/actual-statistics intake connected to this
+module. The source distribution inspector above is a real bounded component,
+and its blocked report is preserved rather than promoted to qualification.
 
 The current [article expected exporter](query-plan-collector/CanonicalQueryExpectedArticles.cs)
 remains the original producer. It is not replaced here. Article/comment
@@ -95,3 +117,6 @@ qualification.
 Rollback removes this module, schema, dedicated controls and module-local
 documentation together. No product data, wire protocol, query implementation,
 threshold, original registry, seed or production configuration changes.
+To roll back only the distribution-consumption follow-up, remove its new
+inspector export/import, imported distribution source/control files and intake
+test while preserving the base catalog/schema/validator from PR #4011.
