@@ -100,7 +100,14 @@ internal static partial class CurrentSchemaBootstrapCompiler
                     {
                         throw new InvalidOperationException("current_schema_bootstrap_identity_default_conflict");
                     }
-                    definition += $" DEFAULT {EntityDefaultValue(column)}";
+                    definition += $" DEFAULT {PostgresEntityDefaultValue(column)}";
+                }
+                else if (column.IsNullable && column.DataType == "string"
+                    && type.StartsWith("character varying(", StringComparison.Ordinal))
+                {
+                    // The original SqlSugar PostgreSQL owner declares this NULL
+                    // default for nullable bounded strings, unlike text columns.
+                    definition += " DEFAULT NULL";
                 }
                 definitions.Add(definition);
             }
@@ -131,7 +138,11 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 {
                     throw new InvalidOperationException("current_schema_bootstrap_constraint_state_capability_unavailable");
                 }
-                definitions.Add($"CONSTRAINT {Identifier(constraint.Name)} {clause}");
+                // The extractor's generated primary role is neutral; the original
+                // CodeFirst owner uses PostgreSQL's native implicit physical name.
+                // Explicitly named constraints keep their supplied owner name.
+                definitions.Add(constraint.Kind == "primary-key" && constraint.Name == "pk_" + tableName
+                    ? clause : $"CONSTRAINT {Identifier(constraint.Name)} {clause}");
             }
             commands.Add(new SchemaMigrationCommand(
                 $"CREATE TABLE {Identifier(tableName)} ({string.Join(", ", definitions)});", IsDdl: true));
@@ -282,6 +293,17 @@ internal static partial class CurrentSchemaBootstrapCompiler
         => Regex.IsMatch(value, "^(?:-?[0-9]+(?:\\.[0-9]+)?|true|false|NULL|'(?:[^']|'')*'|now\\(\\)|CURRENT_TIMESTAMP)$",
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase) ? value
             : throw new InvalidOperationException("current_schema_bootstrap_default_capability_unavailable");
+
+    private static string PostgresEntityDefaultValue(SchemaColumnModel column)
+    {
+        string value = column.DefaultValue!;
+        // Keep the original entity owner's logical Int64 input literal and its
+        // native bigint constant representation. Recipes and other providers
+        // retain their own existing renderers and expression semantics.
+        if (column.DataType == "int64" && Regex.IsMatch(value, @"\A-?[0-9]+\z", RegexOptions.CultureInvariant))
+            return "'" + value + "'";
+        return EntityDefaultValue(column);
+    }
 
     internal static string EntityDefaultValue(SchemaColumnModel column)
     {

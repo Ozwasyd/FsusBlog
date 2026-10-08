@@ -195,6 +195,48 @@ public sealed class CurrentSchemaBootstrapCompilerTests
     }
 
     [Fact]
+    public void EntitySubset_NullableBoundedStringKeepsTheOriginalNativeNullDefault()
+    {
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.CompileEntityProjection(
+            Projection(), SchemaProviderKind.PostgreSql);
+        Assert.Contains("\"name\" character varying(64) NULL DEFAULT NULL", compiled.Commands[0].Sql);
+    }
+
+    [Theory]
+    [InlineData(false, 64)]
+    [InlineData(true, null)]
+    public void EntitySubset_NonnullableOrUnboundedStringDoesNotAcquireAnImplicitDefault(bool nullable, int? length)
+    {
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.CompileEntityProjection(
+            Projection(nullableName: nullable, maxLength: length), SchemaProviderKind.PostgreSql);
+        Assert.DoesNotContain("DEFAULT", compiled.Commands[0].Sql);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("1")]
+    [InlineData("-9223372036854775808")]
+    [InlineData("9223372036854775807")]
+    public void EntitySubset_Int64DefaultKeepsTheOriginalLogicalInputLiteral(string value)
+    {
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.CompileEntityProjection(
+            Projection(value, semanticType: "int64", maxLength: null), SchemaProviderKind.PostgreSql);
+        Assert.Contains("DEFAULT '" + value + "'", compiled.Commands[0].Sql);
+    }
+
+    [Fact]
+    public void EntitySubset_GeneratedPrimaryRoleUsesNativeNameButExplicitOwnerNameRemains()
+    {
+        CompiledCurrentSchemaBootstrap generated = CurrentSchemaBootstrapCompiler.CompileEntityProjection(
+            Projection(), SchemaProviderKind.PostgreSql);
+        Assert.Contains("PRIMARY KEY (\"id\")", generated.Commands[0].Sql);
+        Assert.DoesNotContain("CONSTRAINT \"pk_probe\"", generated.Commands[0].Sql);
+        CompiledCurrentSchemaBootstrap named = CurrentSchemaBootstrapCompiler.CompileEntityProjection(
+            Projection(primaryName: "owned_probe_primary"), SchemaProviderKind.PostgreSql);
+        Assert.Contains("CONSTRAINT \"owned_probe_primary\" PRIMARY KEY (\"id\")", named.Commands[0].Sql);
+    }
+
+    [Fact]
     public void Bootstrap_ExpressionKeyPreservesOrderedAstSortAndDigest()
     {
         CurrentSchemaBootstrapInput input = ExpressionInput();
@@ -310,12 +352,13 @@ public sealed class CurrentSchemaBootstrapCompilerTests
     private static CurrentSchemaProducerIdentity Owner()
         => new(new string('a', 40), "fsusblog.current-schema-owned-projection.v1", new string('b', 64), new string('c', 64));
 
-    private static CurrentSchemaProjection Projection(string? defaultValue = null)
+    private static CurrentSchemaProjection Projection(string? defaultValue = null, bool nullableName = true,
+        string semanticType = "string", int? maxLength = 64, string primaryName = "pk_probe")
     {
         var columns = new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal)
         {
             ["id"] = new("id", false, true, true, null, "int64"),
-            ["name"] = new("name", true, false, false, 64, "string", DefaultValue: defaultValue)
+            ["name"] = new("name", nullableName, false, false, maxLength, semanticType, DefaultValue: defaultValue)
         };
         var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal)
         {
@@ -323,7 +366,7 @@ public sealed class CurrentSchemaBootstrapCompilerTests
         };
         var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal)
         {
-            ["pk_probe"] = new("pk_probe", "primary-key", ["id"])
+            [primaryName] = new(primaryName, "primary-key", ["id"])
         };
         var tables = new Dictionary<string, SchemaTableModel>(StringComparer.Ordinal)
         {
