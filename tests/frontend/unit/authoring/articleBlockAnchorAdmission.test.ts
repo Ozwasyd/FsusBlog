@@ -64,7 +64,7 @@ describe('Block anchor local admission (#2444)', () =>
 {
     it('uses actual public projection identities and preserves source and backward selection', () =>
     {
-        const { owner, document, command, dispatch } = fixture('\uFEFFParagraph  ^intro\r\n\r\nTail  ');
+        const { owner, document, command, dispatch } = fixture('\uFEFFParagraph ^intro\r\n\r\nTail  ');
         const before = document;
         const result = resolveArticleBlockAnchorAdmission(document, command, 'reveal-source');
         expect(result.status).toBe('admitted');
@@ -74,10 +74,27 @@ describe('Block anchor local admission (#2444)', () =>
         expect(result.document).toBe(before);
         expect(owner.context.sourceRevision).toBe(before.sourceRevision);
         expect(command.selection.direction).toBe('backward');
-        expect(command.value).toBe('\uFEFFParagraph  ^intro\r\n\r\nTail  ');
+        expect(command.value).toBe('\uFEFFParagraph ^intro\r\n\r\nTail  ');
         expect(dispatch).not.toHaveBeenCalled();
         expect(Object.isFrozen(result)).toBe(true);
         expect(Object.isFrozen(result.range)).toBe(true);
+    });
+
+    it('retains the former double-separator bytes as a canonical placement denial', () =>
+    {
+        const source = '\uFEFFParagraph  ^intro\r\n\r\nTail  ';
+        const { owner, document, command, dispatch } = fixture(source, 'paragraph');
+        const result = resolveArticleBlockAnchorAdmission(document, command, 'create', 'safe');
+        expect(result.status).toBe('blocked');
+        expect(result.reason).toBe('anchor-diagnostic');
+        expect(result.diagnostic).toEqual({ code: 'anchor-placement', range: { start: 12, end: 18 } });
+        expect(command.projection!.nodes.filter(node => node.kind === 'anchor' && node.status === 'valid')).toEqual([]);
+        expect(result.anchorId).toBeNull();
+        expect(result.document).toBe(document);
+        expect(owner.context.sourceRevision).toBe(document.sourceRevision);
+        expect(command.selection.direction).toBe('backward');
+        expect(command.value).toBe(source);
+        expect(dispatch).not.toHaveBeenCalled();
     });
 
     it.each(['intro', 'a', 'a' + '9'.repeat(63), 'a-', 'section-42'])('admits exact candidate %s without writing source', candidate =>
