@@ -65,7 +65,7 @@ export function authoringWorkspaceSnapshotStatusModel(sync: AuthoringWorkspaceSn
         && plan.scopeDigest === state.scopeDigest && plan.sourceDigest === state.sourceDigest && plan.summary.skipped + plan.summary.blocked > 0)
     {
         status = 'partial';
-        message = `已恢复 ${plan.summary.restored} 个标签，跳过或阻止 ${plan.summary.skipped + plan.summary.blocked} 个引用。`;
+        message = `布局包含 ${plan.summary.restored} 个可恢复标签，跳过或阻止 ${plan.summary.skipped + plan.summary.blocked} 个引用。`;
         Object.assign(reasonCounts, plan.summary.reasons);
     }
     const unsigned = { state: status, message, role: 'status' as const, live: 'polite' as const,
