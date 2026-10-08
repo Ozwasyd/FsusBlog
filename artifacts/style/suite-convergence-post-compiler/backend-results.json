@@ -1,0 +1,61 @@
+{
+  "runId": "2026-10-08T03:53:12.007502+00:00",
+  "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+  "checks": [
+    {
+      "name": "locked-restore",
+      "command": [
+        "timeout",
+        "180",
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode",
+        "--force",
+        "--nologo"
+      ],
+      "exitCode": 0,
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6"
+    },
+    {
+      "name": "backend-build",
+      "command": [
+        "timeout",
+        "240",
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--configuration",
+        "Debug",
+        "--nologo",
+        "--verbosity",
+        "quiet"
+      ],
+      "exitCode": 0,
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6"
+    },
+    {
+      "name": "affected-original-runtime",
+      "command": [
+        "timeout",
+        "240",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~TaxonomyExactMetadataTests|FullyQualifiedName~SecurityAdminPolicyDefaultsTests|FullyQualifiedName~RealConcurrencyHarnessTests|FullyQualifiedName~CanonicalArticleLifecycleScheduledFailureTests|FullyQualifiedName~AuthoringExtensionRpcBrokerTests|FullyQualifiedName~LifecycleHostedBootstrapServiceTests|FullyQualifiedName~CanonicalArticleProjectionVerifierTests|FullyQualifiedName~DocumentExportContractTests",
+        "--results-directory",
+        "/tmp/fsusblog-3593/support-compiler-next/runtime-results",
+        "--logger",
+        "trx"
+      ],
+      "exitCode": 1,
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6"
+    }
+  ]
+}

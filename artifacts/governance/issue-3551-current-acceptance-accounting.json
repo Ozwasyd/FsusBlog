@@ -3,7 +3,7 @@
   "runId": "2026-10-08T03:35:23.928106+00:00",
   "trackingIssue": 3551,
   "mode": "tracking-only",
-  "testedCandidate": "f96aedafe8ce01118f53a854d466fc3271cbb48c",
+  "testedCandidate": "dac87fddc214f9334079a0cab6e32197b8794dd6",
   "master": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
   "originalInventoryCommit": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
   "accepted": false,
@@ -402,7 +402,7 @@
       "updatedAt": "2026-10-08T03:10:38Z",
       "bodySha256": "f3c0143431c0c0f9525f3921a820de5853140665bf06ea2ccbca4006620856b5",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3554#issuecomment-6051380767",
       "acceptanceBody": "## Current-master evidence\n\nRemote `master` is `b19b3dc715691b871f0e3cab598ec5da8f27633c`. The suite-convergence checker reports three `production-source-read` findings in `tests/backend/Unit/PublicHotReadDbAdmissionTests.cs` at its `PublicDetailFallback_IsGatedAndLeavesNoUngatedCompatPath` test. That method reads `BinaryEndpoints.Articles.cs`, `ArticleService.ArticleVaultWriter.cs`, and `ArticleService.ArticleVaultTransaction.cs` as repository text. The same test already inspects compiled `ArticleService` metadata, and adjacent tests exercise classified gate admission. These three findings are one domain-owned subset of parent #3551's 38 source-read findings.\n\n## Scope / acceptance\n\n- [ ] Replace exactly those three repository-source reads with compiled runtime/endpoint behavior evidence or one explicitly owned static authority, preserving route artifact-first/fallback ordering, foreground write admission, operation names, transaction binding, and no ungated compatibility path. Do not merely rename a reader to evade detection.\n- [ ] Keep the existing test ID and all meaningful negative assertions or strengthen them; no product-runtime or AEDS wire change.\n- [ ] Show the focused backend test, C# style, suite-convergence delta from the exact 40-error master baseline with no new findings, applicable matrix and PR gates on the final head.\n- [ ] Keep the issue open until a standard PR merge and current-master recheck; parent #3551 stays open until all 40 findings are resolved.\n\nRelated: #3551. No permission to weaken the convergence scanner, delete unrelated replacement declarations, or combine other domains in this child PR.",
@@ -437,7 +437,17 @@
       "currentMasterBlob": "dc21436d4a3a10d4d8818266abcc503b3c71e6a0",
       "candidateBlob": "dc21436d4a3a10d4d8818266abcc503b3c71e6a0",
       "currentMasterLastSourceCommit": "590f1d3b7710471518eb982761945e7e3a5a994b",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "PublicHotReadDbAdmissionTests",
+        "counts": {
+          "Passed": 16
+        },
+        "failures": [],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3556,
@@ -447,7 +457,7 @@
       "updatedAt": "2026-10-08T03:10:52Z",
       "bodySha256": "38b76c69749b6f2127d6982b8339a30ebdd11156b4cfc7d4eacdfb41498ead5d",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "not fully qualified; actual backend now builds, but canonical inventory, original authority/style/full matrix and exact-head independent gates remain pending",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3556#issuecomment-6051383112",
       "acceptanceBody": "Parent: #3551. Historical owner: #2348 (closed), commit `80038e83710cc9bd252aaef4c014d893d2c4bdc0`.\n\n## Scope\n\nCurrent master reports exactly two `replacement declaration does not resolve in the compact before snapshot` errors for the deleted `BackendAuthStateMachineTests.LoginWithMfa_RequiresPartialAuthBeforeFullSession` and `IllegalTransitions_AreRejected` IDs. Both existed immediately before commit `80038e837`, were removed in that commit, and already have exact central replacement declarations. The compact before snapshot predates this deletion; the missing piece is the issue-bound post-baseline migration record.\n\n## Acceptance\n\n- Add an exact #2348 post-baseline with those two IDs, historical source commit, correct paths and migrated dispositions; register it in the matrix retention post-baseline list.\n- Keep the central replacement targets and production auth flow unchanged; do not edit the convergence checker or compact before snapshot to self-authorize.\n- Add a refusal test proving an omitted/mismatched post-baseline record still fails.\n- Verify convergence errors drop by exactly two from current master, while remaining independent source-read findings stay visible. Run focused governance/matrix/change-contract checks.\n- Standard PR review/merge gates remain; no claim that parent #3551 or full fast becomes green.",
@@ -466,7 +476,7 @@
       "updatedAt": "2026-10-05T18:10:23Z",
       "bodySha256": "17fadafc3c0572ac02f45f926faee99ac7b1c929874ef777a20ac236309702ea",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3558#issuecomment-6000310116",
       "acceptanceBody": "Parent: #3551. Current master `b19b3dc715691b871f0e3cab598ec5da8f27633c` reports three `production-source-read` findings in `tests/backend/Unit/DocumentExportContractTests.cs` (`StaticGovernance_ContractSliceHasOneRegistryAndNoExecutionOrAlternateParserAuthority`).\n\n## Scope and acceptance\n\n- Replace only those three reads of `DocumentExportContracts.cs`, `DocumentExportContractValidator.cs`, and `DocumentExportDigest.cs` with checks bound to compiled production contract types and adjacent executable contract behavior.\n- Preserve one-catalog ownership, closed execution bindings, and the absence of process, network, alternate parser or screenshot execution surfaces. Preserve the test identity and fail-closed assertions; do not simply delete negative coverage.\n- Do not modify product runtime, source-lock checker, generated/vendor files, public wire/ABI, thresholds or unrelated Document Export owners.\n- Run focused xUnit tests, scanner positive/refusal suite, style, matrix validation, and exact-head change-contract/PR gates. Confirm these three findings disappear with no new convergence finding.\n- Standard PR review/merge remains required; parent #3551 and full fast stay open until their own complete evidence exists.",
@@ -501,7 +511,17 @@
       "currentMasterBlob": "a96b45ae2fc84e83d0064f26a6d07f221f434244",
       "candidateBlob": "a96b45ae2fc84e83d0064f26a6d07f221f434244",
       "currentMasterLastSourceCommit": "31a3b3ea7b985f7130a5d5a2c69cabf24e07ce53",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "DocumentExportContractTests",
+        "counts": {
+          "Passed": 70
+        },
+        "failures": [],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3560,
@@ -511,7 +531,7 @@
       "updatedAt": "2026-10-08T03:11:02Z",
       "bodySha256": "3b2cc4237fc4ca555fce61e51a25df370f94ef70d783464b738f717d70d07f74",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3560#issuecomment-6051384859",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the shared constructor-aware compiled metadata inspector; this is a stacked, separately reviewed backend-test owner change until the parent PR merges.\n\nCurrent master reports four `production-source-read` findings in `tests/backend/Unit/DocumentExportHtmlProviderTests.cs` under `StaticGovernanceHasNoRendererParserNetworkScreenshotOrFormatFallbackAuthority`. They read the HTML provider, renderer adapter/registry, sanitizer and verifier source files.\n\n## Exact acceptance\n\n- Remove only those four backend-test source reads; keep the original test ID and its negative checks for alternate Markdown parser, network/process/screenshot execution and PDF/DOCX/EPUB fallback authority.\n- Bind the negative checks to the compiled production types, including constructor bodies. Preserve the public provider constructor restriction and exact `ExportAsync` signature.\n- Bind the renderer registry's sole provider construction and `RequireRegisteredTool(\"self-contained-html\")` call to compiled constructor evidence plus existing executable fixture behavior. Do not replace either positive assertion with a name-only check.\n- No production runtime, wire/ABI, checker, threshold, generated output or unrelated Document Export owner changes.\n- Focused backend tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract pass; the stacked candidate removes exactly four additional findings with no new ones. Parent #3551 remains open until all findings and full gates are resolved.\n- Use a standard PR against #3558 while stacked, then retarget/revalidate against master after #3558 merges; neither PR may be counted as merged or accepted from local green alone.\n\n## 2026-09-30 exact frozen candidate evidence\n\nPR #3561 remains OPEN/DRAFT at `e88c0a01292227bc8d20b8e0d07e5ab54ef142be` (tree `a6c9ca3324c78901cd897fa7e14ec94517d6d034`), stacked on #3559 at `cdae3cea94e9820f17c1807fe929fee14d89d4ee`; current master is `b19b3dc715691b871f0e3cab598ec5da8f27633c`.\n\nThe original full backend project builds with locked restore and SDK 10.0.302, zero warnings/errors. In a restricted task-owned guest with real bwrap/user-cgroup support, the unchanged complete HTML provider class passes 22/22, DocumentExport contract class 24/24 and constructor metadata helper 1/1: 47/47 total, zero skips/failures/aborts, durable guest and host observation exit 0. All 275 executed binary paths/bytes/digests are identical to the exact frozen-source host build, and the guest source remains clean. This uses the original deterministic renderer fixture as authorized local simulation; it is not upstream canonical renderer integration, full local CI, independent acceptance or merge.\n\nThe original scanner positive/refusal file was re-executed 16/16 with no skips/cancellations; exact Git base/head source-only scanner evidence removes exactly the four target reads (35 to 31 production-source-read findings), leaving inherited findings identical. Trusted b19 C# style passes two files with zero violations; original actual-PR contract passes before metadata refresh and is rechecked afterward. Fresh 2026-09-30 original exact-head matrix structure passes 144/144, durable exit 0, tracked source unchanged. Original locked Ajv dependencies and the producer's explicit FSUSBLOG_CONTENT_FIELD_DOTNET were configured; PATH alone is not its discovery contract. Both earlier environment failures remain recorded. Evidence: `.tmp/governance/html-export-3560-e88-matrix-prepared-environment-20260930-round2.{log,exit-code,json}`. Full fast is not green or waived.\n\nDurable local evidence: `.tmp/governance/html-export-3560-e88-isolated-completed-attestation-20260930.json`, original test log/TRX/paired terminal exits, `.tmp/governance/html-export-3560-e88-original-scope-20260930.json`, and exact host build/PR/style records. TRX SHA-256 `7d506c1b3c605dad41bb4c634fbf69e42d1a2b10c88f93b28cbb9eb949d6d563`. Completed task-private obj garbage was cleared only after idle/preservation checks; binaries, evidence, WIP and shared dependencies were retained. The finished guest was gracefully powered off, not deleted.\n\nThis issue remains OPEN. Equivalent full local CI, independent review, #3559's standard merge, retarget/revalidation against master, #3561 merge and merged-master recheck are still required. No checker or trusted baseline was promoted and no remaining parent gate was waived.\n",
@@ -554,7 +574,124 @@
       "currentMasterBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
       "candidateBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
       "currentMasterLastSourceCommit": "590f1d3b7710471518eb982761945e7e3a5a994b",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "DocumentExportHtmlProviderTests",
+        "counts": {
+          "Failed": 21,
+          "Passed": 10
+        },
+        "failures": [
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<svg><use href=\\\"https://example.com/remote.svg#ic\"···)",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.OwnsDeepFrozenInputBeforeAwaitAndIgnoresCallerMutation",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<a href=\\\"#missing\\\">missing target</a>\")",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p style=\\\"background:url(https://example.com/a)\\\"\"···)",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProjectsExactThemeDirectionAndReadingAuthority(themeProfile: \"light-v1\", direction: \"ltr\", background: \"#FFFFFF\", foreground: \"#0F0F11\", muted: \"#71717A\", link: \"#2A599C\")",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<a href=\\\"javascript:alert(1)\\\">bad</a>\")",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.DerivesWarningsOnlyFromClosedObservedFeaturePolicy(observePageEbookLimit: False, expectedWarningCount: 0)",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p id=\\\"duplicate\\\">a</p><p id=\\\"duplicate\\\">b</p>\")",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProjectsExactThemeDirectionAndReadingAuthority(themeProfile: \"dark-v1\", direction: \"rtl\", background: \"#09090B\", foreground: \"#F0F0F4\", muted: \"#A1A1AA\", link: \"#4B79CC\")",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<script>alert(1)</script>\")",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<img data-asset-id=\\\"3f3b2e7a-1d2e-4f8a-9c5b-6a7b8\"···)",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.DerivesWarningsOnlyFromClosedObservedFeaturePolicy(observePageEbookLimit: True, expectedWarningCount: 1)",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProviderPreservesAllowedTailAfterCompleteValidPrefix",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsUnknownOrDuplicateObservedFeatures(observedCsv: \"headings,unknown-feature\")",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProviderRejectsFullySealedPrematureWrapperCloseAfterCompleteValidPrefix",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<img src=\\\"https://example.com/a.png\\\" data-asset-\"···)",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.ProducesStableOfflineFullSyntaxDocumentAndQualifiedReceipt",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsUnknownOrDuplicateObservedFeatures(observedCsv: \"headings,headings\")",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<iframe srcdoc=\\\"bad\\\"></iframe>\")",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p onclick=\\\"alert(1)\\\">bad</p>\")",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.IndependentVerifierRejectsOutputReceiptAndSandboxTamper",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          }
+        ],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3562,
@@ -564,7 +701,7 @@
       "updatedAt": "2026-10-05T11:47:15Z",
       "bodySha256": "9251b6f308427162cd7a32bcd5e49a6f7c552ec02a204a8f0957556362d59c83",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3562#issuecomment-5993797829",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector; this is a separate Authoring Package test owner, stacked until the shared inspector merges.\n\nCurrent master reports two production-source-read findings in tests/backend/Unit/AuthoringExtensionPackagePersistenceTests.cs under PackageStaticGovernance_HasNoRemoteSelfUpdateOrSecondStoreComposition. The test reads AuthoringExtensionPackages.cs and AuthoringPackageProductionActivation.cs.\n\n## Exact acceptance\n\n- Remove exactly those two production-source reads; retain the original test identity and the ban on remote self-update, process launch and dynamic assembly loading.\n- Bind negative authority checks to compiled types and constructor/method bodies for the two original production files, not names or source paths alone.\n- Replace the github_pat_ source-literal check with an executable fail-closed reference-policy rejection; retain equivalent positive evidence for the sole LocalAuthoringPackageStore construction in the production composition root. Preserve the existing local install, recovery and receipt behavior tests.\n- No product runtime, wire/ABI, checker, threshold, generated output, or unrelated Authoring owner change.\n- Focused owner tests, scanner positive/refusal suite, C# style, matrix structure, exact-head PR contract pass; the stacked candidate removes exactly two findings with no new ones. Parent #3551 remains open until all findings and full gates resolve.\n- Use a standard stacked PR against #3558, then retarget/revalidate against master after #3558 merges. Local tests do not authorize a merge.",
@@ -591,7 +728,17 @@
       "currentMasterBlob": "4e5b73c85dd990c65d5a21f64bab72f37020f1aa",
       "candidateBlob": "4e5b73c85dd990c65d5a21f64bab72f37020f1aa",
       "currentMasterLastSourceCommit": "60ebe20169b4c6cc7b296b058ce83bfd7eae45f1",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "AuthoringExtensionPackagePersistenceTests",
+        "counts": {
+          "Passed": 51
+        },
+        "failures": [],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3564,
@@ -601,7 +748,7 @@
       "updatedAt": "2026-10-05T14:17:49Z",
       "bodySha256": "253ec8923730292af382f14c672f6416b796ec3c8be257b57a7add42d29eb047",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3564#issuecomment-5996332656",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector. This is a separate Authoring RPC test owner and must not be combined with package, resolver, broker or worker ownership.\n\nCurrent master reports one production-source-read finding in tests/backend/Unit/AuthoringExtensionRpcTests.cs under RpcSource_DoesNotExposeLiveEditorOrDirectMutationAuthority. It reads src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs.\n\n## Exact acceptance\n\n- Remove only that production-source read while retaining the original test ID and all seven negative checks for live-editor, service-location, mutable HTML/splice, delegate and callback authority.\n- Bind the checks to compiled RPC production types and their constructor/method bodies. Preserve the existing executable exact-grant, revision, receipt, payload and revocation tests.\n- No product runtime, wire/ABI, checker, threshold, generated output or unrelated Authoring owner changes.\n- Focused RPC tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract pass; the stacked candidate removes exactly one finding with no new ones. Parent #3551 remains open.\n- Use a standard stacked PR against #3558; retarget/revalidate against master after #3558 merges. Local green does not authorize merge.",
@@ -620,7 +767,24 @@
       "currentMasterBlob": "081ffad3608925cacb6901695436b79795189d62",
       "candidateBlob": "081ffad3608925cacb6901695436b79795189d62",
       "currentMasterLastSourceCommit": "60ebe20169b4c6cc7b296b058ce83bfd7eae45f1",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "AuthoringExtensionRpcTests",
+        "counts": {
+          "Passed": 110,
+          "Failed": 1
+        },
+        "failures": [
+          {
+            "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(text: \"a\\n\\0é\\ud834\\udd1e���\", digest: \"89f57d854aa2b871834c31342c1451edd26c031936a43cfd44\"···)",
+            "message": "Assert.Equal() Failure: Strings differ\n           ↓ (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"···\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"···\n           ↑ (pos 0)",
+            "blockerClass": "code/contract"
+          }
+        ],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3566,
@@ -630,7 +794,7 @@
       "updatedAt": "2026-10-08T03:11:44Z",
       "bodySha256": "ca364694c739de31342dfc150feaaa642366be155fa704df24b305d7f8d7a4ef",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3566#issuecomment-6051392383",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector. This is a separate Authoring execution-resolver test owner; do not combine with package, RPC, broker or worker owners.\n\nCurrent master reports one production-source-read finding in tests/backend/Unit/AuthoringExtensionExecutionResolverTests.cs under ResolverSource_HasNoDynamicOrPrivateHostLoadingSurface. It reads src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs.\n\n## Exact acceptance\n\n- Remove only that production-source read; preserve the original test identity and all bans on Assembly.Load, Activator.CreateInstance, editorRef, Pinia, IServiceProvider, WebView, iframe, object payload, Func/Action delegate surfaces and dynamic dispatch.\n- Bind direct method/constructor references and literals to compiled production types. Where C# source syntax erases to metadata (object payload, Func/Action, dynamic), add explicit reflected signature/attribute or executable fail-closed evidence; do not turn the assertion into a name-only check.\n- Preserve existing checked-in source, loaded-module identity, trusted registry, active-package and resolution behavior tests.\n- No product runtime, wire/ABI, checker, threshold, generated output or unrelated Authoring owner change.\n- Focused resolver tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract pass; the stacked candidate removes exactly one finding with no new ones. Parent #3551 remains open.\n- Use a standard stacked PR against #3558; retarget/revalidate against master after #3558 merges. Local green does not authorize merge.",
@@ -649,7 +813,24 @@
       "currentMasterBlob": "eb991a9c1f9b5084106df61756a6d028e8a44a30",
       "candidateBlob": "eb991a9c1f9b5084106df61756a6d028e8a44a30",
       "currentMasterLastSourceCommit": "341dddac536a85de3400ce1a4451b3fd9268da1c",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "AuthoringExtensionExecutionResolverTests",
+        "counts": {
+          "Passed": 20,
+          "Failed": 1
+        },
+        "failures": [
+          {
+            "name": "FsusBlog.Server.Tests.AuthoringExtensionExecutionResolverTests.ResolverSource_HasNoDynamicOrPrivateHostLoadingSurface",
+            "message": "Assert.All() Failure: 1 out of 12 items in the collection did not pass.\n[10]: Item:  typeof(FsusBlog.Server.Infrastructure.AuthoringExtensions.ClosedTrustedAuthoringAdapterRegistry)\n      Error: FsusBlog.Server.Infrastructure.AuthoringExtensions.ClosedTrustedAuthoringAdapterRegistry+<>O.<0>__IsControl: Func/Action",
+            "blockerClass": "code/contract"
+          }
+        ],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3568,
@@ -659,7 +840,7 @@
       "updatedAt": "2026-10-08T03:11:43Z",
       "bodySha256": "d31537a3e7260418a9d21a9e353b75dd131545a84377f7acd458ac0ee30a7575",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3568#issuecomment-6051392228",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector. This is a separate Authoring Command Contribution test owner; do not combine with package, RPC, resolver, broker or worker owners.\n\nCurrent master reports one production-source-read finding in tests/backend/Unit/AuthoringCommandContributionTests.cs under ProductionCommandBoundary_DoesNotExposeUiOrMutationBypasses. It reads src/backend/Infrastructure/AuthoringExtensions/AuthoringCommandContributions.cs.\n\n## Exact acceptance\n\n- Remove only that production-source read while retaining the original test ID and the no-DOM/listener/keydown/innerHTML/splice, no IServiceProvider/Delegate and no dynamic-dispatch protections.\n- Bind negative checks to compiled command production types, constructors and methods. Replace the source-only exact document identifier check with reflected member/parameter authority checks plus the existing executable command/transaction behavior. Retain the tokenizer's string-literal and positive identifier refusal fixtures as fixtures, not as production-source acceptance.\n- Explicitly inspect dynamic metadata or runtime binder references; do not rely on a compiled string search for the erased C# keyword. Do not weaken the fail-closed command, permission, grant, stale-result and canonical RPC tests.\n- No product runtime, wire/ABI, checker, threshold, generated output or unrelated Authoring owner change.\n- Focused command tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract pass; the stacked candidate removes exactly one finding with no new ones. Parent #3551 remains open.\n- Use a standard stacked PR against #3558; retarget/revalidate against master after #3558 merges. Local green does not authorize merge.",
@@ -678,7 +859,24 @@
       "currentMasterBlob": "74bea3f64246391282fd3eadf691d8c39c2ab3e4",
       "candidateBlob": "74bea3f64246391282fd3eadf691d8c39c2ab3e4",
       "currentMasterLastSourceCommit": "ce02ab29ecb321f46ad1f50d9c9a10c6ff2a77be",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "AuthoringCommandContributionTests",
+        "counts": {
+          "Passed": 43,
+          "Failed": 1
+        },
+        "failures": [
+          {
+            "name": "FsusBlog.Server.Tests.AuthoringCommandContributionTests.TransactionAdapter_AppliesMutationThroughCanonicalRpcOnce",
+            "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Mutation preview does not bind the exact approved plan and host context.",
+            "blockerClass": "code/contract"
+          }
+        ],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3570,
@@ -688,7 +886,7 @@
       "updatedAt": "2026-10-08T03:11:34Z",
       "bodySha256": "256d799796b0b3da8c345a9db37ef2f3e89a395f8530b225308f7f390192efbf",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3570#issuecomment-6051390503",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector. This is the Public Artifact Revocation test owner, separate from Authoring and other backend owners.\n\nCurrent master reports two production-source-read findings in tests/backend/Unit/PublicArtifactRevocationTests.cs under RevocationReadPath_HasNoClassifierCallOrValuesScan. The test reads PublicArtifactRevocation.cs and FsusObservabilityServiceCollectionExtensions.cs.\n\n## Exact acceptance\n\n- Remove only those two production-source reads and retain the original test ID. Bind no middleware classifier call, no registry lookup Values scan, no old ConcurrentDictionary<int, PublicArtifactTombstone> _active shape and no legacy path to compiled member/field/method evidence.\n- Preserve the six revocation meter-name assertions and the observability registration binding through compiled evidence plus existing executable registry, middleware, coordinator and CDN tests. Do not replace any positive assertion with a bare type-name check.\n- No product runtime, wire/ABI, checker, threshold, generated output or unrelated owner change.\n- Focused revocation tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract pass; the stacked candidate removes exactly two findings with no new ones. Parent #3551 remains open.\n- Use a standard stacked PR against #3558, then retarget/revalidate against master after #3558 merges. Local green does not authorize merge.",
@@ -715,7 +913,17 @@
       "currentMasterBlob": "5fdf3739cc42a9a4c255d3c257d90f2cfdc77f1b",
       "candidateBlob": "5fdf3739cc42a9a4c255d3c257d90f2cfdc77f1b",
       "currentMasterLastSourceCommit": "1206fe04442470be14cb79ecb4464c46297fe5d0",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "PublicArtifactRevocationTests",
+        "counts": {
+          "Passed": 50
+        },
+        "failures": [],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3572,
@@ -725,7 +933,7 @@
       "updatedAt": "2026-10-08T03:11:31Z",
       "bodySha256": "ab4d2e2fed9dfa8e2eb1894288724f0e8468822137220f9403bb31b51a06d055",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3572#issuecomment-6051390066",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector. This is a separate Authoring Service Broker test owner; do not combine with package, RPC, resolver, command or worker owners.\n\nCurrent master reports one production-source-read finding in tests/backend/Unit/AuthoringExtensionServiceBrokerTests.cs under BrokerSource_DoesNotExposeShellDirectIoOrSecretArguments. It reads src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceBroker.cs.\n\n## Exact acceptance\n\n- Remove only that source read, retaining the test ID and all eight bans on Process.Start, HttpClient, File.Open, IServiceProvider, EnvironmentVariables, Arguments, Password and AccessToken.\n- Bind negative checks to compiled production types and their constructor/method bodies. Preserve existing executable process ownership, request drift, network/file grant and namespace isolation tests; do not weaken the bubblewrap/namespace contract to accommodate this host.\n- No product runtime, wire/ABI, checker, threshold, generated output or unrelated Authoring owner change.\n- Focused owner tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract pass. If the host cannot run the Linux isolation case, retain the candidate as draft and record its exact failure rather than claiming acceptance. The stacked candidate removes exactly one finding with no new ones. Parent #3551 remains open.\n- Use a standard stacked PR against #3558; retarget/revalidate against master after #3558 merges. Local green does not authorize merge.\n\n## 2026-09-30 exact frozen candidate evidence\n\nPR #3573 remains OPEN/DRAFT at `c8e4f2658aa79129230173889579dc0fcd024a9b`, tree `6b1f65150cb4791cb9863603a24b56926eb1ec89`, stacked on #3559 at `cdae3cea94e9820f17c1807fe929fee14d89d4ee`; current master `b19b3dc715691b871f0e3cab598ec5da8f27633c` is unchanged.\n\nOriginal complete backend project builds with locked restore, SDK 10.0.302 and zero warnings/errors. Complete original AuthoringExtensionServiceBrokerTests passes 21/21 in a restricted task-owned guest, including the previously failing LinuxRuntime_OwnsObservedNamespaceSessionAndClosedTransport case. The original native echo-service fixture uses real bwrap namespace/session/closed-transport/process-tree execution; no original assertion or budget was changed. The host's historical 20/21 run and bwrap failure remain preserved; no host security configuration changed. This is the original local simulation payload, not upstream production deployment.\n\nFull inherited DocumentExportContractTests 24/24 and constructor helper 1/1 also pass: 46/46 executed/passed, zero skipped/failed/aborted cases, durable guest and host observation exits 0, 4.2115 minutes. Every one of the 275 executed binary paths/bytes/digests matches the exact frozen-source host build, and the native original C source matches. Guest source head/tree remain clean with no replacement refs. Three shares are read-only and external/host-service connections are refused.\n\nOriginal b19 actual-PR contract passes one changed owner file; original C# style passes one file, zero violations. Exact immutable source-only scanner evidence removes only one read (35 to 34 production-source-read findings), leaving all inherited findings identical. The older 37 to 36 overall convergence figures additionally include two unchanged retention declarations. Refreshed actual PR metadata is checked again after this record.\n\nDurable local evidence: `.tmp/governance/authoring-broker-3572-c8e-isolated-completed-attestation-20260930.json`, original test log/TRX/paired terminal exits, host artifact binding, environment observations and `.tmp/governance/authoring-broker-3572-c8e-original-scope-20260930-before-metadata.json`. TRX SHA-256 `12f2f62723b5ea867cb309aa7d422f0a4f0d2048d957426979df0c85c5408bc0`.\n\nThis resolves the recorded local Linux owner-test gap, not whole-goal or merged-master acceptance. Equivalent full local CI, independent review, #3559 standard merge, retarget/revalidation against master, #3573 merge and merged-master recheck remain unfinished. This issue and parent #3551 stay OPEN; no checker was used to self-approve and no trusted baseline was promoted.\n",
@@ -744,7 +952,24 @@
       "currentMasterBlob": "61bf0bb69e47ca7d422ca9c5835e75c2607a672e",
       "candidateBlob": "61bf0bb69e47ca7d422ca9c5835e75c2607a672e",
       "currentMasterLastSourceCommit": "daa24a87d3e173bf81ed44026645481a82aa9581",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "AuthoringExtensionServiceBrokerTests",
+        "counts": {
+          "Passed": 45,
+          "Failed": 1
+        },
+        "failures": [
+          {
+            "name": "FsusBlog.Server.Tests.AuthoringExtensionServiceBrokerTests.LinuxRuntime_OwnsObservedNamespaceSessionAndClosedTransport",
+            "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Service readiness handshake is missing or not closed.",
+            "blockerClass": "code/contract"
+          }
+        ],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3574,
@@ -754,7 +979,7 @@
       "updatedAt": "2026-10-08T03:13:14Z",
       "bodySha256": "73957f1ea22c0bd50e31a275faf641f24eb1b87f046d58678159e6c90499eee1",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3574#issuecomment-6051408274",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector. This is the separate Authoring worker sandbox test owner; do not combine with the Service Broker or other Authoring owners.\n\nCurrent master reports one production-source-read finding in tests/backend/Unit/AuthoringExtensionWorkerSandboxTests.cs under LinuxRuntimeSource_EnforcesDeclaredMemoryAndClosedModuleBoundary. It reads src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringWorkerRuntime.cs.\n\n## Exact acceptance\n\n- Remove only that source read, retaining the test ID and its existing positive assertions for inspectMemoryPolicy(moduleBytes), wasm-memory-policy-invalid, --unshare-all and imports.length !== 0, and negative assertions for eval(, WebView, iframe, node:net and node:child_process.\n- Bind the assertions to the compiled production runtime including embedded worker script literals, constructor and method bodies. Preserve the executable Wasm/namespace isolation test and its fail-closed boundary; do not weaken bubblewrap behavior to accommodate this host.\n- No product runtime, wire/ABI, checker, threshold, generated output or unrelated owner change.\n- Focused owner tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract pass. If the host cannot run the Linux namespace case, retain the candidate as draft and record its exact failure instead of claiming acceptance. The stacked candidate removes exactly one finding with no new ones.\n- Use a standard stacked PR against #3558; retarget and revalidate against master after #3558 merges. Local green does not authorize merge.\n\n## Current Frozen Execution Evidence\n\nOn 2026-09-30, frozen head `908f5fb5742048a516d4fa76ab308644b02b086b`, tree `611a550a17ce6c88b27ed32a8aee3d7a47b0c6bc`, passed the original full locked backend project build (SDK 10.0.302, 0 warnings/errors). Original `dotnet vstest` ran the entire Worker class 21/21, DocumentExportContract class 24/24 and constructor helper 1/1 in the task-owned, outbound-restricted Linux 6.12.107 guest: 46/46, zero failures/skips/aborts, including both `LinuxRuntime_ExecutesVerifiedWasmInsideObservedNamespaces` and `LinuxRuntime_BenignNetworkImportIsRejectedBeforeReadiness`. Original fixtures, assertions and budgets were unchanged.\n\nAll 275 guest binaries match the exact host build in path, length and SHA-256; guest source/head/tree remain clean and replacement refs are absent. `/usr/local/bin/node` is real Node 24.16.0 with pinned SHA-256 `b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd`, installed only in the task guest, not a wrapper/symlink or test-path workaround. Actual bwrap user/network probes passed; input/SDK/NuGet shares are read-only; host-service and external network probes refused. Historical host 19/21 failures remain retained and are not relabeled as green.\n\nOriginal commands/results: `dotnet build tests/backend/FsusBlog.Server.Tests.csproj --nologo --artifacts-path <task-artifacts> -p:RestoreLockedMode=true -p:FsusBlogCommitSha=908f5fb5742048a516d4fa76ab308644b02b086b --disable-build-servers`; `dotnet vstest <exact-test-dll>` with full Worker/Contract/constructor-helper selector and original console/TRX loggers (46/46); `node --test tests/tools/test-suite-convergence.test.mjs` (16/16); `node tools/run-test-matrix.mjs validate` (144 tiers, exit 0) with original locked schema install and configured `FSUSBLOG_CONTENT_FIELD_DOTNET`. Original trusted b19 actual-PR gate and C# style passed one changed file/zero violations. Source-only findings 35 -> 34 at stacked base: exactly one Worker read removed, no new or changed inherited finding; not overall convergence counts.\n\nRaw local evidence: `.tmp/governance/authoring-worker-3574-908-isolated-completed-attestation-20260930.json`, original test log/TRX and terminal SSH/guest exits 0; matrix/scanner/PR/style logs. TRX SHA-256 `7ce829cf5067534dd6545353cb90a6ec70649d91f13267cd954289905edb4a6d`; compiled archive SHA-256 `ec75d2c2f2664edbb8b2e111eff62b90434436073ff78b2a12cf45a3d17216a9`.\n\nOriginal local Wasm fixtures plus real isolation are owner evidence, not upstream deployment or whole local CI. Actions has 0 check-runs and 0 statuses (pending aggregate, not passed). PR #3559 merge, retarget/current-master revalidation, remaining local-equivalent gates and standard review/merge remain required. Issue/draft PR stay open; no merge or trusted-baseline promotion.\n",
@@ -773,7 +998,29 @@
       "currentMasterBlob": "1241e8835a546e47bd5912b98e1d41153167550c",
       "candidateBlob": "1241e8835a546e47bd5912b98e1d41153167550c",
       "currentMasterLastSourceCommit": "590f1d3b7710471518eb982761945e7e3a5a994b",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "AuthoringExtensionWorkerSandboxTests",
+        "counts": {
+          "Failed": 2,
+          "Passed": 29
+        },
+        "failures": [
+          {
+            "name": "FsusBlog.Server.Tests.AuthoringExtensionWorkerSandboxTests.LinuxRuntime_ExecutesVerifiedWasmInsideObservedNamespaces",
+            "message": "System.IO.FileNotFoundException : Could not find file '/usr/local/bin/node'.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.AuthoringExtensionWorkerSandboxTests.LinuxRuntime_BenignNetworkImportIsRejectedBeforeReadiness",
+            "message": "System.IO.FileNotFoundException : Could not find file '/usr/local/bin/node'.",
+            "blockerClass": "environment"
+          }
+        ],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3576,
@@ -783,7 +1030,7 @@
       "updatedAt": "2026-10-08T03:11:54Z",
       "bodySha256": "62a49a1d9f48beeb34c42bb9b80d6af2e4e1f826f6df48df31c4bf9a9f0d46b1",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3576#issuecomment-6051394184",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector. This is the separate Canonical Article Publication Fixture Port test owner; do not combine with Article Vault execution or other service owners.\n\nCurrent master reports five production-source-read findings in tests/backend/Unit/CanonicalArticlePublicationFixturePortTests.cs under ArticleService_SharedSeams_AreReferencedByProductionSources. The test reads ArticleService.cs, ArticleService.Mutations.cs, ArticleService.CacheAndInvalidation.cs, ArticleResponsibilityManifest.cs and CanonicalArticlePublicationFixturePort.cs.\n\n## Exact acceptance\n\n- Remove exactly those five production-source reads while retaining the test ID and every asserted shared-seam positive and negative fact. Bind the facts to compiled production types, the appropriate method/constructor bodies and reflection-owned type shape; partial-class file names alone are not authority.\n- Preserve all existing executable publication, normalization, rights and responsibility tests. No product runtime, wire/ABI, checker, threshold, generated output or unrelated owner change.\n- Focused owner tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract pass. The stacked candidate removes five findings with no new ones.\n- Use a standard stacked PR against #3558; retarget/revalidate against master after #3558 merges. Local green does not authorize merge; parent #3551 remains open.",
@@ -834,7 +1081,17 @@
       "currentMasterBlob": "2fe4881765c2477809abe088e1a6085ac8f7ff5e",
       "candidateBlob": "2fe4881765c2477809abe088e1a6085ac8f7ff5e",
       "currentMasterLastSourceCommit": "a80834703b9b314bcd41c188c5c5d1a952b281e4",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "CanonicalArticlePublicationFixturePortTests",
+        "counts": {
+          "Passed": 34
+        },
+        "failures": [],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3578,
@@ -844,7 +1101,7 @@
       "updatedAt": "2026-10-08T03:19:54Z",
       "bodySha256": "6b42d064100e270e684a849e832bcfc81881c56eb0c0a17d25899a9cb4ae960a",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3578#issuecomment-6051479290",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector. This is the separate Document Export Sandbox test owner; do not combine with the systemd cgroup, HTML provider or contract owners.\n\nCurrent master has one production-source-read finding in tests/backend/Unit/DocumentExportSandboxTests.cs under StaticGovernanceKeepsOneBrokerWithoutShellFetchOrInheritedEnvironment. It reads src/backend/Services/DocumentExport/DocumentExportSandbox.cs.\n\n## Exact acceptance\n\n- Remove only that source read while retaining the test ID and its one brokered ProcessStartInfo construction, no Process.Start side path, UseShellExecute=false, no shell path, HttpClient, inherited environment access, PATH or floating latest assertions.\n- Bind the assertions to the compiled production runtime and to the actual ProcessStartInfo produced by its production builder without starting a process. Preserve all executable sandbox, receipt, cleanup and isolation tests; do not weaken the sandbox or host gate.\n- No product runtime, wire/ABI, checker, threshold, generated output or unrelated owner change. The stacked candidate removes one finding with no new one.\n- Run focused owner tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract. If host systemd/bubblewrap prevents full owner execution, keep the PR draft and record exact failures. Retarget/revalidate against master after #3559 merges. Local green does not authorize merge.\n\n## Current Frozen Isolated Execution — Not Accepted\n\nFrozen head `8ad95857f847311aa831aceb6c754b8ebf98ff86`, tree `76d1eb16f2301c1ee6212decb5e40c14723aff12`, was built with the original locked full backend project and SDK 10.0.302: 0 warnings/errors. The complete unchanged Sandbox/Contract/constructor-helper selector finished in the outbound-restricted Linux 6.12.107 task guest with exit 1: 47 executed, 41 passed, 6 failed, zero skipped/aborted. Sandbox itself is 16/22; Contract 24/24 and helper 1/1. This is not full owner acceptance.\n\nFailed original cases: `ProcessCountBudgetTerminatesTreeAndSealsFailureReceipt`, `CpuBudgetTerminatesTreeAndSealsFailureReceipt`, `OutputBudgetRejectsBeforeReadingAndSealsFailureReceipt`, `StandardOutputBudgetDrainsBoundedlyAndSealsFailureReceipt`, `StandardErrorBudgetDrainsBoundedlyAndSealsFailureReceipt`, `DaemonizedSessionCannotEscapeWallLimitOrCgroupCleanup`. Four budget cases detect the expected resource violation but end in `cleanup-unqualified` rather than the expected budget exception; the CPU case receives cancellation under its unchanged five-second deadline, and the daemon case fails its original `TasksPeak >= 2` assertion (8ad source line 261), not its pre-start-authority assertion; this corrects the prior failure attribution. Root causes are being diagnosed; emulator timing is not assumed to explain every failure. Original assertions, class membership, cancellation/time budgets and runtime source remain unchanged.\n\nAll 275 guest binary paths, lengths and hashes exactly match this candidate's host build; source/head/tree are clean and replacement refs are absent. Actual bwrap namespaces and user-systemd work, all three input/SDK/NuGet shares are read-only, and host-service/external network probes refused. This local deterministic renderer fixture simulates the unavailable renderer boundary; it is not upstream integration. The failed TRX SHA-256 is `ad3ef249e89f1bbd582873db9a2360fd31fdf403a329d31ea66175d222401310`; compiled archive SHA-256 `c7974a94d11eda394f53becc3c8feb6649d86516f1987e071591f14e2d37299d`.\n\nOriginal commands: locked `dotnet build tests/backend/FsusBlog.Server.Tests.csproj --nologo --artifacts-path <task-artifacts> -p:RestoreLockedMode=true -p:FsusBlogCommitSha=8ad95857f847311aa831aceb6c754b8ebf98ff86 --disable-build-servers`; `dotnet vstest <exact-test-dll>` with full Sandbox/Contract/helper selector and original console/TRX loggers (41/47, exit 1); `node --test tests/tools/test-suite-convergence.test.mjs` (16/16, exit 0); `node tools/run-test-matrix.mjs validate` (144 tiers, exit 0) with locked schema dependencies and explicit `FSUSBLOG_CONTENT_FIELD_DOTNET`. Original trusted b19 actual-PR and C# style gates pass one changed file/zero violations. Source-only findings at stacked base are 35 -> 34: exactly one Sandbox source read removed, no new or changed inherited finding; not overall convergence counts.\n\nRaw evidence: `.tmp/governance/document-sandbox-3578-8ad-isolated-failed-attestation-20260930.json`, full original test log/TRX and SSH/guest terminal exits 1; original scanner, matrix, PR and style logs. Historical host 8/22 failure evidence remains retained. A separate diagnostic invokes unmodified original methods to inspect exception receipts; it is not a new suite member or substitute acceptance.\n\nKeep this issue and draft PR open. Resolve the six failures without widening this test-only owner into a runtime fix, weakening tests or changing budgets; a genuine non-excluded runtime prerequisite can be isolated separately under the active delivery goal. Full local CI, #3559 merge, retarget/revalidation, standard review/merge and current-master acceptance remain pending. No merge or trusted-baseline promotion.\n",
@@ -863,7 +1120,129 @@
       "currentMasterBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
       "candidateBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
       "currentMasterLastSourceCommit": "c6e5885d1332abfc2a7f78620bc40beef970aa59",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "DocumentExportSandboxTests",
+        "counts": {
+          "Failed": 22,
+          "Passed": 14
+        },
+        "failures": [
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ConcurrentTasksHaveDistinctRunOwnershipAndNoResidualFiles",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ProcessCountBudgetTerminatesTreeAndSealsFailureReceipt",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.OutputBudgetRejectsBeforeReadingAndSealsFailureReceipt",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.WallBudgetTerminatesTreeAndSealsFailureReceipt",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.CpuBudgetTerminatesTreeAndSealsFailureReceipt",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsArtifactMutationAndPreservesQualifiedFailureReceipt(mode: \"two-files\")",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportSandboxExecutionException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.PreStartFailureCleansRunDirectoryAndSealsReceiptWithoutClaimingIsolation",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsArtifactMutationAndPreservesQualifiedFailureReceipt(mode: \"symlink-output\")",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportSandboxExecutionException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ConstructorRejectsRegistryAndLimitDriftBeforeCreatingItsRunRoot",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.TreatsUserStringsAsInputBytesInsteadOfArguments",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StandardErrorBudgetDrainsBoundedlyAndSealsFailureReceipt",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.IndependentVerifierRejectsReceiptAndBuildIdentityTamper",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.UsesExactBrokeredToolMinimalEnvironmentNoNetworkAndPostCleanupReceipt",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.CancellationKillsOwnedProcessTreeThenSealsFailureReceipt",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StaticGovernanceKeepsOneBrokerWithoutShellFetchOrInheritedEnvironment",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.InputAndMessageBudgetsRejectBeforeRunAdmission",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StandardOutputBudgetDrainsBoundedlyAndSealsFailureReceipt",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.DaemonizedSessionCannotEscapeWallLimitOrCgroupCleanup",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.FileBytesBudgetTerminatesAndSealsFailureReceipt",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.MemoryBudgetTerminatesTreeAndSealsFailureReceipt",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsUnregisteredShellFloatingPathAndChangedExecutableBytes",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.FileCountBudgetTerminatesAndSealsFailureReceipt",
+            "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          }
+        ],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3580,
@@ -873,7 +1252,7 @@
       "updatedAt": "2026-10-08T03:12:43Z",
       "bodySha256": "434e56290d21c1bf3848ee6ce08c822bdb4207929b76aea509d2f7a9585815b7",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3580#issuecomment-6051386223",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector. This is the separate Document Export Systemd Cgroup Authority test owner; do not combine with sandbox, HTML provider or contract owners.\n\nCurrent master has one production-source-read finding in tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs under StaticContractUsesServicePreStartLimitsAndNeverMisstatesCpuQuotaAsTotalCpu. It reads src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs.\n\n## Exact acceptance\n\n- Remove only that source read, retaining the test ID and every assertion for service-type=exec, no-block, pre-start memory/tasks/runtime limits, KillMode=control-group, cgroup.kill/events, sampled-kill accounting, exactly one Process.Start owner, closed UseShellExecute, no shell path, inherited environment read, CPUQuota/cpu.max or --scope.\n- Bind static facts to compiled production method/constructor bodies and retain existing executable parsing, workload-admission, identity-drift and cgroup tests; do not relax systemd or sandbox contracts for this host.\n- No product runtime, wire/ABI, checker, threshold, generated output or unrelated owner change. The stacked candidate removes one finding with no new one.\n- Run focused owner tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract. If host systemd/bubblewrap prevents full owner execution, keep the PR draft and record exact failures. Retarget/revalidate against master after #3559 merges. Local green does not authorize merge.",
@@ -892,7 +1271,34 @@
       "currentMasterBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
       "candidateBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
       "currentMasterLastSourceCommit": "c6e5885d1332abfc2a7f78620bc40beef970aa59",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "DocumentExportSystemdCgroupAuthorityTests",
+        "counts": {
+          "Failed": 3,
+          "Passed": 11
+        },
+        "failures": [
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.RejectsDigestOrVersionDriftBeforeTheBusinessUnitAdmissionCall",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.StaticContractUsesServicePreStartLimitsAndNeverMisstatesCpuQuotaAsTotalCpu",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          },
+          {
+            "name": "FsusBlog.Server.Tests.Unit.DocumentExportSystemdCgroupAuthorityTests.RejectsClosedWorkloadDriftBeforeAnyTransientServiceCanStart",
+            "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
+            "blockerClass": "environment"
+          }
+        ],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3582,
@@ -902,7 +1308,7 @@
       "updatedAt": "2026-10-08T03:10:34Z",
       "bodySha256": "20e300acb265a579fb328efd3953adb24f119b86e0e82bdb0a1a4097ebe2f9c5",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3582#issuecomment-6051379942",
       "acceptanceBody": "Parent: #3551. Depends on #3558 / PR #3559 for the compiled metadata inspector. This is the separate ArticleVaultExecutionTests owner; do not combine with asset, manifest or export owners.\n\nCurrent master has five production-source-read findings in tests/backend/Unit/ArticleVaultExecutionTests.cs under ExecutionSource_HasNoFilesystemWatcherImportOrDirectArticleMutationSidePath, plus other source reads in that same method. It reads ArticleVault executor, ArticleService writer, transaction, mutation and lifecycle source text.\n\n## Exact acceptance\n\n- Replace this method's production-source and directory reads with compiled production method/type evidence and executable boundary assertions. Retain the no direct filesystem/watch/import path, no direct article SQL mutation side path, canonical CreateMutationAsync/UpdateAsync/DeleteAsync routing, foreground-write and public-fence/rollback requirements.\n- Keep existing Article Vault execution and refusal tests; bind to production assemblies, not copied test fixtures or source syntax. Do not claim lexical import absence from IL; verify equivalent executable ownership and report that boundary accurately.\n- No product runtime, wire/ABI, checker, threshold, generated output or unrelated owner change. The stacked candidate removes this owner's five findings with no new finding.\n- Run focused owner tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract. If a required runtime gate cannot execute on this host, keep the PR draft and record exact failure. Retarget/revalidate against master after #3559 merges. Local green does not authorize merge.",
@@ -953,7 +1359,17 @@
       "currentMasterBlob": "7e7fb550beb71bcd996b3b196c26ba0d51cbc7e0",
       "candidateBlob": "7e7fb550beb71bcd996b3b196c26ba0d51cbc7e0",
       "currentMasterLastSourceCommit": "341dddac536a85de3400ce1a4451b3fd9268da1c",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "ArticleVaultExecutionTests",
+        "counts": {
+          "Passed": 33
+        },
+        "failures": [],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3584,
@@ -963,7 +1379,7 @@
       "updatedAt": "2026-10-08T03:10:21Z",
       "bodySha256": "38a31e79d484b8698bd8461ae3c74ce3306892f281d9998d72a4d5870b682e46",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "not fully qualified; actual backend now builds, but canonical inventory, original authority/style/full matrix and exact-head independent gates remain pending",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3584#issuecomment-6051377581",
       "acceptanceBody": "Parent: #3551. Prerequisite for the separate PrivateAssetStoreTests and PrivateAssetDeliveryTests source-read owners. Existing production-consumed owner: tools/security/check-production-network-baseline.sh, invoked by the production exposure closeout and security matrix lane. Do not create a second checker.\n\nBoth backend test owners read ops/docker/docker-compose.production.yml and ops/gateway/production-openresty.conf to assert private storage/alias topology. The existing network-baseline owner covers some but not all exact assertions; moving those reads before closing the gap would weaken the contract.\n\n## Exact acceptance\n\n- Extend the existing network-baseline owner to require the host-backed fsus-storage volume and /app/storage bind, shared/instance storage roots, internal private alias and expected host path, private route logging boundary, and no PrivateAssetRoot or direct private mount exposure. Keep topology checks bound to the actual production Compose/OpenResty inputs and run them in the existing release/security lane.\n- Add focused positive/refusal coverage for the new checks without mutating production config or weakening current checks. Do not change product runtime, deployment topology, public route semantics, suite-convergence checker, thresholds or generated outputs.\n- Keep the PrivateAssetStore and PrivateAssetDelivery test migrations as separate follow-on owners. Verify this governance PR exactly, then retarget/revalidate dependent PRs against master after integration. Local checks and missing Actions do not authorize merge.",
@@ -978,7 +1394,7 @@
       "updatedAt": "2026-10-08T03:10:22Z",
       "bodySha256": "c65421b02392e8357d3511254350870c397d1a3aa212c8e4fb69e73ad0165968",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3586#issuecomment-6051377839",
       "acceptanceBody": "Parent: #3551. Depends on #3584 / PR #3585 for the production-consumed private asset topology owner, and #3558 / PR #3559 for compiled metadata inspection. This is only the PrivateAssetDeliveryTests owner; PrivateAssetStoreTests and SPA remain separate.\n\nCurrent master has three production-source-read findings in tests/backend/Unit/PrivateAssetDeliveryTests.cs: two Compose/OpenResty reads in ProductionTopology_BindsAppAndInternalAliasToOneHostRoot, and one backend Modules directory read in DeliveryBoundary_BusinessModulesCannotBypassTheAccessService.\n\n## Exact acceptance\n\n- Keep both test IDs. Replace the Compose/OpenResty source reads with executable private response-writer/internal-location behavior, while the exact host/app storage and gateway location assertions remain in the existing production network-baseline owner from #3584. Do not silently drop ticket-path logging or internal alias requirements.\n- Replace the Modules source scan with compiled production module type/method evidence; retain the prohibitions on direct PrivateAssetTicketService, AssetStorageKey, PrivateAssetRoot and X-Accel-Redirect access plus exactly one production ticket-service owner. Keep existing delivery, redemption and privacy tests.\n- No product runtime, wire/ABI, checker, threshold, generated output or unrelated owner change. The stacked candidate removes this owner's three findings with no new finding.\n- Run focused owner tests, scanner positive/refusal suite, C# style, matrix structure and exact-head PR contract. Revalidate against master after prerequisite integration. Missing Actions or local scoped green do not authorize merge.",
@@ -1013,7 +1429,17 @@
       "currentMasterBlob": "175d09ac5fa8ce44aae97c4bfddf504683a652bb",
       "candidateBlob": "175d09ac5fa8ce44aae97c4bfddf504683a652bb",
       "currentMasterLastSourceCommit": "91927b73cff148f8e9ecd6bdbacd1c25ccc2543f",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "PrivateAssetDeliveryTests",
+        "counts": {
+          "Passed": 28
+        },
+        "failures": [],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3588,
@@ -1023,7 +1449,7 @@
       "updatedAt": "2026-10-08T03:10:23Z",
       "bodySha256": "092a3583a29f9829b075a714535b0553201d5e362ffc97b2f86312b0742203e7",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3588#issuecomment-6051378057",
       "acceptanceBody": "## Current scope\n\nParent #3551 records three exact-master `production-source-read` findings in `tests/backend/Unit/PrivateAssetStoreTests.cs`: two production Compose/OpenResty reads in `ProductionGateway_UsesOnlyInternalPrivateStorageAlias` and one `src/backend` directory scan in `StaticProviderOwners_NeverConsumePrivateAssetRoot`. #3584 / PR #3585 establishes the production-consumed, positive/refusal-tested network-baseline owner for deployed private storage mount, internal alias, ticket-path logging and direct-mount rejection. This test owner must depend on that prerequisite, not duplicate its config text assertions.\n\n## Acceptance\n\n- [ ] Preserve the two test IDs. Replace Compose/OpenResty repository reads with executable storage-path/internal redirect evidence; rely on the #3584 production network-baseline owner for deployed topology. Preserve private-root isolation and no host-root disclosure.\n- [ ] Replace the backend source directory scan with compiled production method/type evidence for static-provider ownership, together with the existing real TestServer private-only-byte 404 coverage. Do not broaden to another static checker or weaken the suite-convergence detector.\n- [ ] Keep product runtime, public contract and unrelated test owners unchanged unless a behavior defect is independently demonstrated.\n- [ ] Run the full PrivateAssetStoreTests owner, exact-head source-read scan and refusal/positive suite, relevant matrix tiers, style and change-contract checks. Record full local CI and missing Actions separately; do not merge or close on scoped green alone.\n\nStack after #3584; #3586 is a separate dependent owner. Parent #3551 stays open until all 40 exact-master findings are resolved and full acceptance passes.",
@@ -1058,7 +1484,17 @@
       "currentMasterBlob": "d577f41c3b7a2612014b67d8d75c738ba19abf29",
       "candidateBlob": "d577f41c3b7a2612014b67d8d75c738ba19abf29",
       "currentMasterLastSourceCommit": "341dddac536a85de3400ce1a4451b3fd9268da1c",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "PrivateAssetStoreTests",
+        "counts": {
+          "Passed": 39
+        },
+        "failures": [],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     },
     {
       "issue": 3590,
@@ -1068,7 +1504,7 @@
       "updatedAt": "2026-10-08T03:09:54Z",
       "bodySha256": "f7f9693c7de1afbba3e2d2549077b160966d3e9d387ea73e79d6ffc6958a3ea1",
       "acceptedOnCandidate": false,
-      "currentRuntime": "not qualified; common canonical backend build and exact-head independent gates pending",
+      "currentRuntime": "Original complete class executed with zero skips; exact counts and failures recorded. Original canonical inventory, policy, matrix and independent/full child qualification remain unaccepted.",
       "sourceIntegrationIsAcceptance": false,
       "latestEvidenceComment": "https://github.com/Ozwasyd/FsusBlog/issues/3590#issuecomment-6051372696",
       "acceptanceBody": "## Current-master finding\n\nParent #3551 records one `production-source-read` finding in `tests/backend/Unit/SpaAssetManifestServiceTests.cs`: `AssertViteProducerPinsRequiredOwners` reads `src/frontend/vite.config.ts` from a backend unit test and asserts source text. There is no open owner issue for this finding. The same suite already has a real `ProductionBuildManifest_SealedRuntimeFixture_IsReadyAndSelectsPublicAndTakeoverAssets` integration test that executes `tools/frontend/build.mjs`, inspects the generated Vite manifest and backend readiness, plus missing/duplicate/non-primary manifest refusal cases.\n\n## Acceptance\n\n- [ ] Remove the backend repository-source read without deleting the test ID or weakening the required owner, unique primary-entry, public/takeover asset, and fail-closed consumer checks. Bind the Vite producer contract to actual build output and executable refusal behavior; do not replace one text assertion with a new checker that self-approves.\n- [ ] Verify whether manual-chunk owner and minSize behavior is already proved by the production build artifact; add only missing outcome evidence within this owner. Preserve generated-output ownership and public/runtime contract semantics.\n- [ ] Run the ordinary SPA manifest suite, production-build integration test, relevant negative cases, suite-convergence positive/refusal suite, matrix validation, style and change-contract gates at the frozen head. Record missing dependency/environment prerequisites separately; do not claim a mock or source scan as production build acceptance.\n- [ ] Keep parent #3551 open and do not merge or close on scoped green while equivalent full local CI and review gates remain unmet.\n\nOne independently owned backend test migration; no product runtime or unrelated owner changes without demonstrated necessity.",
@@ -1087,7 +1523,17 @@
       "currentMasterBlob": "f8dbc8ab25ce7e97c47bc2801dda4df97585558a",
       "candidateBlob": "f8dbc8ab25ce7e97c47bc2801dda4df97585558a",
       "currentMasterLastSourceCommit": "e46e43ee6e561938db0dc9a8bb17a90dab141bfd",
-      "currentMasterSourceReadFindings": 0
+      "currentMasterSourceReadFindings": 0,
+      "actualRuntimeProbe": {
+        "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+        "class": "SpaAssetManifestServiceTests",
+        "counts": {
+          "Passed": 73
+        },
+        "failures": [],
+        "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+        "fullAcceptance": false
+      }
     }
   ],
   "acceptanceCriteria": [
@@ -1116,5 +1562,156 @@
       "status": "blocked",
       "limit": "No merge authorized; current master has 10 ledger errors. No full CI, native or PostgreSQL qualification."
     }
-  ]
+  ],
+  "currentSupportingBackendExecution": {
+    "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+    "lockedRestoreExit": 0,
+    "debugBuildExit": 0,
+    "warnings": 1510,
+    "errors": 0,
+    "counts": {
+      "total": "318",
+      "executed": "318",
+      "passed": "314",
+      "failed": "4",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "classCounts": {
+      "RealConcurrencyHarnessTests": {
+        "Passed": 7
+      },
+      "TaxonomyExactMetadataTests": {
+        "Passed": 14
+      },
+      "AuthoringExtensionRpcBrokerTests": {
+        "Passed": 51
+      },
+      "DocumentExportContractTests": {
+        "Passed": 70
+      },
+      "CanonicalArticleProjectionVerifierTests": {
+        "Passed": 110,
+        "Failed": 2
+      },
+      "SecurityAdminPolicyDefaultsTests": {
+        "Passed": 43
+      },
+      "LifecycleHostedBootstrapServiceTests": {
+        "Passed": 11,
+        "Failed": 2
+      },
+      "CanonicalArticleLifecycleScheduledFailureTests": {
+        "Passed": 8
+      }
+    },
+    "qualified": false,
+    "limits": [
+      "Four actual bootstrap/projection code-test failures reproduced in a complete two-class repeat.",
+      "Canonical inventory now fails on migration CS0246 at OfflineMigrationExpandSafetyTests.cs:79-80.",
+      "Canonical Debug MSBuild context still refuses its raw mixed-separator IntermediateOutputPath despite genuine output and intermediate DLLs.",
+      "C# style, canonical AST retention, generated-policy admission and full matrix gates remain failed."
+    ]
+  },
+  "earlyIndependentReviewEligible": false,
+  "earlyReviewRefusal": "Code/unit tests and required original policy/identity gates fail; remaining blockers are not limited to unavailable environment or real-device capabilities.",
+  "actual17OwnerExecution": {
+    "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+    "counts": {
+      "total": "728",
+      "executed": "728",
+      "passed": "676",
+      "failed": "52",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "classCounts": {
+      "PublicArtifactRevocationTests": {
+        "Passed": 50
+      },
+      "AuthoringExtensionPackagePersistenceTests": {
+        "Passed": 51
+      },
+      "SpaAssetManifestServiceTests": {
+        "Passed": 73
+      },
+      "DocumentExportHtmlProviderTests": {
+        "Failed": 21,
+        "Passed": 10
+      },
+      "AuthoringExtensionRpcTests": {
+        "Passed": 110,
+        "Failed": 1
+      },
+      "ArticleVaultExecutionTests": {
+        "Passed": 33
+      },
+      "DocumentExportContractTests": {
+        "Passed": 70
+      },
+      "AuthoringCommandContributionTests": {
+        "Passed": 43,
+        "Failed": 1
+      },
+      "DocumentExportSystemdCgroupAuthorityTests": {
+        "Failed": 3,
+        "Passed": 11
+      },
+      "PrivateAssetDeliveryTests": {
+        "Passed": 28
+      },
+      "AuthoringExtensionExecutionResolverTests": {
+        "Passed": 20,
+        "Failed": 1
+      },
+      "DocumentExportSandboxTests": {
+        "Failed": 22,
+        "Passed": 14
+      },
+      "PrivateAssetStoreTests": {
+        "Passed": 39
+      },
+      "AuthoringExtensionServiceBrokerTests": {
+        "Passed": 45,
+        "Failed": 1
+      },
+      "AuthoringExtensionWorkerSandboxTests": {
+        "Failed": 2,
+        "Passed": 29
+      },
+      "CanonicalArticlePublicationFixturePortTests": {
+        "Passed": 34
+      },
+      "PublicHotReadDbAdmissionTests": {
+        "Passed": 16
+      }
+    },
+    "failureClasses": {
+      "environment": 48,
+      "code/contract": 4
+    },
+    "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
+    "accepted": false,
+    "limit": "48 observed environment refusals remain failed tests; four code/contract refusals require their original owners. No pass inferred for a failed or unexecuted gate."
+  }
 }

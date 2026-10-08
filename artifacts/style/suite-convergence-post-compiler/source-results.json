@@ -1,0 +1,63 @@
+[
+  {
+    "name": "owner-style",
+    "command": [
+      "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/frontend/check-frontend-style.mjs",
+      "--mode",
+      "changed",
+      "--file",
+      "tests/tools/test-suite-convergence.test.mjs"
+    ],
+    "exitCode": 0,
+    "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6"
+  },
+  {
+    "name": "ast-retention",
+    "command": [
+      "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/test-replacement-transaction.mjs",
+      "check-diff",
+      "origin/master"
+    ],
+    "exitCode": 1,
+    "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6"
+  },
+  {
+    "name": "convergence",
+    "command": [
+      "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/check-test-suite-convergence.mjs",
+      "--out",
+      "/tmp/fsusblog-3593/support-compiler-next/convergence.json"
+    ],
+    "exitCode": 1,
+    "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6"
+  },
+  {
+    "name": "trusted-range",
+    "command": [
+      "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+      "--root",
+      "/workspace/FsusBlog",
+      "--range",
+      "origin/master..HEAD"
+    ],
+    "exitCode": 0,
+    "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6"
+  },
+  {
+    "name": "trusted-pr",
+    "command": [
+      "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+      "--root",
+      "/workspace/FsusBlog",
+      "--github-event",
+      "/tmp/fsusblog-3593/support-compiler-next/pr-event.json"
+    ],
+    "exitCode": 1,
+    "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6"
+  }
+]

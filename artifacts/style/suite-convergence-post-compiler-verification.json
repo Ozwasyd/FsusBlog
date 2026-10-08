@@ -1,0 +1,447 @@
+{
+  "schema": "fsusblog.suite-style-post-compiler-verification.v1",
+  "runId": "2026-10-08T04:08:28.589385+00:00",
+  "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+  "base": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "issues": [
+    3593,
+    3551
+  ],
+  "sdk": "10.0.302",
+  "runtime": "10.0.10",
+  "node": "24.16.0",
+  "accepted": false,
+  "earlyIndependentReviewEligible": false,
+  "previousCheckpoint": "artifacts/style/suite-convergence-current-acceptance.json",
+  "checks": [
+    {
+      "name": "locked-restore",
+      "command": [
+        "timeout",
+        "180",
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode",
+        "--force",
+        "--nologo"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 0,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/locked-restore.log.gz",
+      "sha256": "88752dd5661dc6553df007001012ce6787d48ed6004c6663601a1fea60d9f9c8",
+      "rawSha256": "f2fb1cd23abfa57c0fd90c1326bc22a6deebb7df65a4eb192f155ea8f51216f4"
+    },
+    {
+      "name": "backend-build",
+      "command": [
+        "timeout",
+        "240",
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--configuration",
+        "Debug",
+        "--nologo",
+        "--verbosity",
+        "quiet"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 0,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/backend-build.log.gz",
+      "sha256": "ca06237b228b992f4b0e1e2ce913c827e59eee58b2c2ccf7dabca1352ce72473",
+      "rawSha256": "0e3abb35cfc464beb888e7d92e8db29e4b27c6416469ba564aaa88125696d175"
+    },
+    {
+      "name": "affected-original-runtime",
+      "command": [
+        "timeout",
+        "240",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~TaxonomyExactMetadataTests|FullyQualifiedName~SecurityAdminPolicyDefaultsTests|FullyQualifiedName~RealConcurrencyHarnessTests|FullyQualifiedName~CanonicalArticleLifecycleScheduledFailureTests|FullyQualifiedName~AuthoringExtensionRpcBrokerTests|FullyQualifiedName~LifecycleHostedBootstrapServiceTests|FullyQualifiedName~CanonicalArticleProjectionVerifierTests|FullyQualifiedName~DocumentExportContractTests",
+        "--results-directory",
+        "/tmp/fsusblog-3593/support-compiler-next/runtime-results",
+        "--logger",
+        "trx"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 1,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/affected-original-runtime.log.gz",
+      "sha256": "ef214754558b76287dc00b20f9c4de68cc59be9663d573c31b18d34fa34d37ae",
+      "rawSha256": "e7862231dbd0d8a3f7f596538e9e23417e2907e4a8a60f987ddc667de368fceb"
+    },
+    {
+      "name": "owner-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/tools/test-suite-convergence.test.mjs"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 0,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/owner-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "name": "ast-retention",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-replacement-transaction.mjs",
+        "check-diff",
+        "origin/master"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 1,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/ast-retention.log.gz",
+      "sha256": "3bb82d13066588c0fbc6d52045fbe885af90129855c9bd28539c02f8327824b1",
+      "rawSha256": "78a8930e74622a1ebb281b19297a4d6b35e5260f3aa6d10754d169058a64d771"
+    },
+    {
+      "name": "convergence",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/check-test-suite-convergence.mjs",
+        "--out",
+        "/tmp/fsusblog-3593/support-compiler-next/convergence.json"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 1,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/convergence.log.gz",
+      "sha256": "7f2042467ea001bce15383b7bb665239f9bc4175a4c1b0b33fea09726797dd65",
+      "rawSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2"
+    },
+    {
+      "name": "trusted-range",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--range",
+        "origin/master..HEAD"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 0,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/trusted-range.log.gz",
+      "sha256": "270052ba984db189f68e51666e646713ae92b5a2444406b7b6b9f302b41e334b",
+      "rawSha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08"
+    },
+    {
+      "name": "trusted-pr",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--github-event",
+        "/tmp/fsusblog-3593/support-compiler-next/pr-event.json"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 1,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/trusted-pr.log.gz",
+      "sha256": "c5c25023ccef1cba1acc046edc556b89374d58754536ef4855bee77bd6346850",
+      "rawSha256": "a05fccc92a6276afbe4c1de9ef3bb6a4ffeb0c031b8600e39ab1efbd086e1cae"
+    },
+    {
+      "name": "original-controls",
+      "command": [
+        "node",
+        "--test",
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tests/tools/test-replacement-transaction.test.mjs",
+        "tools/post-baseline-history.test.mjs"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 0,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/original-controls.log.gz",
+      "sha256": "85088ad1c0728a5eec353d8ce02ea77b7b1625593168efbe62632ad726298df2",
+      "rawSha256": "6163366f3ae088ab2da4dc5b797f7e4e7d4b47e9762cb4e8ec93bf06297c9a43"
+    },
+    {
+      "name": "runtime-repeat",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~CanonicalArticleProjectionVerifierTests|FullyQualifiedName~LifecycleHostedBootstrapServiceTests",
+        "--logger",
+        "trx"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 1,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/runtime-repeat.log.gz",
+      "sha256": "76ce1cb181198bed0e9029080eeb5731d64389263c2024b1548480b35cad074d",
+      "rawSha256": "6dfdd117283b8fa4e71fca236f068d778781bb26aaa7a58d3292220944bde5ae"
+    },
+    {
+      "name": "inventory",
+      "command": [
+        "node",
+        "tools/test-inventory/produce.mjs",
+        "--configuration",
+        "Debug",
+        "--out",
+        "<task-scoped-output>"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 1,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/inventory.log.gz",
+      "sha256": "146d788364123d3ff855f43b375a4951f275794c4c7035b4c302735f5769e9b0",
+      "rawSha256": "1a44bd26fa746b05733ffc0cc170e58ca6530a24ac865e74eaf40fa4d3f6d7a0"
+    },
+    {
+      "name": "csharp-style",
+      "command": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--mode",
+        "changed",
+        "--base",
+        "origin/master"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 1,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/csharp-style.log.gz",
+      "sha256": "258a323a44567022509bd7eff85724ab35ac356e8256e7a81c5548781a2d9a5b",
+      "rawSha256": "3886b98440e50d4829110c76849f7590a4e89d084b445c8e2cb5478809e3b606"
+    },
+    {
+      "name": "csharp-style-without-sdk-path",
+      "command": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--mode",
+        "changed",
+        "--base",
+        "origin/master"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 1,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/csharp-style-without-sdk-path.log.gz",
+      "sha256": "8e57401febda5ef218b6e7b69a27b24e690a023e7153418ea4edd8a6a0abcdef",
+      "rawSha256": "7c0f880aecd0dbe2c754ae5209fc20095eabbca3de8183f838fe667d7af7ecf2"
+    },
+    {
+      "name": "lifecycle-retention-controls",
+      "command": [
+        "node",
+        "--test",
+        "tests/tools/canonical-article-lifecycle-authority.test.mjs",
+        "tests/tools/test-lifecycle-governance.test.mjs",
+        "tests/tools/test-retention-audit.test.mjs"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 1,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/lifecycle-retention-controls.log.gz",
+      "sha256": "21a084fd7b53a5aea43adb57e13ec18deb7ef9e503ea75db912b20d247695e30",
+      "rawSha256": "8eed4b3c5535a327d12bc05b5e589ef5ad78a867d3d020514b95857cf20ba8e2"
+    },
+    {
+      "name": "tracking-owner-runtime",
+      "command": [
+        "timeout",
+        "300",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~PublicHotReadDbAdmissionTests|FullyQualifiedName~DocumentExportContractTests|FullyQualifiedName~DocumentExportHtmlProviderTests|FullyQualifiedName~AuthoringExtensionPackagePersistenceTests|FullyQualifiedName~AuthoringExtensionRpcTests|FullyQualifiedName~AuthoringExtensionExecutionResolverTests|FullyQualifiedName~AuthoringCommandContributionTests|FullyQualifiedName~PublicArtifactRevocationTests|FullyQualifiedName~AuthoringExtensionServiceBrokerTests|FullyQualifiedName~AuthoringExtensionWorkerSandboxTests|FullyQualifiedName~CanonicalArticlePublicationFixturePortTests|FullyQualifiedName~DocumentExportSandboxTests|FullyQualifiedName~DocumentExportSystemdCgroupAuthorityTests|FullyQualifiedName~ArticleVaultExecutionTests|FullyQualifiedName~PrivateAssetDeliveryTests|FullyQualifiedName~PrivateAssetStoreTests|FullyQualifiedName~SpaAssetManifestServiceTests",
+        "--results-directory",
+        "/tmp/fsusblog-3593/support-compiler-next/tracking-owner-results",
+        "--logger",
+        "trx"
+      ],
+      "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
+      "exitCode": 1,
+      "artifact": "artifacts/style/suite-convergence-post-compiler/tracking-owner-runtime.log.gz",
+      "sha256": "da29ead988d2a09a329f0366e3f86c59a575d18ce603c9f9f862c8e23854632e",
+      "rawSha256": "29458b0677c0b9e03333828b240160d82dcdcfa7d9e7ff08d9d663e8eed15415"
+    }
+  ],
+  "proofs": [
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/backend-results.json",
+      "sha256": "533bba0978c2528f993381029ae3690fb8dc376b1ada07cc0d92d67971c9d7b2"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/source-results.json",
+      "sha256": "19f0e34c7fd74fe33d4f8b52f119d01d14f200d7a1a53634f58b315d147a4f73"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/replay-binding.json",
+      "sha256": "63f89c48ff5f1b7dcbcfe9a0803ecda5ef6fd678c8296cb6dbb9cef6bdea984b"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/runtime-summary.json",
+      "sha256": "a191cb9aa1940f1f15dd87104fcbbf7c926df2cf525dfd580247e41f2bd01e0c"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/runtime-repeat-summary.json",
+      "sha256": "2105aa1388d66b07af0ed52854d4da7a0672412e53ae6214ea64a7a8d02a4f8e"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/tracking-owner-summary.json",
+      "sha256": "74f5c69d2320a81958e5dfa3704712748810d385f2b1bd966444c52a4c9fe574"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/tracking-owner-command.json",
+      "sha256": "43234681913249ed7e8bfa9a55c263aad7fb4884c0bf51c40c0cb0c6e51d7244"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/compile-context-path-proof.json",
+      "sha256": "00714fbc48c8670f7ffe407d025410c6499324795546f1cef0c90e408eb17b9e"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/inventory-diagnostics.json",
+      "sha256": "9a49d1bb2e736ef3a5d40da1fa12710db38f8df41baa6c0d8098991cb863df95"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/msbuild-context.json",
+      "sha256": "f1c28ec6b7cc629a7a17bddcdc01942805afe7b60e87bae38c685719e2d8cc8f"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/affected-original.trx.gz",
+      "sha256": "03c41d49fd7181a7cec7d03e7502f0cff51d795a984a47fbd60b3e6e7a4ebb69",
+      "rawSha256": "ca88bf451004f13b9421179a89d3b5124dbae19111d861aba9f470dce1e402ce"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/runtime-repeat.trx.gz",
+      "sha256": "60994021697bbf5a97e654cc80d5b6a6e92d0e39b45a276e12ac8c83ce97cf9b",
+      "rawSha256": "8476900379e74eb6ae04a935dd93b6b5c410ee600a404ff4dab2f3e4d963569c"
+    },
+    {
+      "path": "artifacts/style/suite-convergence-post-compiler/tracking-17-owner.trx.gz",
+      "sha256": "5820021b9833019413fd4874b8a6ac9fd7d5c02baa6ef1e77988520d6dd7ade0",
+      "rawSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7"
+    }
+  ],
+  "outcomes": {
+    "lockedRestore": {
+      "exitCode": 0
+    },
+    "backendBuild": {
+      "exitCode": 0,
+      "errors": 0,
+      "warnings": 1510
+    },
+    "originalNodeControls": {
+      "exitCode": 0,
+      "passed": 54,
+      "failed": 0,
+      "skipped": 0
+    },
+    "affectedBackendClasses": {
+      "exitCode": 1,
+      "total": 318,
+      "passed": 314,
+      "failed": 4,
+      "skipped": 0
+    },
+    "failedClassesCompleteRepeat": {
+      "exitCode": 1,
+      "total": 125,
+      "passed": 121,
+      "failed": 4,
+      "skipped": 0,
+      "sameFourFailuresRetained": true
+    },
+    "tracking17OriginalOwnerClasses": {
+      "exitCode": 1,
+      "total": 728,
+      "passed": 676,
+      "failed": 52,
+      "skipped": 0,
+      "observedEnvironmentFailures": 48,
+      "codeOrContractFailuresNotProvenEnvironmentOnly": 4
+    },
+    "rootStrictStyle": {
+      "exitCode": 0
+    },
+    "retentionControls": {
+      "exitCode": 1,
+      "passed": 63,
+      "failed": 1,
+      "skipped": 0
+    },
+    "canonicalInventory": {
+      "exitCode": 1,
+      "migrationCompilerErrors": 2,
+      "inventoryProduced": false
+    },
+    "csharpStyle": {
+      "exitCode": 1,
+      "failure": "original whitespace and four using-order refusals; no suppression or baseline change"
+    },
+    "canonicalAstRetention": {
+      "exitCode": 1,
+      "failure": "supplied migration native table is not closed; original static case renamed without admitted transaction"
+    },
+    "trustedPr": {
+      "exitCode": 1,
+      "failure": "ordinary generated binding lists eight unchanged master inputs"
+    },
+    "convergence": {
+      "exitCode": 1,
+      "sourceReadFindings": 0,
+      "currentEpochHistoryErrors": 2
+    }
+  },
+  "ownerRequests": [
+    {
+      "owner": "#3654",
+      "request": "Provide exact minimal compatibility increment for migration CS0246 at OfflineMigrationExpandSafetyTests.cs:79,17/80,17; file is byte-identical to common master, blob a3488d045e47a976015c9b5c0675b74f779bb614. Preserve cases/assertions and rerun canonical inventory."
+    },
+    {
+      "owner": "canonical bootstrap/projection owners",
+      "request": "Diagnose and repair the four actual runtime failures in runtime-summary.json, reproduced by the full two-class repeat; no assertion or timing weakening."
+    },
+    {
+      "owner": "#3551 child RPC/resolver/command/broker owners",
+      "request": "Diagnose the four current code/contract refusals in tracking-owner-summary.json. Their source migrations cannot be accepted from zero source-read findings."
+    },
+    {
+      "owner": "#3521 canonical inventory/identity/governance",
+      "request": "Admit real Linux MSBuild intermediate path observation, original static test identity and four closed negative-control registrations, plus truthful generated-policy metadata. No fabricated output, alias directory, checker weakening or generic repair self-approval."
+    },
+    {
+      "owner": "canonical C# style / compiler source owners",
+      "request": "Supply qualified exact source style increments; original changed-file gate still fails for supplied compiler/supporting files."
+    }
+  ],
+  "environmentOnlyOmissions": [
+    "Original sandbox/renderer/cgroup tests require an active owned systemd user manager and successful original bwrap containment. Actual capability tests refused; no platform checks bypassed.",
+    "Two original worker controls require actual /usr/local/bin/node. Official pinned Node was installed task-scoped; no fake binary or source fixture was substituted.",
+    "PG/full CI/complete production and real-device qualification not run or accepted; upstream code and authority gates remain failed."
+  ],
+  "limits": [
+    "New early-review exception is inapplicable because real code/unit and original policy gates fail.",
+    "All older no-DLL/11-error logs remain bound to their earlier exact checkpoints, not described as current failures.",
+    "Full prepared matrix was last tested on 5f7e3260997585fd93e919d8ebba3d274b19ce92 and failed genuine authority drift; it is not a passing final-head check.",
+    "Evidence publication adds metadata only after this exact tested source candidate. Final independent exact-head acceptance remains required."
+  ],
+  "setupCorrections": [
+    "An initial Node-controls log redirect raced log-directory creation; no tests ran in that invocation. Directory was created explicitly before the successful exact-head 54-control run.",
+    "Initial C# style invocation lacked task-scoped SDK PATH; its error was preserved and corrected before the real gate failure recorded above."
+  ]
+}

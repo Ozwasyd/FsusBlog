@@ -1,0 +1,7 @@
+{
+  "Properties": {
+    "Configuration": "Debug",
+    "TargetPath": "/workspace/FsusBlog/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+    "IntermediateOutputPath": "obj\\Debug/net10.0/"
+  }
+}
