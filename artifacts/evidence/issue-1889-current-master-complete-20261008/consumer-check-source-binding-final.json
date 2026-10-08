@@ -1,0 +1,33 @@
+{
+  "finalCandidate": "73a318a5707cd7b5da74abcf263a185f2550badc",
+  "typecheckCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+  "sourceDelta": [
+    "docs/api.md",
+    "docs/api/aeds-only-policy.md",
+    "docs/api/quick-reference.md",
+    "docs/api/schemas-and-errors.md",
+    "docs/api/stability.md",
+    "docs/architecture/monolithic-distributed-boundary.md",
+    "docs/architecture/overview.md",
+    "docs/releases/blue-green-deployment-runbook.md",
+    "docs/releases/release-identity.md",
+    "docs/testing.md"
+  ],
+  "applicationAndConsumerSourceChanged": false,
+  "reasonNoRepeat": "Only canonical generated document sections changed; every frontend source, type contract, declaration, test and configuration is byte-identical. Current strict original SOURCE was run independently on full final33-path closure.",
+  "application": {
+    "exitCode": 2,
+    "diagnostics": 230,
+    "composerPrivacyDiagnostics": 0
+  },
+  "localConsumer": {
+    "exitCode": 2,
+    "diagnostics": 126,
+    "composerPrivacyConsumerContractDiagnostics": 0
+  },
+  "publishedConsumer": {
+    "exitCode": 2,
+    "diagnostics": 259,
+    "actualPackageMissing": true
+  }
+}

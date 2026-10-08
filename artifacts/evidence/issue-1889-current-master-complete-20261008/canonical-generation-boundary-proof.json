@@ -1,0 +1,234 @@
+{
+  "sourceCommit": "87d6f31243917bbea2e715e85f3181bbd2449172",
+  "producerArgv": [
+    "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/docs/generate-fact-sections.mjs",
+    "--generate",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/auth-session-permission-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/code-intent-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/config-error-security-policy-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/content-lifecycle-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/document-lifecycle-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/openapi-aeds-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/test-asset-audit-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/test-matrix-fact-extractor.json"
+  ],
+  "exitCode": 0,
+  "documents": [
+    {
+      "path": "docs/anonymous-identity-smoke-flow.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "12d85df9f9085cbf1fe19eaef0e01193275954958228892fb708d5da91596701",
+      "outsideGeneratedAfterSha256": "12d85df9f9085cbf1fe19eaef0e01193275954958228892fb708d5da91596701"
+    },
+    {
+      "path": "docs/api.md",
+      "changed": true,
+      "outsideGeneratedBeforeSha256": "e57d06472302eb5cac248ab9b7b1671e9e56c93ecc51c18d5a89198d7b6a50ae",
+      "outsideGeneratedAfterSha256": "e57d06472302eb5cac248ab9b7b1671e9e56c93ecc51c18d5a89198d7b6a50ae"
+    },
+    {
+      "path": "docs/api/aeds-only-policy.md",
+      "changed": true,
+      "outsideGeneratedBeforeSha256": "ef3b736f12371449988473669b857233ed98a0e9c24c11a32aada20d59d3aee3",
+      "outsideGeneratedAfterSha256": "ef3b736f12371449988473669b857233ed98a0e9c24c11a32aada20d59d3aee3"
+    },
+    {
+      "path": "docs/api/article-publication-revisions.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "690dd31fe51f1203b8be20ed99e05928576fa3991912a160c518ee7ed5b3430b",
+      "outsideGeneratedAfterSha256": "690dd31fe51f1203b8be20ed99e05928576fa3991912a160c518ee7ed5b3430b"
+    },
+    {
+      "path": "docs/api/contracts.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "53fb1e385c374450aca4867f0a52cb9747bcf68349c86f96d96c16fb09e345fb",
+      "outsideGeneratedAfterSha256": "53fb1e385c374450aca4867f0a52cb9747bcf68349c86f96d96c16fb09e345fb"
+    },
+    {
+      "path": "docs/api/design.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "a92e537cecbdf68565bec49302b675daba166619815d31f381bcc23f7cb5f387",
+      "outsideGeneratedAfterSha256": "a92e537cecbdf68565bec49302b675daba166619815d31f381bcc23f7cb5f387"
+    },
+    {
+      "path": "docs/api/quick-reference.md",
+      "changed": true,
+      "outsideGeneratedBeforeSha256": "bdaf78c41327687e4f5102e86ddedc456afe9cbd064326f3a3af0272cf58b053",
+      "outsideGeneratedAfterSha256": "bdaf78c41327687e4f5102e86ddedc456afe9cbd064326f3a3af0272cf58b053"
+    },
+    {
+      "path": "docs/api/schemas-and-errors.md",
+      "changed": true,
+      "outsideGeneratedBeforeSha256": "7214ee6c5e81b138f547dfa6b727879dbd52a538cb3e6f42453996e6ad9fad26",
+      "outsideGeneratedAfterSha256": "7214ee6c5e81b138f547dfa6b727879dbd52a538cb3e6f42453996e6ad9fad26"
+    },
+    {
+      "path": "docs/api/stability.md",
+      "changed": true,
+      "outsideGeneratedBeforeSha256": "5d2be1f2fef94e77f8dfec88828090b9c03bbc1a5bc764c2d41d80e57decd693",
+      "outsideGeneratedAfterSha256": "5d2be1f2fef94e77f8dfec88828090b9c03bbc1a5bc764c2d41d80e57decd693"
+    },
+    {
+      "path": "docs/architecture.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "e9ab5b0518d1618c9e7c6671622723992478a1221ca52338c93232627b503856",
+      "outsideGeneratedAfterSha256": "e9ab5b0518d1618c9e7c6671622723992478a1221ca52338c93232627b503856"
+    },
+    {
+      "path": "docs/architecture/article-asset-reference-lifecycle.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "936771a1f660e4414c103326e0215adffd0853246761065e83c22e39275acdfc",
+      "outsideGeneratedAfterSha256": "936771a1f660e4414c103326e0215adffd0853246761065e83c22e39275acdfc"
+    },
+    {
+      "path": "docs/architecture/article-deletion-lifecycle.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "77533e9f44882100ea17b23040c20e75e0f2274a0d067affabdda57196cec5f6",
+      "outsideGeneratedAfterSha256": "77533e9f44882100ea17b23040c20e75e0f2274a0d067affabdda57196cec5f6"
+    },
+    {
+      "path": "docs/architecture/article-mutation-outbox-claim-lease.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "fb27533d8f87c8d01779f18d4d05ad60d7e8b7ef05d82c441951879791016edd",
+      "outsideGeneratedAfterSha256": "fb27533d8f87c8d01779f18d4d05ad60d7e8b7ef05d82c441951879791016edd"
+    },
+    {
+      "path": "docs/architecture/article-mutation-outbox-versioning.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "041345de7c1ca91931207ac1ef3ff791ebc2ea2be9c696e3ce934f7a43ad1ec0",
+      "outsideGeneratedAfterSha256": "041345de7c1ca91931207ac1ef3ff791ebc2ea2be9c696e3ce934f7a43ad1ec0"
+    },
+    {
+      "path": "docs/architecture/article-mutation-side-effect-boundaries.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "026025845c23a0f3d2dec970e6ab11829bb6bbcb6abddf48cf05d1af24d48a22",
+      "outsideGeneratedAfterSha256": "026025845c23a0f3d2dec970e6ab11829bb6bbcb6abddf48cf05d1af24d48a22"
+    },
+    {
+      "path": "docs/architecture/article-revision-concurrency.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "105cea1989b87dcff1a1d1a45d1f68681f26f88eace9cd629611e5254264ff28",
+      "outsideGeneratedAfterSha256": "105cea1989b87dcff1a1d1a45d1f68681f26f88eace9cd629611e5254264ff28"
+    },
+    {
+      "path": "docs/architecture/comment-attribution-privacy-boundary.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "151cb92a26abc79dbe3a16c9e9d624cb4036327cd6514402781acb9f1ab1e34d",
+      "outsideGeneratedAfterSha256": "151cb92a26abc79dbe3a16c9e9d624cb4036327cd6514402781acb9f1ab1e34d"
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "94bbefe9e935e10414d946513e420b524df18da0699d901547740c8948c39635",
+      "outsideGeneratedAfterSha256": "94bbefe9e935e10414d946513e420b524df18da0699d901547740c8948c39635"
+    },
+    {
+      "path": "docs/architecture/comment-moderation-visibility-boundary.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "f08f5ea3351bab200e373064c65d14645e289a387b2d298b880ebe549180dc76",
+      "outsideGeneratedAfterSha256": "f08f5ea3351bab200e373064c65d14645e289a387b2d298b880ebe549180dc76"
+    },
+    {
+      "path": "docs/architecture/comment-mutation-outbox.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "d9ec9e5259cd01ec5752b741c0e81c929ec472314a346ab76f1ddcf7cd6c19d4",
+      "outsideGeneratedAfterSha256": "d9ec9e5259cd01ec5752b741c0e81c929ec472314a346ab76f1ddcf7cd6c19d4"
+    },
+    {
+      "path": "docs/architecture/comment-notification-boundary.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "3a09f5519e0d1468a0c039a2f1b7a36063df2700f1a662eaf0ad79db7c10600c",
+      "outsideGeneratedAfterSha256": "3a09f5519e0d1468a0c039a2f1b7a36063df2700f1a662eaf0ad79db7c10600c"
+    },
+    {
+      "path": "docs/architecture/comment-query-boundary.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "f45ee1c5458534bd69f274bdb9e32ed8ab301c3be424773245ed96b30cab3dc4",
+      "outsideGeneratedAfterSha256": "f45ee1c5458534bd69f274bdb9e32ed8ab301c3be424773245ed96b30cab3dc4"
+    },
+    {
+      "path": "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "39feaf535015276dd5edc1a70b77fc687089e8e098ad32ec44333c65e99f3747",
+      "outsideGeneratedAfterSha256": "39feaf535015276dd5edc1a70b77fc687089e8e098ad32ec44333c65e99f3747"
+    },
+    {
+      "path": "docs/architecture/monolithic-distributed-boundary.md",
+      "changed": true,
+      "outsideGeneratedBeforeSha256": "681fdced79bcebb72ea647490cd8a322d6e6b4185b49e661ac8c484c1434558e",
+      "outsideGeneratedAfterSha256": "681fdced79bcebb72ea647490cd8a322d6e6b4185b49e661ac8c484c1434558e"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "changed": true,
+      "outsideGeneratedBeforeSha256": "e80bffe9e0a39d5d661eaa5dd67811e4a5806dc9e166fdd8031d63d84bc47214",
+      "outsideGeneratedAfterSha256": "e80bffe9e0a39d5d661eaa5dd67811e4a5806dc9e166fdd8031d63d84bc47214"
+    },
+    {
+      "path": "docs/configuration-layout.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "dc7cecc7c1878cade263c83e2b7e4e460d4b42e7b378878a107028b4deffef37",
+      "outsideGeneratedAfterSha256": "dc7cecc7c1878cade263c83e2b7e4e460d4b42e7b378878a107028b4deffef37"
+    },
+    {
+      "path": "docs/configuration/appsettings-authority.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "50c77c40800d145507ab98e95e657f7f32cdaedddeff9950c568fd7e5320b4c4",
+      "outsideGeneratedAfterSha256": "50c77c40800d145507ab98e95e657f7f32cdaedddeff9950c568fd7e5320b4c4"
+    },
+    {
+      "path": "docs/development/code-intent-governance.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "2f7d5790ad46d9a55f6bd2351174d23ae38d9c2a2f920c45a47020f933e7d592",
+      "outsideGeneratedAfterSha256": "2f7d5790ad46d9a55f6bd2351174d23ae38d9c2a2f920c45a47020f933e7d592"
+    },
+    {
+      "path": "docs/moderation.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "3fd415bbc4fdee7aef52f43a015f970d2a6896da0572e8167ac398bb6ec26ca8",
+      "outsideGeneratedAfterSha256": "3fd415bbc4fdee7aef52f43a015f970d2a6896da0572e8167ac398bb6ec26ca8"
+    },
+    {
+      "path": "docs/releases/blue-green-deployment-runbook.md",
+      "changed": true,
+      "outsideGeneratedBeforeSha256": "868af1ab59d3ba6d40500bfdaa4fb1016bae7f558decffabd1b722e44ab6654c",
+      "outsideGeneratedAfterSha256": "868af1ab59d3ba6d40500bfdaa4fb1016bae7f558decffabd1b722e44ab6654c"
+    },
+    {
+      "path": "docs/releases/release-identity.md",
+      "changed": true,
+      "outsideGeneratedBeforeSha256": "b6c947dfd1dc5d1cf9b4fc5b7d8b64a4ea5312f47a41606554adacdaeb90e418",
+      "outsideGeneratedAfterSha256": "b6c947dfd1dc5d1cf9b4fc5b7d8b64a4ea5312f47a41606554adacdaeb90e418"
+    },
+    {
+      "path": "docs/security.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "31fee0f859ebcf1f700acb85bc425ac4293ff3e9b21831cf690834ca4464e9c1",
+      "outsideGeneratedAfterSha256": "31fee0f859ebcf1f700acb85bc425ac4293ff3e9b21831cf690834ca4464e9c1"
+    },
+    {
+      "path": "docs/security/user-session-authentication-context.md",
+      "changed": false,
+      "outsideGeneratedBeforeSha256": "99c8b9156484a8a068cab2114af4108b49cd7b12a6f0de4f01c808941e619e56",
+      "outsideGeneratedAfterSha256": "99c8b9156484a8a068cab2114af4108b49cd7b12a6f0de4f01c808941e619e56"
+    },
+    {
+      "path": "docs/testing.md",
+      "changed": true,
+      "outsideGeneratedBeforeSha256": "b5914d9ba398a91576ebcf6f5102017c092c849c8e911d1e5723b587cf6c120f",
+      "outsideGeneratedAfterSha256": "b5914d9ba398a91576ebcf6f5102017c092c849c8e911d1e5723b587cf6c120f"
+    }
+  ],
+  "authoredOutsideUnchanged": true,
+  "canonicalCurrentFacts": 8,
+  "copiedOldGeneratedSnapshots": false
+}

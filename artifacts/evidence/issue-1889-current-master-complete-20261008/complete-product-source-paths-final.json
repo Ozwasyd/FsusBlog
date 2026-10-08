@@ -1,0 +1,439 @@
+{
+  "head": "73a318a5707cd7b5da74abcf263a185f2550badc",
+  "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "pathCount": 33,
+  "paths": [
+    {
+      "path": "docs/api.md",
+      "baseBlob": "2a7c1f464145555ec6bb9134357bb7d9bb410209",
+      "currentBlob": "501410c849af8e56cdbcfe44e34805f1285fb7e5",
+      "sha256": "657e6e03205dd7c44cc390de373c9e87ba23bf539318a84a459e30291257b29e",
+      "originalMapping": {
+        "scope": "Mandatory generated document output",
+        "producer": "tools/docs/generate-fact-sections.mjs",
+        "sourceFactsCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+        "currentProducerCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+        "authoredOutsideUnchanged": true
+      }
+    },
+    {
+      "path": "docs/api/aeds-only-policy.md",
+      "baseBlob": "14d219425a6340f82928181920b2f31571a65822",
+      "currentBlob": "3daf875e5b3771994ba2ae78192d96fed4a23846",
+      "sha256": "122283a1e3b68230dba31fc8ecf1a1d16e6cfdd47638d5f561d2b7284610cdd6",
+      "originalMapping": {
+        "scope": "Mandatory generated document output",
+        "producer": "tools/docs/generate-fact-sections.mjs",
+        "sourceFactsCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+        "currentProducerCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+        "authoredOutsideUnchanged": true
+      }
+    },
+    {
+      "path": "docs/api/quick-reference.md",
+      "baseBlob": "563359cd27cc44ced04763c694bee5c3b5040001",
+      "currentBlob": "a4e3197aa86eaa6775f26586951ab42a10fd9ce6",
+      "sha256": "c7ce8792d7de9ef5d2c4bd9feb127584e0086814fd5fe6ab0dca66120eb61000",
+      "originalMapping": {
+        "scope": "Mandatory generated document output",
+        "producer": "tools/docs/generate-fact-sections.mjs",
+        "sourceFactsCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+        "currentProducerCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+        "authoredOutsideUnchanged": true
+      }
+    },
+    {
+      "path": "docs/api/schemas-and-errors.md",
+      "baseBlob": "9f729e01b0c34d8d8de0b58e57e7f3bef93ed411",
+      "currentBlob": "601eddbacaf9e6cf84b9014c6ad1f4669eefaf42",
+      "sha256": "cd90e72d431cf85071271822de538e54e4b391f49b6b2f88926db50780fa145c",
+      "originalMapping": {
+        "scope": "Mandatory generated document output",
+        "producer": "tools/docs/generate-fact-sections.mjs",
+        "sourceFactsCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+        "currentProducerCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+        "authoredOutsideUnchanged": true
+      }
+    },
+    {
+      "path": "docs/api/stability.md",
+      "baseBlob": "e14a9134ea1ac394fde007e91ce34314b9f7051f",
+      "currentBlob": "0f2c6ef6e5ad772d7446d8eb863e18d3dbaf6250",
+      "sha256": "ae603d0da335dfa41a4bc2435534bed6279d2ac9f6c8f5555678bc050307aa2a",
+      "originalMapping": {
+        "scope": "Mandatory generated document output",
+        "producer": "tools/docs/generate-fact-sections.mjs",
+        "sourceFactsCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+        "currentProducerCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+        "authoredOutsideUnchanged": true
+      }
+    },
+    {
+      "path": "docs/architecture/monolithic-distributed-boundary.md",
+      "baseBlob": "d8caf59db9dcde77e689d422a173e5656284883b",
+      "currentBlob": "1abee71656a130ec62c3334291ade336a926d05c",
+      "sha256": "56a6269f5a94d84ef6d07ef2d73129ac5f02de200c0e3131a0c33b15ba06e98b",
+      "originalMapping": {
+        "scope": "Mandatory generated document output",
+        "producer": "tools/docs/generate-fact-sections.mjs",
+        "sourceFactsCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+        "currentProducerCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+        "authoredOutsideUnchanged": true
+      }
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "baseBlob": "b6f3c68481fa0b28174066f82c609b5d597dcda0",
+      "currentBlob": "f6f8a8a45198fa61bf79de0d5b2a464ef2c42233",
+      "sha256": "82fcd64c5cc218ab064d76f8e7c69639be6361a0ade2bf39772b5b008998ef2b",
+      "originalMapping": {
+        "scope": "Mandatory generated document output",
+        "producer": "tools/docs/generate-fact-sections.mjs",
+        "sourceFactsCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+        "currentProducerCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+        "authoredOutsideUnchanged": true
+      }
+    },
+    {
+      "path": "docs/releases/blue-green-deployment-runbook.md",
+      "baseBlob": "93b6423b24c14555c6fd475d989f230cb7c5966e",
+      "currentBlob": "ddd73382c78264c7fc24dfb27246ae11d98233f3",
+      "sha256": "0f069ad95865b29b6d082c4309facded9f519916c3f680cfb51063d98423084d",
+      "originalMapping": {
+        "scope": "Mandatory generated document output",
+        "producer": "tools/docs/generate-fact-sections.mjs",
+        "sourceFactsCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+        "currentProducerCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+        "authoredOutsideUnchanged": true
+      }
+    },
+    {
+      "path": "docs/releases/release-identity.md",
+      "baseBlob": "822d08db14e35c7c3828bfadb09348c465952849",
+      "currentBlob": "5f451498c5069b6e81c4f35e585c2dde9e6411df",
+      "sha256": "021f9eacd89b499dcd423d41846059c04d4db1449fe5a8283efc6a4e5645c4d2",
+      "originalMapping": {
+        "scope": "Mandatory generated document output",
+        "producer": "tools/docs/generate-fact-sections.mjs",
+        "sourceFactsCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+        "currentProducerCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+        "authoredOutsideUnchanged": true
+      }
+    },
+    {
+      "path": "docs/security/comment-draft-privacy.md",
+      "baseBlob": "8ef2acf7db3c1d877d2048d899fac3bc4b9be568",
+      "currentBlob": "23ca73cbb0a9257e2cf7c0dae1f5c816de4fc69d",
+      "sha256": "d11d7196967d925067c586ce8031de945f9e868e21d311a5fbbbbcece7ced0ba",
+      "originalMapping": {
+        "path": "docs/security/comment-draft-privacy.md",
+        "owner": "1889",
+        "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+        "donorBlob": "23ca73cbb0a9257e2cf7c0dae1f5c816de4fc69d",
+        "baseBlob": "8ef2acf7db3c1d877d2048d899fac3bc4b9be568"
+      }
+    },
+    {
+      "path": "docs/security/comment-privacy-credential-vault.md",
+      "baseBlob": "d1c113c26420e7d3c404e976f358d705b3d6b83a",
+      "currentBlob": "d70a206ad8e970f5d2c1e63ec08b8b87cbc7b66b",
+      "sha256": "4802932a4c71188d49c284cad128cf7625063cb54ddf79452d18872d1652928b",
+      "originalMapping": {
+        "path": "docs/security/comment-privacy-credential-vault.md",
+        "owner": "1889",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "d70a206ad8e970f5d2c1e63ec08b8b87cbc7b66b",
+        "baseBlob": "d1c113c26420e7d3c404e976f358d705b3d6b83a"
+      }
+    },
+    {
+      "path": "docs/testing.md",
+      "baseBlob": "2ff04752350c9de9912a617e0a5a6d9eac68f4e5",
+      "currentBlob": "fbf727e654395dbc14e205a6e9bc6f763ef41b9c",
+      "sha256": "ae09573524dac73a86c97798d30fb51fd992de1e0157739d69c50a2cf5569d3f",
+      "originalMapping": {
+        "scope": "Mandatory generated document output",
+        "producer": "tools/docs/generate-fact-sections.mjs",
+        "sourceFactsCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+        "currentProducerCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+        "authoredOutsideUnchanged": true
+      }
+    },
+    {
+      "path": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "baseBlob": "574110e9146680e248746470789d2bd77098b2d5",
+      "currentBlob": "f959f4ac716bb55c48653123eec78661e8b6d8e7",
+      "sha256": "c2224e5bc7cc1c7868cf894c6737e3630a27b75b1688aefbd8762b496dd62452",
+      "originalMapping": {
+        "path": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+        "owner": "1889",
+        "donorCommit": "15424f2836173cb86b8a3c5e7e5e0ea71d032568",
+        "donorBlob": "f959f4ac716bb55c48653123eec78661e8b6d8e7",
+        "baseBlob": "574110e9146680e248746470789d2bd77098b2d5"
+      }
+    },
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "baseBlob": "47c67ec55408d10af0a858ccd133c0ea5658c100",
+      "currentBlob": "40afd51a0d29494b29942864cf786f846b7d72e3",
+      "sha256": "4876b6e31250bd1bb5ceb0a880568ae7ab258712351d4c61f43e91a427626e37",
+      "originalMapping": {
+        "path": "src/frontend/src/contracts/binaryApi.ts",
+        "owner": "3735",
+        "donorCommit": "9ed401583c04ff354c430b2ea174ccb69adb6002",
+        "scope": "Exactly one deletion of unsupported request credentialEpoch; no locale style change"
+      }
+    },
+    {
+      "path": "src/frontend/src/fsusui/README.md",
+      "baseBlob": "5744bd3c1e68efff3cad9ba0b53663032bab0b45",
+      "currentBlob": "e5463ad46b1d4f113b21ea38f81fea4085e1bcca",
+      "sha256": "dd9f4b6727421071fad56b920b68a020dd02413c7d582cfa0a9485658b013b2f",
+      "originalMapping": {
+        "path": "src/frontend/src/fsusui/README.md",
+        "owner": "1889",
+        "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+        "donorBlob": "e5463ad46b1d4f113b21ea38f81fea4085e1bcca",
+        "baseBlob": "5744bd3c1e68efff3cad9ba0b53663032bab0b45"
+      }
+    },
+    {
+      "path": "src/frontend/src/fsusui/checkbox.ts",
+      "baseBlob": null,
+      "currentBlob": "38df51574028960b03eea31a03e0a827b98128f6",
+      "sha256": "ea7a5189637132e73ca0232d40bbcb2a465d6eeeeaf564e79aad6bdb4816eb33",
+      "originalMapping": {
+        "path": "src/frontend/src/fsusui/checkbox.ts",
+        "owner": "1889",
+        "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+        "donorBlob": "38df51574028960b03eea31a03e0a827b98128f6",
+        "baseBlob": null
+      }
+    },
+    {
+      "path": "src/frontend/src/fsusui/input.ts",
+      "baseBlob": null,
+      "currentBlob": "446da3bdd346ec37d768dcfa9a3701b843364bdc",
+      "sha256": "c3162d9daa2b64c2ce0dc34c0af3f429f311e3368185f442a9ed6082b4a125b3",
+      "originalMapping": {
+        "path": "src/frontend/src/fsusui/input.ts",
+        "owner": "1889",
+        "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+        "donorBlob": "446da3bdd346ec37d768dcfa9a3701b843364bdc",
+        "baseBlob": null
+      }
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyBlindRsaSuite.ts",
+      "baseBlob": "d0f21a9a213733dbe6bf3c856b91acd62702b0d1",
+      "currentBlob": "07233719bb2ab8313e0c850e4c1b6e481cead2b0",
+      "sha256": "104e941a04c0c5f3774d7161d346d69a398865ba9118f7b72609db22ef04343d",
+      "originalMapping": {
+        "path": "src/frontend/src/privacy/commentPrivacyBlindRsaSuite.ts",
+        "owner": "1889",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "07233719bb2ab8313e0c850e4c1b6e481cead2b0",
+        "baseBlob": "d0f21a9a213733dbe6bf3c856b91acd62702b0d1"
+      }
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyCredentialProvider.ts",
+      "baseBlob": "e124581eb9f2bd3dd7081ca8e16dc95717a417f6",
+      "currentBlob": "613bee7ebbb4ca88cf0f01fe8206089854527c57",
+      "sha256": "47b5b2ecfe81566a8649bbfc5748bca533aee854df0c8a09a941fceac10bbbfa",
+      "originalMapping": {
+        "path": "src/frontend/src/privacy/commentPrivacyCredentialProvider.ts",
+        "owner": "1889",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "613bee7ebbb4ca88cf0f01fe8206089854527c57",
+        "baseBlob": "e124581eb9f2bd3dd7081ca8e16dc95717a417f6"
+      }
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyRevocationLocal.ts",
+      "baseBlob": "8969474fea1d0dfc681b98e28352abbd5571c2e1",
+      "currentBlob": "67afca972540a7046166d188ee1280422a97b284",
+      "sha256": "319fb19614bb9fa3b8ffb854e01fde2c48cc761e7838ae6da44259f684c7a90d",
+      "originalMapping": {
+        "path": "src/frontend/src/privacy/commentPrivacyRevocationLocal.ts",
+        "owner": "1889",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "67afca972540a7046166d188ee1280422a97b284",
+        "baseBlob": "8969474fea1d0dfc681b98e28352abbd5571c2e1"
+      }
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyWasmProver.ts",
+      "baseBlob": "bd7a55d504f4d129a0eb97e587643877331599b7",
+      "currentBlob": "f40de7c590c9ae9f9a1d09b23f9d7d7a040eb0a1",
+      "sha256": "d3fb28a6546c6f50c4ab223a5da8f47a40e1089688c87dc2a42900ed3d3cb0ab",
+      "originalMapping": {
+        "path": "src/frontend/src/privacy/commentPrivacyWasmProver.ts",
+        "owner": "1889",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "f40de7c590c9ae9f9a1d09b23f9d7d7a040eb0a1",
+        "baseBlob": "bd7a55d504f4d129a0eb97e587643877331599b7"
+      }
+    },
+    {
+      "path": "src/frontend/tsconfig.fsusui-published.json",
+      "baseBlob": "8a4b7d03a20596eca992bcc6af4b0958190d6807",
+      "currentBlob": "a27837af7c129a44df9958431e3a39b0b3b45e5e",
+      "sha256": "fe3d1fcd97f74cadc21a12b4c358aa9267ca23947acefb5c11ca49d55b6bf01e",
+      "originalMapping": {
+        "path": "src/frontend/tsconfig.fsusui-published.json",
+        "owner": "1889",
+        "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+        "donorBlob": "a27837af7c129a44df9958431e3a39b0b3b45e5e",
+        "baseBlob": "8a4b7d03a20596eca992bcc6af4b0958190d6807"
+      }
+    },
+    {
+      "path": "tests/frontend/e2e/article-comment-composer-primitives.spec.ts",
+      "baseBlob": null,
+      "currentBlob": "59e02b902dd154b3ecde8d55f7c3ccca865b4e38",
+      "sha256": "178782b19a603a1e4613dea16033f74156947bf595e1526d024ff6688681b689",
+      "originalMapping": {
+        "path": "tests/frontend/e2e/article-comment-composer-primitives.spec.ts",
+        "owner": "1889",
+        "donorCommit": "15424f2836173cb86b8a3c5e7e5e0ea71d032568",
+        "donorBlob": "59e02b902dd154b3ecde8d55f7c3ccca865b4e38",
+        "baseBlob": null
+      }
+    },
+    {
+      "path": "tests/frontend/fixtures/articleCommentComposer.ts",
+      "baseBlob": null,
+      "currentBlob": "69c9d9dda1d7338a88c32827bcf902e0bde468e2",
+      "sha256": "657081107f477f93ece78e91666f26d57cd06314c740f1dcb4103e93479cead5",
+      "originalMapping": {
+        "path": "tests/frontend/fixtures/articleCommentComposer.ts",
+        "owner": "1889",
+        "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+        "donorBlob": "69c9d9dda1d7338a88c32827bcf902e0bde468e2",
+        "baseBlob": null
+      }
+    },
+    {
+      "path": "tests/frontend/typecheck/article-comment-composer-consumer-contract.ts",
+      "baseBlob": null,
+      "currentBlob": "938536030b0f78c362ad78274aa393c885a0b027",
+      "sha256": "6068b0731efceca361f29502a0a69367b84c2d56490753323f5a924a1af5e07f",
+      "originalMapping": {
+        "path": "tests/frontend/typecheck/article-comment-composer-consumer-contract.ts",
+        "owner": "1889",
+        "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+        "donorBlob": "938536030b0f78c362ad78274aa393c885a0b027",
+        "baseBlob": null
+      }
+    },
+    {
+      "path": "tests/frontend/typecheck/fsusui-export-contract.ts",
+      "baseBlob": "dd2bc4e4e3097abb29492b91db5ebf17461cf319",
+      "currentBlob": "fdba2507d3eca155b253dd928183cd1ea8307593",
+      "sha256": "90bc77a4c12c80cbde6af97db84c3a0ac3e57fbdb39147e8a0c7f86d5f24d025",
+      "originalMapping": {
+        "path": "tests/frontend/typecheck/fsusui-export-contract.ts",
+        "owner": "1889",
+        "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+        "donorBlob": "fdba2507d3eca155b253dd928183cd1ea8307593",
+        "baseBlob": "dd2bc4e4e3097abb29492b91db5ebf17461cf319"
+      }
+    },
+    {
+      "path": "tests/frontend/unit/components/ArticleCommentComposer.test.ts",
+      "baseBlob": "031238fdf6ed223c7c5ee5018351a99d0a996bbc",
+      "currentBlob": "0eaa8048ad7d82e0468ca5a78c5b23ef8266dc4c",
+      "sha256": "1fedef2528195623a16a506222939f74dcb5f67a39ad00772ce7d84fe2a3935f",
+      "originalMapping": {
+        "path": "tests/frontend/unit/components/ArticleCommentComposer.test.ts",
+        "owner": "1889",
+        "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+        "donorBlob": "0eaa8048ad7d82e0468ca5a78c5b23ef8266dc4c",
+        "baseBlob": "031238fdf6ed223c7c5ee5018351a99d0a996bbc"
+      }
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+      "baseBlob": "6b27f14f556ceac6b2482e8734ff765adb50ee7e",
+      "currentBlob": "36320591d835a8fedc4c7fb7599a495a7c6cafd9",
+      "sha256": "af06d69210ed64aa1f83dfe1afcfe0da1394c6073829143d9c781f8f054b96bb",
+      "originalMapping": {
+        "path": "tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+        "owner": "1889",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "36320591d835a8fedc4c7fb7599a495a7c6cafd9",
+        "baseBlob": "6b27f14f556ceac6b2482e8734ff765adb50ee7e"
+      }
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "currentBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "originalMapping": {
+        "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "owner": "3568",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+        "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+      }
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "currentBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "originalMapping": {
+        "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "owner": "3568",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+        "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+      }
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "currentBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "originalMapping": {
+        "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "owner": "3568",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+        "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+      }
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "currentBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "sha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "originalMapping": {
+        "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "owner": "3568",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+        "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+      }
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "baseBlob": "08e62e583616c40424a919b7eb188b5238e33d47",
+      "currentBlob": "a342034a78b4270de17ebeea7ab20cef2da66dfe",
+      "sha256": "ad6ed413264ee8dd99e50cb0adffe8e65839d95bdf3570253137f0e8fc15d655",
+      "originalMapping": {
+        "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "owner": "3568",
+        "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+        "donorBlob": "a342034a78b4270de17ebeea7ab20cef2da66dfe",
+        "baseBlob": "08e62e583616c40424a919b7eb188b5238e33d47"
+      }
+    }
+  ],
+  "completeSourceNotAnIncrementOnlyDiff": true,
+  "unneededHistoricalLogsCarried": false,
+  "noEvidenceDeleted": true,
+  "masterSourcePoliciesAndIndependentSealsUntouched": true
+}

@@ -1,0 +1,194 @@
+{
+  "root": 1889,
+  "executionIssues": [
+    1889
+  ],
+  "trackingOnlyIssues": [],
+  "status": "Complete minimal product-source closure published; whole SOURCE and product acceptance remain OPEN/FAILED, not completed chain",
+  "sourceBranch": "codex/issue-1889-current-master-complete",
+  "sourceHead": "73a318a5707cd7b5da74abcf263a185f2550badc",
+  "sourceBase": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "baseVerification": "git fetch origin master on2026-10-08 returned85aa75af8949401ef9997c5042d22b1071414e0a",
+  "worktree": "/workspace/scratch/issue-1889/current-master-complete",
+  "productCommits": [
+    "87d6f31243917bbea2e715e85f3181bbd2449172",
+    "73a318a5707cd7b5da74abcf263a185f2550badc"
+  ],
+  "productPathCount": 33,
+  "productPathManifest": "complete-product-source-paths-final.json",
+  "originalReviewMapping": "original-review-mapping.json",
+  "originalSources": {
+    "composer": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+    "composerFooterIntegration": "15424f2836173cb86b8a3c5e7e5e0ea71d032568",
+    "ordinaryPrivacy": "d8e708fcb147410e9087a491e538fdd98c709020",
+    "sole3568RuntimeRole": "6ffa5cf34104b4197847f91c35a94b42fd981b4d",
+    "sole3568OtherFourObservers": "c9875e42267816facd8d6109a457cb7b330d4332",
+    "sole3735DTOExactOneLine": "9ed401583c04ff354c430b2ea174ccb69adb6002"
+  },
+  "sourceClosure": {
+    "rootAndOrdinaryProductPaths": 23,
+    "mandatoryCanonicalGeneratedDocumentPaths": 10,
+    "originalExecutionAuthorityProducerExit": 0,
+    "executionAuthorityOutputByteIdenticalToCurrentMaster": true,
+    "authorityFixtureCopiedFromOldBranch": false,
+    "currentMasterCodeAndStrictSourcePoliciesRetained": true,
+    "codeDependencyOrMetadataOmittedForGreen": false,
+    "unneededExecutionLogsInProductDiff": false,
+    "evidenceDeleted": false
+  },
+  "gates": {
+    "wholeSOURCE": {
+      "testedHead": "73a318a5707cd7b5da74abcf263a185f2550badc",
+      "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+      "exitCode": 1,
+      "status": "FAILED",
+      "qualificationEligible": false,
+      "selectedPureRegressionCases": 98,
+      "regressionFailed": 0,
+      "failureReasons": [
+        "32 canonical InputInstance type projection ESLint diagnostics in composer",
+        "2 consistent-type-imports diagnostics in sole3735 binary DTO file",
+        "452 Markdownlint diagnostics in required retained documents:404 generated plus48 authored"
+      ],
+      "unsupportedSourceLogs": 0
+    },
+    "canonicalBehaviorDoc": {
+      "testedHead": "73a318a5707cd7b5da74abcf263a185f2550badc",
+      "exitCode": 0,
+      "receiptDigest": "2c1248af187d75d129c1ad7d0a8f53c37a07bf80bdea10271c8661b2b9c05176",
+      "facts": 8,
+      "documents": 34,
+      "mutationControls": 35,
+      "candidateSpawnCountBeforeReceipt": 0,
+      "rawCanonicalCompanions": 12,
+      "verifyCurrentReceiptExit": 0
+    },
+    "ordinaryUnits": {
+      "testedHead": "73a318a5707cd7b5da74abcf263a185f2550badc",
+      "runId": "complete-source-73a318a5-20261008",
+      "files": 9,
+      "passed": 75,
+      "failed": 0,
+      "exitCode": 0,
+      "allowlist": "positive-allowlist-final.json"
+    },
+    "ownedAuthoredDocs": {
+      "testedSource": "87d6f31243917bbea2e715e85f3181bbd2449172",
+      "unchangedFinalAuthoredSource": true,
+      "exitCode": 0,
+      "files": 3,
+      "violations": 0
+    },
+    "applicationTypecheck": {
+      "testedSource": "87d6f31243917bbea2e715e85f3181bbd2449172",
+      "finalRelevantSourceByteIdentical": true,
+      "exitCode": 2,
+      "diagnostics": 230,
+      "composerPrivacyDiagnostics": 0
+    },
+    "localConsumer": {
+      "testedSource": "87d6f31243917bbea2e715e85f3181bbd2449172",
+      "finalRelevantSourceByteIdentical": true,
+      "FsusUIRevision": "c987c645a6ddc915bbc28429a97a3f21fafe258b",
+      "exitCode": 2,
+      "diagnostics": 126,
+      "composerPrivacyAndConsumerContractDiagnostics": 0
+    },
+    "publishedConsumer": {
+      "testedSource": "87d6f31243917bbea2e715e85f3181bbd2449172",
+      "finalRelevantSourceByteIdentical": true,
+      "exitCode": 2,
+      "diagnostics": 259,
+      "packageAccessMissing": true
+    },
+    "changeContract": {
+      "testedHead": "73a318a5707cd7b5da74abcf263a185f2550badc",
+      "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+      "exitCode": 0
+    }
+  },
+  "toolchain": {
+    "node": "v24.16.0",
+    "nodeExecutable": "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "officialChecksumVerified": true,
+    "parserSealOriginalAndUntouched": true,
+    "dotnet": "10.0.100",
+    "dotnetRoot": "/workspace/scratch/issue-1889/dotnet",
+    "markdownlintCli2": "0.23.1",
+    "TypeScript": "6.0.3",
+    "taskToolInstallScripts": false
+  },
+  "documentationClassification": {
+    "original452Report": "documentation-452-classification.json",
+    "current452Report": "documentation-current-owner-handoff.json",
+    "requiredGenerated": 404,
+    "preservedMasterAuthored": 48,
+    "ownedChangedAuthoredFindings": 0,
+    "externalEvidence": "Compiler lowered method identifiers are rendered in required API fact tables by original renderer; they remain real failing generated output, not excluded evidence.",
+    "sourceGeneration": "canonical-generation-boundary-proof.json",
+    "all34CatalogDocumentsAuthoredOutsideGeneratedByteUnchanged": true,
+    "all404GeneratedRowsBindRegisteredSectionExtractorBehavior": true,
+    "all48AuthoredRowsBindBackendLifecycleOwnerSourceBlameRefsPreimage": true,
+    "requestedOwnerAction": "Route renderer/source owner to repair canonical Markdown table rendering; route preserved authored backend rows using recorded source blame/Refs; retain full checks, no blanket exclusions or hand-edited generated text."
+  },
+  "ownerRequests": [
+    {
+      "root": 3735,
+      "artifact": "sole3735-dto-style-request.json",
+      "file": "src/frontend/src/contracts/binaryApi.ts",
+      "lines": [
+        177,
+        184
+      ],
+      "rule": "@typescript-eslint/consistent-type-imports",
+      "currentPreimageBlob": "40afd51a0d29494b29942864cf786f846b7d72e3",
+      "basePreimageBlob": "47c67ec55408d10af0a858ccd133c0ea5658c100",
+      "localFormattingPerformed": false,
+      "nextAction": "Coordinator forwards exact diagnostics and receives supported source commit/evidence before consumption."
+    },
+    {
+      "root": 1686,
+      "artifact": "public-input-type-owner-request.json",
+      "diagnosticCount": 32,
+      "provenance": "Current masterc1c6d0d4f676b434e94eebaeec2bc8ccd27a0131 Ref1686 canonical style project",
+      "nextAction": "Support exact public InputInstance SFC projection in strict original checker; no local interface invention/casts/any suppression."
+    },
+    {
+      "registeredOwner": "backend + original generated renderer/extractor/behavior owner",
+      "artifact": "documentation-current-owner-handoff.json",
+      "nextAction": "Coordinator resolves current sole chains using every exact original source/Refs/catalog row; do not extend3659 beyond owned hand-authored aliases."
+    }
+  ],
+  "unrunHeld": [
+    "privacy/security QA aggregates and denied audit replay",
+    "new review or execution of held3990 QA source",
+    "original composer unit/browser suite on this narrow candidate (retained immutable original files, outside nine-file runtime allowlist)",
+    "native IME/AT/zoom/device acceptance",
+    "production CSP/theme qualified release/native/DB/audit/credential issuance/deploy"
+  ],
+  "currentVsPreviousQualification": {
+    "previousD8IncrementalSourcePass": "286c6fefb570d1acf78067209f3b12c3022e30cc..d8e708fcb147410e9087a491e538fdd98c709020:93 passed controls, increment SOURCE0",
+    "previousD8WholeSourceFailed": true,
+    "currentWholeSourceFail": true,
+    "oldIncrementPassOrOldLocalAliasPassNotReusedAsCurrentCompletePass": true
+  },
+  "immutableOriginalEvidence": {
+    "oldEvidenceBranch": "codex/issue-1889-source-toolchain-evidence",
+    "oldEvidenceHead": "05098da9aa57a1f5c2c6a06c01ba6bb4bfe14f91",
+    "oldPrivacyEvidenceHead": "b291f5523311ea02ecc1b3ba827e08f8760b59b0",
+    "oldConsumerEvidenceHead": "27ac342479ce9e01a4ced5157375e73309521da4",
+    "originalDraftPR": "https://github.com/Ozwasyd/FsusBlog/pull/3854",
+    "unchanged": true
+  },
+  "publication": {
+    "GitProtocolOnly": true,
+    "newGitHubContentApiWrites": false,
+    "newDraftPR": false,
+    "newEvidenceBranch": "codex/issue-1889-current-master-complete-evidence",
+    "newEvidencePath": "artifacts/evidence/issue-1889-current-master-complete-20261008",
+    "rootCoordinatorWritesGitHubContent": true,
+    "cloud_threadsSendMessageAvailable": false,
+    "ownerRequestsExportedForRootForwarding": true
+  },
+  "remainingAcceptance": "Whole SOURCE failures above, current complete local/published consumer failures, FsusUI CSS/theme qualification and original independent browser/native/UX acceptance remain precise blockers. No issue closure or merge authorized."
+}

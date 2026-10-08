@@ -1,0 +1,312 @@
+
+> fsusblog-client@0.0.0 typecheck:published-fsusui
+> vue-tsc --noEmit -p tsconfig.fsusui-published.json
+
+src/App.vue(68,8): error TS2307: Cannot find module '@ozwasyd/element-plus/motion' or its corresponding type declarations.
+src/App.vue(290,72): error TS2345: Argument of type 'RouteLocationNormalizedLoadedGeneric' is not assignable to parameter of type 'Ref<RouteLocationNormalizedLoadedGeneric, RouteLocationNormalizedLoadedGeneric>'.
+  Type 'RouteLocationNormalizedLoadedGeneric' is missing the following properties from type 'Ref<RouteLocationNormalizedLoadedGeneric, RouteLocationNormalizedLoadedGeneric>': value, [RefSymbol]
+src/adapters/binary/fontThemeAdminAdapter.ts(154,17): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/adapters/binary/fontThemeAdminAdapter.ts(317,17): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/api/binaryApiClient.ts(79,29): error TS2345: Argument of type 'Location' is not assignable to parameter of type 'string | URL | undefined'.
+  Type 'Location' is missing the following properties from type 'URL': password, searchParams, username, toJSON
+src/bootstrap/fullApp.ts(298,21): error TS2307: Cannot find module '@ozwasyd/element-plus/motion' or its corresponding type declarations.
+src/bootstrap/publicActivationCoordinator.ts(516,18): error TS18047: 'routeResult' is possibly 'null'.
+src/bootstrap/publicActivationCoordinator.ts(521,21): error TS18047: 'routeResult' is possibly 'null'.
+src/bootstrap/publicHydrationBootstrap.ts(185,32): error TS2345: Argument of type 'HTMLElement' is not assignable to parameter of type 'HTMLScriptElement'.
+  Type 'HTMLElement' is missing the following properties from type 'HTMLScriptElement': async, blocking, charset, crossOrigin, and 10 more.
+src/components/account/AccountHeaderMenu.vue(52,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'ArrowDown'.
+src/components/admin/AdminTaxonomyManageView.vue(315,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'InfoFilled'.
+src/components/admin/AdminTaxonomyManageView.vue(315,22): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Plus'.
+src/components/admin/AdminTaxonomyManageView.vue(315,28): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Edit'.
+src/components/admin/AdminTaxonomyManageView.vue(315,34): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Lock'.
+src/components/admin/AdminTaxonomyManageView.vue(315,40): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Delete'.
+src/components/admin/AdminTaxonomyManageView.vue(315,48): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Search'.
+src/components/admin/AdminTaxonomyManageView.vue(315,56): error TS2305: Module '"@/fsusui/icons"' has no exported member 'View'.
+src/components/admin/article/AdminArticleCompactCard.vue(86,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'ArrowDown'.
+src/components/admin/article/AdminArticleCompactCard.vue(86,21): error TS2305: Module '"@/fsusui/icons"' has no exported member 'View'.
+src/components/admin/article/ArticleAssetLibraryPanel.vue(114,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Delete'.
+src/components/admin/article/ArticleAssetLibraryPanel.vue(114,18): error TS2305: Module '"@/fsusui/icons"' has no exported member 'FolderChecked'.
+src/components/admin/article/ArticleAssetLibraryPanel.vue(114,33): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Plus'.
+src/components/admin/article/ArticleAssetLibraryPanel.vue(114,39): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/components/admin/article/ArticlePrivatePreviewPanel.vue(66,26): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/components/admin/article/ArticlePrivatePreviewPanel.vue(97,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'View'.
+src/components/admin/article/ArticlePrivatePreviewPanel.vue(279,21): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/components/admin/article/ArticlePrivatePreviewPanel.vue(280,18): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/components/admin/article/ArticleRevisionPanel.vue(156,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/components/admin/article/ArticleRevisionPanel.vue(156,19): error TS2305: Module '"@/fsusui/icons"' has no exported member 'RefreshLeft'.
+src/components/admin/article/ArticleSeoPreviewPanel.vue(98,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Picture'.
+src/components/admin/article/ArticleSeoPreviewPanel.vue(98,19): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/components/admin/article/ArticleWorkspaceTabStrip.vue(24,70): error TS2345: Argument of type 'Element | ComponentPublicInstance<{}, {}, {}, {}, {}, {}, {}, {}, false, ComponentOptionsBase<any, any, any, any, any, any, any, any, any, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions>, ... 4 more ..., any> | null' is not assignable to parameter of type 'Element | null'.
+  Type 'ComponentPublicInstance<{}, {}, {}, {}, {}, {}, {}, {}, false, ComponentOptionsBase<any, any, any, any, any, any, any, any, any, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions>, ... 4 more ..., any>' is not assignable to type 'Element | null'.
+src/components/admin/article/ArticleWriteEditor.vue(92,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/components/admin/article/ArticleWriteInspectorRail.vue(35,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Checked'.
+src/components/admin/article/ArticleWriteInspectorRail.vue(35,19): error TS2305: Module '"@/fsusui/icons"' has no exported member 'DocumentChecked'.
+src/components/admin/article/ArticleWriteInspectorRail.vue(35,36): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Files'.
+src/components/admin/article/ArticleWriteInspectorRail.vue(35,43): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Lock'.
+src/components/admin/article/ArticleWriteInspectorRail.vue(35,49): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Picture'.
+src/components/admin/article/ArticleWriteInspectorRail.vue(35,58): error TS2305: Module '"@/fsusui/icons"' has no exported member 'View'.
+src/components/admin/article/ArticleWriteInspectorShell.vue(100,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Checked'.
+src/components/admin/article/ArticleWriteInspectorShell.vue(100,19): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Close'.
+src/components/admin/article/ArticleWriteOutlineRail.vue(86,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Close'.
+src/components/admin/article/ArticleWriteOutlineRail.vue(86,17): error TS2305: Module '"@/fsusui/icons"' has no exported member 'List'.
+src/components/admin/article/ArticleWriteOutlineRail.vue(87,73): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/components/admin/article/ArticleWriteOutlineRail.vue(246,79): error TS2345: Argument of type 'Element | ComponentPublicInstance<{}, {}, {}, {}, {}, {}, {}, {}, false, ComponentOptionsBase<any, any, any, any, any, any, any, any, any, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions>, ... 4 more ..., any> | null' is not assignable to parameter of type 'Element | null'.
+  Type 'ComponentPublicInstance<{}, {}, {}, {}, {}, {}, {}, {}, false, ComponentOptionsBase<any, any, any, any, any, any, any, any, any, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions>, ... 4 more ..., any>' is not assignable to type 'Element | null'.
+src/components/admin/article/ArticleWriteOutlineRail.vue(282,54): error TS7006: Parameter 'diagnostic' implicitly has an 'any' type.
+src/components/admin/comment-moderation/CommentModerationBulkActions.vue(89,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Check'.
+src/components/admin/comment-moderation/CommentModerationBulkActions.vue(89,17): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Close'.
+src/components/admin/comment-moderation/CommentModerationBulkActions.vue(89,24): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Hide'.
+src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue(244,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Check'.
+src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue(244,17): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Close'.
+src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue(244,24): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Hide'.
+src/components/admin/comment-moderation/CommentModerationQueue.vue(427,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'ArrowDown'.
+src/components/admin/comment-moderation/CommentModerationQueue.vue(427,21): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Check'.
+src/components/admin/comment-moderation/CommentModerationQueue.vue(427,28): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Close'.
+src/components/admin/comment-moderation/CommentModerationQueue.vue(427,35): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Hide'.
+src/components/admin/comment-moderation/CommentModerationQueue.vue(427,41): error TS2305: Module '"@/fsusui/icons"' has no exported member 'View'.
+src/components/admin/comment-moderation/CommentModerationToolbar.vue(53,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Search'.
+src/components/admin/settings/BrandAssetUploadField.vue(75,43): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/components/admin/settings/BrandAssetUploadField.vue(78,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Plus'.
+src/components/admin/users/UserManageHeader.vue(87,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Search'.
+src/components/article/ArticleCommentTreeNode.vue(113,35): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"load-more"' is not assignable to parameter of type '"edit"'.
+src/components/article/ArticleCommentTreeNode.vue(122,31): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"load-more"' is not assignable to parameter of type '"edit"'.
+src/components/article/ArticleImageLightbox.vue(66,31): error TS2307: Cannot find module '@ozwasyd/element-plus/motion' or its corresponding type declarations.
+src/components/public/PublicArticleList.vue(132,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'ArrowRight'.
+src/components/public/pages/PublicFilterPageContent.vue(98,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Back'.
+src/components/security/FsusPoSpaceChallenge.vue(85,17): error TS2304: Cannot find name 'SecurityChallengeAssignment'.
+src/components/security/FsusPoSpaceChallenge.vue(86,22): error TS2304: Cannot find name 'SecurityChallengeProviderPayload'.
+src/components/security/FsusPoSpaceChallenge.vue(87,14): error TS2304: Cannot find name 'SecurityChallengeContext'.
+src/components/security/FsusPoSpaceChallenge.vue(97,23): error TS2304: Cannot find name 'SecurityChallengeProof'.
+src/components/security/FsusPoSpaceChallenge.vue(97,48): error TS2304: Cannot find name 'SecurityChallengeVerifyResponse'.
+src/components/ui/LocaleSelector.vue(193,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Check'.
+src/components/ui/LocaleSelector.vue(193,17): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Loading'.
+src/components/ui/LocaleSelector.vue(193,26): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/components/ui/MarkdownEditorAdapter.vue(48,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/components/ui/MarkdownTextEditor.vue(92,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/components/ui/MarkdownTextEditor.vue(286,32): error TS7006: Parameter 'transaction' implicitly has an 'any' type.
+src/components/ui/MfaSetupModal.vue(150,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'CopyDocument'.
+src/components/ui/PasskeyRegisterModal.vue(170,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Check'.
+src/composables/article/useArticleImageLightbox.ts(1,33): error TS2307: Cannot find module '@ozwasyd/element-plus/motion' or its corresponding type declarations.
+src/composables/article/useCodeBlockCopy.ts(1,33): error TS2307: Cannot find module '@ozwasyd/element-plus/motion' or its corresponding type declarations.
+src/composables/useAdminArticleWrite.ts(1,35): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/composables/useAdminArticleWrite.ts(1388,41): error TS2322: Type 'ArticleDocumentTaskEnvelope' is not assignable to type 'void'.
+src/composables/useAdminArticleWrite.ts(1823,41): error TS2322: Type 'ArticleDocumentTaskEnvelope' is not assignable to type 'void'.
+src/composables/useAdminSettingsPage.ts(1,43): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/composables/useHomeView.ts(55,9): error TS2345: Argument of type 'readonly FeaturedArticleItem[] | undefined' is not assignable to parameter of type 'FeaturedArticleItem[] | null | undefined'.
+  The type 'readonly FeaturedArticleItem[]' is 'readonly' and cannot be assigned to the mutable type 'FeaturedArticleItem[]'.
+src/composables/useHomeView.ts(59,9): error TS2345: Argument of type 'readonly PopularArticleSummaryResponse[] | undefined' is not assignable to parameter of type 'PopularArticleSummaryResponse[] | null | undefined'.
+  The type 'readonly PopularArticleSummaryResponse[]' is 'readonly' and cannot be assigned to the mutable type 'PopularArticleSummaryResponse[]'.
+src/composables/useNotification.ts(630,23): error TS7022: 'nextMode' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+src/fsusui/appContext.ts(1,34): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/authoringCommands.ts(8,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/authoringCommands.ts(557,5): error TS2322: Type 'Readonly<{ transaction: Readonly<{ selection?: any; changes: readonly Readonly<{ from: number; insert: string; to: number; }>[]; }>; commandId: string; contentSha256: string; contributionId: string; ... 12 more ...; sourceRevision: number; }>' is not assignable to type 'AuthoringCommandInvocationResult'.
+  Types of property 'transaction' are incompatible.
+    Type 'Readonly<{ selection?: any; changes: readonly Readonly<{ from: number; insert: string; to: number; }>[]; }>' is not assignable to type 'Pick<MarkdownEditorTransaction, "selection" | "changes">'.
+      Property 'selection' is optional in type 'Readonly<{ selection?: any; changes: readonly Readonly<{ from: number; insert: string; to: number; }>[]; }>' but required in type 'Pick<MarkdownEditorTransaction, "selection" | "changes">'.
+src/fsusui/authoringCommands.ts(669,16): error TS7006: Parameter 'context' implicitly has an 'any' type.
+src/fsusui/authoringCommands.ts(671,19): error TS7006: Parameter 'context' implicitly has an 'any' type.
+src/fsusui/authoringCommands.ts(679,15): error TS7006: Parameter 'context' implicitly has an 'any' type.
+src/fsusui/button.ts(1,42): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/checkbox.ts(1,46): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/checkbox.ts(2,63): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/dangerZone.ts(6,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/dataList.ts(1,48): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/dataList.ts(6,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/dialog.ts(1,42): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/feedback.ts(1,62): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/icons.ts(1,15): error TS2307: Cannot find module '@ozwasyd/element-plus/icons-vue' or its corresponding type declarations.
+src/fsusui/input.ts(1,40): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/input.ts(2,59): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/keyValueGrid.ts(8,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/kpiGroup.ts(8,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/markdown.ts(3,8): error TS2307: Cannot find module '@ozwasyd/element-plus/markdown-runtime' or its corresponding type declarations.
+src/fsusui/markdown.ts(13,8): error TS2307: Cannot find module '@ozwasyd/element-plus/markdown-runtime' or its corresponding type declarations.
+src/fsusui/markdown.ts(202,8): error TS2307: Cannot find module '@ozwasyd/element-plus/markdown-runtime' or its corresponding type declarations.
+src/fsusui/markdown.ts(211,8): error TS2307: Cannot find module '@ozwasyd/element-plus/markdown-runtime' or its corresponding type declarations.
+src/fsusui/markdown.ts(233,8): error TS2307: Cannot find module '@ozwasyd/element-plus/markdown-runtime' or its corresponding type declarations.
+src/fsusui/markdownOutline.ts(11,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/markdownOutline.ts(12,51): error TS2307: Cannot find module '@ozwasyd/element-plus/markdown-runtime' or its corresponding type declarations.
+src/fsusui/markdownOutline.ts(21,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/metricPrimitives.ts(11,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/motion.ts(11,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/motion.ts(17,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/motion.ts(23,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/overlay.ts(1,44): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/perceptionCharacterChallenge.ts(4,8): error TS2307: Cannot find module '@ozwasyd/element-plus/perception-challenge' or its corresponding type declarations.
+src/fsusui/perceptionCharacterChallenge.ts(11,8): error TS2307: Cannot find module '@ozwasyd/element-plus/perception-challenge' or its corresponding type declarations.
+src/fsusui/publicShell.ts(1,47): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/publicShell.ts(4,52): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/renderPipeline.ts(1,51): error TS2307: Cannot find module '@ozwasyd/element-plus/render-pipeline' or its corresponding type declarations.
+src/fsusui/result.ts(1,43): error TS2307: Cannot find module '@ozwasyd/element-plus/result' or its corresponding type declarations.
+src/fsusui/sectionHeader.ts(5,56): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/sectionNav.ts(1,50): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/segmentedControl.ts(1,62): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/segmentedControl.ts(5,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/settingsSection.ts(8,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/settingsSection.ts(16,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/siteHeader.ts(1,50): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/taskPageHeader.ts(1,60): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/taskPageHeader.ts(9,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/theme.ts(13,8): error TS2307: Cannot find module '@ozwasyd/element-plus/theme' or its corresponding type declarations.
+src/fsusui/theme.ts(23,8): error TS2307: Cannot find module '@ozwasyd/element-plus/theme' or its corresponding type declarations.
+src/fsusui/typedConfirmField.ts(5,64): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/layouts/AccountFrameMobileAction.vue(22,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Expand'.
+src/locales/localeDomainBundleStore.ts(278,17): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/router/publicRoutePreload.ts(631,42): error TS2339: Property 'stage' does not exist on type 'never'.
+src/router/publicRoutePreload.ts(633,99): error TS2339: Property 'error' does not exist on type 'never'.
+src/router/publicRoutePreload.ts(635,42): error TS2339: Property 'stage' does not exist on type 'never'.
+src/router/publicRoutePreload.ts(637,98): error TS2339: Property 'error' does not exist on type 'never'.
+src/security/privateNavigationPolicy.ts(227,52): error TS2345: Argument of type 'RouteLocationResolvedGeneric' is not assignable to parameter of type 'Pick<RouteLocationNormalizedLoadedGeneric, "meta" | "query" | "path" | "name">'.
+  Types of property 'name' are incompatible.
+    Type 'RouteRecordNameGeneric | null' is not assignable to type 'RouteRecordNameGeneric'.
+      Type 'null' is not assignable to type 'RouteRecordNameGeneric'.
+src/services/articleRecoveryJournal.ts(821,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/authoring/articleDocumentContext.ts(391,21): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ArticleDocumentContext' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Record<string, unknown>' is missing the following properties from type 'ArticleDocumentContext': schema, articleId, draftId, documentId, and 9 more.
+src/services/authoring/articleDocumentContext.ts(454,22): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ArticleDocumentTaskEnvelope' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Record<string, unknown>' is missing the following properties from type 'ArticleDocumentTaskEnvelope': schema, taskRef, kind, context, and 10 more.
+src/services/authoring/articleDocumentContext.ts(497,21): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ArticleDocumentEpochReceipt' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Record<string, unknown>' is missing the following properties from type 'ArticleDocumentEpochReceipt': schema, receiptRef, receiptSequence, action, and 12 more.
+src/services/authoring/articleDocumentContext.ts(557,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/authoring/articleDocumentContext.ts(558,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/authoring/articleDocumentContext.ts(559,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/authoring/authoringSessionHost.ts(80,14): error TS2322: Type 'Readonly<{ schema: "fsusblog.authoring-session-resource-policy.v1"; maxOpenSessions: 100; maxActiveSessions: 1; maxBackgroundRetainedSessions: 7; maxSuspendedSessions: 8; maxLiveEditorInstances: 16; ... 7 more ...; prohibitedFacts: string[]; }>' is not assignable to type 'AuthoringSessionResourcePolicy'.
+  Types of property 'priorityFacts' are incompatible.
+    Type 'string[]' is not assignable to type 'readonly ["active", "recovery", "conflict", "pending-attachment", "saving", "dirty", "nearby", "recently-used"]'.
+      Target requires 8 element(s) but source may have fewer.
+src/services/authoring/authoringSessionHost.ts(589,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/authoring/authoringSessionHost.ts(590,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/binaryTransport.ts(1003,45): error TS2367: This comparison appears to be unintentional because the types '"anonymous"' and '"optional"' have no overlap.
+src/services/binaryTransport.ts(1006,41): error TS2367: This comparison appears to be unintentional because the types '"admin" | "user" | "anonymous"' and '"optional"' have no overlap.
+src/services/privateStorageRegistry.ts(425,48): error TS2345: Argument of type 'Readonly<{ id: string; medium: "local-storage" | "session-storage"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; matcher: Readonly<...>; }> | Readonly<...>' is not assignable to parameter of type 'Readonly<{ id: string; medium: "runtime"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; }>'.
+  Type 'Readonly<{ id: string; medium: "local-storage" | "session-storage"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; matcher: Readonly<...>; }>' is not assignable to type 'Readonly<{ id: string; medium: "runtime"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; }>'.
+    Types of property 'medium' are incompatible.
+      Type '"local-storage" | "session-storage"' is not assignable to type '"runtime"'.
+        Type '"local-storage"' is not assignable to type '"runtime"'.
+src/services/privateSurfaceRuntime.ts(103,41): error TS2454: Variable 'currentTransition' is used before being assigned.
+src/services/securityPerceptionChallengeFlow.ts(23,8): error TS2307: Cannot find module '@ozwasyd/element-plus/perception-challenge' or its corresponding type declarations.
+src/services/securityPerceptionChallengeFlow.ts(77,28): error TS7006: Parameter 'payload' implicitly has an 'any' type.
+src/services/securityPerceptionChallengeFlow.ts(136,22): error TS7006: Parameter 'challenge' implicitly has an 'any' type.
+src/services/securityPerceptionChallengeFlow.ts(175,43): error TS2339: Property 'ContractViolation' does not exist on type '{ readonly Validation: "Validation"; readonly Unauthorized: "Unauthorized"; readonly Forbidden: "Forbidden"; readonly NotFound: "NotFound"; readonly Conflict: "Conflict"; readonly PreconditionRequired: "PreconditionRequired"; ... 5 more ...; readonly Unknown: "Unknown"; }'.
+src/services/securityPerceptionChallengeFlow.ts(214,39): error TS2339: Property 'ContractViolation' does not exist on type '{ readonly Validation: "Validation"; readonly Unauthorized: "Unauthorized"; readonly Forbidden: "Forbidden"; readonly NotFound: "NotFound"; readonly Conflict: "Conflict"; readonly PreconditionRequired: "PreconditionRequired"; ... 5 more ...; readonly Unknown: "Unknown"; }'.
+src/store/site.ts(65,9): error TS1117: An object literal cannot have multiple properties with the same name.
+src/utils/brandIconGenerator.ts(123,35): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/views/admin/Assets.vue(294,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Delete'.
+src/views/admin/Assets.vue(294,18): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/Assets.vue(294,27): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Search'.
+src/views/admin/AuditLog.vue(259,47): error TS2367: This comparison appears to be unintentional because the types 'number | null' and 'string' have no overlap.
+src/views/admin/AuditLog.vue(371,59): error TS2367: This comparison appears to be unintentional because the types 'number | null' and 'string' have no overlap.
+src/views/admin/AuditLog.vue(497,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Aim'.
+src/views/admin/AuditLog.vue(497,15): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Lock'.
+src/views/admin/AuditLog.vue(497,21): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Operation'.
+src/views/admin/AuditLog.vue(497,32): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/AuditLog.vue(497,41): error TS2305: Module '"@/fsusui/icons"' has no exported member 'RefreshLeft'.
+src/views/admin/AuditLog.vue(497,54): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Search'.
+src/views/admin/AuditLog.vue(497,62): error TS2305: Module '"@/fsusui/icons"' has no exported member 'User'.
+src/views/admin/AuditLog.vue(497,68): error TS2305: Module '"@/fsusui/icons"' has no exported member 'View'.
+src/views/admin/AuditLog.vue(769,5): error TS2322: Type 'string' is not assignable to type 'number'.
+src/views/admin/CacheDiagnostics.vue(250,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Delete'.
+src/views/admin/CacheDiagnostics.vue(250,18): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/CacheDiagnostics.vue(250,27): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Search'.
+src/views/admin/ClusterRuntime.vue(230,87): error TS2345: Argument of type 'string' is not assignable to parameter of type '"alive" | "suspect" | "dead" | "draining" | "maintenance"'.
+src/views/admin/Integrity.vue(317,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'CopyDocument'.
+src/views/admin/Integrity.vue(317,24): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Download'.
+src/views/admin/Integrity.vue(317,34): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/Integrity.vue(317,43): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Tools'.
+src/views/admin/IntegrityProofConsole.vue(260,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/IntegrityProofConsole.vue(260,19): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Search'.
+src/views/admin/Settings.vue(851,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Delete'.
+src/views/admin/Settings.vue(851,18): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Plus'.
+src/views/admin/Settings.vue(851,24): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Warning'.
+src/views/admin/article/List.vue(377,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Search'.
+src/views/admin/article/List.vue(377,18): error TS2305: Module '"@/fsusui/icons"' has no exported member 'View'.
+src/views/admin/article/List.vue(377,24): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Calendar'.
+src/views/admin/article/List.vue(377,34): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Plus'.
+src/views/admin/article/List.vue(377,40): error TS2305: Module '"@/fsusui/icons"' has no exported member 'ArrowDown'.
+src/views/admin/article/Trash.vue(229,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Calendar'.
+src/views/admin/article/Trash.vue(229,20): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Back'.
+src/views/admin/article/Write.vue(216,51): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/views/admin/article/Write.vue(775,10): error TS2459: Module '"@/services/authoring/articleWorkspaceTabRouter"' declares 'ArticleWorkspaceStatusSummary' locally, but it is not exported.
+src/views/admin/article/Write.vue(1195,57): error TS7006: Parameter 'field' implicitly has an 'any' type.
+src/views/admin/moderation/ModerationDashboard.vue(80,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Connection'.
+src/views/admin/moderation/ModerationDashboard.vue(80,22): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/moderation/ModerationDictionaries.vue(301,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Check'.
+src/views/admin/moderation/ModerationDictionaries.vue(301,17): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Close'.
+src/views/admin/moderation/ModerationDictionaries.vue(301,24): error TS2305: Module '"@/fsusui/icons"' has no exported member 'CopyDocument'.
+src/views/admin/moderation/ModerationDictionaries.vue(301,38): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/moderation/ModerationDictionaries.vue(301,47): error TS2305: Module '"@/fsusui/icons"' has no exported member 'RefreshLeft'.
+src/views/admin/moderation/ModerationDictionaries.vue(301,60): error TS2305: Module '"@/fsusui/icons"' has no exported member 'RefreshRight'.
+src/views/admin/moderation/ModerationDictionaries.vue(301,74): error TS2305: Module '"@/fsusui/icons"' has no exported member 'View'.
+src/views/admin/moderation/ModerationModel.vue(152,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Connection'.
+src/views/admin/moderation/ModerationModel.vue(152,22): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Cpu'.
+src/views/admin/moderation/ModerationModel.vue(152,27): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/moderation/ModerationModel.vue(152,36): error TS2305: Module '"@/fsusui/icons"' has no exported member 'RefreshLeft'.
+src/views/admin/moderation/ModerationModel.vue(152,49): error TS2305: Module '"@/fsusui/icons"' has no exported member 'RefreshRight'.
+src/views/admin/moderation/ModerationModel.vue(152,63): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Warning'.
+src/views/admin/moderation/ModerationPolicies.vue(226,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Connection'.
+src/views/admin/moderation/ModerationPolicies.vue(226,22): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/moderation/ModerationPolicyTemplates.vue(147,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/moderation/ModerationRegionGroups.vue(99,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/moderation/ModerationRegions.vue(354,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'ArrowRight'.
+src/views/admin/moderation/ModerationRegions.vue(354,22): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/moderation/ModerationReplay.vue(202,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'DocumentChecked'.
+src/views/admin/security/SecurityChallenges.vue(152,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/security/SecurityCrawler.vue(328,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/security/SecurityEvents.vue(117,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/security/SecurityPerceptionV2.vue(63,39): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/views/admin/security/SecurityPerceptionV2.vue(77,39): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/views/admin/security/SecurityPerceptionV2.vue(91,39): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/views/admin/security/SecurityPerceptionV2.vue(105,39): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/views/admin/security/SecurityPerceptionV2.vue(272,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/security/SecurityPoSpace.vue(72,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/security/SecurityPolicies.vue(106,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/security/SecurityPow.vue(150,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/security/SecurityRiskControl.vue(149,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/security/SecuritySimulator.vue(165,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Refresh'.
+src/views/admin/security/SecuritySimulator.vue(193,51): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/views/admin/security/SecuritySimulator.vue(245,64): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/views/admin/security/SecuritySimulator.vue(261,63): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/views/auth/Login.vue(196,10): error TS2305: Module '"@/fsusui/icons"' has no exported member 'Key'.
+src/views/user/IdentityCenter.vue(9,35): error TS2345: Argument of type '"UserIdentityOverview"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(95,34): error TS2345: Argument of type '"UserIdentityPasskeys"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(231,34): error TS2345: Argument of type '"UserIdentityRecoveryKey"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(279,34): error TS2345: Argument of type '"UserIdentityMfa"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(332,34): error TS2345: Argument of type '"UserIdentityAnonymous"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(344,34): error TS2345: Argument of type '"UserIdentityPublicProfile"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(403,34): error TS2345: Argument of type '"UserIdentitySessions"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(520,34): error TS2345: Argument of type '"UserIdentityCommentRecords"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(860,54): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(getter: ComputedGetter<keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }>>, debugOptions?: DebuggerOptions | undefined): ComputedRef<...>', gave the following error.
+    Argument of type '() => keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }> | "UserIdentityOverview"' is not assignable to parameter of type 'ComputedGetter<keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }>>'.
+      Type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }> | "UserIdentityOverview"' is not assignable to type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+        Type '"UserIdentityOverview"' is not assignable to type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+  Overload 2 of 2, '(options: WritableComputedOptions<keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }>, keyof ComputedRef<...>>, debugOptions?: DebuggerOptions | undefined): WritableComputedRef<...>', gave the following error.
+    Argument of type '() => keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }> | "UserIdentityOverview"' is not assignable to parameter of type 'WritableComputedOptions<keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }>, keyof ComputedRef<...>>'.
+src/views/user/IdentityCenter.vue(866,36): error TS7053: Element implicitly has an 'any' type because expression of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>' can't be used to index type '{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.
+  Property 'value' does not exist on type '{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.
+src/views/user/IdentityCenter.vue(871,20): error TS2345: Argument of type '"UserIdentityCommentRecords"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(1352,52): error TS2345: Argument of type '"UserIdentityOverview"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+../../tests/frontend/typecheck/fsusui-export-contract.ts(50,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+../../tests/frontend/typecheck/fsusui-export-contract.ts(51,44): error TS2307: Cannot find module '@ozwasyd/element-plus/theme' or its corresponding type declarations.
+../../tests/frontend/typecheck/fsusui-export-contract.ts(158,9): error TS7006: Parameter 'context' implicitly has an 'any' type.
+../../tests/frontend/typecheck/fsusui-export-contract.ts(168,1): error TS2578: Unused '@ts-expect-error' directive.
+../../tests/frontend/typecheck/fsusui-export-contract.ts(172,3): error TS2578: Unused '@ts-expect-error' directive.
+npm notice
+npm notice New major version of npm available! 11.13.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

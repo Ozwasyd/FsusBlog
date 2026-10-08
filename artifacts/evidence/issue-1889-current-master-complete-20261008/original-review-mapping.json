@@ -1,0 +1,142 @@
+{
+  "issue": 1889,
+  "originalDraftPR": "https://github.com/Ozwasyd/FsusBlog/pull/3854",
+  "originalSource": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+  "originalIntegratedSource": "15424f2836173cb86b8a3c5e7e5e0ea71d032568",
+  "sourcePreparationCandidate": "73a318a5707cd7b5da74abcf263a185f2550badc",
+  "sourcePreparationBase": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "ownerMapping": [
+    {
+      "path": "docs/security/comment-draft-privacy.md",
+      "originalCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "originalBlob": "23ca73cbb0a9257e2cf7c0dae1f5c816de4fc69d",
+      "currentBlob": "23ca73cbb0a9257e2cf7c0dae1f5c816de4fc69d",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "originalCommit": "15424f2836173cb86b8a3c5e7e5e0ea71d032568",
+      "originalBlob": "f959f4ac716bb55c48653123eec78661e8b6d8e7",
+      "currentBlob": "f959f4ac716bb55c48653123eec78661e8b6d8e7",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "src/frontend/src/fsusui/README.md",
+      "originalCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "originalBlob": "e5463ad46b1d4f113b21ea38f81fea4085e1bcca",
+      "currentBlob": "e5463ad46b1d4f113b21ea38f81fea4085e1bcca",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "src/frontend/src/fsusui/checkbox.ts",
+      "originalCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "originalBlob": "38df51574028960b03eea31a03e0a827b98128f6",
+      "currentBlob": "38df51574028960b03eea31a03e0a827b98128f6",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "src/frontend/src/fsusui/input.ts",
+      "originalCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "originalBlob": "446da3bdd346ec37d768dcfa9a3701b843364bdc",
+      "currentBlob": "446da3bdd346ec37d768dcfa9a3701b843364bdc",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "src/frontend/tsconfig.fsusui-published.json",
+      "originalCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "originalBlob": "a27837af7c129a44df9958431e3a39b0b3b45e5e",
+      "currentBlob": "a27837af7c129a44df9958431e3a39b0b3b45e5e",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "tests/frontend/e2e/article-comment-composer-primitives.spec.ts",
+      "originalCommit": "15424f2836173cb86b8a3c5e7e5e0ea71d032568",
+      "originalBlob": "59e02b902dd154b3ecde8d55f7c3ccca865b4e38",
+      "currentBlob": "59e02b902dd154b3ecde8d55f7c3ccca865b4e38",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "tests/frontend/fixtures/articleCommentComposer.ts",
+      "originalCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "originalBlob": "69c9d9dda1d7338a88c32827bcf902e0bde468e2",
+      "currentBlob": "69c9d9dda1d7338a88c32827bcf902e0bde468e2",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "tests/frontend/typecheck/article-comment-composer-consumer-contract.ts",
+      "originalCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "originalBlob": "938536030b0f78c362ad78274aa393c885a0b027",
+      "currentBlob": "938536030b0f78c362ad78274aa393c885a0b027",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "tests/frontend/typecheck/fsusui-export-contract.ts",
+      "originalCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "originalBlob": "fdba2507d3eca155b253dd928183cd1ea8307593",
+      "currentBlob": "fdba2507d3eca155b253dd928183cd1ea8307593",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "tests/frontend/unit/components/ArticleCommentComposer.test.ts",
+      "originalCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "originalBlob": "0eaa8048ad7d82e0468ca5a78c5b23ef8266dc4c",
+      "currentBlob": "0eaa8048ad7d82e0468ca5a78c5b23ef8266dc4c",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "docs/security/comment-privacy-credential-vault.md",
+      "originalCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "originalBlob": "d70a206ad8e970f5d2c1e63ec08b8b87cbc7b66b",
+      "currentBlob": "d70a206ad8e970f5d2c1e63ec08b8b87cbc7b66b",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyBlindRsaSuite.ts",
+      "originalCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "originalBlob": "07233719bb2ab8313e0c850e4c1b6e481cead2b0",
+      "currentBlob": "07233719bb2ab8313e0c850e4c1b6e481cead2b0",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyCredentialProvider.ts",
+      "originalCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "originalBlob": "613bee7ebbb4ca88cf0f01fe8206089854527c57",
+      "currentBlob": "613bee7ebbb4ca88cf0f01fe8206089854527c57",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyRevocationLocal.ts",
+      "originalCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "originalBlob": "67afca972540a7046166d188ee1280422a97b284",
+      "currentBlob": "67afca972540a7046166d188ee1280422a97b284",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyWasmProver.ts",
+      "originalCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "originalBlob": "f40de7c590c9ae9f9a1d09b23f9d7d7a040eb0a1",
+      "currentBlob": "f40de7c590c9ae9f9a1d09b23f9d7d7a040eb0a1",
+      "byteIdenticalToOriginal": true
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+      "originalCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "originalBlob": "36320591d835a8fedc4c7fb7599a495a7c6cafd9",
+      "currentBlob": "36320591d835a8fedc4c7fb7599a495a7c6cafd9",
+      "byteIdenticalToOriginal": true
+    }
+  ],
+  "frozenOriginalBlogClassification": "/workspace/FsusBlog/.tmp/issue-1889/blog-classification.json",
+  "frozenOriginalFsusUIClassification": "/workspace/FsusBlog/.tmp/issue-1889/fsusui-classification.json",
+  "originalClassificationIsNotCurrentAcceptance": true,
+  "independentReviewCoordinator": "Existing root coordinator retains current source/style/API/UX reviews. No new independent reviewer spawned.",
+  "metadataOnlyExistingIndependentQAReference": {
+    "pr": "https://github.com/Ozwasyd/FsusBlog/pull/3990",
+    "testPath": "tests/frontend/unit/integration/commentPendingIdentityBoundaries.test.ts",
+    "originalCommentedBlob": "904d77ba53824d4650d6bd413d84364533d95ec9",
+    "source": "Current1889 issue comments; held test not reviewed or run"
+  },
+  "newRuntimeRoster": "Only the nine prechecked ordinary files in positive-allowlist; original composer/browser tests and native/UI acceptance remain UNRUN on this current candidate",
+  "initialProductSourceAssembly": "87d6f31243917bbea2e715e85f3181bbd2449172",
+  "canonicalGeneratedOutput": "73a318a5707cd7b5da74abcf263a185f2550badc"
+}

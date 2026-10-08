@@ -1,0 +1,44 @@
+{
+  "recipientRoot": "3735",
+  "sourceCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+  "currentMasterBase": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "file": "src/frontend/src/contracts/binaryApi.ts",
+  "GitBlob": "40afd51a0d29494b29942864cf786f846b7d72e3",
+  "baseGitBlob": "47c67ec55408d10af0a858ccd133c0ea5658c100",
+  "diagnostics": [
+    {
+      "file": "src/frontend/src/contracts/binaryApi.ts",
+      "line": 177,
+      "rule": "@typescript-eslint/consistent-type-imports",
+      "message": "import() type annotations are forbidden.",
+      "preimageLine": "    fixedLocale: import('@/locales/localeCatalog').SupportedLocale | null;",
+      "context": [
+        "export interface UserLocalePreference {",
+        "    mode: LocalePreferenceMode;",
+        "    fixedLocale: import('@/locales/localeCatalog').SupportedLocale | null;",
+        "    revision: number;",
+        "    updatedAt: string;"
+      ]
+    },
+    {
+      "file": "src/frontend/src/contracts/binaryApi.ts",
+      "line": 184,
+      "rule": "@typescript-eslint/consistent-type-imports",
+      "message": "import() type annotations are forbidden.",
+      "preimageLine": "    fixedLocale: import('@/locales/localeCatalog').SupportedLocale | null;",
+      "context": [
+        "export interface UserLocalePreferenceUpdate {",
+        "    mode: LocalePreferenceMode;",
+        "    fixedLocale: import('@/locales/localeCatalog').SupportedLocale | null;",
+        "    expectedRevision: number;",
+        "}"
+      ]
+    }
+  ],
+  "consumedAuthorizedOneLineDonor": "9ed401583c04ff354c430b2ea174ccb69adb6002",
+  "localLocaleFormatting": false,
+  "requestedEvidence": "Supply exact supported type-only import source commit and strict canonical lint evidence for both locale fields without wire/DTO semantic change. Coordinator must provide exact identity before consumption.",
+  "delivery": "No callable cloud_threads.send_message in this environment. Export for coordinating root to forward; no GitHub content write.",
+  "firstSourceCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+  "currentCandidate": "73a318a5707cd7b5da74abcf263a185f2550badc"
+}

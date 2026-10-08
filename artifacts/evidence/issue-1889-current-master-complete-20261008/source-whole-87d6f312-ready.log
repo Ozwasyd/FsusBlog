@@ -1,0 +1,39 @@
+[matrix:ci-pr-plan] wrote .tmp/pr-plan.json
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:366:7 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:366:28 eslint/@typescript-eslint/no-redundant-type-constituents: 'any' overrides all other types in this union type.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:367:7 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:367:33 eslint/@typescript-eslint/no-redundant-type-constituents: 'any' overrides all other types in this union type.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:560:11 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:560:65 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:560:88 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:561:5 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:561:13 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .focus on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:569:9 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:569:29 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:570:52 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:574:41 eslint/@typescript-eslint/no-redundant-type-constituents: 'any' overrides all other types in this union type.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:576:11 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:576:30 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .textarea on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:580:13 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:580:29 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .selectionStart on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:581:13 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:581:27 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .selectionEnd on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:582:13 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:582:33 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .selectionDirection on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:587:41 eslint/@typescript-eslint/no-redundant-type-constituents: 'any' overrides all other types in this union type.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:591:9 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:591:17 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .textarea on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:613:15 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:613:69 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:613:92 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:617:58 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:617:81 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:634:47 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:643:52 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/components/article/ArticleCommentComposer.vue:662:43 eslint/@typescript-eslint/no-unsafe-member-access: Unsafe member access .value on a type that cannot be resolved.
+[frontend-style] src/frontend/src/contracts/binaryApi.ts:177:18 eslint/@typescript-eslint/consistent-type-imports: `import()` type annotations are forbidden.
+[frontend-style] src/frontend/src/contracts/binaryApi.ts:184:18 eslint/@typescript-eslint/consistent-type-imports: `import()` type annotations are forbidden.
+[native-tooling-style] ok operation=lint domain=docs mode=full selected=3 checked=3 baseline=0 violations=0
+[document-lifecycle] ok documents=372
+[source-governance] failure; no runtime or release qualification
+[matrix] applicable source governance failed; qualification remains unrun

@@ -1,0 +1,174 @@
+{
+  "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "paths": [
+    {
+      "path": "docs/security/comment-draft-privacy.md",
+      "owner": "1889",
+      "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "donorBlob": "23ca73cbb0a9257e2cf7c0dae1f5c816de4fc69d",
+      "baseBlob": "8ef2acf7db3c1d877d2048d899fac3bc4b9be568"
+    },
+    {
+      "path": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "owner": "1889",
+      "donorCommit": "15424f2836173cb86b8a3c5e7e5e0ea71d032568",
+      "donorBlob": "f959f4ac716bb55c48653123eec78661e8b6d8e7",
+      "baseBlob": "574110e9146680e248746470789d2bd77098b2d5"
+    },
+    {
+      "path": "src/frontend/src/fsusui/README.md",
+      "owner": "1889",
+      "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "donorBlob": "e5463ad46b1d4f113b21ea38f81fea4085e1bcca",
+      "baseBlob": "5744bd3c1e68efff3cad9ba0b53663032bab0b45"
+    },
+    {
+      "path": "src/frontend/src/fsusui/checkbox.ts",
+      "owner": "1889",
+      "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "donorBlob": "38df51574028960b03eea31a03e0a827b98128f6",
+      "baseBlob": null
+    },
+    {
+      "path": "src/frontend/src/fsusui/input.ts",
+      "owner": "1889",
+      "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "donorBlob": "446da3bdd346ec37d768dcfa9a3701b843364bdc",
+      "baseBlob": null
+    },
+    {
+      "path": "src/frontend/tsconfig.fsusui-published.json",
+      "owner": "1889",
+      "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "donorBlob": "a27837af7c129a44df9958431e3a39b0b3b45e5e",
+      "baseBlob": "8a4b7d03a20596eca992bcc6af4b0958190d6807"
+    },
+    {
+      "path": "tests/frontend/e2e/article-comment-composer-primitives.spec.ts",
+      "owner": "1889",
+      "donorCommit": "15424f2836173cb86b8a3c5e7e5e0ea71d032568",
+      "donorBlob": "59e02b902dd154b3ecde8d55f7c3ccca865b4e38",
+      "baseBlob": null
+    },
+    {
+      "path": "tests/frontend/fixtures/articleCommentComposer.ts",
+      "owner": "1889",
+      "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "donorBlob": "69c9d9dda1d7338a88c32827bcf902e0bde468e2",
+      "baseBlob": null
+    },
+    {
+      "path": "tests/frontend/typecheck/article-comment-composer-consumer-contract.ts",
+      "owner": "1889",
+      "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "donorBlob": "938536030b0f78c362ad78274aa393c885a0b027",
+      "baseBlob": null
+    },
+    {
+      "path": "tests/frontend/typecheck/fsusui-export-contract.ts",
+      "owner": "1889",
+      "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "donorBlob": "fdba2507d3eca155b253dd928183cd1ea8307593",
+      "baseBlob": "dd2bc4e4e3097abb29492b91db5ebf17461cf319"
+    },
+    {
+      "path": "tests/frontend/unit/components/ArticleCommentComposer.test.ts",
+      "owner": "1889",
+      "donorCommit": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+      "donorBlob": "0eaa8048ad7d82e0468ca5a78c5b23ef8266dc4c",
+      "baseBlob": "031238fdf6ed223c7c5ee5018351a99d0a996bbc"
+    },
+    {
+      "path": "docs/security/comment-privacy-credential-vault.md",
+      "owner": "1889",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "d70a206ad8e970f5d2c1e63ec08b8b87cbc7b66b",
+      "baseBlob": "d1c113c26420e7d3c404e976f358d705b3d6b83a"
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyBlindRsaSuite.ts",
+      "owner": "1889",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "07233719bb2ab8313e0c850e4c1b6e481cead2b0",
+      "baseBlob": "d0f21a9a213733dbe6bf3c856b91acd62702b0d1"
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyCredentialProvider.ts",
+      "owner": "1889",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "613bee7ebbb4ca88cf0f01fe8206089854527c57",
+      "baseBlob": "e124581eb9f2bd3dd7081ca8e16dc95717a417f6"
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyRevocationLocal.ts",
+      "owner": "1889",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "67afca972540a7046166d188ee1280422a97b284",
+      "baseBlob": "8969474fea1d0dfc681b98e28352abbd5571c2e1"
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyWasmProver.ts",
+      "owner": "1889",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "f40de7c590c9ae9f9a1d09b23f9d7d7a040eb0a1",
+      "baseBlob": "bd7a55d504f4d129a0eb97e587643877331599b7"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+      "owner": "1889",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "36320591d835a8fedc4c7fb7599a495a7c6cafd9",
+      "baseBlob": "6b27f14f556ceac6b2482e8734ff765adb50ee7e"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "owner": "3568",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "a342034a78b4270de17ebeea7ab20cef2da66dfe",
+      "baseBlob": "08e62e583616c40424a919b7eb188b5238e33d47"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "owner": "3568",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "owner": "3568",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "owner": "3568",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "owner": "3568",
+      "donorCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "donorBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "baseBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+    },
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "owner": "3735",
+      "donorCommit": "9ed401583c04ff354c430b2ea174ccb69adb6002",
+      "scope": "Exactly one deletion of unsupported request credentialEpoch; no locale style change"
+    }
+  ],
+  "rawEvidenceCustody": "Existing27ac,b291,05098 evidence refs retained immutably; no copied raw log/evidence files enter product diff",
+  "retainedMasterAuthorities": "Current master SOURCE/full application checker, all latest sibling implementation and mandatory master metadata retained; original authority generator must regenerate candidate output",
+  "notCopied": [
+    "old broad execution authority fixture",
+    "old generated docs",
+    "benchmark/backend lockfile collateral",
+    "old source-governance implementation",
+    "old local typecheck helper"
+  ]
+}

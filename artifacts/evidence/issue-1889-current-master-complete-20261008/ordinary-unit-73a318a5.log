@@ -1,0 +1,20 @@
+
+ RUN  v4.1.11 /workspace/scratch/issue-1889/current-master-complete/src/frontend
+
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts (15 tests) 720ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyCredentialVault.test.ts (4 tests) 144ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts (10 tests) 716ms
+     ✓ gives an issuer with both transcripts no deterministic two-client attribution  437ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyCredentialLifecycle.test.ts (3 tests) 146ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts (1 test) 143ms
+ ✓ ../../tests/frontend/unit/api/comment.test.ts (31 tests) 102ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts (7 tests) 61ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts (3 tests) 45ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyCredentialPublicBoundary.test.ts (1 test) 32ms
+
+ Test Files  9 passed (9)
+      Tests  75 passed (75)
+   Start at  15:34:17
+   Duration  3.87s (transform 1.67s, setup 2.77s, import 1.56s, tests 2.11s, environment 4ms)
+
+JSON report written to /workspace/scratch/issue-1889/current-master-complete/.tmp/issue-1889-narrow/ordinary-unit-73a318a5.json

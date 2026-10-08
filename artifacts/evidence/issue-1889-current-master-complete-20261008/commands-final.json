@@ -1,0 +1,107 @@
+[
+  {
+    "command": [
+      "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+      "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "source": "87d6f31243917bbea2e715e85f3181bbd2449172",
+    "exitCode": 0,
+    "log": "authority-producer-87d6f312.log",
+    "outputByteIdenticalToMaster": true
+  },
+  {
+    "command": [
+      "bash",
+      "tools/test.sh",
+      "source-governance"
+    ],
+    "head": "73a318a5707cd7b5da74abcf263a185f2550badc",
+    "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+    "FSUSBLOG_CI_STAGE": "source-integration",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/scratch/issue-1889/fsusui-c987",
+    "FSUSBLOG_NODE": "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "exitCode": 1,
+    "log": "source-whole-73a318a5.log"
+  },
+  {
+    "command": [
+      "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+      "tools/docs/generate-fact-sections.mjs",
+      "--generate",
+      "--receipt",
+      ".tmp/behavior-doc-static-admission/components/fact-observations/auth-session-permission-fact-extractor.json",
+      "--receipt",
+      ".tmp/behavior-doc-static-admission/components/fact-observations/code-intent-fact-extractor.json",
+      "--receipt",
+      ".tmp/behavior-doc-static-admission/components/fact-observations/config-error-security-policy-fact-extractor.json",
+      "--receipt",
+      ".tmp/behavior-doc-static-admission/components/fact-observations/content-lifecycle-fact-extractor.json",
+      "--receipt",
+      ".tmp/behavior-doc-static-admission/components/fact-observations/document-lifecycle-fact-extractor.json",
+      "--receipt",
+      ".tmp/behavior-doc-static-admission/components/fact-observations/openapi-aeds-fact-extractor.json",
+      "--receipt",
+      ".tmp/behavior-doc-static-admission/components/fact-observations/test-asset-audit-fact-extractor.json",
+      "--receipt",
+      ".tmp/behavior-doc-static-admission/components/fact-observations/test-matrix-fact-extractor.json"
+    ],
+    "source": "87d6f31243917bbea2e715e85f3181bbd2449172",
+    "exitCode": 0,
+    "log": "canonical-generation-87d6f312.log"
+  },
+  {
+    "command": [
+      "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+      "tools/docs/behavior-doc-static-admission.mjs",
+      "--out",
+      ".tmp/issue-1889-narrow/admission-73a318a5.json",
+      "--run-id",
+      "complete-source-73a318a5-20261008"
+    ],
+    "source": "73a318a5707cd7b5da74abcf263a185f2550badc",
+    "CI": "true",
+    "DOTNET_ROOT": "/workspace/scratch/issue-1889/dotnet",
+    "NUGET_PACKAGES": "/workspace/scratch/issue-1889/nuget",
+    "exitCode": 0,
+    "log": "admission-73a318a5.log"
+  },
+  {
+    "command": [
+      "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+      "tools/docs/behavior-doc-static-admission.mjs",
+      "--verify",
+      ".tmp/issue-1889-narrow/admission-73a318a5.json"
+    ],
+    "source": "73a318a5707cd7b5da74abcf263a185f2550badc",
+    "exitCode": 0,
+    "log": "admission-verify-73a318a5.log"
+  },
+  {
+    "command": [
+      "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "--config",
+      "vitest.config.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+      "../../tests/frontend/unit/api/comment.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyCredentialVault.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyCredentialLifecycle.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyCredentialPublicBoundary.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
+      "--maxWorkers=2",
+      "--reporter=default",
+      "--reporter=json",
+      "--outputFile=../../.tmp/issue-1889-narrow/ordinary-unit-73a318a5.json"
+    ],
+    "cwd": "src/frontend",
+    "source": "73a318a5707cd7b5da74abcf263a185f2550badc",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI",
+    "FSUSBLOG_TEST_RUN_ID": "complete-source-73a318a5-20261008",
+    "exitCode": 0,
+    "log": "ordinary-unit-73a318a5.log"
+  }
+]

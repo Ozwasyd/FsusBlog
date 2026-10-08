@@ -1,0 +1,15 @@
+{
+  "candidate": "73a318a5707cd7b5da74abcf263a185f2550badc",
+  "actualModuleTestCounts": [
+    32,
+    8,
+    30,
+    10,
+    18
+  ],
+  "passed": 98,
+  "failed": 0,
+  "selectedBy": "Original masterSOURCE plan and original fixed declared targets",
+  "wholeSOURCEExitCode": 1,
+  "qualificationEligible": false
+}

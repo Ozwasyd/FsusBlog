@@ -1,0 +1,40 @@
+{
+  "oldEvidenceSource": "05098da9aa57a1f5c2c6a06c01ba6bb4bfe14f91",
+  "oldCanonicalAdmissionCandidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+  "canonicalEntryPointWrites": "Eight fact observations before generated/prose gates; four additional canonical owner/parse/prose/generated receipts are written only after all gates pass at lines409-412.",
+  "disposition": "Old successful canonical receipt and companion archive remain valid for their exact d8e708fc source candidate and immutable. Initial failed narrow admission correctly has eight raw fact receipts only; successful final narrow admission must independently produce current companions.",
+  "supplementalCliFiles": [
+    {
+      "path": ".tmp/behavior-doc-static-admission/components/behavior-owner-binding.json",
+      "schema": "fsusblog.behavior-owner-binding-receipt.v1",
+      "sourceCommit": null,
+      "source": null,
+      "runId": null,
+      "contentDigest": "6745a72e97d9b1bb8d3cbfdb58a43ab1ae340ce2d8eb75812e1fd80daceef77c"
+    },
+    {
+      "path": ".tmp/behavior-doc-static-admission/components/doc-claim-parse.json",
+      "schema": "fsusblog.doc-claim-parse-receipt.v1",
+      "sourceCommit": null,
+      "source": null,
+      "runId": null,
+      "contentDigest": "33fcf2f4d1ccb71a1e91c8fa6c542d04cf469a25f50d831744e899be79c0bca1"
+    },
+    {
+      "path": ".tmp/behavior-doc-static-admission/components/doc-claim-verification.json",
+      "schema": "fsusblog.doc-claim-verification-receipt.v1",
+      "sourceCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "source": null,
+      "runId": null,
+      "contentDigest": "04dc769159eb47938f5bc96bb2b228df1eb5852453fef1af38f390d9c7bc4b4d"
+    },
+    {
+      "path": ".tmp/behavior-doc-static-admission/components/generated-section-check.json",
+      "schema": "fsusblog.generated-section-check-receipt.v1",
+      "sourceCommit": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "source": null,
+      "runId": null,
+      "contentDigest": "afd2a73d55999c56844d7c57069d6ff42f48ceb9cfa9de645d2370ed2b68ffac"
+    }
+  ]
+}

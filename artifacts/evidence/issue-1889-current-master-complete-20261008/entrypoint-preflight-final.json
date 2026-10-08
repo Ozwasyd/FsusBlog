@@ -1,0 +1,86 @@
+{
+  "kind": "unchanged-selected-entrypoint-identity-verification",
+  "candidate": "73a318a5707cd7b5da74abcf263a185f2550badc",
+  "originalPreflightCandidate": "c9875e42267816facd8d6109a457cb7b330d4332",
+  "inspectedPreflightFile": ".tmp/privacy-unit-verification/entrypoint-preflight.json",
+  "sourceInputs": [
+    {
+      "path": "tools/docs/behavior-doc-static-admission.mjs",
+      "blob": "cde44b11ae93e3b30dd8b2f7d1f955fc330076b6",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/docs/behavior-doc-minimal-contract-build.mjs",
+      "blob": "8ca9da4c252bd5acad5927ca9e3571052795883c",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+      "blob": "b7c7a3c240785df846839583e972fce4267665a1",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/fact-extractors/runner.mjs",
+      "blob": "871d4ff9316e9f9c1ce8e01a03784f9e81fd5183",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/fact-extractors/test-matrix/extract.mjs",
+      "blob": "a3fe5215e5f9eeabafb6f7d2ed721f0020becf03",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/fact-extractors/seeds/test-asset-audit-seed.mjs",
+      "blob": "4591b9135ef7ec223138249f54b00ff2d78872f9",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/docs/doc-claim-staleness-mutation/runner.mjs",
+      "blob": "6f19148e573f42a5f37ea81e2be83d079002c327",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/docs/doc-claim-staleness-mutation/catalog.mjs",
+      "blob": "4dbc4ce4515f0512bb37e3b917922067db3c5bed",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/docs/doc-claim-staleness-mutation/fixture.mjs",
+      "blob": "6b034742040a0dbee8e81dfc22698395ef2a04c7",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/governance/check-monolithic-distributed-architecture.mjs",
+      "blob": "55995c6400859eb317390b516c66ca408cc749dd",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
+      "blob": "72b58fde3e10839dc64d66217bf97d8aa1b1f89a",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/Program.cs",
+      "blob": "b1888efd1b6d12781a2d32cdcf1e2e6553bb3f2f",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs",
+      "blob": "07f20bd64006092fd4f512996d1fb2f182ce5a3a",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/Program.cs",
+      "blob": "e8e21ae5ceb1f4a4ed3cd9e14691f8ea494e4ae2",
+      "matchesInspectedPreflight": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+      "blob": "6b7c22ad5ca545ee5eefd83bbd83ae87c27f7d67",
+      "matchesInspectedPreflight": true
+    }
+  ],
+  "heldScopes": "UNRUN; selected aggregate children remain identical",
+  "recordedAtUTC": "2026-10-08T14:42:59.523984+00:00",
+  "precheckedFrom": "d8e708fcb147410e9087a491e538fdd98c709020"
+}

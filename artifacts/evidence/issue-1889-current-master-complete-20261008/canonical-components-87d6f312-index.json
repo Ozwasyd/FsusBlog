@@ -1,0 +1,42 @@
+[
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/auth-session-permission-fact-extractor.json",
+    "bytes": 292117,
+    "sha256": "486b9eab088bfc32b3507a591f8a5246696e712ba90462ff42a85ab1f24668ac"
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/code-intent-fact-extractor.json",
+    "bytes": 1505,
+    "sha256": "68b0bb64ab64a608d6935056305b7e7298283049bc27469d9b6008897c4f6cbd"
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/config-error-security-policy-fact-extractor.json",
+    "bytes": 562841,
+    "sha256": "78664afac20d8cd6c5f16a3f3027bcb757da9f6873d4c459d8bf60a57f8513cf"
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/content-lifecycle-fact-extractor.json",
+    "bytes": 291111,
+    "sha256": "9b919a3f17280f1f0f263619e4567f6c199f0f1b3276ba4f0a3eb0bf52053b2a"
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/document-lifecycle-fact-extractor.json",
+    "bytes": 1061,
+    "sha256": "610694a57562e62da7f6168ff6ff2564315391c086f9beb5b3b3752c70408d35"
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/openapi-aeds-fact-extractor.json",
+    "bytes": 2267581,
+    "sha256": "850286419a39b580bed7b4f76ab31ef6c7765a827e4c1210b09e5c1608821739"
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/test-asset-audit-fact-extractor.json",
+    "bytes": 11395,
+    "sha256": "ed28ed540a6fa422697c74c1745589828bca3f2950cb4e495229a85b9c9e02d6"
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/test-matrix-fact-extractor.json",
+    "bytes": 369908,
+    "sha256": "9c9f329ef22bfd50d12c1be2ec28b22e195e544572c24ba13b7ac8fbd3082f28"
+  }
+]

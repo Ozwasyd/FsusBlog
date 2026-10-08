@@ -1,0 +1,29 @@
+{
+  "actual": {
+    "nodeVersion": "v24.16.0",
+    "acorn": {
+      "owner": "node:internal/deps/acorn/acorn/dist/acorn",
+      "version": "8.16.0",
+      "sourceDigest": "sha256:2261c5f0e4abe860e889dfc67081683a4ba4d27deb7f4cbc8ad06a1b7fdd510c"
+    },
+    "amaro": {
+      "owner": "node:internal/deps/amaro/dist/index",
+      "version": "1.1.9",
+      "sourceDigest": "sha256:b878f771a6e0aa2a134c000f4b139fc629f35fa6190d66eb0fc599ca1c9d6ce3"
+    }
+  },
+  "expected": {
+    "nodeVersion": "v24.16.0",
+    "acorn": {
+      "owner": "node:internal/deps/acorn/acorn/dist/acorn",
+      "version": "8.16.0",
+      "sourceDigest": "sha256:2261c5f0e4abe860e889dfc67081683a4ba4d27deb7f4cbc8ad06a1b7fdd510c"
+    },
+    "amaro": {
+      "owner": "node:internal/deps/amaro/dist/index",
+      "version": "1.1.9",
+      "sourceDigest": "sha256:b878f771a6e0aa2a134c000f4b139fc629f35fa6190d66eb0fc599ca1c9d6ce3"
+    }
+  },
+  "exactMatch": true
+}
