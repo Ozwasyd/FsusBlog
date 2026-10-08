@@ -27,6 +27,13 @@
                 "tests/governance/code-intent-registry.json"
             ],
             "reason": "Preserve trusted registry JSON schema and field spelling while consuming the two exact original-owner structural ownership registrations; no checker, existing registration or qualification claim is changed."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/development/code-intent-governance.md"
+            ],
+            "reason": "Bind the already registered document path while preserving its existing DocClaim fields and generated-section markers; the original source-backed extractor and renderer update only the scalar count derived from the actual registry, without changing the naming exception authority."
         }
     ]
 }
