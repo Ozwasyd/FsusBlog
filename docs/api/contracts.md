@@ -3266,3 +3266,59 @@ projection verifier ports still need canonical implementations; its document
 materializer gate is unchanged. Full V1 metadata/privacy/version/dependency/asset
 schema, current permissions, staging/timeout/cleanup/idempotency receipts and
 independent original-project acceptance remain required for #2400/#2410.
+
+## Closed manifest metadata policy component
+
+The sole `ArticlePackageManifestCandidateCodec` now provides
+`TryCreateMetadataCandidate`, `TryParseMetadataCandidate`, `WriteMetadataCandidate`
+and `TryBindMetadataCandidate` for the owned
+`ArticlePackageManifestMetadataCandidate` component. Its input binds one existing
+finite `ArticlePackageManifestArticle`, the complete explicit
+`ArticleRightsRequestCoreModel`, `ArticleRightsCanonicalInput`, actual canonical
+policy hash, and historical `ArticlePackageManifestResponsibility` values.
+This component is not another package envelope or an accepted full V1 manifest.
+The existing envelope still rejects rights/responsibility fields and every
+`RequireMetadataAuthority()` returns
+`article_package_manifest_metadata_source_authority_unavailable`.
+
+Rights retain all eleven current policy fields, including `Enabled` and
+`ProofBindingEnabled`, without writer defaults, trimming or truncation. The
+canonical coordinates and content hash must match the finite article source;
+all corresponding policy fields must match exactly, and the sole
+`ArticleRightsCanonicalHashV1` recomputes the policy hash. The two flags absent
+from that canonical payload are independently covered by the component digest.
+Policy tokens retain their current bounded string contract; this component does
+not invent a new license registry or infer current publication/copy permission.
+
+Responsibility preserves its positive historical snapshot version, inheritance
+flag, exact authors/reviewer, evidence rows, update summary/reason, nullable UTC
+effective instant, conclusion impact, methodology, applicability, limitations
+and human-confirmation flag. A historical false flag or unresolved inherited
+site author is never replaced by a default or current prepublication decision.
+Authors and evidence rows are copied through one bounded indexed traversal;
+foreign collection failure returns a fixed content-free reason. Whole private
+`ArticleEvidenceSource.IsPublic=false` input is rejected without dropping rows.
+URL shape uses the actual `ArticleResponsibilityGovernance.PublicUrl` rules;
+there is no network/DNS read or guarantee of privacy, reachability or retention.
+
+The closed component keys are `article`, `rights`, `canonicalRights`,
+`rightsPolicyHash`, `responsibility` and `componentDigest`. The article uses the
+existing finite article encoder/decoder. All component object levels reject
+missing, duplicate, unknown or wrong-typed fields, including secret/session/audit
+and upload/storage extensions. Limits are 256 KiB encoded JSON, 32 authors,
+64 evidence sources, existing rights text bounds, 512-character update fields,
+32-character impact and 16 Ki-character methodology/applicability/limitations.
+Overflow refuses the entire candidate. Text, null/empty and collection order
+are preserved exactly. The lowercase SHA-256 component digest covers the fixed
+strict-UTF-8 domain
+`fsusblog.article-package.manifest-metadata-candidate.v1`, one NUL byte and the
+canonical component JSON with `componentDigest` omitted. Binding recreates this
+projection from current explicit inputs; a copied digest cannot hide drift.
+It is distinct from the canonical policy, document metadata and package digests.
+
+Persisted exact revision rights/responsibility snapshot reads and provenance,
+actor/site permission observations, portable taxonomy, source route/slug and
+asset projections, frozen syntax/dependency mapping, privacy/export policy,
+full manifest integration and original independent runtime acceptance remain
+separate gates. The pure component reads no store, allocates no source IDs,
+issues no receipts and authorizes no export, target resolution or mutation.
