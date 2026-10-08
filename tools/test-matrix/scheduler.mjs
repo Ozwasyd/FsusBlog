@@ -54,6 +54,7 @@ import {
 } from './artifact-digest-table.mjs';
 import { createAsyncLogPipeline } from './async-log-pipeline.mjs';
 import { RunEvidenceObjectStore } from './content-addressed-evidence-store.mjs';
+import { validateCorrectnessInputManifest } from './correctness-input-manifest.mjs';
 import {
     artifactSubstitutionBindingDigest,
     externalEvidenceReceiptDigest,
@@ -1452,10 +1453,13 @@ function fingerprintEnvironment(env)
 export function tierInputFingerprint(tier, root, context = {})
 {
     const declaredCacheInputs = effectiveCacheInputs(tier);
+    const inputManifest = context.inputManifest
+        ? validateCorrectnessInputManifest(context.inputManifest, { root, entryCommand: tier.command }) : null;
     return fingerprint({
         executionKey: tier.executionKey ?? tier.id,
         command: tier.command,
         cacheInputs: declaredCacheInputs,
+        ...(inputManifest ? { inputManifestDigest: inputManifest.closureDigest } : {}),
         inputs: declaredCacheInputs.length > 0
             ? cacheInputEntries(root, declaredCacheInputs)
             : { conservativeRepositoryFingerprint: context.repositoryFingerprint ?? repositoryInputFingerprint(root) },
@@ -6442,7 +6446,8 @@ async function runDagUnlocked(options)
             platform: options.platform,
             arch: options.arch,
             nodeVersion: options.nodeVersion,
-            repositoryFingerprint: conservativeRepositoryFingerprint
+            repositoryFingerprint: conservativeRepositoryFingerprint,
+            inputManifest: options.correctnessInputManifests?.[tier.id]
         });
         const dependencyFingerprintValue = dependencyFingerprint(tier);
         const ownedOutputs = ownedGeneratedDeclarations(tier, byId);
