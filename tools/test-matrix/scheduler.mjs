@@ -2513,8 +2513,10 @@ function projectionResumeTransactionDigest(transaction)
         sourceState: transaction.sourceState,
         baselineBytes: transaction.baselineBytes,
         baselineDigest: transaction.baselineDigest,
+        baselineObjectRef: transaction.baselineObjectRef,
         expectedSuccessBytes: transaction.expectedSuccessBytes,
         expectedSuccessDigest: transaction.expectedSuccessDigest,
+        expectedSuccessObjectRef: transaction.expectedSuccessObjectRef,
         expectedRevision: transaction.expectedRevision
     });
 }
@@ -2536,8 +2538,8 @@ function readProjectionResumeTransaction(checkpointFile)
     let expectedSuccess;
     try
     {
-        baseline = JSON.parse(transaction.baselineBytes);
-        expectedSuccess = JSON.parse(transaction.expectedSuccessBytes);
+        baseline = checkpointProjectionContent(JSON.parse(transaction.baselineBytes));
+        expectedSuccess = checkpointProjectionContent(JSON.parse(transaction.expectedSuccessBytes));
     }
     catch
     {
@@ -2560,6 +2562,15 @@ function readProjectionResumeTransaction(checkpointFile)
     || expectedSuccess.status !== 'success')
     {
         throw new Error('projection resume transaction authority is invalid');
+    }
+    const store = new RunEvidenceObjectStore({
+        root: path.join(path.dirname(checkpointFile), 'evidence-store'),
+        runId: transaction.runId, sourceState: transaction.sourceState, readOnly: true
+    });
+    if (fingerprint(store.readObject(transaction.baselineObjectRef).value) !== fingerprint(baseline)
+        || fingerprint(store.readObject(transaction.expectedSuccessObjectRef).value) !== fingerprint(expectedSuccess))
+    {
+        throw new Error('projection resume transaction immutable checkpoint refs mismatch');
     }
     return { file, transaction, baseline, expectedSuccess };
 }
@@ -2638,7 +2649,7 @@ function prepareProjectionResumeTransaction(checkpointFile, checkpoint, successf
         return existing;
     }
     const baselineBytes = fs.readFileSync(checkpointFile, 'utf8');
-    if (fingerprint(JSON.parse(baselineBytes)) !== fingerprint(checkpoint))
+    if (fingerprint(checkpointProjectionContent(JSON.parse(baselineBytes))) !== fingerprint(checkpoint))
     {
         throw new Error('projection resume transaction baseline bytes drifted');
     }
@@ -2650,6 +2661,7 @@ function prepareProjectionResumeTransaction(checkpointFile, checkpoint, successf
         .map(([tierId]) => tierId)
         .sort();
     const expectedSuccessBytes = `${JSON.stringify(expectedSuccess, null, 2)}\n`;
+    const store = schedulerPersistence(checkpointFile, checkpoint).store;
     const transaction = {
         schema: projectionResumeTransactionSchema,
         state: 'prepared',
@@ -2657,8 +2669,10 @@ function prepareProjectionResumeTransaction(checkpointFile, checkpoint, successf
         sourceState: structuredClone(checkpoint.sourceState),
         baselineBytes,
         baselineDigest: sha256(baselineBytes),
+        baselineObjectRef: store.publishObject(checkpoint).digest,
         expectedSuccessBytes,
         expectedSuccessDigest: sha256(expectedSuccessBytes),
+        expectedSuccessObjectRef: store.publishObject(expectedSuccess).digest,
         expectedRevision: expectedSuccess.revision,
         contentDigest: null
     };
@@ -2673,6 +2687,97 @@ function prepareProjectionResumeTransaction(checkpointFile, checkpoint, successf
     return { file, transaction, baseline: checkpoint, expectedSuccess };
 }
 
+function checkpointProjectionContent(document)
+{
+    const fields = new Set(['storeCheckpointRef', 'storeCheckpointDigest', 'lastSequence', 'projectionDigest']);
+    return Object.fromEntries(Object.entries(document).filter(([field]) => !fields.has(field)));
+}
+
+function checkpointProjection(checkpoint, compact, lastSequence)
+{
+    const projection = {
+        ...checkpoint,
+        storeCheckpointRef: compact?.checkpoint.stateReference.digest ?? null,
+        storeCheckpointDigest: compact?.checkpoint.contentDigest ?? null,
+        lastSequence
+    };
+    projection.projectionDigest = `sha256:${fingerprint(projection)}`;
+    return projection;
+}
+
+/** Read only the explicit run's immutable objects and validated journal. JSON is a disposable projection. */
+export function readCanonicalSchedulerCheckpoint(checkpointFileValue, { repairProjection = false } = {})
+{
+    const checkpointFile = path.resolve(checkpointFileValue);
+    const runId = safeRunId(path.basename(path.dirname(checkpointFile)));
+    const storeRoot = path.join(path.dirname(checkpointFile), 'evidence-store');
+    if (!fs.existsSync(storeRoot))
+    {
+        if (fs.existsSync(checkpointFile))
+        {
+            throw new Error('contract.missing-canonical-checkpoint: compatibility JSON is not authority');
+        }
+        return null;
+    }
+    const compactFile = path.join(storeRoot, 'checkpoints', `${runId}.json`);
+    const journalFile = path.join(storeRoot, 'journals', `${runId}.jsonl`);
+    const identityFile = fs.existsSync(compactFile) ? compactFile : journalFile;
+    if (!fs.existsSync(identityFile))
+    {
+        throw new Error('contract.missing-canonical-checkpoint: no compact or journal identity');
+    }
+    const identityStat = fs.lstatSync(identityFile);
+    if (identityStat.isSymbolicLink() || !identityStat.isFile())
+    {
+        throw new Error('canonical checkpoint identity must be a regular file');
+    }
+    const source = identityFile === compactFile
+        ? JSON.parse(fs.readFileSync(compactFile, 'utf8'))
+        : JSON.parse(fs.readFileSync(journalFile, 'utf8').split('\n')[0] || '{}');
+    if (source.runId !== runId)
+    {
+        throw new Error('contract.checkpoint-identity-mismatch: runId');
+    }
+    const store = new RunEvidenceObjectStore({ root: storeRoot, runId,
+        sourceState: source.sourceState, readOnly: true });
+    const recovered = store.recover((state, _event, payload) => applyCheckpointPatch(state, payload));
+    const checkpoint = recovered.state;
+    if (checkpoint?.schema !== checkpointSchema || checkpoint.runId !== runId
+        || !sameCheckpointSource(checkpoint.sourceState, source.sourceState))
+    {
+        throw new Error('contract.checkpoint-identity-mismatch: recovered run/source/schema');
+    }
+    const compact = store.readCompactCheckpoint();
+    const projection = checkpointProjection(checkpoint, compact, recovered.lastSequence);
+    let projectionStatus = 'missing';
+    if (fs.existsSync(checkpointFile))
+    {
+        const stat = fs.lstatSync(checkpointFile);
+        if (stat.isSymbolicLink() || !stat.isFile())
+        {
+            throw new Error('compatibility checkpoint must be a regular file');
+        }
+        try
+        {
+            projectionStatus = fingerprint(JSON.parse(fs.readFileSync(checkpointFile, 'utf8')))
+                === fingerprint(projection) ? 'current' : 'drift';
+        }
+        catch
+        {
+            projectionStatus = 'invalid';
+        }
+    }
+    if (repairProjection && projectionStatus !== 'current')
+    {
+        const temporary = `${checkpointFile}.projection-${process.pid}-${crypto.randomUUID()}`;
+        fs.writeFileSync(temporary, `${JSON.stringify(projection, null, 2)}\n`, { flag: 'wx' });
+        fs.renameSync(temporary, checkpointFile);
+    }
+    return { checkpoint, compactStateRef: compact?.checkpoint.stateReference.digest ?? null,
+        compactDigest: compact?.checkpoint.contentDigest ?? null, lastSequence: recovered.lastSequence,
+        checkpointDigest: `sha256:${fingerprint(checkpoint)}`, projectionStatus };
+}
+
 function readCheckpoint(checkpointFile, { journalAuthority = false, requireCompleteJournal = false } = {})
 {
     const projectionTransaction = journalAuthority ? null : projectionResumeTransactionState(checkpointFile);
@@ -2684,63 +2789,12 @@ function readCheckpoint(checkpointFile, { journalAuthority = false, requireCompl
           : projectionTransaction.expectedSuccess
         );
     }
-    let compatibilityCheckpoint = null;
-    try
+    const canonical = readCanonicalSchedulerCheckpoint(checkpointFile, { repairProjection: !requireCompleteJournal });
+    if (requireCompleteJournal && canonical?.lastSequence === 0)
     {
-        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'));
-        compatibilityCheckpoint = checkpoint?.schema === checkpointSchema ? checkpoint : null;
+        throw new Error('scheduler resource retention journal is missing or truncated before its compact checkpoint');
     }
-    catch
-    {
-    // A compact checkpoint may still recover the compatibility projection.
-    }
-    const storeRoot = path.join(path.dirname(checkpointFile), 'evidence-store');
-    if (!fs.existsSync(storeRoot))
-    {
-        return compatibilityCheckpoint;
-    }
-    let identity = compatibilityCheckpoint;
-    if (!identity)
-    {
-        const compactFile = path.join(storeRoot, 'checkpoints', `${path.basename(path.dirname(checkpointFile))}.json`);
-        if (!fs.existsSync(compactFile))
-        {
-            return null;
-        }
-        identity = JSON.parse(fs.readFileSync(compactFile, 'utf8'));
-    }
-    const store = new RunEvidenceObjectStore({
-        root: storeRoot,
-        runId: identity.runId,
-        sourceState: identity.sourceState,
-        readOnly: requireCompleteJournal
-    });
-    const recovered = store.recover((state, _event, payload) => applyCheckpointPatch(state, payload));
-    if (requireCompleteJournal)
-    {
-        const lastSequence = store.readJournal().at(-1)?.sequence ?? 0;
-        if (lastSequence === 0 || lastSequence < recovered.checkpointSequence)
-        {
-            throw new Error('scheduler resource retention journal is missing or truncated before its compact checkpoint');
-        }
-    }
-    const recoveredCheckpoint = recovered.state?.schema === checkpointSchema ? recovered.state : null;
-    if (journalAuthority)
-    {
-        if (!recoveredCheckpoint && compatibilityCheckpoint)
-        {
-            throw new Error('scheduler resource grant journal is missing its authoritative checkpoint');
-        }
-        // Mutable compatibility revision numbers cannot override durable grant ownership.
-        return recoveredCheckpoint;
-    }
-    if (compatibilityCheckpoint
-    && (!recoveredCheckpoint
-      || Number(compatibilityCheckpoint.revision) >= Number(recoveredCheckpoint.revision)))
-    {
-        return compatibilityCheckpoint;
-    }
-    return recoveredCheckpoint;
+    return canonical?.checkpoint ?? null;
 }
 
 function resumeTierCandidates(previous, tierIds)
@@ -2931,7 +2985,7 @@ function writeCheckpoint(checkpointFile, checkpoint, {
 
 function publishCheckpointBoundary(checkpointFile, checkpoint, persistence, { stage, lastSequence })
 {
-    persistence.store.writeCompactCheckpoint({
+    const compact = persistence.store.writeCompactCheckpoint({
         stage: stage ?? (checkpoint.status === 'running' ? 'run-start' : 'run-complete'),
         state: checkpoint,
         lastSequence,
@@ -2940,7 +2994,7 @@ function publishCheckpointBoundary(checkpointFile, checkpoint, persistence, { st
             releaseBinding: checkpoint.status === 'success'
         }
     });
-    const serialized = `${JSON.stringify(checkpoint, null, 2)}\n`;
+    const serialized = `${JSON.stringify(checkpointProjection(checkpoint, compact, lastSequence), null, 2)}\n`;
     const temporaryFile = `${checkpointFile}.next-${process.pid}`;
     fs.writeFileSync(temporaryFile, serialized);
     fs.renameSync(temporaryFile, checkpointFile);
@@ -4407,6 +4461,12 @@ export function createRunId(prefix = 'matrix')
 
 export function findLatestRunId(runsRoot, targetTierId = null)
 {
+    throw new Error(`contract.missing-resume-identity: automatic latest-run selection is forbidden (${String(targetTierId ?? '')}, ${String(runsRoot)})`);
+}
+
+/** A viewer result cannot be passed as an authoritative resume selector. */
+export function findDiagnosticRecentRun(runsRoot, targetTierId = null)
+{
     if (!fs.existsSync(runsRoot))
     {
         return null;
@@ -4414,16 +4474,10 @@ export function findLatestRunId(runsRoot, targetTierId = null)
     const latest = fs.readdirSync(runsRoot, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
         .map((entry) => ({ runId: entry.name, checkpoint: readCheckpoint(path.join(runsRoot, entry.name, 'checkpoint.json')) }))
-        .filter((entry) => (
-            entry.checkpoint
-      && (!targetTierId || entry.checkpoint.targetTierId === targetTierId)
-        ))
+        .filter((entry) => entry.checkpoint && (!targetTierId || entry.checkpoint.targetTierId === targetTierId))
         .sort((left, right) => String(right.checkpoint.updatedAt).localeCompare(String(left.checkpoint.updatedAt)))[0];
-    if (latest?.checkpoint.status === 'running' && runLockIsActive(runsRoot, latest.runId))
-    {
-        throw new Error(`test matrix run ${latest.runId} is already active`);
-    }
-    return latest?.runId ?? null;
+    return latest ? { runId: latest.runId, authority: 'diagnostic-only', qualificationEligible: false,
+        active: latest.checkpoint.status === 'running' && runLockIsActive(runsRoot, latest.runId) } : null;
 }
 
 function resolveRealOrAncestralPath(targetPath)
@@ -5165,6 +5219,8 @@ async function runDagUnlocked(options)
         targetTierId: options.targetTierId ?? tiers.at(-1)?.id ?? null,
         namespace: options.namespace,
         schedulerCandidateIdentityDigest: options.schedulerCandidateIdentityDigest,
+        releaseCandidateIdentity: options.verifiedCandidateIdentity ?? null,
+        resumeInvocation: options.resumeInvocation ?? null,
         schedulerRunOwnerToken: options.schedulerRunOwnerToken,
         mode,
         authoritative: mode === 'fresh' && !injectedMemoryTelemetry,
@@ -5218,7 +5274,7 @@ async function runDagUnlocked(options)
         resumePolicy: resume ? {
       sourceChanged: resumeSourceChanged,
       budgetPolicyChanged: resumeBudgetPolicyChanged,
-      reuseAcrossSourceChanges: options.reuseAcrossSourceChanges !== false
+      reuseAcrossSourceChanges: false
     } : null,
         // A resume attempt may fail before it reaches otherwise reusable tiers.
         // Keep those prior successes separate from this attempt's completed tiers;
@@ -6094,7 +6150,10 @@ async function runDagUnlocked(options)
         const currentOutputs = snapshotTierOutputs(root, tier, tierEnvironment);
         if (
             resumeBudgetPolicyChanged
-      || (options.reuseAcrossSourceChanges === false && !sameCheckpointSource(candidate?.sourceState, sourceState))
+      || !sameCheckpointSource(candidate?.sourceState, sourceState)
+      || !options.verifiedCandidateIdentity
+      || !isDeepStrictEqual(previous.releaseCandidateIdentity, options.verifiedCandidateIdentity)
+      || (tier.reuseClass !== undefined && tier.reuseClass !== 'correctness')
       || !Object.is(previousTier?.status, 'success')
       || previousTier.inputFingerprint !== inputFingerprint
       || previousTier.dependencyFingerprint !== dependencyFingerprintValue
@@ -7585,8 +7644,65 @@ function acquireRunLock(
     return release;
 }
 
+function resolveSchedulerResumeBinding({ checkpointFile, runId, targetTierId, namespace,
+    sourceState, budgetPolicyDigest, expectedCandidateIdentityDigest, verifiedCandidateIdentity })
+{
+    if (!/^sha256:[a-f0-9]{64}$/u.test(String(expectedCandidateIdentityDigest ?? '')))
+    {
+        throw new Error('contract.missing-resume-identity: explicit candidateIdentityDigest is required');
+    }
+    const canonical = readCanonicalSchedulerCheckpoint(checkpointFile);
+    if (!canonical)
+    {
+        throw new Error(`contract.missing-resume-run: ${runId}`);
+    }
+    const checkpoint = canonical.checkpoint;
+    const fields = { runId, targetTierId, namespace, sourceState, budgetPolicyDigest };
+    for (const [field, expected] of Object.entries(fields))
+    {
+        if (!isDeepStrictEqual(checkpoint[field] ?? null, expected ?? null))
+        {
+            throw new Error(`contract.resume-identity-mismatch: ${field}`);
+        }
+    }
+    const computed = schedulerCandidateIdentityDigest(fields);
+    if (checkpoint.schedulerCandidateIdentityDigest !== computed
+        || expectedCandidateIdentityDigest !== computed)
+    {
+        throw new Error('contract.resume-identity-mismatch: candidateIdentityDigest');
+    }
+    if (verifiedCandidateIdentity)
+    {
+        for (const field of new Set([...Object.keys(verifiedCandidateIdentity),
+            ...Object.keys(checkpoint.releaseCandidateIdentity ?? {})]))
+        {
+            if (!isDeepStrictEqual(checkpoint.releaseCandidateIdentity?.[field], verifiedCandidateIdentity[field]))
+            {
+                throw new Error(`contract.resume-identity-mismatch: releaseCandidateIdentity.${field}`);
+            }
+        }
+    }
+    return { schema: 'fsusblog.scheduler-explicit-resume.v1', selector: { kind: 'run-id', runId },
+        candidateIdentityDigest: computed, canonicalCheckpointRef: canonical.compactStateRef,
+        canonicalCheckpointDigest: canonical.checkpointDigest, lastSequence: canonical.lastSequence };
+}
+
 export async function runDag(options)
 {
+    const resume = options.resume === true || options.mode === 'resume';
+    if (resume && !String(options.runId ?? '').trim())
+    {
+        throw new Error('contract.missing-resume-identity: explicit runId is required');
+    }
+    if (resume && (typeof options.runId !== 'string' || safeRunId(options.runId) !== options.runId
+        || options.runId === '.' || options.runId === '..'))
+    {
+        throw new Error('contract.invalid-resume-identity: runId must name an exact run root');
+    }
+    if (options.reuseAcrossSourceChanges === true)
+    {
+        throw new Error('contract.cross-candidate-reuse-forbidden');
+    }
     const root = path.resolve(options.root);
     const runsRoot = resolveRealOrAncestralPath(options.runsRoot ?? path.join(root, '.tmp/test-runs'));
     const runId = safeRunId(options.runId ?? createRunId(options.targetTierId ?? 'matrix'));
@@ -7601,6 +7717,29 @@ export async function runDag(options)
     const namespace = options.namespace ?? 'test-matrix';
     const targetTierId = options.targetTierId ?? options.tiers?.at(-1)?.id ?? 'matrix';
     const budgetPolicyDigest = options.budgetPolicyDigest ?? null;
+    let verifiedCandidateIdentity = null;
+    if (options.candidateIdentity !== undefined)
+    {
+        if (typeof options.verifyCandidateIdentity !== 'function')
+        {
+            throw new Error('contract.missing-candidate-identity-verifier');
+        }
+        verifiedCandidateIdentity = await options.verifyCandidateIdentity(structuredClone(options.candidateIdentity));
+        if (!verifiedCandidateIdentity || !isDeepStrictEqual(verifiedCandidateIdentity, options.candidateIdentity)
+            || verifiedCandidateIdentity.sourceCommit !== sourceState.commit
+            || verifiedCandidateIdentity.worktreeFingerprint !== sourceState.worktreeFingerprint)
+        {
+            throw new Error('contract.candidate-identity-mismatch: source/verifier');
+        }
+    }
+    const resumeBindingOptions = { checkpointFile: path.join(runsRoot, runId, 'checkpoint.json'),
+        runId, targetTierId, namespace, sourceState, budgetPolicyDigest, verifiedCandidateIdentity,
+        expectedCandidateIdentityDigest: options.resumeCandidateIdentityDigest
+            ?? options.env?.FSUSBLOG_TEST_CANDIDATE_IDENTITY ?? process.env.FSUSBLOG_TEST_CANDIDATE_IDENTITY };
+    if (resume)
+    {
+        resolveSchedulerResumeBinding(resumeBindingOptions);
+    }
     const releaseLock = acquireRunLock(runsRoot, runId, {
         sourceState,
         namespace,
@@ -7616,6 +7755,7 @@ export async function runDag(options)
     try
     {
         releaseLock.markRunning();
+        const resumeInvocation = resume ? resolveSchedulerResumeBinding(resumeBindingOptions) : null;
         const result = await runDagUnlocked({
             ...options,
             root,
@@ -7627,6 +7767,8 @@ export async function runDag(options)
             schedulerRunOwnerToken: releaseLock.owner.ownerToken,
             sourceState,
             runSourceSnapshot,
+            verifiedCandidateIdentity,
+            resumeInvocation,
             registerSchedulerFinalizer(finalizer)
             {
                 schedulerFinalizers.push(finalizer);
