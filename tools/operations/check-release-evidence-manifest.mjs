@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 const { assertReleaseIdentity, isValidReleaseId } = await import(new URL('../release/release-id.mjs', import.meta.url));
 const { validateReleaseManifest } = await import(new URL('../release/release-manifest.mjs', import.meta.url));
@@ -1764,7 +1765,7 @@ function publicAotCacheResilienceOk(manifest, context)
     && item.errors.length === 0);
 }
 
-function validateManifest(manifest, options = {})
+export function validateManifest(manifest, options = {})
 {
     const context = { manifestPath: options.manifestPath ?? null };
     const errors = [];
@@ -2895,6 +2896,8 @@ async function runSelfTest()
     console.log('[release-manifest-check] self-test ok');
 }
 
+async function main()
+{
 const args = process.argv.slice(2);
 const requireOk = args.includes('--require-ok');
 if (args.includes('--self-test'))
@@ -2996,3 +2999,30 @@ if (!result.ok)
 }
 
 console.log(`[release-manifest-check] ok | status=${manifest.status} missing=${result.missingRequired.length} file=${manifestPath}`);
+
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+{
+    await main();
+}
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['success']), describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeJobEvidence(receipt),
+    async verify({ domainInputs, repositoryRoot, context })
+    {
+        const { readOwnerEvidenceReference } = await import(new URL('../release/required-evidence-owner-input.mjs', import.meta.url));
+        const { verifiedOwnerResult } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        const manifest = readOwnerEvidenceReference(domainInputs?.manifest, { repositoryRoot, context });
+        if (manifest.receipt.commitSha !== context.sourceCommit)
+        {
+            throw new Error('closeout manifest source mismatch');
+        }
+        const result = validateManifest(manifest.receipt, { requireOk: true, manifestPath: manifest.file });
+        if (!result.ok)
+        {
+            throw new Error(`closeout owner rejected manifest: ${result.errors.join('; ')}`);
+        }
+        return verifiedOwnerResult({ manifestDigest: manifest.digest, missingRequired: result.missingRequired });
+    }
+});

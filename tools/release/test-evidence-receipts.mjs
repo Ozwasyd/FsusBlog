@@ -1430,3 +1430,27 @@ export function writeJsonAtomic(file, value)
     fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`);
     fs.renameSync(temporary, file);
 }
+
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1,
+    successStatuses: Object.freeze(['success']),
+    describe: async (receipt) => (await import('./required-evidence-owner-contract.mjs')).describeOwnerReceipt(receipt, {
+        identity: { namespace: 'namespace', runId: 'authority.runId',
+            sourceCommit: 'sourceState.commit', worktreeFingerprint: 'sourceState.worktreeFingerprint' },
+        status: 'status', contentDigest: 'contentDigest'
+    }),
+    async verify({ receipt, context, domainInputs })
+    {
+        const { describeOwnerReceipt, verifiedOwnerResult, requireOwnerChecks } = await import('./required-evidence-owner-contract.mjs');
+        if (!domainInputs?.buildReceiptDigest)
+        {
+            throw new Error('explicit build receipt digest is required');
+        }
+        requireOwnerChecks(validateBrowserlessCorrectnessReceipt(receipt, {
+            expectedCommit: context.sourceCommit, expectedFingerprint: context.worktreeFingerprint,
+            expectedBuildReceiptDigest: domainInputs.buildReceiptDigest
+        }));
+        return verifiedOwnerResult({ schema: receipt.schema, contentDigest: receipt.contentDigest });
+    }
+});

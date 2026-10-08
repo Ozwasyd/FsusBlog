@@ -317,3 +317,19 @@ export function validateRuntimeOrderEquivalenceReceipt(receipt, expected = {})
     }
     return true;
 }
+
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['equivalent']),
+    describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeOwnerReceipt(receipt, {
+        identity: { namespace: 'namespace', runId: 'runId', sourceCommit: 'source.commit', worktreeFingerprint: 'source.fingerprint' },
+        status: 'status', contentDigest: 'receiptDigest'
+    }),
+    async verify({ receipt, context })
+    {
+        const { verifiedOwnerResult } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        validateRuntimeOrderEquivalenceReceipt(receipt, { sourceCommit: context.sourceCommit,
+            sourceFingerprint: context.worktreeFingerprint.replace(/^sha256:/u, '') });
+        return verifiedOwnerResult({ schema: receipt.schema, receiptDigest: receipt.receiptDigest });
+    }
+});

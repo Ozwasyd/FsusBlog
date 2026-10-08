@@ -1100,3 +1100,19 @@ Runtime-candidate guard (refuses spawn unless receipt is verified):
         process.exitCode = 1;
     }
 }
+
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['ok']),
+    describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeOwnerReceipt(receipt, {
+        identity: { namespace: 'namespace', runId: 'runIdentity', sourceCommit: 'sourceIdentity.commit',
+            worktreeFingerprint: 'sourceIdentity.worktreeFingerprint' },
+        status: 'status', contentDigest: 'contentDigest'
+    }),
+    async verify({ receipt })
+    {
+        const { verifiedOwnerResult } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        assertPreRuntimeQualified(receipt);
+        return verifiedOwnerResult({ schema: receipt.schema, contentDigest: receipt.contentDigest });
+    }
+});

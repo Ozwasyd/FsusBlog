@@ -681,3 +681,27 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     process.exitCode = 1
   }
 }
+
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['ok']),
+    describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeOwnerReceipt(receipt, {
+        identity: { namespace: 'namespace', runId: 'runIdentity', sourceCommit: 'sourceIdentity.commit',
+            worktreeFingerprint: 'sourceIdentity.worktreeFingerprint' },
+        status: 'status', contentDigest: 'contentDigest'
+    }),
+    async verify({ receipt, receiptPath, repositoryRoot, domainInputs })
+    {
+        const { verifiedOwnerResult } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        if (!domainInputs || domainInputs.verificationMode !== 'completed-tier')
+        {
+            throw new Error('completed-tier scheduler verification inputs are required');
+        }
+        const verified = verifyBehaviorEvidencePostRuntime({ ...domainInputs, receipt: receiptPath, repositoryRoot });
+        if (verified.contentDigest !== receipt.contentDigest)
+        {
+            throw new Error('post-runtime owner replay mismatch');
+        }
+        return verifiedOwnerResult({ schema: verified.schema, contentDigest: verified.contentDigest });
+    }
+});

@@ -667,3 +667,28 @@ export function validateBrowserContractReceipt(receipt, {
     }
     return errors;
 }
+
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1,
+    successStatuses: Object.freeze(['success']),
+    correctnessClasses: Object.freeze(['browser-contract']),
+    describe: async (receipt) => (await import('./required-evidence-owner-contract.mjs')).describeOwnerReceipt(receipt, {
+        identity: { namespace: 'fixtureNamespace', runId: 'runIdentity.runId',
+            sourceCommit: 'sourceState.commit', worktreeFingerprint: 'sourceState.worktreeFingerprint' },
+        status: 'status', contentDigest: 'contentDigest'
+    }),
+    async verify({ receipt, context, domainInputs })
+    {
+        const { describeOwnerReceipt, verifiedOwnerResult, requireOwnerChecks } = await import('./required-evidence-owner-contract.mjs');
+        requireOwnerChecks(validateBrowserContractReceipt(receipt, {
+            expectedCommit: context.sourceCommit, expectedFingerprint: context.worktreeFingerprint,
+            expectedBuildReceiptDigest: domainInputs?.buildReceiptDigest, requireSuccess: true
+        }));
+        if (!domainInputs?.buildReceiptDigest)
+        {
+            throw new Error('explicit build receipt digest is required');
+        }
+        return verifiedOwnerResult({ schema: receipt.schema, contentDigest: receipt.contentDigest });
+    }
+});
