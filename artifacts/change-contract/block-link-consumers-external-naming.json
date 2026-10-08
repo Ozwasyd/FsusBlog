@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/inventory-block-link-legacy.mjs"
+            ],
+            "reason": "Preserve existing Node process and Git CLI interfaces in the registered tooling surface; internal inventory identifiers use camelCase and no environment key is introduced or renamed."
+        }
+    ]
+}
