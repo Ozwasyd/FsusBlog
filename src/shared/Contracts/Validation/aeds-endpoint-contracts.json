@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "18ce5e8db6d450bbeb0e742a0c29d8c9b4b6334b985dac781a6e2f20884b3801",
+    "contentDigest": "edd0e28b7cd46c3408b53660061242897c77fed8de9475775617070feb185df1",
     "operations": [
         {
             "method": "DELETE",
@@ -2162,6 +2162,28 @@
             "requestType": null,
             "requestEncoding": null,
             "responseFrame": "AssetLibraryList",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/articles/{articleId:int}/revisions/compare",
+            "operationId": "binary_post_author_articles_articleId_int_revisions_compare",
+            "requestFrame": "ArticleRevisionCompareRequest",
+            "requestType": "FsusBlog.Server.Models.Dtos.ArticleRevisionCompareRequest",
+            "requestEncoding": "utf8-json",
+            "responseFrame": "ArticleRevisionCompareResponse",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/articles/{articleId:int}/revisions/compare/draft-coordinate",
+            "operationId": "binary_post_author_articles_articleId_int_revisions_compare_draft_coordinate",
+            "requestFrame": "ArticleRevisionCompareDraftCoordinateRequest",
+            "requestType": "FsusBlog.Server.Models.Dtos.ArticleRevisionCompareDraftCoordinateRequest",
+            "requestEncoding": "utf8-json",
+            "responseFrame": "ArticleRevisionCompareDraftCoordinateResponse",
             "errorFrame": "ApiError",
             "successStatus": 200
         },

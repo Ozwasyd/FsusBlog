@@ -6,6 +6,7 @@ using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -161,6 +162,134 @@ public static partial class AuthoringEndpoints
         {
             IReadOnlyList<ArticleRevisionSummaryResponse> revisions = await service.GetRevisionsAsync(articleId, cancellationToken);
             return Ok(context, aeds, revisions);
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
+
+        group.MapPost("/articles/{articleId:int}/revisions/compare/draft-coordinate", async (
+            int articleId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            IAuthoringRevisionCompareAuthority authority,
+            IAuthoringRevisionCompareDraftContextAuthority draftContextAuthority,
+            CancellationToken cancellationToken) =>
+        {
+            long adminPrincipalId = ResolveRequiredAdminPrincipalId(context);
+            if (adminPrincipalId <= 0)
+            {
+                return AedsJsonResults.Unauthorized(aeds);
+            }
+            var parsed = await ReadRequestAsync<ArticleRevisionCompareDraftCoordinateRequest>(
+                context, aeds, "article_revision_compare_request_invalid", cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+            ArticleRevisionCompareDraftCoordinateRequest input = parsed.Value!;
+            long? expectedRevision;
+            try
+            {
+                expectedRevision = ArticleRevisionCompareSelector.ParseCoordinate(input.ExpectedServerRevision);
+            }
+            catch (RevisionCompareContractException)
+            {
+                return AedsJsonResults.BadRequest(aeds, "article_revision_compare_request_invalid");
+            }
+            if (articleId <= 0 || expectedRevision is null || string.IsNullOrWhiteSpace(input.DraftKey)
+                || input.DraftKey.Length > RevisionCompareContract.MaxIdentityLength || input.DraftKey.Any(char.IsControl))
+            {
+                return AedsJsonResults.BadRequest(aeds, "article_revision_compare_request_invalid");
+            }
+            var reader = new RevisionCompareReadContext(adminPrincipalId,
+                AuthoringRevisionCompareDraftContextProvider.PrimarySiteScope, Guid.NewGuid());
+            if (await authority.GetAuthorizedArticleAsync(reader, articleId, cancellationToken) is null)
+            {
+                return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+            }
+            ServerDraftResponse? draft = await authority.GetDraftAsync(adminPrincipalId, input.DraftKey, cancellationToken);
+            if (draft is null || draft.ArticleId != articleId || draft.ServerRevision != expectedRevision
+                || !string.Equals(draft.DraftKey, input.DraftKey, StringComparison.Ordinal))
+            {
+                return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+            }
+            string documentEpoch = AuthoringRevisionCompareDraftContextProvider.CreateDocumentEpoch(reader, articleId, draft);
+            string rightsDigest = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(draft.Rights)));
+            AuthoringRevisionCompareDraftContextResult draftContext = await draftContextAuthority.ReadAsync(
+                new AuthoringRevisionCompareDraftContextRequest(reader, articleId, draft.DraftKey,
+                    draft.ServerRevision, documentEpoch, rightsDigest), cancellationToken);
+            if (draftContext.Status != RevisionComparePackageReadStatus.Available || draftContext.Context is null
+                || await authority.GetAuthorizedArticleAsync(reader, articleId, cancellationToken) is null)
+            {
+                return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return Ok(context, aeds, new ArticleRevisionCompareDraftCoordinateResponse(draft.DraftKey,
+                articleId, draft.ServerRevision.ToString(System.Globalization.CultureInfo.InvariantCulture), documentEpoch,
+                Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(draft.Content)))));
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
+
+        group.MapPost("/articles/{articleId:int}/revisions/compare", async (
+            int articleId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            IAuthoringRevisionCompareService service,
+            IRevisionMarkdownStructureAuthority structureAuthority,
+            RevisionComparePlanVerifier planVerifier,
+            TimeProvider timeProvider,
+            CancellationToken cancellationToken) =>
+        {
+            long adminPrincipalId = ResolveRequiredAdminPrincipalId(context);
+            if (adminPrincipalId <= 0)
+            {
+                return AedsJsonResults.Unauthorized(aeds);
+            }
+            var parsed = await ReadRequestAsync<ArticleRevisionCompareRequest>(
+                context, aeds, "article_revision_compare_request_invalid", cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+            ArticleRevisionCompareRequest input = parsed.Value!;
+            if (input.Base is null || input.Compare is null || input.Options is null
+                || input.Options.MetadataFieldIds is null || input.Budgets is null)
+            {
+                return AedsJsonResults.BadRequest(aeds, "article_revision_compare_request_invalid");
+            }
+            RevisionComparePlanRequest request;
+            try
+            {
+                request = new RevisionComparePlanRequest(articleId,
+                    new RevisionCompareReadContext(adminPrincipalId,
+                        AuthoringRevisionCompareDraftContextProvider.PrimarySiteScope, Guid.NewGuid()),
+                    input.Base.ToSelector(), input.Compare.ToSelector(), input.Options.ToOptions(), input.Budgets,
+                    input.CancellationIdentity,
+                    timeProvider.GetUtcNow().AddSeconds(150));
+                RevisionCompareContract.ValidateRequest(request);
+            }
+            catch (RevisionCompareContractException)
+            {
+                return AedsJsonResults.BadRequest(aeds, "article_revision_compare_request_invalid");
+            }
+            AuthoringRevisionCompareResult result = await service.CompareAsync(request, cancellationToken);
+            if (!result.IsSuccess || result.Plan.Bundle is null || result.Diff is null)
+            {
+                // Failed requests do not expose partial package references, sizes, or content.
+                return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+            }
+            var verifier = new RevisionSourceDiffResultVerifier(structureAuthority);
+            if (!await verifier.VerifyAsync(result.Plan.Bundle, result.Diff, cancellationToken))
+            {
+                return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+            }
+            RevisionComparePlanVerification publication = await planVerifier.VerifyAsync(
+                result.Plan.Bundle, timeProvider.GetUtcNow(), cancellationToken);
+            if (!publication.Valid || result.Plan.Receipt != result.Plan.Bundle.Receipt)
+            {
+                return AedsJsonResults.NotFound(aeds, "article_revision_compare_unavailable");
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return Ok(context, aeds, new ArticleRevisionCompareResponse(
+                ArticleRevisionComparePlanReceipt.From(result.Plan.Receipt), result.Diff));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 

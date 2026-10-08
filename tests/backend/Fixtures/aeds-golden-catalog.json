@@ -259,6 +259,10 @@
     { "name": "ThemeRegistryDetail", "value": 248, "family": "theme-registry-response" },
     { "name": "ThemeActivationList", "value": 249, "family": "theme-activation-response" },
     { "name": "ThemeActivation", "value": 250, "family": "theme-activation-response" },
-    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" }
+    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" },
+    { "name": "ArticleRevisionCompareRequest", "value": 253, "family": "authoring-request" },
+    { "name": "ArticleRevisionCompareResponse", "value": 254, "family": "authoring-response" },
+    { "name": "ArticleRevisionCompareDraftCoordinateRequest", "value": 255, "family": "authoring-request" },
+    { "name": "ArticleRevisionCompareDraftCoordinateResponse", "value": 256, "family": "authoring-response" }
   ]
 }

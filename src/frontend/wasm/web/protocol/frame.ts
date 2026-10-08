@@ -245,6 +245,10 @@ export const FrameType = {
   ThemeActivation: 250,
   ApiError: 251,
   ThemeActivationHistory: 252,
+  ArticleRevisionCompareRequest: 253,
+  ArticleRevisionCompareResponse: 254,
+  ArticleRevisionCompareDraftCoordinateRequest: 255,
+  ArticleRevisionCompareDraftCoordinateResponse: 256,
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];

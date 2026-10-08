@@ -146,6 +146,10 @@ public static partial class AuthoringEndpoints
 
         if (HttpMethods.IsGet(method) && segments is ["articles", _, "revisions"])
             return Found(null, AedsFrameType.ArticleRevisionList, out route);
+        if (HttpMethods.IsPost(method) && segments is ["articles", _, "revisions", "compare"])
+            return Found(AedsFrameType.ArticleRevisionCompareRequest, AedsFrameType.ArticleRevisionCompareResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["articles", _, "revisions", "compare", "draft-coordinate"])
+            return Found(AedsFrameType.ArticleRevisionCompareDraftCoordinateRequest, AedsFrameType.ArticleRevisionCompareDraftCoordinateResponse, out route);
         if (HttpMethods.IsGet(method) && segments is ["articles", _, "revisions", _])
             return Found(null, AedsFrameType.ArticleRevisionDetail, out route);
         if (HttpMethods.IsPost(method) && segments is ["articles", _, "revisions", _, "rollback"])

@@ -1517,6 +1517,30 @@
             "value": 252,
             "goldenFamily": "theme-activation-response",
             "goldenOrder": 243
+        },
+        {
+            "name": "ArticleRevisionCompareRequest",
+            "value": 253,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 244
+        },
+        {
+            "name": "ArticleRevisionCompareResponse",
+            "value": 254,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 245
+        },
+        {
+            "name": "ArticleRevisionCompareDraftCoordinateRequest",
+            "value": 255,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 246
+        },
+        {
+            "name": "ArticleRevisionCompareDraftCoordinateResponse",
+            "value": 256,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 247
         }
     ],
     "goldenCatalog": {

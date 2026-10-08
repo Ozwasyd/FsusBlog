@@ -54,7 +54,7 @@ test('the original producer owns five products with manifest-derived identities 
     assert.deepEqual(golden.frames, [...manifest.frameTypes]
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
-    assert.equal(golden.frames.length, 244);
+    assert.equal(golden.frames.length, 248);
 });
 
 test('the original 236 golden records, evidence and retirement remain unchanged', () =>
@@ -82,7 +82,11 @@ for (const [name, value, family] of [
     ['ThemeRegistryDetail', 248, 'theme-registry-response'],
     ['ThemeActivationList', 249, 'theme-activation-response'],
     ['ThemeActivation', 250, 'theme-activation-response'],
-    ['ThemeActivationHistory', 252, 'theme-activation-response']
+    ['ThemeActivationHistory', 252, 'theme-activation-response'],
+    ['ArticleRevisionCompareRequest', 253, 'authoring-request'],
+    ['ArticleRevisionCompareResponse', 254, 'authoring-response'],
+    ['ArticleRevisionCompareDraftCoordinateRequest', 255, 'authoring-request'],
+    ['ArticleRevisionCompareDraftCoordinateResponse', 256, 'authoring-response']
 ])
 {
     test(`the ${name} golden identity comes from the same protocol frame used by every language`, () =>
@@ -135,7 +139,7 @@ for (const [label, mutate, expected] of [
 test('every frame, including future registrations, must explicitly provide complete golden metadata', () =>
 {
     const source = structuredClone(manifest);
-    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 244 });
+    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: source.frameTypes.length });
     const golden = goldenFrom(source);
     assert.deepEqual(golden.frames.at(-1), { name: 'FutureFrame', value: 65535, family: 'test-response' });
 });
