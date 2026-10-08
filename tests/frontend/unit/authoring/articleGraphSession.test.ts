@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { admitArticleGraphResult } from '@/services/authoring/articleGraphQuery';
-import { ArticleGraphSession, layoutArticleGraph } from '@/services/authoring/articleGraphSession';
+import { ArticleGraphSession } from '@/services/authoring/articleGraphSession';
+import { layoutArticleGraph } from '@/services/authoring/articleGraphLayout';
 import type { ArticleGraphRequest, ArticleGraphResult } from '@/services/authoring/articleGraphQuery';
 import { graphIdentity, graphRequest, graphResult } from './articleGraphFixtures';
 
@@ -104,7 +105,7 @@ describe('single transient graph session', () => {
         session.moveNode(graphIdentity.rootArticle, 30, 30);
         expect(session.state.layout).not.toEqual(initial);
         expect(JSON.stringify(session.state.result)).toBe(facts);
-        session.resetLayout();
+        await session.resetLayout();
         expect(session.state.layout).toEqual(initial);
         expect(() => session.moveNode(graphIdentity.rootArticle, Infinity, 0)).toThrow('invalid-position');
         expect(Object.isFrozen(session.state.result?.nodes)).toBe(true);

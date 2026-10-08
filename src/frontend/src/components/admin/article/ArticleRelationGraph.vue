@@ -27,11 +27,12 @@
             role="status"
             aria-live="polite"
         >
-            {{ state.pending ? '正在查询' : state.result ? statusLabels[state.result.status] : '未打开' }}
+            {{ state.pending ? state.result ? '正在布局（列表可用）' : '正在查询' : state.result ? statusLabels[state.result.status] : '未打开' }}
             · 实际深度 {{ state.result?.effectiveDepth ?? 0 }}
             · {{ nodes.length }}/{{ articleGraphLimits.nodes }} 文章
             · {{ edges.length }}/{{ articleGraphLimits.edges }} 关系
             <span v-if="state.result?.reason"> · {{ state.result.reason }}</span>
+            <span v-if="state.layoutOutcome?.status === 'blocked'"> · 仅列表（布局 {{ state.layoutOutcome.reason }}）</span>
         </p>
         <p
             v-if="state.navigationStatus !== 'idle'"
@@ -75,7 +76,7 @@
         >{{ filterError }}</p>
         <ElCheckbox
             v-model="showGraph"
-            :disabled="!nodes.length"
+            :disabled="!state.layout"
         >显示局部图（下方列表提供全部导航）</ElCheckbox>
         <div
             v-if="showGraph && state.layout"
@@ -211,12 +212,12 @@ const pageSize = 40;
 const nodes = computed(() =>
 {
     const facts = new Map(state.value.result?.nodes.map(node => [node.articleIdentity, node]) ?? []);
-    return state.value.layout?.nodeOrder.map(identity => facts.get(identity)!).filter(Boolean) ?? [];
+    return state.value.layout?.nodeOrder.map(identity => facts.get(identity)!).filter(Boolean) ?? state.value.result?.nodes ?? [];
 });
 const edges = computed(() =>
 {
     const facts = new Map(state.value.result?.edges.map(edge => [edge.relationIdentity, edge]) ?? []);
-    return state.value.layout?.edgeOrder.map(identity => facts.get(identity)!).filter(Boolean) ?? [];
+    return state.value.layout?.edgeOrder.map(identity => facts.get(identity)!).filter(Boolean) ?? state.value.result?.edges ?? [];
 });
 const visibleNodes = computed(() => nodes.value.slice(nodePage.value * pageSize, (nodePage.value + 1) * pageSize));
 const visibleEdges = computed(() => edges.value.slice(edgePage.value * pageSize, (edgePage.value + 1) * pageSize));

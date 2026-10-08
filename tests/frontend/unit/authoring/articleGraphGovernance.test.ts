@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const runtimePaths = [
     '../../../../src/frontend/src/services/authoring/articleGraphQuery.ts',
     '../../../../src/frontend/src/services/authoring/articleGraphSession.ts',
+    '../../../../src/frontend/src/services/authoring/articleGraphLayout.ts',
     '../../../../src/frontend/src/components/admin/article/ArticleRelationGraph.vue',
     '../../../../src/backend/Services/Authoring/ArticleGraphQueryService.cs',
     '../../../../src/shared/Contracts/ArticleGraph/ArticleGraphContracts.cs',

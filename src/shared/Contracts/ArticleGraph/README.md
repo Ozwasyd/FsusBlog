@@ -40,12 +40,25 @@ implemented by guessing routes, article titles or text ranges.
 changes reset depth to one, abort old work and erase old facts. Filters reset the
 query to one; explicit expand/collapse is session-only. Close/background/unmount
 release local state and signals. Positions and drag adjustments have no storage
-or writer port. Static layout is identical under normal and reduced motion and
-uses no animation, worker, observer or timer. The list has bounded pages of forty
-items and retains access to the full returned node/edge set.
+or writer port. One static deterministic kernel is identical under normal and
+reduced motion. Product layout runs in finite cancellable MessageChannel tasks:
+128 items per slice, at most 64 slices, 8 ms per measured slice, 50 ms total CPU
+and 500 ms wall time. Native sorts remain capped at 1000 nodes/2000 edges; measured
+budget exhaustion discards partial positions and preserves the authorized result
+for list navigation. Task creation failure also degrades explicitly to list-only.
+Terminal paths close both ports and detach cancellation; query/session/layout
+generations deny old results after resets, identity changes and close. No animation,
+worker, observer or timer drives product layout. The list has bounded pages of forty
+items and retains access to the full returned node/edge set even while layout runs.
 
 Canonical backend and frontend unit/component tests are executable source
 controls. They do not establish real relation permissions/timing noninterference,
 HTTP/PoW/no-store, production navigation, rendered viewport/theme/a11y acceptance,
-performance qualification or complete terminal acceptance. Those remain WIP until
+production performance qualification or complete terminal acceptance. The standalone
+`node tests/frontend/checks/runtime/article-graph-layout-task.mjs` pressure check
+uses the actual layout/session modules with synthetic public fixtures in Chromium;
+it measures task response and terminal port cleanup at 100/1000 nodes, exercises
+the 2000-edge ceiling, active cancellation and allocation-free 10000-node refusal.
+Its local receipt explicitly excludes production relation-query acceptance.
+Integration acceptance remains WIP until
 the original source/transport integration and independent review are available.
