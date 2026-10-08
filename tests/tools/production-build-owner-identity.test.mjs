@@ -173,21 +173,37 @@ test('a reused owner PID cannot inherit unrelated live descendants', async (t) =
     assert.equal(productionBuildRunIsActive(layout.repositoryRoot, layout.runId), false)
 })
 
-test('scheduler exit keeps a reparented child writer active through persisted group monitoring', async (t) => {
+async function waitForFirstWriterOutput(outputFile) {
+    const deadline = performance.now() + 5000
+    while (true) {
+        try {
+            if (fs.statSync(outputFile).size > 0) return
+        } catch (error) {
+            if (error.code !== 'ENOENT') throw error
+        }
+        assert.ok(performance.now() < deadline, 'child writer did not produce its first output before the deadline')
+        await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+}
+
+async function assertReparentedChildWriterRemainsActive(t, { holdFirstWrite = false } = {}) {
     const layout = prepareBoundLayout(t, 'compiler-child')
     const childFile = path.join(layout.repositoryRoot, 'writer.mjs')
     const wrapperFile = path.join(layout.repositoryRoot, 'wrapper.mjs')
     const pidFile = path.join(layout.repositoryRoot, 'writer.pid')
     const outputFile = path.join(layout.runRoot, 'writer-output')
+    const firstWritePermitFile = path.join(layout.repositoryRoot, 'first-write-permit')
+    const appendOutput = `fs.appendFileSync(${JSON.stringify(outputFile)}, 'x')`
     fs.writeFileSync(
         childFile,
-        `import fs from 'node:fs'; setInterval(() => fs.appendFileSync(${JSON.stringify(outputFile)}, 'x'), 20); setTimeout(() => process.exit(0), 5000)\n`
+        `import fs from 'node:fs'; setInterval(() => { ${holdFirstWrite ? `if (fs.existsSync(${JSON.stringify(firstWritePermitFile)})) ` : ''}${appendOutput} }, 20); setTimeout(() => process.exit(0), 5000)\n`
     )
     fs.writeFileSync(
         wrapperFile,
         `import { spawn } from 'node:child_process'; import fs from 'node:fs'; const child = spawn(process.execPath, [${JSON.stringify(childFile)}], { stdio: 'ignore' }); fs.writeFileSync(${JSON.stringify(pidFile)}, String(child.pid)); setTimeout(() => process.exit(0), 120)\n`
     )
     const wrapper = spawn(process.execPath, [wrapperFile], { detached: true, stdio: 'ignore' })
+    const wrapperExited = new Promise((resolve) => wrapper.once('exit', resolve))
     t.after(() => {
         try {
             process.kill(-wrapper.pid, 'SIGKILL')
@@ -203,7 +219,13 @@ test('scheduler exit keeps a reparented child writer active through persisted gr
     registerProductionBuildCompiler(layout, wrapperIdentity)
     for (let attempt = 0; attempt < 100 && !fs.existsSync(pidFile); attempt += 1)
         await new Promise((resolve) => setTimeout(resolve, 10))
-    await new Promise((resolve) => wrapper.once('exit', resolve))
+    await wrapperExited
+    if (holdFirstWrite) {
+        assert.equal(fs.existsSync(outputFile), false)
+        const firstWritePermit = setImmediate(() => fs.writeFileSync(firstWritePermitFile, 'ready'))
+        t.after(() => clearImmediate(firstWritePermit))
+    }
+    await waitForFirstWriterOutput(outputFile)
     scanProductionBuildProcesses(layout)
     const writerPid = Number(fs.readFileSync(pidFile, 'utf8'))
     const before = fs.statSync(outputFile).size
@@ -235,6 +257,14 @@ test('scheduler exit keeps a reparented child writer active through persisted gr
         force: true
     })
     assert.equal(productionBuildRunIsActive(layout.repositoryRoot, layout.runId), true)
+}
+
+test('scheduler exit keeps a reparented child writer active through persisted group monitoring', async (t) => {
+    await assertReparentedChildWriterRemainsActive(t)
+})
+
+test('reparented child writer waits for its first output after scheduler exit before group assertions', async (t) => {
+    await assertReparentedChildWriterRemainsActive(t, { holdFirstWrite: true })
 })
 
 test('unknown identities, incomplete markers, and active writers fail closed', (t) => {
