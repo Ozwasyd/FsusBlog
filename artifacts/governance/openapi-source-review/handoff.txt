@@ -7,7 +7,7 @@ Draft PR: https://github.com/Ozwasyd/FsusBlog/pull/3912
 Branch: task/chain-3540-source-review
 Frozen exact head: b03d6e5b257cb66697354f5d96b19c775ffaa040
 Exact tested parent/review base: 8b1c739cacef47995f441f096835863d377dc347
-Latest master observed after publication: 87209d571a93254dcacfe9093753002e8c98822a
+Latest master observed after publication: 53da546cc8ab9fd8603067395d988b7ddb650394
 Actual PR diff: ONE file, tests/tools/openapi-aeds-observation.test.mjs,
 62 inserted lines, no deletions. It reuses only this task's own e865e3338adaab9b66784f6c93a1fc886b4b0769
 additions. It does not include the supplied census, lock, compiler, registry,
@@ -248,3 +248,27 @@ Canonical identity evidence is summarized in canonical-case-identity-summary.txt
 Complete adapter output (including full per-test annotations) is archived losslessly
 as canonical-case-identity-audit.txt.gz; raw SHA-256 43b2144f2dcf92746ca071de4107c9315b055c99cc976561e210590e1ba20334.
 This packaging does not alter any source candidate or diagnostic.
+
+Final remote/master refresh
+Both frozen source branch HEADs and their Draft PR HEADs were re-read and match:
+#3912 b03d6e5b257cb66697354f5d96b19c775ffaa040, one changed file;
+#3817 4f6ff718f1f19f2d2efe9ecf798751b393d91e06, 72 changed files.
+The separate artifact branch publishes supporting evidence only.
+Latest origin/master is now 53da546cc8ab9fd8603067395d988b7ddb650394.
+Since 87209d571, seven paths changed: three naming/binding artifacts, fixture
+permission test, execution-target authority, AST adapter and its own test.
+Of the 34 sealed source/policy/SDK inputs, 33 remain byte-identical; the AST
+adapter changed by removing unused parameters. The exact latest adapter was
+executed via its request-file interface against both audited test files on
+baseline, bounded and original roots (six probes). All six complete case and
+diagnostic outputs are exactly equal to the previous canonical outputs.
+No static-case failure or dropped ID on the original imported scope disappears.
+The initial stdin invocation failed (process.stdin is not iterable); subsequent
+canonical request-file invocations all exited 0, without changing the adapter.
+Latest-master ordinary merge-tree checks exit 0 for BOTH frozen source heads.
+See latest-master-refresh.txt and lossless latest-adapter output archives.
+The earlier source-review-seal.txt remains an exact 87209d571 snapshot; this
+append-only refresh supersedes its latestMaster/input-equality observation.
+No frozen source reset, rebase, integration or global conflict clearing occurred.
+Full runtime test comparisons remain bound to exact baseline 8b1c739c and b03d6e5b;
+no runtime requalification on 53da546c is inferred from this source-only refresh.

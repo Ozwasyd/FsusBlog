@@ -1,0 +1,410 @@
+{
+  "runId": "latest-master-review-2026-10-08T05:23:47.312813+00:00",
+  "reviewBase": "8b1c739cacef47995f441f096835863d377dc347",
+  "latestMaster": "53da546cc8ab9fd8603067395d988b7ddb650394",
+  "boundedCandidate": "b03d6e5b257cb66697354f5d96b19c775ffaa040",
+  "preservedOriginal": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+  "changedSince872": [
+    "artifacts/change-contract/issue-3739-fixture-permission-external-naming.json",
+    "artifacts/change-contract/issue-3739-fixture-permission-generated-binding.json",
+    "artifacts/style/issue-3242-source-only/external-naming.json",
+    "tests/browser-contract/fixture-lifecycle.test.mjs",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "tests/tools/ts-ast-adapter.test.mjs",
+    "tools/test-inventory/ts-ast-adapter/index.mjs"
+  ],
+  "sourceInputs": [
+    {
+      "path": "config/contracts/behavior-contracts.json",
+      "priorSha256": "2a176e55c40198a55b5c63b38b76f7aa3483aa27bc6e3375d84d090b28a97f93",
+      "latestSha256": "2a176e55c40198a55b5c63b38b76f7aa3483aa27bc6e3375d84d090b28a97f93",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+      "priorSha256": "51b8dba88857f86dd19d0b11d78e8bb34babc79207dca0be7675c541e231b0dd",
+      "latestSha256": "51b8dba88857f86dd19d0b11d78e8bb34babc79207dca0be7675c541e231b0dd",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs",
+      "priorSha256": "bdd9354ad4fa9fbcaa9ca0cb63ccf2e7aa52046ae734b3b06114234d7f761f46",
+      "latestSha256": "bdd9354ad4fa9fbcaa9ca0cb63ccf2e7aa52046ae734b3b06114234d7f761f46",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+      "priorSha256": "4052968b19182c3805f33eb71bacfc0c2097059ec76cd7ad87b565ecd1401d59",
+      "latestSha256": "4052968b19182c3805f33eb71bacfc0c2097059ec76cd7ad87b565ecd1401d59",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
+      "priorSha256": "9d9033d7220abcf07b25dffae7684d92220c4cf70043e92851604e3ab306c848",
+      "latestSha256": "9d9033d7220abcf07b25dffae7684d92220c4cf70043e92851604e3ab306c848",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+      "priorSha256": "1f884d5f548492381397c3f3279ec673dbff9f9429492a0eccf88afaeac64684",
+      "latestSha256": "1f884d5f548492381397c3f3279ec673dbff9f9429492a0eccf88afaeac64684",
+      "unchanged": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+      "priorSha256": "69f7fb92a5af32c76b350d5ad9ce92acd7fafc75c9951019dac4a3936dd7cefd",
+      "latestSha256": "69f7fb92a5af32c76b350d5ad9ce92acd7fafc75c9951019dac4a3936dd7cefd",
+      "unchanged": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+      "priorSha256": "cf2980aa00c2dee72c5ea0b59fb29767bbc8f72374e7420f1a5ba65dbf2407ce",
+      "latestSha256": "cf2980aa00c2dee72c5ea0b59fb29767bbc8f72374e7420f1a5ba65dbf2407ce",
+      "unchanged": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs",
+      "priorSha256": "77e64d0b7c5c712bc648a7af8a89332a565c09135f233bbe2cac242eccd1ec9c",
+      "latestSha256": "77e64d0b7c5c712bc648a7af8a89332a565c09135f233bbe2cac242eccd1ec9c",
+      "unchanged": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "priorSha256": "44b126ec8add20863116209483e06363c229c74d087d2618e872f410b1209af4",
+      "latestSha256": "44b126ec8add20863116209483e06363c229c74d087d2618e872f410b1209af4",
+      "unchanged": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/Models.cs",
+      "priorSha256": "cc3a7aa380320acab369f6792aced5e46b682d78f8b9623fe6d927ad3a13e167",
+      "latestSha256": "cc3a7aa380320acab369f6792aced5e46b682d78f8b9623fe6d927ad3a13e167",
+      "unchanged": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/OpenApiObservationSelfTest.cs",
+      "priorSha256": "a260ff7304ace94fa4a41caff5c90c11649c0bc561d92fff611d67238ad3b84c",
+      "latestSha256": "a260ff7304ace94fa4a41caff5c90c11649c0bc561d92fff611d67238ad3b84c",
+      "unchanged": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/OpenApiProjectionWriter.cs",
+      "priorSha256": "399973941e7d14d0e09626587c0466885ef2f5b8f176846b80ddd0148cf602e1",
+      "latestSha256": "399973941e7d14d0e09626587c0466885ef2f5b8f176846b80ddd0148cf602e1",
+      "unchanged": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+      "priorSha256": "da8c27e4d26af7d46e16eb8297b7dd38fcf9f97cda05241eee4f5d6ef4ce3fc1",
+      "latestSha256": "da8c27e4d26af7d46e16eb8297b7dd38fcf9f97cda05241eee4f5d6ef4ce3fc1",
+      "unchanged": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs",
+      "priorSha256": "75064b4eecc46430dd4814d57027259be4bc539ec2d3a25f20a6475a79942178",
+      "latestSha256": "75064b4eecc46430dd4814d57027259be4bc539ec2d3a25f20a6475a79942178",
+      "unchanged": true
+    },
+    {
+      "path": "tools/contracts/lib/openapi-observation.mjs",
+      "priorSha256": "58814bc6e84d0a7a1530ad40c89e44935959c952b36abf083d0f7cbdb3b1b2d5",
+      "latestSha256": "58814bc6e84d0a7a1530ad40c89e44935959c952b36abf083d0f7cbdb3b1b2d5",
+      "unchanged": true
+    },
+    {
+      "path": "tools/fact-extractors/lib/canonicalize.mjs",
+      "priorSha256": "33abf393dda9109bf34ae240a11398fdf1432b1d7f24911c4e91e9fa6a5f5dc8",
+      "latestSha256": "33abf393dda9109bf34ae240a11398fdf1432b1d7f24911c4e91e9fa6a5f5dc8",
+      "unchanged": true
+    },
+    {
+      "path": "tools/fact-extractors/openapi-aeds/extract.mjs",
+      "priorSha256": "30ab4b2e57b5ce40ee6f6169a95d58af6108c08ecb537a02cb6548cb06064f2c",
+      "latestSha256": "30ab4b2e57b5ce40ee6f6169a95d58af6108c08ecb537a02cb6548cb06064f2c",
+      "unchanged": true
+    },
+    {
+      "path": "tools/fact-extractors/runner.mjs",
+      "priorSha256": "a379b789959b603fe2440a94e292a65470138058a0565122085609258ed78598",
+      "latestSha256": "a379b789959b603fe2440a94e292a65470138058a0565122085609258ed78598",
+      "unchanged": true
+    },
+    {
+      "path": "config/development/frontend-style-policy.json",
+      "priorSha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+      "latestSha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+      "unchanged": true
+    },
+    {
+      "path": "config/development/frontend-style-baseline.json",
+      "priorSha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+      "latestSha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+      "unchanged": true
+    },
+    {
+      "path": "config/development/frontend-style-rule-registry.json",
+      "priorSha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+      "latestSha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+      "unchanged": true
+    },
+    {
+      "path": "config/development/frontend-style-reviewed-residual.json",
+      "priorSha256": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8",
+      "latestSha256": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8",
+      "unchanged": true
+    },
+    {
+      "path": "tools/frontend/check-frontend-style.mjs",
+      "priorSha256": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+      "latestSha256": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+      "unchanged": true
+    },
+    {
+      "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+      "priorSha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+      "latestSha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+      "unchanged": true
+    },
+    {
+      "path": "tools/frontend/style-toolchain/package-lock.json",
+      "priorSha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+      "latestSha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+      "unchanged": true
+    },
+    {
+      "path": "tools/governance/change-contract.mjs",
+      "priorSha256": "fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463",
+      "latestSha256": "fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463",
+      "unchanged": true
+    },
+    {
+      "path": "tools/governance/change-contract-registry.mjs",
+      "priorSha256": "019a39477af6b874eb8321b29cf54f08049509829255e896f0d69ccdc490c1df",
+      "latestSha256": "019a39477af6b874eb8321b29cf54f08049509829255e896f0d69ccdc490c1df",
+      "unchanged": true
+    },
+    {
+      "path": "tools/test-replacement/transaction.mjs",
+      "priorSha256": "aa9df11015f0ca1a74ffffb61caa414010b0a5c5a33a9a9047ddea88a5e6866c",
+      "latestSha256": "aa9df11015f0ca1a74ffffb61caa414010b0a5c5a33a9a9047ddea88a5e6866c",
+      "unchanged": true
+    },
+    {
+      "path": "tools/test-inventory/ts-ast-adapter/index.mjs",
+      "priorSha256": "abaabf83a88f4fa480dd7764e00c9373261b021a0ab17fde1f5c8e5182f88e1a",
+      "latestSha256": "59e2f6e258c78ff16d32a87a885e300388f5ad40252469bb4e54ba5e42fccbad",
+      "unchanged": false
+    },
+    {
+      "path": "tests/tools/frontend-style.test.mjs",
+      "priorSha256": "f4af357aa0fc6bf4dbfab0c48f85b49c405bade82153930dca44f2149ab17484",
+      "latestSha256": "f4af357aa0fc6bf4dbfab0c48f85b49c405bade82153930dca44f2149ab17484",
+      "unchanged": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "priorSha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "latestSha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "unchanged": true
+    },
+    {
+      "path": "Directory.Packages.props",
+      "priorSha256": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f",
+      "latestSha256": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f",
+      "unchanged": true
+    },
+    {
+      "path": "Directory.Build.props",
+      "priorSha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+      "latestSha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+      "unchanged": true
+    }
+  ],
+  "adapterProbes": [
+    {
+      "root": "/workspace/scratch/chain-3540/resume/master-style",
+      "sourceRevision": "8b1c739cacef47995f441f096835863d377dc347",
+      "file": "tests/tools/correctness-attempt-migration.test.mjs",
+      "start": "2026-10-08T05:23:44.943664+00:00",
+      "end": "2026-10-08T05:23:45.283815+00:00",
+      "command": [
+        "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/scratch/chain-3540/latest-review-probe/tools/test-inventory/ts-ast-adapter/index.mjs",
+        "/workspace/scratch/chain-3540/source-handoff/latest-adapter-request-0.json"
+      ],
+      "request": {
+        "root": "/workspace/scratch/chain-3540/resume/master-style",
+        "files": [
+          {
+            "path": "tests/tools/correctness-attempt-migration.test.mjs",
+            "adapter": "node-test"
+          }
+        ]
+      },
+      "exitCode": 0,
+      "cases": 2,
+      "diagnostics": [],
+      "completeCasesAndDiagnosticsEqualPrior": true
+    },
+    {
+      "root": "/workspace/scratch/chain-3540/resume/master-style",
+      "sourceRevision": "8b1c739cacef47995f441f096835863d377dc347",
+      "file": "tests/tools/openapi-aeds-observation.test.mjs",
+      "start": "2026-10-08T05:23:45.284802+00:00",
+      "end": "2026-10-08T05:23:45.705971+00:00",
+      "command": [
+        "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/scratch/chain-3540/latest-review-probe/tools/test-inventory/ts-ast-adapter/index.mjs",
+        "/workspace/scratch/chain-3540/source-handoff/latest-adapter-request-1.json"
+      ],
+      "request": {
+        "root": "/workspace/scratch/chain-3540/resume/master-style",
+        "files": [
+          {
+            "path": "tests/tools/openapi-aeds-observation.test.mjs",
+            "adapter": "node-test"
+          }
+        ]
+      },
+      "exitCode": 0,
+      "cases": 38,
+      "diagnostics": [],
+      "completeCasesAndDiagnosticsEqualPrior": true
+    },
+    {
+      "root": "/workspace/FsusBlog",
+      "sourceRevision": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+      "file": "tests/tools/correctness-attempt-migration.test.mjs",
+      "start": "2026-10-08T05:23:45.718633+00:00",
+      "end": "2026-10-08T05:23:46.054315+00:00",
+      "command": [
+        "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/scratch/chain-3540/latest-review-probe/tools/test-inventory/ts-ast-adapter/index.mjs",
+        "/workspace/scratch/chain-3540/source-handoff/latest-adapter-request-2.json"
+      ],
+      "request": {
+        "root": "/workspace/FsusBlog",
+        "files": [
+          {
+            "path": "tests/tools/correctness-attempt-migration.test.mjs",
+            "adapter": "node-test"
+          }
+        ]
+      },
+      "exitCode": 0,
+      "cases": 3,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "native-table-not-closed",
+          "file": "tests/tools/correctness-attempt-migration.test.mjs",
+          "message": "native registration is not an immutable closed table at tests/tools/correctness-attempt-migration.test.mjs:35"
+        }
+      ],
+      "completeCasesAndDiagnosticsEqualPrior": true
+    },
+    {
+      "root": "/workspace/FsusBlog",
+      "sourceRevision": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+      "file": "tests/tools/openapi-aeds-observation.test.mjs",
+      "start": "2026-10-08T05:23:46.054869+00:00",
+      "end": "2026-10-08T05:23:46.467913+00:00",
+      "command": [
+        "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/scratch/chain-3540/latest-review-probe/tools/test-inventory/ts-ast-adapter/index.mjs",
+        "/workspace/scratch/chain-3540/source-handoff/latest-adapter-request-3.json"
+      ],
+      "request": {
+        "root": "/workspace/FsusBlog",
+        "files": [
+          {
+            "path": "tests/tools/openapi-aeds-observation.test.mjs",
+            "adapter": "node-test"
+          }
+        ]
+      },
+      "exitCode": 0,
+      "cases": 39,
+      "diagnostics": [],
+      "completeCasesAndDiagnosticsEqualPrior": true
+    },
+    {
+      "root": "/workspace/scratch/chain-3540/source-candidate",
+      "sourceRevision": "b03d6e5b257cb66697354f5d96b19c775ffaa040",
+      "file": "tests/tools/correctness-attempt-migration.test.mjs",
+      "start": "2026-10-08T05:23:46.480070+00:00",
+      "end": "2026-10-08T05:23:46.788770+00:00",
+      "command": [
+        "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/scratch/chain-3540/latest-review-probe/tools/test-inventory/ts-ast-adapter/index.mjs",
+        "/workspace/scratch/chain-3540/source-handoff/latest-adapter-request-4.json"
+      ],
+      "request": {
+        "root": "/workspace/scratch/chain-3540/source-candidate",
+        "files": [
+          {
+            "path": "tests/tools/correctness-attempt-migration.test.mjs",
+            "adapter": "node-test"
+          }
+        ]
+      },
+      "exitCode": 0,
+      "cases": 2,
+      "diagnostics": [],
+      "completeCasesAndDiagnosticsEqualPrior": true
+    },
+    {
+      "root": "/workspace/scratch/chain-3540/source-candidate",
+      "sourceRevision": "b03d6e5b257cb66697354f5d96b19c775ffaa040",
+      "file": "tests/tools/openapi-aeds-observation.test.mjs",
+      "start": "2026-10-08T05:23:46.789366+00:00",
+      "end": "2026-10-08T05:23:47.231398+00:00",
+      "command": [
+        "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/scratch/chain-3540/latest-review-probe/tools/test-inventory/ts-ast-adapter/index.mjs",
+        "/workspace/scratch/chain-3540/source-handoff/latest-adapter-request-5.json"
+      ],
+      "request": {
+        "root": "/workspace/scratch/chain-3540/source-candidate",
+        "files": [
+          {
+            "path": "tests/tools/openapi-aeds-observation.test.mjs",
+            "adapter": "node-test"
+          }
+        ]
+      },
+      "exitCode": 0,
+      "cases": 39,
+      "diagnostics": [],
+      "completeCasesAndDiagnosticsEqualPrior": true
+    }
+  ],
+  "textualConflictChecks": [
+    {
+      "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "53da546cc8ab9fd8603067395d988b7ddb650394",
+        "b03d6e5b257cb66697354f5d96b19c775ffaa040"
+      ],
+      "exitCode": 0,
+      "stdout": "180f717485cfca75b4cbce4eba79709a6561ca88\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "53da546cc8ab9fd8603067395d988b7ddb650394",
+        "4f6ff718f1f19f2d2efe9ecf798751b393d91e06"
+      ],
+      "exitCode": 0,
+      "stdout": "2fd3e77fa9d87eec834d80cc962dc3dcfa9986b9\n",
+      "stderr": ""
+    }
+  ],
+  "failedProbeCorrection": "Initial stdin invocation exit 1: process.stdin is not iterable. Used documented request-path interface unchanged; six final invocations pass. No adapter edit.",
+  "independentReviewComplete": false,
+  "mergeReadinessClaimed": false
+}
