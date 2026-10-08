@@ -4,13 +4,13 @@
             role="status"
             aria-live="polite"
         >本地物化、base 更新与 recovery checkpoint 未验证；同步状态未知。</p>
-        <p v-if="!result">Exact operation receipt 尚不可用；不能恢复进度。</p>
+        <p v-if="!result">指定操作的回执尚不可用；不能恢复进度。</p>
         <p
             v-else-if="!presentation"
             role="alert"
-        >Receipt 与当前 site / Vault / plan refs 不匹配。</p>
+        >回执与当前站点、Vault 或计划引用不匹配。</p>
         <template v-else>
-            <p>以下为服务端结果记录，尚未经 current receipt verification。</p>
+            <p>以下为服务端结果记录，尚未验证是否仍然有效。</p>
             <dl>
                 <dt>Result / plan reference</dt>
                 <dd>{{ result.resultReference }} / {{ result.planReference }}</dd>
@@ -38,7 +38,7 @@
                     </ul>
                 </li>
             </ol>
-            <p>取消与恢复命令尚不可用。已提交的服务端 revision/history 保留；必须取得 exact materialization/journal receipts 后继续。</p>
+            <p>取消与恢复命令尚不可用。已提交的服务端 revision/history 保留；必须取得对应物化与恢复日志回执后继续。</p>
         </template>
     </section>
 </template>

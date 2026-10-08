@@ -121,7 +121,7 @@ describe('plan and server receipt composition (unqualified presentation)', () =>
         await wrapper.setProps({ plan: plan([item('op-one')]) });
         expect(wrapper.findAll('button')).toHaveLength(0);
         expect(wrapper.emitted()).toEqual({});
-        expect(wrapper.text()).toContain('未经 current verification');
+        expect(wrapper.text()).toContain('尚未验证是否仍然有效');
         expect(wrapper.text()).toContain('missing_base');
         expect(wrapper.find('input').attributes('aria-label')).toBe('筛选 article 或 operation identity');
         wrapper.unmount();
