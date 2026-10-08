@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Memory.Contracts;
 
 namespace FsusBlog.Server.Infrastructure.Memory.Disk;
 
+/// <summary>A complete disk/host/slot request; zero disk bytes represents read or recovery scratch.</summary>
 public sealed record DiskBudgetRequest(long DiskBytes, long HostBytes, long OperationSlots);
 
 /// <summary>Unknown layering cannot certify capacity independent of host memory.</summary>

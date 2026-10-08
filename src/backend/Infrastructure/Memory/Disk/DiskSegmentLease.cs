@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Memory.Contracts;
 
 namespace FsusBlog.Server.Infrastructure.Memory.Disk;
 
+/// <summary>Successful verified bytes copied to caller-owned private staging.</summary>
 public sealed record DiskSegmentCopy(long BytesWritten);
 
 /// <summary>
