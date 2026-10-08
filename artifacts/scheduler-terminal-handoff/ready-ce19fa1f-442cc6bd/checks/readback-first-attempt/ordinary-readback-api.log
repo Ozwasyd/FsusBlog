@@ -1,0 +1,11 @@
+✔ ordinary readback returns only the actual committed revision and wrapper reference facts without repair (14.438544ms)
+✔ readback requires every explicit parameter and never defaults the committed revision (3.660755ms)
+✔ readback rejects a different independently supplied current attempt identity (4.179442ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 601.660293

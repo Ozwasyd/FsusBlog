@@ -1,0 +1,5 @@
+0d2a45f82914ac2b028324a1883f7cdcbafa9b2d	refs/heads/codex/chain-3521-scheduler-fixture-p2
+442cc6bd979c88b6af4a3fbe63583af61f4768bd	refs/heads/task/release-consumer-scheduler-readback
+ce19fa1fffbbf58e9c1b14c512fa4b22400a97c9	refs/heads/task/scheduler-producer-terminal-boundary
+6ed505c7a47029463d979682ad64fa8fbd58ba25	refs/heads/task/scheduler-terminal-canonical-source
+83d4908a1420c519dddb5fbb87f225880a731f13	refs/heads/task/scheduler-terminal-two-p2
