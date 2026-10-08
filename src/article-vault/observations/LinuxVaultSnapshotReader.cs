@@ -94,7 +94,17 @@ public sealed class LinuxVaultSnapshotReader
     /// </summary>
     public LinuxVaultSnapshotReadResult Read(string relativePath, IReadOnlyList<string> observedPaths,
         LinuxVaultRawFact? completionFact = null, CancellationToken cancellationToken = default)
+        => ReadBounded(relativePath, observedPaths, completionFact, ArticleVaultSnapshotAssessor.MaxSourceBytes, cancellationToken);
+
+    // A rescan charges both samples against a finite inventory byte budget before allocation.
+    internal LinuxVaultSnapshotReadResult ReadBounded(string relativePath, IReadOnlyList<string> observedPaths,
+        LinuxVaultRawFact? completionFact, int maximumSourceBytes, CancellationToken cancellationToken)
     {
+        if (maximumSourceBytes is < 0 or > ArticleVaultSnapshotAssessor.MaxSourceBytes)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumSourceBytes));
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
@@ -104,8 +114,8 @@ public sealed class LinuxVaultSnapshotReader
                 return Failure(relativePath, path.ReasonCode ?? "vault_snapshot_source_projection_required");
             }
 
-            Sample first = ReadSample(relativePath, cancellationToken);
-            Sample second = ReadSample(relativePath, cancellationToken);
+            Sample first = ReadSample(relativePath, maximumSourceBytes, cancellationToken);
+            Sample second = ReadSample(relativePath, maximumSourceBytes, cancellationToken);
             if (first.Before != first.After || second.Before != second.After || first.After != second.Before)
             {
                 return Failure(relativePath, "vault_snapshot_native_metadata_changed");
@@ -141,12 +151,17 @@ public sealed class LinuxVaultSnapshotReader
         }
     }
 
-    private Sample ReadSample(string relativePath, CancellationToken cancellationToken)
+    private Sample ReadSample(string relativePath, int maximumSourceBytes, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using SafeFileHandle descriptor = _scope.OpenSourceFile(relativePath);
         _scope.RevalidateForUse(descriptor);
         LinuxVaultSnapshotNative.Observation before = LinuxVaultSnapshotNative.Observe(descriptor);
+        if (before.Metadata.ByteLength > maximumSourceBytes)
+        {
+            throw new LinuxVaultWatcherException("vault_snapshot_scan_byte_bound_exceeded");
+        }
+
         byte[] bytes = new byte[checked((int)before.Metadata.ByteLength)];
         int offset = 0;
         while (offset < bytes.Length)
