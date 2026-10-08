@@ -43,6 +43,52 @@ public sealed class ArticleMediaInventoryTests
     }
 
     [Fact]
+    public async Task Inventory_BindsAcceptedHtmlAttributesToUnchangedSourceSpans()
+    {
+        using var fixture = new MediaFixture();
+        fixture.Write("a&b.bin", [1]);
+        fixture.Write("poster.bin", [2]);
+        fixture.Write("small.bin", [3]);
+        fixture.Write("large.bin", [4]);
+        const string Markdown = "你好😀\r\n\r\n<div>\r\n<IMG\r\n SRC = \"/uploads/illustration/a&amp;b.bin\" src='/ignored.bin'>\r\n"
+            + "<video src='/uploads/illustration/a&amp;b.bin' poster=/uploads/illustration/poster.bin></video>\r\n"
+            + "<source srcset='/uploads/illustration/small.bin 1x, /uploads/illustration/large.bin 2x'>\r\n</div>\r\n";
+        ArticleMediaInventory inventory = await Inventory(fixture, Source(1, Markdown));
+
+        ArticleMediaAlias[] imageAliases = inventory.Files.Single(static file => file.RelativePath == "a&b.bin").Aliases.ToArray();
+        Assert.Equal(2, imageAliases.Length);
+        foreach (ArticleMediaAlias alias in imageAliases)
+        {
+            Assert.Equal("/uploads/illustration/a&amp;b.bin", Markdown.Substring(alias.Offset, alias.SourceLength));
+            Assert.Equal("/uploads/illustration/a&b.bin", alias.Url);
+        }
+        ArticleMediaAlias poster = Assert.Single(inventory.Files.Single(static file => file.RelativePath == "poster.bin").Aliases);
+        Assert.Equal("/uploads/illustration/poster.bin", Markdown.Substring(poster.Offset, poster.SourceLength));
+        foreach (ArticleMediaFile file in inventory.Files.Where(static file => file.RelativePath is "small.bin" or "large.bin"))
+        {
+            ArticleMediaAlias alias = Assert.Single(file.Aliases);
+            Assert.Equal("/uploads/illustration/small.bin 1x, /uploads/illustration/large.bin 2x",
+                Markdown.Substring(alias.Offset, alias.SourceLength));
+        }
+        await ArticleMediaPreservation.VerifyInventoryAsync(inventory, Documents([Source(1, Markdown)]),
+            fixture.Source, s_origin, Prefix, s_limits, default);
+    }
+
+    [Theory]
+    [InlineData("before <img src=\"/uploads/illustration/file.bin\"> after")]
+    [InlineData("before <img SRC='/uploads/illustration/file.bin'> after")]
+    [InlineData("before <img src=/uploads/illustration/file.bin> after")]
+    [InlineData("> <div>\r\n> <img src='/uploads/illustration/file.bin'>\r\n> </div>")]
+    public async Task Inventory_HtmlSourceRangeUsesOriginalMarkdown(string markdown)
+    {
+        using var fixture = new MediaFixture();
+        fixture.Write("file.bin", [1]);
+        ArticleMediaInventory inventory = await Inventory(fixture, Source(1, markdown));
+        ArticleMediaAlias alias = Assert.Single(Assert.Single(inventory.Files).Aliases);
+        Assert.Equal("/uploads/illustration/file.bin", markdown.Substring(alias.Offset, alias.SourceLength));
+    }
+
+    [Fact]
     public async Task Inventory_RetainsEveryAliasWithoutFilenameOrHashIdentityMerging()
     {
         using var fixture = new MediaFixture();
