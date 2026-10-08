@@ -9,7 +9,7 @@ Common-contract dependency: https://github.com/Ozwasyd/FsusBlog/pull/3845
 
 Implement disk admission and an owned-root boundary, plus reconstructible immutable segments. Disk, host scratch/index and operation slots use the existing MemoryReservationCoordinator; staging/compaction and old-reader storage remain charged until legal deletion. Linux operations use anchored no-follow handles and actual device identity. Unknown quota/inodes/backing remain unavailable for independent escape capacity. A versioned bounded multirecord format verifies lengths, representation identity, completion and SHA-256 before publication/reuse; content-owner denial overrides spill availability. Recovery and cleanup have finite rosters; compaction retains old leases. PublicAOT publication authority is untouched.
 
-Base: b9c076e4b763130075218ff9d50f9a6c36784f59. Exact source head: f110db428547f81dfe863d69812a9e9b8ad27c7d. Common API: 089d95e466c23a7fc781d30b80157cb4dd199c10. This branch does not import the broad common WIP or edit its held files; source depends on owner integration of PR3845 contracts.
+Base: b9c076e4b763130075218ff9d50f9a6c36784f59. Exact source head: 826e09152a0d9d703520da83f6e6674f081172e6. Common API: 089d95e466c23a7fc781d30b80157cb4dd199c10. This branch does not import the broad common WIP or edit its held files; source depends on owner integration of PR3845 contracts.
 
 ## Change Classification
 
@@ -29,7 +29,7 @@ Base: b9c076e4b763130075218ff9d50f9a6c36784f59. Exact source head: f110db428547f
 - [x] Other: node tools/dotnet/check-csharp-style.mjs --mode changed --base base; FAIL at SDK invocation (checker reports undefined trim).
 - [ ] Targeted backend tests: dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter disk fixture classes; NOT RUN (command attempted, exit127, dotnet missing).
 
-Raw results, source hashes and every AC state are in artifacts/memory/disk-delivery/REPORT.json. No runtime/native/physical-memory pass is claimed. No missing dependencies were fetched. No Docker tests were run.
+Raw results, source hashes and every AC state are in artifacts/memory/disk-delivery/REPORT.json. Exclusive-creation wrapper failures retain ownership; reentrant CopyTo disposal retains the active operation through its final hold, including unexpected caller exceptions. No runtime/native/physical-memory pass is claimed. No missing dependencies were fetched. No Docker tests were run.
 
 ## UI Evidence
 
