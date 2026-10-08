@@ -1,9 +1,16 @@
 using System.Text;
 
+using FsusBlog.Core.Services.Articles;
+using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.ArticleVault;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 using FsusBlog.Shared.Contracts.ArticleVault;
 using FsusBlog.Shared.Contracts.ArticleVault.Dependencies;
+
+using Microsoft.Extensions.Configuration;
+
+using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -19,6 +26,153 @@ public sealed class ArticleVaultDependencyExecutionPreflightTests
     {
         Scenario scenario = CreateScenario();
         Assert.True(Verify(scenario).IsValid);
+    }
+
+    [Fact]
+    public async Task AcceptedSourceStageReadsExactRevisionWithoutGrantingTerminalOrBaseCommit()
+    {
+        Scenario scenario = CreateScenario();
+        ArticleVaultExecutionResult result = AcceptedResult(scenario.Bundle);
+        IArticleVaultExecutionStore store = Substitute.For<IArticleVaultExecutionStore>();
+        store.LoadSealedAsync(scenario.Bundle.PlanReference, scenario.Bundle.PlanSha256, Arg.Any<CancellationToken>())
+            .Returns(scenario.Bundle);
+        store.LoadResultAsync(result.ResultReference, Arg.Any<CancellationToken>()).Returns(result);
+        IAuthoringRevisionCompareAuthority revisionAuthority = Substitute.For<IAuthoringRevisionCompareAuthority>();
+        revisionAuthority.GetAuthorizedArticleAsync(Arg.Any<RevisionCompareReadContext>(), 42, Arg.Any<CancellationToken>())
+            .Returns(new AuthoringRevisionCompareArticle(42, 9));
+        revisionAuthority.GetRevisionAsync(42, 9, Arg.Any<CancellationToken>()).Returns(
+            new ArticleRevisionDetailResponse("9", 42, 900, "Title", "content\n", null, null, 1, [], "", "7",
+                DateTime.UnixEpoch, null, null, true, null, null, null));
+        IAuthorRecentArticleHistoryPermissionProjectionProvider permissions =
+            Substitute.For<IAuthorRecentArticleHistoryPermissionProjectionProvider>();
+        permissions.ResolveAsync(Arg.Any<AuthorRecentArticleHistoryPermissionRequest>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                AuthorRecentArticleHistoryPermissionRequest permission = call.Arg<AuthorRecentArticleHistoryPermissionRequest>();
+                var snapshot = new AuthorRecentArticleHistoryPermissionSnapshot(
+                    AuthorRecentArticleHistoryPermissionSnapshotStatus.Current, permission.Owner,
+                    Digest, Digest, Digest, [new(42, true, true, Digest)], string.Empty);
+                return Task.FromResult(snapshot with
+                {
+                    ContentDigest = AuthorRecentArticleHistoryContract.ComputePermissionDigest(snapshot)
+                });
+            });
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?> { ["SITE_BASEURL"] = "https://site.example/" }).Build();
+        var reader = new AuthoringRevisionComparePackageReader(revisionAuthority,
+            Substitute.For<IAuthoringRevisionCompareDraftContextAuthority>());
+        var adapter = new ArticleVaultAcceptedSourceAdapter(store, reader, permissions, configuration, scenario.Bundle.Plan.SiteIdentity);
+        var stage = new ArticleVaultDependencyAcceptedSourceStage(store, adapter,
+            new StageTimeProvider(scenario.Bundle.Plan.CreatedAtUnixMs));
+        ArticleVaultOperationIdentity operation = ArticleVaultOperationVerifier.Bind(scenario.Bundle.Plan,
+            "agent:primary", Digest, Digest, scenario.Bundle.Plan.ExpiresAtUnixMs);
+        ArticleVaultDependencyAcceptedSources read = await stage.ReadAsync(scenario.Bundle, scenario.Extension,
+            scenario.Request, scenario.Context, scenario.Inputs, s_budgets, operation, result.ResultReference, result.ContentSha256);
+        ArticleVaultAcceptedSource source = Assert.Single(read.Sources);
+        Assert.Equal(scenario.Inputs[0].SourceBytes.ToArray(), source.Package.RawMarkdown.ToArray());
+        Assert.Equal(9, source.Package.RevisionId);
+        Assert.Equal(900, source.Package.RevisionNo);
+        Assert.Equal(scenario.Extension.ContentSha256, read.DependencyPlanSha256);
+        Assert.False(read.CanCommitBase);
+        Assert.False(read.HasVerifiedTerminalReceipt);
+        await store.DidNotReceiveWithAnyArgs().SaveResultAsync(default!, default);
+        await permissions.Received(2).ResolveAsync(Arg.Any<AuthorRecentArticleHistoryPermissionRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RejectedDependencyOrExpiredOperationStopsBeforeReadingAcceptedResult(bool expired)
+    {
+        Scenario scenario = CreateScenario();
+        IArticleVaultExecutionStore store = Substitute.For<IArticleVaultExecutionStore>();
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?> { ["SITE_BASEURL"] = "https://site.example/" }).Build();
+        var adapter = new ArticleVaultAcceptedSourceAdapter(store, Substitute.For<IRevisionComparePackageReader>(),
+            Substitute.For<IAuthorRecentArticleHistoryPermissionProjectionProvider>(), configuration, scenario.Bundle.Plan.SiteIdentity);
+        var stage = new ArticleVaultDependencyAcceptedSourceStage(store, adapter,
+            new StageTimeProvider(expired ? scenario.Bundle.Plan.ExpiresAtUnixMs + 1 : scenario.Bundle.Plan.CreatedAtUnixMs));
+        ArticleVaultOperationIdentity operation = ArticleVaultOperationVerifier.Bind(scenario.Bundle.Plan,
+            "agent:primary", Digest, Digest, scenario.Bundle.Plan.ExpiresAtUnixMs);
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => stage.ReadAsync(scenario.Bundle,
+            expired ? scenario.Extension : scenario.Extension with
+            {
+                ContentSha256 = Digest
+            }, scenario.Request, scenario.Context, scenario.Inputs, s_budgets, operation, "result:exact", Digest));
+        await store.DidNotReceiveWithAnyArgs().LoadResultAsync(default!, default);
+        await store.DidNotReceiveWithAnyArgs().LoadSealedAsync(default!, default!, default);
+    }
+
+    [Fact]
+    public async Task ResolutionReadRefusesAnUnboundOriginalPlanBeforeStoreAccess()
+    {
+        Scenario scenario = CreateScenario();
+        IArticleVaultResolutionProposalStore store = Substitute.For<IArticleVaultResolutionProposalStore>();
+        var stage = new ArticleVaultDependencyResolutionStage(store, new StageTimeProvider(scenario.Bundle.Plan.CreatedAtUnixMs));
+        var current = new ArticleVaultResolutionPlanInput(null!, null!, null!, [], null,
+            new VaultResolutionConfirmation("confirmation:unit", "actor:unit", scenario.Bundle.Plan.CreatedAtUnixMs),
+            scenario.Bundle.Plan.ExpiresAtUnixMs);
+        ArticleVaultExecutionRejectedException error = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() =>
+            stage.ReadExactAsync(scenario.Bundle, "resolution-" + Digest, Digest, current));
+        Assert.Equal("article_vault_dependency_resolution_original_plan_mismatch", error.ReasonCode);
+        await store.DidNotReceiveWithAnyArgs().ReadExactAsync(default!, default!, default);
+    }
+
+    [Fact]
+    public async Task ResolutionReadLooksUpOnlyTheExactProposalAndNeverFallsBack()
+    {
+        Scenario scenario = CreateScenario();
+        IArticleVaultResolutionProposalStore store = Substitute.For<IArticleVaultResolutionProposalStore>();
+        var stage = new ArticleVaultDependencyResolutionStage(store, new StageTimeProvider(scenario.Bundle.Plan.CreatedAtUnixMs));
+        var metadata = new ArticleVaultScalarMetadataInput(scenario.Bundle.Plan, scenario.Bundle.RootManifest,
+            scenario.Bundle.ArticleManifests, scenario.Bundle.PlannedObservations, scenario.Context, null!,
+            ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+        var current = new ArticleVaultResolutionPlanInput(metadata, null!, null!, [], null,
+            new VaultResolutionConfirmation("confirmation:unit", "actor:unit", scenario.Bundle.Plan.CreatedAtUnixMs),
+            scenario.Bundle.Plan.ExpiresAtUnixMs);
+        ArticleVaultExecutionRejectedException error = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() =>
+            stage.ReadExactAsync(scenario.Bundle, "resolution-" + Digest, Digest, current));
+        Assert.Equal("article_vault_dependency_resolution_proposal_missing", error.ReasonCode);
+        await store.Received(1).ReadExactAsync("resolution-" + Digest, Digest, Arg.Any<CancellationToken>());
+        await store.DidNotReceiveWithAnyArgs().SealAsync(default!, default!, default);
+    }
+
+    private static ArticleVaultExecutionResult AcceptedResult(ArticleVaultSealedExecutionBundle bundle)
+    {
+        VaultSyncPlanGroup group = Assert.Single(bundle.Plan.Groups);
+        VaultSyncPlanItem item = Assert.Single(group.Items);
+        string idempotency = ArticleVaultExecutionIntegrity.ComputeGroupIdempotency(bundle.Plan, group);
+        var receipt = new ArticleVaultOperationResultReceipt(ArticleVaultExecutionSchemas.OperationReceipt,
+            ArticleVaultExecutionSchemas.Version, bundle.Plan.SiteIdentity, bundle.Plan.VaultIdentity, bundle.PlanSha256,
+            group.GroupIdentity, item.OperationIdentity, item.PortableArticleIdentity, item.Decision,
+            ArticleVaultOperationOutcome.Executed, 42, 8, 9, "article-service:42:9", "01991e729a2c7b608f47b339f58e4a11", Digest,
+            item.DependsOnOperationIdentities, [], idempotency, bundle.Payload.Items[0].SourceSha256, null, string.Empty);
+        receipt = receipt with
+        {
+            ContentSha256 = ArticleVaultExecutionIntegrity.SealOperationReceipt(receipt)
+        };
+        var groupReceipt = new ArticleVaultGroupResultReceipt(ArticleVaultExecutionSchemas.GroupReceipt,
+            ArticleVaultExecutionSchemas.Version, bundle.Plan.SiteIdentity, bundle.Plan.VaultIdentity, bundle.PlanSha256,
+            group.GroupIdentity, idempotency, true, [receipt], null, string.Empty);
+        groupReceipt = groupReceipt with
+        {
+            ContentSha256 = ArticleVaultExecutionIntegrity.SealGroupReceipt(groupReceipt)
+        };
+        var result = new ArticleVaultExecutionResult(ArticleVaultExecutionSchemas.Result, ArticleVaultExecutionSchemas.Version,
+            bundle.Plan.ResultCandidateIdentity, bundle.Plan.SiteIdentity, bundle.Plan.VaultIdentity, bundle.PlanReference,
+            bundle.PlanSha256, bundle.Plan.IdempotencyKey, ArticleVaultExecutionOutcome.Completed, [groupReceipt], null,
+            bundle.Plan.CreatedAtUnixMs, string.Empty);
+        result = result with
+        {
+            ContentSha256 = ArticleVaultExecutionIntegrity.SealResult(result)
+        };
+        ArticleVaultExecutionIntegrity.VerifyResult(bundle, result);
+        return result;
+    }
+
+    private sealed class StageTimeProvider(long now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => DateTimeOffset.FromUnixTimeMilliseconds(now);
     }
 
     [Fact]

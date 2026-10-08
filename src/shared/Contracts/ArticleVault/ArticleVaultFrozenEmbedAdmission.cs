@@ -31,7 +31,25 @@ public sealed record ArticleVaultFrozenEmbedCandidate(
     ArticleEmbedDependencyCoordinate? Before,
     ArticleEmbedDependencyCoordinate? After,
     string? InputSha256,
-    string ContentSha256);
+    string ContentSha256,
+    ArticleVaultFrozenEmbedProvenance? Provenance = null);
+
+/// <summary>
+/// Keeps the canonical parsed occurrence and authority/budget results with the coordinate proposal.
+/// It carries no target body, title or projection cache and grants no writer admission.
+/// </summary>
+public sealed record ArticleVaultFrozenEmbedProvenance(
+    string SiteIdentity,
+    string VaultIdentity,
+    string HostPortableArticleIdentity,
+    long ExpectedSourceRevision,
+    string SourceSha256,
+    ArticleEmbedSourceRange SourceRange,
+    string RequestSha256,
+    string AuthoritySha256,
+    string ResolutionSha256,
+    ArticleEmbedResolutionBudgetLimits Budgets,
+    ArticleEmbedBudgetObservation Observed);
 
 /// <summary>
 /// Compares canonical frozen coordinates without parsing source or resolving latest.
@@ -128,8 +146,12 @@ public static class ArticleVaultFrozenEmbedAdmission
         }
 
         string inputSha256 = ComputeInputSha256(input);
+        var provenance = new ArticleVaultFrozenEmbedProvenance(manifest.SiteIdentity, manifest.VaultIdentity,
+            manifest.PortableArticleIdentity, input.Request.SourceRevision, input.Request.ContentDigest,
+            input.Request.Directive.RawRange, input.Request.RequestDigest, input.Authority.SnapshotDigest,
+            input.Resolution.ResolutionDigest, input.Budgets, input.Resolution.Receipt.Observed);
         var candidate = new ArticleVaultFrozenEmbedCandidate(
-            true, null, input.Base, selected, inputSha256, string.Empty);
+            true, null, input.Base, selected, inputSha256, string.Empty, provenance);
         return candidate with
         {
             ContentSha256 = ComputeCandidateSha256(candidate)
@@ -141,7 +163,7 @@ public static class ArticleVaultFrozenEmbedAdmission
     /// field. This local check supplements, rather than replaces, canonical syntax/graph verification.
     /// </summary>
     public static bool Verify(ArticleVaultFrozenEmbedInput input, ArticleVaultFrozenEmbedCandidate candidate)
-        => Compare(input) == candidate;
+        => candidate is { Permitted: true } && Compare(input) == candidate;
 
     /// <summary>
     /// Binds an admitted current-source coordinate to the real #2124 graph and freshly
@@ -192,6 +214,11 @@ public static class ArticleVaultFrozenEmbedAdmission
             writer.Add(input.Local.DependencyDigest);
             writer.Add(input.Server.DependencyDigest);
             writer.Add(input.ExplicitDraftRefresh);
+            writer.Add(input.Budgets.MaxDepth);
+            writer.Add(input.Budgets.MaxExpandedNodes);
+            writer.Add(input.Budgets.MaxSourceBytes);
+            writer.Add(input.Budgets.MaxElapsedMilliseconds);
+            writer.Add(input.Budgets.MaxAuthorityMessages);
         });
 
     private static string ComputeCandidateSha256(ArticleVaultFrozenEmbedCandidate candidate)
@@ -202,5 +229,7 @@ public static class ArticleVaultFrozenEmbedAdmission
             writer.Add(candidate.Before?.DependencyDigest);
             writer.Add(candidate.After?.DependencyDigest);
             writer.Add(candidate.InputSha256);
+            writer.Add(candidate.Provenance is null ? null : ArticleVaultManifestCodec.ComputeSha256(
+                ArticleVaultManifestCodec.SerializeCanonical(candidate.Provenance)));
         });
 }

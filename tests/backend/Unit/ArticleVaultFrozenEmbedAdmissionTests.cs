@@ -26,6 +26,44 @@ public sealed class ArticleVaultFrozenEmbedAdmissionTests
         Assert.Equal(input.Base, candidate.Before);
         Assert.Equal(input.Base, candidate.After);
         Assert.True(ArticleVaultFrozenEmbedAdmission.Verify(input, candidate));
+        Assert.Equal(input.Request.Directive.RawRange, candidate.Provenance!.SourceRange);
+        Assert.Equal(input.Request.SourceRevision, candidate.Provenance.ExpectedSourceRevision);
+        Assert.Equal(input.Request.ContentDigest, candidate.Provenance.SourceSha256);
+        Assert.Equal(input.Authority.SnapshotDigest, candidate.Provenance.AuthoritySha256);
+        Assert.Equal(input.Resolution.Receipt.Observed, candidate.Provenance.Observed);
+    }
+
+    [Fact]
+    public void CandidateCannotDropOrSubstituteItsOccurrenceProvenance()
+    {
+        using var fixture = new Fixture();
+        ArticleVaultFrozenEmbedInput input = fixture.Input("published");
+        ArticleVaultFrozenEmbedCandidate candidate = ArticleVaultFrozenEmbedAdmission.Compare(input);
+        Assert.False(ArticleVaultFrozenEmbedAdmission.Verify(input, candidate with
+        {
+            Provenance = null
+        }));
+        Assert.False(ArticleVaultFrozenEmbedAdmission.Verify(input, candidate with
+        {
+            Provenance = candidate.Provenance! with
+            {
+                SourceRange = new ArticleEmbedSourceRange(1, 41)
+            }
+        }));
+    }
+
+    [Fact]
+    public void RejectedDiagnosticCannotBeUsedAsAnAdmittedCandidate()
+    {
+        using var fixture = new Fixture();
+        ArticleVaultFrozenEmbedInput input = fixture.Input("published") with
+        {
+            ExplicitDraftRefresh = true
+        };
+        ArticleVaultFrozenEmbedCandidate candidate = ArticleVaultFrozenEmbedAdmission.Compare(input);
+        Assert.False(candidate.Permitted);
+        Assert.Null(candidate.Provenance);
+        Assert.False(ArticleVaultFrozenEmbedAdmission.Verify(input, candidate));
     }
 
     [Theory]
