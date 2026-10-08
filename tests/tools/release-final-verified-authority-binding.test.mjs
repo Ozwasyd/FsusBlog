@@ -10,8 +10,8 @@ import { controlledRequiredEvidenceFixture, publishControlledProducer } from './
 const { parseMatrix } = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
 const { createRequiredEvidenceDependencies, requiredEvidencePlanDigest } = await import(new URL('../../tools/test-matrix/required-evidence-dependencies.mjs', import.meta.url));
 const { governanceContentDigest } = await import(new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url));
-const { evidenceContentDigest, evidenceProducerReceiptDigest } = await import(new URL('../../tools/test/current-run-evidence-locator.mjs', import.meta.url));
-const { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication, prepareCurrentRunEvidencePublication, readCurrentRunEvidencePublication } = await import(new URL('../../tools/test/current-run-evidence-publication.mjs', import.meta.url));
+const { evidenceContentDigest, evidenceProducerReceiptDigest, locateCurrentRunEvidence } = await import(new URL('../../tools/test/current-run-evidence-locator.mjs', import.meta.url));
+const { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication, prepareCurrentRunEvidencePublication, readCurrentRunEvidencePublication, recoverCurrentRunEvidencePublication } = await import(new URL('../../tools/test/current-run-evidence-publication.mjs', import.meta.url));
 const { createRequiredEvidenceBinding } = await import(new URL('../../tools/release/required-evidence-binding.mjs', import.meta.url));
 const { createReleaseFinalVerifiedAuthorityBinding, verifyReleaseFinalVerifiedAuthorityBinding, assessReleaseFinalTerminalPrerequisites } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
 const { consumeReleaseFinalVerifiedBindings, assessReleaseFinalTerminalPrerequisites: assessFinalizerPrerequisites } = await import(new URL('../../tools/release/check-release-final.mjs', import.meta.url));
@@ -377,4 +377,87 @@ test('interrupted publication exposes no qualified final output; prepared state 
     const tampered = await assessFinalizerPrerequisites(options);
     assert.equal(tampered.status, 'rejected');
     assert.match(tampered.failure, /pointer target digest mismatch/u);
+});
+
+test('owner publication recovery and repeated intake retain canonical contract blockers without promoting publication to CAS authority', async (t) =>
+{
+    const options = await finalizerInputFixture(t, { prepareOnly: true });
+    const recoveryOptions = { context: options.bindings.context,
+        outputPath: options.finalOutput.explicitInputs[0], repositoryRoot: options.bindings.repositoryRoot };
+    const interrupted = await assessFinalizerPrerequisites(options);
+    assert.equal(interrupted.status, 'rejected');
+    const recovered = recoverCurrentRunEvidencePublication(recoveryOptions);
+    assert.equal(recovered.state.state, 'finalized');
+    assert.ok(recovered.handoff, 'actual owner recovery completes its sealed handoff');
+    const first = await assessFinalizerPrerequisites(options);
+    assert.equal(first.status, 'blocked');
+    assert.equal(first.qualificationEligible, false);
+    assert.deepEqual(first.reasonCodes, ['CANONICAL_FINAL_OUTPUT_UNAVAILABLE', 'DURABLE_COMMIT_READBACK_UNAVAILABLE']);
+    const repeatedRecovery = recoverCurrentRunEvidencePublication(recoveryOptions);
+    assert.equal(repeatedRecovery.state.contentDigest, recovered.state.contentDigest);
+    const files = [recoveryOptions.outputPath, `${recoveryOptions.outputPath}.publication.json`,
+        `${recoveryOptions.outputPath}.handoff.json`].map((file) => path.join(options.bindings.repositoryRoot, file));
+    const before = files.map((file) => fs.readFileSync(file));
+    assert.deepEqual(await assessReleaseFinalTerminalPrerequisites(options), first);
+    assert.deepEqual(await assessFinalizerPrerequisites(options), first);
+    assert.deepEqual(files.map((file) => fs.readFileSync(file)), before, 'repeated intake leaves owner publication bytes unchanged');
+});
+
+test('missing explicit collector reference refuses a valid same-run alternate with zero search or producer execution', async (t) =>
+{
+    const options = await finalizerInputFixture(t);
+    const root = options.bindings.repositoryRoot;
+    const original = path.join(root, options.finalOutput.explicitInputs[0]);
+    const alternatePath = 'artifacts/current-run/same-run-alternate.ref.json';
+    const alternate = path.join(root, alternatePath);
+    fs.copyFileSync(original, alternate);
+    const registryEntry = options.bindings.locatorRegistry.entries.find((entry) =>
+        entry.consumerId === 'evidence-consumer.release.check-release-final');
+    const admittedAlternate = locateCurrentRunEvidence({ context: options.bindings.context,
+        registry: options.bindings.locatorRegistry, registryEntry, repositoryRoot: root,
+        explicitInputs: [alternatePath] });
+    assert.equal(admittedAlternate.bindingReceipt.identityVerified, true,
+        'negative control is an actual locator-valid alternate, not a malformed decoy');
+    fs.unlinkSync(original);
+    const readFileSync = fs.readFileSync;
+    const processes = new Map();
+    let alternateReads = 0;
+    let processCalls = 0;
+    fs.readFileSync = (file, ...args) =>
+    {
+        if (typeof file === 'string' && path.resolve(file) === alternate)
+        {
+            alternateReads += 1;
+        }
+        return readFileSync(file, ...args);
+    };
+    for (const key of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork'])
+    {
+        processes.set(key, childProcess[key]);
+        childProcess[key] = () =>
+        {
+            processCalls += 1;
+            throw new Error('intake cannot repair missing references');
+        };
+    }
+    syncBuiltinESMExports();
+    try
+    {
+        const refusal = await assessFinalizerPrerequisites(options);
+        assert.equal(refusal.status, 'rejected');
+        assert.equal(refusal.qualificationEligible, false);
+        assert.match(refusal.failure, /explicit evidence path is missing/u);
+        assert.equal(refusal.observations.finalizerInput, undefined);
+        assert.equal(alternateReads, 0);
+        assert.equal(processCalls, 0);
+    }
+    finally
+    {
+        fs.readFileSync = readFileSync;
+        for (const [key, originalMethod] of processes)
+        {
+            childProcess[key] = originalMethod;
+        }
+        syncBuiltinESMExports();
+    }
 });
