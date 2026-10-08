@@ -123,6 +123,150 @@ public sealed class ArticleEmbedRelationDeriverTests
     }
 
     [Fact]
+    public void FrozenProjectionRetainsCompleteNestedReceiptsAfterTargetUpdate()
+    {
+        ArticleEmbedDirectiveProjection toB = Nested(ArticleB, ArticleEmbedTargetKind.Article, 10);
+        var authority = Authority(PublicFacts(ArticleA, 4, nested: [toB]), PublicFacts(ArticleB, 6));
+        ArticleEmbedProviderRequest[] requests = [PublicationRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+        ArticleEmbedPublicationPlan plan = ArticleEmbedPublicationPlanner.Plan(requests, authority, s_budgets);
+        ArticleEmbedRelationDerivation original = ArticleEmbedRelationDeriver.DeriveFromPlan(requests, authority, s_budgets, plan);
+        var mutableReceipts = original.DependencyReceipts.ToList();
+        ArticleEmbedRelationDerivation derivation = original with { DependencyReceipts = mutableReceipts };
+
+        Assert.True(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, derivation, out var first).IsValid);
+        Assert.Equal(2, first.Length);
+        Assert.Equal(new long[] { 4, 6 }, first.Select(receipt => receipt.Coordinate.ResolvedRevision));
+        mutableReceipts.Clear();
+        Assert.Equal(2, first.Length);
+
+        var changedAuthority = Authority(PublicFacts(ArticleA, 9), PublicFacts(ArticleB, 12));
+        ArticleEmbedPublicationPlan changedPlan = ArticleEmbedPublicationPlanner.Plan(requests, changedAuthority, s_budgets);
+        Assert.NotEqual(plan.PlanDigest, changedPlan.PlanDigest);
+        Assert.True(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, original, out var afterUpdate).IsValid);
+        Assert.Equal(first.ToArray(), afterUpdate.ToArray());
+        Assert.False(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, changedPlan, original, out var refused).IsValid);
+        Assert.Empty(refused);
+    }
+
+    [Fact]
+    public void FrozenProjectionRejectsMissingReorderedDuplicateForeignAndResealedReceipts()
+    {
+        var authority = Authority(PublicFacts(ArticleA, 4), PublicFacts(ArticleB, 6));
+        ArticleEmbedProviderRequest[] requests =
+        [
+            PublicationRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0),
+            PublicationRequest("request:b", ArticleB, ArticleEmbedTargetKind.Article, 100)
+        ];
+        ArticleEmbedPublicationPlan plan = ArticleEmbedPublicationPlanner.Plan(requests, authority, s_budgets);
+        ArticleEmbedRelationDerivation original = ArticleEmbedRelationDeriver.DeriveFromPlan(requests, authority, s_budgets, plan);
+        var first = original.DependencyReceipts[0];
+        var second = original.DependencyReceipts[1];
+        foreach (ArticleEmbedRelationDerivation mutation in new[]
+        {
+            original with { DependencyReceipts = [first] },
+            original with { DependencyReceipts = [second, first] },
+            original with { DependencyReceipts = [first, first] },
+            original with { DependencyReceipts = [ArticleEmbedRelationContractValidator.Seal(first with { PlanDigest = DigestC }), second] },
+            original with { DependencyReceipts = [ArticleEmbedRelationContractValidator.Seal(first with { Coordinate = second.Coordinate }), second] },
+            original with { Accepted = false },
+            original with { RejectedReasonCode = "failed" }
+        })
+        {
+            Assert.False(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, mutation, out var dependencies).IsValid);
+            Assert.Empty(dependencies);
+        }
+        Assert.False(ArticleEmbedFrozenDependencyProjection.Project(DigestC, plan, original, out var foreign).IsValid);
+        Assert.Empty(foreign);
+    }
+
+    [Theory]
+    [InlineData(ArticleEmbedVisibilityStatus.Private, ArticleEmbedPermissionStatus.Allowed)]
+    [InlineData(ArticleEmbedVisibilityStatus.Public, ArticleEmbedPermissionStatus.Denied)]
+    [InlineData(ArticleEmbedVisibilityStatus.Unknown, ArticleEmbedPermissionStatus.Unknown)]
+    public void FrozenProjectionRejectsResealedNonPublicRelationFacts(ArticleEmbedVisibilityStatus visibility, ArticleEmbedPermissionStatus permission)
+    {
+        var authority = Authority(PublicFacts(ArticleA, 4));
+        ArticleEmbedProviderRequest[] requests = [PublicationRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+        ArticleEmbedPublicationPlan plan = ArticleEmbedPublicationPlanner.Plan(requests, authority, s_budgets);
+        ArticleEmbedRelationDerivation original = ArticleEmbedRelationDeriver.DeriveFromPlan(requests, authority, s_budgets, plan);
+        ArticleEmbedRelationEdge changed = ArticleEmbedRelationContractValidator.Seal(original.EdgeSet!.Edges[0] with
+        {
+            Visibility = visibility,
+            Permission = permission
+        });
+        ArticleEmbedRelationDerivation mutation = original with
+        {
+            EdgeSet = ArticleEmbedRelationContractValidator.Seal(original.EdgeSet with { Edges = [changed] })
+        };
+        Assert.False(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, mutation, out var dependencies).IsValid);
+        Assert.Empty(dependencies);
+    }
+
+    [Fact]
+    public void FrozenProjectionAcceptsEmptyQualifiedPlanAndRejectsBlockedAndAuthoringSources()
+    {
+        var authority = Authority();
+        ArticleEmbedProviderRequest[] requests = [];
+        ArticleEmbedPublicationPlan plan = ArticleEmbedPublicationPlanner.Plan(requests, authority, s_budgets);
+        ArticleEmbedRelationDerivation derivation = ArticleEmbedRelationDeriver.DeriveFromPlan(requests, authority, s_budgets, plan);
+        Assert.True(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, derivation, out var empty).IsValid);
+        Assert.Empty(empty);
+
+        var nonPublic = Authority(PublicFacts(ArticleA, 4) with { Visibility = ArticleEmbedVisibilityStatus.Private });
+        ArticleEmbedProviderRequest[] blockedRequests = [PublicationRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+        ArticleEmbedPublicationPlan blocked = ArticleEmbedPublicationPlanner.Plan(blockedRequests, nonPublic, s_budgets);
+        Assert.False(ArticleEmbedFrozenDependencyProjection.Project(blocked.PlanDigest, blocked, derivation, out var refused).IsValid);
+        Assert.Empty(refused);
+
+        var snapshot = Snapshot(AuthoringFacts(ArticleA, 4));
+        ArticleEmbedProviderRequest[] authoringRequests = [AuthoringRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+        ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(authoringRequests, snapshot, s_budgets);
+        ArticleEmbedRelationDerivation authoring = ArticleEmbedRelationDeriver.DeriveFromAuthoring(authoringRequests, snapshot, s_budgets, resolution);
+        Assert.False(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, authoring, out var current).IsValid);
+        Assert.Empty(current);
+    }
+
+    [Fact]
+    public void FrozenProjectionPreservesOneThousandDirectiveOccurrencesWithinCanonicalBudgets()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var authority = Authority(PublicFacts(ArticleA, 4));
+        var budgets = new ArticleEmbedResolutionBudgetLimits(4, 1000, 1_048_576, 60_000, 4096);
+        ArticleEmbedProviderRequest[] requests = Enumerable.Range(0, 1000)
+            .Select(index => PublicationRequest($"request:{index}", ArticleA, ArticleEmbedTargetKind.Article, index * 100)
+                with { AbortSignal = cancellation.Token })
+            .ToArray();
+        ArticleEmbedPublicationPlan plan = ArticleEmbedPublicationPlanner.Plan(requests, authority, budgets);
+        ArticleEmbedRelationDerivation derivation = ArticleEmbedRelationDeriver.DeriveFromPlan(requests, authority, budgets, plan);
+
+        Assert.Equal(ArticleEmbedPublicationPlanStatus.Sealed, plan.Status);
+        Assert.True(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, plan, derivation, out var dependencies).IsValid);
+        Assert.Equal(1000, dependencies.Length);
+        Assert.Equal(1000, dependencies.Select(receipt => receipt.EdgeIdentity).Distinct().Count());
+        Assert.All(dependencies, receipt => Assert.Equal(4, receipt.Coordinate.ResolvedRevision));
+        Assert.Equal(derivation.DependencyReceipts, dependencies.ToArray());
+    }
+
+    [Fact]
+    public void FrozenProjectionRejectsUnboundedAndMalformedInputBeforeDigestWork()
+    {
+        var authority = Authority(PublicFacts(ArticleA, 4));
+        ArticleEmbedProviderRequest[] requests = [PublicationRequest("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
+        ArticleEmbedPublicationPlan plan = ArticleEmbedPublicationPlanner.Plan(requests, authority, s_budgets);
+        ArticleEmbedRelationDerivation derivation = ArticleEmbedRelationDeriver.DeriveFromPlan(requests, authority, s_budgets, plan);
+        foreach (ArticleEmbedPublicationPlan mutation in new[]
+        {
+            plan with { Edges = Enumerable.Repeat(plan.Edges[0], ArticleEmbedResolutionBudgetLimits.ExpandedNodesBound + 1).ToArray() },
+            plan with { Receipt = null! },
+            plan with { Receipt = plan.Receipt with { Items = null! } }
+        })
+        {
+            Assert.False(ArticleEmbedFrozenDependencyProjection.Project(plan.PlanDigest, mutation, derivation, out var dependencies).IsValid);
+            Assert.Empty(dependencies);
+        }
+    }
+
+    [Fact]
     public void RejectsUnverifiedTamperedOrBlockedSources()
     {
         var snapshot = Snapshot(AuthoringFacts(ArticleA, 4));
