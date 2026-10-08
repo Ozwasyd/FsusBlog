@@ -193,10 +193,10 @@
         {
             "id": "notification-fanout",
             "pathStatus": "baseline-reported",
-            "producer": "NotificationFrameCodec and SharedNotificationStreamFrame.FromOwnedBuffer",
+            "producer": "NotificationFrameCodec, SharedNotificationStreamFrame.FromOwnedBuffer and internal admitted FromOwnedMemory adapter",
             "owner": "SharedNotificationStreamFrame",
             "consumers": "NotificationStreamConnection queues and NotificationStreamFramePump; one Retain per accepted fanout target",
-            "releaseEvent": "Rejected/consumed target releases retain; zero count returns pool with clearArray true. Pump copies bytes to PipeWriter then releases frame; transport owns the copied bytes",
+            "releaseEvent": "Rejected/consumed target releases retain; zero count returns pool with clearArray true. Pump copies bytes to PipeWriter then releases frame; transport owns the copied bytes; admitted memory owners dispose only when the existing shared frame reaches its final recipient/operation hold.",
             "capacityModel": "Frame.Length distinct from rented buffer.Length; per-connection queue bytes and writer copy capacity remain separate",
             "frequency": "Per notification encode/fanout/dequeue/drop/disconnect",
             "asyncEscape": "Connection queues retain frame; PipeWriter.GetSpan copies data before frame.Release; flushing owns separate transport buffers",
@@ -216,7 +216,7 @@
             "evidence": [
                 {
                     "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs",
-                    "anchor": "_pool.Return(_buffer, clearArray: true)"
+                    "anchor": "_pool.Return(_buffer!, clearArray: true)"
                 },
                 {
                     "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamFramePump.cs",
@@ -2169,7 +2169,7 @@
             ],
             "pathStatus": "baseline-reported",
             "owner": "SharedNotificationStreamFrame",
-            "producer": "NotificationFrameCodec and SharedNotificationStreamFrame.FromOwnedBuffer",
+            "producer": "NotificationFrameCodec, SharedNotificationStreamFrame.FromOwnedBuffer and internal admitted FromOwnedMemory adapter",
             "consumers": "NotificationStreamConnection queues and NotificationStreamFramePump; one Retain per accepted fanout target",
             "releaseEvent": "Rejected/consumed target releases retain; zero count returns pool with clearArray true. Pump copies bytes to PipeWriter then releases frame; transport owns the copied bytes; admitted memory owners dispose only when the existing shared frame reaches its final recipient/operation hold.",
             "capacityModel": "Frame.Length distinct from rented buffer.Length; per-connection queue bytes and writer copy capacity remain separate",
