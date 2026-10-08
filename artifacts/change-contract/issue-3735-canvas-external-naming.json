@@ -14,8 +14,7 @@
             "id": "css-like-contract",
             "paths": [
                 "docs/architecture/article-property-value-boundary.md",
-                "docs/architecture/authoring-canvas-document-boundary.md",
-                "docs/testing.md"
+                "docs/architecture/authoring-canvas-document-boundary.md"
             ],
             "reason": "DOM and token spelling is preserved only when documented as a caller-visible contract. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
         },
@@ -102,8 +101,7 @@
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
                 "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
                 "tests/frontend/fixtures/cross-stack-contract-matrix.json",
-                "tests/migration/packages.lock.json",
-                "tests/test-retention-replacements.json"
+                "tests/migration/packages.lock.json"
             ],
             "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
         }
