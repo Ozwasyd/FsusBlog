@@ -4,7 +4,7 @@
   "trackingIssue": 3551,
   "mode": "tracking-only",
   "testedCandidate": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
-  "master": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+  "master": "b9c076e4b763130075218ff9d50f9a6c36784f59",
   "originalInventoryCommit": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
   "accepted": false,
   "scopeDiscrepancy": "Original body retains its historical b19 baseline. Current master source findings are zero; original inventory and every child gate remain accounted, without rewriting scope.",
@@ -1907,24 +1907,76 @@
   },
   "latestRepairVerification": "artifacts/style/suite-convergence-classified-repair-verification.json",
   "currentCanonicalMsbuildBoundary": {
-    "command": [
-      "dotnet",
-      "msbuild",
-      "tests/backend/FsusBlog.Server.Tests.csproj",
-      "--nologo",
-      "-verbosity:quiet",
-      "-property:Configuration=Debug",
-      "-property:BuildProjectReferences=false",
-      "-getProperty:Configuration,TargetPath,IntermediateOutputPath",
-      "-getItem:Compile"
-    ],
-    "exitCode": 0,
-    "observedIntermediateOutputPath": "obj\\Debug/net10.0/",
-    "projectionExitCode": 1,
-    "remainingRefusal": "xunit Compile source is outside its canonical repository boundary: ../../tmp/fsusblog-3593/nuget/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs"
+    "testedCommit": "d58ef0a57d69e77cd975edec42f549cd4ce9d95b",
+    "configuration": "Debug",
+    "actualProjectionExitCode": 0,
+    "sourceCount": 694,
+    "sdkCompileInputs": {
+      ".tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs": {
+        "source": ".tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs",
+        "packageId": "Microsoft.NET.Test.Sdk",
+        "version": "18.5.1",
+        "contentHash": "SfqVaLiIqAbRWuPg5BP4QFwBIirQj/YIL8Dhxl6zntBKbXp0cQykoV480SmwG+yRMiWptxEI6NbHQuGSZ8b97w==",
+        "sourceDigest": "sha256:d66f12f9433816a8c7dc1b2acb9e1010f5418f5eeb51e80f1df57aa1dcab8d8a",
+        "targetDigest": "sha256:93e2c4a4e08fa8db6af3b5907205741ad5184e642181bfdbe949c5109e19aa2f"
+      }
+    },
+    "externalCacheStillRefused": true,
+    "fullInventoryAccepted": false,
+    "remainingRefusal": "Migration output/intermediate missing due two original CS0246 errors"
   },
   "latestSharedCompatibilityVerification": "artifacts/style/suite-convergence-shared-fixture-style-verification.json",
   "currentSevenClassExecution": {
+    "testedCommit": "d58ef0a57d69e77cd975edec42f549cd4ce9d95b",
+    "command": [
+      "timeout",
+      "240",
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--no-build",
+      "--configuration",
+      "Debug",
+      "--filter",
+      "FullyQualifiedName~TaxonomyExactMetadataTests|FullyQualifiedName~SecurityAdminPolicyDefaultsTests|FullyQualifiedName~RealConcurrencyHarnessTests|FullyQualifiedName~CanonicalArticleLifecycleScheduledFailureTests|FullyQualifiedName~AuthoringExtensionRpcBrokerTests|FullyQualifiedName~LifecycleHostedBootstrapServiceTests|FullyQualifiedName~CanonicalArticleProjectionVerifierTests",
+      "--results-directory",
+      "/tmp/fsusblog-3593/support-sdk-compile-3521/runtime-results",
+      "--logger",
+      "trx"
+    ],
+    "exitCode": 0,
+    "counts": {
+      "total": "248",
+      "executed": "248",
+      "passed": "248",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "trxSha256": "0a58c0486bdbc5c27f7971ab94ad59e9f9dc19abfdfd459ba63f7a65501075d7",
+    "unchangedCaseNames": 248
+  },
+  "currentAssertionContractClarification": {
+    "resolved": true,
+    "basis": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+    "productionUnchanged": true,
+    "exactOriginalCorrection": "44cfc4e0b4f2abb5d503e5f2f6bd441526c58aca"
+  },
+  "previousAssertionContractClarification": "Parent instruction says preserve original assertions/cases. Requested formal contract/source evidence or explicit reconciliation for these four expected-value changes; compatible formatting was completed independently.",
+  "latestSemanticControlVerification": "artifacts/style/suite-convergence-semantic-control-correction.json",
+  "latestSdkCompileVerification": "artifacts/style/suite-convergence-sdk-compile-verification.json",
+  "previousSevenClassExecution": {
     "name": "seven-original-classes",
     "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
     "command": [
@@ -1988,12 +2040,15 @@
     },
     "trxSha256": "331e410c9b1b784fde51d9d5260272fb58662d2922f9044209e4db49481d60b6"
   },
-  "currentAssertionContractClarification": {
-    "resolved": true,
-    "basis": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
-    "productionUnchanged": true,
-    "exactOriginalCorrection": "44cfc4e0b4f2abb5d503e5f2f6bd441526c58aca"
+  "latestMasterRecheck": {
+    "sha": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+    "sourceIntegrated": false,
+    "actualMergePerformed": false,
+    "mergeTreePreview": {
+      "exitCode": 0,
+      "tree": "99c9f17309e1b7863966fa9e73c530bb836c2dcf",
+      "actualMergePerformed": false
+    }
   },
-  "previousAssertionContractClarification": "Parent instruction says preserve original assertions/cases. Requested formal contract/source evidence or explicit reconciliation for these four expected-value changes; compatible formatting was completed independently.",
-  "latestSemanticControlVerification": "artifacts/style/suite-convergence-semantic-control-correction.json"
+  "gitHubWritePause": "Coordinator secondary-rate-limit instruction: no new issue comments or nonessential writes; WIP handoff retained locally."
 }
