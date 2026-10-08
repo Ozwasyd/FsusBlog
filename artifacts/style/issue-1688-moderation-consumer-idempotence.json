@@ -1,0 +1,60 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "f3169d1ac313325b3b6f1873f8e813398d85ac32",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.302-servicing.26329.109+35b593bebfcba58f8e78298cef14c2761f5d86c6",
+        "command": "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet format whitespace /workspace/FsusBlog-moderation-format-only --folder --include src/backend/Interfaces/IModerationRuntimeStateService.cs src/backend/Services/Fixtures/CommentModerationFixturePort.cs --verbosity diagnostic"
+    },
+    "paths": [
+        "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+        "src/backend/Services/Fixtures/CommentModerationFixturePort.cs"
+    ],
+    "firstPassTreeSha256": "2539907792dbe676dad879db865abc9a9e98d9cf60286eb89454c6b826d6f64a",
+    "secondPassTreeSha256": "2539907792dbe676dad879db865abc9a9e98d9cf60286eb89454c6b826d6f64a",
+    "idempotent": true,
+    "actualSdkVersion": "10.0.302",
+    "runIdentity": {
+        "pass1StartedAtUtc": "2026-10-08T14:34:51.832204+00:00",
+        "pass2StartedAtUtc": "2026-10-08T14:34:54.994745+00:00"
+    },
+    "verificationEvidence": "artifacts/handoffs/moderation-two-file-format-20261008/",
+    "fullIssueAcceptance": false,
+    "executionEvidenceSourceRevision": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+    "executionEvidenceMetadataHead": "d9d9e721f45d1fd535be00bea77b32b5aebed784",
+    "originalEvidence": "artifacts/style/issue-1688-moderation-upstream-format.json",
+    "originalEvidenceSha256": "4dca091ecdfc459c61730dd3f01bbe6a6910502dcac0b529dfd6a39374096e50",
+    "formatterExecutedInConsumer": false,
+    "sourceConsumerByteEqualityVerified": true,
+    "actualConsumerRoslynEquivalence": {
+        "schema": "fsusblog.roslyn-format-equivalence.v1",
+        "parserAssemblyVersion": "5.9.0.0",
+        "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
+        "paths": [
+            {
+                "path": "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+                "tokenCount": 328,
+                "beforeTokenSha256": "377a56bb2e252f35692d813368334fa5c1ac8e6c6d8cf8db484e00a6a195214d",
+                "afterTokenSha256": "377a56bb2e252f35692d813368334fa5c1ac8e6c6d8cf8db484e00a6a195214d",
+                "beforeAnchoredTriviaSha256": "519e15599e8da36fc94435b950acaaf1e11b81f774731f15011df3f899b09509",
+                "afterAnchoredTriviaSha256": "519e15599e8da36fc94435b950acaaf1e11b81f774731f15011df3f899b09509",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+                "tokenCount": 7192,
+                "beforeTokenSha256": "372f74b8cc3d407dd009f0c0ba5aca4f02b4faffde92665d0bd584c0bbdae382",
+                "afterTokenSha256": "372f74b8cc3d407dd009f0c0ba5aca4f02b4faffde92665d0bd584c0bbdae382",
+                "beforeAnchoredTriviaSha256": "13e58db0ac0cb4d9d2d16c8ce2a6acac0163f7ebb78ae742db680bf2a69710be",
+                "afterAnchoredTriviaSha256": "13e58db0ac0cb4d9d2d16c8ce2a6acac0163f7ebb78ae742db680bf2a69710be",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            }
+        ],
+        "equivalent": true
+    },
+    "qualificationEligible": false
+}

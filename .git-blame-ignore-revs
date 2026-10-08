@@ -36,3 +36,6 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 
 # Exact-source decimal formatter consumer for #1688; original proof is retained.
 5e375e81b36df3813938afb6cca08dc9518b8fca
+
+# Canonical moderation formatter source consumer; original execution a0db452f.
+f3169d1ac313325b3b6f1873f8e813398d85ac32
