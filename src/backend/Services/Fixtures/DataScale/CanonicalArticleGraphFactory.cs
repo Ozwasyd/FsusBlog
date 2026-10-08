@@ -13,7 +13,7 @@ using FsusBlog.Server.Services.Articles;
 
 namespace FsusBlog.Server.Services.Fixtures.DataScale;
 
-public static class CanonicalArticleGraphFactory
+public static partial class CanonicalArticleGraphFactory
 {
     private static readonly DateTime s_baseEpoch = new(2026, 7, 19, 0, 0, 0, DateTimeKind.Utc);
 
@@ -140,7 +140,14 @@ public static class CanonicalArticleGraphFactory
         ArticleScaleVariant variant,
         ArticleScaleVariantContract contract,
         ArticleScaleGraphIdentityBindings? identities)
+        => BuildArticleGraph(plan, articleOrdinal, variant, contract, identities, resolvedBatch: null);
+
+    public static ArticleScaleArticleGraph BuildArticleGraph(
+        ArticleScalePlan plan, int articleOrdinal, ArticleScaleVariant variant,
+        ArticleScaleVariantContract contract, ArticleScaleGraphIdentityBindings? identities,
+        ArticleScaleResolvedGraphBatch? resolvedBatch)
     {
+        ArticleScaleResolvedInput? resolved = resolvedBatch?.Resolve(plan, articleOrdinal, variant);
         string prefix = plan.IdAllocation.NamespacePrefix;
         string articleSemanticId = $"{prefix}:article/{articleOrdinal:D6}";
         string bodySemanticId = $"{prefix}:article/{articleOrdinal:D6}/body";
@@ -152,17 +159,17 @@ public static class CanonicalArticleGraphFactory
         int articleId = checked((int)Identity(articleSemanticId, articleOrdinal));
         long policyId = Identity(rightsPolicySemanticId, articleOrdinal);
 
-        IReadOnlyDictionary<string, DateTime> temporal = ResolveTemporalMap(articleOrdinal, contract);
+        IReadOnlyDictionary<string, DateTime> temporal = resolved?.TemporalRoles ?? ResolveTemporalMap(articleOrdinal, contract);
         VariantLifecycleCoordinates lifecycle = DeriveLifecycleCoordinates(contract, temporal);
 
-        string baseTitle = $"Canonical Article {articleOrdinal:D6}";
-        string markdownContent = $"# Canonical Article {articleOrdinal:D6}\n\nDeterministic markdown body for article {articleOrdinal} variant {variant}.";
+        string baseTitle = resolved?.Title ?? $"Canonical Article {articleOrdinal:D6}";
+        string markdownContent = resolved?.MarkdownContent ?? $"# Canonical Article {articleOrdinal:D6}\n\nDeterministic markdown body for article {articleOrdinal} variant {variant}.";
         ArticleRevisionContentAddress contentAddress = ArticleRevisionContentAddress.Compute(markdownContent);
-        ArticleSummaryProjectionResult summaryProj = ArticleSummaryProjection.Resolve(null, markdownContent);
+        ArticleSummaryProjectionResult summaryProj = ArticleSummaryProjection.Resolve(resolved?.Summary, markdownContent);
         string summary = summaryProj.Text;
-        string coverImageUrl = $"https://cdn.example.internal/media/cover-{articleOrdinal:D6}.webp";
-        int categoryId = (articleOrdinal % 5) + 1;
-        List<int> tagIds = ArticleProductionNormalizers.NormalizeTagIds([(articleOrdinal % 10) + 1, ((articleOrdinal + 2) % 10) + 1]);
+        string? coverImageUrl = resolved is not null ? resolved.CoverImageUrl : $"https://cdn.example.internal/media/cover-{articleOrdinal:D6}.webp";
+        int categoryId = resolved?.CategoryId ?? (articleOrdinal % 5) + 1;
+        List<int> tagIds = ArticleProductionNormalizers.NormalizeTagIds(resolved?.TagIds.ToList() ?? [(articleOrdinal % 10) + 1, ((articleOrdinal + 2) % 10) + 1]);
 
         var rows = new List<ArticleScaleRowPlan>();
         var relations = new List<ArticleScaleRelationPlan>();
@@ -660,7 +667,7 @@ public static class CanonicalArticleGraphFactory
             ["Summary"] = summary,
             ["CoverImageUrl"] = coverImageUrl,
             ["CategoryId"] = categoryId,
-            ["Views"] = 0,
+            ["Views"] = resolved?.Views ?? 0,
             ["Status"] = (int)lifecycle.StoredStatus,
             ["IsDeleted"] = lifecycle.IsDeleted,
             ["CreateTime"] = created.ToString("O"),

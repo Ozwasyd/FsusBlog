@@ -1,0 +1,102 @@
+using System.Data.Common;
+using System.Reflection;
+
+using SqlSugar;
+
+using DbType = System.Data.DbType;
+
+namespace FsusBlog.Server.Services.Fixtures.DataScale;
+
+internal sealed record DataScalePostgresArticleProduction(
+    IReadOnlyList<DataScaleNativeIdentityObservation> NativeAllocation,
+    IReadOnlyDictionary<string, ArticleScaleGraphIdentityBindings> NativeBindings,
+    IReadOnlyList<ArticleScaleArticleGraph> Graphs,
+    DataScaleArticleBatchAuthority Authority,
+    DataScaleArticleBatchExecution Execution);
+
+/// <summary>
+/// Actual native sequence → existing factory sealing → shared physical transaction pipeline.
+/// It creates no publication receipt or derived output. Original allocation observations/maps
+/// must be durably receipted by the task owner before the first product-row transaction.
+/// </summary>
+internal static class DataScalePostgresArticleProducer
+{
+    internal static async Task<DataScalePostgresArticleProduction> ProduceAsync(
+        DbConnection connection, ArticleScalePlan plan, IReadOnlyList<ArticleScaleArticleGraph> factoryBatch,
+        IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema,
+        IReadOnlyDictionary<string, long> externalIdentities,
+        string runId, string runtimeIdentity, string sourceCommit, string factoryBatchReference,
+        ReadOnlyMemory<byte> taskKey,
+        Func<IReadOnlyList<DataScaleNativeIdentityObservation>, IReadOnlyDictionary<string, ArticleScaleGraphIdentityBindings>, CancellationToken, Task> persistNativeAllocation,
+        Func<DataScaleBatchCheckpoint, CancellationToken, Task> persistCheckpoint,
+        CancellationToken cancellationToken, ArticleScaleResolvedGraphBatch? resolvedBatch = null)
+    {
+        ArgumentNullException.ThrowIfNull(persistNativeAllocation);
+        ArgumentNullException.ThrowIfNull(persistCheckpoint);
+        if (resolvedBatch is not null)
+        {
+            foreach (ArticleScaleArticleGraph graph in factoryBatch)
+            {
+                ArticleScaleArticleGraph expected = CanonicalArticleGraphFactory.BuildArticleGraph(plan, graph.ArticleOrdinal,
+                    graph.Variant, ArticleScaleVariantContractCatalog.Get(graph.Variant), null, resolvedBatch);
+                if (expected.ArticleDigest != graph.ArticleDigest)
+                {
+                    throw new InvalidOperationException("native_article_presealing_input_mismatch");
+                }
+            }
+        }
+        IReadOnlyList<ArticleScaleNativeRoleRequirement> requirements = CanonicalArticleGraphFactory.DescribeNativeRoles(plan, factoryBatch);
+        // Compile a diagnostic-ID snapshot only to validate all canonical roles/schema/context
+        // before native sequence effects. These diagnostic IDs are never written to the database.
+        var diagnosticIds = requirements.SelectMany((group, index) => group.SemanticRoles.Select(role => (Role: role, Id: index + 1L)))
+            .ToDictionary(pair => pair.Role, pair => pair.Id, StringComparer.Ordinal);
+        var preflightBindings = factoryBatch.ToDictionary(graph => graph.SemanticArticleId, graph =>
+            new ArticleScaleGraphIdentityBindings(ArticleScalePlanDigest.Compute(plan), graph.SemanticArticleId,
+                diagnosticIds.Where(pair => pair.Key == graph.SemanticArticleId
+                    || pair.Key.StartsWith(graph.SemanticArticleId + "/", StringComparison.Ordinal))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)), StringComparer.Ordinal);
+        ArticleScaleArticleGraph[] preflightGraphs = factoryBatch.Select(graph => CanonicalArticleGraphFactory.BuildArticleGraph(
+            plan, graph.ArticleOrdinal, graph.Variant, ArticleScaleVariantContractCatalog.Get(graph.Variant),
+            preflightBindings[graph.SemanticArticleId], resolvedBatch)).ToArray();
+        _ = new DataScaleArticleBatchAuthority(plan, preflightGraphs, preflightBindings, schema, externalIdentities,
+            runId, runtimeIdentity, sourceCommit, factoryBatchReference, DataScaleArticleBatchAuthority.ComputeGraphDigest(preflightGraphs), resolvedBatch);
+        var requests = new List<DataScaleNativeIdentityTableRequest>();
+        foreach (var model in DataScaleArticlePhysicalProjection.EntityModels.Where(model => model.Kind != ArticleScaleRowKind.ArticleBody))
+        {
+            DataScaleEntityTransportBinding binding = schema[model.Kind];
+            string table = (string)model.Entity.GetCustomAttributesData().Single(attribute => attribute.AttributeType == typeof(SugarTable))
+                .ConstructorArguments[0].Value!;
+            PropertyInfo[] properties = model.Entity.GetProperties().Where(property => property.GetCustomAttribute<SugarColumn>()?.IsIgnore != true).ToArray();
+            PropertyInfo key = properties.Single(property => property.GetCustomAttribute<SugarColumn>()?.IsPrimaryKey == true);
+            if (binding.Table != table || key.GetCustomAttribute<SugarColumn>()?.IsIdentity != true
+                || !properties.Select(property => property.Name).ToHashSet(StringComparer.Ordinal).SetEquals(binding.Columns.Keys))
+            {
+                throw new InvalidOperationException("native_article_prepared_schema_or_model_mismatch");
+            }
+            requests.Add(new(binding.Table, new(binding.Columns[key.Name], key.PropertyType == typeof(int) ? DbType.Int32 : DbType.Int64),
+                requirements.Where(group => group.Kind == model.Kind)
+                    .Select(group => new DataScaleNativeIdentityRoleGroup(group.AllocationRole, group.SemanticRoles)).ToArray()));
+        }
+        IReadOnlyList<DataScaleNativeIdentityObservation> allocation;
+        await using (DbTransaction reserve = await connection.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false))
+        {
+            allocation = await DataScalePostgresIdentityReservation.ReserveAsync(connection, reserve, requests, cancellationToken).ConfigureAwait(false);
+            await reserve.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        Dictionary<string, long> ids = allocation.SelectMany(item => item.RoleIds).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        var bindings = factoryBatch.ToDictionary(graph => graph.SemanticArticleId, graph =>
+            new ArticleScaleGraphIdentityBindings(ArticleScalePlanDigest.Compute(plan), graph.SemanticArticleId,
+                requirements.SelectMany(group => group.SemanticRoles).Where(role => role == graph.SemanticArticleId
+                    || role.StartsWith(graph.SemanticArticleId + "/", StringComparison.Ordinal))
+                    .ToDictionary(role => role, role => ids[role], StringComparer.Ordinal)), StringComparer.Ordinal);
+        // Failure here consumes sequence gaps only. No product rows have been written.
+        await persistNativeAllocation(allocation, bindings, cancellationToken).ConfigureAwait(false);
+        ArticleScaleArticleGraph[] graphs = factoryBatch.Select(graph => CanonicalArticleGraphFactory.BuildArticleGraph(
+            plan, graph.ArticleOrdinal, graph.Variant, ArticleScaleVariantContractCatalog.Get(graph.Variant), bindings[graph.SemanticArticleId], resolvedBatch)).ToArray();
+        var authority = new DataScaleArticleBatchAuthority(plan, graphs, bindings, schema, externalIdentities,
+            runId, runtimeIdentity, sourceCommit, factoryBatchReference, DataScaleArticleBatchAuthority.ComputeGraphDigest(graphs), resolvedBatch);
+        DataScaleArticleBatchExecution execution = await DataScaleArticleBatchWriter.WriteAsync(connection, DataScaleBulkProvider.PostgreSql,
+            authority, null, taskKey, persistCheckpoint, cancellationToken).ConfigureAwait(false);
+        return new(allocation, bindings, Array.AsReadOnly(graphs), authority, execution);
+    }
+}

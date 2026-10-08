@@ -70,6 +70,20 @@ internal static class DataScaleProviderBulkTransport
         string expectedSemanticDigest,
         Func<DbConnection, DbTransaction, CancellationToken, Task<DataScaleBulkPostconditions>> verify,
         CancellationToken cancellationToken)
+        => await ExecuteAtomicBatchAsync(connection, provider, tables, deferredUpdates,
+            expectedSemanticDigest, verify, null, cancellationToken).ConfigureAwait(false);
+
+    // The graph host reconciles authenticated checkpoints in this very transaction.
+    // True writes the absent batch; false requires exact readback and commits no inserts.
+    internal static async Task<DataScaleBulkExecution> ExecuteAtomicBatchAsync(
+        DbConnection connection,
+        DataScaleBulkProvider provider,
+        IReadOnlyList<DataScaleBulkTableRows> tables,
+        IReadOnlyList<DataScaleBulkTableRows> deferredUpdates,
+        string expectedSemanticDigest,
+        Func<DbConnection, DbTransaction, CancellationToken, Task<DataScaleBulkPostconditions>> verify,
+        Func<DbConnection, DbTransaction, CancellationToken, Task<bool>>? reconcile,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(tables);
@@ -92,11 +106,12 @@ internal static class DataScaleProviderBulkTransport
             IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
         try
         {
+            bool write = reconcile is null || await reconcile(connection, transaction, cancellationToken).ConfigureAwait(false);
             foreach (DataScaleBulkTableRows update in deferredUpdates)
             {
                 await ValidateNativeUpdateKeyAsync(connection, transaction, provider, update, cancellationToken).ConfigureAwait(false);
             }
-            foreach (DataScaleBulkTableRows table in tables)
+            foreach (DataScaleBulkTableRows table in write ? tables : [])
             {
                 int parameterLimit = provider == DataScaleBulkProvider.Sqlite ? 999 : 2000;
                 int rowsPerCommand = Math.Min(MaximumRowsPerCommand, parameterLimit / table.Columns.Count);
@@ -114,7 +129,7 @@ internal static class DataScaleProviderBulkTransport
                 }
             }
 
-            foreach (DataScaleBulkTableRows update in deferredUpdates)
+            foreach (DataScaleBulkTableRows update in write ? deferredUpdates : [])
             {
                 int parameterLimit = provider == DataScaleBulkProvider.Sqlite ? 999 : 2000;
                 int rowsPerCommand = Math.Min(MaximumRowsPerCommand, parameterLimit / update.Columns.Count);

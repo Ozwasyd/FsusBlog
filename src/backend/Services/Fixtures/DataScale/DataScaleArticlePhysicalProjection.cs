@@ -61,7 +61,8 @@ internal static class DataScaleArticlePhysicalProjection
         IReadOnlyList<ArticleScaleArticleGraph> graphs,
         IReadOnlyDictionary<string, ArticleScaleGraphIdentityBindings> identities,
         IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema,
-        IReadOnlyDictionary<string, long> externalIdentities)
+        IReadOnlyDictionary<string, long> externalIdentities,
+        ArticleScaleResolvedGraphBatch? resolvedBatch = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(graphs);
@@ -111,9 +112,21 @@ internal static class DataScaleArticlePhysicalProjection
                 }
                 start += allocation.Count;
             }
-            if (allocated != graph.Variant)
+            if (resolvedBatch is null)
             {
-                throw new InvalidOperationException("physical_variant_allocation_mismatch");
+                if (allocated != graph.Variant)
+                {
+                    throw new InvalidOperationException("physical_variant_allocation_mismatch");
+                }
+            }
+            else
+            {
+                ArticleScaleArticleGraph expected = CanonicalArticleGraphFactory.BuildArticleGraph(plan, graph.ArticleOrdinal,
+                    graph.Variant, ArticleScaleVariantContractCatalog.Get(graph.Variant), binding, resolvedBatch);
+                if (expected.ArticleDigest != graph.ArticleDigest)
+                {
+                    throw new InvalidOperationException("physical_resolved_input_graph_mismatch");
+                }
             }
             foreach ((string role, long id) in binding.Ids)
             {

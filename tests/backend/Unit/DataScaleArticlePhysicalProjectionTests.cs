@@ -11,19 +11,10 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class DataScaleArticlePhysicalProjectionTests
 {
-    [Theory]
-    [InlineData(ArticleScaleVariant.Published)]
-    [InlineData(ArticleScaleVariant.Scheduled)]
-    [InlineData(ArticleScaleVariant.PublishedWithScheduledUpdate)]
-    [InlineData(ArticleScaleVariant.Archived)]
-    [InlineData(ArticleScaleVariant.Deleted)]
-    public async Task CanonicalBoundColumns_WriteAndReadExactlyWithImmediateCycleConstraints(ArticleScaleVariant variant)
+    internal static async Task<SqliteConnection> OpenGraphSchemaAsync(
+        IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema)
     {
-        var (plan, graph, identities) = Graph(variant);
-        var schema = Schema();
-        DataScaleArticlePhysicalBatch batch = DataScaleArticlePhysicalProjection.Compile(plan, [graph], identities, schema, Principals(plan));
-        DataScaleArticlePhysicalWritePlan writes = DataScaleArticlePhysicalProjection.PrepareWrites(batch);
-        await using var connection = new SqliteConnection("Data Source=:memory:");
+        var connection = new SqliteConnection("Data Source=:memory:");
         await connection.OpenAsync();
         await using (DbCommand pragma = connection.CreateCommand())
         {
@@ -77,6 +68,22 @@ public sealed class DataScaleArticlePhysicalProjectionTests
             create.CommandText = $"CREATE TABLE \"{tableName}\" ({string.Join(',', definitions.Concat(constraints))})";
             await create.ExecuteNonQueryAsync();
         }
+        return connection;
+    }
+
+    [Theory]
+    [InlineData(ArticleScaleVariant.Published)]
+    [InlineData(ArticleScaleVariant.Scheduled)]
+    [InlineData(ArticleScaleVariant.PublishedWithScheduledUpdate)]
+    [InlineData(ArticleScaleVariant.Archived)]
+    [InlineData(ArticleScaleVariant.Deleted)]
+    public async Task CanonicalBoundColumns_WriteAndReadExactlyWithImmediateCycleConstraints(ArticleScaleVariant variant)
+    {
+        var (plan, graph, identities) = Graph(variant);
+        var schema = Schema();
+        DataScaleArticlePhysicalBatch batch = DataScaleArticlePhysicalProjection.Compile(plan, [graph], identities, schema, Principals(plan));
+        DataScaleArticlePhysicalWritePlan writes = DataScaleArticlePhysicalProjection.PrepareWrites(batch);
+        await using SqliteConnection connection = await OpenGraphSchemaAsync(schema);
         string expected = DataScalePhysicalBatchReadback.ExpectedDigest(batch);
         DataScaleBulkExecution result = await DataScaleProviderBulkTransport.ExecuteAtomicBatchAsync(
             connection, DataScaleBulkProvider.Sqlite, writes.Inserts, writes.DeferredUpdates, expected,
@@ -159,7 +166,7 @@ public sealed class DataScaleArticlePhysicalProjectionTests
             new Dictionary<string, ArticleScaleGraphIdentityBindings> { [other.SemanticArticleId] = binding }, Schema(), Principals(plan)));
     }
 
-    private static (ArticleScalePlan Plan, ArticleScaleArticleGraph Graph, Dictionary<string, ArticleScaleGraphIdentityBindings> Identities) Graph(ArticleScaleVariant variant)
+    internal static (ArticleScalePlan Plan, ArticleScaleArticleGraph Graph, Dictionary<string, ArticleScaleGraphIdentityBindings> Identities) Graph(ArticleScaleVariant variant)
     {
         ArticleScaleArtifactReference Reference(string schema, string owner, string shape)
             => new(schema, $"config/testing/{owner}", shape, "sha256:" + new string('1', 64));
@@ -184,7 +191,7 @@ public sealed class DataScaleArticlePhysicalProjectionTests
         return (plan, graph, new Dictionary<string, ArticleScaleGraphIdentityBindings> { [graph.SemanticArticleId] = binding });
     }
 
-    private static Dictionary<string, long> Ids(ArticleScaleArticleGraph graph)
+    internal static Dictionary<string, long> Ids(ArticleScaleArticleGraph graph)
     {
         var ids = graph.Rows.Where(row => row.Kind is not (ArticleScaleRowKind.ArticleBody or ArticleScaleRowKind.ArticleTaxonomyReference or ArticleScaleRowKind.ArticleAuditCoordinate))
             .Select((row, index) => (row.SemanticId, Id: 701L + index)).ToDictionary(pair => pair.SemanticId, pair => pair.Id);
@@ -196,13 +203,13 @@ public sealed class DataScaleArticlePhysicalProjectionTests
         return ids;
     }
 
-    private static Dictionary<string, long> Principals(ArticleScalePlan plan)
+    internal static Dictionary<string, long> Principals(ArticleScalePlan plan)
         => new()
         {
             [$"{plan.IdAllocation.NamespacePrefix}:principal/authoring-admin"] = 9701
         };
 
-    private static Dictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> Schema()
+    internal static Dictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> Schema()
         => DataScaleArticlePhysicalProjection.EntityModels.ToDictionary(model => model.Kind, model =>
         {
             string table = (string)model.Entity.GetCustomAttributesData().Single(attribute => attribute.AttributeType == typeof(SugarTable)).ConstructorArguments[0].Value!;
