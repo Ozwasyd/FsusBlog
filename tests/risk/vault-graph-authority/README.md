@@ -13,6 +13,7 @@ retain all production files and shared registrations.
 | Strict graph successor | `00eeaf705dcc03a5412b36002df0b166e7442f3a` |
 | Link/embed candidates | `bc05768dc1e2b6dc7495889295f2e86273855ec0` |
 | Current strict link/embed successor | `7117889cec02509f14099f28477f673a8cf5795b` |
+| Requested occurrence-only rebind | `339f6bdd14621045f35523fbcb0b4fe99c98ed17` |
 | Original root contracts | `c0c32cb168fbe59125b942b5964edd7263247338` |
 
 Graph owner: `01a119f3-0b4d-713b-9857-43c641edb03c`, #2124/#2125.
@@ -84,6 +85,32 @@ fixtures. No actual write, real host permission bypass or production exploit is
 claimed. Current exact findings were handed to
 [#2126](https://github.com/Ozwasyd/FsusBlog/issues/2126#issuecomment-6053412185)
 and [the coordinator](https://github.com/Ozwasyd/FsusBlog/issues/3582#issuecomment-6053412536).
+
+## Occurrence-only successor rebind
+
+The coordinator requested only the two still-red cases against actual PR #4000
+head `339f6bdd14621045f35523fbcb0b4fe99c98ed17` with graph fix `00eeaf705`.
+Both cases execute and still fail, process exit 1: expected refusal, observed
+`Permitted=true`, `Verify=true`, reason null. The fenced range remains 42..70;
+the route collision still selects `article:cccccccc-cccc-cccc-cccc-cccccccccccc`.
+The tested production refactor file has the same Git blob
+`d7ee31b440195a48ea3370d6b99a8bf0773b9867` on `7117889` and `339f6bdd`.
+The graph regression successor `08034e84edfca42c6fcf14fcc629110adc20906c`
+was inspected; it changes test/evidence files, with no production graph delta.
+No graph, backend, frozen-embed or UI suite was rerun for this rebind.
+
+Exact command in the selected environment from the QA delivery worktree:
+
+```bash
+source /workspace/.setup/activate.sh
+dotnet run --project tests/risk/vault-graph-authority/VaultGraphAuthorityRisk.csproj -c Release -p:Compose=true -p:GraphSource=/workspace/vault-graph-authority-qa/source-00eeaf7 -p:LinkSource=/workspace/vault-graph-authority-qa/link-339f6bd -- --occurrence-only
+```
+
+Raw log: `/workspace/vault-graph-authority-qa/occurrence-339f6bd.log`.
+The new records are appended to `observations.json`; prior failing records remain.
+The attempted owner PR comment returned GitHub secondary rate limit HTTP 403;
+no successful new comment handoff is claimed. Sole production fix owner remains
+`01a119f3-2d20-7274-83f9-b54866b0800b`.
 
 Asset transaction/upload/ledger receipts, package adapters, real local
 materialization, process interruption/recovery, whole-DAG scale/round-trip and

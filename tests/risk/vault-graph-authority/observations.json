@@ -6,7 +6,9 @@
         "graphStrict": "00eeaf705dcc03a5412b36002df0b166e7442f3a",
         "linkEarly": "bc05768dc1e2b6dc7495889295f2e86273855ec0",
         "linkCurrent": "7117889cec02509f14099f28477f673a8cf5795b",
-        "originalRoot": "c0c32cb168fbe59125b942b5964edd7263247338"
+        "originalRoot": "c0c32cb168fbe59125b942b5964edd7263247338",
+        "linkRequestedRebind": "339f6bdd14621045f35523fbcb0b4fe99c98ed17",
+        "graphRegressionInspected": "08034e84edfca42c6fcf14fcc629110adc20906c"
     },
     "runs": [
         {
@@ -306,6 +308,61 @@
                 }
             ],
             "rawLogSha256": "b84c808069833a7af83c51f359fbc6197f9aa85a8eb3f819b2c450bba3bf4cac"
+        },
+        {
+            "name": "occurrence-only-339f6bdd-rebind",
+            "sourceBinding": {
+                "graph": "00eeaf705dcc03a5412b36002df0b166e7442f3a",
+                "link": "339f6bdd14621045f35523fbcb0b4fe99c98ed17",
+                "refactorGitBlob": "d7ee31b440195a48ea3370d6b99a8bf0773b9867"
+            },
+            "command": "source /workspace/.setup/activate.sh && dotnet run --project tests/risk/vault-graph-authority/VaultGraphAuthorityRisk.csproj -c Release -p:Compose=true -p:GraphSource=/workspace/vault-graph-authority-qa/source-00eeaf7 -p:LinkSource=/workspace/vault-graph-authority-qa/link-339f6bd -- --occurrence-only",
+            "processExit": 1,
+            "selectedCases": 2,
+            "observations": [
+                {
+                    "trace": "fenced-occurrence",
+                    "fencedOffset": 42,
+                    "Start": 42,
+                    "End": 70,
+                    "ExpectedText": "[display](/posts/old#stable)",
+                    "Replacement": "[display](/posts/new#stable)",
+                    "verifierAccepted": true
+                },
+                {
+                    "name": "forged_code_fence_occurrence_with_live_link_authority",
+                    "expectedAccepted": false,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": false
+                },
+                {
+                    "trace": "route-collision",
+                    "targetA": "article:01991e72-a611-7d16-9fd4-38f7d2e65498",
+                    "targetB": "article:cccccccc-cccc-cccc-cccc-cccccccccccc",
+                    "rawOccurrence": "[display](/posts/old#stable)",
+                    "Target": {
+                        "ArticleIdentity": "article:cccccccc-cccc-cccc-cccc-cccccccccccc",
+                        "AnchorId": {
+                            "Value": "stable"
+                        }
+                    },
+                    "verifierAccepted": true
+                },
+                {
+                    "name": "two_portable_identities_collide_on_one_route_projection",
+                    "expectedAccepted": false,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": false
+                },
+                {
+                    "summary": true,
+                    "failures": 2
+                }
+            ],
+            "rawLogSha256": "9a04d21c1773a7e468b1b4560e2b0b850e9d283227d47e8f628f7cd237bff2f8",
+            "qualification": false
         }
     ],
     "limits": [

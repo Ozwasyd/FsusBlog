@@ -51,6 +51,10 @@ internal static partial class Program
             return (candidate.Permitted, candidate.ReasonCode);
         });
 
+        if (s_occurrenceOnly)
+        {
+            return;
+        }
         using var signal = new CancellationTokenSource();
         ArticleVaultFrozenEmbedInput embed = FrozenInput(signal.Token);
         Check("composite_published_coordinate_with_newer_target_control", true, () =>

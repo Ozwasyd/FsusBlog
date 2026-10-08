@@ -22,9 +22,18 @@ internal static partial class Program
     private static readonly ArticleEmbedResolutionBudgetLimits s_budgets = new(8, 128, 1_048_576, 60_000, 256);
     private static readonly byte[] s_bytes = Encoding.UTF8.GetBytes("hello  \r\n");
     private static int s_failures;
+    private static bool s_occurrenceOnly;
 
-    private static int Main()
+    private static int Main(string[] args)
     {
+        s_occurrenceOnly = args.Contains("--occurrence-only", StringComparer.Ordinal);
+#if !COMPOSE
+        if (s_occurrenceOnly)
+        {
+            Console.Error.WriteLine("--occurrence-only requires -p:Compose=true");
+            return 2;
+        }
+#endif
 #if COMPOSE
         CompositeChecks();
 #else
@@ -40,6 +49,11 @@ internal static partial class Program
 
     private static void Check(string name, bool expected, Func<(bool Accepted, string? Reason)> action)
     {
+        if (s_occurrenceOnly && name is not "forged_code_fence_occurrence_with_live_link_authority"
+            and not "two_portable_identities_collide_on_one_route_projection")
+        {
+            return;
+        }
         try
         {
             (bool accepted, string? reason) = action();
