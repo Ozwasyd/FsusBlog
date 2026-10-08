@@ -203,9 +203,18 @@ public static class NativeRegularFileGuard
 
         // Only the actual native observation constructs this identity. Live DB
         // content/size/time/link-count changes are not namespace-incarnation drift.
-        public uint DeviceMajor { get; }
-        public uint DeviceMinor { get; }
-        public ulong Inode { get; }
+        public uint DeviceMajor
+        {
+            get;
+        }
+        public uint DeviceMinor
+        {
+            get;
+        }
+        public ulong Inode
+        {
+            get;
+        }
 
         private OriginalHeldRegularFileIdentity(string path, SafeFileHandle handle,
             NativeFileIdentity identity, NativeDirectoryIdentity[] directories)
