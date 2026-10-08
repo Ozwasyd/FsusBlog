@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored /workspace/.task-worktrees/issue-3568-backend-existing-reader-lock/src/shared/FsusBlog.Shared.csproj (in 245 ms).
+/workspace/.task-worktrees/issue-3568-backend-existing-reader-lock/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/.task-worktrees/issue-3568-backend-existing-reader-lock/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/.task-worktrees/issue-3568-backend-existing-reader-lock/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  Restored /workspace/.task-worktrees/issue-3568-backend-existing-reader-lock/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 456 ms).
+  Restored /workspace/.task-worktrees/issue-3568-backend-existing-reader-lock/src/core/FsusBlog.Core.csproj (in 446 ms).
+  Restored /workspace/.task-worktrees/issue-3568-backend-existing-reader-lock/src/migration/FsusBlog.Migration.csproj (in 460 ms).
+  Restored /workspace/.task-worktrees/issue-3568-backend-existing-reader-lock/src/backend/FsusBlog.Server.csproj (in 92 ms).
+  Restored /workspace/.task-worktrees/issue-3568-backend-existing-reader-lock/tests/backend/FsusBlog.Server.Tests.csproj (in 279 ms).
