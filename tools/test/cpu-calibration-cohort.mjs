@@ -212,11 +212,14 @@ export async function runCpuCalibrationCandidates(plan, adapter, persist = async
     await persist(sealCpuCalibrationCohort(plan, prerequisites, samples, diagnostics));
     for (const slot of plan.schedule)
     {
+        let capturedResult = null;
         try
         {
             const result = await adapter.runProduction(Object.freeze({ ...slot, planDigest: plan.contentDigest,
                 identity: plan.identity, mode: plan.mode }));
+            capturedResult = result;
             const raw = await adapter.verifyRun(result, plan, slot);
+            capturedResult = raw;
             const sample = qualifyCpuSample(raw, plan, slot);
             samples.push(sample);
             await persist(sealCpuCalibrationCohort(plan, prerequisites, samples, diagnostics));
@@ -227,7 +230,18 @@ export async function runCpuCalibrationCandidates(plan, adapter, persist = async
         }
         catch (error)
         {
-            diagnostics.push({ sampleId: slot.sampleId, message: String(error.message) });
+            let rawUnavailableReason = null;
+            try
+            {
+                cpuDigest(capturedResult);
+            }
+            catch
+            {
+                capturedResult = null;
+                rawUnavailableReason = 'adapter result is not canonical JSON';
+            }
+            diagnostics.push({ sampleId: slot.sampleId, message: String(error.message),
+                rawResult: capturedResult, rawUnavailableReason });
             break;
         }
     }

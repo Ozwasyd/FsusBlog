@@ -107,6 +107,7 @@ export function resolveRunCpuCapacity({ runId, topology, identity, activePointer
         throw new Error('current CPU machine identity mismatch');
     }
     let calibration;
+    let calibrationReference;
     let invalidReason = null;
     try
     {
@@ -118,7 +119,8 @@ export function resolveRunCpuCapacity({ runId, topology, identity, activePointer
         {
             throw new Error('active CPU pointer must be regular and non-aliased');
         }
-        calibration = verifiedPointer(JSON.parse(fs.readFileSync(activePointerPath, 'utf8')));
+        calibrationReference = JSON.parse(fs.readFileSync(activePointerPath, 'utf8'));
+        calibration = verifiedPointer(calibrationReference);
         assertCpuEqual(calibration.identity, identity, 'current calibration identity');
         if (calibration.confidence !== 'clean-cohort'
             || calibration.effectiveCpuUnits > Math.min(fallback.allowedLogicalCpuCount, fallback.verifiedFiniteCpuLimitCores))
@@ -129,6 +131,7 @@ export function resolveRunCpuCapacity({ runId, topology, identity, activePointer
     catch (error)
     {
         calibration = null;
+        calibrationReference = null;
         invalidReason = String(error.message);
     }
     return sealCpuValue({ schema: cpuCapacitySelectionSchema, runId, identity,
@@ -136,13 +139,56 @@ export function resolveRunCpuCapacity({ runId, topology, identity, activePointer
         effectiveCpuUnits: calibration ? calibration.effectiveCpuUnits : fallback.effectiveCpuUnits,
         schedulerEnvelopeCpuUnits: calibration ? calibration.effectiveCpuUnits : fallback.schedulerEnvelopeCpuUnits,
         calibrationDigest: calibration ? calibration.contentDigest : null,
-        fallbackReceipt: calibration ? null : fallback, invalidReason });
+        fallbackReceipt: calibration ? null : fallback, calibrationReference, invalidReason });
 }
 
-export function bindCpuCapacityToPlan(selection, { runId, identity })
+export function validateRunCpuCapacity(selection, { topology, identity })
 {
     verifyCpuSeal(selection, cpuCapacitySelectionSchema);
+    exactCpuFields(selection, ['schema', 'runId', 'identity', 'capacitySource', 'effectiveCpuUnits',
+        'schedulerEnvelopeCpuUnits', 'calibrationDigest', 'fallbackReceipt', 'calibrationReference',
+        'invalidReason', 'contentDigest'], 'run CPU capacity');
+    validateCpuIdentity(identity);
     assertCpuEqual(selection.identity, identity, 'plan CPU identity');
+    const fallback = calculateEffectiveCpuFallback(topology, identity.topology);
+    if (selection.capacitySource === 'fallback')
+    {
+        if (typeof selection.invalidReason !== 'string' || !selection.invalidReason)
+        {
+            throw new Error('plan fallback invalidation reason required');
+        }
+        assertCpuEqual(selection.fallbackReceipt, fallback, 'plan CPU fallback');
+        if (selection.calibrationDigest !== null || selection.calibrationReference !== null
+            || selection.effectiveCpuUnits !== fallback.effectiveCpuUnits
+            || selection.schedulerEnvelopeCpuUnits !== fallback.schedulerEnvelopeCpuUnits)
+        {
+            throw new Error('plan CPU fallback authority is not exact-one');
+        }
+    }
+    else if (selection.capacitySource === 'calibration')
+    {
+        // Recheck the immutable locators retained at selection, never the mutable active pointer.
+        const calibration = verifiedPointer(selection.calibrationReference);
+        assertCpuEqual(calibration.identity, identity, 'plan calibration identity');
+        if (selection.fallbackReceipt !== null || selection.invalidReason !== null
+            || selection.calibrationDigest !== calibration.contentDigest
+            || selection.effectiveCpuUnits !== calibration.effectiveCpuUnits
+            || selection.schedulerEnvelopeCpuUnits !== calibration.effectiveCpuUnits
+            || selection.schedulerEnvelopeCpuUnits > Math.min(fallback.allowedLogicalCpuCount, fallback.verifiedFiniteCpuLimitCores))
+        {
+            throw new Error('plan CPU calibration authority/envelope invalid');
+        }
+    }
+    else
+    {
+        throw new Error('unknown plan CPU capacity source');
+    }
+    return selection;
+}
+
+export function bindCpuCapacityToPlan(selection, { runId, identity, topology })
+{
+    validateRunCpuCapacity(selection, { identity, topology });
     if (selection.runId !== runId)
     {
         throw new Error('plan CPU run identity mismatch');

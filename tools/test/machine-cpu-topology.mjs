@@ -204,7 +204,10 @@ export function buildMachineCpuTopology(raw)
         finiteBoundary: projectBoundary(raw.sources.boundary), power: raw.sources.power
     };
     return sealCpuValue({ schema: machineCpuTopologySchema, collectorVersion: cpuCollectorVersion,
-        raw, rawSourceDigests: Object.fromEntries(sourceFields.map((field) => [field, cpuDigest(raw.sources[field])])),
+        raw, collectorDisposition: sourceFields.every((field) => raw.sources[field].disposition === 'unsupported')
+            ? 'unsupported' : sourceFields.every((field) => raw.sources[field].disposition === 'observed')
+                && projection.physical.disposition === 'observed' && projection.finiteBoundary.disposition === 'observed'
+                ? 'observed' : 'partial', rawSourceDigests: Object.fromEntries(sourceFields.map((field) => [field, cpuDigest(raw.sources[field])])),
         projection, topologyDigest: cpuDigest({ platform: raw.platform, arch: raw.arch, kernel: raw.kernel,
             machineIdentityDigest: raw.machineIdentityDigest, projection }) });
 }

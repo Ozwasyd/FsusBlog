@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { cleanCohort, cohort, contract, digest, machine, identityFor, planFor, prerequisitesFor, sampleFor } from './cpu-calibration-test-support.mjs';
+import { cleanCohort, cohort, contract, digest, machine, identityFor, planFor, prerequisitesFor, sampleFor, selector } from './cpu-calibration-test-support.mjs';
 
 test('CPU candidate plan independently recomputes boundary and rotating three round schedule', () =>
 {
@@ -100,4 +100,20 @@ test('CPU runner stops identity drift without retry and retains original diagnos
         verifyRun: (raw) => raw });
     assert.equal(failed.status, 'incomplete');
     assert.equal(failed.diagnostics[0].message, 'producer failed');
+});
+
+test('CPU runner retains malformed original raw result and excludes policy mutation after cohort execution', async () =>
+{
+    const plan = planFor();
+    const malformed = sampleFor(plan, plan.schedule[0]);
+    delete malformed.metrics.psi;
+    const result = await cohort.runCpuCalibrationCandidates(plan, { sourceDigest: plan.executionAdapterDigest,
+        mode: plan.mode, verifyPrerequisites: () => prerequisitesFor(plan), runProduction: () => malformed,
+        verifyRun: (raw) => raw });
+    assert.equal(result.status, 'incomplete');
+    assert.deepEqual(result.diagnostics[0].rawResult, malformed);
+    assert.equal(result.diagnostics[0].rawUnavailableReason, null);
+    const clean = cleanCohort();
+    assert.throws(() => selector.selectCpuCalibration(clean, { ...selector.defaultCpuSelectionPolicy,
+        noiseFloorRatio: 0.03 }), /bound before candidate/u);
 });

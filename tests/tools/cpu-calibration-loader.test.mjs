@@ -18,7 +18,7 @@ test('CPU loader exact identity activates calibration with exact one authority a
     assert.equal(receipt.effectiveCpuUnits, 12);
     assert.equal(receipt.calibrationDigest, fixture.selected.contentDigest);
     assert.equal(receipt.fallbackReceipt, null);
-    assert.equal(loader.bindCpuCapacityToPlan(receipt, { runId: 'fixture-run', identity: fixture.plan.identity }).contentDigest, receipt.contentDigest);
+    assert.equal(loader.bindCpuCapacityToPlan(receipt, { runId: 'fixture-run', identity: fixture.plan.identity, topology: fixture.plan.topology }).contentDigest, receipt.contentDigest);
 });
 
 test('CPU loader rejects every bound identity drift without mixing fallback and calibration', (t) =>
@@ -93,7 +93,7 @@ test('CPU loader contract fixtures cannot activate and sealed capacity cannot mu
     }, TypeError);
     fs.writeFileSync(fixture.pointerPath, '{}');
     assert.equal(receipt.capacitySource, 'fallback');
-    assert.throws(() => loader.bindCpuCapacityToPlan(receipt, { runId: 'other', identity: fixture.plan.identity }), /run identity/u);
+    assert.throws(() => loader.bindCpuCapacityToPlan(receipt, { runId: 'other', identity: fixture.plan.identity, topology: fixture.plan.topology }), /run identity/u);
 });
 
 test('CPU loader consistent topology kernel quota power drift selects the exact new fallback', (t) =>
@@ -194,4 +194,24 @@ test('CPU atomic pointer concurrent real process readers observe complete old or
     assert.ok(report.reads > 0);
     assert.deepEqual(report.errors, []);
     assert.equal(resolve(first).capacitySource, 'calibration');
+});
+
+test('CPU plan independently rejects resealed capacity tampering and retains selected immutable authority', (t) =>
+{
+    const fixture = writeActivationFixture(t);
+    loader.activateCpuCalibration(fixture.pointerPath, fixture.reference);
+    const selected = resolve(fixture);
+    const { contentDigest, ...body } = selected;
+    assert.ok(contentDigest);
+    const changed = contract.sealCpuValue({ ...body, effectiveCpuUnits: 100, schedulerEnvelopeCpuUnits: 100 });
+    assert.throws(() => loader.bindCpuCapacityToPlan(changed, { runId: 'fixture-run', identity: fixture.plan.identity,
+        topology: fixture.plan.topology }), /authority|envelope/u);
+    const second = writeActivationFixture(t, fixture.plan, (raw) => ({ ...raw,
+        metrics: { ...raw.metrics, wallClockMs: raw.candidate === 6 ? 600 : 1000 } }));
+    loader.activateCpuCalibration(fixture.pointerPath, second.reference);
+    assert.equal(resolve(fixture).effectiveCpuUnits, 6);
+    const bound = loader.bindCpuCapacityToPlan(selected, { runId: 'fixture-run', identity: fixture.plan.identity,
+        topology: fixture.plan.topology });
+    assert.equal(bound.effectiveCpuUnits, 12);
+    assert.equal(bound.calibrationDigest, fixture.selected.contentDigest);
 });
