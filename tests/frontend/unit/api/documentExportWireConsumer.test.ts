@@ -147,6 +147,33 @@ describe('controlled raw private delivery boundary, no real grant/output qualifi
         await expect(downloadDocumentExport('task-1', controller.signal, deliver)).rejects.toThrow();
         expect(deliver).not.toHaveBeenCalled();
     });
+    it('stops before response body read when cancellation precedes response headers', async () => {
+        const controller = new AbortController();
+        const readBody = vi.fn(() => new ArrayBuffer(3));
+        transport.raw.mockImplementation(async (_url, options) => {
+            controller.abort();
+            options.onResponseHeaders(headers());
+            return readBody();
+        });
+        const deliver = vi.fn();
+        await expect(downloadDocumentExport('task-1', controller.signal, deliver)).rejects.toThrow();
+        expect(readBody).not.toHaveBeenCalled();
+        expect(deliver).not.toHaveBeenCalled();
+    });
+    it('stops before response body read when admin identity changes before response headers', async () => {
+        const readBody = vi.fn(() => new ArrayBuffer(3));
+        transport.raw.mockImplementation(async (_url, options) => {
+            privateRequestRuntime.advance('admin');
+            options.onResponseHeaders(headers());
+            return readBody();
+        });
+        const deliver = vi.fn();
+        let failure: unknown;
+        try { await downloadDocumentExport('task-1', new AbortController().signal, deliver); } catch (error) { failure = error; }
+        expect(classifyDocumentExportFailure(failure)).toBe('permission-revoked');
+        expect(readBody).not.toHaveBeenCalled();
+        expect(deliver).not.toHaveBeenCalled();
+    });
     it('performs zero saves and reports revocation after admin identity changes', async () => {
         transport.raw.mockImplementation(async (_url, options) => { options.onResponseHeaders(headers()); privateRequestRuntime.advance('admin'); return new ArrayBuffer(3); });
         const deliver = vi.fn();

@@ -138,6 +138,8 @@ export async function downloadDocumentExport(taskId: string, signal: AbortSignal
             method: 'POST', credentials: 'include', requiresPow: true, body, signal: lease.signal,
             onResponseHeaders: value =>
             {
+                lease.assertCurrent();
+                lease.signal!.throwIfAborted();
                 headers = value;
             }
         });
