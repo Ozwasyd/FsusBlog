@@ -448,7 +448,7 @@ export async function dispatchOpenLoopLoadSchedule(schedule, {
             let response;
             try
             {
-                response = request(arrival, { signal: requestSignal,
+                response = request(arrival, { signal: requestSignal, callerSignal: signal, deadlineSignal: timeout.signal,
                     requestTimeoutMs: schedule.policy.requestTimeoutMs });
             }
             catch (error)

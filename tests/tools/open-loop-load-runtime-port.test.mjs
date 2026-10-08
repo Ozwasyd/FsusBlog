@@ -378,7 +378,7 @@ test('canonical expected peak and burst commands refuse the current incomplete p
 });
 
 
-test('canonical callback retains every reset or partial-response request with explicit missing transport facts', async (t) =>
+test('canonical callback classifies actual reset and preserves unavailable partial-response facts', async (t) =>
 {
     for (const partial of [false, true])
     {
@@ -405,17 +405,44 @@ test('canonical callback retains every reset or partial-response request with ex
             sourceSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), requestBaseUrl: endpoint,
             transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(endpoint), workerRegistration: fixtureWorkerRegistration() });
         assert.equal(probe.status, 'failed');
-        assert.equal(probe.requestAvailability.complete, false);
+        assert.equal(probe.requestAvailability.complete, !partial);
         assert.equal(probe.requestAvailability.expectedRequests.length, schedule.plannedCount);
-        assert.equal(probe.requestAvailability.unavailableSamples.length, schedule.plannedCount);
-        assert.equal(probe.loadRequestObservations, null);
-        assert.equal(probe.candidateBinding.loadRequestObservationsDigest, null);
-        assert.ok(probe.requestAvailability.unavailableSamples.every((sample) => sample.rawSample.ok === false && sample.reason));
         if (partial)
         {
+            assert.equal(probe.requestAvailability.unavailableSamples.length, schedule.plannedCount);
+            assert.equal(probe.loadRequestObservations, null);
+            assert.equal(probe.candidateBinding.loadRequestObservationsDigest, null);
+            assert.ok(probe.requestAvailability.unavailableSamples.every((sample) => sample.rawSample.ok === false && sample.reason && sample.transportFailureFacts));
             assert.ok(probe.requestAvailability.unavailableSamples.every((sample) => sample.response.bytes === null && sample.response.httpStatus === null));
+        }
+        else
+        {
+            assert.equal(probe.requestAvailability.unavailableSamples.length, 0);
+            assert.equal(probe.loadRequestObservations.outcomeCounts['network-error'], schedule.plannedCount);
+            assert.equal(probe.loadRequestObservations.errorRate, 1);
+            assert.equal(probe.loadRequestObservations.timeoutRate, 0);
+            assert.ok(probe.loadRequestObservations.samples.every((sample) => sample.errorCode === 'ECONNRESET'));
         }
         assert.equal(probe.transportEvidence.finalSnapshot.closed, true);
         assert.equal(probe.transportEvidence.finalSnapshot.activeRequests, 0);
     }
+});
+
+
+test('canonical actual dispatcher deadline retains typed provenance and counts every dispatched timeout', async (t) =>
+{
+    const fixture = await serverFixture(t, 500);
+    const { schedule: original, routePolicy, routeIds } = canonicalFixturePolicies();
+    const schedule = buildOpenLoopLoadSchedule({ ...original.policy, requestTimeoutMs: 30 }, routeIds);
+    const probe = await runOpenLoopRouteContractProbe(schedule, { routePolicy,
+        sourceSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), requestBaseUrl: fixture.baseUrl,
+        transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(fixture.baseUrl), workerRegistration: fixtureWorkerRegistration() });
+    assert.equal(probe.requestAvailability.complete, true);
+    assert.equal(probe.loadRequestObservations.completed, probe.openLoop.validation.counts.dispatched);
+    assert.equal(probe.loadRequestObservations.outcomeCounts.timeout, probe.openLoop.validation.counts.dispatched);
+    assert.equal(probe.loadRequestObservations.timeoutRate, 1);
+    assert.equal(probe.loadRequestObservations.errorRate, 0);
+    assert.ok(probe.loadRequestObservations.samples.every((sample) => sample.outcome === 'timeout' && sample.errorKind === 'dispatcher-deadline'));
+    assert.equal(probe.status, 'failed');
+    assert.equal(probe.candidateBinding.qualificationEligible, false);
 });

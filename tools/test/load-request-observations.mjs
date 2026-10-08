@@ -4,6 +4,7 @@ import { threadId } from 'node:worker_threads';
 
 import { canonicalJson, digestCanonical, sealContentDigest } from './attempt-provenance.mjs';
 import { routeContract } from './lanes/runtime-http-route-contract.mjs';
+import { classifyLoadTransportFailure } from './open-loop-load-client-transport.mjs';
 
 const sampleKeys = ['sampleId', 'workerId', 'sequence', 'path', 'startedMonotonicMs', 'finishedMonotonicMs',
     'durationMs', 'outcome', 'httpStatus', 'bytes', 'contentType', 'frameType', 'errorKind', 'errorCode', 'errorDigest'];
@@ -152,7 +153,7 @@ export function validateLoadRequestSample(sample)
 
 /** Build one exact sample from a registered issuer, real callback timing and separately retained response/error facts. */
 export function buildLoadRequestSample({ arrival, registration, sequence, startedMonotonicMs, finishedMonotonicMs,
-    routeSample, response, terminalControl, error = null })
+    routeSample, response, terminalControl, error = null, transportFailureFacts = null })
 {
     validateLoadWorkerRegistration(registration);
     if (!arrival || !Number.isSafeInteger(sequence) || sequence < 0
@@ -173,7 +174,21 @@ export function buildLoadRequestSample({ arrival, registration, sequence, starte
     let errorKind = null;
     let errorCode = null;
     let errorDigest = null;
-    if (terminalControl !== 'completed')
+    if (transportFailureFacts !== null)
+    {
+        if (error !== null || routeSample.ok === true)
+        {
+            throw new Error('typed transport failure cannot duplicate another observation or contradict route success');
+        }
+        const classified = classifyLoadTransportFailure(transportFailureFacts);
+        const expectedControl = classified.outcome === 'timeout' ? 'timeout' : classified.outcome === 'cancelled' ? 'cancelled' : 'completed';
+        if (terminalControl !== expectedControl)
+        {
+            throw new Error('actual transport failure differs from dispatcher terminal control');
+        }
+        ({ outcome, errorKind, errorCode, errorDigest } = classified);
+    }
+    else if (terminalControl !== 'completed')
     {
         const origin = terminalControl === 'timeout' ? 'deadline' : 'scenario-cancel';
         if (error?.origin !== origin)

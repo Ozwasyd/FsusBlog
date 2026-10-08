@@ -698,19 +698,25 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
             contentType: raw.contentType, frameType: raw.frameType }
             : { httpStatus: headerObserved ? null : 0, bytes: headerObserved ? null : 0, contentType: null, frameType: null };
         const terminalControl = record.outcome === 'cancelled' ? 'cancelled' : record.outcome === 'timed-out' ? 'timeout' : 'completed';
+        const failureEvents = observations.filter((entry) => entry.type === 'request-error' && entry.sampleId === record.sampleId);
+        const transportFailureFacts = failureEvents.length === 1 ? failureEvents[0].failureFacts : null;
         const reason = context.signal.reason;
-        const error = terminalControl !== 'completed' && reason instanceof Error
+        const error = transportFailureFacts === null && terminalControl !== 'completed' && reason instanceof Error
             ? observeLoadTransportError(reason, terminalControl === 'timeout' ? 'deadline' : 'scenario-cancel') : null;
         try
         {
-            loadSamples.push(buildLoadRequestSample({ ...context, routeSample: raw, response, terminalControl, error }));
+            if (failureEvents.length > 1)
+            {
+                throw new Error('request has duplicate transport failure observations');
+            }
+            loadSamples.push(buildLoadRequestSample({ ...context, routeSample: raw, response, terminalControl, error, transportFailureFacts }));
         }
         catch (failure)
         {
             // Preserve every real request and raw failure; missing transport facts are never zero-filled.
             unavailableSamples.push({ sampleId: record.sampleId, workerId: registeredIssuer.workerId, sequence: context.sequence,
                 startedMonotonicMs: context.startedMonotonicMs, finishedMonotonicMs: context.finishedMonotonicMs,
-                rawSample: raw, terminalControl, response, error, reason: failure.message });
+                rawSample: raw, terminalControl, response, error, transportFailureFacts, failureEvents, reason: failure.message });
         }
     }
     const requestAvailability = sealContentDigest({ schema: 'fsusblog.load-request-availability.v1', registeredIssuer,
