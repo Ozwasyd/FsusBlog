@@ -332,16 +332,16 @@ internal static class DocumentExportDocxVerifier
         XNamespace w = DocumentExportDocxPackage.Word;
         XElement document = xml["word/document.xml"];
         XElement footnotes = xml["word/footnotes.xml"];
-        XElement[] notes = canonical.Descendants().Where(element => element.Name.LocalName == "aside"
-            && ((string?)element.Attribute("id"))?.StartsWith("footnote-", StringComparison.Ordinal) == true).ToArray();
+        DocumentExportDocxFootnote[] graph = DocumentExportDocxFootnote.ReadGraph(canonical);
+        XElement[] notes = graph.Select(note => note.ReadContent()).ToArray();
         XElement body = document.Element(w + "body") ?? throw new InvalidDataException("DOCX body is missing.");
         if (!body.Elements().Any(element => element.Name is var name && (name == w + "p" || name == w + "tbl")))
         {
             throw new InvalidDataException("DOCX body contains no semantic blocks.");
         }
         XElement withoutNotes = new(canonical);
-        withoutNotes.Descendants().Where(element => element.Name.LocalName == "aside"
-            && ((string?)element.Attribute("id"))?.StartsWith("footnote-", StringComparison.Ordinal) == true).Remove();
+        withoutNotes.Descendants().Where(element => DocumentExportDocxFootnote.HasClass(element, "footnotes")).Remove();
+        withoutNotes.Descendants().Where(element => DocumentExportDocxFootnote.HasClass(element, "footnote-ref")).Remove();
         foreach (XElement hr in withoutNotes.Descendants().Where(element => element.Name.LocalName == "hr").ToArray())
         {
             hr.ReplaceWith(new XText("—"));
@@ -390,13 +390,14 @@ internal static class DocumentExportDocxVerifier
             throw new InvalidDataException("DOCX bookmark identities or internal links are invalid.");
         }
         int[] actualReferences = document.Descendants(w + "footnoteReference").Select(element => (int)element.Attribute(w + "id")!).ToArray();
-        string[] noteIds = notes.Select(note => (string)note.Attribute("id")!).ToArray();
-        int[] expectedReferences = canonical.Descendants().Where(element => element.Name.LocalName == "a")
-            .Select(element => (string)element.Attribute("href")!).Where(href => href.StartsWith('#') && noteIds.Contains(href[1..], StringComparer.Ordinal))
-            .Select(href => Array.IndexOf(noteIds, href[1..]) + 1).ToArray();
-        if (!actualReferences.SequenceEqual(expectedReferences))
+        XElement[] actualNotes = footnotes.Elements(w + "footnote").Where(note => (int)note.Attribute(w + "id")! > 0).ToArray();
+        int[] expectedReferences = Enumerable.Range(1, graph.Length).ToArray();
+        if (!actualReferences.SequenceEqual(expectedReferences)
+            || !actualNotes.Select(note => (int)note.Attribute(w + "id")!).SequenceEqual(expectedReferences)
+            || actualNotes.Any(note => note.Descendants(w + "footnoteRef").Count() != 1)
+            || footnotes.Descendants(w + "footnoteReference").Any() || document.Descendants(w + "footnoteRef").Any())
         {
-            throw new InvalidDataException("DOCX footnote references drifted.");
+            throw new InvalidDataException("DOCX footnote graph, definitions or native markers drifted.");
         }
     }
 }

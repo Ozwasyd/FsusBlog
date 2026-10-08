@@ -89,19 +89,13 @@ internal sealed record DocumentExportDocxProjection(
             {
                 throw new InvalidDataException("DOCX merged table cells are unsupported.");
             }
-            if (element.Name.LocalName == "aside"
-                && ((string?)element.Attribute("id"))?.StartsWith("footnote-", StringComparison.Ordinal) == true
-                && element.Descendants().Any(child => child.Name.LocalName is "a" or "img" or "table" or "aside" or "pre"
-                    or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" || child.Attribute("id") is not null))
-            {
-                throw new InvalidDataException("DOCX complex footnotes require a separately registered relationship scope.");
-            }
             if (element.Attribute("id") is not null && element.Name.LocalName is "tr" or "thead" or "tbody" or "tfoot"
                 || (string?)element.Attribute("dir") == "auto")
             {
                 throw new InvalidDataException("DOCX table group anchors or automatic direction are unsupported.");
             }
         }
+        _ = DocumentExportDocxFootnote.ReadGraph(root);
         warnings.Add("page-ebook-limits:preserve-semantic-flow-with-explicit-warning");
         warnings.Add("fonts:registered-family-references-require-reader-fonts");
         DocumentExportAsset[] images = input.Assets.Where(asset => asset.Role == "image").ToArray();

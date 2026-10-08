@@ -67,15 +67,16 @@ internal sealed class DocumentExportDocxPackage
     private void Build()
     {
         XElement root = _projection.ReadRoot();
+        DocumentExportDocxFootnote[] notes = DocumentExportDocxFootnote.ReadGraph(root);
+        foreach (DocumentExportDocxFootnote note in notes)
+        {
+            _notes.Add((string)note.Definition.Attribute("id")!, _notes.Count + 1);
+        }
         XElement[] ids = root.Descendants().Where(element => element.Attribute("id") is not null).ToArray();
         for (int index = 0; index < ids.Length; index++)
         {
             string id = (string)ids[index].Attribute("id")!;
             _bookmarks.Add(id, $"anchor{index + 1}");
-            if (ids[index].Name.LocalName == "aside" && id.StartsWith("footnote-", StringComparison.Ordinal))
-            {
-                _notes.Add(id, _notes.Count + 1);
-            }
         }
         AddRelationship("styles", "styles.xml");
         AddRelationship("numbering", "numbering.xml");
@@ -111,12 +112,13 @@ internal sealed class DocumentExportDocxPackage
                 new XElement(Word + "p", new XElement(Word + "r", new XElement(Word + "continuationSeparator")))));
         foreach ((string id, int number) in _notes)
         {
-            XElement source = ids.Single(element => (string?)element.Attribute("id") == id);
+            XElement source = notes.Single(note => (string?)note.Definition.Attribute("id") == id).ReadContent();
             var note = new XElement(Word + "footnote", W("id", number));
             AppendBlocks(source.Nodes(), note, listId: null, level: 0);
             XElement paragraph = note.Elements(Word + "p").FirstOrDefault()
                 ?? throw new InvalidDataException("DOCX footnote has no paragraph.");
-            paragraph.Element(Word + "pPr")!.AddAfterSelf(new XElement(Word + "r", new XElement(Word + "footnoteRef")));
+            paragraph.Element(Word + "pPr")!.AddAfterSelf(new XElement(Word + "r", new XElement(Word + "rPr", new XElement(Word + "vertAlign", W("val", "superscript"))),
+                new XElement(Word + "footnoteRef")));
             footnotes.Add(note);
         }
         AddXml("word/footnotes.xml", footnotes);
@@ -172,7 +174,7 @@ internal sealed class DocumentExportDocxPackage
                 continue;
             }
             string name = element.Name.LocalName;
-            if (name == "aside" && _notes.ContainsKey((string?)element.Attribute("id") ?? string.Empty))
+            if (DocumentExportDocxFootnote.HasClass(element, "footnotes"))
             {
                 Flush();
                 continue;
@@ -317,9 +319,10 @@ internal sealed class DocumentExportDocxPackage
                 string href = (string?)element.Attribute("href") ?? throw new InvalidDataException("DOCX link lacks a target.");
                 if (href.StartsWith('#') && _notes.TryGetValue(href[1..], out int note))
                 {
-                    // Preserve the canonical visible link label beside the structured note reference.
-                    AppendInline(element.Nodes(), destination, linkMarks);
-                    destination.Add(new XElement(Word + "r", new XElement(Word + "footnoteReference", W("id", note))));
+                    // The native reference supplies the canonical ordinal; writing
+                    // the HTML number as text would display it twice.
+                    destination.Add(new XElement(Word + "r", new XElement(Word + "rPr", new XElement(Word + "vertAlign", W("val", "superscript"))),
+                        new XElement(Word + "footnoteReference", W("id", note))));
                 }
                 else
                 {
