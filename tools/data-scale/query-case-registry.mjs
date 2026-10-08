@@ -132,6 +132,177 @@ export function buildQueryCaseInventory(binding)
     return { ...inventory, contentDigest: computeSha256(inventory) };
 }
 
+/** Consume the catalog owner's kind vocabulary; never add or execute a query case. */
+export function buildQuerySemanticOwnerInventory({ binding, kinds })
+{
+    requireQueryBinding(binding);
+    if (!kinds || Object.keys(kinds).sort().join(',') !== 'article,comment'
+        || Object.values(kinds).some((values) => !Array.isArray(values) || !values.length
+            || values.some((value) => typeof value !== 'string') || new Set(values).size !== values.length))
+    {
+        throw new Error('explicit unique article/comment semantic vocabulary required');
+    }
+    const inventory = buildQueryCaseInventory(binding);
+    const sourceRef = (sourcePath, entrypoint, parameterTypes) =>
+    {
+        const contentDigest = computeSha256(fs.readFileSync(new URL(`../../${sourcePath}`, import.meta.url)));
+        return { path: sourcePath, entrypoint, contentDigest, version: `source-${contentDigest.slice('sha256:'.length)}`,
+            ...(parameterTypes ? { parameterTypes } : {}) };
+    };
+    const article = (member) => sourceRef('src/backend/Interfaces/IArticleEndpointService.cs', `FsusBlog.Server.Interfaces.IArticleEndpointService.${member}`);
+    const comment = (member) => sourceRef('src/backend/Services/CommentQueryService.cs', `FsusBlog.Server.Services.ICommentQueryService.${member}`);
+    const authorQueue = () => sourceRef('src/backend/Services/Authoring/AuthoringUseCasePorts.cs',
+        'FsusBlog.Server.Services.Authoring.IAuthoringModerationQueue.ListCommentModerationQueuePageAsync');
+    const actorRead = () => sourceRef('src/core/Services/Abstractions/ICommentCoreService.cs',
+        'FsusBlog.Core.Services.Abstractions.ICommentCoreService.GetUserCommentsAsync');
+    const visibilityProjection = () => sourceRef('src/backend/Infrastructure/Projections/CommentProjection.cs',
+        'FsusBlog.Server.Infrastructure.Projections.CommentProjection.ToCoreModel');
+    const projectionVerifier = () => sourceRef('src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs',
+        'FsusBlog.Server.Services.Fixtures.CanonicalArticleProjectionVerifier.VerifyAsync',
+        ['FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationReceipt',
+            'FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationRequest', 'System.Threading.CancellationToken']);
+    const requirements = [];
+    for (const [domain, values] of Object.entries(kinds))
+    {
+        for (const kind of values)
+        {
+            let businessOwners;
+            let routePatterns;
+            let actorConstraint = 'AllowAnonymous';
+            const blockers = ['canonical_input_role_bindings_missing', 'query_owner_scenario_receipt_intake_missing'];
+            switch (`${domain}:${kind}`)
+            {
+                case 'article:latest-list':
+                case 'article:category-filter':
+                case 'article:tag-filter':
+                    businessOwners = [article('GetPageListAsync')];
+                    routePatterns = inventory.cases.filter((row) => row.kind === kind).map((row) => row.routePattern);
+                    break;
+                case 'article:detail':
+                    businessOwners = [article('GetPublicArtifactBackedDetailAsync'), article('GetByIdAsync')];
+                    routePatterns = ['/api/binary/article/{id}.aeds'];
+                    break;
+                case 'article:search-hit':
+                case 'article:search-no-hit':
+                    businessOwners = [sourceRef('src/core/Services/Abstractions/IArticleCoreService.cs',
+                        'FsusBlog.Core.Services.Abstractions.IArticleCoreService.SearchArticlesAsync')];
+                    routePatterns = ['/api/binary/article/search/query.aeds'];
+                    blockers.push('search_ranking_role_contract_missing');
+                    break;
+                case 'article:top-list':
+                    businessOwners = [article('GetHotArticlesAsync'), article('GetFeaturedArticlesAsync')];
+                    routePatterns = ['/api/binary/admin/article/hot', '/api/binary/admin/article/featured'];
+                    actorConstraint = 'AdminPermissions.ArticleWrite';
+                    blockers.push('canonical_top_semantics_missing_hot_and_featured_are_distinct');
+                    break;
+                case 'article:prev-next':
+                    businessOwners = [sourceRef('src/backend/Services/Distribution/RelatedReadingService.cs',
+                        'FsusBlog.Server.Services.Distribution.RelatedReadingService.BuildFrameAsync')];
+                    routePatterns = ['/api/binary/article/{articleId:int}/related.aeds'];
+                    break;
+                case 'article:cache-consistency':
+                    businessOwners = [projectionVerifier(), article('GetPublicArtifactBackedDetailAsync'),
+                        sourceRef('src/backend/Infrastructure/Cache/CachePorts.cs',
+                            'FsusBlog.Server.Infrastructure.Cache.ICacheStringReader.GetStringAsync'),
+                        sourceRef('src/core/Services/Gateways/IArticleCoreGateway.cs',
+                            'FsusBlog.Core.Services.Gateways.IArticleCoreGateway.GetByIdAsync'),
+                        sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs',
+                            'FsusBlog.Server.Infrastructure.PublicReadArtifacts.IPublicArticleProjectionStore.TryReadAsync')];
+                    routePatterns = ['/api/binary/article/{id}.aeds'];
+                    blockers.push('mutation_and_cache_generation_coordinates_missing');
+                    break;
+                case 'article:aot-consistency':
+                    businessOwners = [projectionVerifier(),
+                        ...['CreateLookup', 'TryGetEntryAsync', 'IsRenderable'].map((member) =>
+                            sourceRef('src/backend/Infrastructure/PublicAot/PublicAotArtifactStore.cs',
+                                `FsusBlog.Server.Infrastructure.PublicAot.IPublicAotArtifactStore.${member}`)),
+                        sourceRef('src/backend/Infrastructure/PublicAot/PublicAotInvalidationGenerationAuthority.cs',
+                            'FsusBlog.Server.Infrastructure.PublicAot.IPublicAotInvalidationGenerationAuthority.LoadAsync'),
+                        sourceRef('src/backend/Infrastructure/PublicAot/PublicAotInvalidationGenerationAuthority.cs',
+                            'FsusBlog.Server.Infrastructure.PublicAot.PublicAotInvalidationGenerationState.Current'),
+                        sourceRef('src/backend/Infrastructure/PublicAot/PublicRouteIdentity.cs',
+                            'FsusBlog.Server.Infrastructure.PublicAot.PublicRouteIdentity.BuildCanonicalPath')];
+                    routePatterns = ['/article/{articleId}'];
+                    blockers.push('original_aot_artifact_and_route_identity_missing');
+                    break;
+                case 'article:hot-read-consistency':
+                    businessOwners = [projectionVerifier(),
+                        sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs',
+                            'FsusBlog.Server.Infrastructure.PublicReadArtifacts.PublicHotReadSnapshot.TryGetArticle'),
+                        sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs',
+                            'FsusBlog.Server.Infrastructure.PublicReadArtifacts.IPublicArticleProjectionStore.TryReadAsync'),
+                        sourceRef('src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs',
+                            'FsusBlog.Server.Infrastructure.PublicReadArtifacts.IArticleDetailAedsArtifactStore.TryReadAsync'),
+                        sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs',
+                            'FsusBlog.Server.Infrastructure.PublicReadArtifacts.PublicHotReadFastPath.TryServeAsync')];
+                    routePatterns = ['/api/binary/article/{id}.aeds'];
+                    actorConstraint = 'PublicHotReadSecurityGateMiddleware.InvokeAsync';
+                    blockers.push('original_hot_read_generation_and_residency_coordinates_missing');
+                    break;
+                case 'comment:public-list':
+                case 'comment:pagination-order':
+                    businessOwners = [comment('GetTreeRootsAsync'), comment('GetChildrenAsync')];
+                    routePatterns = ['/api/binary/comment/{articleId:int}', '/api/binary/comment/{articleId:int}/children/{parentId:long}'];
+                    break;
+                case 'comment:public-thread':
+                case 'comment:deleted-root':
+                case 'comment:deleted-reply':
+                    businessOwners = [comment('GetTreeRootsAsync'), comment('GetRepliesAsync')];
+                    routePatterns = ['/api/binary/comment/{articleId:int}', '/api/binary/comment/{articleId:int}/thread/{rootId:long}'];
+                    blockers.push('canonical_thread_edges_and_deleted_placeholder_coordinates_missing');
+                    break;
+                case 'comment:approved-visibility':
+                case 'comment:region-filter':
+                    businessOwners = [comment('GetTreeRootsAsync'), sourceRef('src/backend/Interfaces/IRegionLegalModerationService.cs',
+                        'FsusBlog.Server.Interfaces.IRegionLegalModerationService.NormalizeRegion')];
+                    routePatterns = ['/api/binary/comment/{articleId:int}'];
+                    blockers.push('canonical_status_region_and_publication_coordinates_missing');
+                    break;
+                case 'comment:moderation-queue':
+                    businessOwners = [authorQueue()];
+                    routePatterns = ['/api/binary/author/comments/moderation'];
+                    actorConstraint = 'AdminPermissions.CommentModerate';
+                    blockers.push('original_admin_actor_and_moderation_status_coordinates_missing');
+                    break;
+                case 'comment:pending-visibility':
+                case 'comment:rejected-visibility':
+                case 'comment:hidden-visibility':
+                case 'comment:actor-filter':
+                    businessOwners = [actorRead(), visibilityProjection()];
+                    routePatterns = ['/api/binary/comment/me'];
+                    actorConstraint = 'RequireAnonymousAccountPrincipal';
+                    blockers.push('canonical_actor_status_and_permission_visibility_coordinates_missing');
+                    break;
+                case 'comment:permission-filter':
+                    businessOwners = [actorRead(), authorQueue(), comment('GetTreeRootsAsync')];
+                    routePatterns = ['/api/binary/comment/me', '/api/binary/author/comments/moderation', '/api/binary/comment/{articleId:int}'];
+                    actorConstraint = 'RequireAnonymousAccountPrincipal / AdminPermissions.CommentModerate / AllowAnonymous';
+                    blockers.push('canonical_actor_status_and_permission_visibility_coordinates_missing');
+                    break;
+                default:
+                    throw new Error(`query semantic owner is undeclared: ${domain}:${kind}`);
+            }
+            if (['cache-consistency', 'aot-consistency', 'hot-read-consistency'].includes(kind))
+            {
+                blockers.push('original_same_run_publication_receipt_and_current_invocation_missing');
+            }
+            const existingCaseIds = inventory.cases.filter((row) => row.domain === domain && row.kind === kind).map((row) => row.id);
+            if (!existingCaseIds.length)
+            {
+                blockers.push('canonical_query_case_and_expected_coordinate_missing');
+            }
+            requirements.push({ domain, kind, existingCaseIds, businessOwners,
+                routePatterns: [...new Set(routePatterns)], actorConstraint, inputs: null, canonicalRoleBindings: null,
+                scenarioApplicability: null, qualification: false, releaseEvidenceEligible: false,
+                status: existingCaseIds.length ? 'existing-case-mapping' : 'owner-declaration-only', blockers });
+        }
+    }
+    const result = { schema: 'fsusblog.data-scale-query-semantic-owners.v1', binding,
+        qualification: false, releaseEvidenceEligible: false, queryInventoryDigest: inventory.contentDigest,
+        vocabularyDigest: computeSha256(kinds), requirements };
+    return { ...result, contentDigest: computeSha256(result) };
+}
+
 export function requireQueryBinding(binding)
 {
     for (const field of ['sourceCommit', 'dataScaleRunId', 'fixtureGeneration', 'seedReceiptDigest', 'expectedModelDigest', 'businessEpochUtc'])

@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
-const { buildQueryCaseInventory, buildQueryCaseRegistry, queryCaseIds, queryMatrixTiers } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
+const { buildQueryCaseInventory, buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIds, queryMatrixTiers } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 const { compareQueryTrends, evaluateQueryCase, evaluateQueryMatrix, sqlFingerprint, summarizeActualPlan, validateQueryPolicy, verifyQueryTraversal } = await import(new URL('../../tools/data-scale/query-matrix.mjs', import.meta.url));
 const { decodeAedsFrame, decodeTaxonomyList, encodeAedsFrame, encodeTaxonomyList } = await import(new URL('../../tools/data-scale/aeds-decoders.mjs', import.meta.url));
 const { runQueryMatrix, runQueryMatrixFiles } = await import(new URL('../../tools/data-scale/run-query-matrix.mjs', import.meta.url));
@@ -76,6 +76,51 @@ test('source inventory preserves all cases and exposes semantic and scenario gap
     const { contentDigest, ...body } = inventory;
     assert.equal(contentDigest, computeSha256(body));
     assert.throws(() => buildQueryCaseInventory({ ...binding, sourceCommit: '' }));
+});
+
+test('semantic owner declarations bind real source contracts without adding cases or approving missing semantics', () =>
+{
+    const kinds = { article: ['latest-list', 'top-list', 'prev-next'], comment: ['public-list', 'moderation-queue', 'deleted-root'] };
+    const result = buildQuerySemanticOwnerInventory({ binding, kinds });
+    assert.equal(result.requirements.length, 6);
+    assert.equal(result.qualification, false);
+    assert.equal(result.releaseEvidenceEligible, false);
+    assert.equal(result.vocabularyDigest, computeSha256(kinds));
+    assert.deepEqual(result.requirements.find((row) => row.kind === 'latest-list').existingCaseIds, queryCaseIds.filter((id) => id.startsWith('article-list')));
+    const top = result.requirements.find((row) => row.kind === 'top-list');
+    assert.deepEqual(top.existingCaseIds, []);
+    assert.equal(top.status, 'owner-declaration-only');
+    assert.ok(top.blockers.includes('canonical_top_semantics_missing_hot_and_featured_are_distinct'));
+    assert.equal(result.requirements.find((row) => row.kind === 'moderation-queue').actorConstraint, 'AdminPermissions.CommentModerate');
+    for (const row of result.requirements)
+    {
+        assert.equal(row.qualification, false);
+        assert.equal(row.inputs, null);
+        assert.equal(row.scenarioApplicability, null);
+        assert.equal(row.canonicalRoleBindings, null);
+        assert.ok(row.blockers.includes('query_owner_scenario_receipt_intake_missing'));
+        for (const owner of row.businessOwners)
+        {
+            assert.equal(owner.contentDigest, computeSha256(fs.readFileSync(new URL(`../../${owner.path}`, import.meta.url))));
+        }
+    }
+    const consistency = buildQuerySemanticOwnerInventory({ binding,
+        kinds: { article: ['cache-consistency', 'aot-consistency', 'hot-read-consistency'], comment: ['public-list'] } });
+    for (const row of consistency.requirements.filter((requirement) => requirement.domain === 'article'))
+    {
+        assert.deepEqual(row.businessOwners[0].parameterTypes,
+            ['FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationReceipt',
+                'FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationRequest', 'System.Threading.CancellationToken']);
+        assert.ok(row.blockers.includes('original_same_run_publication_receipt_and_current_invocation_missing'));
+    }
+    const aot = consistency.requirements.find((row) => row.kind === 'aot-consistency');
+    assert.deepEqual(aot.routePatterns, ['/article/{articleId}']);
+    assert.ok(aot.businessOwners.some((owner) => owner.entrypoint.endsWith('PublicRouteIdentity.BuildCanonicalPath')));
+    assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { ...kinds, article: ['invented-kind'] } }), /undeclared/u);
+    assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { ...kinds, comment: ['public-list', 'public-list'] } }), /unique/u);
+    assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { article: ['detail'] } }), /vocabulary/u);
+    const { contentDigest, ...body } = result;
+    assert.equal(contentDigest, computeSha256(body));
 });
 
 function policy()
