@@ -104,7 +104,5 @@ render: enum-set
 
 <!-- FSUSBLOG-GENERATED:BEGIN auth.methods.active -->
 - `enrollment`
-- `other`
 - `passkey`
-- `recovery_key`
 <!-- FSUSBLOG-GENERATED:END auth.methods.active -->

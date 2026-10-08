@@ -71,6 +71,30 @@
         {
             "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
             "sha256": "0c06864359a651da35144e038069aa26a982943d86e099f369719da476d1a954"
+        },
+        {
+            "path": "docs/anonymous-identity-smoke-flow.md",
+            "sha256": "c75ce4f966b7ae87635fc68e0e95764779d9b9d002e649cb550de40e2182e524"
+        },
+        {
+            "path": "docs/api.md",
+            "sha256": "13bd9b373830888984eb0fb16eba925da7768bdce9fab76b84b6185a5bf8ad36"
+        },
+        {
+            "path": "docs/api/aeds-only-policy.md",
+            "sha256": "04e3baf53bab70f8b6f956476cb84aa90dc2405702a3e3cb6a17d0a7226bcb01"
+        },
+        {
+            "path": "docs/api/quick-reference.md",
+            "sha256": "c7ce8792d7de9ef5d2c4bd9feb127584e0086814fd5fe6ab0dca66120eb61000"
+        },
+        {
+            "path": "docs/api/schemas-and-errors.md",
+            "sha256": "cd90e72d431cf85071271822de538e54e4b391f49b6b2f88926db50780fa145c"
+        },
+        {
+            "path": "docs/api/stability.md",
+            "sha256": "bedd2b36332e9f3697ebfa4c30490de565a0a4eba6412bdf095e4b3420e2d41a"
         }
     ]
 }
