@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { type MarkdownEditorDispatchResult, type MarkdownEditorTransaction, type MarkdownEditorTransactionEvent } from '@ozwasyd/element-plus';
+import { ElDrawer, ElIcon, type MarkdownEditorDispatchResult, type MarkdownEditorTransaction, type MarkdownEditorTransactionEvent } from '@ozwasyd/element-plus';
 import { flushPromises, mount } from '@vue/test-utils';
 import { defineComponent, nextTick, shallowRef } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -82,7 +82,7 @@ async function openWriter()
     type Bound = ReturnType<typeof authoring.authoringEditorRuntime.bindEditor>;
     let bound: Bound | null = null;
     const consumed: boolean[] = [];
-    const editor = mount(ArticleWriteEditor, { props: {
+    const editor = mount(ArticleWriteEditor, { global: { components: { ElDrawer, ElIcon } }, props: {
         modelValue: authoring.articleForm.content, documentIdentity: authoring.authoringDocumentIdentity.value,
         'onUpdate:modelValue': (value: string) => { authoring.articleForm.content = value; },
         onTransaction: (event: MarkdownEditorTransactionEvent) =>
@@ -223,12 +223,20 @@ describe('search reveal consumes the production Writer search lifecycle', () =>
         ['rebased', [{ from: 0, to: 0, insert: 'X' }]],
         ['partial', [{ from: 2, to: 4, insert: '' }]],
         ['semantic-neighbor', [{ from: 1, to: 5, insert: '' }]],
-        ['percentage', [{ from: 0, to: 31, insert: '' }]]
+        ['percentage', []]
     ] as const)('clears the old lease on native revision change and consumes original %s composition', async (precision, changes) =>
     {
         const state = await openWriter();
         const old = await state.ready();
-        const transaction = state.dispatch([...changes]);
+        const transaction = state.dispatch(precision === 'percentage'
+            ? [{ from: 0, to: state.authoring.articleForm.content.length, insert: '' }]
+            : [...changes]);
+        if (precision === 'percentage')
+        {
+            expect(transaction.value).toBe('');
+            expect(state.session.binding.positionBinding().map.source).toBe('');
+            expect(state.session.binding.positionBinding().map.syntax).toHaveLength(0);
+        }
         expect(old.lease.signal.aborted).toBe(true);
         await state.expectCleared();
         const lease = state.begin();
@@ -257,7 +265,7 @@ describe('search reveal consumes the production Writer search lifecycle', () =>
     it('withholds unadmitted snippet evidence through the actual owned runtime', async () =>
     {
         const state = await openWriter();
-        const lease = state.begin();
+        const { lease } = await state.ready();
         const evidence = { recordType: 'AuthorSearchSourceSnippetEvidence', RawText: 'PRIVATE_SNIPPET_2319',
             DocumentEpoch: 'PRIVATE_SERVER_EPOCH_2319' };
         expect(state.session.search.projectCommand(evidence, lease)).toMatchObject({
