@@ -227,6 +227,15 @@ export async function assertPublicShellLocaleFirstResponse({ response, scene, co
     equal(headers.get('cache-control'), expected.cacheControl, 'cache policy');
     assert.ok(expected.metadata.title && expected.metadata.description && expected.metadata.canonicalUrl, 'missing fixture metadata');
     assert.ok(expected.frontendBuildIdentity, 'missing expected frontend build identity');
+    let html;
+    try
+    {
+        html = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(response.body);
+    }
+    catch
+    {
+        throw new Error('first response UTF8 is invalid');
+    }
     const codec = await loadPublicShellFirstResponseCodec();
     const window = new Window({ settings: {
         enableJavaScriptEvaluation: false,
@@ -237,7 +246,7 @@ export async function assertPublicShellLocaleFirstResponse({ response, scene, co
     } });
     try
     {
-        const document = new window.DOMParser().parseFromString(response.body.toString('utf8'), 'text/html');
+        const document = new window.DOMParser().parseFromString(html, 'text/html');
         equal(document.documentElement.lang, scene.document.language, 'html lang');
         equal(document.documentElement.getAttribute('dir'), scene.document.direction, 'html direction');
         equal(one(document, 'title').textContent, expected.metadata.title, 'document title');
