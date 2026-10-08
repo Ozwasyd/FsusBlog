@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Text;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Services.DocumentExport;
@@ -22,7 +23,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
     private readonly TestAuthorization _authorization = new();
     private readonly TestTimeProvider _time = new();
     private readonly ReleaseStorageLayout _layout;
-    private readonly DocumentExportJobActor _actor = new(7, 11, "authenticated-session");
+    private readonly DocumentExportJobActor _actor = new(7, "https://example.test", "authenticated-session");
 
     public DocumentExportJobServiceTests()
     {
@@ -64,7 +65,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         DocumentExportJobActor actor = mutation switch
         {
             "user" => _actor with { UserId = 8 },
-            "site" => _actor with { SiteId = 12 },
+            "site" => _actor with { SiteScope = "https://other.example.test" },
             _ => _actor
         };
         _authorization.Allowed = mutation != "permission";
@@ -78,6 +79,177 @@ public sealed class DocumentExportJobServiceTests : IDisposable
 
         await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().CreateAsync(actor, task, input, default));
         Assert.False(Directory.Exists(JobRoot));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" https://example.test")]
+    [InlineData("https://example.test/")]
+    [InlineData("https://example.test\n")]
+    public async Task ActorScope_RejectsNonCanonicalIdentityBeforeStorageWrite(string? scope)
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        DocumentExportJobActor actor = _actor with
+        {
+            SiteScope = scope!
+        };
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().CreateAsync(actor, task, input, default));
+        Assert.False(Directory.Exists(JobRoot));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Admission_RefusesPriorSharedSchemaBeforeStorageWrite(bool oldInput)
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        if (oldInput)
+        {
+            input = DocumentExportContractValidator.Seal(input with { Schema = "fsusblog.document-export-frozen-input.v2" });
+            task = DocumentExportContractTests.ValidTask(input);
+        }
+        else
+        {
+            task = DocumentExportContractValidator.Seal(task with { Schema = "fsusblog.document-export-task.v2" });
+        }
+        await Assert.ThrowsAsync<ArgumentException>(() => Service().CreateAsync(_actor, task, input, default));
+        Assert.False(Directory.Exists(JobRoot));
+    }
+
+    [Fact]
+    public async Task SiteScope_IsolatesIdempotencyCustodyOperationsAndSessionRevocation()
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Service().CreateAsync(_actor, task, input, default);
+        DocumentExportJobActor other = _actor with
+        {
+            SiteScope = "https://other.example.test"
+        };
+        DocumentExportFrozenInput otherInput = DocumentExportContractValidator.Seal(input with
+        {
+            SiteScope = other.SiteScope
+        });
+        DocumentExportTask otherTask = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(otherInput) with
+        {
+            TaskId = "other-scope-task",
+            IdempotencyKey = task.IdempotencyKey
+        });
+        await Service().CreateAsync(other, otherTask, otherInput, default);
+        DocumentExportJobSnapshot first = await Service().ExecuteAsync(_actor, task.TaskId, new ControlledProvider(task.ProviderId), default);
+        DocumentExportJobSnapshot second = await Service().ExecuteAsync(other, otherTask.TaskId, new ControlledProvider(otherTask.ProviderId), default);
+        Assert.Equal(other.SiteScope, second.Output!.SiteScope);
+        Assert.NotEqual(first.Output!.ObjectId, second.Output.ObjectId);
+        Assert.Single(await Service().ListAsync(other, default));
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().GetAsync(other, task.TaskId, default));
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().CancelAsync(other, task.TaskId, default));
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().RetryAsync(other, task.TaskId, default));
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().DeleteAsync(other, task.TaskId, default));
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().GrantAsync(other, task.TaskId, default));
+        DocumentExportDownloadGrant firstGrant = await Service().GrantAsync(_actor, task.TaskId, default);
+        DocumentExportDownloadGrant secondGrant = await Service().GrantAsync(other, otherTask.TaskId, default);
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().DownloadAsync(other, firstGrant.Token, false, default));
+        await Service().RevokeSessionAsync(_actor, default);
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().DownloadAsync(_actor, firstGrant.Token, false, default));
+        Assert.Equal(ControlledProvider.Output, (await Service().DownloadAsync(other, secondGrant.Token, false, default)).Bytes);
+        DocumentExportJobScopeUsage scope = Assert.Single((await Service().GetUsageAsync(default)).Scopes,
+            row => row.SiteScope == other.SiteScope);
+        Assert.Equal(1, scope.Jobs);
+        Assert.Equal(1, scope.Outputs);
+    }
+
+    [Theory]
+    [InlineData("purpose-v1")]
+    [InlineData("state-v1")]
+    [InlineData("snapshot-v1")]
+    [InlineData("output-v1")]
+    [InlineData("numeric-task")]
+    [InlineData("numeric-grant")]
+    [InlineData("mixed-task")]
+    [InlineData("mixed-grant")]
+    public async Task LegacyNumericOrVersionedState_RefusesWithoutRewritingOrDeletingPrivateBytes(string mutation)
+    {
+        DocumentExportJobSnapshot completed = await SucceedAsync();
+        DocumentExportDownloadGrant grant = await Service().GrantAsync(_actor, completed.Task.TaskId, default);
+        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v2");
+        byte[] original = File.ReadAllBytes(StatePath);
+        byte[] plaintext = protector.Unprotect(original);
+        JsonObject value = JsonNode.Parse(plaintext)!.AsObject();
+        JsonObject job = value["jobs"]![0]!.AsObject();
+        switch (mutation)
+        {
+            case "state-v1":
+                value["schema"] = "fsusblog.document-export-job-state.v1";
+                break;
+            case "snapshot-v1":
+                job["snapshot"]!["schema"] = "fsusblog.document-export-job.v1";
+                break;
+            case "output-v1":
+                job["snapshot"]!["output"]!["schema"] = "fsusblog.document-export-output.v1";
+                break;
+            case "numeric-task":
+                job["snapshot"]!["task"]!.AsObject().Remove("siteScope");
+                job["snapshot"]!["task"]!["siteId"] = 11;
+                break;
+            case "numeric-grant":
+                value["grants"]![0]!.AsObject().Remove("siteScope");
+                value["grants"]![0]!["siteId"] = 11;
+                break;
+            case "mixed-task":
+                job["snapshot"]!["task"]!["siteId"] = 11;
+                break;
+            case "mixed-grant":
+                value["grants"]![0]!["siteId"] = 11;
+                break;
+        }
+        byte[] altered = Encoding.UTF8.GetBytes(value.ToJsonString());
+        if (mutation is "state-v1" or "snapshot-v1" or "output-v1")
+        {
+            DocumentExportJobState state = DocumentExportDigest.Deserialize<DocumentExportJobState>(altered);
+            if (mutation == "output-v1")
+            {
+                DocumentExportStoredJob row = state.Jobs[0];
+                DocumentExportOutputRecord output = row.Snapshot.Output! with
+                {
+                    ContentDigest = string.Empty
+                };
+                state.Jobs[0] = row with
+                {
+                    Snapshot = row.Snapshot with
+                    {
+                        Output = output with
+                        {
+                            ContentDigest = DocumentExportDigest.Compute(output)
+                        }
+                    }
+                };
+            }
+            state = state with
+            {
+                ContentDigest = string.Empty
+            };
+            altered = DocumentExportDigest.Serialize(state with
+            {
+                ContentDigest = DocumentExportDigest.Compute(state)
+            });
+        }
+        byte[] candidate = mutation == "purpose-v1"
+            ? _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v1").Protect(plaintext)
+            : protector.Protect(altered);
+        File.WriteAllBytes(StatePath, candidate);
+        string lockPath = Path.Combine(JobRoot, "owner.lock");
+        byte[] lockBytes = File.ReadAllBytes(lockPath);
+        string objectPath = Assert.Single(Directory.GetFiles(JobRoot, "*.object", SearchOption.AllDirectories));
+        byte[] bytes = File.ReadAllBytes(objectPath);
+        await Assert.ThrowsAsync<InvalidDataException>(() => Service().GetAsync(_actor, completed.Task.TaskId, default));
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Assert.ThrowsAsync<InvalidDataException>(() => Service().CreateAsync(_actor, task, input, default));
+        await Assert.ThrowsAsync<InvalidDataException>(() => Service().CleanupAsync(default));
+        Assert.Equal(candidate, File.ReadAllBytes(StatePath));
+        Assert.Equal(lockBytes, File.ReadAllBytes(lockPath));
+        Assert.Equal(bytes, File.ReadAllBytes(objectPath));
+        File.WriteAllBytes(StatePath, original);
+        Assert.Equal(bytes, (await Service().DownloadAsync(_actor, grant.Token, false, default)).Bytes);
     }
 
     [Fact]
@@ -218,7 +390,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         Assert.Equal(DocumentExportTaskStatus.CleanupRequired, result.Task.Status);
         Assert.Equal(DocumentExportTaskStatus.Failed, result.Attempts[0].Status);
         Assert.Equal(budgetFailure ? "sandbox_budget_failed" : "provider_failed", result.Attempts[0].Reason);
-        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v1");
+        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v2");
         DocumentExportJobState state = DocumentExportDigest.Deserialize<DocumentExportJobState>(protector.Unprotect(File.ReadAllBytes(StatePath)));
         Assert.Equal(provider.FailureReceipt, state.Jobs[0].SandboxFailure);
         Assert.NotNull(state.Jobs[0].WorkerDigest);
@@ -371,7 +543,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         DocumentExportJobActor actor = mutation switch
         {
             "user" => _actor with { UserId = 8 },
-            "site" => _actor with { SiteId = 12 },
+            "site" => _actor with { SiteScope = "https://other.example.test" },
             "session" => _actor with { SessionId = "different-session" },
             _ => _actor
         };
@@ -597,11 +769,11 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         {
             DocumentExportJobActor actor = _actor with
             {
-                SiteId = 11 + index % 2
+                SiteScope = index % 2 == 0 ? _actor.SiteScope : "https://other.example.test"
             };
             DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidInput() with
             {
-                SiteId = actor.SiteId
+                SiteScope = actor.SiteScope
             });
             DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input)
                 with
@@ -631,7 +803,7 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         Assert.Equal(DocumentExportTaskStatus.CleanupRequired, failed.Task.Status);
         Assert.Equal(DocumentExportTaskStatus.Failed, failed.Attempts[0].Status);
         Assert.Equal("sandbox_budget_failed", failed.Attempts[0].Reason);
-        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v1");
+        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v2");
         DocumentExportJobState state = DocumentExportDigest.Deserialize<DocumentExportJobState>(protector.Unprotect(File.ReadAllBytes(StatePath)));
         Assert.Equal(provider.FailureReceipt, state.Jobs[0].SandboxFailure);
         Assert.NotNull(state.Jobs[0].WorkerDigest);
@@ -660,10 +832,11 @@ public sealed class DocumentExportJobServiceTests : IDisposable
     [Theory]
     [InlineData("task")]
     [InlineData("output")]
+    [InlineData("output-scope")]
     public async Task AuthenticatedButInconsistentStoredRecord_IsRejectedIndependently(string mutation)
     {
         DocumentExportJobSnapshot job = await SucceedAsync();
-        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v1");
+        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v2");
         DocumentExportJobState state = DocumentExportDigest.Deserialize<DocumentExportJobState>(protector.Unprotect(File.ReadAllBytes(StatePath)));
         DocumentExportStoredJob row = state.Jobs[0];
         if (mutation == "task")
@@ -683,7 +856,8 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         {
             DocumentExportOutputRecord output = row.Snapshot.Output! with
             {
-                Length = row.Snapshot.Output!.Length + 1,
+                Length = row.Snapshot.Output!.Length + (mutation == "output-scope" ? 0 : 1),
+                SiteScope = mutation == "output-scope" ? "https://other.example.test" : row.Snapshot.Output.SiteScope,
                 ContentDigest = string.Empty
             };
             output = output with
