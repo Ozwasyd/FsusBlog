@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { verifyNativeCpuIdentityFacts } from './production-fresh-native-cpu-binding.mjs';
+
 export const identityFields = Object.freeze([
     'machineTopology', 'effectiveCpuCalibration', 'os', 'kernel', 'libc', 'resourceEnforcement',
     'powerPolicy', 'memoryReserve', 'storage', 'toolchain', 'browser', 'services',
@@ -126,6 +128,10 @@ export function loadPerformanceRun(root, locator)
     {
         facts[key] = readRef(root, receipt[key]);
         assert(canonical(facts[key].binding) === canonical(receipt.binding), `${key} wrong-run/attempt binding`);
+    }
+    if (facts.identity.nativeCpuProvenance || facts.identity.values?.effectiveCpuCalibration?.nativeIdentity)
+    {
+        verifyNativeCpuIdentityFacts(root, facts.identity);
     }
     const identity = facts.identity.values;
     exactKeys(identity, identityFields, 'machine identity');

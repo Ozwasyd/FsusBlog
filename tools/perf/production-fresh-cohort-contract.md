@@ -6,10 +6,11 @@ collector, correctness authority, test inventory or Production finalizer.
 
 The input is an explicit adapter contract, **not a native Production receipt**.
 No machine cohort or runtime qualification has been manufactured in this change.
-A native adapter must consume the existing resource collector, measurement noise
-and terminal execution authorities and verify their complete provenance before
-emitting this contract. The existing observe-only resource report cannot be
-promoted by renaming it or supplying a seal.
+The native source adapter now consumes the exact CPU owner capability and the
+canonical resource/noise validators. It projects available observed fields while
+preserving missing qualification inputs. Its source projection is not a native
+Production performance input, baseline or verdict. The existing observe-only
+resource report cannot be promoted by renaming it or supplying a seal.
 
 ## Input and provenance
 
@@ -120,6 +121,80 @@ exceed the measured floor. CPU burners cannot override wall-clock or wait
 regression. Legitimate quiet/I/O/non-CPU phases do not receive a CPU threshold.
 Comparison has no retry, scheduling, ledger mutation or qualification writes.
 
+## Native source coupling
+
+`production-fresh-native-adapter.mjs` consumes the unchanged CPU capability lineage
+at `3726bae1d1fc3b0969850c90342ef16f7bfb8a2a` from PR #3948. This tested successor to
+`36814eb82be4b53611277d832908eb8201f73fd1` supplies
+`validateRunCpuCapacity(selection, { topology, identity })`, including immutable
+calibration/cohort reference revalidation. The adapter consumes a previously
+selected, byte-bound capacity receipt. It does not call `resolveRunCpuCapacity`,
+change capacity, activate a pointer or reload mutable active state during a run.
+
+`projectNativeCpuCapacity` accepts `root`, explicit `topologyRef`, `selectionRef`,
+`planRef`, `expectedBinding` and `expectedCpuIdentity`. It validates with the CPU
+owner's API, checks the run and physical plan digest, and projects the observed
+machine/topology, calibrated receipt/capacity/finite boundary, kernel, power and
+CPU-bound fixture/test/toolchain identities. The run-specific selection digest
+stays in provenance rather than the reusable baseline identity. Fallback remains
+uncalibrated and not baseline eligible. Immutable calibration references are
+retained; the upstream semantic-seal verification remains the CPU owner's rule.
+
+`bindPerformanceIdentityToNativeCpu` additionally takes all 17 `identityValues`
+from the performance identity producer. It replaces CPU-owned fields with the
+verified native projection, checks OS platform agreement, retains the non-CPU
+supplement and outputs the existing `{ binding, values }` identity facts plus
+native CPU provenance. It refuses fallback. OS version/libc, storage, memory
+reserve, browser/services, collector and policy still require actual non-CPU
+observations; the adapter does not fabricate them.
+
+`production-fresh-native-cpu-binding.mjs` is the pure CPU binding/verification
+owner, separate from collector imports. `loadPerformanceRun` revalidates native
+CPU provenance whenever a native CPU identity is present, rereads the original
+byte refs, calls the original capacity validator and recomputes every projected
+CPU identity field. Removing provenance or resealing a normalized CPU field
+cannot bypass this validation. This pure dependency introduces no process spawn
+into the existing verdict consumer.
+
+`projectCanonicalResourceState` takes `root`, `resourceRef`, `checkpointRef`,
+`planRef`, `expectedBinding`, `expectedSourceState`. The binding source digest is
+the native source worktree fingerprint without its `sha256:` prefix. It invokes
+`validateResourceUtilizationBinding`, verifies the exact checkpoint bytes/run/
+source/revision, compares canonical critical-path and wait projections, rereads
+all byte-bound bundle fragments, and compares their original step projections.
+It independently integrates each raw grant history using
+`integrateResourceGrantHistory`. Null and unsupported collector values remain
+null even if an older display aggregate coerces them to zero. CPU-heavy complete
+sampling requires native kernel descendant accounting and complete grant
+integration; reserved CPU cannot substitute for actual CPU.
+
+The physical plan must contain an exact executable `steps` roster with explicit
+`bundleId`, `stepId`, `cpuHeavy`, `schedulerOwnerId`. No scheduler owner is inferred
+from a name. Wait projections retain their original category/detail/time, exact
+checkpoint ref and JSON pointer, scheduler authority and explicit mapped owners.
+A bundle wait cannot be assigned to one guessed critical-path step. A readiness
+wait retains `needsMarkerAuthority`; it is not relabeled as a native marker event.
+Quiet/isolation evidence is not silently made valid. Full-run peak RSS/PSI,
+swap/OOM/kill, thermal/CV/isolation and first-attempt terminal facts are explicitly
+listed as unavailable required inputs where the canonical report does not provide
+their complete authority.
+
+`projectCanonicalNoise` takes explicit `sequenceRefs`, `policyRef`, `windowId`
+and `expectedBinding`. It calls the original policy and authority-sequence/
+terminal validators, checks run/attempt, and preserves raw observations and refs.
+A clean window does not create calibrated metric noise floors. Missing floors
+remain null. These APIs perform upstream source projection and must not be
+imported by the zero-producer finalizer; the original resource module initializes
+its native clock-tick probe when imported.
+
+`inspectNativePerformanceSources` composes those verified projections and emits
+`fsusblog.production-fresh.native-performance-source-projection.v1`, always
+`not-evaluable` and not baseline eligible while complete native health, critical
+interval, current-attempt terminal and calibrated noise-floor capabilities are
+missing. This output is deliberately rejected by the existing performance-input
+schema. It supplies reusable, independently inspectable source facts and precise
+remaining producer requirements rather than a fabricated native receipt.
+
 ## Independent verdict consumer
 
 `createPerformanceVerdict` is a separate producer. It binds an explicit terminal
@@ -165,16 +240,18 @@ explicit CLI output is its caller-owned new receipt.
 
 ## Remaining acceptance and owner contracts
 
-- #1941: standalone capture/validator is implemented. #1940 still needs a published
-  exact sealed calibration/identity API and a verified native adapter mapping
-  complete first-attempt resource, noise and terminal execution facts. At least
-  three actual eligible Fresh runs have not been captured.
-- #1942: standalone closed registry/classifier and controls are implemented.
-  Canonical collector metric roster coverage and actual scheduler/marker state
-  bindings still need owner integration and real sampling acceptance.
-- #1943: standalone read-only comparison and four outcomes are implemented.
-  Native current/cohort evidence and independent exact-candidate recomputation
-  acceptance remain open; unit fixtures certify only this owned contract.
+- #1941: capture/validator plus native CPU identity binding are implemented and
+  consume the exact #1940 capacity validator. Complete native health, first-attempt
+  terminal and calibrated noise-floor inputs remain missing. At least three actual
+  eligible Fresh runs have not been captured.
+- #1942: closed registry/classifier and canonical raw collector/grant/wait source
+  projections are implemented. Complete critical-path partition and dedicated
+  marker/isolation/full-run resource authorities still need canonical producer
+  integration and real sampling acceptance.
+- #1943: read-only comparison and four outcomes are implemented; native source
+  projection verifies the existing CPU/resource/noise API coupling. Native complete
+  current/cohort evidence and independent exact-candidate recomputation acceptance
+  remain open; source fixtures do not certify hardware qualification.
 - #1944: verdict producer and zero-producer consumer controls are implemented.
   #1933 owner must wire the consumer into its required terminal catalog/summary,
   and #1686 owner must register applicable matrix/release inputs. Production
