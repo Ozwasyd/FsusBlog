@@ -141,4 +141,3 @@ test('canonical route graph is rebuilt and a fabricated observation cannot repla
     await assert.rejects(inspectCompositionObservationDiagnostic({ ...options(),
         observationBytes: Buffer.from(JSON.stringify({ archetype: 'admin/settings', observationsPassed: true })) }));
 });
-
