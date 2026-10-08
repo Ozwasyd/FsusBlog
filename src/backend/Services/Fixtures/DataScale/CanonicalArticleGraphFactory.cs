@@ -304,7 +304,7 @@ public static class CanonicalArticleGraphFactory
                     ["BlockType"] = "markdown",
                     ["Content"] = markdownContent,
                     ["MarkdownContent"] = markdownContent,
-                    ["CreatedAt"] = revCreatedAt.ToString("O")
+                    ["CreatedAt"] = temporal[ArticleScaleTemporalRoles.ArticleRevision].ToString("O")
                 }));
             relations.Add(new ArticleScaleRelationPlan(ArticleScaleRelationKind.ContentBlockToRevision, contentBlockSemanticId, revSemanticId));
 

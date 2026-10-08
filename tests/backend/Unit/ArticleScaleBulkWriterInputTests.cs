@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Xunit.Abstractions;
 
 using FsusBlog.Contracts.Articles;
@@ -22,6 +24,7 @@ public sealed class ArticleScaleBulkWriterInputTests(ITestOutputHelper output)
     public void FactoryContentBlockKey_MatchesProductionContentAddress(ArticleScaleVariant variant)
     {
         ArticleScaleArticleGraph graph = CreateGraph("bulk-input-first", variant);
+        output.WriteLine("CanonicalGraph=" + JsonSerializer.Serialize(graph));
 
         foreach (ArticleScaleRowPlan block in graph.Rows.Where(
             row => row.Kind == ArticleScaleRowKind.ArticleRevisionContentBlock))
@@ -69,6 +72,29 @@ public sealed class ArticleScaleBulkWriterInputTests(ITestOutputHelper output)
             CanonicalArticleGraphVerificationResult result = CanonicalArticleGraphVerifier.VerifyArticleGraph(plan, tampered);
             Assert.False(result.IsValid);
             Assert.Contains(result.Violations, item => item.StartsWith(violation, StringComparison.Ordinal));
+        }
+    }
+
+    [Theory]
+    [InlineData(ArticleScaleVariant.Published)]
+    [InlineData(ArticleScaleVariant.Scheduled)]
+    [InlineData(ArticleScaleVariant.PublishedWithScheduledUpdate)]
+    [InlineData(ArticleScaleVariant.Archived)]
+    [InlineData(ArticleScaleVariant.Deleted)]
+    public void FactoryContentBlockRoles_WithSameKeyHaveIdenticalPersistedValues(ArticleScaleVariant variant)
+    {
+        ArticleScaleArticleGraph graph = CreateGraph("bulk-input-first", variant);
+        foreach (IGrouping<string, ArticleScaleRowPlan> sharedKey in graph.Rows
+            .Where(row => row.Kind == ArticleScaleRowKind.ArticleRevisionContentBlock)
+            .GroupBy(row => Assert.IsType<string>(row.Fields["ContentHash"]), StringComparer.Ordinal))
+        {
+            ArticleScaleRowPlan first = sharedKey.First();
+            foreach (ArticleScaleRowPlan alias in sharedKey.Skip(1))
+            {
+                Assert.Equal(first.Fields["MarkdownContent"], alias.Fields["MarkdownContent"]);
+                Assert.Equal(first.Fields["ByteLength"], alias.Fields["ByteLength"]);
+                Assert.Equal(first.Fields["CreatedAt"], alias.Fields["CreatedAt"]);
+            }
         }
     }
 
