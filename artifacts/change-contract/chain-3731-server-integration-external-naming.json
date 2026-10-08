@@ -18,7 +18,8 @@
                 "config/testing/correctness-attempt-producers.json",
                 "tests/backend/packages.lock.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/governance/test-lifecycle-registry.json"
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/migration/packages.lock.json"
             ],
             "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver. preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
         },
