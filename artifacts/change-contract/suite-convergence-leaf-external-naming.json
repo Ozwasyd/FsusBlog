@@ -5,9 +5,10 @@
             "id": "json-wire-key",
             "paths": [
                 "config/testing/correctness-attempt-producers.json",
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/release-final-execution-authority-index.json"
             ],
-            "reason": "Preserve the existing canonical catalog and execution-authority schema keys, producer IDs and external target paths while binding the actual current source digests through their unchanged original producers."
+            "reason": "Preserve the existing canonical catalog, finite execution index and execution-authority schema keys, producer IDs and external target paths while binding the actual current source/index digests through unchanged original producers and exact parent-supplied parser registration."
         },
         {
             "id": "environment-variable",
