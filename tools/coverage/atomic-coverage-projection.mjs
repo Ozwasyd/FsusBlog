@@ -1,4 +1,4 @@
-import { sealContentDigest, sha256 } from '../test/attempt-provenance.mjs';
+const {sealContentDigest, sha256} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 import { readCoverageMaterial } from './atomic-coverage-inputs.mjs';
 import { readCoverageBytes, requireCoverage, validateCoveragePlan } from './atomic-coverage-plan.mjs';
 
@@ -16,7 +16,10 @@ export function projectCoverageSettled({ root, plan, projectionId, outcomes, ver
     const nodes = projection.settledDependsOn.map((producerId) =>
     {
         const outcome = outcomes[producerId];
-        if (!outcome) return { producerId, terminalState: 'missing', reasonCode: 'coverage.terminal-missing' };
+        if (!outcome)
+        {
+            return { producerId, terminalState: 'missing', reasonCode: 'coverage.terminal-missing' };
+        }
         if (Object.keys(outcome).join(',') === 'blockedRef')
         {
             const reference = outcome.blockedRef;

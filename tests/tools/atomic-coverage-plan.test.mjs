@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { coverageProducerIds, createCoveragePlan, validateCoveragePlan } from '../../tools/coverage/atomic-coverage-plan.mjs';
+const {coverageProducerIds, createCoveragePlan, validateCoveragePlan} = await import(new URL('../../tools/coverage/atomic-coverage-plan.mjs', import.meta.url));
 import { coverageFixture } from './support/atomic-coverage-fixtures.mjs';
 
 function variables(producer)

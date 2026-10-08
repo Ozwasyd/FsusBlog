@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { prepareCoverageProducer } from '../../tools/coverage/atomic-coverage-inputs.mjs';
-import { projectCoverageSettled } from '../../tools/coverage/atomic-coverage-projection.mjs';
+const {prepareCoverageProducer} = await import(new URL('../../tools/coverage/atomic-coverage-inputs.mjs', import.meta.url));
+const {projectCoverageSettled} = await import(new URL('../../tools/coverage/atomic-coverage-projection.mjs', import.meta.url));
 import { coverageFixture } from './support/atomic-coverage-fixtures.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
@@ -64,7 +64,10 @@ test('merged threshold failure leaves real backend/frontend checker commands ind
     const fixture = coverageFixture(t);
     const inputs = Object.fromEntries(fixture.plan.producers.slice(0, 3).map((producer) => [producer.id, fixture.makeMaterial(producer.id, 'clean-success', (summary) =>
     {
-        if (producer.id === 'coverage-merge') summary.summary.linecoverage = 0;
+        if (producer.id === 'coverage-merge')
+        {
+            summary.summary.linecoverage = 0;
+        }
         return summary;
     })]));
     const exits = [];
