@@ -104,8 +104,18 @@ session; they do not initialize or complete another upload. Observation drift
 changes the content seal and makes `RevalidateAsync` refuse a previous handoff.
 Returned reference collections are immutable copies. No grant/token is retained.
 
-This is content-addressed staging preparation and a future materialization
-handoff, not durable asset staging or a receipt. The existing resolution proposal
+This is content-addressed staging preparation before execution, not durable asset
+staging or an accepted materialization receipt. After an article operation is
+accepted, its server revision and original reference ledger can legitimately
+change. `RevalidateAsync` checks the pre-execution plan and observation; it cannot
+be used to admit those changes after acceptance. The actual accepted-source
+reader supplies exact article bytes and permission checks, but no asset receipt
+binding the accepted operation to its resulting ledger references. That missing
+owner capability must define the expected accepted asset facts before a
+materialization handoff can be implemented. An old snapshot cannot stand in for
+fresh observations, and arbitrary ledger deltas cannot be allowed as recovery.
+
+The existing resolution proposal
 store accepts only resolution proposals; it is not repurposed. The existing
 operation checkpoint store persists operation history, with no asset-stage API.
 The adapter never writes either store, rolls back a committed upload, deletes an

@@ -133,7 +133,9 @@ public sealed class ArticleVaultAssetStagingAdapter
     /// <summary>
     /// Reacquires actual store/upload facts and rechecks supplied current dependency inputs; a sealed handoff alone
     /// cannot survive changed bytes, ownership, permission or ledger references. This remains
-    /// preparation revalidation, not a native materialization or synchronized-base admission.
+    /// pre-execution preparation revalidation. Acceptance can legitimately change the server
+    /// coordinate and reference ledger; this method does not admit those post-acceptance changes
+    /// or provide native materialization or synchronized-base admission.
     /// </summary>
     public async Task<Result<ArticleVaultAssetUploadHandoff>> RevalidateAsync(
         ArticleVaultAssetUploadHandoff handoff,
