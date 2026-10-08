@@ -25,6 +25,7 @@ export function auditBinaryRouteCalls(source, filename, operations, { transportO
     const aliases = new Set(['requestBinaryOnly', 'requestBinaryJson']);
     const routeFunctions = new Set([...routeCallNames, ...collectBinaryRouteFunctionNames(source)]);
     const rawImports = new Set();
+    const fetchAliases = new Set(['fetch']);
     const definitions = new Map();
     const parameters = new Map();
     const functions = new Map();
@@ -43,7 +44,13 @@ export function auditBinaryRouteCalls(source, filename, operations, { transportO
         if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer)
         {
             definitions.set(node.name.text, node.initializer);
-            if (ts.isIdentifier(node.initializer) && aliases.has(node.initializer.text)) aliases.add(node.name.text);
+            if (ts.isIdentifier(node.initializer))
+            {
+                if (aliases.has(node.initializer.text)) aliases.add(node.name.text);
+                if (rawImports.has(node.initializer.text)) rawImports.add(node.name.text);
+                if (fetchAliases.has(node.initializer.text)) fetchAliases.add(node.name.text);
+            }
+            if (ts.isPropertyAccessExpression(node.initializer) && node.initializer.name.text === 'fetch') fetchAliases.add(node.name.text);
         }
         if (ts.isParameter(node) && ts.isIdentifier(node.name)) parameters.set(node.name.text, node.type ? text(node.type) : '');
         ts.forEachChild(node, collect);
@@ -122,7 +129,20 @@ export function auditBinaryRouteCalls(source, filename, operations, { transportO
             if (aliases.has(name)) request(node.arguments[0]);
             if (routeFunctions.has(name)) route(node.arguments[0]);
             if (!transportOwner && rawImports.has(name)) fail(node, 'raw binaryRequest bypasses transport owner');
-            if (name === 'fetch' && binaryPath(node.arguments[0])) fail(node, 'direct binary fetch bypasses generated routes');
+            if (fetchAliases.has(name) && binaryPath(node.arguments[0])) fail(node, 'direct binary fetch bypasses generated routes');
+            if (functions.has(name) && node.arguments.some(argument => binaryPath(argument)))
+            {
+                function hasFetch(child)
+                {
+                    if (ts.isCallExpression(child))
+                    {
+                        const called = ts.isPropertyAccessExpression(child.expression) ? child.expression.name.text : text(child.expression);
+                        if (fetchAliases.has(called)) return true;
+                    }
+                    return ts.forEachChild(child, hasFetch) === true;
+                }
+                if (hasFetch(functions.get(name).body)) fail(node, 'binary URL wrapper bypasses generated routes');
+            }
         }
         ts.forEachChild(node, visit);
     }
