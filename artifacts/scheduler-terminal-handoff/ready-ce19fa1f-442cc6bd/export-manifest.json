@@ -1,0 +1,202 @@
+[
+  {
+    "path": "README.md",
+    "sha256": "c85d74d2e8642e966388ded06c2eb6181225ec2b8b76b0e040c120a8b02cb990",
+    "bytes": 3807
+  },
+  {
+    "path": "capability-contracts.json",
+    "sha256": "074f0d608a2d93179a152f8541d042883c2ae3f507ef77f336ac4a293d6f7a19",
+    "bytes": 1803
+  },
+  {
+    "path": "checks/producer/change-contract.log",
+    "sha256": "239f58fcc2d958c720ab0b7d68e82cfe5b4f3701975d2ff97a6e67f02254fd4f",
+    "bytes": 81
+  },
+  {
+    "path": "checks/producer/commands.json",
+    "sha256": "db6b4027deebbac2bcfe431e263451213051116a02af3ea7238d2138b97cff50",
+    "bytes": 2184
+  },
+  {
+    "path": "checks/producer/diff-check.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "checks/producer/eslint.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "checks/producer/markdown.log",
+    "sha256": "08d7b86e85401ac5fe0a5d8a083ca5315b5d20b4c11c998dbe1f08913c142659",
+    "bytes": 468
+  },
+  {
+    "path": "checks/producer/ordinary-real-child.log",
+    "sha256": "5003514a3e58530f7b5b3479980d1bb749dc7dbf54b18baf1dcbea28c6b1a8f5",
+    "bytes": 217
+  },
+  {
+    "path": "checks/producer/preflight.log",
+    "sha256": "22be873cd8f3008c08ffbbeb1de7c38be2b3b2ab23f85cbd75e4ff9893b72c55",
+    "bytes": 42878
+  },
+  {
+    "path": "checks/producer-first-attempt/change-contract.log",
+    "sha256": "239f58fcc2d958c720ab0b7d68e82cfe5b4f3701975d2ff97a6e67f02254fd4f",
+    "bytes": 81
+  },
+  {
+    "path": "checks/producer-first-attempt/commands.json",
+    "sha256": "a035479daa62d7ff37408d4adf941fa8b9b797af40c414363f821aee52586a28",
+    "bytes": 2164
+  },
+  {
+    "path": "checks/producer-first-attempt/diff-check.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "checks/producer-first-attempt/eslint.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "checks/producer-first-attempt/markdown.log",
+    "sha256": "c5084d1854cacf87b3f0b334d1d8e9759e3bf3e27a579fbb26042317dca1c3e4",
+    "bytes": 83659
+  },
+  {
+    "path": "checks/producer-first-attempt/ordinary-real-child.log",
+    "sha256": "bbc66fbf702aa31bb6e0031fdf81ffbe3b06581946b5e0e92f77e5163794807d",
+    "bytes": 1017
+  },
+  {
+    "path": "checks/producer-first-attempt/preflight.log",
+    "sha256": "de1d6b7d8e78ee78457e44f14f3037e381d01a60e3bbbce220b74e3205c26517",
+    "bytes": 42878
+  },
+  {
+    "path": "checks/readback-first-attempt/change-contract.log",
+    "sha256": "940babd451a4617a64b4ffa3cc62fe291d7c34169f93ca455439e10ac1ac5254",
+    "bytes": 81
+  },
+  {
+    "path": "checks/readback-first-attempt/commands.json",
+    "sha256": "fb658a8b03c0496ad96a3312d5f5d5def7414bf7fedb5e8cda5422ef49567b5b",
+    "bytes": 3329
+  },
+  {
+    "path": "checks/readback-first-attempt/diff-check.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "checks/readback-first-attempt/eslint.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "checks/readback-first-attempt/markdown-scoped.log",
+    "sha256": "6ad256c7d11730a5c9860ce7c80dac45e1b88f53820f37ece71d28c4cc42d956",
+    "bytes": 478
+  },
+  {
+    "path": "checks/readback-first-attempt/markdown.log",
+    "sha256": "0b169146844b7c78df6070683f169489840f7ead4a6d47ee99395f2f8dad4515",
+    "bytes": 83466
+  },
+  {
+    "path": "checks/readback-first-attempt/ordinary-actual-consumer.log",
+    "sha256": "e8b1b6e6ff515327d53aa0c468cac805aaff3f3f2518b9ca35379e45ea05311a",
+    "bytes": 253
+  },
+  {
+    "path": "checks/readback-first-attempt/ordinary-readback-api.log",
+    "sha256": "f1314f488ae765eaa2997a270047950a6f93c4c68087e71a668fd99ed7d7ece2",
+    "bytes": 433
+  },
+  {
+    "path": "checks/readback-first-attempt/preflight.log",
+    "sha256": "6a51fa70f0c2610149cebcb8cddbdbc7320c905300b8d1da86b377456c1d8305",
+    "bytes": 116975
+  },
+  {
+    "path": "issue-by-issue-gaps.json",
+    "sha256": "80377cf0ea5a1a7d6b750888459a5af8e89f0ff1c57825794603696bb637960a",
+    "bytes": 6347
+  },
+  {
+    "path": "pr-and-wip-copy.md",
+    "sha256": "fc3031face63c6831896a92c2bb749b9eccf1093250cf7fc94a7d44da55fe7d2",
+    "bytes": 3527
+  },
+  {
+    "path": "preflight.mjs",
+    "sha256": "024ea9781e9e9faec0e2add1a164b591a7bdfef13203d51b0c4ea63f3415db95",
+    "bytes": 1481
+  },
+  {
+    "path": "remote-refs.log",
+    "sha256": "233df9dd05986451f1b0ca13ef245a9bd5e61dc6403c1ac4ab507d94ea0c6d58",
+    "bytes": 453
+  },
+  {
+    "path": "run-checks.py",
+    "sha256": "ad2d96026d322e66290488a37e28db5a9a045daf8e07d3ffa30906ad258991a2",
+    "bytes": 2869
+  },
+  {
+    "path": "source/442cc6bd/tests/tools/scheduler-committed-evidence-readback.test.mjs",
+    "sha256": "5535c40f3e8ef5444e8169d5a0849417f59a87c219178b7f292dd7b96a313568",
+    "bytes": 6255
+  },
+  {
+    "path": "source/442cc6bd/tests/tools/support/canonical-scheduler-fixture.mjs",
+    "sha256": "a9f536c0a1941349bff88e6c9bfe55e8d3bcc66684d5ce2d9c9c0f200704f111",
+    "bytes": 1462
+  },
+  {
+    "path": "source/442cc6bd/tools/test-matrix/scheduler-committed-evidence-readback.md",
+    "sha256": "443e306b0f398ee142e892b68e0c9803dd1eb674ce8d83ecfe173073b0690f4f",
+    "bytes": 2733
+  },
+  {
+    "path": "source/442cc6bd/tools/test-matrix/scheduler.mjs",
+    "sha256": "c327717f1dbefb23899889068d11ea13de3ce65af0dc103c8ccb8f8dc969fa1a",
+    "bytes": 327071
+  },
+  {
+    "path": "source/ce19fa1f/tests/tools/scheduler-producer-terminal.test.mjs",
+    "sha256": "4cac870f7aac62f1e329ac1b94750565e5d9993c2b02955476ba3c3854f2540f",
+    "bytes": 5175
+  },
+  {
+    "path": "source/ce19fa1f/tools/test-fixtures/producers/spawn-helper.mjs",
+    "sha256": "3bf65b78045fc56dfde8dbdf2c80f7ee50d16376a4b752317659e17e191f8df4",
+    "bytes": 9050
+  },
+  {
+    "path": "source/ce19fa1f/tools/test-matrix/scheduler-producer-terminal.md",
+    "sha256": "08ff6cdabf4454e44d5f5c92a2f4b90f6c6dcb73fffca3415e35cc17e08e05aa",
+    "bytes": 1177
+  },
+  {
+    "path": "source-export-manifest.json",
+    "sha256": "1e1d7f82aabd677d1a26c347cdc93392a8990a47ceaac9b8b18671b197f674a7",
+    "bytes": 2666
+  },
+  {
+    "path": "source-scope.json",
+    "sha256": "d3c01b8f07789ec2e72ea2fa727fe3fa541ad5c6f17f77435f2e3c239d77282c",
+    "bytes": 1058
+  },
+  {
+    "path": "verification-summary.json",
+    "sha256": "93afa352ae63860254fdd7cf66c185d8d0d0c494e16163536ff19b38d993a5d0",
+    "bytes": 2005
+  }
+]

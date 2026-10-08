@@ -1,0 +1,50 @@
+{
+  "latestFetchedMaster": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "frozenRefs": {
+    "task/scheduler-terminal-canonical-source": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+    "task/scheduler-terminal-two-p2": "83d4908a1420c519dddb5fbb87f225880a731f13",
+    "codex/chain-3521-scheduler-fixture-p2": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d"
+  },
+  "sourceStage": "ordinary controls only",
+  "qualificationEligible": false,
+  "githubContentMutation": false,
+  "remoteCI": "disabled; no dispatch or waiting",
+  "helperConsumption": {
+    "source": "0056263d2caf2cc0f16e3d8750fded698adef7e3",
+    "path": "tools/test-fixtures/producers/spawn-helper.mjs",
+    "matchedPreimage": "57c999a29e4c69778396401b8f3c36bd7747b3b3",
+    "unchangedConsumedBlob": "7a2ccbaa19e4b7d86dae914e7b3f6f3c53b7fe5d",
+    "ownerControlsNotRerun": [
+      9,
+      52
+    ]
+  },
+  "readback": {
+    "version": 1,
+    "sourceVerifier": "7263179c059f8b119577ff83954c637bdc1a128f",
+    "verifierByteIdentical": true,
+    "consumerBase": "aeaf10e6f9fa215312c97d07c76c00ca55ed9e23",
+    "legacyPrivateReaderAndFollowingWritersByteIdentical": true,
+    "releaseOwnerFilesUnchanged": true,
+    "genuineExplicitIdentityAndCommittedRevisionRequired": true,
+    "finalOutputDigest": "actual retained wrapper reference inputDigest",
+    "mutations": []
+  },
+  "excluded": [
+    "held cohort",
+    "native terminal qualification",
+    "race",
+    "TOCTOU",
+    "artifact substitution",
+    "equivalent wide suites",
+    "production process tree/custody",
+    "complete nested admission matrix",
+    "SOURCE-stage generated authority qualification"
+  ],
+  "priorChecksNotInherited": [
+    "upstream 9/52 controls",
+    "daa14c2f 14 controlled-settlement controls",
+    "6ed505c7 SOURCE",
+    "83d4908a and 0d2a45f8 P2 binding"
+  ]
+}

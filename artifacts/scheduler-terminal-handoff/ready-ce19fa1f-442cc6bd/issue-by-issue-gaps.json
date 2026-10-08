@@ -1,0 +1,76 @@
+{
+  "exactSource": "ce19fa1fffbbf58e9c1b14c512fa4b22400a97c9",
+  "allAssignedIssuesRemainOpen": true,
+  "issues": [
+    {
+      "issue": 1669,
+      "status": "OPEN; source increment only",
+      "remaining": "Implemented explicit scheduler run/candidate requirements, canonical selectors and zero-spawn mismatch controls. Shared run-test-matrix CLI still has no --run-id/complete-candidate flag or owner-produced full candidate wiring; projection-only/public CLI migration and cohort acceptance remain open. Diagnostic latest helper throws, so implicit latest resume cannot execute."
+    },
+    {
+      "issue": 1670,
+      "status": "OPEN; source increment only",
+      "remaining": "Cross-source reuse override rejects; same run/source/full owner-validated candidate and exact payload are required, aggregate never reused. Complete #1606 candidate producer/cohort validation and physical candidate drift/reuse acceptance remain open. Controlled 31-field fixtures are not owner admission."
+    },
+    {
+      "issue": 1671,
+      "status": "OPEN; source increment only",
+      "remaining": "Bounded Node/Shell AST closure manifest, additive finite declarations, digest validation, scheduler fingerprint port and explicit complete current trace validation implemented. General MSBuild graph, live FsusUI alias discovery, real file-access collector and every-tier canonical matrix/registry wiring remain open. Unprovided collectors never become successful empty traces; source read-audit controls qualificationEligible=false. Scheduler reuse is disabled for supplied static manifests while the real trace collector remains absent."
+    },
+    {
+      "issue": 1672,
+      "status": "OPEN; source increment only",
+      "remaining": "Owned canonical CAS/read/resume implementation retained. New input/cancellation source changes require original3521 execution fixture binding for final integrated candidate; SOURCE unrun here. Reserved public runner/projection/schema/retention/crash acceptance remains open."
+    },
+    {
+      "issue": 1964,
+      "status": "OPEN; source increment only",
+      "remaining": "Pure provisional builder/validator and scheduler-attempt-owned create-provisional publication implemented, no final authority from running aggregate. Actual domain owners must supply complete current dependency terminal refs/context via explicit provisional context; matrix output contract and canonical registration remain open."
+    },
+    {
+      "issue": 1965,
+      "status": "OPEN; source increment only",
+      "remaining": "One ordinary actual task-child control passes at ce19fa1fffbbf58e9c1b14c512fa4b22400a97c9: AbortSignal reaches the exact upstream runProcess helper, scheduler settlement waits for child close and pending work stays unstarted. Physical Production outcome/postflight/cleanup and clean-attempt/cohort acceptance remain UNRUN."
+    },
+    {
+      "issue": 1966,
+      "status": "OPEN; source increment only",
+      "remaining": "Actual scheduler finalizer publishes v2 immutable final, reverse CAS child and exact readback; current reader requires completed owner and matching finalized journal/current child. Complete domain terminal producers, matrix provisional-output switch and physical acceptance remain open."
+    },
+    {
+      "issue": 1967,
+      "status": "OPEN; source increment only",
+      "remaining": "Current scheduler-held active owner can idempotently recover the explicit current reverse child from immutable seal packet and prepared/finalized journal, without mutable provisional producer, new timestamp, attempt scan or CAS. Rejected/foreign/drift/dead-owner cases fail closed. Physical interruption, killed-owner startup ownership transfer, missing reverse-child recovery, rotation/cleanup and retained-history acceptance remain open."
+    },
+    {
+      "issue": 1968,
+      "status": "OPEN; source increment only",
+      "remaining": "Release-final source 442cc6bd979c88b6af4a3fbe63583af61f4768bd genuinely composes exact consumer aeaf10e6 with version1 scheduler readback; the selected actual producer/consumer callback passes 1/1 without skips. This does not migrate every shared correctness-v2 summary/packaging consumer or confer terminal qualification; atomic global cutover remains OPEN."
+    },
+    {
+      "issue": 1969,
+      "status": "OPEN; source increment only",
+      "remaining": "Exact current controls: producer candidate one real task-child pass; separate exact consumer candidate three readback API plus one actual consumer pass. Counts do not compose into a single five-control source qualification. Held terminal/attempt/tamper/cohort/native acceptance UNRUN."
+    },
+    {
+      "issue": 1693,
+      "status": "OPEN; source increment only",
+      "remaining": "Two ready independent owned increments are published. Final combined identity, canonical matrix binding, original domain contexts, trace collector, global correctness-v2 consumer cutover and physical acceptance remain OPEN; no merge or closure."
+    },
+    {
+      "issue": 1934,
+      "status": "OPEN; source increment only",
+      "remaining": "Actual task-child cancellation boundary now passes once with exact helper source0056263d and no mock settlement. CPU and AbortSignal seams are retained as prior source, not rerun qualification. Live original generic-manifest generation uptake and actual sibling release -> growth -> pending nested child-before-active-terminal dual-resource timeline remain OPEN/UNRUN."
+    },
+    {
+      "issue": 2060,
+      "status": "OPEN; minimum readonly source compatibility implemented",
+      "remaining": "Exact consumer aeaf10e6 actual positive committed-output callback passes at 442cc6bd979c88b6af4a3fbe63583af61f4768bd with independently supplied revision/current identity, canonical store objects and genuine v2 producer wrapper bytes. Three API controls also pass. Production final-output CAS/writer acceptance, owner integration and held integrity/cohort/native qualification remain OPEN/UNRUN."
+    }
+  ],
+  "sourceOfRetainedGaps": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "noGithubContentMutation": true,
+  "readbackCompatibilitySource": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+  "retainedGapSnapshotSource": "daa14c2f54be6961791aa2eb77166e762355915f",
+  "scope": "Owned source deltas, not a claim about all newer upstream work or closure."
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "source": "ce19fa1fffbbf58e9c1b14c512fa4b22400a97c9",
+    "base": "daa14c2f54be6961791aa2eb77166e762355915f",
+    "branch": "task/scheduler-producer-terminal-boundary",
+    "files": 3,
+    "changedPaths": [
+      "tests/tools/scheduler-producer-terminal.test.mjs",
+      "tools/test-fixtures/producers/spawn-helper.mjs",
+      "tools/test-matrix/scheduler-producer-terminal.md"
+    ],
+    "commits": [
+      "2a74662a04f51b0bf56bb861f87cd106b9b388ab",
+      "ce19fa1fffbbf58e9c1b14c512fa4b22400a97c9"
+    ]
+  },
+  {
+    "source": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "base": "aeaf10e6f9fa215312c97d07c76c00ca55ed9e23",
+    "branch": "task/release-consumer-scheduler-readback",
+    "files": 4,
+    "changedPaths": [
+      "tests/tools/scheduler-committed-evidence-readback.test.mjs",
+      "tests/tools/support/canonical-scheduler-fixture.mjs",
+      "tools/test-matrix/scheduler-committed-evidence-readback.md",
+      "tools/test-matrix/scheduler.mjs"
+    ],
+    "commits": [
+      "442cc6bd979c88b6af4a3fbe63583af61f4768bd"
+    ]
+  }
+]

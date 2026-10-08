@@ -1,0 +1,104 @@
+[
+  {
+    "name": "preflight",
+    "argv": [
+      "/tmp/node-v24.16.0-linux-x64/bin/node",
+      "/tmp/scheduler-ready-evidence/preflight.mjs",
+      "tests/tools/scheduler-committed-evidence-readback.test.mjs",
+      "tests/tools/release-final-verified-authority-binding.test.mjs"
+    ],
+    "cwd": "/workspace/release-consumer-scheduler-readback",
+    "source": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "exitCode": 0,
+    "log": "preflight.log"
+  },
+  {
+    "name": "ordinary-readback-api",
+    "argv": [
+      "/tmp/node-v24.16.0-linux-x64/bin/node",
+      "--test",
+      "tests/tools/scheduler-committed-evidence-readback.test.mjs"
+    ],
+    "cwd": "/workspace/release-consumer-scheduler-readback",
+    "source": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "exitCode": 0,
+    "log": "ordinary-readback-api.log"
+  },
+  {
+    "name": "ordinary-actual-consumer",
+    "argv": [
+      "/tmp/node-v24.16.0-linux-x64/bin/node",
+      "--test",
+      "--test-name-pattern",
+      "^ordinary committed final output consumes the actual scheduler API and retains the wrapper digest without qualification$",
+      "tests/tools/release-final-verified-authority-binding.test.mjs"
+    ],
+    "cwd": "/workspace/release-consumer-scheduler-readback",
+    "source": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "exitCode": 0,
+    "log": "ordinary-actual-consumer.log"
+  },
+  {
+    "name": "eslint",
+    "argv": [
+      "tools/frontend/style-toolchain/node_modules/.bin/eslint",
+      "tools/test-matrix/scheduler.mjs",
+      "tests/tools/scheduler-committed-evidence-readback.test.mjs",
+      "tests/tools/support/canonical-scheduler-fixture.mjs"
+    ],
+    "cwd": "/workspace/release-consumer-scheduler-readback",
+    "source": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "exitCode": 0,
+    "log": "eslint.log"
+  },
+  {
+    "name": "markdown",
+    "argv": [
+      "markdownlint-cli2",
+      "tools/test-matrix/scheduler-committed-evidence-readback.md"
+    ],
+    "cwd": "/workspace/release-consumer-scheduler-readback",
+    "source": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "exitCode": 1,
+    "log": "markdown.log"
+  },
+  {
+    "name": "change-contract",
+    "argv": [
+      "/tmp/node-v24.16.0-linux-x64/bin/node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "aeaf10e6f9fa215312c97d07c76c00ca55ed9e23..HEAD"
+    ],
+    "cwd": "/workspace/release-consumer-scheduler-readback",
+    "source": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "exitCode": 0,
+    "log": "change-contract.log"
+  },
+  {
+    "name": "diff-check",
+    "argv": [
+      "git",
+      "diff",
+      "--check",
+      "aeaf10e6f9fa215312c97d07c76c00ca55ed9e23..HEAD"
+    ],
+    "cwd": "/workspace/release-consumer-scheduler-readback",
+    "source": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "exitCode": 0,
+    "log": "diff-check.log"
+  },
+  {
+    "name": "markdown-scoped",
+    "argv": [
+      "markdownlint-cli2",
+      "--no-globs",
+      "tools/test-matrix/scheduler-committed-evidence-readback.md"
+    ],
+    "cwd": "/workspace/release-consumer-scheduler-readback",
+    "source": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "exitCode": 0,
+    "log": "markdown-scoped.log",
+    "reason": "Limit unchanged repository globs to the one owned document after initial CLI scope error; no test rerun."
+  }
+]

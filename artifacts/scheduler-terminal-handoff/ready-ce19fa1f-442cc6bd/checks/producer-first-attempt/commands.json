@@ -1,0 +1,75 @@
+[
+  {
+    "name": "preflight",
+    "argv": [
+      "/tmp/node-v24.16.0-linux-x64/bin/node",
+      "/tmp/scheduler-ready-evidence/preflight.mjs",
+      "tests/tools/scheduler-producer-terminal.test.mjs"
+    ],
+    "cwd": "/workspace/scheduler-producer-terminal-boundary",
+    "source": "2a74662a04f51b0bf56bb861f87cd106b9b388ab",
+    "exitCode": 0,
+    "log": "preflight.log"
+  },
+  {
+    "name": "ordinary-real-child",
+    "argv": [
+      "/tmp/node-v24.16.0-linux-x64/bin/node",
+      "--test",
+      "tests/tools/scheduler-producer-terminal.test.mjs"
+    ],
+    "cwd": "/workspace/scheduler-producer-terminal-boundary",
+    "source": "2a74662a04f51b0bf56bb861f87cd106b9b388ab",
+    "exitCode": 1,
+    "log": "ordinary-real-child.log"
+  },
+  {
+    "name": "eslint",
+    "argv": [
+      "tools/frontend/style-toolchain/node_modules/.bin/eslint",
+      "tests/tools/scheduler-producer-terminal.test.mjs",
+      "tools/test-fixtures/producers/spawn-helper.mjs"
+    ],
+    "cwd": "/workspace/scheduler-producer-terminal-boundary",
+    "source": "2a74662a04f51b0bf56bb861f87cd106b9b388ab",
+    "exitCode": 0,
+    "log": "eslint.log"
+  },
+  {
+    "name": "markdown",
+    "argv": [
+      "markdownlint-cli2",
+      "tools/test-matrix/scheduler-producer-terminal.md"
+    ],
+    "cwd": "/workspace/scheduler-producer-terminal-boundary",
+    "source": "2a74662a04f51b0bf56bb861f87cd106b9b388ab",
+    "exitCode": 1,
+    "log": "markdown.log"
+  },
+  {
+    "name": "change-contract",
+    "argv": [
+      "/tmp/node-v24.16.0-linux-x64/bin/node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "daa14c2f54be6961791aa2eb77166e762355915f..HEAD"
+    ],
+    "cwd": "/workspace/scheduler-producer-terminal-boundary",
+    "source": "2a74662a04f51b0bf56bb861f87cd106b9b388ab",
+    "exitCode": 0,
+    "log": "change-contract.log"
+  },
+  {
+    "name": "diff-check",
+    "argv": [
+      "git",
+      "diff",
+      "--check",
+      "daa14c2f54be6961791aa2eb77166e762355915f..HEAD"
+    ],
+    "cwd": "/workspace/scheduler-producer-terminal-boundary",
+    "source": "2a74662a04f51b0bf56bb861f87cd106b9b388ab",
+    "exitCode": 0,
+    "log": "diff-check.log"
+  }
+]

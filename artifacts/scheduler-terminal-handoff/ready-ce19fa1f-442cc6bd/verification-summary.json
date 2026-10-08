@@ -1,0 +1,66 @@
+{
+  "producer": {
+    "source": "ce19fa1fffbbf58e9c1b14c512fa4b22400a97c9",
+    "tests": 1,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0,
+    "childAliveAfterSchedulerReturns": false,
+    "preflight": {
+      "registered": 1,
+      "selected": 1,
+      "errors": 0
+    },
+    "styleAndRange": "exit0"
+  },
+  "readback": {
+    "source": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "apiControls": {
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skip": 0
+    },
+    "actualConsumer": {
+      "registered": 24,
+      "selected": 1,
+      "pass": 1,
+      "fail": 0,
+      "skip": 0,
+      "unselected": 23
+    },
+    "preflightErrors": 0,
+    "styleAndRange": "exit0; Markdown uses --no-globs"
+  },
+  "preservedFailures": [
+    {
+      "source": "2a74662a04f51b0bf56bb861f87cd106b9b388ab",
+      "testExit": 1,
+      "reason": "Owned test fixture omitted execution dependency; only pending target ran. Corrected fixture in ce19fa1f, no helper/scheduler gate weakening."
+    },
+    {
+      "sources": [
+        "2a74662a04f51b0bf56bb861f87cd106b9b388ab",
+        "442cc6bd979c88b6af4a3fbe63583af61f4768bd"
+      ],
+      "markdownExit": 1,
+      "reason": "CLI respected repository globs and expanded initial command beyond one file. Full logs retained; corrected invocation --no-globs passed owned document. No unrelated docs edited."
+    }
+  ],
+  "toolTargetErrors": [
+    "Earlier ESLint preflight pointed at missing producer test in readback worktree (exit2), then at nonexistent tools/style-toolchain executable (exit127). Correct owned targets under tools/frontend/style-toolchain passed. These were not passing checks."
+  ],
+  "qualificationEligible": false,
+  "sourceCandidatesSeparate": true,
+  "unrun": [
+    "held cohort",
+    "native terminal qualification",
+    "race",
+    "TOCTOU",
+    "artifact substitution",
+    "equivalent wide suites",
+    "production process tree/custody",
+    "complete nested admission matrix",
+    "SOURCE-stage generated authority qualification"
+  ]
+}

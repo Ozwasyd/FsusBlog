@@ -1,0 +1,58 @@
+[
+  {
+    "candidate": "ce19fa1fffbbf58e9c1b14c512fa4b22400a97c9",
+    "path": "tests/tools/scheduler-producer-terminal.test.mjs",
+    "exportPath": "source/ce19fa1f/tests/tools/scheduler-producer-terminal.test.mjs",
+    "gitBlob": "4190e4c0ed5351de843e397c1c47e83c6944c336",
+    "sha256": "4cac870f7aac62f1e329ac1b94750565e5d9993c2b02955476ba3c3854f2540f",
+    "bytes": 5175
+  },
+  {
+    "candidate": "ce19fa1fffbbf58e9c1b14c512fa4b22400a97c9",
+    "path": "tools/test-fixtures/producers/spawn-helper.mjs",
+    "exportPath": "source/ce19fa1f/tools/test-fixtures/producers/spawn-helper.mjs",
+    "gitBlob": "7a2ccbaa19e4b7d86dae914e7b3f6f3c53b7fe5d",
+    "sha256": "3bf65b78045fc56dfde8dbdf2c80f7ee50d16376a4b752317659e17e191f8df4",
+    "bytes": 9050
+  },
+  {
+    "candidate": "ce19fa1fffbbf58e9c1b14c512fa4b22400a97c9",
+    "path": "tools/test-matrix/scheduler-producer-terminal.md",
+    "exportPath": "source/ce19fa1f/tools/test-matrix/scheduler-producer-terminal.md",
+    "gitBlob": "a38b072211901d9cd84bbe69fe699457b196d05b",
+    "sha256": "08ff6cdabf4454e44d5f5c92a2f4b90f6c6dcb73fffca3415e35cc17e08e05aa",
+    "bytes": 1177
+  },
+  {
+    "candidate": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "path": "tests/tools/scheduler-committed-evidence-readback.test.mjs",
+    "exportPath": "source/442cc6bd/tests/tools/scheduler-committed-evidence-readback.test.mjs",
+    "gitBlob": "82cb87e93ecba8f70376f2ceb126455e7427fc4c",
+    "sha256": "5535c40f3e8ef5444e8169d5a0849417f59a87c219178b7f292dd7b96a313568",
+    "bytes": 6255
+  },
+  {
+    "candidate": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "path": "tests/tools/support/canonical-scheduler-fixture.mjs",
+    "exportPath": "source/442cc6bd/tests/tools/support/canonical-scheduler-fixture.mjs",
+    "gitBlob": "960a390e4417bd48032f4808ba0eda944c77c81a",
+    "sha256": "a9f536c0a1941349bff88e6c9bfe55e8d3bcc66684d5ce2d9c9c0f200704f111",
+    "bytes": 1462
+  },
+  {
+    "candidate": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "path": "tools/test-matrix/scheduler-committed-evidence-readback.md",
+    "exportPath": "source/442cc6bd/tools/test-matrix/scheduler-committed-evidence-readback.md",
+    "gitBlob": "26055d675421f3d46bf854d344ae63444ee8b03e",
+    "sha256": "443e306b0f398ee142e892b68e0c9803dd1eb674ce8d83ecfe173073b0690f4f",
+    "bytes": 2733
+  },
+  {
+    "candidate": "442cc6bd979c88b6af4a3fbe63583af61f4768bd",
+    "path": "tools/test-matrix/scheduler.mjs",
+    "exportPath": "source/442cc6bd/tools/test-matrix/scheduler.mjs",
+    "gitBlob": "b05e2d85753d61be6476bb850b46311eb924d46a",
+    "sha256": "c327717f1dbefb23899889068d11ea13de3ce65af0dc103c8ccb8f8dc969fa1a",
+    "bytes": 327071
+  }
+]
