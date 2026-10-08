@@ -13,16 +13,20 @@
         "config/testing/release-reliability-scenario-catalog.json",
         "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
         "config/testing/replay-qualification-producers.json",
-        "config/testing/test-execution-envelope-applicability.json",
         "tools/test/attempt-runner.mjs",
         "tools/test/temporal-context.mjs",
         "tools/test/temporal-context-contract.mjs",
-        "tools/test/correctness-attempt-migration.mjs"
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/testing/generate-test-execution-envelope-applicability.mjs",
+        "config/testing/producer-execution-class-contract.json",
+        "config/schemas/test-execution-envelope-applicability.schema.json",
+        "tools/test/run-matrix-governance-once.sh",
+        "tests/tools/execution-envelope-policy.test.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "77e640aed7e94c0c04952ea1f6f81fb30e82dd9197b4f47ac72a6392b7f23150"
+            "sha256": "742604b842fd12f83ad87d973738d63f54d3c3330f23acf85abf361d3244a183"
         },
         {
             "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
@@ -30,7 +34,11 @@
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
+            "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+        },
+        {
+            "path": "config/testing/test-execution-envelope-applicability.json",
+            "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
         }
     ]
 }
