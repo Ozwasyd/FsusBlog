@@ -1,0 +1,116 @@
+Composed lifecycle integration QA; historical observations, not runtime qualification.
+Owner checkpoint: d42a49191309b545a8e9b4e60d965162586ef37b
+Verified consumed binding source: 6bac4acccd5120e73e9001db06144a216168a9c8
+Binding blob SHA256: b9b38a9f27be37b4d819035d1c6be389e537a455a647c8c25ca14f059b8717c6
+Actual FsusUI local source: f2b3bb89ffe5f749da26c388f058efdbb6aee864 (clean observed checkout; not published package evidence)
+Command cwd: src/frontend
+Command: FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI ./node_modules/.bin/vitest run --config vitest.config.ts ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts
+
+First failure evidence (initial harness, 4 tests):
+
+ RUN  v4.1.5 /workspace/FsusBlog-2246-integration/src/frontend
+
+ ❯ ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts (4 tests | 3 failed) 584ms
+     × denies new semantic binding reads after the canonical owner is disposed 79ms
+     × keeps real attachment successors in tool capture across completion, close and undo/redo 37ms
+     × rejects late completion and old events after release/reopen with identical bytes and retained epoch 23ms
+     ✓ isolates a same-byte article switch from late attachment and tool responses 23ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts > composed canonical editor lifecycle integration regressions > denies new semantic binding reads after the canonical owner is disposed
+AssertionError: expected [Function] to throw an error
+ ❯ ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts:81:51
+     79|         expect(f.binding.consumeTransaction(f.events.at(-1)!)).toBe(fa…
+     80|         // A surviving runtime handle must not expose an apparently cu…
+     81|         expect(() => f.binding.positionBinding()).toThrow();
+       |                                                   ^
+     82|     });
+     83|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts > composed canonical editor lifecycle integration regressions > keeps real attachment successors in tool capture across completion, close and undo/redo
+AssertionError: expected 'awaiting-ack' to be 'restored' // Object.is equality
+
+Expected: "restored"
+Received: "awaiting-ack"
+
+ ❯ ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts:113:35
+    111|             focus: 'editor', focusEvent: 'focusin', viewportOffset: te…
+    112|         const completed = f.binding.continuity.acknowledge(f.editor, a…
+    113|         expect(completed?.status).toBe('restored');
+       |                                   ^
+    114|         expect(completed?.after?.stateRefs.attachments).toHaveLength(1…
+    115|         expect(f.editor.undo().accepted).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts > composed canonical editor lifecycle integration regressions > rejects late completion and old events after release/reopen with identical bytes and retained epoch
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ open ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts:50:34
+     48|         cachePolicy: { maxEntryBytes: 65536, maxAgeMs: 60000, maxRecei…
+     49|     });
+     50|     expect(runtime.initialize()).toBe(true);
+       |                                  ^
+     51|     const binding = runtime;
+     52|     const insert = (files = [file]) => {
+ ❯ ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts:129:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  05:50:47
+   Duration  7.93s (transform 6.15s, setup 65ms, import 6.91s, tests 584ms, environment 240ms)
+
+JSON report written to /workspace/FsusBlog-2246-integration/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog-2246-integration/.tmp/test-results/vitest/unit/unsharded.xml
+
+Harness corrections: observed focusin before capturing tool bookmark, rather than claiming unobserved focus. Retained-owner advanced revision versus fresh public editor revision 0 is already reported by original focused suite; reopen safety test does not initialize or grant readiness. Initial positionBinding-read expectation tightened to actual downstream anchor capture refusal, exercising canonical currentness. No production/test gate modified.
+
+Bounded corrected run (6 tests, 5 PASS / 1 FAIL / 0 SKIP):
+
+ RUN  v4.1.5 /workspace/FsusBlog-2246-integration/src/frontend
+
+ ❯ ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts (6 tests | 1 failed) 646ms
+     × denies new semantic binding reads after the canonical owner is disposed 76ms
+     ✓ keeps real attachment successors in tool capture across completion, close and undo/redo 46ms
+     ✓ rejects late completion and old events after release/reopen with identical bytes and retained epoch 30ms
+     ✓ isolates a same-byte article switch from late attachment and tool responses 28ms
+     ✓ cancels one provider during an open tool without removing its sibling from restoration 35ms
+     ✓ invalidates a tool restoration when real undo removes its pending attachment and redo cannot revive the response 21ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts > composed canonical editor lifecycle integration regressions > denies new semantic binding reads after the canonical owner is disposed
+AssertionError: expected [Function] to throw an error
+ ❯ ../../tests/frontend/unit/authoring/articleEditorComposedLifecycleRegression.test.ts:81:120
+     79|         expect(f.binding.consumeTransaction(f.events.at(-1)!)).toBe(fa…
+     80|         // A surviving runtime handle must not expose an apparently cu…
+     81|         expect(() => f.anchors.capture(f.binding.positionBinding(), { …
+       |                                                                                                                        ^
+     82|     });
+     83|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  05:52:11
+   Duration  8.39s (transform 6.56s, setup 64ms, import 7.36s, tests 646ms, environment 215ms)
+
+JSON report written to /workspace/FsusBlog-2246-integration/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog-2246-integration/.tmp/test-results/vitest/unit/unsharded.xml
+
+Failure request: https://github.com/Ozwasyd/FsusBlog/pull/3818#issuecomment-6053341872
+Unrun: published artifact consumer, browser, native device/IME, screen reader, performance, full CI. All issues remain OPEN.
