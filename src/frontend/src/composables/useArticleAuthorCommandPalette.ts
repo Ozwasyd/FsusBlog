@@ -16,6 +16,7 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
     const available = computed(() => active.value && options.enabled.value && options.editor.value !== null);
     // Scoped shortcut admission only; input transactions remain with the native editor owner.
     let composing = false;
+    let awaitingFreshShortcut = false;
     // Remember only our delegated request, never infer a native opened-state receipt.
     let requestedOwner: PaletteOwner | null = null;
     const cancelRequest = (): void =>
@@ -30,6 +31,11 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
     };
     const endComposition = (): void =>
     {
+        // A held composing key remains native until a fresh palette intent, even after compositionend.
+        if (composing)
+        {
+            awaitingFreshShortcut = true;
+        }
         composing = false;
     };
 
@@ -42,6 +48,7 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
             return false;
         }
         editor.openCommandPalette();
+        awaitingFreshShortcut = false;
         requestedOwner = editor;
         return true;
     };
@@ -49,6 +56,7 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
     const handleShortcut = (event: KeyboardEvent): void =>
     {
         if (event.defaultPrevented || composing || event.isComposing || event.keyCode === 229 ||
+            (event.repeat && awaitingFreshShortcut) ||
             event.altKey || event.shiftKey || event.ctrlKey === event.metaKey ||
             event.key.toLowerCase() !== 'p' || !available.value)
         {
@@ -72,6 +80,7 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
     const stopWatching = watch([options.shortcutScope, options.editor], ([scope, editor], _previous, onCleanup) =>
     {
         composing = false;
+        awaitingFreshShortcut = false;
         if (scope === null || editor === null)
         {
             return;
@@ -85,6 +94,7 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
             scope.removeEventListener('compositionstart', beginComposition, true);
             scope.removeEventListener('compositionend', endComposition, true);
             composing = false;
+            awaitingFreshShortcut = false;
         });
     }, { immediate: true, flush: 'sync' });
     onScopeDispose(() =>
