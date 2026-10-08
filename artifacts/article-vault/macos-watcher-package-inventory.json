@@ -14,9 +14,11 @@
         "src/article-vault/macos/MacVaultRootPathScope.cs",
         "src/article-vault/macos/MacVaultWatcherSession.cs",
         "src/article-vault/macos/FSEventsNative.cs",
-        "src/article-vault/macos/native/MacVaultFSEvents.c"
+        "src/article-vault/macos/native/MacVaultFSEvents.c",
+        "tools/test/check-macos-vault-observer-source.mjs"
     ],
     "publicSymbols": [
+        "MacVaultWatcherSchemas",
         "MacVaultWatchRequest",
         "MacVaultWatcherOptions",
         "MacVaultWatchIdentity",
@@ -38,19 +40,29 @@
             "NoDefer"
         ],
         "queue": "serial libdispatch",
-        "sourceReads": "fixed .fsus/vault.json only; no Markdown reads"
+        "sourceReads": "fixed .fsus/vault.json only; no Markdown reads",
+        "entryPoints": [
+            "FsusVaultMacOpen",
+            "FsusVaultMacVolume",
+            "FsusVaultMacInspect",
+            "FsusVaultMacReadManifest",
+            "FsusVaultMacStart",
+            "FsusVaultMacClose"
+        ]
     },
     "tests": [
         "tests/article-vault/macos/MacVaultRawFactContractTests.cs",
-        "tests/article-vault/macos/MacVaultWatcherApfsTests.cs"
+        "tests/article-vault/macos/MacVaultWatcherApfsTests.cs",
+        "tests/tools/macos-vault-observer-source.test.mjs"
     ],
     "commands": {
         "contracts": "dotnet test tests/article-vault/macos/FsusBlog.ArticleVault.MacOS.Tests.csproj --no-restore --filter Category=MacArticleVaultRawFactContract",
-        "nativeApfs": "dotnet test tests/article-vault/macos/FsusBlog.ArticleVault.MacOS.Tests.csproj --no-restore --filter Category=MacArticleVaultWatcher"
+        "nativeApfs": "dotnet test tests/article-vault/macos/FsusBlog.ArticleVault.MacOS.Tests.csproj --no-restore --filter Category=MacArticleVaultWatcher",
+        "source": "node tools/test/check-macos-vault-observer-source.mjs && node --test tests/tools/macos-vault-observer-source.test.mjs"
     },
     "qualification": {
         "issue": 2674,
-        "status": "wip-not-executed",
+        "status": "wip-blocked-real-macos-apfs",
         "requires": [
             "real macOS/APFS",
             "actual #2110/#2112/#2113/#2114/#1909 capabilities; no simulated qualification"
