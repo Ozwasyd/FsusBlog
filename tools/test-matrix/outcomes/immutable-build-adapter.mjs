@@ -1,6 +1,6 @@
 const { verifyProductionBuildReceipt, productionBuildVerificationSchema } = await import(new URL('../../ci/production-build-artifacts.mjs', import.meta.url));
 
-import { candidate, exactIds, inputAuthorityReasons, reason, verifyAdapterCandidate } from './adapter-support.mjs';
+import { candidate, exactIds, inputAuthorityReasons, mapNativeAttemptOutcome, nativeSourceError, reason, verifyAdapterCandidate } from './adapter-support.mjs';
 
 export const immutableBuildOutcomeProducerId = 'immutable-build-semantic-outcome';
 
@@ -21,6 +21,7 @@ export function adaptImmutableBuildSemanticOutcome({
         producerId: immutableBuildOutcomeProducerId, identity, inputAuthorityRefs,
         attemptEligibility, plan, evidence, verifyInputs
     });
+    reasons.push(...(evidence?.nativeFailures ?? []));
     for (const id of plannedArtifactIds.filter((id) => !uniqueActual.includes(id)))
     {
         reasons.push(reason('contract.missing-evidence', immutableBuildOutcomeProducerId, { evidenceId: id }));
@@ -112,7 +113,7 @@ export function verifyImmutableBuildSemanticOutcomeCandidate(value, expectations
 
 
 /** Map real verified receipt bytes; host authority and attempt admission remain required. */
-export function mapVerifiedProductionBuildOutcomeInputs({ plan, verification, artifactBindings })
+function readMapVerifiedProductionBuildOutcomeInputs({ plan, verification, artifactBindings })
 {
     for (const field of ['artifactRoot', 'expectedInputRoot', 'expectedReceiptDigest',
         'expectedSourceState', 'expectedProducer', 'expectedToolchain'])
@@ -167,4 +168,24 @@ export function mapVerifiedProductionBuildOutcomeInputs({ plan, verification, ar
             nativeReceiptDigest: receipt.contentDigest
         }
     };
+}
+
+
+/** Original native source verification failures remain canonical, with text diagnostic only. */
+export function mapVerifiedProductionBuildOutcomeInputs(options)
+{
+    try
+    {
+        return readMapVerifiedProductionBuildOutcomeInputs(options);
+    }
+    catch (error)
+    {
+        throw nativeSourceError(immutableBuildOutcomeProducerId, 'native-source-verification', error);
+    }
+}
+
+
+export function mapImmutableBuildNativeAttemptOutcome(options)
+{
+    return mapNativeAttemptOutcome(options, immutableBuildOutcomeProducerId);
 }

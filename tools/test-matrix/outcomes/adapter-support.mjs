@@ -1,4 +1,4 @@
-const { digestCanonical } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
+const { digestCanonical, validateAttemptReceipt } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
 import { externalCandidateVerification, sealProducerSemanticOutcomeCandidate, validateProducerSemanticOutcomeCandidate } from './outcome-contract.mjs';
 
 export function exactIds(values, label)
@@ -18,6 +18,104 @@ export function exactIds(values, label)
 export function reason(kind, producerId, identity, details = {})
 {
     return { kind, producerId, identity: { producerId, ...identity }, ...details };
+}
+
+/** Source errors carry canonical reasons separately from diagnostic error text. */
+export class NativeOutcomeSourceError extends Error
+{
+    constructor(reasons, nativeReasonCode, cause)
+    {
+        super(cause?.message ?? nativeReasonCode, { cause });
+        this.name = 'NativeOutcomeSourceError';
+        this.reasons = structuredClone(reasons);
+        this.nativeReasonCode = nativeReasonCode;
+    }
+}
+
+export function nativeSourceError(producerId, evidenceId, error)
+{
+    if (error instanceof NativeOutcomeSourceError)
+    {
+        return error;
+    }
+    // These are the original required-evidence owner's closed reason codes.
+    // Untyped verifier messages never choose a product or infrastructure class.
+    const field = {
+        PLAN_IDENTITY_MISMATCH: 'nativePlanIdentity',
+        PLAN_NAMESPACE_MISMATCH: 'namespace',
+        IDENTITY_MISMATCH: 'nativeSourceIdentity',
+        FINAL_BINDING_REPLAY_MISMATCH: 'nativeBindingIdentity'
+    }[error?.reasonCode];
+    const ambiguous = ['DUPLICATE_AUTHORITY', 'UNDECLARED_AUTHORITY', 'OUTPUT_BINDING_MISMATCH']
+        .includes(error?.reasonCode);
+    const tamper = ['BINDING_TAMPER', 'FINAL_BINDING_TAMPER', 'PRODUCER_MUTATED']
+        .includes(error?.reasonCode);
+    const failure = field ? reason('contract.identity', producerId, { identityField: field })
+        : ambiguous ? reason('contract.ambiguous-evidence', producerId, { evidenceId })
+            : tamper ? reason('product.state-mismatch', producerId, { semanticId: evidenceId })
+                : reason('contract.missing-evidence', producerId, { evidenceId });
+    return new NativeOutcomeSourceError([failure], error?.reasonCode ?? 'NATIVE_VERIFICATION_UNAVAILABLE', error);
+}
+
+/** Consume the original native attempt validator, without rewriting its producer ID. */
+export function mapNativeAttemptOutcome({
+    attempt, expectedAttemptDigest, expectedNativeProducerId, expectedIdentity,
+    verifyAuthority, verifyArtifact
+}, producerId)
+{
+    if (typeof verifyAuthority !== 'function' || typeof verifyArtifact !== 'function'
+        || !/^sha256:[0-9a-f]{64}$/u.test(String(expectedAttemptDigest))
+        || !expectedNativeProducerId || !expectedIdentity)
+    {
+        throw nativeSourceError(producerId, 'native-attempt-authority', new Error(
+            'native attempt mapping requires independent identity/digest and original authority/artifact verifiers'
+        ));
+    }
+    let observed;
+    try
+    {
+        observed = validateAttemptReceipt(structuredClone(attempt), { verifyAuthority, verifyArtifact });
+    }
+    catch (error)
+    {
+        throw nativeSourceError(producerId, 'native-attempt-verification', error);
+    }
+    const reasons = [];
+    for (const [field, actual, expected] of [
+        ['nativeAttemptDigest', observed.contentDigest, expectedAttemptDigest],
+        ['nativeProducerId', observed.producerId, expectedNativeProducerId],
+        ...['sourceCommit', 'worktreeFingerprint', 'schedulerRunId', 'executionEnvelopeDigest',
+            'replayPlanDigest', 'temporalContextDigest'].map((field) =>
+            [field, observed[field], expectedIdentity[field]])
+    ])
+    {
+        if (actual !== expected)
+        {
+            reasons.push(reason('contract.identity', producerId, { identityField: field }));
+        }
+    }
+    if (observed.failureClass === 'runner' && observed.failureKind === 'command-spawn-error')
+    {
+        reasons.push(reason('infra.process-launch', producerId, { attemptNumber: observed.attemptNumber }));
+    }
+    else if (observed.failureClass === 'runner' && observed.failureKind === 'command-signal')
+    {
+        reasons.push(reason('infra.process-signal', producerId, { attemptNumber: observed.attemptNumber }));
+    }
+    else if (observed.failureClass === 'product' && observed.failureKind === 'assertion-mismatch'
+        && observed.failedTestIds.length > 0)
+    {
+        reasons.push(...observed.failedTestIds.map((assertionId) =>
+            reason('product.assertion', producerId, { assertionId })));
+    }
+    else if (observed.status !== 'clean-success')
+    {
+        // Timeout/cancellation and richer domain failures need their original
+        // owner's taxonomy mapping; a signal or log is not that missing proof.
+        reasons.push(reason('contract.missing-evidence', producerId, { evidenceId: 'typed-native-failure' }));
+    }
+    return { nativeProducerId: observed.producerId, nativeAttemptDigest: observed.contentDigest,
+        nativeStatus: observed.status, reasons };
 }
 
 export function candidate({

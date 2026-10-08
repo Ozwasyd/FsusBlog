@@ -4,7 +4,7 @@ const { normalizeSourceArtifact, readJsonArtifact, validateCatalogAgainstLedger 
 const { validateReleaseDomainProjectionReceipt } = await import(new URL('../release-domain-projection-receipt.mjs', import.meta.url));
 const { validateDomainReceiptAgainstReport } = await import(new URL('../release-domain-report.mjs', import.meta.url));
 
-import { candidate, exactIds, inputAuthorityReasons, reason, verifyAdapterCandidate } from './adapter-support.mjs';
+import { candidate, exactIds, inputAuthorityReasons, mapNativeAttemptOutcome, nativeSourceError, reason, verifyAdapterCandidate } from './adapter-support.mjs';
 
 export const releaseProjectionOutcomeProducerId = 'release-projection-semantic-outcome';
 
@@ -19,6 +19,7 @@ export function adaptReleaseProjectionSemanticOutcome({ identity, inputAuthority
         producerId: releaseProjectionOutcomeProducerId, identity, inputAuthorityRefs,
         attemptEligibility, plan, evidence, verifyInputs
     });
+    reasons.push(...(evidence?.nativeFailures ?? []));
     const terminalIds = [...verifiedProjectionIds, ...failedProjectionIds, ...blockedProjectionIds];
     const terminal = new Set(terminalIds);
     for (const id of requiredProjectionIds.filter((id) => !producedProjectionIds.includes(id)))
@@ -81,7 +82,7 @@ export function verifyReleaseProjectionSemanticOutcomeCandidate(value, expectati
 
 
 /** Read exact canonical native refs without generating a projection or invoking a producer. */
-export function mapVerifiedReleaseDomainProjectionOutcomeInputs({
+function readMapVerifiedReleaseDomainProjectionOutcomeInputs({
     catalog, ledger, repositoryRoot, sourceState, runId, namespace, buildIdentity, policyIdentity
 })
 {
@@ -140,4 +141,24 @@ export function mapVerifiedReleaseDomainProjectionOutcomeInputs({
             semanticDigests: { [catalog.tierId]: digestCanonical(semantic) },
             nativeReceiptDigest: receipt.contentDigest, nativeProducerDigest: producerReceipt.contentDigest }
     };
+}
+
+
+/** Original native source verification failures remain canonical, with text diagnostic only. */
+export function mapVerifiedReleaseDomainProjectionOutcomeInputs(options)
+{
+    try
+    {
+        return readMapVerifiedReleaseDomainProjectionOutcomeInputs(options);
+    }
+    catch (error)
+    {
+        throw nativeSourceError(releaseProjectionOutcomeProducerId, 'native-source-verification', error);
+    }
+}
+
+
+export function mapReleaseProjectionNativeAttemptOutcome(options)
+{
+    return mapNativeAttemptOutcome(options, releaseProjectionOutcomeProducerId);
 }
