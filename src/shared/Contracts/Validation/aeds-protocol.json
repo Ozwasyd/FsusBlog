@@ -35,6 +35,7 @@
             "reason": "precise-anonymous-credential-ticket-response"
         }
     ],
+    "reservedFrameValues": [],
     "anonymousPrivacyContract": {
         "circuitId": "fsus.anonymous.comment.v5",
         "publicInputLayoutVersion": 6,
@@ -1517,6 +1518,156 @@
             "value": 252,
             "goldenFamily": "theme-activation-response",
             "goldenOrder": 243
+        },
+        {
+            "name": "AuthoringCanvasCreateRequest",
+            "value": 253,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 244
+        },
+        {
+            "name": "AuthoringCanvasDocumentHeader",
+            "value": 254,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 245
+        },
+        {
+            "name": "AuthoringCanvasListResponse",
+            "value": 255,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 246
+        },
+        {
+            "name": "AuthoringCanvasNodesResponse",
+            "value": 256,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 247
+        },
+        {
+            "name": "AuthoringCanvasEdgesResponse",
+            "value": 257,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 248
+        },
+        {
+            "name": "AuthoringCanvasApplyRequest",
+            "value": 258,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 249
+        },
+        {
+            "name": "AuthoringCanvasOperationReceipt",
+            "value": 259,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 250
+        },
+        {
+            "name": "AuthoringCanvasUndoRedoRequest",
+            "value": 260,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 251
+        },
+        {
+            "name": "AuthoringCanvasHistoryResponse",
+            "value": 261,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 252
+        },
+        {
+            "name": "AuthoringCanvasDeleteRequest",
+            "value": 262,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 253
+        },
+        {
+            "name": "AuthoringCanvasWriteReceipt",
+            "value": 263,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 254
+        },
+        {
+            "name": "AuthoringCanvasResolveRequest",
+            "value": 264,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 255
+        },
+        {
+            "name": "AuthoringCanvasReferenceResolutionBatch",
+            "value": 265,
+            "goldenFamily": "authoring-canvas",
+            "goldenOrder": 256
+        },
+        {
+            "name": "ArticleCanvasLinkRequest",
+            "value": 266,
+            "goldenFamily": "article-canvas-link",
+            "goldenOrder": 257
+        },
+        {
+            "name": "ArticleCanvasLinkReceipt",
+            "value": 267,
+            "goldenFamily": "article-canvas-link",
+            "goldenOrder": 258
+        },
+        {
+            "name": "ArticleCanvasLinkHistoryResponse",
+            "value": 268,
+            "goldenFamily": "article-canvas-link",
+            "goldenOrder": 259
+        },
+        {
+            "name": "ArticlePropertyValueReadResponse",
+            "value": 269,
+            "goldenFamily": "article-property-value-read",
+            "goldenOrder": 260
+        },
+        {
+            "name": "AuthoringWorkspaceSnapshotRequest",
+            "value": 270,
+            "goldenFamily": "authoring-workspace-snapshot",
+            "goldenOrder": 261
+        },
+        {
+            "name": "AuthoringWorkspaceSnapshotResponse",
+            "value": 271,
+            "goldenFamily": "authoring-workspace-snapshot",
+            "goldenOrder": 262
+        },
+        {
+            "name": "WritingAidPreferenceSnapshotResponse",
+            "value": 272,
+            "goldenFamily": "writing-aid-preference",
+            "goldenOrder": 263
+        },
+        {
+            "name": "WritingAidPreferenceUpdateRequest",
+            "value": 273,
+            "goldenFamily": "writing-aid-preference",
+            "goldenOrder": 264
+        },
+        {
+            "name": "WritingAidPreferenceReceiptResponse",
+            "value": 274,
+            "goldenFamily": "writing-aid-preference",
+            "goldenOrder": 265
+        },
+        {
+            "name": "UploadAssetPreview",
+            "value": 275,
+            "goldenFamily": "upload-response",
+            "goldenOrder": 266
+        },
+        {
+            "name": "AuthorArticleSelectionRevalidateRequest",
+            "value": 276,
+            "goldenFamily": "author-article-selection",
+            "goldenOrder": 267
+        },
+        {
+            "name": "AuthorArticleSelectionRevalidateResponse",
+            "value": 277,
+            "goldenFamily": "author-article-selection",
+            "goldenOrder": 268
         }
     ],
     "goldenCatalog": {
@@ -1524,7 +1675,11 @@
         "defaultEvidence": [
             "tests/backend/Unit/BackendGoldenCatalogTests.cs",
             "tests/backend/Unit/PodBinaryCodecTests.cs",
-            "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
+            "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs",
+            "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
+            "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
+            "tests/backend/Unit/WritingAidPreferenceWireTests.cs",
+            "tests/backend/Unit/UploadAssetPreviewCodecTests.cs"
         ]
     }
 }

@@ -4,6 +4,7 @@ using System.Text;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 
 using SqlSugar;
 
@@ -317,6 +318,12 @@ public interface IAuthoringCanvasArticleReferenceReader
         AuthoringCanvasReferencePermission permission,
         IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
         CancellationToken cancellationToken = default);
+
+    Task<AuthoringCanvasArticleReferenceRecord?> ReadCurrentArticleAsync(
+        AuthoringCanvasOwner owner,
+        AuthoringCanvasReferencePermission permission,
+        int articleId,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record AuthoringCanvasCoordinateFactQuery(
@@ -509,6 +516,39 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
             return new Dictionary<int, AuthoringCanvasArticleReferenceRecord>();
         }
 
+        long[] pinnedRevisionIds = targets
+            .Where(static target => target.PinnedTargetRevision is not null)
+            .Select(static target => target.PinnedTargetRevision!.Value)
+            .Distinct()
+            .Order()
+            .ToArray();
+        return await ReadArticleRecordsAsync(owner, articleIds, pinnedRevisionIds, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<AuthoringCanvasArticleReferenceRecord?> ReadCurrentArticleAsync(
+        AuthoringCanvasOwner owner,
+        AuthoringCanvasReferencePermission permission,
+        int articleId,
+        CancellationToken cancellationToken = default)
+    {
+        AuthoringCanvasContract.ValidateOwner(owner);
+        if (!Enum.IsDefined(permission) || articleId <= 0)
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_current_article_invalid");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord> records = await ReadArticleRecordsAsync(
+            owner, [articleId], [], cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return records.GetValueOrDefault(articleId);
+    }
+
+    private async Task<IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord>> ReadArticleRecordsAsync(
+        AuthoringCanvasOwner owner, int[] articleIds, long[] pinnedRevisionIds,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         var articles = new Dictionary<int, MutableArticleFact>(articleIds.Length);
         using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
@@ -571,12 +611,6 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
             }
         }
 
-        long[] pinnedRevisionIds = targets
-            .Where(static target => target.PinnedTargetRevision is not null)
-            .Select(static target => target.PinnedTargetRevision!.Value)
-            .Distinct()
-            .Order()
-            .ToArray();
         if (pinnedRevisionIds.Length > 0)
         {
             using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(

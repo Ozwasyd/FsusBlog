@@ -1,0 +1,120 @@
+{
+  "sourceSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+  "branch": "codex/prerequisite-3665-current-master-20261008",
+  "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+  "canonicalOriginSource": "afab85610217dacb0fca4b3ec8a062e0cd1bf801",
+  "fileCount": 11,
+  "backendBuild": {
+    "sourceSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+    "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+    "results": [
+      {
+        "stage": "restore",
+        "exit": 0
+      },
+      {
+        "stage": "build",
+        "exit": 0
+      }
+    ],
+    "inputsStable": true,
+    "boundInputCount": 1552,
+    "assemblies": [
+      {
+        "path": "src/backend/bin/Release/net10.0/FsusBlog.Shared.dll",
+        "sha256": "6c13a0d77f5f8531e292f3dba11790f04633c8dc6db342599bae1b93dc677345",
+        "bytes": 1650688
+      },
+      {
+        "path": "src/backend/bin/Release/net10.0/FsusBlog.Core.dll",
+        "sha256": "1eff2edebf0a9a2d8c8a53aa00bfc6f6a8a3201eb1eecf0ea5998a4397b5d057",
+        "bytes": 735744
+      },
+      {
+        "path": "src/backend/bin/Release/net10.0/FsusBlog.Server.dll",
+        "sha256": "1768296084f9822643b696335b3f755c0bbd71006afa7f58351866ee3c8dd0df",
+        "bytes": 18351616
+      }
+    ],
+    "acceptanceLimits": "Source prerequisite production compiler closure only; consumer61 peer evidence not rerun. No HTTP/PG/UX or independent QA acceptance."
+  },
+  "metadata": {
+    "sourceSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+    "checkedAt": "2026-10-08T13:46:11.559152+00:00",
+    "exit": 0,
+    "actualServerStampMatches": true,
+    "allThreeBuiltDllBytesUnchanged": true,
+    "metadata": "actual-metadata.json",
+    "limits": "Source prerequisite production compiler closure only; consumer61 peer evidence not rerun. No HTTP/PG/UX or independent QA acceptance.",
+    "priorInvocationErrors": [
+      "wrong cwd relative input path",
+      "missing DOTNET_CLI_HOME triggered read-only /home/agent/.dotnet; no proof from those attempts"
+    ]
+  },
+  "consumer61Evidence": "parent peer claim, not Root rerun",
+  "remoteShaVerified": true,
+  "draftPrCreation": "not attempted under existing content-write403 prohibition",
+  "limits": "Exact minimal source prerequisite; not shared protocol mutation, consumer acceptance or whole-chain completion.",
+  "files": [
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs",
+      "blob": "cda9c919f6eb7b7a35dff157643287d1283952f2"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs",
+      "blob": "24b47dde0849d6f251aff330417d68845077d872"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs",
+      "blob": "6eecd0b17da40d9e25792195552c6cd31bf32903"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Read.cs",
+      "blob": "cc0d614978e853820ab10d712af65a2147f0e73c"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Storage.cs",
+      "blob": "810cb80d8750e0a763087ed8931e3de4ce9ac96f"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyValuePersistence.cs",
+      "blob": "8a8eb691b7f1114574f53d7bbd9552edb4d61fcd"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs",
+      "blob": "937f655dc6883053d3bd7f05ca02d89a0220d266"
+    },
+    {
+      "path": "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+      "blob": "e3a2da0fde13fed17cb000e2dc160c7d8252480d"
+    },
+    {
+      "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+      "blob": "ccc417763c04e36b8414325e944e48035018ae15"
+    },
+    {
+      "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+      "blob": "6298d10439f5bde83fd4cceed344bb88f1495690"
+    },
+    {
+      "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+      "blob": "bee3b880190ead838cd0bbdda8eecf2d50cab5e7"
+    }
+  ],
+  "documentationDelta": {
+    "sourceSha": "6f1f228d46687931b78c280121e8c07ea0961fbc",
+    "baseSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+    "recordedAt": "2026-10-08T13:54:04.313155+00:00",
+    "file": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+    "oldBlob": "bee3b880190ead838cd0bbdda8eecf2d50cab5e7",
+    "newBlob": "e40a8e0ee45b7f52e93483b4c06477bcfd77cb08",
+    "onlyFourXmlSummariesAdded": true,
+    "allNonDocumentationLinesByteEqual": true,
+    "styleExit": 0,
+    "styleLog": "xml-doc-style.log",
+    "compilerUnitRerun": "not run for comment-only delta; prior919 production compiler proof remains bound to919",
+    "peerCandidate": "4ee4b8ff7de4cef6cd6ea4fb7937d8d0a96b10b5",
+    "peer201Tests": "parent supplied claim, not Root rerun",
+    "remoteShaVerified": true
+  }
+}

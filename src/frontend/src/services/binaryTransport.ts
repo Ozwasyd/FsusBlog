@@ -24,7 +24,8 @@ import type { AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import {
     buildFsusBinaryRoute,
     fsusBinaryRouteDescriptors,
-    type FsusBinaryOperationId
+    type FsusBinaryOperationId,
+    type FsusBinaryRouteDescriptor
 } from '@/generated/fsusBinaryRoutes';
 import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime';
 import { privateRequestRuntime } from '@/services/privateRequestRuntime';
@@ -430,7 +431,7 @@ function createAbortLikeError(message: string): Error
     return error;
 }
 
-function startWorkerDecode<T>(queued: QueuedDecodeRequest): void
+function startWorkerDecode(queued: QueuedDecodeRequest): void
 {
     const worker = getWorker();
     const { requestId, signal } = queued;
@@ -549,7 +550,7 @@ function decodeInWorker<T>(
 
         abortCleanup?.();
         queued.abortCleanup = null;
-        startWorkerDecode<T>(queued);
+        startWorkerDecode(queued);
     });
 }
 
@@ -998,12 +999,7 @@ function resolveBinaryRequest(options: {
       && descriptor.rateLimitPolicy === 'public_read'
       && descriptor.method === 'GET'
       && !descriptor.requiresPow;
-        const privateScope: PrivateRequestScope = descriptor.auth === 'admin'
-            ? 'admin'
-            : descriptor.auth === 'user' || descriptor.auth === 'optional'
-        ? 'account'
-        : 'public';
-        const abortOnGenerationChange = descriptor.auth !== 'optional';
+        const { routeClass, privateScope, abortOnGenerationChange } = binaryRoutePolicy(descriptor.auth);
         if (options.requestOptions?.credentials !== undefined || descriptor.credentialPolicy === 'include')
         {
             return {
@@ -1011,7 +1007,7 @@ function resolveBinaryRequest(options: {
                 requestOptions: options.requestOptions,
                 retryPublicReadWithPow,
                 operationId: options.binaryRoute.operationId,
-                routeClass: binaryRouteClass(descriptor.auth),
+                routeClass,
                 privateScope,
                 abortOnGenerationChange
             };
@@ -1024,7 +1020,7 @@ function resolveBinaryRequest(options: {
                 credentials: descriptor.credentialPolicy
             },
             operationId: options.binaryRoute.operationId,
-            routeClass: binaryRouteClass(descriptor.auth),
+            routeClass,
             privateScope,
             abortOnGenerationChange
         };
@@ -1042,6 +1038,20 @@ function resolveBinaryRequest(options: {
         };
     }
     throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');
+}
+
+function binaryRoutePolicy(auth: FsusBinaryRouteDescriptor['auth'] | 'optional'): {
+    routeClass: BinaryFailureRouteClass;
+    privateScope: PrivateRequestScope;
+    abortOnGenerationChange: boolean;
+}
+{
+    const routeClass = binaryRouteClass(auth);
+    return {
+        routeClass,
+        privateScope: routeClass === 'admin' ? 'admin' : routeClass === 'account' ? 'account' : 'public',
+        abortOnGenerationChange: auth !== 'optional'
+    };
 }
 
 function binaryRouteClass(auth: string): BinaryFailureRouteClass

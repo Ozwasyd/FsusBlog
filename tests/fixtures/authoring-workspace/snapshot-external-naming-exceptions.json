@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotPostgresPersistence.cs",
+                "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs",
+                "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotContracts.cs"
+            ],
+            "reason": "These new C# files fall under the registry's broad src/**/*.cs environment naming boundary. They introduce no environment settings and preserve existing environment spellings; authored C# symbols use the repository's PascalCase/camelCase mapping. PostgreSQL snake_case identifiers are explicitly adapted through parameterized SQL and camelCase internal snapshot serialization."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-workspace-snapshot-boundary.md"
+            ],
+            "reason": "Preserve the documented schema, source contract, CLI, path and legacy storage-key spellings exactly so the handoff describes the executable source boundaries without renaming their external identifiers."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/authoring-workspace/snapshot-current.json",
+                "tests/fixtures/authoring-workspace/snapshot-external-naming-exceptions.json"
+            ],
+            "reason": "Preserve the closed camelCase snapshot fixture and registered exception manifest keys. The fixture is the cross-language canonical digest control; changing serialized names would break the C#/TypeScript parity and explicit schema validation."
+        }
+    ]
+}

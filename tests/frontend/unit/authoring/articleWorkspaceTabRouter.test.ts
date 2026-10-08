@@ -56,6 +56,29 @@ const input = (articleId: number, overrides: Partial<ArticleWorkspaceOpenInput> 
 });
 
 describe('ArticleWorkspaceTabRouter contract (#2295)', () => {
+    it.each([
+        { permission: 'denied', lifecycle: 'current', reason: 'permission-blocked' },
+        { permission: 'revoked', lifecycle: 'current', reason: 'permission-blocked' },
+        { permission: 'allowed', lifecycle: 'deleted', reason: 'lifecycle-blocked' },
+        { permission: 'allowed', lifecycle: 'archived', reason: 'lifecycle-blocked' },
+        { permission: 'allowed', lifecycle: 'draft-replaced', reason: 'lifecycle-blocked' },
+        { permission: 'allowed', lifecycle: 'blocked', reason: 'lifecycle-blocked' }
+    ] as const)('rejects reopening an existing $permission/$lifecycle tab without changing authority', async ({ permission, lifecycle, reason }) => {
+        const router = new ArticleWorkspaceTabRouter();
+        const first = await router.openOrActivate(input(1, { tabKind: 'pinned' }));
+        await router.openOrActivate(input(2, { tabKind: 'pinned' }));
+        router.markStatus(first.tabId!, status({ permission, lifecycle, statusRef: 'status:invalidated' }));
+        const before = router.getRegistry().exportState();
+        const tabsBefore = router.listTabs();
+        const reopened = await router.openOrActivate(input(1, { tabKind: 'pinned', entrypoint: 'recent-restore' }));
+        expect(reopened.resultStatus).toBe('rejected-state');
+        expect(reopened.reason).toBe(reason);
+        expect(reopened.sessionState).toBe('blocked');
+        expect(router.getRegistry().exportState()).toEqual(before);
+        expect(router.listTabs()).toEqual(tabsBefore);
+        expect(router.getActiveTab()?.articleId).toBe(2);
+    });
+
     it('keeps one registry entry per article across the bounded tab cardinalities', async () => {
         for (const count of [0, 1, 20, 100])
         {

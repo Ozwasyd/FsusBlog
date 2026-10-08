@@ -781,6 +781,62 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
         return db;
     }
 
+    [Fact]
+    public async Task UpdateAsync_PersistsExactSourceWithOriginalRevisionAuditAndOutboxTransaction()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        long adminId = await EnsureAdminAsync(db);
+        (int categoryId, int tagId) = await EnsureTaxonomyAsync(db);
+        CanonicalArticleLifecycleResult created = await CreatePort(db).ExecuteAsync(
+            new CanonicalArticleLifecycleRequest(
+                Binding(adminId, "raw-source"),
+                Plan(CanonicalArticleLifecycleVariants.Draft, categoryId, tagId)));
+        const string Source = "\uFEFF# Heading\r\n正文😀  \r\n \t";
+        long oldAuditCount = await CountAsync(db, "sys_audit_log");
+        long oldOutboxCount = await CountAsync(db, "article_mutation_outbox");
+        ArticleLifecycleTransitionWriter.Result? updated = null;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            updated = await ArticleLifecycleTransitionWriter.UpdateAsync(
+                db,
+                Configuration(),
+                new ArticleLifecycleTransitionWriter.RevisionRequest(
+                    created.Receipt.ArticleId,
+                    created.Receipt.CurrentRevisionId,
+                    "Raw source revision",
+                    Source,
+                    "summary",
+                    null,
+                    categoryId,
+                    [tagId],
+                    ArticleStatus.Draft,
+                    null,
+                    s_now.AddMinutes(1),
+                    adminId,
+                    null,
+                    Responsibility(),
+                    "raw-source-update",
+                    "raw-source"));
+        });
+        Assert.True(transaction.IsSuccess, transaction.ErrorException?.ToString());
+        Assert.NotNull(updated);
+        ArticleRevision revision = await db.Queryable<ArticleRevision>()
+            .Where(item => item.Id == updated.Version.RevisionId).FirstAsync();
+        ArticleRevisionContentBlock block = await db.Queryable<ArticleRevisionContentBlock>()
+            .Where(item => item.Id == revision.ContentBlockId).FirstAsync();
+        ArticleBody body = await db.Queryable<ArticleBody>()
+            .Where(item => item.ArticleId == created.Receipt.ArticleId).FirstAsync();
+        Assert.Equal(Source, block.MarkdownContent);
+        Assert.Equal(Source, body.MarkdownContent);
+        Assert.Equal(System.Text.Encoding.UTF8.GetBytes(Source), System.Text.Encoding.UTF8.GetBytes(block.MarkdownContent));
+        Assert.Equal(created.Receipt.CurrentRevisionId, updated.Before.RevisionId);
+        Assert.NotEqual(updated.Before.RevisionId, updated.After.RevisionId);
+        Assert.Equal(updated.Version.RevisionId, updated.After.RevisionId);
+        Assert.Equal(oldOutboxCount + 1, await CountAsync(db, "article_mutation_outbox"));
+        Assert.Equal(oldAuditCount + 1, await CountAsync(db, "sys_audit_log"));
+        Assert.Equal(2, await CountAsync(db, "article_revision"));
+    }
+
     private static CanonicalArticleLifecycleFixturePort CreatePort(SqlSugarClient db, TimeProvider? timeProvider = null)
     {
         var contentFilter = Substitute.For<IContentFilterService>();

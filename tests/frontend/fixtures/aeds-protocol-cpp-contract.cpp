@@ -2,6 +2,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -295,6 +297,45 @@ bool parse_hex(std::string_view hex, std::vector<std::uint8_t>& output)
 
 int main(int argc, char** argv)
 {
+    if (argc == 2 && std::string_view(argv[1]) == "canvas-payloads")
+    {
+        unsigned int frame_type = 0U;
+        unsigned int expected_valid = 0U;
+        std::string hex;
+        unsigned int count = 0U;
+        while (std::cin >> frame_type >> expected_valid >> hex)
+        {
+            if (frame_type < 253U || frame_type > 265U || expected_valid > 1U)
+            {
+                return 30;
+            }
+            std::vector<std::uint8_t> payload;
+            if (!parse_hex(hex, payload))
+            {
+                return 31;
+            }
+            std::vector<std::uint8_t> frame = empty_frame(static_cast<std::uint16_t>(frame_type));
+            frame.insert(frame.end(), payload.begin(), payload.end());
+            write_u32_le(frame.data() + 10U, static_cast<std::uint32_t>(payload.size()));
+            write_u16_le(frame.data() + 14U, FsusBlog::Aeds::ComputeCrc16(payload.data(), payload.size()));
+            const FsusBlog::Aeds::DecodeResult decoded = FsusBlog::Aeds::DecodeFrame(frame.data(), frame.size());
+            if (decoded.ok != (expected_valid == 1U)
+                || (expected_valid == 0U && decoded.error_code != FsusBlog::Aeds::ErrorCode::AuthoringCanvasPayloadInvalid)
+                || (expected_valid == 1U && (decoded.frame_type != frame_type || decoded.payload_len != payload.size())))
+            {
+                std::cerr << "Canvas payload case " << count << " failed\n";
+                return 32;
+            }
+            ++count;
+        }
+        if (count == 0U || !std::cin.eof())
+        {
+            return 33;
+        }
+        std::cout << "production C++ Canvas payload cases=" << count << '\n';
+        return 0;
+    }
+
     if (argc >= 3 && std::string_view(argv[1]) == "all")
     {
         for (int index = 2; index < argc; ++index)
@@ -318,6 +359,50 @@ int main(int argc, char** argv)
                 if (decoded.error_code != FsusBlog::Aeds::ErrorCode::FontThemePayloadInvalid || !FontThemeContract(frame_type))
                 {
                     return 23;
+                }
+            }
+            else if (frame_type >= 253 && frame_type <= 265)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::AuthoringCanvasPayloadInvalid)
+                {
+                    return 15;
+                }
+            }
+
+            else if (frame_type >= 266 && frame_type <= 268)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::ArticleCanvasLinkPayloadInvalid)
+                {
+                    return 16;
+                }
+            }
+            else if (frame_type >= 270 && frame_type <= 271)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::AuthoringWorkspaceSnapshotPayloadInvalid)
+                {
+                    std::cerr << "workspace snapshot empty payload accepted for " << frame_type << '\n';
+                    return 1;
+                }
+            }
+            else if (frame_type == 269)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::ArticlePropertyValueReadPayloadInvalid)
+                {
+                    return 17;
+                }
+            }
+            else if (frame_type >= 272 && frame_type <= 274)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::WritingAidPreferencePayloadInvalid)
+                {
+                    return 18;
+                }
+            }
+            else if (frame_type == 275)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::UploadAssetPreviewPayloadInvalid)
+                {
+                    return 19;
                 }
             }
             else if (!decoded.ok || decoded.frame_type != frame_type || decoded.payload_len != 0U)

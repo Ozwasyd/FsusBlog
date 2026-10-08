@@ -1,3 +1,5 @@
+export { encodeWritingAidPreferenceUpdateRequest } from '@/codecs/binary/writingAidPreferenceWire.generated';
+
 import type { FrameType } from '@wasm/protocol/frame';
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION } from '@wasm/protocol/frame';
 

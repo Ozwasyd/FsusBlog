@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.Authoring;
 

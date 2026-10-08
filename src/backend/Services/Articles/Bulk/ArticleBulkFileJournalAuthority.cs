@@ -801,6 +801,10 @@ internal sealed class ArticleBulkFileJournalAuthority : IArticleBulkJournalAutho
         ArticleBulkFileJournalSnapshot snapshot,
         ArticleBulkJournalAppend append)
     {
+        if (append.Event.Kind == ArticleBulkJournalEventKind.GroupReconciled)
+        {
+            ArticleBulkExecutionFramework.ValidateReconciliationRequestShape(snapshot.Request);
+        }
         if (snapshot.Head.ContentDigest != append.ExpectedHeadDigest)
         {
             throw new ArticleBulkContractException("article-bulk.journal-cas-conflict");
@@ -833,9 +837,9 @@ internal sealed class ArticleBulkFileJournalAuthority : IArticleBulkJournalAutho
                     || append.Event.Kind == ArticleBulkJournalEventKind.GroupCommitStarted)
             || append.NextHead.GroupCommitTerminal
                 != (snapshot.Head.GroupCommitTerminal
-                    || append.Event.Kind == ArticleBulkJournalEventKind.GroupCommitTerminal)
+                    || ArticleBulkExecutionFramework.IsGroupTerminalKind(append.Event.Kind))
             || append.NextHead.GroupCommitOutcome
-                != (append.Event.Kind == ArticleBulkJournalEventKind.GroupCommitTerminal
+                != (ArticleBulkExecutionFramework.IsGroupTerminalKind(append.Event.Kind)
                     ? append.Event.GroupCommitOutcome
                     : snapshot.Head.GroupCommitOutcome)
             || append.NextHead.ActiveArticleIds.IsDefault
@@ -952,7 +956,7 @@ internal sealed class ArticleBulkFileJournalAuthority : IArticleBulkJournalAutho
             ArticleBulkJournalEventKind.ItemTerminal =>
                 IsBoundedOpaqueValue(journalEvent.CanonicalCommandOwner, 256)
                 && IsContentDigest(journalEvent.CanonicalCommandReceiptDigest),
-            ArticleBulkJournalEventKind.GroupCommitTerminal =>
+            ArticleBulkJournalEventKind.GroupCommitTerminal or ArticleBulkJournalEventKind.GroupReconciled =>
                 IsBoundedOpaqueValue(journalEvent.CanonicalCommandOwner, 256)
                 && journalEvent.CanonicalCommandReceiptDigest == journalEvent.GroupReceiptDigest,
             _ => journalEvent.CanonicalCommandOwner is null
@@ -965,7 +969,7 @@ internal sealed class ArticleBulkFileJournalAuthority : IArticleBulkJournalAutho
                 && (journalEvent.ZeroWriteProofDigest is null
                     || IsContentDigest(journalEvent.ZeroWriteProofDigest))
                 && aggregateReceipt is null && journalEvent.RetryRequestDigest is null,
-            ArticleBulkJournalEventKind.GroupCommitTerminal =>
+            ArticleBulkJournalEventKind.GroupCommitTerminal or ArticleBulkJournalEventKind.GroupReconciled =>
                 (journalEvent.GroupCommitOutcome switch
                 {
                     ArticleBulkGroupCommitOutcome.Committed => IsContentDigest(journalEvent.GroupReceiptDigest)

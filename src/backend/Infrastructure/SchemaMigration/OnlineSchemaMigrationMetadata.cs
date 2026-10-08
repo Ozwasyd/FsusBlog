@@ -1695,6 +1695,62 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                     "article_property_definition_history_write_isolation"
                 ]));
 
+        result.Add(
+            "20261006-post-article-canvas-link-history",
+            new OnlineSchemaMigrationMetadata(
+                "20261006-post-article-canvas-link-history",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20261006-article-canvas-links"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators: ["descriptor_policy", "n_minus_one_read_write", "article_canvas_link_owner_site_scope",
+                    "article_canvas_link_canonical_cas", "article_canvas_link_revision_history", "article_canvas_link_receipt_integrity"]));
+
+        result.Add(
+            "20261008-post-article-property-value-snapshots",
+            new OnlineSchemaMigrationMetadata(
+                "20261008-post-article-property-value-snapshots",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20261008-article-property-values"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators: ["descriptor_policy", "n_minus_one_read_write", "article_property_value_closed_storage",
+                    "article_property_value_canonical_cas", "article_property_value_immutable_snapshots",
+                    "article_property_value_signed_audit_binding"]));
+
+        result.Add(
+            "20261008-post-authoring-workspace-snapshot",
+            new OnlineSchemaMigrationMetadata(
+                "20261008-post-authoring-workspace-snapshot",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20261008-authoring-workspace-snapshot"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators: ["descriptor_policy", "n_minus_one_read_write", "authoring_workspace_snapshot_closed_storage",
+                    "authoring_workspace_snapshot_owner_site_default", "authoring_workspace_snapshot_canonical_cas",
+                    "authoring_workspace_snapshot_bounded_bytes"]));
+
         return new ReadOnlyDictionary<string, OnlineSchemaMigrationMetadata>(result);
     }
 

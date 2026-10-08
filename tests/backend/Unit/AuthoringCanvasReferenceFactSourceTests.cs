@@ -1,4 +1,5 @@
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 
 using NSubstitute;
 
@@ -418,6 +419,16 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
             cancellationToken.ThrowIfCancellationRequested();
             BatchReadCount++;
             return Task.FromResult(Records);
+        }
+
+        public Task<AuthoringCanvasArticleReferenceRecord?> ReadCurrentArticleAsync(
+            AuthoringCanvasOwner owner,
+            AuthoringCanvasReferencePermission permission,
+            int articleId,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(Records.GetValueOrDefault(articleId));
         }
     }
 

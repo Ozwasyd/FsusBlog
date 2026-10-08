@@ -1,0 +1,9 @@
+{
+  "archive": "/tmp/chain-3735-current-v5-navigation-evidence.tar.gz",
+  "bytes": 8262943,
+  "sha256": "e53f443112fb5ba4db00a4b2a8af0775a9fa78713a3c351736ca1efe78aa5dd8",
+  "manifest": "/tmp/chain-3735-current-v5-navigation-manifest.json",
+  "manifestSha256": "07210f35bb3225f3d4a4653602e48a502ef8acfb8e5b6568155da6fa59fefeb5",
+  "entriesVerified": 393,
+  "limits": "Mixed explicit separately bound commits; no whole-candidate replay, HTTP/UX/QA. Failed first builds, SDK/setup/type/parser/provider/native/matrix negatives remain in their actual runs."
+}

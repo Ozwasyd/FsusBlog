@@ -378,7 +378,7 @@ public sealed class AuthoringRevisionCompareAuthority(
         bool authorized = await db.Queryable<AdminPrincipal>()
             .Where(principal => principal.Id == context.AdminPrincipalId
                 && principal.Status == AdminPrincipalStatus.Active)
-            .AnyAsync(principal => principal.Permissions == AdminPermissions.ArticleWrite
+            .AnyAsync(principal => principal.IsRoot || principal.Permissions == AdminPermissions.ArticleWrite
                 || principal.Permissions.StartsWith(AdminPermissions.ArticleWrite + "\n")
                 || principal.Permissions.EndsWith("\n" + AdminPermissions.ArticleWrite)
                 || principal.Permissions.Contains("\n" + AdminPermissions.ArticleWrite + "\n"), cancellationToken)
@@ -387,11 +387,12 @@ public sealed class AuthoringRevisionCompareAuthority(
         {
             return null;
         }
-        return await db.Queryable<Article>()
+        var article = await db.Queryable<Article>()
             .Where(item => item.Id == articleId && !item.IsDeleted)
-            .Select(item => new AuthoringRevisionCompareArticle(item.Id, item.CurrentRevisionId))
+            .Select(item => new { item.Id, item.CurrentRevisionId })
             .FirstAsync(cancellationToken)
             .ConfigureAwait(false);
+        return article is null ? null : new AuthoringRevisionCompareArticle(article.Id, article.CurrentRevisionId);
     }
 
     public Task<ServerDraftResponse?> GetDraftAsync(

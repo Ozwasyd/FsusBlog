@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto'
 import { describe, it, expect, vi } from 'vitest'
 import articleDetailFrameHex from '../../../../fixtures/protocol/article-detail-frame.hex?raw'
+import canvasLinkGolden from '../../../../fixtures/protocol/article-canvas-link-wire-golden.json'
+import propertyReadGolden from '../../../../fixtures/protocol/article-property-value-read-wire-golden.json'
+import workspaceSnapshotGolden from '../../../../fixtures/protocol/authoring-workspace-snapshot-wire-golden.json'
+import writingAidGolden from '../../../../fixtures/protocol/writing-aid-preference-wire-golden.json'
 import routingReplacementLedger from '../../../../fixtures/binary-decoder-routing-replacements.json'
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 import { CommentPolicyContractVersion, CommentPolicyReadiness } from '@/contracts/commentPolicy'
@@ -231,6 +235,12 @@ function themeActivationPayload(): Uint8Array {
 
 const jsonPayload = (): Uint8Array => textBytes('{}')
 const zeroPayload = (size: number): (() => Uint8Array) => () => new Uint8Array(size)
+function goldenPayload(golden: { cases: { name: string; valid: boolean; payloadHex: string }[] }, name: string): Uint8Array {
+  const row = golden.cases.find(candidate => candidate.name === name)
+  if (!row?.valid) throw new Error(`missing valid protocol fixture: ${name}`)
+  return Uint8Array.from(Buffer.from(row.payloadHex, 'hex'))
+}
+
 const validPayloadByDecoder = new Map<string, () => Uint8Array>([
   ['mapArticlePageFromPodPayload', () => {
     const payload = new Uint8Array(29)
@@ -317,10 +327,22 @@ const validPayloadByDecoder = new Map<string, () => Uint8Array>([
   ['mapSecurityChallengeVerifyResponseFromPayload', securityChallengeVerifyPayload],
   ['mapSiteSubscriptionResponseFromPayload', zeroPayload(36)],
   ['mapEmptySuccessFromPayload', () => new Uint8Array([1, 0, 0, 0])],
-  ['mapMutationIdFromPayload', zeroPayload(8)]
+  ['mapMutationIdFromPayload', zeroPayload(8)],
+  ['decodeArticleCanvasLinkReceipt', () => goldenPayload(canvasLinkGolden, 'ArticleCanvasLinkReceipt')],
+  ['decodeArticleCanvasLinkHistoryResponse', () => goldenPayload(canvasLinkGolden, 'empty-history')],
+  ['decodeArticlePropertyValueReadResponse', () => goldenPayload(propertyReadGolden, 'current-0')],
+  ['decodeAuthoringWorkspaceSnapshotResponse', () => goldenPayload(workspaceSnapshotGolden, 'missing')],
+  ['decodeWritingAidPreferenceSnapshot', () => goldenPayload(writingAidGolden, 'snapshot-values-5')],
+  ['decodeWritingAidPreferenceReceipt', () => goldenPayload(writingAidGolden, 'receipt-values-5')]
 ])
 
-const EXPECTED_REGISTRATION_SHA256 = '9aff665d1307f662734af11513a13f9dee610f4d58e3180a5e714918d8083295'
+const ORIGINAL_REGISTRATION_SHA256 = '9aff665d1307f662734af11513a13f9dee610f4d58e3180a5e714918d8083295'
+const EXPECTED_REGISTRATION_SHA256 = '6f7f42556c60ecb4aef33580d0503182d5b40af169537c931d45f7cdbc1501a8'
+const appendedFrameTypes: FrameType[] = [
+  FrameType.ArticleCanvasLinkReceipt, FrameType.ArticleCanvasLinkHistoryResponse,
+  FrameType.ArticlePropertyValueReadResponse, FrameType.AuthoringWorkspaceSnapshotResponse,
+  FrameType.WritingAidPreferenceSnapshotResponse, FrameType.WritingAidPreferenceReceiptResponse
+]
 
 // The original replacement ledger remains bound to its original retired tests.
 // New typed contracts use independent, readable expectations, not fabricated
@@ -349,6 +371,56 @@ const fontThemeExpectedResults = new Map<string, unknown>([
   ['mapThemeActivationFromPayload', {
     scope: 'public', activeThemeId: null, mode: null, activationId: null,
     assetVersion: null, configVersion: null, updatedAtUtc: null
+  }]
+])
+
+// Literal domain coordinates from the independent fixtures; historical ledger rows remain intact.
+const writingAidOwner = { userScope: 'account:42', siteScope: 'site:test' }
+const writingAidValues = { schemaVersion: 1, focusEnabled: true, typewriterEnabled: false, immersiveEnabled: true }
+const writingAidPrevious = {
+  owner: writingAidOwner, revision: 7,
+  values: { schemaVersion: 1, focusEnabled: false, typewriterEnabled: false, immersiveEnabled: false },
+  contentDigest: '77e282296d65ca18cc6be1c9150967fae811b2a3d17372b49eb78c1ff48e08ff'
+}
+const appendedExpectedResults = new Map<string, unknown>([
+  ['decodeArticleCanvasLinkReceipt', {
+    requestId: '00112233-4455-6677-8899-aabbccddeeff', journalId: '00112233-4455-6677-8899-aabbccddeeff',
+    parentJournalId: '00000000-0000-0000-0000-000000000000', ownerAdminPrincipalId: '9', siteScope: 'primary-site',
+    sourceArticleId: 7, previousArticleRevision: '9007199254740993', articleRevision: '9007199254740994',
+    originalBeforeRevision: '9007199254740993', originalAfterRevision: '9007199254740994', mode: 0,
+    targetJournalId: '00000000-0000-0000-0000-000000000000', canvasId: '00112233-4455-6677-8899-aabbccddeeff',
+    canvasRevision: '3', canvasContentDigest: 'a'.repeat(64), edgeId: '00112233-4455-6677-8899-aabbccddeeff',
+    targetArticleId: 8, targetRevision: '9223372036854775807', undoDepth: 1, redoDepth: 0,
+    requestDigest: 'a'.repeat(64), receiptDigest: 'a'.repeat(64), idempotencyReplay: false
+  }],
+  ['decodeArticleCanvasLinkHistoryResponse', {
+    sourceArticleId: 7, articleRevision: '9007199254740994', historyArticleRevision: '0',
+    lastJournalId: '00000000-0000-0000-0000-000000000000', undoEntries: [], redoEntries: [], historyDigest: 'a'.repeat(64)
+  }],
+  ['decodeArticlePropertyValueReadResponse', {
+    articleId: 7, currentArticleRevisionId: '9007199254740993', propertyRevision: '0', current: null,
+    definitions: [], reconciliation: [], scope: { definitionOwnerUserId: '42', siteScope: 'primary-site', definitionSchemaVersion: 1 }
+  }],
+  ['decodeAuthoringWorkspaceSnapshotResponse', {
+    status: 'missing', revision: 0, snapshot: null,
+    receipt: {
+      schema: 'fsusblog.authoring-workspace-snapshot-receipt.v1', action: 'read', status: 'missing', reason: null,
+      scope: { userId: 7, siteId: 'site:local' }, workspaceId: 'default', sourceDigest: 'a'.repeat(64),
+      revisionBefore: 0, revisionAfter: 0, tabCount: 0, byteCount: 0,
+      inputDigest: 'f2ca2e59455c7cd0b77adf09a99dd87d2da1468d0f504b7d6f11b633f95b452f', snapshotDigest: null,
+      contentDigest: '40e56b0f6b695555cf0737d1d67577ef0fd4d1b698d257a1d71c3b7dcf86cac4'
+    }
+  }],
+  ['decodeWritingAidPreferenceSnapshot', {
+    owner: writingAidOwner, revision: 7, values: writingAidValues,
+    contentDigest: '4a979bb470024e92faf123866eac6809e60d1c93b7ad25dd83469a3a6f91a5bc'
+  }],
+  ['decodeWritingAidPreferenceReceipt', {
+    operationId: '01234567-89ab-cdef-0123-456789abcdef', deviceScope: 'device:' + 'a'.repeat(64),
+    previous: writingAidPrevious,
+    committed: { owner: writingAidOwner, revision: 8, values: writingAidValues,
+      contentDigest: '9e8cbff9cb796541e2142f0296a8af5a69b1b2aeba7c0e144031eddb09d7f316' },
+    action: 'update', status: 'committed', contentDigest: '739123d6663dd20f044827d797f909b7d25380224628fedc505f64526264e816'
   }]
 ])
 
@@ -404,7 +476,12 @@ describe('decodeBinaryFramePayload', () => {
 
   it('builds one authoritative decoder registration per supported frame', () => {
     const frameTypes = binaryFrameDecoderRegistrations.map(([frameType]) => frameType)
-    expect(binaryFrameDecoderRegistrations).toHaveLength(144)
+    expect(binaryFrameDecoderRegistrations).toHaveLength(150)
+    const originalRegistrations = binaryFrameDecoderRegistrations.filter(([frameType]) => !appendedFrameTypes.includes(frameType))
+    expect(originalRegistrations).toHaveLength(144)
+    expect(registrationFingerprint(originalRegistrations)).toBe(ORIGINAL_REGISTRATION_SHA256)
+    expect(binaryFrameDecoderRegistrations.filter(([frameType]) => appendedFrameTypes.includes(frameType)).map(([frameType]) => frameType))
+      .toEqual(appendedFrameTypes)
     expect(registrationFingerprint(binaryFrameDecoderRegistrations))
       .toBe(EXPECTED_REGISTRATION_SHA256)
     expect(new Set(frameTypes).size).toBe(frameTypes.length)
@@ -480,13 +557,18 @@ describe('decodeBinaryFramePayload', () => {
     expect([
       ...Object.keys(routingReplacementLedger.decoderResultSha256),
       'mapUserLocalePreferenceFromPayload',
-      ...fontThemeExpectedResults.keys()
+      ...fontThemeExpectedResults.keys(),
+      ...appendedExpectedResults.keys()
     ].sort()).toEqual([...registeredDecoderNames].sort())
 
     for (const [frameType, decoder] of binaryFrameDecoderRegistrations) {
       const createPayload = validPayloadByDecoder.get(decoder.name)
       expect(createPayload, `missing valid payload for ${decoder.name}`).toBeTypeOf('function')
       const result = decodeBinaryFramePayload(frameType, createPayload!())
+      if (appendedExpectedResults.has(decoder.name)) {
+        expect(result, `${frameType}:${decoder.name}`).toEqual(appendedExpectedResults.get(decoder.name))
+        continue
+      }
       if (fontThemeExpectedResults.has(decoder.name)) {
         expect(result, `${frameType}:${decoder.name}`).toEqual(fontThemeExpectedResults.get(decoder.name))
         continue

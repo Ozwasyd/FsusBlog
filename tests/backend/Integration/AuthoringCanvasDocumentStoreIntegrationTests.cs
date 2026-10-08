@@ -1,3 +1,4 @@
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Services.Authoring;

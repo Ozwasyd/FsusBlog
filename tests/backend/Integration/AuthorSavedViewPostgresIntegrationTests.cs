@@ -129,7 +129,8 @@ public sealed class AuthorSavedViewPostgresIntegrationTests(
                 winnerOwner, viewId, 1, stored.Name, expected.QueryDigest, expected.DependencyDigest,
                 false, 0, AuthorSavedViewLifecycleState.Active), stored.ContentDigest);
             Assert.Equal(created.QueryDigest, stored.QueryDigest);
-            Assert.True((await winnerStore.VerifyAsync(winnerOwner)).Valid);
+            AuthorSavedViewVerificationResult verification = await winnerStore.VerifyAsync(winnerOwner);
+            Assert.True(verification.Valid, string.Join(", ", verification.Reasons));
             Assert.Null(await loserStore.GetAsync(loserOwner, viewId));
             Assert.Empty((await loserStore.ListAsync(loserOwner, null, 100)).Items);
             foreach (string table in new[]
@@ -307,6 +308,46 @@ public sealed class AuthorSavedViewPostgresIntegrationTests(
         Assert.Equal(moved.ReceiptId, replay.ReceiptId);
         Assert.Equal(1, await db.Ado.GetIntAsync(
             "SELECT COUNT(*) FROM author_saved_view_receipt WHERE owner_admin_principal_id = 2;"));
+    }
+
+    [Fact]
+    public async Task Persistence_RoundTripsSubMicrosecondClockWithoutReceiptDigestDrift()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var persistence = new PostgresAuthorSavedViewPersistence(db);
+        DateTime now = new(638962848000000007, DateTimeKind.Utc);
+        DateTime expected = new(now.Ticks - now.Ticks % TimeSpan.TicksPerMicrosecond, DateTimeKind.Utc);
+        var store = new AuthorSavedViewStore(persistence,
+            new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([])),
+            new FixedUtcTimeProvider(now));
+        var command = new CreateAuthorSavedViewCommand(Guid.CreateVersion7(), s_singleOwner,
+            0, Guid.CreateVersion7(), "Timestamp round trip", LifecycleQuery());
+
+        AuthorSavedViewWriteReceipt created = await store.CreateAsync(command);
+        AuthorSavedViewVerificationHistory history = await persistence.ReadVerificationHistoryAsync(s_singleOwner);
+        AuthorSavedViewWriteReceipt persisted = Assert.Single(history.Receipts);
+        AuthorSavedViewVerificationResult verification = await store.VerifyAsync(s_singleOwner);
+        Assert.True(verification.Valid,
+            $"{string.Join(", ", verification.Reasons)}; createdTicks={created.OccurredAtUtc.Ticks}; "
+            + $"persistedTicks={persisted.OccurredAtUtc.Ticks}; "
+            + $"storedDigest={persisted.ContentDigest}; computedDigest={AuthorSavedViewStorageContract.ComputeReceiptDigest(persisted)}");
+        Assert.Equal(expected, created.OccurredAtUtc);
+        Assert.Equal(created.OccurredAtUtc, persisted.OccurredAtUtc);
+        Assert.Equal(created.ContentDigest, persisted.ContentDigest);
+        Assert.Equal(persisted.ContentDigest, AuthorSavedViewStorageContract.ComputeReceiptDigest(persisted));
+        AuthorSavedView stored = Assert.IsType<AuthorSavedView>(await store.GetAsync(s_singleOwner, command.ViewId));
+        Assert.Equal(expected, stored.CreatedAtUtc);
+        Assert.Equal(expected, stored.UpdatedAtUtc);
+        AuthorSavedViewWriteReceipt replay = await store.CreateAsync(command);
+        Assert.True(replay.IdempotentReplay);
+        Assert.Equal(created.ReceiptId, replay.ReceiptId);
+        Assert.Equal(created.ContentDigest, replay.ContentDigest);
+        Assert.True((await store.VerifyAsync(s_singleOwner)).Valid);
+    }
+
+    private sealed class FixedUtcTimeProvider(DateTime now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(now);
     }
 
     private async Task<SqlSugarClient> CreateDatabaseAsync()

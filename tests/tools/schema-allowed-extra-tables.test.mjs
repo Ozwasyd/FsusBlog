@@ -21,9 +21,14 @@ const checker = join(
 const fixturePaths = [
     "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
     "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs",
+    "src/backend/Infrastructure/SchemaMigration/ArticlePropertyValueRuntimeTables.Generated.cs",
+    "src/backend/Infrastructure/SchemaMigration/AuthoringWorkspaceSnapshotRuntimeTables.Generated.cs",
     "src/backend/Entities",
     "src/migration/Definitions"
 ];
+
+const rollupPath = "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs";
+const snapshotModulePath = "src/backend/Infrastructure/SchemaMigration/AuthoringWorkspaceSnapshotRuntimeTables.Generated.cs";
 
 function fixture(t)
 {
@@ -51,6 +56,51 @@ function check(root)
         encoding: "utf8"
     });
 }
+
+test("an unknown referenced runtime module is refused", (t) =>
+{
+    const root = fixture(t);
+    mutate(root, rollupPath, source => source.replace("AuthoringWorkspaceSnapshotRuntimeTables.Tables", "UnknownRuntimeTables.Tables"));
+    const result = check(root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /unknown required runtime module "UnknownRuntimeTables"/u);
+});
+
+test("a missing referenced runtime module is refused", (t) =>
+{
+    const root = fixture(t);
+    rmSync(join(root, snapshotModulePath));
+    const result = check(root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /missing required runtime module "AuthoringWorkspaceSnapshotRuntimeTables"/u);
+});
+
+test("duplicate runtime module references are refused", (t) =>
+{
+    const root = fixture(t);
+    mutate(root, rollupPath, source => source.replace(".. AuthoringWorkspaceSnapshotRuntimeTables.Tables,", ".. AuthoringWorkspaceSnapshotRuntimeTables.Tables,\n        .. AuthoringWorkspaceSnapshotRuntimeTables.Tables,"));
+    const result = check(root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /duplicate required runtime module "AuthoringWorkspaceSnapshotRuntimeTables"/u);
+});
+
+test("duplicate table declarations in a generated module are refused", (t) =>
+{
+    const root = fixture(t);
+    mutate(root, snapshotModulePath, source => source + source);
+    const result = check(root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /duplicate required runtime table "authoring_workspace_snapshot"/u);
+});
+
+test("generated module SQL drift is refused", (t) =>
+{
+    const root = fixture(t);
+    mutate(root, snapshotModulePath, source => source.replace("65536", "1048576"));
+    const result = check(root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /CREATE TABLE SQL for "authoring_workspace_snapshot" does not match/u);
+});
 
 test("canonical allowed-extra-tables register is accepted", (t) =>
 {

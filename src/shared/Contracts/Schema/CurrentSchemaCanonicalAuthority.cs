@@ -6,9 +6,9 @@ namespace FsusBlog.Contracts.Schema;
 
 public static class CurrentSchemaCanonicalAuthority
 {
-    public const string ModelVersion = "fsusblog.current-schema.v4";
+    public const string ModelVersion = "fsusblog.current-schema.v5";
     public const string ExtractorVersion = "fsusblog.current-schema-reflection.v2";
-    public const string GeneratorVersion = "fsusblog.current-schema-projection.v4";
+    public const string GeneratorVersion = "fsusblog.current-schema-projection.v5";
 
     /// <summary>Seals facts supplied by the single current extractor, not by migration descriptors.</summary>
     /// <param name="tables">The current extractor's complete entity descriptions.</param>
@@ -42,6 +42,11 @@ public static class CurrentSchemaCanonicalAuthority
         if (provider == SchemaProviderKind.Semantic)
         {
             return Generate(canonical).Schema;
+        }
+        if (provider != SchemaProviderKind.PostgreSql && canonical.SemanticSchema.Tables.Values.Any(static table =>
+            table.IndexDefinitions.Values.Any(static index => index.Keys.Any(static key => key.Expression is not null))))
+        {
+            throw new InvalidOperationException("current_schema_index_expression_provider_unavailable");
         }
 
         var tables = canonical.SemanticSchema.Tables.ToDictionary(
@@ -172,6 +177,14 @@ public static class CurrentSchemaCanonicalAuthority
             {
                 case CurrentSchemaRecipeOperationKind.CreateIndex:
                     SchemaIndexModel index = operation.Index ?? throw new InvalidOperationException("current_schema_complete_target_effect_index_missing");
+                    foreach (SchemaIndexKeyModel key in index.Keys)
+                    {
+                        _ = SchemaIndexExpressionSemantics.RequireColumns(key, table.Columns);
+                        if (key.Expression is not null && index.IsUnique)
+                        {
+                            throw new InvalidOperationException("current_schema_index_expression_unique_capability_unavailable");
+                        }
+                    }
                     if (index.Name != operation.Name || !indexes.TryAdd(index.Name, index))
                     {
                         throw new InvalidOperationException("current_schema_complete_target_effect_index_conflict");
@@ -462,7 +475,7 @@ public static class CurrentSchemaCanonicalAuthority
         }
         SchemaIndexKeyModel[] keys = index.Keys.Select(key =>
         {
-            if (!columns.TryGetValue(key.Column, out SchemaColumnModel? column) || key.Direction is not ("asc" or "desc")
+            if (key.Expression is not null || !columns.TryGetValue(key.Column, out SchemaColumnModel? column) || key.Direction is not ("asc" or "desc")
                 || key.NullPlacement is not ("first" or "last") || key.OperatorClass != "default" || key.Collation != "default")
             {
                 throw new InvalidOperationException("current_schema_complete_target_index_provider_unavailable");

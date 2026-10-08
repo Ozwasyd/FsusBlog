@@ -470,3 +470,37 @@ or registry identities remain rejected; compatibility never falls back to the
 generic plugin system or a less isolated class. Package rollback restores the last
 verified pointer and retains content-addressed evidence; it does not activate a
 runtime or restore any permission.
+
+
+## Typed property read adapter source boundary
+
+`AuthoringPropertyTypeRegistry` maps each extension-owned type ID to an exact
+canonical definition ID/schema revision/digest and the existing eight storage
+kinds. The verified extension declaration must be a property contribution using
+Worker/Wasm. Core conflicts, duplicate definitions, unsupported normalization,
+migration/presentation tags and unknown JSON fields are refused. Presentation
+roles are closed data, not component names or an activated editor.
+
+`AuthoringPropertyTypeAdapter.ReadAsync` calls the existing
+`IArticlePropertyValueAuthority.ReadAsync` with the explicit definition owner,
+actor and article. The owner is never inferred from the actor. It checks current
+article/property coordinates, canonical definition/snapshot/value integrity and
+persisted snapshot/factset/audit references before returning only the registered
+property. Missing/null and inactive typed values retain their canonical types.
+`CoreValueCurrent` reports core reconciliation facts, not a plugin validation
+verdict, permission, editor admission or persisted acceptance receipt.
+
+A separate mandatory `IAuthoringPropertyContributionReadAdmission` must enforce
+current package/runtime/request and exact property read grants before and after
+the authority call and before publication. No default implementation, DI/route
+registration or authority is supplied. Cancellation and the bounded deadline are
+forwarded to the actual authority. The adapter exposes no mutation path.
+
+This ordinary source increment consumes the property API supplied at
+`afab85610217dacb0fca4b3ec8a062e0cd1bf801` (the read/storage implementation is
+`953b5947df3e7218120c378493b3cdb16df63773`). The original backend project runs the
+focused `AuthoringPropertyContributionTests`; explicit test admission and
+transport facts are component controls, not production grants or qualification.
+Worker validator execution, actual FsusUI editor composition, controlled query
+mapping, migration/rollback and disable/reinstall composition remain open.
+Those missing capabilities cannot be inferred from a successful typed read.

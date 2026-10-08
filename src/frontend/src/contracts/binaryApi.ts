@@ -1,3 +1,7 @@
+import type { SupportedLocale } from '@/locales/localeCatalog';
+
+export type { WritingAidPreferenceValues, WritingAidPreferenceOwner, WritingAidPreferenceSnapshot, WritingAidPreferenceUpdate, WritingAidPreferenceReceipt } from '@/codecs/binary/writingAidPreferenceWire.generated';
+
 export const ArticlePublishStatus = {
     Draft: 0,
     Scheduled: 1,
@@ -174,14 +178,14 @@ export type LocalePreferenceMode = 'auto' | 'fixed';
 
 export interface UserLocalePreference {
     mode: LocalePreferenceMode;
-    fixedLocale: import('@/locales/localeCatalog').SupportedLocale | null;
+    fixedLocale: SupportedLocale | null;
     revision: number;
     updatedAt: string;
 }
 
 export interface UserLocalePreferenceUpdate {
     mode: LocalePreferenceMode;
-    fixedLocale: import('@/locales/localeCatalog').SupportedLocale | null;
+    fixedLocale: SupportedLocale | null;
     expectedRevision: number;
 }
 
@@ -464,7 +468,6 @@ export interface AnonymousCommentTicketRequestDto {
     parentId?: string | null;
     rootId?: string | null;
     replyToCommentId?: string | null;
-    credentialEpoch: number;
     circuitNumericId: number;
     publicInputLayoutVersion: number;
     actionContext: string;

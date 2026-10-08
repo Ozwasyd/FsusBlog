@@ -137,6 +137,30 @@ struct UserLocalePreferenceUpdateRequestPod
     std::uint32_t reserved1;
 };
 
+struct WritingAidPreferenceSnapshotPod
+{
+    std::int32_t schema_version;
+    std::uint8_t focus_enabled;
+    std::uint8_t typewriter_enabled;
+    std::uint8_t immersive_enabled;
+    std::uint8_t reserved0;
+    std::int64_t revision;
+    Utf8SliceRef user_scope;
+    Utf8SliceRef site_scope;
+    std::uint8_t content_digest[64];
+};
+
+struct WritingAidPreferenceUpdateRequestPod
+{
+    std::int64_t expected_revision;
+    std::int32_t schema_version;
+    std::uint8_t focus_enabled;
+    std::uint8_t typewriter_enabled;
+    std::uint8_t immersive_enabled;
+    std::uint8_t reserved0;
+    std::uint8_t operation_id[64];
+};
+
 #pragma pack(pop)
 
 static_assert(sizeof(Utf8SliceRef) == 8, "Utf8SliceRef size mismatch");
@@ -149,6 +173,13 @@ static_assert(sizeof(ArticleDetailV5RecordPod) == 116, "ArticleDetailV5RecordPod
 static_assert(sizeof(TagPod) == 132, "TagPod size mismatch");
 static_assert(sizeof(UserLocalePreferencePod) == 24, "UserLocalePreferencePod size mismatch");
 static_assert(sizeof(UserLocalePreferenceUpdateRequestPod) == 16, "UserLocalePreferenceUpdateRequestPod size mismatch");
+
+static_assert(sizeof(WritingAidPreferenceSnapshotPod) == 96, "WritingAidPreferenceSnapshotPod size mismatch");
+static_assert(offsetof(WritingAidPreferenceSnapshotPod, revision) == 8, "WritingAidPreferenceSnapshotPod revision offset mismatch");
+static_assert(offsetof(WritingAidPreferenceSnapshotPod, user_scope) == 16, "WritingAidPreferenceSnapshotPod owner offset mismatch");
+static_assert(offsetof(WritingAidPreferenceSnapshotPod, content_digest) == 32, "WritingAidPreferenceSnapshotPod digest offset mismatch");
+static_assert(sizeof(WritingAidPreferenceUpdateRequestPod) == 80, "WritingAidPreferenceUpdateRequestPod size mismatch");
+static_assert(offsetof(WritingAidPreferenceUpdateRequestPod, operation_id) == 16, "WritingAidPreferenceUpdateRequestPod operation offset mismatch");
 
 struct ParsedArticleDetail
 {
