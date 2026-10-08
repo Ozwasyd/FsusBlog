@@ -18,6 +18,12 @@
             :journal="recoveryJournal"
             :expected="recoveryScope"
         />
+        <VaultStoredRecoveryDetail
+            v-if="storedProposal || storedSnapshot"
+            :proposal="storedProposal ?? null"
+            :snapshot="storedSnapshot ?? null"
+            :expected="storedRecoveryScope ?? null"
+        />
         <ul aria-label="尚不可用的 Vault 命令">
             <li>同步现在 / 仅拉取计划 / 仅推送计划：当前无法获取已验证同步计划。</li>
             <li>暂停 / 恢复 / 重连：尚未取得当前允许操作与授权回执。</li>
@@ -31,9 +37,11 @@
 import VaultAgentLeaseDetail from '@/components/admin/article/vault/VaultAgentLeaseDetail.vue';
 import VaultAgentLifecycleDetail from '@/components/admin/article/vault/VaultAgentLifecycleDetail.vue';
 import VaultRecoveryCheckpointDetail from '@/components/admin/article/vault/VaultRecoveryCheckpointDetail.vue';
+import VaultStoredRecoveryDetail from '@/components/admin/article/vault/VaultStoredRecoveryDetail.vue';
 import type { VaultAgentLeaseReport, VaultAgentLeaseScope } from '@/services/articleVault/agentLeasePresentation';
 import type { VaultAgentLifecycleReport } from '@/services/articleVault/agentLifecyclePresentation';
 import type { VaultRecoveryCheckpointDisplayScope, VaultRecoveryCheckpointDocument } from '@/services/articleVault/recoveryCheckpointPresentation';
+import type { VaultStoredRecoveryDisplayScope, VaultStoredRecoverySnapshot, VaultStoredResolutionProposal } from '@/services/articleVault/storedRecoveryPresentation';
 
 // Supplied reports stay unverified; no connection, lifecycle or recovery state is derived here.
 defineProps<{
@@ -43,5 +51,8 @@ defineProps<{
     leaseScope?: VaultAgentLeaseScope | null;
     recoveryJournal?: VaultRecoveryCheckpointDocument | null;
     recoveryScope?: VaultRecoveryCheckpointDisplayScope | null;
+    storedProposal?: VaultStoredResolutionProposal | null;
+    storedSnapshot?: VaultStoredRecoverySnapshot | null;
+    storedRecoveryScope?: VaultStoredRecoveryDisplayScope | null;
 }>();
 </script>
