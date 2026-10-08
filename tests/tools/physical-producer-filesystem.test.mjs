@@ -23,6 +23,10 @@ function fixture(t)
     return {
         catalog: {
             schema: physicalProducerFilesystemCatalogSchema,
+            domains: [
+                { domainId: 'repository-source', rootIds: ['source'], sourceOfDeclaration: 'explicit repository source domain' },
+                { domainId: 'production-output', rootIds: ['current-build'], sourceOfDeclaration: 'explicit production output domain' }
+            ],
             producers: [
                 {
                     producerId: 'source-check',
@@ -129,6 +133,8 @@ test('unknown producer, root, access mode and domain fail closed', (t) =>
     access.accessMode = 'execute';
     assert.throws(() => compilePhysicalProducerFilesystemPlan(input), /unknown filesystem root\/access/u);
     access.accessMode = 'read';
+    access.domainId = 'undeclared-domain';
+    assert.throws(() => compilePhysicalProducerFilesystemPlan(input), /unknown filesystem domain/u);
     access.domainId = '';
     assert.throws(() => compilePhysicalProducerFilesystemPlan(input), /domainId/u);
 });
@@ -191,6 +197,7 @@ test('current and resume roots retain distinct run and role identities', (t) =>
     const input = fixture(t);
     input.context.resumeRunId = 'previous';
     input.roots.push({ ...input.roots[1], rootId: 'resume-build', path: path.join(input.roots[1].boundaryPath, 'previous'), role: 'resume', runId: 'previous' });
+    input.catalog.domains[1].rootIds.push('resume-build');
     input.catalog.producers[1].accesses.push({ rootId: 'resume-build', domainId: 'production-output', accessMode: 'read' });
     const plan = compilePhysicalProducerFilesystemPlan(input);
     const roots = plan.producers[0].resolvedRoots;
@@ -216,6 +223,7 @@ test('active resident and retained output roots are explicit rather than inferre
         { rootId: 'resident', domainId: 'production-output', accessMode: 'read' },
         { rootId: 'retained', domainId: 'production-output', accessMode: 'read' }
     );
+    input.catalog.domains[1].rootIds.push('active', 'resident', 'retained');
     assert.deepEqual([...new Set(compilePhysicalProducerFilesystemPlan(input).producers[0].resolvedRoots.map((access) => access.role))].sort(), ['active', 'current', 'resident', 'retained']);
 });
 
@@ -306,6 +314,21 @@ test('duplicate physical owners, roots, unknown fields and missing source bindin
     delete input.catalog.producers[0].independent;
     input.context.sourceState.commit = '';
     assert.throws(() => compilePhysicalProducerFilesystemPlan(input), /source\/worktree identity/u);
+});
+
+test('domain declarations reject duplicate missing and foreign root ownership', (t) =>
+{
+    const input = fixture(t);
+    input.catalog.domains.push(structuredClone(input.catalog.domains[0]));
+    assert.throws(() => compilePhysicalProducerFilesystemPlan(input), /duplicate or unknown filesystem domain/u);
+    input.catalog.domains.pop();
+    input.catalog.domains[0].rootIds.push('unknown');
+    assert.throws(() => compilePhysicalProducerFilesystemPlan(input), /duplicate or unknown filesystem domain/u);
+    input.catalog.domains[0].rootIds.pop();
+    input.catalog.domains[0].rootIds = ['current-build'];
+    assert.throws(() => compilePhysicalProducerFilesystemPlan(input), /unknown filesystem domain\/root binding/u);
+    delete input.catalog.domains;
+    assert.throws(() => compilePhysicalProducerFilesystemPlan(input), /catalog domains/u);
 });
 
 test('saved plan refuses another run attempt source or catalog identity', (t) =>

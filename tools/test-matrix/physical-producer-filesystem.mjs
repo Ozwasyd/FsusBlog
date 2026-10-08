@@ -196,8 +196,9 @@ function resolveRoot(root, context, resolveFilesystem, observeMount)
     }
     const resolution = resolveFilesystem(canonicalAncestor, { stat: (file) => fs.statSync(file, { bigint: true }) });
     const mount = observeMount(canonicalAncestor);
-    if (!resolution?.filesystemIdentity || resolution.canonicalPath !== canonicalAncestor
-        || !mount?.mountIdentity || !path.isAbsolute(mount.filesystemPath ?? ''))
+    if (typeof resolution?.filesystemIdentity !== 'string' || !resolution.filesystemIdentity
+        || resolution.canonicalPath !== canonicalAncestor
+        || typeof mount?.mountIdentity !== 'string' || !mount.mountIdentity || !path.isAbsolute(mount.filesystemPath ?? ''))
     {
         throw new Error(`filesystem/mount identity is unknown for ${root.rootId}`);
     }
@@ -214,7 +215,7 @@ function resolveRoot(root, context, resolveFilesystem, observeMount)
         unresolvedSegments: missing,
         filesystemIdentity: resolution.filesystemIdentity,
         mountIdentity: mount.mountIdentity,
-        filesystemPath: path.join(mount.filesystemPath, ...missing)
+        filesystemPath: path.join(absolute(mount.filesystemPath, 'volume-relative filesystem path'), ...missing)
     };
 }
 
@@ -252,12 +253,13 @@ export function compilePhysicalProducerFilesystemPlan({
 })
 {
     const binding = boundContext(context);
-    record(catalog, ['schema', 'producers'], 'filesystem catalog');
+    record(catalog, ['schema', 'domains', 'producers'], 'filesystem catalog');
     if (catalog.schema !== physicalProducerFilesystemCatalogSchema)
     {
         throw new Error('unknown physical producer filesystem catalog schema');
     }
     array(catalog.producers, 'catalog producers');
+    array(catalog.domains, 'catalog domains');
     array(physicalOwners, 'physical owners');
     array(roots, 'filesystem roots');
     const owners = new Map();
@@ -292,6 +294,20 @@ export function compilePhysicalProducerFilesystemPlan({
         }
         resolved.set(root.rootId, observation);
     }
+    const domains = new Map();
+    for (const domain of catalog.domains)
+    {
+        record(domain, ['domainId', 'rootIds', 'sourceOfDeclaration'], 'filesystem domain');
+        identifier(domain.domainId, 'domainId');
+        text(domain.sourceOfDeclaration, 'domain sourceOfDeclaration');
+        array(domain.rootIds, 'domain rootIds');
+        if (domains.has(domain.domainId) || new Set(domain.rootIds).size !== domain.rootIds.length
+            || domain.rootIds.some((rootId) => !resolved.has(rootId)))
+        {
+            throw new Error(`duplicate or unknown filesystem domain roots: ${domain.domainId}`);
+        }
+        domains.set(domain.domainId, new Set(domain.rootIds));
+    }
     const producers = new Map();
     for (const producer of catalog.producers)
     {
@@ -316,6 +332,10 @@ export function compilePhysicalProducerFilesystemPlan({
             if (!root || !accessModes.has(access.accessMode))
             {
                 throw new Error(`unknown filesystem root/access mode: ${access.rootId}/${access.accessMode}`);
+            }
+            if (!domains.get(access.domainId)?.has(access.rootId))
+            {
+                throw new Error(`unknown filesystem domain/root binding: ${access.domainId}/${access.rootId}`);
             }
             const key = `${access.rootId}:${access.domainId}:${access.accessMode}`;
             if (seen.has(key))
