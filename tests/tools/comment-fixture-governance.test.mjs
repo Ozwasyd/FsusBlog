@@ -269,6 +269,41 @@ test('independent moderation verifier rejects semantic evidence tamper', async (
     }
 });
 
+test('model temporal transport preserves actual field refusals and never qualifies runtime', async () =>
+{
+    for (const mutate of [
+        (observation) => delete observation.businessEpochUtc,
+        (observation) => delete observation.backendCulture,
+        (observation) => delete observation.postgresTimezone,
+        (observation) => observation.businessEpochUtc = '2042-05-18T09:30:00.000Z',
+        (observation) => observation.backendCulture = 'zh-CN',
+        (observation) => observation.postgresTimezone = 'Asia/Shanghai'
+    ])
+    {
+        let reads = 0;
+        await assert.rejects(collectSimulatedCommentFixtureRuntimeEvidence({
+            mutateTemporalObservation(observation)
+            {
+                reads++;
+                mutate(observation);
+            }
+        }), (error) => error.message.startsWith('backend temporal observation requires actual ')
+            || error.reasonCode?.startsWith('temporal.') === true);
+        assert.ok(reads > 0, 'temporal rejection must follow the model HTTP observation');
+    }
+    const evidence = await collectSimulatedCommentFixtureRuntimeEvidence();
+    for (const run of evidence.runs)
+    {
+        assert.equal(run.preparedResult.temporalObservation.businessEpochUtc, '2042-05-17T09:30:00.000Z');
+        assert.equal(run.preparedResult.temporalObservation.backendCulture, 'Invariant');
+        assert.equal(run.preparedResult.temporalObservation.postgresTimezone, 'UTC');
+        assert.equal(run.preparedResult.temporalObservation.authorityClass, 'local-simulated');
+    }
+    assert.equal(evidence.runtimeQualified, false);
+    assert.equal(buildCommentFixtureModelReport(evidence).runtimeQualified, false);
+    assert.equal(buildCommentFixtureAcceptanceReceipt(buildCommentFixtureCleanupReceipt(), evidence).status, 'rejected');
+});
+
 test('comment terminal verifier requires two independent canonical production runs and cleanup observations', () =>
 {
     const cleanup = buildCommentFixtureCleanupReceipt();

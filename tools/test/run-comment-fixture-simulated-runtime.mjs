@@ -12,11 +12,13 @@ import {
     buildCommentFixtureModelReport,
     resolveCommentFixtureSourceIdentity
 } from './comment-fixture-governance.mjs';
+import { defaultTimeoutPolicyDigest, qualificationTemporalContext } from './temporal-context.mjs';
 const { createProducerContext } = await import(new URL('../test-fixtures/producer-port.mjs', import.meta.url));
 const { buildProducerReceipt, canonicalJson, digestCanonical, validateProducerReceipt } = await import(new URL('../test-fixtures/receipt/index.mjs', import.meta.url));
 const { buildFixtureVariantPlan, buildProducerFixtureVariantPlan, fixtureCatalogDigest, readFixtureCatalogs } = await import(new URL('../testing/fixture-catalog.mjs', import.meta.url));
 const {cleanupCommentModeration, prepareCommentModeration, verifyCommentModeration} = await import(new URL('../test-fixtures/producers/comment-moderation-producer.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const modelBusinessEpochUtc = '2042-05-17T09:30:00.000Z';
 
 function hex(value)
 {
@@ -107,8 +109,16 @@ function contextFor(index, baseUrl, source)
             ).postconditionIds.map((postconditionId) => ({ capabilityId, postconditionId, ok: true }))), catalogs });
     };
     return createProducerContext({ plan, producerId: 'comment-moderation', producerOutputs, catalogs,
-        temporalContext: { schema: 'fsusblog.test-temporal-context.v1', authorityClass: 'local-simulated',
-            instantUtc: '2042-05-17T09:30:00.000Z' },
+        temporalContext: qualificationTemporalContext({
+            sourceCommit: source.commit,
+            sourceFingerprint: source.worktreeFingerprint,
+            producerId: 'comment-moderation',
+            schedulerRunId: runId,
+            businessEpochUtc: modelBusinessEpochUtc,
+            locale: 'en-US',
+            uiLocale: 'en-US',
+            timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+        }),
         producerReceipts: {
             'auth-session': sealModelReceipt('auth-session', refs.map((item) => ({ kind: item.role === 'admin' ? 'admin' : 'user',
                 id: item.publicId, semanticRole: item.semanticRole, fixtureIdentity: item.fixtureIdentity,
@@ -216,7 +226,7 @@ function requireInvocationHeaders(request)
     }
 }
 
-async function startBackend({ mutateRead } = {})
+async function startBackend({ mutateRead, mutateTemporalObservation } = {})
 {
     const requests = [];
     const sessions = new Map();
@@ -243,7 +253,9 @@ async function startBackend({ mutateRead } = {})
                 {
                     entity.cacheGeneration = current.cacheGenerationAfter;
                 }
-                sessions.set(plan.testSession, { plan, result, current });
+                sessions.set(plan.testSession, { plan, result, current,
+                    temporalObservation: { businessEpochUtc: modelBusinessEpochUtc,
+                        backendCulture: 'Invariant', postgresTimezone: 'UTC' } });
                 requests.push({ runId: plan.runId, method: 'POST', path: request.url, status: 200 });
                 response.writeHead(200, { 'Content-Type': 'application/json' });
                 response.end(JSON.stringify(result));
@@ -259,11 +271,16 @@ async function startBackend({ mutateRead } = {})
                 const runId = session.plan.runId;
                 requests.push({ runId, method: 'GET', path: request.url, status: 200 });
                 response.writeHead(200, { 'Content-Type': 'application/json' });
-                response.end(JSON.stringify({
+                // Read the fixed model clock/session, never fill missing actual fields
+                // from the caller's plan. This remains explicitly model-only evidence.
+                const observation = {
                     schema: 'fsusblog.comment-fixture-simulated-temporal-observation.v1',
                     runId,
-                    authorityClass: 'local-simulated'
-                }));
+                    authorityClass: 'local-simulated',
+                    ...session.temporalObservation
+                };
+                mutateTemporalObservation?.(observation);
+                response.end(JSON.stringify(observation));
                 return;
             }
             if (request.method === 'POST' && request.url === '/api/local/comment-fixture/verify')
