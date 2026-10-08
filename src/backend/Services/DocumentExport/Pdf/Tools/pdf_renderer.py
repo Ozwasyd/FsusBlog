@@ -363,10 +363,13 @@ def verify_pdf(data, request):
                     "/Transparency",
                 }:
                     raise PdfRejected("pdf-action")
-                if (
-                    obj.get("/Type") == pikepdf.Name("/Font")
-                    and "/FontDescriptor" in obj
-                ):
+                if obj.get("/Type") == pikepdf.Name("/Font"):
+                    if obj.get("/Subtype") == pikepdf.Name("/Type0"):
+                        if not obj.get("/DescendantFonts") or "/ToUnicode" not in obj:
+                            raise PdfRejected("font-resource-closure")
+                        continue
+                    if "/FontDescriptor" not in obj:
+                        raise PdfRejected("unembedded-font")
                     descriptor = obj["/FontDescriptor"]
                     if not any(
                         key in descriptor
