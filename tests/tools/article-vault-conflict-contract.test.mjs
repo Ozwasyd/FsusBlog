@@ -101,3 +101,36 @@ test('duplicate conflict owners and missing canonical files are rejected', () =>
     duplicate.delete(contractsFile);
     assert.match(checkArticleVaultConflictSources(duplicate).join('\n'), /missing canonical conflict owner/u);
 });
+
+test('schema opening, type/version drift and missing bound identity cannot change the contract', () =>
+{
+    const file = 'src/shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json';
+    for (const mutate of [
+        (schema) =>
+        {
+            schema.additionalProperties = true;
+        },
+        (schema) =>
+        {
+            schema.$defs.binding.additionalProperties = true;
+        },
+        (schema) =>
+        {
+            schema.properties.schemaVersion.const = 2;
+        },
+        (schema) =>
+        {
+            schema.$defs.type.enum.push('generic-winner');
+        },
+        (schema) => { schema.required = schema.required.filter((field) => field !== 'binding'); }
+    ])
+    {
+        assert.match(diagnostics(file, (source) =>
+        {
+            const schema = JSON.parse(source);
+            mutate(schema);
+            return JSON.stringify(schema);
+        }), /schema/u);
+    }
+    assert.match(diagnostics(file, () => '{'), /valid closed JSON/u);
+});

@@ -324,6 +324,17 @@
             }
         },
         {
+            "file": "tests/tools/article-vault-conflict-contract.test.mjs",
+            "owner": "matrix-tier:article-vault-conflict-contract",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/tools/article-embed-contract.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

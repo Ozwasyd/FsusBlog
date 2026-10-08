@@ -5088,6 +5088,26 @@
             ]
         },
         {
+            "id": "article-vault-conflict-contract-source-governance",
+            "description": "The sole coordinate-bound Vault conflict registry retains exactly twelve closed types, dispositions, actions and authority owners while missing independent readers cannot grant automatic admission.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tools/governance/check-article-vault-conflicts.mjs",
+                "tests/tools/article-vault-conflict-contract.test.mjs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs",
+                "src/shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject omitted/duplicate/wildcard taxonomy and actions, additional authority owners, filesystem/Git/network/writer references, mtime/size/AI/two-way/global winner shortcuts and removed binding/refusal guards.",
+            "minimumRequirement": "The canonical Node test owner runs actual in-memory source mutations and schema controls with no alternate host. This diagnostic source gate does not replace original compiled C# behavior, independent parser/metadata readers or runtime/product qualification.",
+            "tierIds": [
+                "article-vault-conflict-contract"
+            ]
+        },
+        {
             "id": "article-embed-contract-static-governance",
             "description": "Article embed targets, provider requests and results, dependency coordinates, parser ownership, and failure taxonomy remain one closed versioned shared contract without a parallel resolver or executable UI payload.",
             "owner": "ServerContractAgent",

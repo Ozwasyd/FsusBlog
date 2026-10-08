@@ -10,7 +10,9 @@ const contractRoot = 'src/shared/Contracts/ArticleVault';
 const contractsFile = `${contractRoot}/ArticleVaultConflictContracts.cs`;
 const registryFile = `${contractRoot}/ArticleVaultConflictRegistry.cs`;
 const verifierFile = `${contractRoot}/ArticleVaultConflictVerifier.cs`;
+const schemaFile = `${contractRoot}/article-vault-conflict-evidence.schema.json`;
 const sourceFiles = [contractsFile, registryFile, verifierFile];
+const inputFiles = [...sourceFiles, schemaFile];
 const expectedRegistry = [
     ['SourceDisjoint', 'Automatic', 'issue-2117', 'SourceChanges', 'VerifiedSourceCandidate', 'PrepareSourceCandidate'],
     ['SourceOverlap', 'Manual', 'issue-2117', 'SourceChanges', 'VerifiedSourceCandidate', 'ProposeSourceReplacement'],
@@ -46,14 +48,14 @@ function enumNames(source, name)
 
 export function readArticleVaultConflictSources(root = repositoryRoot)
 {
-    return new Map(sourceFiles.map((relative) => [relative, readFileSync(path.join(root, relative), 'utf8')]));
+    return new Map(inputFiles.map((relative) => [relative, readFileSync(path.join(root, relative), 'utf8')]));
 }
 
 /** Checks only the three conflict owner files; neither runs nor qualifies product behavior. */
 export function checkArticleVaultConflictSources(sources)
 {
     const errors = [];
-    for (const relative of sourceFiles)
+    for (const relative of inputFiles)
     {
         if (!sources.has(relative))
         {
@@ -65,7 +67,44 @@ export function checkArticleVaultConflictSources(sources)
         return errors;
     }
 
-    const code = new Map([...sources].map(([relative, source]) => [relative, withoutComments(source)]));
+    let schema;
+    try
+    {
+        schema = JSON.parse(sources.get(schemaFile));
+    }
+    catch
+    {
+        errors.push('conflict schema must be valid closed JSON');
+    }
+    if (schema)
+    {
+        const wireTypes = expectedRegistry.map(([type]) => type.replace(/([a-z])([A-Z])/gu, '$1-$2').toLowerCase());
+        if (schema.properties?.schema?.const !== 'fsusblog.article-vault.conflict-evidence.v1'
+            || schema.properties?.schemaVersion?.const !== 1
+            || JSON.stringify(schema.$defs?.type?.enum) !== JSON.stringify(wireTypes)
+            || JSON.stringify(schema.required) !== JSON.stringify(['schema', 'schemaVersion', 'registrySha256', 'binding', 'items', 'contentSha256']))
+        {
+            errors.push('conflict schema version, exact type roster and required bindings must match the sole contract');
+        }
+        function visit(value)
+        {
+            if (!value || typeof value !== 'object')
+            {
+                return;
+            }
+            if (value.type === 'object' && value.additionalProperties !== false)
+            {
+                errors.push('conflict schema objects must remain closed');
+            }
+            for (const child of Object.values(value))
+            {
+                visit(child);
+            }
+        }
+        visit(schema);
+    }
+    const code = new Map([...sources].filter(([relative]) => sourceFiles.includes(relative))
+        .map(([relative, source]) => [relative, withoutComments(source)]));
     for (const [name, owner] of requiredOwners)
     {
         const declarations = [...code].flatMap(([relative, source]) =>
