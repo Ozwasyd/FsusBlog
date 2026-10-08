@@ -2,6 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { URL } from 'node:url';
+
+const { isValidatedBlameIgnoreSourceReceipt } = await import(new URL('./blame-ignore-source.mjs', import.meta.url));
 
 const eligiblePrTier = tier => tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
     && !['nightly', 'release-manual'].includes(tier.cadence);
@@ -354,6 +357,7 @@ export const sourceGovernanceChildEntries = Object.freeze({
     frontend: 'tools/frontend/check-frontend-style.mjs',
     csharp: 'tools/dotnet/check-csharp-style.mjs',
     solution: 'tools/configuration/check-solution-source.mjs',
+    blameIgnore: 'tools/test-matrix/blame-ignore-source.mjs',
     docs: 'tools/style/check-native-tooling-style.mjs',
     lifecycle: 'tools/docs/generate-document-lifecycle.mjs'
 });
@@ -380,6 +384,7 @@ export const sourceRegressionEntries = Object.freeze([
     'tests/tools/pr-applicable-execution-authority.test.mjs',
     'tools/frontend/source-unit-style-diff.test.mjs',
     'tests/tools/native-tooling-style.test.mjs',
+    'tests/tools/blame-ignore-source.test.mjs',
     'tools/configuration/solution-source.test.mjs'
 ]);
 
@@ -414,11 +419,12 @@ export function sourceRegressionArguments(entry)
 
 // Known structured data receives the declaration/closed-input source checks;
 // it never grants executable authority. Every other unchecked surface is explicit.
-export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [])
+export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], blameIgnoreReceipt = null)
 {
     return files.filter(file => !/\.(?:mjs|js|cjs|ts|tsx|vue|css|scss|cs|md|sh|json|yaml|yml)$/u.test(file)
         && !(file.endsWith('.slnx') && checkedSolutions.includes(file))
         && !(file.endsWith('.py') && checkedPython.includes(file))
+        && !(file === '.git-blame-ignore-revs' && isValidatedBlameIgnoreSourceReceipt(blameIgnoreReceipt))
         && !['.gitignore', '.gitattributes', '.editorconfig'].includes(file));
 }
 
@@ -444,7 +450,10 @@ export const sourceGovernanceDataInputs = Object.freeze([
     '.editorconfig', 'eslint.config.mjs', 'stylelint.config.mjs',
     'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
     'tools/frontend/style-toolchain/eslint.config.mjs',
-    'tools/frontend/style-toolchain/stylelint.config.mjs'
+    'tools/frontend/style-toolchain/stylelint.config.mjs',
+    'docs/development/native-tooling-style-enforcement.md',
+    'tools/governance/javascript-format-parser/package.json',
+    'tools/governance/javascript-format-parser/package-lock.json'
 ]);
 
 export function assertSourceShellSyntaxInspection(input)
