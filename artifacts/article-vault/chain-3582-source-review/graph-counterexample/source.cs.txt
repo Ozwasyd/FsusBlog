@@ -1,0 +1,136 @@
+using System.Text;
+using System.Text.Json;
+using FsusBlog.Shared.Contracts.ArticleEmbeds;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Relations;
+using FsusBlog.Shared.Contracts.ArticleVault;
+using FsusBlog.Shared.Contracts.ArticleVault.Dependencies;
+
+// Diagnostic fixture only. No provider, permission, relation-store or writer admission is claimed.
+// The fixture has no dependency nodes. Existing embed owners compute the empty relation set.
+string outputDirectory = args.Length == 1 ? args[0] : throw new ArgumentException("Artifact directory required.");
+Directory.CreateDirectory(outputDirectory);
+byte[] oldBytes = Encoding.UTF8.GetBytes("Original plain paragraph.\n");
+byte[] freshBytes = Encoding.UTF8.GetBytes("Fresh server paragraph.\n");
+ArticleEmbedResolutionBudgetLimits budgets = new(8, 64, 1_048_576, 30_000, 128);
+const string portable = "article:11111111-1111-4111-8111-111111111111";
+string fixturePermission = ArticleVaultManifestCodec.ComputeSha256(Encoding.UTF8.GetBytes("contract-probe-permission-not-authority"));
+string fixtureMetadata = ArticleVaultManifestCodec.ComputeSha256(Encoding.UTF8.GetBytes("contract-probe-metadata"));
+
+ArticleEmbedRelationEdgeSet Relation(VaultSourceByteIdentity source, long revision)
+{
+    ArticleEmbedAuthoritySnapshot unsigned = new(ArticleEmbedAuthoringSchemas.AuthoritySnapshot,
+        ArticleEmbedAuthoringSchemas.Version, portable, new("contract-probe-document", 1), revision,
+        source.Sha256, 1, new("contract-probe-actor", "site-primary", fixturePermission),
+        new("contract-probe-empty-fixture", 1, ArticleEmbedSchemas.ProviderRuntime,
+            ArticleVaultManifestCodec.ComputeSha256(Encoding.UTF8.GetBytes("contract-probe-runtime-not-provider"))),
+        null, null, [], string.Empty);
+    ArticleEmbedAuthoritySnapshot snapshot = unsigned with { SnapshotDigest = ArticleEmbedAuthoringDigest.ComputeSnapshot(unsigned) };
+    ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve([], snapshot, budgets);
+    if (resolution.Status != ArticleEmbedAuthoringResolutionStatus.Completed)
+        throw new InvalidOperationException(resolution.RejectedReasonCode);
+    ArticleEmbedRelationDerivation derived = ArticleEmbedRelationDeriver.DeriveFromAuthoring([], snapshot, budgets, resolution);
+    return derived.EdgeSet ?? throw new InvalidOperationException(derived.RejectedReasonCode);
+}
+
+VaultArticleCoordinate Coordinate(byte[] bytes, long revision, out ArticleEmbedRelationEdgeSet relation)
+{
+    VaultSourceByteIdentity source = ArticleVaultManifestCodec.CaptureSourceBytes(bytes);
+    relation = Relation(source, revision);
+    VaultArticleCoordinate unsigned = new(ArticleVaultSchemas.Coordinate, ArticleVaultSchemas.Version,
+        true, false, revision, source, fixtureMetadata, fixturePermission, "draft", fixturePermission, string.Empty);
+    PortableDependencyManifest graphInput = new(PortableDependencySchemas.Manifest, PortableDependencySchemas.Version,
+        new("site-primary", "vault-primary", portable), "server-portable-article-a",
+        new(unsigned, unsigned, unsigned), VaultDependencySourceSide.Server, source, relation.SetDigest,
+        [], [], string.Empty, string.Empty);
+    unsigned = unsigned with { DependencySha256 = PortableDependencyCodec.GraphDigest(graphInput) };
+    return unsigned with { ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(unsigned) };
+}
+
+VaultArticleCoordinate saved = Coordinate(oldBytes, 4, out ArticleEmbedRelationEdgeSet oldRelation);
+VaultArticleCoordinate fresh = Coordinate(freshBytes, 5, out ArticleEmbedRelationEdgeSet freshRelation);
+string path = $"articles/{portable}.md";
+ArticleVaultArticleManifest unsignedArticle = new(ArticleVaultSchemas.ArticleManifest, ArticleVaultSchemas.Version,
+    "site-primary", "vault-primary", "device-primary", portable, "server-portable-article-a",
+    new(path, ArticleVaultManifestCodec.ComputeProjectionSha256(path)), new(saved, saved, saved),
+    new(0, null, null, null, null, null, null), VaultArticleState.Clean, string.Empty);
+ArticleVaultArticleManifest article = unsignedArticle with { ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(unsignedArticle) };
+ArticleVaultRootManifest unsignedRoot = new(ArticleVaultSchemas.RootManifest, ArticleVaultSchemas.Version,
+    ArticleVaultSchemas.ControlTreeVersion, new(ArticleVaultSchemas.RootManifestPath,
+        ArticleVaultSchemas.ArticleManifestDirectory, ArticleVaultSchemas.ReceiptDirectory),
+    article.SiteIdentity, article.VaultIdentity, article.DeviceIdentity,
+    [new(portable, $"{ArticleVaultSchemas.ArticleManifestDirectory}/{portable}.json", article.ContentSha256, path)],
+    [], string.Empty);
+ArticleVaultRootManifest root = unsignedRoot with { ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(unsignedRoot) };
+ArticleVaultServerObservation unsignedObservation = new(ArticleVaultPlanSchemas.ServerObservation,
+    ArticleVaultPlanSchemas.Version, article.SiteIdentity, article.VaultIdentity, article.DeviceIdentity,
+    portable, article.ServerArticleIdentity, fresh, string.Empty);
+ArticleVaultServerObservation observation = unsignedObservation with { ContentSha256 = ArticleVaultSyncPlanCodec.ComputeContentSha256(unsignedObservation) };
+ArticleVaultPlanRequest request = new(root, [article], [observation],
+    [new("group-primary", [portable], [])], VaultSyncDirection.Pull, 1_800_000_000_000,
+    1_800_000_060_000, false);
+ArticleVaultPlanVerificationContext context = new(request.CreatedAtUnixMs, request.Direction, request.CancellationRequested);
+ArticleVaultPlanBuildResult original = ArticleVaultSyncPlanner.Build(request);
+if (original.Plan is null) throw new InvalidOperationException(string.Join(',', original.Errors));
+ArticleVaultSyncPlan syncPlan = original.Plan;
+VaultSyncPlanItem item = syncPlan.Groups.Single().Items.Single();
+if (syncPlan.Status != VaultSyncPlanStatus.Ready || item.Decision != VaultSyncDecision.PullUpdate)
+    throw new InvalidOperationException("Expected real canonical Ready PullUpdate plan.");
+if (!ArticleVaultSyncPlanVerifier.VerifyCurrent(syncPlan, root, [article], [observation], context).IsValid)
+    throw new InvalidOperationException("Original plan verification failed.");
+
+PortableDependencyManifest oldGraph = PortableDependencyCodec.Seal(new(
+    PortableDependencySchemas.Manifest, PortableDependencySchemas.Version,
+    new(article.SiteIdentity, article.VaultIdentity, portable), article.ServerArticleIdentity,
+    article.Coordinates, VaultDependencySourceSide.Server, saved.Source!, oldRelation.SetDigest,
+    [], [], saved.DependencySha256!, string.Empty));
+VaultDependencyPlanInput staleInput = new(oldGraph, oldBytes, [], oldRelation.SetDigest);
+VaultDependencyPlanBuildResult stale = ArticleVaultDependencyPlanner.Build(syncPlan, request, context, [staleInput], budgets);
+ArticleVaultValidationResult staleVerifier = stale.Plan is null
+    ? ArticleVaultValidationResult.Invalid(stale.ReasonCode!)
+    : ArticleVaultDependencyPlanner.VerifyCurrent(stale.Plan, syncPlan, request, context, [staleInput], budgets);
+VaultDependencyPlanBuildResult byteMismatch = ArticleVaultDependencyPlanner.Build(syncPlan, request, context,
+    [staleInput with { SourceBytes = freshBytes }], budgets);
+VaultDependencyPlanBuildResult relationMismatch = ArticleVaultDependencyPlanner.Build(syncPlan, request, context,
+    [staleInput with { CurrentRelationSha256 = freshRelation.SetDigest }], budgets);
+
+// Matching-current positive control: keep Base/Local old, rebind saved Server to the actual fresh observation.
+ArticleVaultArticleManifest updatedUnsigned = article with { Coordinates = article.Coordinates with { Server = fresh }, ContentSha256 = string.Empty };
+updatedUnsigned = updatedUnsigned with { State = ArticleVaultStateMachine.Derive(updatedUnsigned) };
+ArticleVaultArticleManifest updated = updatedUnsigned with { ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(updatedUnsigned) };
+ArticleVaultRootManifest updatedRootUnsigned = root with { Articles = [root.Articles.Single() with { ManifestSha256 = updated.ContentSha256 }], ContentSha256 = string.Empty };
+ArticleVaultRootManifest updatedRoot = updatedRootUnsigned with { ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(updatedRootUnsigned) };
+ArticleVaultPlanRequest updatedRequest = request with { RootManifest = updatedRoot, ArticleManifests = [updated] };
+ArticleVaultSyncPlan updatedPlan = ArticleVaultSyncPlanner.Build(updatedRequest).Plan ?? throw new InvalidOperationException("Fresh control plan failed.");
+PortableDependencyManifest freshGraph = PortableDependencyCodec.Seal(oldGraph with {
+    Coordinates = updated.Coordinates, Source = fresh.Source!, RelationSha256 = freshRelation.SetDigest,
+    GraphSha256 = fresh.DependencySha256!, ContentSha256 = string.Empty });
+VaultDependencyPlanBuildResult matching = ArticleVaultDependencyPlanner.Build(updatedPlan, updatedRequest, context,
+    [new(freshGraph, freshBytes, [], freshRelation.SetDigest)], budgets);
+
+JsonSerializerOptions json = new() { WriteIndented = true };
+File.WriteAllText(Path.Combine(outputDirectory, "counterexample-inputs.json"), JsonSerializer.Serialize(new {
+    FixtureQualification = "contract-only; no canonical provider/store/runtime authority; zero nodes",
+    Request = request, Context = context, OriginalSyncPlan = syncPlan, OldDependencyManifest = oldGraph,
+    OldRelationSet = oldRelation, FreshRelationSet = freshRelation, Budgets = budgets,
+    OldSourceBytesBase64 = Convert.ToBase64String(oldBytes), FreshSourceBytesBase64 = Convert.ToBase64String(freshBytes)
+}, json));
+bool controlsCorrect = matching.Plan is not null && byteMismatch.Plan is null && relationMismatch.Plan is null;
+bool acceptedStale = stale.Plan is not null && staleVerifier.IsValid;
+var result = new {
+    OriginalPlanStatus = syncPlan.Status.ToString(), Decision = item.Decision.ToString(),
+    SavedServerCoordinateSha256 = saved.ContentSha256, CurrentItemServerCoordinateSha256 = item.Server.ContentSha256,
+    OldSourceSha256 = oldGraph.Source.Sha256, RequiredSourceSha256 = item.Server.Source!.Sha256,
+    OldGraphSha256 = oldGraph.GraphSha256, RequiredGraphSha256 = item.Server.DependencySha256,
+    StaleGraphBuildAccepted = stale.Plan is not null, StaleGraphBuildReason = stale.ReasonCode,
+    StaleGraphVerifyCurrentAccepted = staleVerifier.IsValid, StaleGraphVerifyCurrentReason = staleVerifier.ReasonCode,
+    MatchingCurrentPositiveAccepted = matching.Plan is not null, MatchingCurrentReason = matching.ReasonCode,
+    ActualByteMismatchRejected = byteMismatch.Plan is null, ByteMismatchReason = byteMismatch.ReasonCode,
+    RelationMismatchRejected = relationMismatch.Plan is null, RelationMismatchReason = relationMismatch.ReasonCode,
+    CounterexampleReproduced = acceptedStale && controlsCorrect,
+    Qualification = "compiled real Shared API contract counterexample only; no runtime/product/dependency-authority acceptance"
+};
+string resultJson = JsonSerializer.Serialize(result, json);
+File.WriteAllText(Path.Combine(outputDirectory, "result.json"), resultJson);
+Console.WriteLine(resultJson);
+return !controlsCorrect ? 2 : acceptedStale ? 3 : 0;

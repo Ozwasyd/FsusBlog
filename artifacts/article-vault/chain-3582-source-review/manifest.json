@@ -1,0 +1,144 @@
+{
+    "schema": "fsusblog.article-vault.chain-source-review-diagnostic.v1",
+    "qualificationClaim": false,
+    "acceptedIssues": 0,
+    "testedSourceCandidate": "9eab25e3383ea8a5adf5221d42d6b8a5fb32c45b",
+    "branch": "codex/chain-3582-current-acceptance-20261008",
+    "draftPr": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "actualPrBase": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "latestVerifiedMaster": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+    "sourceDiffFileCount": 177,
+    "recordedAt": "2026-10-08T07:03:43.974440+00:00",
+    "checks": {
+        "backendFocusedOriginal": {
+            "passed": 823,
+            "failed": 0,
+            "skipped": 0,
+            "exitCode": 0
+        },
+        "rootExecution": {
+            "passed": 37,
+            "failed": 0,
+            "skipped": 0
+        },
+        "originalSourceScannerAndDiagnosticControls": {
+            "passed": 137,
+            "failed": 0,
+            "skipped": 0,
+            "exitCode": 0
+        },
+        "actualOwnedAndBoundarySourceFindings": 0,
+        "rootCsharpStyle": {
+            "files": 4,
+            "exitCode": 0
+        },
+        "actualRemotePrMetadataContract": {
+            "exitCode": 0,
+            "bodyScopeUpdatePendingRateLimit": true
+        },
+        "originalMatrix": {
+            "exitCode": 1,
+            "owner": "canonical #1686 finite authority"
+        },
+        "originalConvergence": {
+            "exitCode": 1,
+            "owner": "canonical #3521 two retention replacements"
+        },
+        "currentCommitRangeContract": {
+            "exitCode": 1,
+            "reason": "Published original scopes/Refs footers plus cherry-pick footer placement fail original contract; no history rewrite."
+        },
+        "macOriginal": {
+            "passed": 27,
+            "failed": 9,
+            "skipped": 0,
+            "exitCode": 1
+        },
+        "darwinNativeBuilder": {
+            "exitCode": 1,
+            "reason": "mac_vault_native_build_requires_darwin"
+        },
+        "currentGraphCounterexample": {
+            "exitCode": 3,
+            "staleGraphBuildAccepted": true,
+            "staleGraphVerifyCurrentAccepted": true,
+            "freshPositivePassed": true,
+            "actualByteAndRelationNegativeControlsPassed": true
+        }
+    },
+    "historicalCandidateChecks": {
+        "d6a076905ba82f5a1359b1363ee049ad66a66e20": {
+            "frontendOriginal141": "pass/0 skipped; inputs unchanged at current source candidate",
+            "originalLocalSourceFsusUITypecheck": "exit0; actual f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+            "registrationOriginalStyle6": "exit0",
+            "completeDiffCsharpAndNodeStyle": "exit1 in canonical owner sources; Windows root using order repaired and current4-file style verified"
+        }
+    },
+    "remainingGates": [
+        "Canonical finite execution parser/declaration/path/owner-content closure. Do not mutate frozen authority to self-admit diagnostic tiers.",
+        "Original two convergence retirement declarations and complete supplied-source style/immutable commit contract records.",
+        "Actual current persisted definition/rights/property/taxonomy metadata reader and producer; writer/publication/transport admission remains closed.",
+        "Parent exact successor materialization/graph/consumer handoffs and genuine graph currentness/occurrence/identity repair.",
+        "Real Linux supported filesystem and mount/native permission, Windows local NTFS, Darwin SDK+APFS/FSEvents, actual protected lease and terminal rescan proof.",
+        "Actual canonical backups/restores, native writes/base commit, journal/resume/undo/cleanup, accepted-server mutation interruption and independently rendered production/terminal qualification."
+    ],
+    "artifacts": {
+        "README.md": "98a9c084432479a8bb0dad6a387d45e0affc94c0db85034130573cb115208c22",
+        "candidate-source-diff-hashes.json": "fa4745cb8f32b0df9b5fec6101c367cefbc501358cd5a53e44f8a1d7efde3708",
+        "canonical-source-consumption.json": "20a712f4879169ea7ccb613deba7b45e04483f40a56b9cb9e1676afd5755eddf",
+        "current-source-range-contract.log": "ac9575d9da170f607ca8a8163c987f60caa24f68e3e2c706f1422be0a8247a24",
+        "graph-counterexample/after.json": "b3a08f9669aef8e37a5418fb33f827d112c44b993a8e3b3025b1777f7df76452",
+        "graph-counterexample/before.json": "376f0e9532d5773fa096f891fa7ed78e3b73ab6f54847e31d8e7700fa1f53c2c",
+        "graph-counterexample/counterexample-inputs.json": "4a5aa02f5d45b21db79fdace34d5010e4c26a7da1dd8188be3f1f8ab26c32c5c",
+        "graph-counterexample/project.csproj.txt": "28c1ead81a22b84be0efaf61cb4eb852580059dce3d52a99d57339a4eaa36865",
+        "graph-counterexample/result.json": "d5f05db1575f1b7c86a18d70963f6026e07b063801817190f84e3ea1cf01e5eb",
+        "graph-counterexample/run.log": "3d929a4505252e56d345fcef4405d40bd6b0fd15352de867a16dd8172eaa58d6",
+        "graph-counterexample/run.sh.txt": "adf20a0f067a605258df6a57cd0b6db66ebe2baf816fae2d0bac8bd1db8a3413",
+        "graph-counterexample/snapshot.py.txt": "acd0b2e6f3028fb731bb3cbd8711d922aef4eac4720e189403942883593a33c4",
+        "graph-counterexample/source.cs.txt": "ef676125c2c5d86ebb70daf3a26cc79524f729bffb9ce6e9b8385b0ff052ff07",
+        "issue-accounting.json": "32baec9ea7c4d4dc4f4f5f188486bbae0ec29996b021480f3fd2f2db6456a28c",
+        "issue-accounting.md": "86a222c39ccc091f1b43cd726f936358eed6398c6337954706412acc90ecf857",
+        "original-919-linux-root-path.log": "f8b07b29c6746f100bf88ae750bc7558932be275868182fed6738ff8eb1f1a17",
+        "original-919-windows-root-path.log": "e39715a6d5c381bb28600ce61a499e5abc2522cbcdf53dfb6f95a938bde90dc8",
+        "prior-d6-frontend-result.json": "35270aaa4ba8fa2f21e376369f0335d0ce25a9a98869e548717a1f63de292254",
+        "prior-d6-frontend.log": "8acc8ba532a3750ed2ddd9686008233671bafb9ecae0183751376c9dd3421ab7",
+        "prior-d6-local-types-result.json": "95376dabbc1c6cee724a5bfb0f1bebd070912f1d48cbf5ecee505eaa6a7a2957",
+        "prior-d6-local-types.log": "4a4add837f0874bc71033dafb1b20181fa729bd52dcac84d23a5a99eeeb3b010",
+        "prior-d6-registration-style-result.json": "86c7b8a108529813968407a5781f645562e6e67108df361ed24683b3e402e1e5",
+        "prior-d6-registration-style.log": "5c8f8ea1fa0c683b4580872b2f421cb0a3da4d6e45cc270eeaf11441716dd833",
+        "prior-d6-whole-csharp-style-result.json": "e0d7d83f9a57b450cef8ab130a4f2f32619c27d080e4a66832bb661a759b262c",
+        "prior-d6-whole-csharp-style.log": "f3ac0b64b0123155b4a27389d8ee31788a79d54bb97f9cf30c1d1d3770f21ac9",
+        "prior-d6-whole-node-style-result.json": "d8adcaea32ca6dcfc84d5f03d7a8846dfb5e591b2316fdfc486dcaf81ed36f18",
+        "prior-d6-whole-node-style.log": "f8ac94cabe9537de8df937fa64e74f10061afdcababf99a0ed451279dc5472bf",
+        "proposed-pr-body.md": "fa41980e43e82942323f7718cc985fefaeb072e8c18782c608a9f19e6d73a417",
+        "proposed-pr-patch.json": "a8d1cc396c60f390fa6770b89003fcbee89c48b0d001b2f5d490db4b5c14e416",
+        "source-classification-d6/blog-classification.json": "b30673f22b0b17fe31ef66abdad8d2fe0d281eee2d82f6c08f333fe95e01974f",
+        "source-classification-d6/classification-scope.json": "f466a5d0311bc794d2d2ba8c1c83dbc989b5ee58b4f07cdaf82688441af85fbe",
+        "source-classification-d6/fsusui-classification.json": "8dba25f1e443d7a7ef39eac68a39507ab83b57b7c18d6c1a2f597143bce699f5",
+        "tested-9e/backend-class-counts.json": "1edd2487076f5e8f16d6f6487c344ffd108a05ba890f5ee667e5eaadf5756405",
+        "tested-9e/backend-result.json": "a9a2b194022150ac6fcae73c78e52352857d0a11c038766c92ca83dd2ca8e01c",
+        "tested-9e/backend-source-hashes.json": "ba6f58c991719c376214e7d02cc0bdb49e9dd308b796177f9e5a4e64d9780e62",
+        "tested-9e/backend.log": "43aafb6faf80487c7b0fb0d16731cafc0ba1f920803521ae558c5b4fcb1401ac",
+        "tested-9e/cleanup-observation.log": "87158f30c36b7641581b929c8d81ac5b70daddfc4868b1984063ef09e4d74615",
+        "tested-9e/convergence-result.json": "67b15500cc96877f1a738f4517a9597d2d63480543e90c0e282289d473c9940e",
+        "tested-9e/convergence.log": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2",
+        "tested-9e/darwin-native-builder-result.json": "e6db1447d376e8949d45834757211259b7684f647f23b11b598d96a616808d27",
+        "tested-9e/darwin-native-builder.log": "61be0f33a2e2b7e452f344c550c5c5c0c1a108b83f421a9b2b5360b98fade40f",
+        "tested-9e/dotnet-info.log": "c678d92880048a5bfd14a0a89c6cea3b6c823a498bdfda8021cd3e94506a4e7f",
+        "tested-9e/fresh-master-conflict.json": "657cb36bd9af1661f1649446d3a0d893ed92b38dbd252c1b7872ee73c01c8d2a",
+        "tested-9e/loaded-build-assembly-bindings.json": "a5e446015967d5057472ec3b7747d1e121af3b2fd5fb06917f20d966d029ee05",
+        "tested-9e/mac-original-result.json": "72667a3c511b1a79cc859367a3a179f60d11505c67f44f200d37136d73e7f7b6",
+        "tested-9e/mac-original-trx-summary.json": "53075ad6a5152d8f85f23f1533cae89c16f954c9e8e87d2bf3e10ffde7f443ef",
+        "tested-9e/mac-original.log": "cdb026eac22b00baecf3ba6ae5afc51013bc4466313ae631902e8a8df787400d",
+        "tested-9e/matrix-result.json": "aa28e39d82553e550872737cbefb22587c2304328b8fc76df02d3527c6a995c8",
+        "tested-9e/matrix.log": "a780349ffb838b98f106a183d70a676a8bb8fab4c987e337559a8a92dcf87298",
+        "tested-9e/owner-source-scanner.json": "fcc50d080d0c771fd8c8c80ca26b502a1194fbe838c6da653d9b569f2ae27fc8",
+        "tested-9e/pr-current-gate.log": "5527a8088d1158f83fc892c1915c2df5c168cfa8bb56f01180a1ccfc56dfa38e",
+        "tested-9e/producers-check-result.json": "de75c70489c0e67bee6cb26ad6963238c531756a9ac6a5fc9020df904da99f1e",
+        "tested-9e/root-current-style.log": "338c3460669d174026aff5806362826322bba8ad7b474d80ac85fdd8acbc56ec",
+        "tested-9e/source-result.json": "e2376000ed1a3df5d4b6a3ba9584aa41852fe89d7ca261d8f5f1529026f38730",
+        "tested-9e/source.log": "9645b82805d297ae355a935c600be22fb4745deeaaa63d7d7fa1940d4c9a704c",
+        "tested-9e/testing-doc-check-result.json": "261ca27d2f58ac90990d9e5d8768d8ed9e0ab0a20e2a3cd5e94302e37d3c3b9c",
+        "tested-9e/trx-summary.json": "1226dd3299cb8bffa2cd242378d75a8e549875cedc813920097eaf8f1955de71"
+    }
+}
