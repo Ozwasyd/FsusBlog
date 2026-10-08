@@ -210,8 +210,10 @@ export function adaptBrowserContractSemanticOutcome({ repositoryRoot, authority 
     const artifactIds = exactIds(report.artifacts.map((artifact) => artifact.id), 'actual artifact IDs');
     const artifacts = new Map(report.artifacts.map((artifact) => [artifact.id, artifact]));
     const semanticDigests = new Map();
-    const members = [...plan.members].sort((left, right) => left.id.localeCompare(right.id)).map((planned) =>
+    const plannedMembers = new Map(plan.members.map((member) => [member.id, member]));
+    const members = plannedIds.map((plannedId) =>
     {
+        const planned = plannedMembers.get(plannedId);
         const member = actual.get(planned.id);
         if (!member)
         {
@@ -288,7 +290,7 @@ export function adaptBrowserContractSemanticOutcome({ repositoryRoot, authority 
         passedMemberIds: terminalIds('passed'), failedMemberIds: terminalIds('failed'),
         skippedMemberIds: terminalIds('skipped'), blockedMemberIds: terminalIds('blocked'),
         members, interruptionKind: interruption?.kind ?? null,
-        artifactSemanticDigests: Object.fromEntries([...semanticDigests].sort(([left], [right]) => left.localeCompare(right)))
+        artifactSemanticDigests: Object.fromEntries([...semanticDigests.keys()].sort().map((id) => [id, semanticDigests.get(id)]))
     };
     return candidate({ producerId: browserContractOutcomeProducerId, producerAuthorityId: authorityId,
         identity: authority.identity, attemptEligibility: attempt, inputAuthorityRefs: references,
