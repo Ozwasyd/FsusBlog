@@ -1,0 +1,25 @@
+{
+  "formatter": {
+    "identity": "eslint",
+    "version": "10.8.0",
+    "command": "node tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js --config eslint.config.mjs --fix --rule \"@stylistic/semi: off\" --rule \"import-x/order: off\" --rule \"curly: off\" tests/tools/test-suite-convergence.test.mjs"
+  },
+  "paths": [
+    "tests/tools/test-suite-convergence.test.mjs"
+  ],
+  "firstPassTreeSha256": "4b37ab83e37aaa85aad9657dfc901941a03135cafe3d04bcef57a0ab0c6d63a8",
+  "secondPassTreeSha256": "4b37ab83e37aaa85aad9657dfc901941a03135cafe3d04bcef57a0ab0c6d63a8",
+  "idempotent": true,
+  "schema": "fsusblog.format-idempotence-evidence.v1",
+  "revision": "e8def31887dab241d74ad712226290f715ace23d",
+  "mechanicalPass": {
+    "trustedCheckerCommit": "cb6f4e4a174ac65735707c7e44286352803e742b",
+    "astTokensAnchoredCommentsEquivalent": true,
+    "literalMutationNegativeControlRefused": true,
+    "tokenCount": 3945,
+    "fingerprintSha256": "abdf890d4f51e3a1e8799a69a3e405b5e1dc655df8cbdcfc9637495bd66c3c8b",
+    "firstPassTreeSha256": "4b37ab83e37aaa85aad9657dfc901941a03135cafe3d04bcef57a0ab0c6d63a8",
+    "secondPassTreeSha256": "4b37ab83e37aaa85aad9657dfc901941a03135cafe3d04bcef57a0ab0c6d63a8"
+  },
+  "runtimeAcceptance": false
+}
