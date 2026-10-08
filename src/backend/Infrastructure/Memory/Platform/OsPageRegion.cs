@@ -131,12 +131,24 @@ internal sealed class OsPageRegion : IDisposable
         region._pendingReservation = null;
         if (lockedSubset is not null)
         {
-            if (!region.Commit() || !region.Observe(native.Lock(region._payload, region._payloadBytes)))
+            try
+            {
+                if (!region.Commit() || !region.Observe(native.Lock(region._payload, region._payloadBytes)))
+                {
+                    region.Dispose();
+                    return MemoryOperationResult<OsPageRegion>.Reject(MemoryFailure.TierUnavailable);
+                }
+                region._locked = true;
+            }
+            catch (OsPageRegionCleanupException)
+            {
+                throw;
+            }
+            catch
             {
                 region.Dispose();
-                return MemoryOperationResult<OsPageRegion>.Reject(MemoryFailure.TierUnavailable);
+                throw;
             }
-            region._locked = true;
         }
         return MemoryOperationResult<OsPageRegion>.Success(region);
     }
@@ -297,20 +309,21 @@ internal sealed class OsPageRegion : IDisposable
     {
         lock (_gate)
         {
-            if (_state == OsPageRegionState.Released)
+            if (_state != OsPageRegionState.Released)
             {
-                return;
+                if (!Observe(_native.Release(_address, _reservedBytes)))
+                {
+                    _state = OsPageRegionState.Faulted;
+                    throw new OsPageRegionCleanupException(this,
+                        new InvalidOperationException($"Native release failed with error {_lastNativeError}."));
+                }
+                _state = OsPageRegionState.Released;
+                _committedBytes = 0;
+                _locked = false;
+                _hintAccepted = false;
             }
-            if (!Observe(_native.Release(_address, _reservedBytes)))
-            {
-                _state = OsPageRegionState.Faulted;
-                throw new OsPageRegionCleanupException(this,
-                    new InvalidOperationException($"Native release failed with error {_lastNativeError}."));
-            }
-            _state = OsPageRegionState.Released;
-            _committedBytes = 0;
-            _locked = false;
-            _hintAccepted = false;
+            // A charge-release exception must leave its token retryable even when
+            // the native range has already been released. Never free that range twice.
             _charge?.Dispose();
             _charge = null;
             _pendingReservation?.Dispose();

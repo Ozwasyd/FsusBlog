@@ -53,7 +53,7 @@ internal static class OsNumaTopologySource
     internal static OsNumaTopologyObservation Parse(string online, string processStatus, DateTimeOffset sampledAt)
     {
         const string AllowedPrefix = "Mems_allowed_list:";
-        if (!TryParseNodeList(online, out int[] onlineNodes))
+        if (processStatus.Length > MaximumCharacters || !TryParseNodeList(online, out int[] onlineNodes))
         {
             return Unavailable(sampledAt, "Malformed or missing online NUMA node list.");
         }

@@ -106,6 +106,23 @@ public sealed class OsPageRegionTests
     }
 
     [Fact]
+    public void ChargeReleaseCanBeRetriedWithoutDoubleFree()
+    {
+        using var native = new TestNativeApi();
+        MemoryAllocationDescriptor descriptor = Descriptor(4096, 4096);
+        var reservation = new TestReservation(descriptor);
+        OsPageRegion region = OsPageRegion.TryReserve(native, descriptor, reservation, false).Value!;
+        reservation.Charge!.FailNextRelease = true;
+        Assert.Throws<InvalidOperationException>(region.Dispose);
+        Assert.Equal(1, native.Releases);
+        Assert.Equal(4096, region.Observe().ChargedBytes);
+        region.Dispose();
+        Assert.Equal(1, native.Releases);
+        Assert.Equal(1, reservation.Charge.Releases);
+        Assert.Equal(0, region.Observe().ChargedBytes);
+    }
+
+    [Fact]
     public void FailedHandoffAndCleanupRetainPendingReservation()
     {
         using var native = new TestNativeApi { FailRelease = true };
@@ -291,7 +308,16 @@ public sealed class OsPageRegionTests
         public MemoryAllocationDescriptor Descriptor => descriptor;
         public IReadOnlyList<MemoryResourceCharge> ActualCharges => charges;
         public int Releases { get; private set; }
-        public void Dispose() => Releases++;
+        public bool FailNextRelease { get; set; }
+        public void Dispose()
+        {
+            if (FailNextRelease)
+            {
+                FailNextRelease = false;
+                throw new InvalidOperationException("Injected charge release failure.");
+            }
+            Releases++;
+        }
     }
 
     // Contract fixtures do not assert an OS capability is available or qualified.
