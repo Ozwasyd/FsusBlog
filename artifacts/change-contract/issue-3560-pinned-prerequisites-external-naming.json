@@ -4,16 +4,25 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "tests/backend/packages.lock.json"
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "The supplied canonical NuGet lock prerequisite preserves package-manager graph keys and names; internal naming cannot replace the locked consumer format."
         },
         {
             "id": "content-doc-exactness-authority",
             "paths": [
+                "config/testing/correctness-attempt-producers.json",
                 "tests/governance/test-lifecycle-registry.json"
             ],
             "reason": "The supplied canonical lifecycle deduplication preserves the existing externally registered test, fixture-owner and receipt identities; renaming them would break retained evidence bindings."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "The exact supplied producer roster validation preserves canonical execution environment and authority identifiers; this candidate does not rename or bypass those external bindings."
         }
     ]
 }
