@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-10-08T13:02:51.961947+00:00",
+  "repository": "Ozwasyd/FsusBlog",
+  "fetchedMaster": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "frozenLiveReviewerProductCandidate": "d1b2c66cdf982d9a9f58db4a98ca2f83db3a71fd",
+  "priorFrozenSourceTests": "0e3ee1e38beb9105ca3bdf4dfb6a51401587e36e",
+  "originalMergedCheckerFix": "2782960c90bd863cbca62345f197b3302c9be9f0",
+  "checkerSHA256": "7121b82975658b4ba86102840f45b0a4cf0d1f95b688762565ef77d74e5d043f",
+  "checkerLatestMasterBlob": "04ecf201800231f71f66388a17a432c87c73c7b5",
+  "actualCommand": "PATH=/workspace/.setup/node-v24.16.0-linux-x64/bin:$PATH npm --prefix /workspace/FsusBlog-2228-verify-latest-master/src/frontend run check:canonical-viewport-safe-area",
+  "actualExitCode": 0,
+  "surfaces": 3,
+  "mutationNegativeControls": 4,
+  "qualificationEligible": false,
+  "reason": "Static reconciliation only; preserves previously closed3477, does not qualify live stack2228, external real device2229 or aggregate1789",
+  "consumerSupportBranch": "fix/828-explicit-landscape-modes-20261008",
+  "consumerSupportTestedProduct": "47b68380266da1c15d89265b8bc08ec1191ad65b",
+  "consumerSupportMetadataHead": "2f76110ec39311c83faacf2b86fd4511eadbb389",
+  "separateTouchReplayReportNeverPublicShellSource": "894e729968b2e5bc4db78677976b5e79aa179848"
+}
