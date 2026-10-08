@@ -1,0 +1,1287 @@
+{
+  "candidate": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+  "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "currentFreshExecution": true,
+  "oldReceiptReused": false,
+  "old263TestedSha": "4f7050e98010478fa261464cb2ad64b26e0bd277",
+  "onlyCaseNamesComparedToOldReceipt": true,
+  "cases": [
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"purpose\")",
+      "outcome": "Passed",
+      "vstestTestId": "14ce43e5-3159-a75b-82fc-e17e8ccf12cf"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.MissingActualResolverOrBroker_RefusesBeforeIo(missingResolver: False)",
+      "outcome": "Passed",
+      "vstestTestId": "8ad2c3b3-5222-6de7-31e1-5597a801151a"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsMissingDuplicatePoisonAndUnsealedCoordinates(fault: \"duplicate-outbox\")",
+      "outcome": "Passed",
+      "vstestTestId": "ed4081fa-85eb-6c09-a393-54962fa65a1c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.IndependentPackagePreparation_RechecksAdmissionBeforeActualIo(change: \"revision\")",
+      "outcome": "Passed",
+      "vstestTestId": "8ec7a9e9-cf5a-f750-a49c-019d3426db18"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ReceiptDigests_MatchNodeGoldenEnvelopeIncludingEscapedIdentifiers",
+      "outcome": "Passed",
+      "vstestTestId": "8b1c4e82-349f-87e0-25b1-dfe8cd084df9"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-rawtext\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "baa9b781-c837-980b-6c24-2d17f42b4ed0"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled",
+      "outcome": "Passed",
+      "vstestTestId": "ce3693bd-71a1-5987-4bda-9af299f73fbc"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"port\")",
+      "outcome": "Passed",
+      "vstestTestId": "59afcca3-4f35-5157-13d3-a819b4c2d46e"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.Codec_RoundTrip_MapsEmptyDescriptionToNull",
+      "outcome": "Passed",
+      "vstestTestId": "60904228-2a49-5420-7502-7f7d2345f315"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"mixed\")",
+      "outcome": "Passed",
+      "vstestTestId": "c46a1428-8be4-dade-c642-4a68c0f34dc3"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-hydration-data-id\", expectedViolation: \"aot_hydration_reference_missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "56a13967-55b9-ae32-5e58-676c91cdd82b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"stale-aot\", expectedViolation: \"aot_event_binding_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "e036f258-0b76-dc36-946c-3b762663f549"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"publication-command-stale\", expectedViolation: \"publication_current_invocation_command_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "265f0dba-1c2f-2cd0-a704-99f9c82be8d6"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.RollbackPowOptions_RevertsToPreviousSnapshot",
+      "outcome": "Passed",
+      "vstestTestId": "beab489e-9433-a8a7-4dcc-4a39debaa3ff"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Constructor_ReadsAntiCrawlerOptionsFromConfiguration",
+      "outcome": "Passed",
+      "vstestTestId": "2d43e7ab-f0e2-59a5-e5c9-df4b7c85972f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.IndependentPackagePreparation_RechecksAdmissionBeforeActualIo(change: \"after-deadline\")",
+      "outcome": "Passed",
+      "vstestTestId": "5883a11b-5898-7511-fd57-690b20785109"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.FileProposal_CannotChangeApprovedOperationOrPath(change: \"path\")",
+      "outcome": "Passed",
+      "vstestTestId": "763b19c6-9582-af19-8a47-4803b5c47a4c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsNonExactOrNonSuccessfulCurrentEdge(fault: \"unexpected\")",
+      "outcome": "Passed",
+      "vstestTestId": "080847eb-7d9e-9070-53f7-14063aa726ab"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests.RunInterleavedAsync_SynchronousOperationFailureDoesNotStrandControllerOrCleanup",
+      "outcome": "Passed",
+      "vstestTestId": "c2635537-f6cd-553e-e0da-9979025edc92"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.RealHost_DoesNotStartBusinessServicesAfterActualReceiptRefusal(environmentName: \"Production\", receiptPath: \"relative/receipt.json\")",
+      "outcome": "Passed",
+      "vstestTestId": "da193f13-24db-17c0-7c36-4746f72bf698"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.BrokerResultTamper_IsRejectedBySameRequestBinding(change: \"value\")",
+      "outcome": "Passed",
+      "vstestTestId": "17a10e02-8e1f-8d5e-b051-5957c11dc47b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.RollbackPerceptionSealedV2Policy_RevertsToPreviousSnapshot",
+      "outcome": "Passed",
+      "vstestTestId": "497731b0-879b-a140-f546-1a6d855d0f26"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"search-failed\", expectedViolation: \"search_visibility_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "ac0fd44b-5fea-abd2-9812-bae2ea06bfd1"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.FileRead_UsesOriginalApprovedRootAndPath",
+      "outcome": "Passed",
+      "vstestTestId": "347d5e68-3c1f-9b35-cd86-09ea50d7fe59"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"epoch\")",
+      "outcome": "Passed",
+      "vstestTestId": "35eb8cdd-3f3a-adf2-6e86-1d55927f8a10"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.UpdateAntiCrawlerOptions_PreservesUnchangedFields",
+      "outcome": "Passed",
+      "vstestTestId": "421359c5-6515-881d-4e6b-f455d336c5f8"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-data-id\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "d5d6f073-4eea-52e8-9211-8b7db4a5ec2b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.PreparedProjectionProof_RejectsNonExactOriginalInvocationRoster(kind: \"lifecycle\", fault: \"duplicate\")",
+      "outcome": "Passed",
+      "vstestTestId": "5691879f-d0e0-c884-0791-5e4a278b1220"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-hydration-comment\", expectedViolation: \"aot_hydration_reference_missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "c5a51067-0675-a95d-2616-cddcd7ccfa6a"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.RecoveryFaultCannotReplaceOriginalTransactionFault(cause: \"permission\", expectedStatus: 400)",
+      "outcome": "Passed",
+      "vstestTestId": "0a45e09b-88f7-f8f8-8ce1-dcd895c47cd3"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.ListRiskSnapshots_OrdersByScoreThenUpdatedAt",
+      "outcome": "Passed",
+      "vstestTestId": "14c09b27-d1a3-93a0-c2bf-65b6f25c7ab1"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.Codec_RejectsTrailingBytes",
+      "outcome": "Passed",
+      "vstestTestId": "adb4665b-2436-8a71-6248-1e6c611a3456"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Simulate_RequireChallengeBoundaryAtExactThresholds",
+      "outcome": "Passed",
+      "vstestTestId": "9d9fa801-7436-9903-6a23-5721bbd9e192"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.ListEntries_AddEntryNormalizesListType",
+      "outcome": "Passed",
+      "vstestTestId": "469b0e63-94e6-7183-ff75-f2c1823bf042"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-shared-budget\", expectedViolation: null)",
+      "outcome": "Passed",
+      "vstestTestId": "5fa992eb-1206-8fe8-73d7-54bd8402feaf"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.StagedWrite_PostIoRefusalRevokesOriginalOwnedStage",
+      "outcome": "Passed",
+      "vstestTestId": "e64047a2-223d-3e1e-e07d-a7cf8bc72ae9"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.BrokerVersion_IsExplicitAndNeverFallsBack(version: 0)",
+      "outcome": "Passed",
+      "vstestTestId": "dabb2a09-3b6d-11f5-4eea-73ba65dcf099"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.ApplyAntiCrawlerPolicySnapshot_PersistsExternalSnapshot",
+      "outcome": "Passed",
+      "vstestTestId": "868e33fc-c9df-080b-1791-91d087d7e295"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-hydration-stale-coordinates\", expectedViolation: \"aot_hydration_semantic_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "5e11ea2b-0d31-bbbc-f5f5-f13dd1e65f2c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.BrokerResultTamper_IsRejectedBySameRequestBinding(change: \"context\")",
+      "outcome": "Passed",
+      "vstestTestId": "e03a34f8-619f-8145-82fd-27437af21be4"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-cold-wait\", expectedViolation: null)",
+      "outcome": "Passed",
+      "vstestTestId": "2a9f9c4a-1a2a-2b73-bdb0-c2c46edec44c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.ProposedWrite_CapturesOwnedBytesAndOnlyStages",
+      "outcome": "Passed",
+      "vstestTestId": "f4c3706c-269c-8388-794d-5d6d718fe6fd"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.NetworkProposal_DelegatesOnceAndReturnsContentFreeContext",
+      "outcome": "Passed",
+      "vstestTestId": "267af975-bccc-8f90-fda6-f99d46fef351"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.EntryReleaseFailure_SettlesActualPromiseAndPreservesIoFirstCause(ioFails: False)",
+      "outcome": "Passed",
+      "vstestTestId": "20c5405e-1c43-03b4-24d1-001a63a8deff"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Simulate_DisabledModeAllowsAllAndObserveModeReportsMatchedRules",
+      "outcome": "Passed",
+      "vstestTestId": "b76df551-decd-87e5-72dd-f8445c1441ea"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.PreparedProjectionProof_SealsIndependentInvocationAndRejectsPlanSubstitution",
+      "outcome": "Passed",
+      "vstestTestId": "bb494859-6dd3-1dd2-6aa9-6f668eac8f0a"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.ApplyPowPolicySnapshot_PersistsExternalSnapshot",
+      "outcome": "Passed",
+      "vstestTestId": "493e1111-e1d6-f2ae-948a-e191a9736b68"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.ListEntries_ReturnsCorrectListByType",
+      "outcome": "Passed",
+      "vstestTestId": "1ce890c2-e3dd-27b3-539b-cdbc71a902db"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"outbox-missing\", expectedViolation: \"outbox_event_not_exact:\")",
+      "outcome": "Passed",
+      "vstestTestId": "024aed4e-bc55-39dd-7379-f52cfe33b9f9"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.RecoveryFaultCannotReplaceOriginalTransactionFault(cause: \"origin\", expectedStatus: 500)",
+      "outcome": "Passed",
+      "vstestTestId": "a6c4e38a-1e59-9792-ede9-86f3a313fa15"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRoutes_AreNotPublicHotReadL0(path: \"/api/binary/tag/11.aeds\")",
+      "outcome": "Passed",
+      "vstestTestId": "8943d5c2-f5c4-a18d-7ad6-b60e44aa8efa"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsNonExactOrNonSuccessfulCurrentEdge(fault: \"failed\")",
+      "outcome": "Passed",
+      "vstestTestId": "0c703428-7dbc-fbcb-d1da-71afe998530f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.DeclaredRequestOrResponseBudget_IsNotAGrant(request: True)",
+      "outcome": "Passed",
+      "vstestTestId": "c0a25291-56f1-0366-bb4f-a6839a47778d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_AcceptsOnlyProductionSupersededReasonForHistoricalSkippedEdges",
+      "outcome": "Passed",
+      "vstestTestId": "3a3e1da9-608e-16d7-1778-48e82741ed86"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionWait_RequiresUnrecoveredExactPublishedGeneration(scenario: \"failed\")",
+      "outcome": "Passed",
+      "vstestTestId": "29342aaa-2ad8-9dc9-569c-6bc749364e9b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.BuildPowOverview_CountsPowEventsWithinLastHour",
+      "outcome": "Passed",
+      "vstestTestId": "d713078b-dc6e-48ec-8269-b70eaf25b6c1"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.BrokerVersion_IsExplicitAndNeverFallsBack(version: 1)",
+      "outcome": "Passed",
+      "vstestTestId": "80b1182a-9a76-fdb9-dd92-c129f71f2c0f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-duplicate-id\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "dbe742a8-7751-3b4f-e533-439c8282f572"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.IndependentPackagePreparation_RechecksAdmissionBeforeActualIo(change: \"cancel\")",
+      "outcome": "Passed",
+      "vstestTestId": "06103df0-d7b0-97f9-9d62-603139bc0f15"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsTamperedInputAuthorityBeforeTrustingOutputs",
+      "outcome": "Passed",
+      "vstestTestId": "1c217a3d-7553-e8c7-5712-b7591dc58223"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_AcceptsSealedLifecycleAndPublicationAuthorities",
+      "outcome": "Passed",
+      "vstestTestId": "66500e3a-d40f-915a-f583-a7dc543d4bb1"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsFailureWarningAndIncompleteTerminalVector(failure: \"cancelled\")",
+      "outcome": "Passed",
+      "vstestTestId": "38681d44-3a6a-bc33-7573-d49704159429"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Simulate_AllowlistedEntryOverridesBlocklistInEnforceMode",
+      "outcome": "Passed",
+      "vstestTestId": "64987462-c673-b019-c3f7-33347f631432"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionWait_RequiresUnrecoveredExactPublishedGeneration(scenario: \"recovered\")",
+      "outcome": "Passed",
+      "vstestTestId": "425f05cc-ed5b-97c0-e533-87f7e83cd3a6"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.ApplyPerceptionSealedV2PolicySnapshot_PersistsExternalSnapshot",
+      "outcome": "Passed",
+      "vstestTestId": "037d5aff-bee2-7129-0fce-842c71d7a47f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AedsArticleDetail_RejectsInvalidOrStaleSemanticPayload(fault: \"content\", expectedViolation: \"aeds_article_detail_content_digest_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "fccb4476-dbb8-f769-f88e-952336bb2a0d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ProductionRejectsConflictingConfiguredAndStoredPublicOrigins",
+      "outcome": "Passed",
+      "vstestTestId": "e9e3ebe4-91a5-05d9-b049-2c13924160b4"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-hydration-rawtext\", expectedViolation: \"aot_hydration_reference_missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "a8c68de7-027f-7e1c-6355-5c64545b052d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"stale-frame\", expectedViolation: \"aeds_article_detail_coordinate_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "0c6b3cb9-dda9-a7e7-5263-bbeb2ff80259"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.ApplyRiskControlPolicySnapshot_PersistsExternalSnapshot",
+      "outcome": "Passed",
+      "vstestTestId": "68ae9307-ccc6-7129-9dbe-00185b515d19"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.PostIoDrift_RefusesPublication(drift: \"package\")",
+      "outcome": "Passed",
+      "vstestTestId": "4eb4a320-a815-ea6a-6e5f-3a630abe65b8"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsMissingDuplicatePoisonAndUnsealedCoordinates(fault: \"missing-outbox\")",
+      "outcome": "Passed",
+      "vstestTestId": "05abbc06-c1e6-1f7d-e0b7-3e989fa824ae"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-document-rights-policy\", expectedViolation: \"aot_article_output_rights_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "d1e533f9-47d3-7221-8c91-a05eb613610d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"lifecycle\", expectedViolation: null)",
+      "outcome": "Passed",
+      "vstestTestId": "5e101b88-3747-9212-79b7-23b803db93f6"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Constructor_UsesExactDefaultPerceptionV2Options",
+      "outcome": "Passed",
+      "vstestTestId": "a50de335-a965-6f33-c297-866fecc98bb8"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.CompletedRecoveryCallDoesNotQualifyPhysicalCleanupOrReturnAcceptedReceipt",
+      "outcome": "Passed",
+      "vstestTestId": "e283782e-bb54-b4aa-6fe3-6771e8a0f74b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"url\")",
+      "outcome": "Passed",
+      "vstestTestId": "326ed2bc-2617-4ded-82df-a00a3d776f9c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.PackageDeactivatedByLastAdmissionAwait_CannotStartIoOrConsumeId",
+      "outcome": "Passed",
+      "vstestTestId": "0ec707e4-7a8f-0884-9ae7-ccd8471c3570"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionConsistency_RejectsStaleOrDisagreeingProductionOutputs(fault: \"aot-event\", expectedViolation: \"aot_event_binding_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "6a41dc5a-bded-8f54-2bec-a92105133a2c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests.RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny",
+      "outcome": "Passed",
+      "vstestTestId": "39c333d9-b140-1afd-a679-726c2707ed20"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsNonExactOrNonSuccessfulCurrentEdge(fault: \"duplicate\")",
+      "outcome": "Passed",
+      "vstestTestId": "8163dde5-fc02-9dea-ad3e-e447482fca5f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.PreparedProjectionProof_RejectsNonExactOriginalInvocationRoster(kind: \"publication\", fault: \"foreign\")",
+      "outcome": "Passed",
+      "vstestTestId": "491a0645-c6f0-a681-0dc4-51550fd9cc6e"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionWait_TimesOutEvenWhenReaderNeverCompletes",
+      "outcome": "Passed",
+      "vstestTestId": "561b5589-267a-fe81-7d56-79b9f6fbd88c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Simulate_RequireChallengeWhenScoreBetweenThresholds",
+      "outcome": "Passed",
+      "vstestTestId": "c10dbbeb-4f03-0571-527e-8dac4b2f0771"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AedsArticleDetail_RejectsInvalidOrStaleSemanticPayload(fault: \"rights\", expectedViolation: \"aeds_article_detail_rights_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "c6232a1c-73cd-0fff-b2d3-4021251d21f4"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.BuildAntiCrawlerOverview_CountsAllEventCategories",
+      "outcome": "Passed",
+      "vstestTestId": "b76018e3-513c-53f1-84cc-c8231f23cb84"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsFailureWarningAndIncompleteTerminalVector(failure: \"timeout-warning\")",
+      "outcome": "Passed",
+      "vstestTestId": "4debff57-dd43-b922-6851-67bc2587b4ea"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsNonExactOrNonSuccessfulCurrentEdge(fault: \"missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "65ae03e2-4af3-05f9-0947-e88c3d71acbe"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-document-missing\", expectedViolation: \"aot_current_document_missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "665fe7ba-836c-0f33-1f96-6cd3a746580a"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRead_MissingEntity_ReturnsNotFoundAndDoesNotCache",
+      "outcome": "Passed",
+      "vstestTestId": "8ed21123-74e0-2f63-e20a-dee7f8ab0759"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"cache-missing\", expectedViolation: \"article_list_cache_version_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "1d0ddd9d-b5cd-e464-0c15-cc0e54c29d98"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-never-completes\", expectedViolation: \"caller-budget-cancelled\")",
+      "outcome": "Passed",
+      "vstestTestId": "e8a3d7ce-7440-bedc-fece-9cb24cf2f8bb"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionConsistency_RejectsStaleOrDisagreeingProductionOutputs(fault: \"search-coordinate\", expectedViolation: \"search_projection_coordinate_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "27a6c5e0-abc7-7a9f-e6e6-2d27d765980b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests.RunAsync_SynchronousFailureStillDrainsOtherWorkerBeforePropagating",
+      "outcome": "Passed",
+      "vstestTestId": "e609e419-6d07-6e30-d053-c2b64cfd4ec9"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsRelabeledPublicationAuthorityEvenWithResealedAggregate",
+      "outcome": "Passed",
+      "vstestTestId": "03197d80-6f56-c63d-fd2f-8dc49a04d26e"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.BrokerVersion_IsExplicitAndNeverFallsBack(version: 2147483647)",
+      "outcome": "Passed",
+      "vstestTestId": "4ed0ca35-e779-9bdc-acc5-db749541769e"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"publication-relabel-invocation\", expectedViolation: \"publication_current_invocation_command_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "5325912e-c121-bf33-6a04-4f573b5ccd9f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ChecksPhysicalAccountSubjectProjectionAfterSchemaMigration",
+      "outcome": "Passed",
+      "vstestTestId": "e0d69063-74d6-b987-7ff8-53c7e0f3b917"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"detail-stale\", expectedViolation: \"public_detail_coordinate_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "6a204807-6905-68eb-90ae-784603bff5b2"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Simulate_DetectsSearchCrawlerAndSocialPreviewUserAgents",
+      "outcome": "Passed",
+      "vstestTestId": "6b87c8c3-4ef4-17f1-7fad-66068975429c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.ListRiskEvents_ReturnsNewestFirstAcrossRingBufferWraparound",
+      "outcome": "Passed",
+      "vstestTestId": "11060f5c-006b-a381-b35b-0ae886595c99"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AedsArticleDetail_RejectsInvalidOrStaleSemanticPayload(fault: \"coordinate\", expectedViolation: \"aeds_article_detail_coordinate_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "a10aab62-ab49-1756-6341-a3effe101d35"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-document-missing\", expectedViolation: \"caller-budget-cancelled\")",
+      "outcome": "Passed",
+      "vstestTestId": "f5f6017f-5ce2-49c6-3431-9bbc2c98d420"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"class\")",
+      "outcome": "Passed",
+      "vstestTestId": "1ddae7ce-791d-0b4b-4797-274ba9a8d8ef"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.CategoryListCodec_DoesNotCarryDescription",
+      "outcome": "Passed",
+      "vstestTestId": "228cc605-7ddf-2b30-b823-0ccc1e8d7880"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsCrossRunLatestReceiptEvenWhenResealed",
+      "outcome": "Passed",
+      "vstestTestId": "07eeb051-de9d-3ea2-0c9e-ff73575c3a7a"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionConsistency_RejectsStaleOrDisagreeingProductionOutputs(fault: \"aeds-frame\", expectedViolation: \"aeds_hot_read_frame_digest_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "850190a1-3e11-f135-3230-427f6d404aec"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.PostIoDrift_RefusesPublication(drift: \"grant\")",
+      "outcome": "Passed",
+      "vstestTestId": "476df03f-8c43-8491-9b63-7efbba7d27ed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_RestoresAotDiskCache_WhenLaterTaskFails",
+      "outcome": "Passed",
+      "vstestTestId": "bcda8c25-7a21-4614-f98e-7b30cc3c275c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRead_CacheMissStoresDedicatedFrameByCanonicalIdentity",
+      "outcome": "Passed",
+      "vstestTestId": "1d979b27-0264-e3d8-be3e-0541615b4b41"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionConsistency_RejectsStaleOrDisagreeingProductionOutputs(fault: \"list-coordinate\", expectedViolation: \"public_list_coordinate_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "d5bb49f0-7f92-c3d3-a448-8bcb31deb182"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.TransactionFaultThenCallerCancellationRetainsOriginalClassification(cause: \"origin\", expectedStatus: 500)",
+      "outcome": "Passed",
+      "vstestTestId": "603ec7ad-1be9-d27d-5cb4-bf3d79de6f00"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsRequiredSetAndTerminalEdgeDeletionEvenWhenResealed",
+      "outcome": "Passed",
+      "vstestTestId": "3bb7f848-fe4e-9976-7911-7f8d7cbf6297"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.EntryReleaseFailure_SettlesActualPromiseAndPreservesIoFirstCause(ioFails: True)",
+      "outcome": "Passed",
+      "vstestTestId": "e76a57bf-8fd7-589c-0fd3-80f8d2b688d3"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"host\")",
+      "outcome": "Passed",
+      "vstestTestId": "066156b3-4e6c-98c6-c831-1bdcfb310b58"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Constructor_UsesExactDefaultPowOptions",
+      "outcome": "Passed",
+      "vstestTestId": "b06b5973-daf8-44fb-6b9b-a48917f6870b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.PostIoDrift_RefusesPublication(drift: \"deadline\")",
+      "outcome": "Passed",
+      "vstestTestId": "294ba7e8-112f-5c9e-4129-b0eba98b9f55"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.RealHost_DoesNotStartBusinessServicesAfterActualReceiptRefusal(environmentName: \"Development\", receiptPath: \"\")",
+      "outcome": "Passed",
+      "vstestTestId": "a5ab1b9d-65dc-653a-f9e3-7255fa036bce"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.PreparedProjectionProof_RejectsNonExactOriginalInvocationRoster(kind: \"publication\", fault: \"extra\")",
+      "outcome": "Passed",
+      "vstestTestId": "18a4bee0-01bd-8ca7-5f37-e4af4df0eb43"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.RollbackAntiCrawlerOptions_RevertsToPreviousSnapshot",
+      "outcome": "Passed",
+      "vstestTestId": "d0a54ca1-1a70-3c83-b4c8-0435f07965a7"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-comment\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "ce1bc255-978e-aec1-3bec-c77d172071eb"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.MatchCanonicalTagId_ResolvesDisplayNameAndAliasToSameId",
+      "outcome": "Passed",
+      "vstestTestId": "691b24ff-9b28-d17e-215b-985d5416c123"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.ChangedTypedScopeAfterIo_CannotPublishUnderUnchangedGenericGrant",
+      "outcome": "Passed",
+      "vstestTestId": "d59c9e92-7bdd-8507-81c9-ded276192194"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.DefaultSynchronousPackageScope_CannotCrossIoOrConsumeRequestId",
+      "outcome": "Passed",
+      "vstestTestId": "c83b4ad7-0c21-04b7-6652-cc7bb619bd9f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"list-metadata\", expectedViolation: \"public_list_metadata_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "7eef1719-6616-81fa-04ad-70af3d8da780"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.BrokerResultTamper_IsRejectedBySameRequestBinding(change: \"digest\")",
+      "outcome": "Passed",
+      "vstestTestId": "a3ef6bee-30c2-287b-91c5-161b6874f0eb"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "0db27eb9-bfc6-2492-55bf-4dc2e99c711c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-script-rawtext\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "8b38de8f-2c13-caec-5ecb-94134286af1b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"publication-audit-stale\", expectedViolation: \"publication_canonical_audit_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "d7d23089-6561-c5ce-4e98-e12c6a76124e"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerCancelledByIo_CannotPublishCompletedValue",
+      "outcome": "Passed",
+      "vstestTestId": "ed544797-b4d3-e102-cbd7-dd5289a12d6f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.BrokerResultTamper_IsRejectedBySameRequestBinding(change: \"io\")",
+      "outcome": "Passed",
+      "vstestTestId": "212257d8-c212-d63f-2457-798124f6ebee"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.PreparedProjectionProof_RejectsNonExactOriginalInvocationRoster(kind: \"publication\", fault: \"missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "edbdf666-a2a7-29c5-bf6b-fdbde67628a7"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.StoreWithoutOriginalBrokerScope_RefusesBeforeIo",
+      "outcome": "Passed",
+      "vstestTestId": "74324152-ca44-0b6b-770a-7ba52f1f246f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionConsistency_RejectsStaleOrDisagreeingProductionOutputs(fault: \"hot-publication\", expectedViolation: \"hot_read_publication_evidence_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "f510e8f8-c16f-9e87-8c1e-8f4776db780d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.SearchEvidenceReader_RejectsInvalidStringPoolEvenWhenArticleIsAbsent",
+      "outcome": "Passed",
+      "vstestTestId": "3b5a1454-21f9-e4be-361a-ca7f9a73d99d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Constructor_SeedsExactDefaultAntiCrawlerRules",
+      "outcome": "Passed",
+      "vstestTestId": "0c68ad98-1456-9915-d258-06cb7d92f06b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.RealHost_DoesNotStartBusinessServicesAfterActualReceiptRefusal(environmentName: \"Development\", receiptPath: \"relative/receipt.json\")",
+      "outcome": "Passed",
+      "vstestTestId": "11dcfb7d-59c1-3d0b-2abb-cdd1380c2af2"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.UpdatePerceptionSealedV2Policy_ClampsSolveDurationRange",
+      "outcome": "Passed",
+      "vstestTestId": "24df381b-1ebd-c915-d7eb-6724eb03a9b6"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsEdgeAndAggregateTamper",
+      "outcome": "Passed",
+      "vstestTestId": "302e4d5f-5b61-c4d1-a1e7-cb311e875c4f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_AcceptsProductionOptionalEdgesWithoutMakingThemRequired",
+      "outcome": "Passed",
+      "vstestTestId": "0845d3a7-f7bf-fab4-e96f-69e88463d3c6"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.UpdateRiskControlPolicy_AppliesChangesAndRollback",
+      "outcome": "Passed",
+      "vstestTestId": "9e325845-0c97-ceaf-b502-5d47e751fecb"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsNonExactOrNonSuccessfulCurrentEdge(fault: \"skipped-current\")",
+      "outcome": "Passed",
+      "vstestTestId": "1d3a3d29-8f8f-eb16-35f2-b03bb4b6b00b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.SearchEvidenceReader_ReadsExactPublishedDocumentCoordinates",
+      "outcome": "Passed",
+      "vstestTestId": "0b32bd49-235c-0eaf-68bb-4dd2c2ae20b0"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.RealHost_DoesNotStartBusinessServicesAfterActualReceiptRefusal(environmentName: \"Production\", receiptPath: \"\")",
+      "outcome": "Passed",
+      "vstestTestId": "79205aab-5985-533f-d86e-feb365c428f7"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-document-unsealed\", expectedViolation: \"aot_article_output_coordinate_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "49f4abdb-6f6a-80aa-d078-9573269f9a96"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionWait_PreservesCallerCancellation",
+      "outcome": "Passed",
+      "vstestTestId": "a48cb514-5aa8-917a-3777-e507f46a1985"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-hydration-missing\", expectedViolation: \"aot_hydration_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "b894b698-e60b-7d1f-f175-923891486fbc"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.TransactionFaultThenCallerCancellationRetainsOriginalClassification(cause: \"clock\", expectedStatus: 500)",
+      "outcome": "Passed",
+      "vstestTestId": "e51f4600-9595-6bcb-6458-2fc380f2ec63"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRoutes_AreNotPublicHotReadL0(path: \"/api/binary/category/7.aeds\")",
+      "outcome": "Passed",
+      "vstestTestId": "92132532-f9ba-e56f-5678-9044769b6a01"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"publication\", expectedViolation: null)",
+      "outcome": "Passed",
+      "vstestTestId": "d4bd836f-7463-4023-a713-eec912406090"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CancellationAfterIo_CannotReturnOrLoseOriginalIoFailure",
+      "outcome": "Passed",
+      "vstestTestId": "f658e7db-c2a8-eae2-9d55-8cf87e20d690"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.Codec_RoundTrip_PreservesIdNameAndDescription",
+      "outcome": "Passed",
+      "vstestTestId": "8560ab91-ce37-5c68-a7ef-288d2f2f8493"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"publication-reference-stale\", expectedViolation: \"publication_canonical_reference_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "8fc54e4d-e231-4165-39a8-39854b9555a7"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsMissingDuplicatePoisonAndUnsealedCoordinates(fault: \"payload-latest\")",
+      "outcome": "Passed",
+      "vstestTestId": "ef6d2618-c5ac-eddc-a542-237bcec7cb27"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.SearchEvidenceReader_RejectsMetadataOverlappingStringPool",
+      "outcome": "Passed",
+      "vstestTestId": "94ae0d04-f3ef-a1e5-22a2-2cbdab4bba83"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Constructor_UsesExactDefaultAntiCrawlerOptions",
+      "outcome": "Passed",
+      "vstestTestId": "4c635fde-fdef-9952-f2f9-5868707d2b5a"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-template\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "dd29fbb4-d944-14a7-1cf5-0dc218931f68"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests.Run_ExecutesEveryRequestedWorkerExactlyOnce",
+      "outcome": "Passed",
+      "vstestTestId": "446e6d2b-e41b-0f77-5498-bdf10b6cf553"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.ListRiskEvents_FiltersBySourceAndReason",
+      "outcome": "Passed",
+      "vstestTestId": "668f4c8a-5731-dc26-f9bd-98b5fdf1b4bd"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"outbox-missing\", expectedViolation: \"outbox_event_not_exact:\")",
+      "outcome": "Passed",
+      "vstestTestId": "ad1b2fd8-986c-3f01-7995-547642a7f434"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.TransactionFaultThenCallerCancellationRetainsOriginalClassification(cause: \"permission\", expectedStatus: 400)",
+      "outcome": "Passed",
+      "vstestTestId": "5307c5aa-1b50-6319-7075-b5d748e740b3"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Constructor_ReadsPowOptionsFromConfiguration",
+      "outcome": "Passed",
+      "vstestTestId": "c5f3c1a8-cced-90af-a80b-5cf869ff3180"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.BrokerResultTamper_IsRejectedBySameRequestBinding(change: \"proposal\")",
+      "outcome": "Passed",
+      "vstestTestId": "1d45520a-82d8-d484-e8cb-5a6371cde5f4"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-document-stale-content\", expectedViolation: \"aot_article_output_content_digest_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "6837baf4-0523-8efc-ef87-0ea635a01d75"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.NormalizeRuleAction_AllInputsProduceExactOutput",
+      "outcome": "Passed",
+      "vstestTestId": "41a42b1b-4aa9-feaa-9b70-42983f928719"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.UpdateAntiCrawlerOptions_NormalizesPathPrefixesAndKeywords",
+      "outcome": "Passed",
+      "vstestTestId": "caa2c8b4-2d2b-fabe-ab4d-4a2395969145"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsResealedEdgeAuthoritySubstitution",
+      "outcome": "Passed",
+      "vstestTestId": "c99c98a1-d3cf-c373-4b06-de000df93ceb"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"publication-relabel\", expectedViolation: \"publication_current_invocation_binding_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "45c045dd-76fb-30e1-6c56-c60ad795a50d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_KeepsExistingSearchArtifactsVisible_DuringSearchIndexBuild",
+      "outcome": "Passed",
+      "vstestTestId": "2692295d-55c5-8e68-f40a-093238d0ff06"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"stale-aot\", expectedViolation: \"aot_event_binding_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "f0dec2b4-210e-daac-4db0-70c758eaf73d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-document-stale-publication\", expectedViolation: \"aot_article_output_coordinate_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "68346031-09f2-ae1d-ba2f-54f0d8f36cb4"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRead_NonPositiveId_ReturnsBinaryNotFoundWithoutCache",
+      "outcome": "Passed",
+      "vstestTestId": "474bc6bf-a688-f7cd-e5a3-b67210620ca5"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Simulate_CurrentRiskScoreClampsToMaxRiskScore",
+      "outcome": "Passed",
+      "vstestTestId": "05e4ad15-7371-2ab0-d01e-e208b89d1e47"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.FileProposal_CannotChangeApprovedOperationOrPath(change: \"bytes\")",
+      "outcome": "Passed",
+      "vstestTestId": "f6a91a71-532b-bf5d-62fa-cf3e1cf484d2"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.IndependentPackagePreparation_RechecksAdmissionBeforeActualIo(change: \"grant\")",
+      "outcome": "Passed",
+      "vstestTestId": "48fff8d9-dde8-546d-625f-8d916336feb6"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-hydration-external-url\", expectedViolation: \"aot_hydration_reference_missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "c9b3b975-8831-4be1-0eef-3489e536bc73"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"runtime\")",
+      "outcome": "Passed",
+      "vstestTestId": "61853996-372e-7539-6bd3-3575e809da3b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsFailureWarningAndIncompleteTerminalVector(failure: \"recovery-required\")",
+      "outcome": "Passed",
+      "vstestTestId": "bac4a9db-859d-33d1-1980-ac1926fd925c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.FileProposal_CannotChangeApprovedOperationOrPath(change: \"operation\")",
+      "outcome": "Passed",
+      "vstestTestId": "34ce6331-37ba-172c-6336-62fe5faaa3c4"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-wrong-element\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "324b3ba1-0d3c-130d-8267-82d1d340cb13"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-hydration-missing\", expectedViolation: \"aot_hydration_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "6fdfa99c-487a-b216-3a9d-e0f210d7a47e"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-wrong-target\", expectedViolation: \"aot_article_generation_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "7f858dc7-81f1-be27-5ef7-2369301a1cef"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionConsistency_RejectsStaleOrDisagreeingProductionOutputs(fault: \"detail-coordinate\", expectedViolation: \"public_detail_coordinate_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "3d1444c6-6bcc-11ca-fe68-2301fc847e9f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Constructor_SeedsPolicySnapshotsWithConfigurationProvenance",
+      "outcome": "Passed",
+      "vstestTestId": "29b1ad4a-c4fe-e727-6bb2-f1898436997b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.PureCancellationKeepsOriginalCancellationAndUnprovenRecoveryObligation",
+      "outcome": "Passed",
+      "vstestTestId": "9c85ed36-d234-7b51-c029-e73ce51a3e52"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"publication-command-duplicate\", expectedViolation: \"publication_current_invocation_command_not_exact\")",
+      "outcome": "Passed",
+      "vstestTestId": "745e230d-4cc6-28b4-a4d9-b3e1fccaf8bf"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.DeclaredRequestOrResponseBudget_IsNotAGrant(request: False)",
+      "outcome": "Passed",
+      "vstestTestId": "94bf0cd1-30ea-65c9-8968-9069ee15e9f9"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-caller-cancelled\", expectedViolation: \"caller-budget-cancelled\")",
+      "outcome": "Passed",
+      "vstestTestId": "d28229dc-30fb-0a7a-1461-5bd11e1ebcee"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-foreign-script\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "f4f58f17-287e-d696-1292-6aebec659cbb"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-document-stale-rights\", expectedViolation: \"aot_article_output_rights_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "72516cb8-ac28-de21-25a7-526f114ac384"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.PreparedProjectionProof_RejectsNonExactOriginalInvocationRoster(kind: \"publication\", fault: \"duplicate\")",
+      "outcome": "Passed",
+      "vstestTestId": "b8bc6e07-5ceb-1132-53d5-7294a721e747"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.SearchEvidenceReader_RejectsExistenceOnlyArtifactWithInvalidBounds",
+      "outcome": "Passed",
+      "vstestTestId": "e1d2f270-dfd4-7c04-8304-7cbf67e0e182"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionWait_RequiresUnrecoveredExactPublishedGeneration(scenario: \"stale-generation\")",
+      "outcome": "Passed",
+      "vstestTestId": "7c6e830e-50c8-c117-ce48-114ac94d7415"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsFailureWarningAndIncompleteTerminalVector(failure: \"poison\")",
+      "outcome": "Passed",
+      "vstestTestId": "997fdfcc-c2c5-f126-3f5c-9b9132889ad2"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.PreparedProjectionProof_RejectsNonExactOriginalInvocationRoster(kind: \"lifecycle\", fault: \"missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "74881292-d7a8-5d0a-dd66-d57b59580e59"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests.RunAsync_StartsBothWorkersBeforeEitherCanCompleteAndKeepsInputOrder",
+      "outcome": "Passed",
+      "vstestTestId": "92d2d05b-83a9-9209-0d5a-ec65d8995fea"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"lifecycle-relabel\", expectedViolation: \"authority_current_invocation_binding_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "b2517ff8-1046-a174-a5db-69ab42dafa06"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.UpdateRule_ModifiesExistingRuleWithNormalizedFields",
+      "outcome": "Passed",
+      "vstestTestId": "d4792f53-5ac2-ae62-9c94-e1f8ac7cc2b4"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_UsesProductionRequiredSetAndAcceptsExactCompletedVector",
+      "outcome": "Passed",
+      "vstestTestId": "eb725db7-55f1-15ae-820b-04a4156e3eab"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"publication-command-missing\", expectedViolation: \"publication_current_invocation_command_not_exact\")",
+      "outcome": "Passed",
+      "vstestTestId": "4eb5c6d1-94bf-cf59-9735-a474ca01feb9"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests.RunInterleavedAsync_ControllerFailureReleasesAndDrainsActualOperation",
+      "outcome": "Passed",
+      "vstestTestId": "2007e32f-6e81-ed96-6c02-0d7897b56366"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactMetadataPolicy_IsIndependentOfListFrames",
+      "outcome": "Passed",
+      "vstestTestId": "88cf3ed9-c234-22ef-baa9-4e14f35878fd"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.MissingActualResolverOrBroker_RefusesBeforeIo(missingResolver: True)",
+      "outcome": "Passed",
+      "vstestTestId": "e5f450a3-0e79-5bac-67bd-60316e780bd8"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRoutes_AreNotPublicHotReadL0(path: \"/api/binary/tag/by-name.aeds\")",
+      "outcome": "Passed",
+      "vstestTestId": "2c3cea0f-bc66-a90f-e043-6521d4e535e2"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.AddRule_NormalizesMatchTypeAndActionAndClampsScore",
+      "outcome": "Passed",
+      "vstestTestId": "3c932127-883a-2405-59b0-2ec9e7889a2b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.CacheIdentities_AreKeyedByKindAndCanonicalId",
+      "outcome": "Passed",
+      "vstestTestId": "4797dd19-602e-bcac-4495-2274631de682"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-data-id\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "8ea70c79-1f65-f490-816f-62747e162106"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_StopsRemainingTasks_WhenAccountSubjectProjectionIsIncomplete",
+      "outcome": "Passed",
+      "vstestTestId": "c38179a8-8a7c-c3ae-76b5-7eb4f30bd2b7"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Simulate_CoversAllMatchTypeBranchesAndCrawlerDetection",
+      "outcome": "Passed",
+      "vstestTestId": "fb6081e3-198d-ef0b-7bbe-6d40475701f8"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.DeleteRule_RemovesExistingRule",
+      "outcome": "Passed",
+      "vstestTestId": "368a558f-56bb-2f94-2ea7-aee2e0e6d29c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.PreparedProjectionProof_RejectsNonExactOriginalInvocationRoster(kind: \"lifecycle\", fault: \"extra\")",
+      "outcome": "Passed",
+      "vstestTestId": "0d1694a5-eaf1-4c67-12c7-d741573190e1"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.FinalPreparationDeadline_RefusesAlreadySettledValue",
+      "outcome": "Passed",
+      "vstestTestId": "4d1045f2-4861-0da5-9435-72eec62976ff"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.UpdateAntiCrawlerOptions_CidrIntervalClampsToMinimum",
+      "outcome": "Passed",
+      "vstestTestId": "df17b958-6c2e-d8a6-e453-e631e5b3927a"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsResealedEdgeVersionAndOutputSubstitution",
+      "outcome": "Passed",
+      "vstestTestId": "7c65c86a-0ab2-77dd-a997-727929016efb"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.UpdateRule_ReturnsNullForUnknownId",
+      "outcome": "Passed",
+      "vstestTestId": "097fc415-c99a-0cda-57fb-927e20322f86"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.PostIoDrift_RefusesPublication(drift: \"after-deadline\")",
+      "outcome": "Passed",
+      "vstestTestId": "e2534c4b-f0fe-3aa3-a619-4dc9c8a1da2b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-style-rawtext\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "e3104445-4ad5-4834-a4b4-cf3fb7879f6e"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.PreparedProjectionProof_RejectsNonExactOriginalInvocationRoster(kind: \"lifecycle\", fault: \"foreign\")",
+      "outcome": "Passed",
+      "vstestTestId": "52280efc-df78-8d52-78ea-826c1cc0c0b6"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"site\")",
+      "outcome": "Passed",
+      "vstestTestId": "805ab84c-cc3c-1037-0d25-e9d55f6574b5"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_RestoresSearchIndexArtifacts_WhenLaterTaskFails",
+      "outcome": "Passed",
+      "vstestTestId": "ec5e4427-b8f3-d3be-e881-d6043305aaf0"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.DuplicateRequest_CannotRepeatIo",
+      "outcome": "Passed",
+      "vstestTestId": "8f75e4dc-a2a8-9d62-6988-d72002e3745f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Constructor_AntiCrawlerModeFallsBackToSecurityKey",
+      "outcome": "Passed",
+      "vstestTestId": "0d625fe6-8a70-ff6b-8bff-7809bc5b316d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.BrokerVersion_IsExplicitAndNeverFallsBack(version: 3)",
+      "outcome": "Passed",
+      "vstestTestId": "4684a818-0692-d4d7-d2dd-c26c8eb9a77e"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsNonExactOrNonSuccessfulCurrentEdge(fault: \"zero-attempt\")",
+      "outcome": "Passed",
+      "vstestTestId": "9f5e6e80-6bf4-8f37-e40f-0caddb543167"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"latest-metadata\", expectedViolation: \"article_latest_metadata_disagrees_with_sealed_revi\"\u00b7\u00b7\u00b7)",
+      "outcome": "Passed",
+      "vstestTestId": "f5cbdd66-f35c-6f38-5b08-c6fb3425f05d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-document-stale-publication\", expectedViolation: \"aot_article_output_coordinate_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "b4202e81-8091-5813-1d43-e990e42eb374"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Simulate_BlocklistedEntryBlocksInEnforceMode",
+      "outcome": "Passed",
+      "vstestTestId": "8c27b842-64b4-778e-b268-2b77cd663bbc"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.IndependentPackagePreparation_RechecksAdmissionBeforeActualIo(change: \"deadline\")",
+      "outcome": "Passed",
+      "vstestTestId": "d05a9d61-64ed-811c-6e9a-119ef23d7e7c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsNonExactOrNonSuccessfulCurrentEdge(fault: \"delivery-key\")",
+      "outcome": "Passed",
+      "vstestTestId": "ea2b9156-f403-d1c1-2f7d-a919a047385b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-hydration-inline-shadow\", expectedViolation: \"aot_hydration_reference_missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "3d99786b-e896-1672-2db2-0575cba5bdcb"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionConsistency_RejectsStaleOrDisagreeingProductionOutputs(fault: \"search-query\", expectedViolation: \"search_visibility_mismatch\")",
+      "outcome": "Passed",
+      "vstestTestId": "7c1fd255-bd5f-f6d3-7e6f-d6b5727a007e"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_StopsRemainingTasks_WhenSchemaMigrationFails",
+      "outcome": "Passed",
+      "vstestTestId": "4189b642-2c1b-4647-0807-e67c1a33699d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Constructor_CidrUpdateIntervalNeverDropsBelowMinimum",
+      "outcome": "Passed",
+      "vstestTestId": "15fac355-9f57-6e0d-9adf-c660a88a18ea"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AedsArticleDetail_RejectsInvalidOrStaleSemanticPayload(fault: \"invalid\", expectedViolation: \"aeds_article_detail_frame_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "b52aebee-ef79-f3f0-9bba-18adf3add77c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.OutboxState_RejectsMissingDuplicatePoisonAndUnsealedCoordinates(fault: \"poison\")",
+      "outcome": "Passed",
+      "vstestTestId": "85c572a0-13bc-fc93-d918-0d6b33244839"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"aot-noscript\", expectedViolation: \"aot_bootstrap_payload_invalid\")",
+      "outcome": "Passed",
+      "vstestTestId": "f8fecf6f-1722-114b-ad9a-0056f252b447"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.CallerProposals_CannotEnlargeOrReuseApprovedScope(change: \"grant\")",
+      "outcome": "Passed",
+      "vstestTestId": "1edc6f38-3e25-3f5b-bd71-56636c8b879f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.Aggregate_RejectsResealedOutputAndCurrentCoordinateSubstitution",
+      "outcome": "Passed",
+      "vstestTestId": "5617eb1c-3912-4700-a949-f3368b6d0360"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.RecoveryFaultCannotReplaceOriginalTransactionFault(cause: \"clock\", expectedStatus: 500)",
+      "outcome": "Passed",
+      "vstestTestId": "f2ff6718-50e6-a8d3-7d9d-5ee16c33fad7"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.Constructor_ReadsPerceptionV2OptionsFromConfiguration",
+      "outcome": "Passed",
+      "vstestTestId": "9f444715-684d-0573-d532-f0c539a76e6e"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionWait_RequiresUnrecoveredExactPublishedGeneration(scenario: \"published\")",
+      "outcome": "Passed",
+      "vstestTestId": "54254b5d-fb9a-d537-be6c-f806d8f35c0c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.VerifyAsync_RereadsBoundOutputsAndFailsClosed(scenario: \"publication\", expectedViolation: null)",
+      "outcome": "Passed",
+      "vstestTestId": "1be3ffb0-7871-6434-9018-6af6945dad59"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ProjectionWait_RequiresUnrecoveredExactPublishedGeneration(scenario: \"missing\")",
+      "outcome": "Passed",
+      "vstestTestId": "32e7614c-19ed-2886-e405-a3a4c8b96c90"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcBrokerTests.PostIoDrift_RefusesPublication(drift: \"revision\")",
+      "outcome": "Passed",
+      "vstestTestId": "2f02dfee-da73-5214-34f6-554dcd7ca473"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled",
+      "outcome": "Passed",
+      "vstestTestId": "a3d09ac4-3562-12e5-d60a-9476fe087376"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.RealConcurrencyHarnessTests.RunAsync_CancellationDrainsOtherWorkerAndRemainsCanceled",
+      "outcome": "Passed",
+      "vstestTestId": "20c65402-4876-53b7-23a0-aeabf8776a28"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.MatchCanonicalTagId_ReturnsNullForMissingOrAmbiguousNames",
+      "outcome": "Passed",
+      "vstestTestId": "de10b00a-2d92-6dc6-3ad8-423e2447c984"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityAdminPolicyDefaultsTests.BuildSecurityOverview_AggregatesCurrentState",
+      "outcome": "Passed",
+      "vstestTestId": "a5e76a20-f903-336e-3040-752d49430744"
+    }
+  ],
+  "counts": {
+    "total": "248",
+    "executed": "248",
+    "passed": "248",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "compiledAssemblies": [
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+      "sha256": "a6acd331d7dc27db2ba84901d6d18843c29708fd513d1434c4feb1d1c8e52820",
+      "size": 19571200
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+      "sha256": "a6acd331d7dc27db2ba84901d6d18843c29708fd513d1434c4feb1d1c8e52820",
+      "size": 19571200
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+      "sha256": "871e8839d0b5b67b7fee4e53f21ac5737d0d53f76a40b9e27894cb39acead201",
+      "size": 14468096
+    }
+  ],
+  "productAndTestDirectoryProductAssemblyIdentical": true,
+  "trxSha256": "1b73b4918712827530d9fa9d28a5eae81509cd97c1ce8dc3460b9a32fe3675e0"
+}

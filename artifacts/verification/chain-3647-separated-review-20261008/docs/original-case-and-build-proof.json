@@ -1,0 +1,122 @@
+{
+  "candidate": "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2",
+  "base": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+  "currentFreshExecution": true,
+  "oldReceiptReused": false,
+  "old263TestedSha": "4f7050e98010478fa261464cb2ad64b26e0bd277",
+  "onlyCaseNamesComparedToOldReceipt": true,
+  "cases": [
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.ApplyAndRead_RepresentsEveryAuthoritativeStatus(status: Banned, reasonCode: \"manual_ban\")",
+      "outcome": "Passed",
+      "vstestTestId": "53b77d2b-4d25-a8df-d57a-57b5b082b526"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests.PreparedEvent_IsDurableBeforePublish_AndDegradedPublishRemainsTrackable",
+      "outcome": "Passed",
+      "vstestTestId": "2e53a2ef-650c-1529-6dfc-f1a9234a5a96"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.Apply_RejectsStaleAndDuplicateAndFailsClosedOnSameGenerationConflict",
+      "outcome": "Passed",
+      "vstestTestId": "3919832e-bd25-c54f-02e0-3ef519102a74"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.ApplyAndRead_RepresentsEveryAuthoritativeStatus(status: Normal, reasonCode: null)",
+      "outcome": "Passed",
+      "vstestTestId": "5ba1be11-aea8-da1b-97f3-fee070afe81d"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.KnownHotRead_OneThousandConcurrentCallersNeverInvokeSource",
+      "outcome": "Passed",
+      "vstestTestId": "5d350ed7-85ee-e937-a0bb-df794449798f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownRead_OneThousandConcurrentCallersUseOneWholeSubjectSourceLoad",
+      "outcome": "Passed",
+      "vstestTestId": "bd605559-d213-f103-75ea-9e75188c53ba"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownRead_CanceledFirstWaiterDoesNotBreakWholeSubjectSingleflight",
+      "outcome": "Passed",
+      "vstestTestId": "d3f75189-013b-4262-78dc-4eb344f4e29c"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.ApplyAndRead_RepresentsEveryAuthoritativeStatus(status: Deleted, reasonCode: null)",
+      "outcome": "Passed",
+      "vstestTestId": "365aa1d6-084a-b043-0fd7-a045bb6f5884"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.Apply_OneHundredThousandSubjectsNeverExceedsResidentBudgets",
+      "outcome": "Passed",
+      "vstestTestId": "c07e26e2-e539-9123-f146-c2963a4fc03f"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownSourceFailure_FailsClosedAndDoesNotCreateNormalState",
+      "outcome": "Passed",
+      "vstestTestId": "77b0ad19-5326-8a80-7d2e-7f930efc72a9"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests.BanUnbanBan_OutOfOrderAndDuplicateDeliveryConvergesAcrossTwoNodes",
+      "outcome": "Passed",
+      "vstestTestId": "e7603cd1-15d2-6932-e0e6-5b8e92938a9b"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.OversizedHigherGenerationFailsClosedInsteadOfPreservingKnownNormal",
+      "outcome": "Passed",
+      "vstestTestId": "35843119-6524-50c3-0896-0e349b5d7a07"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.UnknownSourceMissingOrSubjectMismatchNeverBecomesNormal",
+      "outcome": "Passed",
+      "vstestTestId": "7e561a0e-2776-0029-3774-a4fe342eb151"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionConvergenceTests.DurableTarget_RoundTripsBoundedReasonCodeAndCanReplayAfterRestart",
+      "outcome": "Passed",
+      "vstestTestId": "d84f4ba8-57f6-1114-61d8-0efb06c4d3fa"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.BanStateProjectionTests.Apply_EnforcesEntryAndUtf8ResidentByteBudgetsAndEvictionReturnsUnknown",
+      "outcome": "Passed",
+      "vstestTestId": "d2b2f6ca-1210-72e6-e1a5-ea8e12fb3705"
+    }
+  ],
+  "counts": {
+    "total": "15",
+    "executed": "15",
+    "passed": "15",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "compiledAssemblies": [
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+      "sha256": "420a4170bafb25cb36368f5eb5a5ebd2833919b3200fdb16eca175c9f5821a3a",
+      "size": 19571200
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+      "sha256": "420a4170bafb25cb36368f5eb5a5ebd2833919b3200fdb16eca175c9f5821a3a",
+      "size": 19571200
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+      "sha256": "2c42ee94fc9b2985515b2df356cb77a7ad9aa4b30fa353f0980e141e07dd3e8e",
+      "size": 14468096
+    }
+  ],
+  "productAndTestDirectoryProductAssemblyIdentical": true,
+  "trxSha256": "e529c6922a63a49eb48c442a506302ae0eb1631b46ea920e47bfd7a46a709a5c"
+}

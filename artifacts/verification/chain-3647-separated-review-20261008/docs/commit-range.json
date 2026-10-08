@@ -1,0 +1,24 @@
+{
+  "scope": "docs",
+  "runIdentity": "fsusblog-3647-scoped-20261008T0932Z",
+  "candidate": "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2",
+  "base": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+  "tree": "264433c506d0ec1525a1042935f84feba8baf50f",
+  "cwd": "/workspace/FsusBlog-3647-docs-only",
+  "command": [
+    "node",
+    "/workspace/FsusBlog-3647-prerequisites/tools/governance/check-change-contract.mjs",
+    "--root",
+    "/workspace/FsusBlog-3647-docs-only",
+    "--range",
+    "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5..7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2"
+  ],
+  "start": "2026-10-08T09:36:57.726242+00:00",
+  "end": "2026-10-08T09:37:01.877507+00:00",
+  "exitCode": 0,
+  "endCandidate": "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2",
+  "candidateStable": true,
+  "trackedWorktreeClean": true,
+  "log": "commit-range.log",
+  "oldReceiptReused": false
+}

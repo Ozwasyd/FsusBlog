@@ -1,0 +1,37 @@
+{
+  "prerequisite": {
+    "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "candidate": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+    "changedPaths": 9,
+    "actualPassed": 248,
+    "failed": 0,
+    "skipped": 0,
+    "testSources": [
+      "https://github.com/Ozwasyd/FsusBlog/blob/4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+      "https://github.com/Ozwasyd/FsusBlog/blob/4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+      "https://github.com/Ozwasyd/FsusBlog/blob/4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+      "https://github.com/Ozwasyd/FsusBlog/blob/4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "https://github.com/Ozwasyd/FsusBlog/blob/4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5/tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "https://github.com/Ozwasyd/FsusBlog/blob/4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+      "https://github.com/Ozwasyd/FsusBlog/blob/4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5/tests/backend/Unit/TaxonomyExactMetadataTests.cs"
+    ],
+    "scopeProof": "scope-proof.json",
+    "sourceProof": "token-signature-roster.log",
+    "runtimeProof": "original-case-and-build-proof.json"
+  },
+  "docs": {
+    "base": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+    "candidate": "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2",
+    "changedPaths": 2,
+    "actualPassed": 15,
+    "failed": 0,
+    "skipped": 0,
+    "testSources": [
+      "https://github.com/Ozwasyd/FsusBlog/blob/7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2/tests/backend/Unit/BanStateProjectionTests.cs",
+      "https://github.com/Ozwasyd/FsusBlog/blob/7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2/tests/backend/Unit/BanStateProjectionConvergenceTests.cs"
+    ],
+    "scopeProof": "scope-proof.json",
+    "sourceProof": "token-signature-roster.log",
+    "runtimeProof": "original-case-and-build-proof.json"
+  }
+}

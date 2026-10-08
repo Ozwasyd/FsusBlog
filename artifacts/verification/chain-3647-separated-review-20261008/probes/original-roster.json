@@ -1,0 +1,74 @@
+{
+  "revision": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
+  "count": 17,
+  "declarations": [
+    {
+      "line": 9,
+      "declaration": "public enum BanStateProjectionStatus"
+    },
+    {
+      "line": 17,
+      "declaration": "public readonly record struct BanStateProjectionUpdate("
+    },
+    {
+      "line": 23,
+      "declaration": "public readonly record struct BanStateProjectionLookup("
+    },
+    {
+      "line": 28,
+      "declaration": "public bool IsKnown => Status is not BanStateProjectionStatus.Unknown;"
+    },
+    {
+      "line": 30,
+      "declaration": "public static BanStateProjectionLookup Unknown(long generation = 0)"
+    },
+    {
+      "line": 34,
+      "declaration": "public enum BanStateProjectionApplyResult"
+    },
+    {
+      "line": 44,
+      "declaration": "public sealed class BanStateProjectionLimits"
+    },
+    {
+      "line": 46,
+      "declaration": "public int MaxEntries { get; init; } = 100_000;"
+    },
+    {
+      "line": 48,
+      "declaration": "public long MaxUtf8ResidentBytes { get; init; } = 8 * 1024 * 1024;"
+    },
+    {
+      "line": 50,
+      "declaration": "public int MaxReasonCodeUtf8Bytes { get; init; } = 64;"
+    },
+    {
+      "line": 59,
+      "declaration": "public readonly record struct BanStateProjectionSnapshot("
+    },
+    {
+      "line": 77,
+      "declaration": "public long VersionLag => Math.Max(0, HighestObservedGeneration - HighestAppliedGeneration);"
+    },
+    {
+      "line": 121,
+      "declaration": "public BanStateProjection("
+    },
+    {
+      "line": 188,
+      "declaration": "public ValueTask<BanStateProjectionLookup> GetAsync("
+    },
+    {
+      "line": 193,
+      "declaration": "public BanStateProjectionApplyResult Apply(BanStateProjectionUpdate update)"
+    },
+    {
+      "line": 283,
+      "declaration": "public BanStateProjectionSnapshot Snapshot()"
+    },
+    {
+      "line": 553,
+      "declaration": "public static void Max(ref long location, long value)"
+    }
+  ]
+}

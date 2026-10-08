@@ -1,0 +1,14 @@
+{
+  "prerequisite": {
+    "root": "/workspace/FsusBlog-3647-prerequisites",
+    "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "head": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+    "expectedOriginalCases": 248
+  },
+  "docs": {
+    "root": "/workspace/FsusBlog-3647-docs-only",
+    "base": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+    "head": "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2",
+    "expectedOriginalCases": 15
+  }
+}

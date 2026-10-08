@@ -1,0 +1,21 @@
+{
+  "base": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+  "candidate": "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2",
+  "changes": [
+    {
+      "path": "artifacts/change-contract/ban-projection-docs-external-naming.json",
+      "baseBlob": null,
+      "candidateBlob": "b59d1aeae9bfaebd90e3979056919c2bfdaaaf31",
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2/artifacts/change-contract/ban-projection-docs-external-naming.json"
+    },
+    {
+      "path": "src/backend/Infrastructure/Security/BanStateProjection.cs",
+      "baseBlob": "f4c07ad43dab1e4c2c18b291977618879b6d9290",
+      "candidateBlob": "5c093a0c59424dc55efc6bdd3d75ee1d15f9875f",
+      "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/blob/7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2/src/backend/Infrastructure/Security/BanStateProjection.cs"
+    }
+  ],
+  "testOrOracleChangesInDiff": false,
+  "docsMustStayStacked": true,
+  "scopeBoundaryPass": true
+}

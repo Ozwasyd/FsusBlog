@@ -1,0 +1,28 @@
+{
+  "scope": "prerequisite",
+  "runIdentity": "fsusblog-3647-scoped-20261008T0932Z",
+  "candidate": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+  "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "tree": "1ea67368166f4ec1456381478bd935a63d2de5a9",
+  "cwd": "/workspace/FsusBlog-3647-prerequisites",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName~LifecycleHostedBootstrapServiceTests|FullyQualifiedName~TaxonomyExactMetadataTests|FullyQualifiedName~SecurityAdminPolicyDefaultsTests|FullyQualifiedName~RealConcurrencyHarnessTests|FullyQualifiedName~CanonicalArticleLifecycleScheduledFailureTests|FullyQualifiedName~CanonicalArticleProjectionVerifierTests|FullyQualifiedName~AuthoringExtensionRpcBrokerTests",
+    "--logger",
+    "trx;LogFileName=prerequisite-originals.trx",
+    "--results-directory",
+    "/workspace/fsusblog-3647-scoped-verification/prerequisite/test-results"
+  ],
+  "start": "2026-10-08T09:35:29.037049+00:00",
+  "end": "2026-10-08T09:38:43.056553+00:00",
+  "exitCode": 0,
+  "endCandidate": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+  "candidateStable": true,
+  "trackedWorktreeClean": true,
+  "log": "original-affected-behavior.log",
+  "oldReceiptReused": false
+}

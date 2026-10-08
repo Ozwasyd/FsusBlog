@@ -1,0 +1,524 @@
+{
+  "schema": "fsusblog.task-partition-provenance.v1",
+  "createdUtc": "2026-10-08T09:21:56.903930+00:00",
+  "scopeConstraint": {
+    "issue": "https://github.com/Ozwasyd/FsusBlog/issues/3647",
+    "exactText": "No runtime tokens, public contract, policy/checker/baseline, tests or test-oracle changes.",
+    "frozen10PathCandidateSatisfiesLiteralDocsOnlyBoundary": false,
+    "correction": "4f7050e is a combined docs + independently owned compiler/API/oracle prerequisite scope. Its263passes do not satisfy the owned issue scope prohibition. Only staged docs diff has zero test/oracle changes."
+  },
+  "frozenPublishedHead": "4f7050e98010478fa261464cb2ad64b26e0bd277",
+  "frozenBranch": "task/3647-ban-projection-narrow",
+  "doNotMergeCombinedCandidate": true,
+  "stagedPrerequisite": {
+    "branch": "task/3647-stage-3654-prerequisites",
+    "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "head": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+    "paths": [
+      "artifacts/change-contract/projection-test-prerequisites-external-naming.json",
+      "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+      "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+      "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+      "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+      "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+      "tests/backend/packages.lock.json"
+    ],
+    "canonicalSoleOwners": [
+      "3654",
+      "3665 existing verifier",
+      "3568 lock"
+    ],
+    "containsGenuineOracleChanges": true,
+    "notAnOwned3647DocsChange": true,
+    "newImplementation": "none; exact canonical file snapshot imports, not duplicate oracle repairs",
+    "review": "separate canonical3654 review; root routes to3654owner",
+    "testsAtThisHead": "NOT RUN; old4f actual263 retained as source/blob evidence only"
+  },
+  "stagedDocsOnly": {
+    "branch": "task/3647-docs-only-staged",
+    "base": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5",
+    "head": "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2",
+    "paths": [
+      "artifacts/change-contract/ban-projection-docs-external-naming.json",
+      "src/backend/Infrastructure/Security/BanStateProjection.cs"
+    ],
+    "productSourceBlob": "5c093a0c59424dc55efc6bdd3d75ee1d15f9875f",
+    "onlyCommentChange": "null source supplies no fact; existing local reread can observe concurrent update",
+    "ordinaryMetadata": "Original cc0 naming manifest environment-variable entry only; no lock/test naming entry",
+    "original17Declarations": "already integrated into fresh master; retained, not17newdeclarationsinthisdiff",
+    "noTestsOrOraclesChangedInThisDiff": true,
+    "allNoncommentTokensPreserved": "Exact same source blobs as base/original cc0/frozen source used in existing4f Roslyn token/AST/XML-stripped proof; no new execution asserted",
+    "dependency": "Requires independently reviewed prerequisite4fde8307... (fullSHAabove), not merged; cannot retarget directly to master and still call aggregate diff docs-only",
+    "testsAtThisHead": "NOT RUN; unstacked master original test acceptance blocked by actualNU1004/4CS0182+10compilererrors; stagedbasehascanonicalrepairbutnewheadnotexecuted"
+  },
+  "importedFiles": [
+    {
+      "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+      "canonicalOwner": "3665 existing verifier,3654 canonical style",
+      "classification": "compiler/API-owner substitution + style",
+      "actualDelta": "CanonicalAuthoringFilePathVerifier \u2192 existing LinuxAuthoringFilePathVerifier; using groups and layout only; all case/assertion payloads retained",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "canonicalBlob": "e61cb8830fda029cc7c18bff4c4e6dcc60ab76c1",
+      "baselineBlob": "138d80eff65c921dce392bfb0223bcb1f8913305",
+      "stagedPrerequisiteBlob": "e61cb8830fda029cc7c18bff4c4e6dcc60ab76c1",
+      "frozenCandidateBlob": "e61cb8830fda029cc7c18bff4c4e6dcc60ab76c1",
+      "exactCanonicalImport": true,
+      "diffHunks": [
+        "@@ -4,10 +4,10 @@ using System.Runtime.InteropServices;",
+        "@@ -77,7 +77,10 @@ public sealed class AuthoringExtensionRpcBrokerTests",
+        "@@ -304,7 +307,13 @@ public sealed class AuthoringExtensionRpcBrokerTests",
+        "@@ -315,13 +324,16 @@ public sealed class AuthoringExtensionRpcBrokerTests",
+        "@@ -472,8 +484,13 @@ public sealed class AuthoringExtensionRpcBrokerTests",
+        "@@ -502,7 +519,7 @@ public sealed class AuthoringExtensionRpcBrokerTests",
+        "@@ -514,7 +531,11 @@ public sealed class AuthoringExtensionRpcBrokerTests",
+        "@@ -577,11 +598,26 @@ public sealed class AuthoringExtensionRpcBrokerTests",
+        "@@ -672,9 +708,18 @@ public sealed class AuthoringExtensionRpcBrokerTests",
+        "@@ -769,9 +814,18 @@ public sealed class AuthoringExtensionRpcBrokerTests",
+        "@@ -793,7 +847,10 @@ public sealed class AuthoringExtensionRpcBrokerTests",
+        "@@ -803,7 +860,10 @@ public sealed class AuthoringExtensionRpcBrokerTests"
+      ],
+      "completePatch": "AuthoringExtensionRpcBrokerTests.patch",
+      "patchSha256": "7036331071ad45b7878713d2c9433aa3f3bd0cfbee695b4254cb0b06b3061382",
+      "justification": {
+        "originalCanonicalCompilerCommit": "fd08fde79cb98cd3b4dc7fc5c8af2b09045a3733",
+        "finalOwnerSnapshot": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd"
+      }
+    },
+    {
+      "path": "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+      "canonicalOwner": "3654",
+      "classification": "compiler namespace binding",
+      "actualDelta": "Add existing publication validator/validation exception namespaces; no oracle change in this file",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "canonicalBlob": "75947dd73871bab169cc9f5ed6828bbf35783a15",
+      "baselineBlob": "b4b75d123280e843d563e3cdeb17dfc0444c4ca5",
+      "stagedPrerequisiteBlob": "75947dd73871bab169cc9f5ed6828bbf35783a15",
+      "frozenCandidateBlob": "75947dd73871bab169cc9f5ed6828bbf35783a15",
+      "exactCanonicalImport": true,
+      "diffHunks": [
+        "@@ -1,9 +1,11 @@"
+      ],
+      "completePatch": "CanonicalArticleLifecycleScheduledFailureTests.patch",
+      "patchSha256": "bd221ea7b0958d0dde799bf1acef232e24ddb607818ea4d04d328247e6fc524b",
+      "justification": {
+        "originalCanonicalCompilerCommit": "fd08fde79cb98cd3b4dc7fc5c8af2b09045a3733",
+        "finalOwnerSnapshot": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd"
+      }
+    },
+    {
+      "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+      "canonicalOwner": "3654",
+      "classification": "compiler API binding + genuine oracle change",
+      "actualDelta": "Existing s_projectionConvergencePollInterval reference; hydrationReadCount=1 only for aot-cold-wait/aot-shared-budget instead of readCount2; other four Received(readCount) assertions retained",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "canonicalBlob": "642ee88a2edc230f2069a8a624348f9e32d9c4f1",
+      "baselineBlob": "4908b5ffc5527f045c7661244284a977cddd1684",
+      "stagedPrerequisiteBlob": "642ee88a2edc230f2069a8a624348f9e32d9c4f1",
+      "frozenCandidateBlob": "642ee88a2edc230f2069a8a624348f9e32d9c4f1",
+      "exactCanonicalImport": true,
+      "diffHunks": [
+        "@@ -563,9 +563,9 @@ public sealed class CanonicalArticleProjectionVerifierTests",
+        "@@ -623,7 +623,10 @@ public sealed class CanonicalArticleProjectionVerifierTests"
+      ],
+      "completePatch": "CanonicalArticleProjectionVerifierTests.patch",
+      "patchSha256": "6e9df6f791faf4ae8970c9f42ce449940142c850be931a023424f29d73bd8916",
+      "justification": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651"
+    },
+    {
+      "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "canonicalOwner": "3654",
+      "classification": "attribute compiler binding + genuine oracle change + style",
+      "actualDelta": "Framework environment fields \u2192 same Development/Production constant strings; two expected Detail strings compatibility_check \u2192 current_schema_verified; auto-property layout",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "canonicalBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+      "baselineBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+      "stagedPrerequisiteBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+      "frozenCandidateBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+      "exactCanonicalImport": true,
+      "diffHunks": [
+        "@@ -20,10 +20,10 @@ namespace FsusBlog.Server.Tests;",
+        "@@ -113,7 +113,7 @@ public sealed class LifecycleHostedBootstrapServiceTests",
+        "@@ -162,7 +162,7 @@ public sealed class LifecycleHostedBootstrapServiceTests",
+        "@@ -575,7 +575,10 @@ public sealed class LifecycleHostedBootstrapServiceTests"
+      ],
+      "completePatch": "LifecycleHostedBootstrapServiceTests.patch",
+      "patchSha256": "1a105ad10377e7bea700183452f5032353dfcdb742d098efcf92be11f24aa5be",
+      "justification": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651"
+    },
+    {
+      "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "canonicalOwner": "3654",
+      "classification": "genuine assertion API/oracle adaptation required by compiler",
+      "actualDelta": "void \u2192 async Task; three Assert.Throws<ArgumentException>(Func<Task>) \u2192 await Assert.ThrowsAsync<ArgumentException>; same three invalid inputs and Assert.Equal(0,started)",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "canonicalBlob": "7f1b9073618a5905a13490fb9996061ae1c1d55c",
+      "baselineBlob": "c2944327c23e7962d04279e51ff7e186c2098de0",
+      "stagedPrerequisiteBlob": "7f1b9073618a5905a13490fb9996061ae1c1d55c",
+      "frozenCandidateBlob": "7f1b9073618a5905a13490fb9996061ae1c1d55c",
+      "exactCanonicalImport": true,
+      "diffHunks": [
+        "@@ -3,7 +3,7 @@ namespace FsusBlog.Server.Tests.Unit;",
+        "@@ -11,9 +11,9 @@ public sealed class RealConcurrencyHarnessTests"
+      ],
+      "completePatch": "RealConcurrencyHarnessTests.patch",
+      "patchSha256": "083c5b905b5d163544e45fd8e2be6b455984044503b2b57430b050c31495237c",
+      "justification": {
+        "originalCanonicalCompilerCommit": "fd08fde79cb98cd3b4dc7fc5c8af2b09045a3733",
+        "finalOwnerSnapshot": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd"
+      }
+    },
+    {
+      "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+      "canonicalOwner": "3654",
+      "classification": "compiler extension namespace + style",
+      "actualDelta": "Add Microsoft.Extensions.Configuration namespace and using grouping; multiline record-with initializers; no assertion payload change",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "canonicalBlob": "4b72b28deba1c3f35e6a38c18451322068e1d7d0",
+      "baselineBlob": "83f31686bd38f8f573de5c4b4a4fda405a2599d4",
+      "stagedPrerequisiteBlob": "4b72b28deba1c3f35e6a38c18451322068e1d7d0",
+      "frozenCandidateBlob": "4b72b28deba1c3f35e6a38c18451322068e1d7d0",
+      "exactCanonicalImport": true,
+      "diffHunks": [
+        "@@ -2,6 +2,8 @@ using FsusBlog.Server.Infrastructure.Security;",
+        "@@ -717,7 +719,10 @@ public sealed class SecurityAdminPolicyDefaultsTests",
+        "@@ -737,7 +742,10 @@ public sealed class SecurityAdminPolicyDefaultsTests",
+        "@@ -921,7 +929,10 @@ public sealed class SecurityAdminPolicyDefaultsTests"
+      ],
+      "completePatch": "SecurityAdminPolicyDefaultsTests.patch",
+      "patchSha256": "0409e9cc29b9a43eb6b9abb8dc4d0ff586e7ddba1a9f4d2ad133a81bc5afdd1b",
+      "justification": {
+        "originalCanonicalCompilerCommit": "fd08fde79cb98cd3b4dc7fc5c8af2b09045a3733",
+        "finalOwnerSnapshot": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd"
+      }
+    },
+    {
+      "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+      "canonicalOwner": "3654",
+      "classification": "compiler namespace + style",
+      "actualDelta": "Add existing FsusBlog.Core.Common ErrorCode namespace; using order/group only; no oracle payload change",
+      "sourceCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "canonicalBlob": "6a3f275549039c8b2022500cef0710216d492eb1",
+      "baselineBlob": "13d6080a3dddc728dee6dfe061b97773912f1097",
+      "stagedPrerequisiteBlob": "6a3f275549039c8b2022500cef0710216d492eb1",
+      "frozenCandidateBlob": "6a3f275549039c8b2022500cef0710216d492eb1",
+      "exactCanonicalImport": true,
+      "diffHunks": [
+        "@@ -1,15 +1,16 @@"
+      ],
+      "completePatch": "TaxonomyExactMetadataTests.patch",
+      "patchSha256": "842673518418ad0d1da5e265b82b46f139ccbbc07619d7a88a8333a7550a8c90",
+      "justification": {
+        "originalCanonicalCompilerCommit": "fd08fde79cb98cd3b4dc7fc5c8af2b09045a3733",
+        "finalOwnerSnapshot": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd"
+      }
+    },
+    {
+      "path": "tests/backend/packages.lock.json",
+      "canonicalOwner": "3568",
+      "classification": "package-manager consumer lock dependency",
+      "sourceCommit": "b104b99d84b91af577336efd6430d492c25683c9",
+      "canonicalBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+      "stagedBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+      "actualDelta": "One existing Server dependency edge AngleSharp [1.5.0,) added; no package version change",
+      "failureEvidence": "doc-only-locked-restore.json/.log candidatec0ffdb88f4e456d555a5dc8acd07e0bccfa6f86b fails NU1004; inherited original test project cannot locked-restore on unstacked master"
+    }
+  ],
+  "oracleChanges": [
+    {
+      "testFile": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+      "sites": [
+        "currentcandidate lines626-629 (one assertion site/two theory cases)"
+      ],
+      "change": "Sidecar readCount2 \u21921 only aot-cold-wait/aot-shared-budget",
+      "unchangedProduction": "ReadAotOutputAsync lines946,955-958 return aot_current_document_missing before discovering any sidecar; only valid entry/marker reaches storage read1004-1006. Bounded retry211-241 catches only exact2violation pair; invalid/stale/hydration failures remain terminal.",
+      "originalFailureEvidence": "previous original248 TRX244pass/4fail retained; current original source records failureline626 expected2/actual1 for these two cases; recorded in issue3647 comment6052248560 and3654 comment6053286651",
+      "productionBindings": [
+        {
+          "path": "src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs",
+          "revisionBlobs": {
+            "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d": "d4a30c1376e8b7e504cd21d79d024c4a268136ce",
+            "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "d4a30c1376e8b7e504cd21d79d024c4a268136ce",
+            "4f7050e98010478fa261464cb2ad64b26e0bd277": "d4a30c1376e8b7e504cd21d79d024c4a268136ce",
+            "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5": "d4a30c1376e8b7e504cd21d79d024c4a268136ce",
+            "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2": "d4a30c1376e8b7e504cd21d79d024c4a268136ce"
+          },
+          "sha256": "3bf38274e9b805302b198fd8722b0232e3278ad74d6fbc2fae66cfb986c23b74",
+          "unchangedAcrossAllRevisions": true
+        }
+      ],
+      "canonicalJustification": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+      "actualOriginalFailures": [
+        {
+          "test": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-shared-budget\", expectedViolation: null)",
+          "outcome": "Failed",
+          "message": "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", any CancellationToken)\nActually received 1 matching call:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", System.Threading.CancellationToken)\n",
+          "stack": "   at NSubstitute.Core.ReceivedCallsExceptionThrower.Throw(ICallSpecification callSpecification, IEnumerable`1 matchingCalls, IEnumerable`1 nonMatchingCalls, Quantity requiredQuantity)\n   at NSubstitute.Routing.Handlers.CheckReceivedCallsHandler.Handle(ICall call)\n   at NSubstitute.Routing.Route.Handle(ICall call)\n   at NSubstitute.Core.CallRouter.Route(ICall call)\n   at NSubstitute.Proxies.CastleDynamicProxy.CastleForwardingInterceptor.Intercept(IInvocation invocation)\n   at Castle.DynamicProxy.AbstractInvocation.Proceed()\n   at NSubstitute.Proxies.CastleDynamicProxy.ProxyIdInterceptor.Intercept(IInvocation invocation)\n   at Castle.DynamicProxy.AbstractInvocation.Proceed()\n   at Castle.Proxies.ObjectProxy_28.TryReadAsync(PublicArtifactKey key, String expectedMediaType, String expectedSha256Hex, CancellationToken cancellationToken)\n   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ReadBoundOutputsScenarioAsync(String scenario, String expectedViolation, Boolean verifyAggregate, Boolean awaitCurrentOutput) in /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 626\n   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(String scenario, String expectedViolation) in /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 153\n--- End of stack trace from previous location ---"
+        },
+        {
+          "test": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-cold-wait\", expectedViolation: null)",
+          "outcome": "Failed",
+          "message": "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", any CancellationToken)\nActually received 1 matching call:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", System.Threading.CancellationToken)\n",
+          "stack": "   at NSubstitute.Core.ReceivedCallsExceptionThrower.Throw(ICallSpecification callSpecification, IEnumerable`1 matchingCalls, IEnumerable`1 nonMatchingCalls, Quantity requiredQuantity)\n   at NSubstitute.Routing.Handlers.CheckReceivedCallsHandler.Handle(ICall call)\n   at NSubstitute.Routing.Route.Handle(ICall call)\n   at NSubstitute.Core.CallRouter.Route(ICall call)\n   at NSubstitute.Proxies.CastleDynamicProxy.CastleForwardingInterceptor.Intercept(IInvocation invocation)\n   at Castle.DynamicProxy.AbstractInvocation.Proceed()\n   at NSubstitute.Proxies.CastleDynamicProxy.ProxyIdInterceptor.Intercept(IInvocation invocation)\n   at Castle.DynamicProxy.AbstractInvocation.Proceed()\n   at Castle.Proxies.ObjectProxy_28.TryReadAsync(PublicArtifactKey key, String expectedMediaType, String expectedSha256Hex, CancellationToken cancellationToken)\n   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ReadBoundOutputsScenarioAsync(String scenario, String expectedViolation, Boolean verifyAggregate, Boolean awaitCurrentOutput) in /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 626\n   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(String scenario, String expectedViolation) in /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 153\n--- End of stack trace from previous location ---"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "sites": [
+        "116",
+        "165"
+      ],
+      "change": "Two Detail assertions compatibility_check \u2192 current_schema_verified",
+      "unchangedProduction": "Startup step81-89 awaits migrationRunner.RunAsync then returns StartupTaskOutcome.Ok(current_schema_verified); actual schema runner73-91 verifies explicit receipt/source/DB and fails closed, not generic compatibility-only. Cache/status/rollback/Received(1) assertions unchanged.",
+      "originalFailureEvidence": "original248244pass/4fail has two expectedcompatibility_check/actualcurrent_schema_verified failures; preserved prior receipts and formal3654comment",
+      "productionBindings": [
+        {
+          "path": "src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs",
+          "revisionBlobs": {
+            "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d": "689a7404958e7d0e5392bf75a176b0674688b5d2",
+            "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "689a7404958e7d0e5392bf75a176b0674688b5d2",
+            "4f7050e98010478fa261464cb2ad64b26e0bd277": "689a7404958e7d0e5392bf75a176b0674688b5d2",
+            "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5": "689a7404958e7d0e5392bf75a176b0674688b5d2",
+            "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2": "689a7404958e7d0e5392bf75a176b0674688b5d2"
+          },
+          "sha256": "1f8124fae0e5125e3c448722565d9b3a23af8ee5c86372c4ce1298a345078510",
+          "unchangedAcrossAllRevisions": true
+        },
+        {
+          "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+          "revisionBlobs": {
+            "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d": "62844d633e1b485d2a62775312120781e585bf48",
+            "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "62844d633e1b485d2a62775312120781e585bf48",
+            "4f7050e98010478fa261464cb2ad64b26e0bd277": "62844d633e1b485d2a62775312120781e585bf48",
+            "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5": "62844d633e1b485d2a62775312120781e585bf48",
+            "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2": "62844d633e1b485d2a62775312120781e585bf48"
+          },
+          "sha256": "d4ffa1dbb1c183fdf9199b9fa8a9457bf51094429d728fc0557141e3387d5540",
+          "unchangedAcrossAllRevisions": true
+        }
+      ],
+      "canonicalJustification": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+      "actualOriginalFailures": [
+        {
+          "test": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled",
+          "outcome": "Failed",
+          "message": "Assert.Equal() Failure: Strings differ\n            \u2193 (pos 1)\nExpected: \"compatibility_check\"\nActual:   \"current_schema_verified\"\n            \u2191 (pos 1)",
+          "stack": "   at FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled() in /workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs:line 116\n--- End of stack trace from previous location ---"
+        },
+        {
+          "test": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled",
+          "outcome": "Failed",
+          "message": "Assert.Equal() Failure: Strings differ\n            \u2193 (pos 1)\nExpected: \"compatibility_check\"\nActual:   \"current_schema_verified\"\n            \u2191 (pos 1)",
+          "stack": "   at FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled() in /workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs:line 165\n--- End of stack trace from previous location ---"
+        }
+      ]
+    },
+    {
+      "testFile": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "sites": [
+        "14",
+        "15",
+        "16"
+      ],
+      "change": "Three Throws(Func<Task>) \u2192 awaited ThrowsAsync(Func<Task>), testreturnvoid \u2192 asyncTask",
+      "unchangedProduction": "Test-owned helper is NOT async at RunAsync entry; each overload calls Validate before scheduling workers. Validate135-147 throws ArgumentException for fewer than2 workers or null worker. Exact same bad inputs and started0 assertion retained. This is an assertion API/oracle adaptation, NOT comment-only or runtime change.",
+      "originalFailureEvidence": "projection-second-probe.log CS0619 at14-16 rejects old Throws<T>(Func<Task>) overload; zero projection cases in failed compilation",
+      "productionBindings": [
+        {
+          "path": "tests/backend/Helpers/TestInfrastructure/RealConcurrencyHarness.cs",
+          "revisionBlobs": {
+            "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d": "051c561c13779ebd5afab84a03e156d5b5fbfdc2",
+            "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "051c561c13779ebd5afab84a03e156d5b5fbfdc2",
+            "4f7050e98010478fa261464cb2ad64b26e0bd277": "051c561c13779ebd5afab84a03e156d5b5fbfdc2",
+            "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5": "051c561c13779ebd5afab84a03e156d5b5fbfdc2",
+            "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2": "051c561c13779ebd5afab84a03e156d5b5fbfdc2"
+          },
+          "sha256": "62f583b0da8b5147273afb872cefb43271233e8f488310a6e6e875869767205f",
+          "unchangedAcrossAllRevisions": true
+        }
+      ],
+      "canonicalCompilerCommit": "fd08fde79cb98cd3b4dc7fc5c8af2b09045a3733",
+      "actualCompilerRefusal": {
+        "file": "/tmp/fsusblog-3647-narrow-evidence/projection-second-probe.log",
+        "sha256": "282c4f2778ac33a5528fb1b9cbd35a58c719dc50a8d1c659d7e8470e57d82c27",
+        "diagnostics": [
+          "/workspace/FsusBlog-3647-narrow/tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog-3647-narrow/tests/backend/FsusBlog.Server.Tests.csproj]",
+          "/workspace/FsusBlog-3647-narrow/tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog-3647-narrow/tests/backend/FsusBlog.Server.Tests.csproj]",
+          "/workspace/FsusBlog-3647-narrow/tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [/workspace/FsusBlog-3647-narrow/tests/backend/FsusBlog.Server.Tests.csproj]"
+        ]
+      }
+    }
+  ],
+  "productionIdentityBindings": [
+    {
+      "path": "src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs",
+      "revisionBlobs": {
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d": "d4a30c1376e8b7e504cd21d79d024c4a268136ce",
+        "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "d4a30c1376e8b7e504cd21d79d024c4a268136ce",
+        "4f7050e98010478fa261464cb2ad64b26e0bd277": "d4a30c1376e8b7e504cd21d79d024c4a268136ce",
+        "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5": "d4a30c1376e8b7e504cd21d79d024c4a268136ce",
+        "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2": "d4a30c1376e8b7e504cd21d79d024c4a268136ce"
+      },
+      "sha256": "3bf38274e9b805302b198fd8722b0232e3278ad74d6fbc2fae66cfb986c23b74",
+      "unchangedAcrossAllRevisions": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs",
+      "revisionBlobs": {
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d": "689a7404958e7d0e5392bf75a176b0674688b5d2",
+        "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "689a7404958e7d0e5392bf75a176b0674688b5d2",
+        "4f7050e98010478fa261464cb2ad64b26e0bd277": "689a7404958e7d0e5392bf75a176b0674688b5d2",
+        "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5": "689a7404958e7d0e5392bf75a176b0674688b5d2",
+        "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2": "689a7404958e7d0e5392bf75a176b0674688b5d2"
+      },
+      "sha256": "1f8124fae0e5125e3c448722565d9b3a23af8ee5c86372c4ce1298a345078510",
+      "unchangedAcrossAllRevisions": true
+    },
+    {
+      "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+      "revisionBlobs": {
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d": "62844d633e1b485d2a62775312120781e585bf48",
+        "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "62844d633e1b485d2a62775312120781e585bf48",
+        "4f7050e98010478fa261464cb2ad64b26e0bd277": "62844d633e1b485d2a62775312120781e585bf48",
+        "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5": "62844d633e1b485d2a62775312120781e585bf48",
+        "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2": "62844d633e1b485d2a62775312120781e585bf48"
+      },
+      "sha256": "d4ffa1dbb1c183fdf9199b9fa8a9457bf51094429d728fc0557141e3387d5540",
+      "unchangedAcrossAllRevisions": true
+    },
+    {
+      "path": "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs",
+      "revisionBlobs": {
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d": "593e2b1b88ff972627f171068ac569cc07e0584e",
+        "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "593e2b1b88ff972627f171068ac569cc07e0584e",
+        "4f7050e98010478fa261464cb2ad64b26e0bd277": "593e2b1b88ff972627f171068ac569cc07e0584e",
+        "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5": "593e2b1b88ff972627f171068ac569cc07e0584e",
+        "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2": "593e2b1b88ff972627f171068ac569cc07e0584e"
+      },
+      "sha256": "6d2a59cb148140c4a8f13c86ce2a3383064fdb715a06d17cdd56b284d9ec960e",
+      "unchangedAcrossAllRevisions": true
+    },
+    {
+      "path": "tests/backend/Helpers/TestInfrastructure/RealConcurrencyHarness.cs",
+      "revisionBlobs": {
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d": "051c561c13779ebd5afab84a03e156d5b5fbfdc2",
+        "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd": "051c561c13779ebd5afab84a03e156d5b5fbfdc2",
+        "4f7050e98010478fa261464cb2ad64b26e0bd277": "051c561c13779ebd5afab84a03e156d5b5fbfdc2",
+        "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5": "051c561c13779ebd5afab84a03e156d5b5fbfdc2",
+        "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2": "051c561c13779ebd5afab84a03e156d5b5fbfdc2"
+      },
+      "sha256": "62f583b0da8b5147273afb872cefb43271233e8f488310a6e6e875869767205f",
+      "unchangedAcrossAllRevisions": true
+    }
+  ],
+  "canonicalFormalJustification": {
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+    "savedComment": "canonical-3654-comment-6053286651.json",
+    "sha256": "66cf6b44f8ea10af43de3426389d3d5bb95e4bda02d5c5c1580c75324be1ffe7",
+    "reportedBoundedSemanticCommit": "44cfc4e0b4f2abb5d503e5f2f6bd441526c58aca",
+    "reportedCommitNotPresentLocally": true,
+    "actualVerifiedImportCommit": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd"
+  },
+  "metadataPartition": {
+    "frozenManifest": "artifacts/change-contract/ban-projection-docs-external-naming.json contains environment-variable docs and json-wire-key backendlock entries",
+    "docsManifest": "samepath retains original cc0 environment-variable entry only",
+    "prerequisiteManifest": "artifacts/change-contract/projection-test-prerequisites-external-naming.json contains json-wire-key backendlock entry only"
+  },
+  "priorExecutionEvidence": {
+    "candidate": "4f7050e98010478fa261464cb2ad64b26e0bd277",
+    "total": 263,
+    "ownedProjection": 15,
+    "support": 248,
+    "failed": 0,
+    "skipped": 0,
+    "scopeAcceptanceOf3647": false,
+    "newStagePassClaims": false
+  },
+  "publicationHistoryOrFrozenHeadMoved": false,
+  "apiContentWrites": false,
+  "merged": false,
+  "newSuitesOrArchives": false,
+  "originalOracleFailureEvidence": {
+    "originalTrx": "/tmp/fsusblog-3647-final-candidate-evidence/test-results/supporting-original-unit-tests.trx",
+    "sha256": "b8ff33726d08cdc7f9a0c2150650f212665a66406dc9f5edba55a0efaaa06236",
+    "counters": {
+      "total": "248",
+      "executed": "248",
+      "passed": "244",
+      "failed": "4",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "failures": [
+      {
+        "test": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-shared-budget\", expectedViolation: null)",
+        "outcome": "Failed",
+        "message": "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", any CancellationToken)\nActually received 1 matching call:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", System.Threading.CancellationToken)\n",
+        "stack": "   at NSubstitute.Core.ReceivedCallsExceptionThrower.Throw(ICallSpecification callSpecification, IEnumerable`1 matchingCalls, IEnumerable`1 nonMatchingCalls, Quantity requiredQuantity)\n   at NSubstitute.Routing.Handlers.CheckReceivedCallsHandler.Handle(ICall call)\n   at NSubstitute.Routing.Route.Handle(ICall call)\n   at NSubstitute.Core.CallRouter.Route(ICall call)\n   at NSubstitute.Proxies.CastleDynamicProxy.CastleForwardingInterceptor.Intercept(IInvocation invocation)\n   at Castle.DynamicProxy.AbstractInvocation.Proceed()\n   at NSubstitute.Proxies.CastleDynamicProxy.ProxyIdInterceptor.Intercept(IInvocation invocation)\n   at Castle.DynamicProxy.AbstractInvocation.Proceed()\n   at Castle.Proxies.ObjectProxy_28.TryReadAsync(PublicArtifactKey key, String expectedMediaType, String expectedSha256Hex, CancellationToken cancellationToken)\n   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ReadBoundOutputsScenarioAsync(String scenario, String expectedViolation, Boolean verifyAggregate, Boolean awaitCurrentOutput) in /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 626\n   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(String scenario, String expectedViolation) in /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 153\n--- End of stack trace from previous location ---"
+      },
+      {
+        "test": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled",
+        "outcome": "Failed",
+        "message": "Assert.Equal() Failure: Strings differ\n            \u2193 (pos 1)\nExpected: \"compatibility_check\"\nActual:   \"current_schema_verified\"\n            \u2191 (pos 1)",
+        "stack": "   at FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled() in /workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs:line 116\n--- End of stack trace from previous location ---"
+      },
+      {
+        "test": "FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled",
+        "outcome": "Failed",
+        "message": "Assert.Equal() Failure: Strings differ\n            \u2193 (pos 1)\nExpected: \"compatibility_check\"\nActual:   \"current_schema_verified\"\n            \u2191 (pos 1)",
+        "stack": "   at FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled() in /workspace/FsusBlog/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs:line 165\n--- End of stack trace from previous location ---"
+      },
+      {
+        "test": "FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: \"aot-cold-wait\", expectedViolation: null)",
+        "outcome": "Failed",
+        "message": "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", any CancellationToken)\nActually received 1 matching call:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", System.Threading.CancellationToken)\n",
+        "stack": "   at NSubstitute.Core.ReceivedCallsExceptionThrower.Throw(ICallSpecification callSpecification, IEnumerable`1 matchingCalls, IEnumerable`1 nonMatchingCalls, Quantity requiredQuantity)\n   at NSubstitute.Routing.Handlers.CheckReceivedCallsHandler.Handle(ICall call)\n   at NSubstitute.Routing.Route.Handle(ICall call)\n   at NSubstitute.Core.CallRouter.Route(ICall call)\n   at NSubstitute.Proxies.CastleDynamicProxy.CastleForwardingInterceptor.Intercept(IInvocation invocation)\n   at Castle.DynamicProxy.AbstractInvocation.Proceed()\n   at NSubstitute.Proxies.CastleDynamicProxy.ProxyIdInterceptor.Intercept(IInvocation invocation)\n   at Castle.DynamicProxy.AbstractInvocation.Proceed()\n   at Castle.Proxies.ObjectProxy_28.TryReadAsync(PublicArtifactKey key, String expectedMediaType, String expectedSha256Hex, CancellationToken cancellationToken)\n   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ReadBoundOutputsScenarioAsync(String scenario, String expectedViolation, Boolean verifyAggregate, Boolean awaitCurrentOutput) in /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 626\n   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(String scenario, String expectedViolation) in /workspace/FsusBlog/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 153\n--- End of stack trace from previous location ---"
+      }
+    ],
+    "originalCompanionReceipts": [
+      "/tmp/fsusblog-3647-final-candidate-evidence/supporting-unit-test-summary.json",
+      "/tmp/fsusblog-3647-final-candidate-evidence/supporting-original-unit-tests.json",
+      "/tmp/fsusblog-3647-final-candidate-evidence/supporting-original-unit-tests.log"
+    ],
+    "newRun": false
+  },
+  "stagedPublication": {
+    "utc": "2026-10-08T09:22:51.637970+00:00",
+    "command": [
+      "git",
+      "-c",
+      "credential.helper=!gh auth git-credential",
+      "ls-remote",
+      "origin",
+      "refs/heads/task/3647-stage-3654-prerequisites",
+      "refs/heads/task/3647-docs-only-staged",
+      "refs/heads/task/3647-ban-projection-narrow",
+      "refs/heads/task/3647-ban-projection-docs"
+    ],
+    "exitCode": 0,
+    "verifiedRemoteRefs": {
+      "refs/heads/task/3647-ban-projection-docs": "e49a7617c180bb1eed08356370283dff3be4dc6e",
+      "refs/heads/task/3647-ban-projection-narrow": "4f7050e98010478fa261464cb2ad64b26e0bd277",
+      "refs/heads/task/3647-docs-only-staged": "7288b3b0e0211b2c0fa0531ab01e657e4f5e57c2",
+      "refs/heads/task/3647-stage-3654-prerequisites": "4fde8307d43ca8ee1b38cf71fbde3786f6ae46f5"
+    },
+    "oldPublishedHeadsPreserved": true
+  },
+  "prerequisiteScopeReviewRequest": {
+    "assignedCanonicalOwner": "3654; lock3568 and existingverifier3665 retained as exact supplied dependencies",
+    "communication": "parent receives this manifest to route the two separate independent reviews; no unauthorized outbound GitHub comment or duplicated owner implementation",
+    "justification": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651"
+  }
+}
