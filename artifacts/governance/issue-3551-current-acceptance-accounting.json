@@ -3,8 +3,8 @@
   "runId": "2026-10-08T03:35:23.928106+00:00",
   "trackingIssue": 3551,
   "mode": "tracking-only",
-  "testedCandidate": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
-  "master": "87209d571a93254dcacfe9093753002e8c98822a",
+  "testedCandidate": "b80675d07a577eb5cbaf569af65046ed6de0f597",
+  "master": "53da546cc8ab9fd8603067395d988b7ddb650394",
   "originalInventoryCommit": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
   "accepted": false,
   "scopeDiscrepancy": "Original body retains its historical b19 baseline. Current master source findings are zero; original inventory and every child gate remain accounted, without rewriting scope.",
@@ -1699,6 +1699,97 @@
   "earlyIndependentReviewEligible": false,
   "earlyReviewRefusal": "Four original unit tests and original AST/generated/retention/C# policy gates still fail; unavailable native capabilities are not the only blocker.",
   "actual17OwnerExecution": {
+    "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
+    "counts": {
+      "total": "738",
+      "executed": "738",
+      "passed": "689",
+      "failed": "49",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "classCounts": {
+      "PublicArtifactRevocationTests": {
+        "Passed": 50
+      },
+      "DocumentExportHtmlProviderTests": {
+        "Failed": 21,
+        "Passed": 10
+      },
+      "PublicHotReadDbAdmissionTests": {
+        "Passed": 16
+      },
+      "AuthoringExtensionPackagePersistenceTests": {
+        "Passed": 51
+      },
+      "PrivateAssetDeliveryTests": {
+        "Passed": 28
+      },
+      "SpaAssetManifestServiceTests": {
+        "Passed": 73
+      },
+      "DocumentExportSandboxTests": {
+        "Failed": 22,
+        "Passed": 14
+      },
+      "AuthoringExtensionServiceBrokerTests": {
+        "Passed": 45,
+        "Failed": 1
+      },
+      "AuthoringExtensionRpcTests": {
+        "Passed": 111
+      },
+      "DocumentExportContractTests": {
+        "Passed": 70
+      },
+      "AuthoringExtensionExecutionResolverTests": {
+        "Passed": 31
+      },
+      "AuthoringCommandContributionTests": {
+        "Passed": 44
+      },
+      "AuthoringExtensionWorkerSandboxTests": {
+        "Passed": 29,
+        "Failed": 2
+      },
+      "DocumentExportSystemdCgroupAuthorityTests": {
+        "Failed": 3,
+        "Passed": 11
+      },
+      "CanonicalArticlePublicationFixturePortTests": {
+        "Passed": 34
+      },
+      "PrivateAssetStoreTests": {
+        "Passed": 39
+      },
+      "ArticleVaultExecutionTests": {
+        "Passed": 33
+      }
+    },
+    "trxSha256": "33a2fe011b5d8e11dca500277e27e1392add7914a81504ecdaead6e850ed37b2",
+    "accepted": false,
+    "protectedNativeFailures": 49,
+    "limit": "All 738 current names executed unchanged; 49 physical admission failures remain failed. Full child/matrix/independent acceptance remains unaccepted."
+  },
+  "exactFailureRouting": "artifacts/governance/issue-3551-exact-failure-routing.json",
+  "classificationCorrection": {
+    "from": "coarse 48 environment / 4 code-or-contract in the 728-case run",
+    "to": "46 missing owned systemd manager; 2 missing native Node host; 1 protected namespace-start/readiness stage; 3 code/fixture contract failures",
+    "effect": "All 52 remain failed; native readiness and all negative controls require admitted rerun. Four recurring bootstrap/projection failures are accounted separately."
+  },
+  "localCiSubstitutionAuthorized": true,
+  "ciPolicy": "Applicable candidate-bound local verification may replace remote CI. Missing remote checks alone does not block. Actual code/unit/style, protected identity/generated/retention admission and independent review requirements remain open.",
+  "previousActual17OwnerExecution": {
     "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
     "counts": {
       "total": "738",
@@ -1783,103 +1874,6 @@
     },
     "limit": "All 49 failed native tests remain unaccepted; three fixture/compiled-surface failures are repaired on the exact supplied increments. Original inventory, policy, matrix and full child/independent acceptance remain incomplete."
   },
-  "exactFailureRouting": "artifacts/governance/issue-3551-exact-failure-routing.json",
-  "classificationCorrection": {
-    "from": "coarse 48 environment / 4 code-or-contract in the 728-case run",
-    "to": "46 missing owned systemd manager; 2 missing native Node host; 1 protected namespace-start/readiness stage; 3 code/fixture contract failures",
-    "effect": "All 52 remain failed; native readiness and all negative controls require admitted rerun. Four recurring bootstrap/projection failures are accounted separately."
-  },
-  "localCiSubstitutionAuthorized": true,
-  "ciPolicy": "Applicable candidate-bound local verification may replace remote CI. Missing remote checks alone does not block. Actual code/unit/style, protected identity/generated/retention admission and independent review requirements remain open.",
-  "previousActual17OwnerExecution": {
-    "testedCommit": "dac87fddc214f9334079a0cab6e32197b8794dd6",
-    "counts": {
-      "total": "728",
-      "executed": "728",
-      "passed": "676",
-      "failed": "52",
-      "error": "0",
-      "timeout": "0",
-      "aborted": "0",
-      "inconclusive": "0",
-      "passedButRunAborted": "0",
-      "notRunnable": "0",
-      "notExecuted": "0",
-      "disconnected": "0",
-      "warning": "0",
-      "completed": "0",
-      "inProgress": "0",
-      "pending": "0"
-    },
-    "classCounts": {
-      "PublicArtifactRevocationTests": {
-        "Passed": 50
-      },
-      "AuthoringExtensionPackagePersistenceTests": {
-        "Passed": 51
-      },
-      "SpaAssetManifestServiceTests": {
-        "Passed": 73
-      },
-      "DocumentExportHtmlProviderTests": {
-        "Failed": 21,
-        "Passed": 10
-      },
-      "AuthoringExtensionRpcTests": {
-        "Passed": 110,
-        "Failed": 1
-      },
-      "ArticleVaultExecutionTests": {
-        "Passed": 33
-      },
-      "DocumentExportContractTests": {
-        "Passed": 70
-      },
-      "AuthoringCommandContributionTests": {
-        "Passed": 43,
-        "Failed": 1
-      },
-      "DocumentExportSystemdCgroupAuthorityTests": {
-        "Failed": 3,
-        "Passed": 11
-      },
-      "PrivateAssetDeliveryTests": {
-        "Passed": 28
-      },
-      "AuthoringExtensionExecutionResolverTests": {
-        "Passed": 20,
-        "Failed": 1
-      },
-      "DocumentExportSandboxTests": {
-        "Failed": 22,
-        "Passed": 14
-      },
-      "PrivateAssetStoreTests": {
-        "Passed": 39
-      },
-      "AuthoringExtensionServiceBrokerTests": {
-        "Passed": 45,
-        "Failed": 1
-      },
-      "AuthoringExtensionWorkerSandboxTests": {
-        "Failed": 2,
-        "Passed": 29
-      },
-      "CanonicalArticlePublicationFixturePortTests": {
-        "Passed": 34
-      },
-      "PublicHotReadDbAdmissionTests": {
-        "Passed": 16
-      }
-    },
-    "failureClasses": {
-      "environment": 48,
-      "code/contract": 4
-    },
-    "trxSha256": "5a18e0d7aa70a1c792904f5c80240d5afab31cc34ab0e10366176ab6c8c2d1c7",
-    "accepted": false,
-    "limit": "48 observed environment refusals remain failed tests; four code/contract refusals require their original owners. No pass inferred for a failed or unexecuted gate."
-  },
   "currentRunId": "2026-10-08T04:58:26.754956+00:00",
   "currentProjectionBootstrapExecution": {
     "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
@@ -1930,5 +1924,54 @@
     "observedIntermediateOutputPath": "obj\\Debug/net10.0/",
     "projectionExitCode": 1,
     "remainingRefusal": "xunit Compile source is outside its canonical repository boundary: ../../tmp/fsusblog-3593/nuget/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs"
-  }
+  },
+  "latestSharedCompatibilityVerification": "artifacts/style/suite-convergence-shared-fixture-style-verification.json",
+  "currentSevenClassExecution": {
+    "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
+    "counts": {
+      "total": "248",
+      "executed": "248",
+      "passed": "244",
+      "failed": "4",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "classCounts": {
+      "SecurityAdminPolicyDefaultsTests": {
+        "Passed": 43
+      },
+      "CanonicalArticleProjectionVerifierTests": {
+        "Passed": 110,
+        "Failed": 2
+      },
+      "AuthoringExtensionRpcBrokerTests": {
+        "Passed": 51
+      },
+      "TaxonomyExactMetadataTests": {
+        "Passed": 14
+      },
+      "CanonicalArticleLifecycleScheduledFailureTests": {
+        "Passed": 8
+      },
+      "RealConcurrencyHarnessTests": {
+        "Passed": 7
+      },
+      "LifecycleHostedBootstrapServiceTests": {
+        "Passed": 11,
+        "Failed": 2
+      }
+    },
+    "trxSha256": "b76d6a8acb77f509851039a7f0e2c62313575ef349ce3fb6d0857cc7cdeda598"
+  },
+  "currentAssertionContractClarification": "Parent instruction says preserve original assertions/cases. Requested formal contract/source evidence or explicit reconciliation for these four expected-value changes; compatible formatting was completed independently."
 }

@@ -58,8 +58,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -95,8 +96,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
         "fullChildAccepted": false
       }
     },
@@ -124,9 +126,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Passed",
-        "evidence": "2b113ca7f16fc833b153142e2ee59ebe9c62fb0965ea580cf7868bec18b88450",
+        "sourceBlob": "4fdac10903ec2517708edd26d17befd7a81a6dac",
         "fullChildAccepted": false
       }
     },
@@ -170,8 +172,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -219,8 +222,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -268,8 +272,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -297,8 +302,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "1241e8835a546e47bd5912b98e1d41153167550c",
         "fullChildAccepted": false
       }
     },
@@ -346,8 +352,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -395,8 +402,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -444,8 +452,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -497,8 +506,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -546,8 +556,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -591,8 +602,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -640,8 +652,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -689,8 +702,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -738,8 +752,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -783,8 +798,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -832,8 +848,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -877,8 +894,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -926,8 +944,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -975,8 +994,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -1024,8 +1044,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -1073,8 +1094,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -1118,8 +1140,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -1167,8 +1190,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -1212,8 +1236,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -1249,8 +1274,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
         "fullChildAccepted": false
       }
     },
@@ -1298,8 +1324,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -1347,8 +1374,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -1392,8 +1420,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -1441,8 +1470,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -1486,8 +1516,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -1531,8 +1562,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -1560,9 +1592,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Passed",
-        "evidence": "2b113ca7f16fc833b153142e2ee59ebe9c62fb0965ea580cf7868bec18b88450",
+        "sourceBlob": "536842a5cb29074e47a2ea97018c399d94fe896e",
         "fullChildAccepted": false
       }
     },
@@ -1614,8 +1646,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -1663,8 +1696,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -1716,8 +1750,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -1765,8 +1800,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -1802,8 +1838,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "f4c00657cf1fd738b47962ab713965cee80be1e6",
         "fullChildAccepted": false
       }
     },
@@ -1851,8 +1888,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -1904,8 +1942,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -1953,8 +1992,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -2002,8 +2042,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -2031,8 +2072,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "1241e8835a546e47bd5912b98e1d41153167550c",
         "fullChildAccepted": false
       }
     },
@@ -2076,8 +2118,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -2129,8 +2172,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -2166,9 +2210,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Passed",
-        "evidence": "2b113ca7f16fc833b153142e2ee59ebe9c62fb0965ea580cf7868bec18b88450",
+        "sourceBlob": "8994d265845ef0182ef003ba935ad7088034def5",
         "fullChildAccepted": false
       }
     },
@@ -2216,8 +2260,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -2265,8 +2310,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -2314,8 +2360,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e",
         "fullChildAccepted": false
       }
     },
@@ -2355,8 +2402,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "61bf0bb69e47ca7d422ca9c5835e75c2607a672e",
         "fullChildAccepted": false
       }
     },
@@ -2404,8 +2452,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c",
         "fullChildAccepted": false
       }
     },
@@ -2437,8 +2486,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "5a6cfb1c24caa11f3cc2aa3125c559d45476622d",
         "fullChildAccepted": false
       }
     },
@@ -2470,8 +2520,9 @@
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "5a6cfb1c24caa11f3cc2aa3125c559d45476622d",
         "fullChildAccepted": false
       }
     },
@@ -2501,8 +2552,9 @@
       "currentOwnerConfirmation": "Parent explicitly confirmed #3654 as the canonical bootstrap/projection test-compatibility owner.",
       "historicalResponsibleBoundaryIssue": 2213,
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "e919aa2978b0d7606ac3ebdb5a9159a0762336d9",
         "fullChildAccepted": false
       }
     },
@@ -2532,8 +2584,9 @@
       "currentOwnerConfirmation": "Parent explicitly confirmed #3654 as the canonical bootstrap/projection test-compatibility owner.",
       "historicalResponsibleBoundaryIssue": 2213,
       "currentVerification": {
-        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
         "outcome": "Failed",
+        "sourceBlob": "e919aa2978b0d7606ac3ebdb5a9159a0762336d9",
         "fullChildAccepted": false
       }
     }
@@ -2691,18 +2744,18 @@
     "purpose": "Diagnostic invocation of original unchanged method only; the failed compiled-InlineData case remains failed and no runtime qualification is inferred."
   },
   "latestMasterRecheck": {
-    "sha": "87209d571a93254dcacfe9093753002e8c98822a",
+    "sha": "53da546cc8ab9fd8603067395d988b7ddb650394",
     "deltaFromPreviousSnapshot": [
-      "artifacts/change-contract/data-scale-owner-deadline-external-naming.json",
-      "config/testing/release-reliability-lifecycle-action-registry.json",
-      "tests/tools/data-scale-runtime-plan.test.mjs",
-      "tests/tools/reliability-timeout-projection.test.mjs"
+      "artifacts/change-contract/issue-3739-fixture-permission-external-naming.json",
+      "artifacts/change-contract/issue-3739-fixture-permission-generated-binding.json",
+      "tests/browser-contract/fixture-lifecycle.test.mjs",
+      "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
     ],
     "newUnitQualificationInferred": false,
     "mergeTreePreview": {
       "exitCode": 0,
-      "tree": "7378f4d0213fad7952b0687f2688db6cd29f61e6",
-      "operation": "read-only merge-tree preview; no merge or conflict-resolution phase"
+      "tree": "aaa73b91a3fa761b6eea046c21daa92daefd8b6b",
+      "operation": "read-only; no actual merge or cross-chain conflict resolution"
     }
   },
   "latestRepairVerification": "artifacts/style/suite-convergence-classified-repair-verification.json",
@@ -2712,5 +2765,6 @@
     "stillFailed": 53,
     "trackingFailed": 49,
     "projectionBootstrapFailed": 4
-  }
+  },
+  "latestSharedCompatibilityVerification": "artifacts/style/suite-convergence-shared-fixture-style-verification.json"
 }
