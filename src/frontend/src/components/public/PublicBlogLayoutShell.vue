@@ -86,6 +86,7 @@
                 <ThemeModeToggle
                     visibility="desktop"
                     variant="menu-button"
+                    :labels="PUBLIC_THEME_MODE_LABELS"
                 />
             </template>
 
