@@ -347,19 +347,19 @@ public sealed class DiskSegmentStore : IDisposable
                         probe.Value!.Dispose();
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.TierUnavailable);
                     }
+                    using MemoryReservation probeReservation = probe.Value!;
                     long size;
                     DiskFileFootprint footprint;
-                    using (probe.Value!)
                     using (FileStream file = _root.OpenRead(name))
                     {
                         size = file.Length;
+                        footprint = _root.ObserveFileFootprint(file);
                         if (!staging && !DiskSegmentFormat.Supported(file))
                         {
                             continue;
                         }
                     }
-                    footprint = _root.ObserveFileFootprint(name);
-                    if (footprint.LogicalBytes != size)
+                    if (footprint.LogicalBytes != size || !SameFile(footprint, _root.ObserveFileFootprint(name)))
                     {
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.BudgetRejected);
                     }
@@ -379,13 +379,34 @@ public sealed class DiskSegmentStore : IDisposable
                     {
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.BudgetRejected);
                     }
-                    MemoryOperationResult<MemoryReservation> admission = Reserve(bound.Value!.MaximumChargeBytes,
-                        _limits.IndexBytes(_limits.MaxRecordsPerSegment));
+                    // Registration precedes untrusted parsing. Retain the maximum index
+                    // allowance for this owner; verification keeps its separate scratch/slot.
+                    long indexBytes = _limits.IndexBytes(_limits.MaxRecordsPerSegment);
+                    MemoryOperationResult<MemoryReservation> admission = _budget.TryReserveIndex(indexBytes);
                     if (!admission.Succeeded)
                     {
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(admission.Failure!.Value);
                     }
-                    var segment = new Segment(id, name, admission.Value!)
+                    using MemoryReservation indexReservation = admission.Value!;
+                    if (_disabled)
+                    {
+                        return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.TierUnavailable);
+                    }
+                    if (_segments.Any(segment => segment.Id == id))
+                    {
+                        // Observation/policy callbacks can recover the same object reentrantly.
+                        // Do not submit a duplicate allocation to the shared coordinator.
+                        return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.OwnershipViolation);
+                    }
+                    MemoryOperationResult<IMemoryAllocationCharge> adopted = AdoptExisting(id, name, footprint,
+                        bound.Value!, indexReservation, indexBytes);
+                    if (!adopted.Succeeded)
+                    {
+                        // No ownership was registered: preserve the existing file and its
+                        // untracked inventory entry instead of treating rejection as deletion.
+                        return MemoryOperationResult<DiskSegmentRecovery>.Reject(adopted.Failure!.Value);
+                    }
+                    var segment = new Segment(id, name, adopted.Value!)
                     {
                         FileExists = true,
                         Bytes = size,
@@ -426,21 +447,17 @@ public sealed class DiskSegmentStore : IDisposable
                             Cleanup(segment);
                             return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.OwnershipViolation);
                         }
-                        if (_disabled || segment.Retired)
+                        // Content-owner callbacks may replace a file or revise the policy.
+                        // The existing charge belongs to the adopted object, never its replacement.
+                        if (!SameFile(footprint, _root.ObserveFileFootprint(name)))
+                        {
+                            throw new DiskFileSystemException("recover replaced spill file", 0, DiskFileSystemFailure.OwnershipChanged);
+                        }
+                        if (_disabled || segment.Retired || !BoundStillValid(bound.Value, _root.ObserveRootFootprint(), size))
                         {
                             segment.Retired = true;
                             return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.TierUnavailable);
                         }
-                        MemoryOperationResult<IMemoryAllocationCharge> committed = admission.Value!.Commit(
-                            new AllocationId(id), Charges(bound.Value.MaximumChargeBytes,
-                                _limits.IndexBytes(segment.Entries.Count)));
-                        if (!committed.Succeeded)
-                        {
-                            segment.Retired = true;
-                            Cleanup(segment);
-                            return MemoryOperationResult<DiskSegmentRecovery>.Reject(committed.Failure!.Value);
-                        }
-                        segment.Owner = committed.Value!;
                         segment.Published = true;
                         reused++;
                     }
@@ -707,6 +724,34 @@ public sealed class DiskSegmentStore : IDisposable
     private MemoryOperationResult<MemoryReservation> Reserve(long diskBytes, long indexBytes)
         => _budget.TryReserve(new DiskBudgetRequest(diskBytes, checked(indexBytes + _limits.ChunkBytes + 512L), 1, 1));
 
+    private MemoryOperationResult<IMemoryAllocationCharge> AdoptExisting(Guid id, string name,
+        DiskFileFootprint footprint, DiskPhysicalAllocationBound bound, MemoryReservation indexReservation, long indexBytes)
+    {
+        MemoryOperationResult<MemoryAllocationLayout> layout = MemoryAllocationLayout.TryCreate(
+            footprint.LogicalBytes, bound.MaximumChargeBytes, 1);
+        if (!layout.Succeeded)
+        {
+            return MemoryOperationResult<IMemoryAllocationCharge>.Reject(layout.Failure!.Value);
+        }
+        // Keep an actual descriptor open through registration. Name, descriptor and
+        // owner-frozen scope must agree before the common ledger observes ownership.
+        using FileStream backing = _root.OpenRead(name);
+        if (!SameFile(footprint, _root.ObserveFileFootprint(backing))
+            || !SameFile(footprint, _root.ObserveFileFootprint(name)))
+        {
+            return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.OwnershipViolation);
+        }
+        if (!BoundStillValid(bound, _root.ObserveRootFootprint(), footprint.LogicalBytes))
+        {
+            return MemoryOperationResult<IMemoryAllocationCharge>.Reject(MemoryFailure.TierUnavailable);
+        }
+        var descriptor = new MemoryAllocationDescriptor(new AllocationId(id), _budget.DiskDomain, layout.Value!);
+        return indexReservation.CommitObservedExisting(descriptor,
+            [new(_budget.DiskDomain, MemoryResourceUnit.Bytes, bound.MaximumChargeBytes),
+                new(_budget.InodeDomain, MemoryResourceUnit.Inodes, 1)],
+            [new(_budget.HostDomain, MemoryResourceUnit.Bytes, indexBytes)], bound.PolicyRevision);
+    }
+
     private IReadOnlyList<MemoryResourceCharge> Charges(long diskBytes, long indexBytes)
         => new MemoryResourceCharge[]
         {
@@ -741,7 +786,12 @@ public sealed class DiskSegmentStore : IDisposable
                     return;
                 }
                 _root.Validate();
-                _root.Delete(segment.Name, segment.Footprint);
+                if (!_root.Delete(segment.Name, segment.Footprint))
+                {
+                    // Missing namespace entries do not prove physical release.
+                    // Retain this bounded owner until its original inode can be deleted.
+                    return;
+                }
                 segment.FileExists = false;
             }
         }

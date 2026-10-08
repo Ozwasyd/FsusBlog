@@ -225,6 +225,30 @@ public sealed class OwnedSpillRootTests
     }
 
     [Fact]
+    public void ExpectedDeletionReportsOnlyActualUnlinkAndPreservesAnInodeMovedOutOfItsName()
+    {
+        using var fixture = new RootFixture();
+        using var root = fixture.Open();
+        string name = root.NewName("segment");
+        using (FileStream file = root.CreateFile(name))
+        {
+            file.WriteByte(11);
+        }
+        DiskFileFootprint original = root.ObserveFileFootprint(name);
+        string path = System.IO.Path.Combine(fixture.Path, name);
+        string backup = System.IO.Path.Combine(fixture.Parent, "held-original");
+        File.Move(path, backup);
+        Assert.False(root.Delete(name, original));
+        Assert.Equal(new byte[] { 11 }, File.ReadAllBytes(backup));
+        File.Move(backup, path);
+        Assert.Equal(original.Inode, root.ObserveFileFootprint(name).Inode);
+        Assert.True(root.Delete(name, original));
+        Assert.False(root.Delete(name, original));
+        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(backup));
+    }
+
+    [Fact]
     public void FootprintObservationRejectsForeignNamesLinksAndReplacedRoot()
     {
         using var fixture = new RootFixture();

@@ -131,22 +131,27 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         }
     }
 
-    internal void Delete(string name, DiskFileFootprint? expected = null)
+    internal bool Delete(string name, DiskFileFootprint? expected = null)
     {
         Validate();
-        // Only ENOENT from this anchored leaf lookup proves physical absence.
-        // ENOENT from root revalidation must never release a retained file's charge.
+        // A missing name cannot prove the original inode was released: it may
+        // have been renamed elsewhere. Only our successful unlink is deletion proof.
         int descriptor = OpenAt(_directory, name, NoFollowFlag | CloseOnExecFlag, 0);
         if (descriptor < 0 && Marshal.GetLastPInvokeError() == 2)
         {
-            return;
+            return false;
         }
         using FileStream proof = StreamFromDescriptor(descriptor, FileAccess.Read);
         RequireExpectedFile(proof.SafeFileHandle, expected);
-        if (UnlinkAt(_directory, name, 0) != 0 && Marshal.GetLastPInvokeError() != 2)
+        if (UnlinkAt(_directory, name, 0) == 0)
+        {
+            return true;
+        }
+        if (Marshal.GetLastPInvokeError() != 2)
         {
             ThrowNative("delete owned spill file");
         }
+        return false;
     }
 
     internal LinuxDiskSample Sample()

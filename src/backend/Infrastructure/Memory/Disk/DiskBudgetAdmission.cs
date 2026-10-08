@@ -97,9 +97,18 @@ public sealed class DiskBudgetAdmission
     }
 
     public MemoryOperationResult<MemoryReservation> TryReserve(DiskBudgetRequest request)
+        => TryReserveCore(request, false);
+
+    // The recovery operation already owns its I/O slot and scratch. Its new retained
+    // index needs host admission without granting capacity to create a disk file.
+    internal MemoryOperationResult<MemoryReservation> TryReserveIndex(long hostBytes)
+        => TryReserveCore(new(0, hostBytes, 0), true);
+
+    private MemoryOperationResult<MemoryReservation> TryReserveCore(DiskBudgetRequest request, bool indexOnly)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (request.DiskBytes < 0 || request.HostBytes <= 0 || request.OperationSlots <= 0 || request.PersistentInodes < 0
+        if (request.DiskBytes < 0 || request.HostBytes <= 0 || request.OperationSlots < 0
+            || (!indexOnly && request.OperationSlots == 0) || request.PersistentInodes < 0
             || (request.DiskBytes > 0 && request.PersistentInodes == 0))
         {
             return MemoryOperationResult<MemoryReservation>.Reject(MemoryFailure.BoundsViolation);
@@ -131,13 +140,14 @@ public sealed class DiskBudgetAdmission
             return MemoryOperationResult<MemoryReservation>.Reject(MemoryFailure.TierUnavailable);
         }
         long headroom = Math.Min(sample.AvailableBytes.Value!.Value, sample.QuotaBytes.Value!.Value);
-        if (headroom < _safetyReserveBytes || (request.PersistentInodes > 0
+        bool diskGrowth = request.DiskBytes > 0;
+        if ((diskGrowth && headroom < _safetyReserveBytes) || (request.PersistentInodes > 0
             && sample.AvailableInodes.Value!.Value < request.PersistentInodes))
         {
             return MemoryOperationResult<MemoryReservation>.Reject(MemoryFailure.BudgetRejected);
         }
-        long capacityCap = headroom - _safetyReserveBytes;
-        if (!CapsBoundToSample(_coordinator.Snapshot(), sample, capacityCap, request.PersistentInodes > 0))
+        long capacityCap = diskGrowth ? headroom - _safetyReserveBytes : 0;
+        if (!CapsBoundToSample(_coordinator.Snapshot(), sample, capacityCap, diskGrowth, request.PersistentInodes > 0))
         {
             // A new lower free-space sample is not an exclusive grant. The common policy
             // owner must reduce its shared cap; existing charges remain until actual deletion.
@@ -145,9 +155,12 @@ public sealed class DiskBudgetAdmission
         }
         var vector = new List<MemoryResourceCharge>(4)
         {
-            new(HostDomain, MemoryResourceUnit.Bytes, request.HostBytes),
-            new(SlotDomain, MemoryResourceUnit.OperationSlots, request.OperationSlots)
+            new(HostDomain, MemoryResourceUnit.Bytes, request.HostBytes)
         };
+        if (request.OperationSlots > 0)
+        {
+            vector.Add(new(SlotDomain, MemoryResourceUnit.OperationSlots, request.OperationSlots));
+        }
         if (request.DiskBytes > 0)
         {
             vector.Add(new(DiskDomain, MemoryResourceUnit.Bytes, request.DiskBytes));
@@ -163,7 +176,7 @@ public sealed class DiskBudgetAdmission
         }
         // Bind against concurrent owner policy changes without touching the owner's limits.
         // Failed revalidation releases this token only; live allocations are never fabricated away.
-        if (!CapsBoundToSample(_coordinator.Snapshot(), sample, capacityCap, request.PersistentInodes > 0))
+        if (!CapsBoundToSample(_coordinator.Snapshot(), sample, capacityCap, diskGrowth, request.PersistentInodes > 0))
         {
             result.Value!.Dispose();
             return MemoryOperationResult<MemoryReservation>.Reject(MemoryFailure.BudgetRejected);
@@ -172,15 +185,15 @@ public sealed class DiskBudgetAdmission
     }
 
     private bool CapsBoundToSample(MemoryAccountingSnapshot snapshot, DiskCapacityObservation sample, long capacityCap,
-        bool inodeGrowth)
+        bool diskGrowth, bool inodeGrowth)
     {
         string capacityKey = _coordinator.Topology.CapacityIdentity(_capacityDomain);
         string applicationKey = _coordinator.Topology.CapacityIdentity(DiskDomain);
         string inodeCapacityKey = _coordinator.Topology.CapacityIdentity(_inodeCapacityDomain);
         string inodeKey = _coordinator.Topology.CapacityIdentity(InodeDomain);
         return snapshot.PolicyRevision == sample.PolicyRevision && !snapshot.Faulted
-            && snapshot.HardCaps.TryGetValue(capacityKey, out long cap) && cap <= capacityCap
-            && snapshot.HardCaps.TryGetValue(applicationKey, out long applicationCap) && applicationCap <= _applicationCapBytes
+            && (!diskGrowth || (snapshot.HardCaps.TryGetValue(capacityKey, out long cap) && cap <= capacityCap
+                && snapshot.HardCaps.TryGetValue(applicationKey, out long applicationCap) && applicationCap <= _applicationCapBytes))
             && (!inodeGrowth || (snapshot.HardCaps.TryGetValue(inodeCapacityKey, out long inodeCap)
                 && inodeCap <= sample.AvailableInodes.Value!.Value
                 && snapshot.HardCaps.TryGetValue(inodeKey, out long applicationInodes)

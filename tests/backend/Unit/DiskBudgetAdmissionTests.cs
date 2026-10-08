@@ -249,6 +249,66 @@ public sealed class DiskBudgetAdmissionTests
         Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
     }
 
+    [Fact]
+    public void ReadOnlyAdmissionIgnoresZeroFreeBytesBelowSafetyReserveWithoutRewritingGrowthCaps()
+    {
+        var fixture = new Fixture();
+        fixture.Sample = fixture.Sample with
+        {
+            AvailableBytes = fixture.Observation(fixture.Volume, MemoryResourceUnit.Bytes, 0),
+            QuotaBytes = fixture.Observation(fixture.Volume, MemoryResourceUnit.Bytes, 0)
+        };
+        Assert.Equal(80, fixture.Coordinator.Snapshot().HardCaps["volume"]);
+        var read = fixture.Admission.TryReserve(new(0, 2, 3));
+        Assert.True(read.Succeeded);
+        using (read.Value!)
+        {
+            Assert.Equal(2, fixture.Coordinator.Snapshot().Used["host"]);
+            Assert.Equal(3, fixture.Coordinator.Snapshot().Used["slots"]);
+            Assert.Equal(0, fixture.Coordinator.Snapshot().Used["volume"]);
+            Assert.Equal(0, fixture.Coordinator.Snapshot().Used["volume-inodes"]);
+            Assert.Equal(80, fixture.Coordinator.Snapshot().HardCaps["volume"]);
+            Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
+        }
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Theory]
+    [InlineData("stale")]
+    [InlineData("byte-domain")]
+    [InlineData("quota-domain")]
+    [InlineData("byte-unit")]
+    [InlineData("quota-unknown")]
+    public void ReadOnlyAdmissionStillRequiresFreshScopedExplicitByteAndQuotaObservations(string change)
+    {
+        var fixture = new Fixture();
+        fixture.Sample = change switch
+        {
+            "stale" => fixture.Sample with { ValidUntil = DateTimeOffset.MinValue },
+            "byte-domain" => fixture.Sample with
+            {
+                AvailableBytes = fixture.Observation(fixture.Host, MemoryResourceUnit.Bytes, 100)
+            },
+            "quota-domain" => fixture.Sample with
+            {
+                QuotaBytes = fixture.Observation(fixture.Host, MemoryResourceUnit.Bytes, 100)
+            },
+            "byte-unit" => fixture.Sample with
+            {
+                AvailableBytes = fixture.Observation(fixture.Volume, MemoryResourceUnit.Inodes, 100)
+            },
+            "quota-unknown" => fixture.Sample with
+            {
+                QuotaBytes = new(fixture.Volume, MemoryResourceUnit.Bytes, MemoryObservationState.Unknown,
+                    null, "fixture:missing-quota", DateTimeOffset.UtcNow)
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(change))
+        };
+        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(0, 1, 1)).Failure);
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
     private sealed class Fixture
     {
         internal ResourceDomainId Volume { get; } = new(Guid.NewGuid());
