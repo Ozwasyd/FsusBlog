@@ -17,6 +17,7 @@ const { createArtifactDigestTable } = await import(new URL("../../tools/test-mat
 const { RunEvidenceObjectStore } = await import(new URL("../../tools/test-matrix/content-addressed-evidence-store.mjs", import.meta.url));
 const { artifactSubstitutionBindingDigest, digestDeclaredOutputs, externalEvidenceReceiptDigest, resolveExternalEvidenceReceipts } = await import(new URL("../../tools/test-matrix/local-profile.mjs", import.meta.url));
 const { parseMatrix } = await import(new URL("../../tools/test-matrix/parse-matrix.mjs", import.meta.url));
+const { validateJsonSchema } = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 const { bindResidentLeaseEnforcement, consumeResidentLeaseHandoff, createResidentLeaseInventory, readResidentLeaseDocument, writeResidentLeaseDocument } = await import(new URL("../../tools/test-matrix/resident-resource-leases.mjs", import.meta.url));
 const { createSchedulerRunOwner, schedulerCandidateIdentityDigest, sealSchedulerRunOwner } = await import(new URL("../../tools/test-matrix/scheduler-run-owner.mjs", import.meta.url));
 const runOnce = await import(new URL("../../tools/test/run-once.mjs", import.meta.url));
@@ -169,7 +170,7 @@ function createCanonicalCliFixture(temp, payloads, configureTier = () =>
     const runner = materializeTestMatrixRunner(root, temp);
     const matrix = parseMatrix(fs.readFileSync(path.join(temp, 'tests/matrix.yml'), 'utf8'));
     const scripts = typeof payloads === 'string'
-        ? { 'ux-viewport-plan-progress': payloads }
+        ? { 'frontend-static-governance': payloads }
         : payloads;
     const tierIds = Object.keys(scripts);
     assert.ok(tierIds.length >= 1 && tierIds.length <= 2);
@@ -177,11 +178,18 @@ function createCanonicalCliFixture(temp, payloads, configureTier = () =>
     {
         const selected = matrix.tiers.find((entry) => entry.id === tierId);
         assert.ok(selected);
+        assert.notEqual(selected.executionClass, 'coordination',
+            'scheduler CLI execution fixtures must select executable work, not evidence coordination');
         assert.match(selected.command, /^(?:node tools\/[a-z0-9/-]+\.mjs|tools\/test\/lanes\/[a-z0-9-]+\.sh)$/u);
         const commandPath = selected.command.startsWith('node ')
             ? selected.command.slice('node '.length)
             : selected.command;
-        fs.writeFileSync(path.join(temp, commandPath), scripts[tierId]);
+        const payload = scripts[tierId];
+        const source = selected.command.startsWith('node ') || payload.startsWith('#!')
+            ? payload
+            : ['#!/usr/bin/env bash', 'set -euo pipefail',
+                `exec node --input-type=module -e '${payload.replaceAll("'", "'\"'\"'")}'`].join('\n') + '\n';
+        fs.writeFileSync(path.join(temp, commandPath), source);
         Object.assign(selected, {
             executionDependsOn: [], requiresEvidenceFrom: [], services: [],
             parallelizable: true, exclusiveResources: [], resourceClass: 'cpu',
@@ -4090,8 +4098,8 @@ test('matrix job summaries explicitly separate browser diagnostics from correctn
     const temp = createTempDir('diagnostic-job-summary');
     try
     {
-        const diagnosticTierId = 'ux-viewport-plan-progress';
-        const correctnessTierId = 'runtime-cache-evidence';
+        const diagnosticTierId = 'ux-viewport-smoke';
+        const correctnessTierId = 'frontend-static-governance';
         const fixture = createCanonicalCliFixture(temp, {
             [diagnosticTierId]: 'process.exit(0)\n',
             [correctnessTierId]: 'process.exit(0)\n'
@@ -4242,8 +4250,8 @@ test('fresh CI steps accumulate within one workflow job but reset on the next wo
 {
     const temp = createTempDir('scheduler-summary-ci');
     t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
-    const firstTierId = 'ux-viewport-plan-progress';
-    const secondTierId = 'runtime-cache-evidence';
+    const firstTierId = 'frontend-static-governance';
+    const secondTierId = 'static-governance';
     const fixture = createCanonicalCliFixture(temp, {
         [firstTierId]: 'process.exit(0)\n',
         [secondTierId]: 'process.exit(0)\n'
@@ -4311,8 +4319,8 @@ test('ci-job keeps its CLI contract while using one scheduler checkpoint for all
     const temp = createTempDir('scheduler-ci-job');
     t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
     const marker = path.join(temp, '.tmp/marker.txt');
-    const firstTierId = 'ux-viewport-plan-progress';
-    const secondTierId = 'runtime-cache-evidence';
+    const firstTierId = 'frontend-static-governance';
+    const secondTierId = 'static-governance';
     const fixture = createCanonicalCliFixture(temp, {
         [firstTierId]: `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'a')\n`,
         [secondTierId]: `import fs from 'node:fs'\nfs.appendFileSync(${JSON.stringify(marker)}, 'b')\n`
@@ -4725,11 +4733,29 @@ test('canonical PR scheduler fixture seals committed source and refuses post-sea
     const temp = createTempDir('scheduler-pr-candidate-binding');
     t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
     const fixture = createCanonicalCliFixture(temp, {
-        'ux-viewport-plan-progress': 'process.exit(0)\n',
-        'runtime-cache-evidence': 'process.exit(0)\n'
+        'frontend-static-governance': "process.exit('ready' === 'ready' ? 0 : 1)\n",
+        'static-governance': 'process.exit(0)\n'
     }, () =>
     {
     }, { prSmartSelectedOnly: true });
+    const matrix = parseMatrix(fs.readFileSync(fixture.matrixFile, 'utf8'));
+    const schema = JSON.parse(fs.readFileSync(path.join(temp, 'tests/matrix.schema.json'), 'utf8'));
+    assert.deepEqual(validateJsonSchema(matrix, schema), []);
+    for (const id of fixture.tierIds)
+    {
+        const selected = matrix.tiers.find((entry) => entry.id === id);
+        assert.equal(selected.executionClass, 'static-governance');
+        assert.equal(selected.fixtureProfile, 'none');
+        const result = spawnSync('bash', [path.join(temp, selected.command)], {
+            cwd: temp, encoding: 'utf8'
+        });
+        assert.equal(result.status, 0, result.stderr);
+    }
+    const coordination = createTempDir('scheduler-coordination-refusal');
+    t.after(() => fs.rmSync(coordination, { recursive: true, force: true }));
+    assert.throws(() => createCanonicalCliFixture(coordination, {
+        'ux-viewport-plan-progress': 'process.exit(0)\n'
+    }), /must select executable work/u);
     const changes = readGitChangedPaths(temp, fixture.sourceCommit);
     assert.equal(changes.headCommit, fixture.sourceCommit);
     assert.deepEqual(changes.changedFiles, []);
@@ -4775,8 +4801,8 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', (t)
             'waitForPeer()'
         ].join('\n');
     };
-    const firstTierId = 'ux-viewport-plan-progress';
-    const secondTierId = 'runtime-cache-evidence';
+    const firstTierId = 'frontend-static-governance';
+    const secondTierId = 'static-governance';
     const fixture = createCanonicalCliFixture(temp, {
         [firstTierId]: scriptFor(firstTierId),
         [secondTierId]: scriptFor(secondTierId)
