@@ -169,6 +169,7 @@ const adapterRef = ref<{
     getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
+    closeCommandPalette?: () => void;
     revealHeading?: (
         nodeId: string,
         options?: MarkdownEditorRevealOptions
@@ -377,6 +378,11 @@ function openCommandPalette(): void
     adapterRef.value?.openCommandPalette?.();
 }
 
+function closeCommandPalette(): void
+{
+    adapterRef.value?.closeCommandPalette?.();
+}
+
 function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
 {
     return adapterRef.value?.getAuthoringEditorPort?.() ?? null;
@@ -386,6 +392,7 @@ defineExpose({
     getAuthoringEditorPort,
     insertMarkdownAtCursor,
     openCommandPalette,
+    closeCommandPalette,
     revealHeading: (nodeId: string, options?: MarkdownEditorRevealOptions) =>
         adapterRef.value?.revealHeading?.(nodeId, options) ?? 'not-found',
     revealSourceRange: (range: MarkdownEditorOutlineRange, options?: MarkdownEditorRevealOptions) =>

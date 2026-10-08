@@ -1,7 +1,7 @@
 import { computed, onScopeDispose, ref, watch, type Ref } from 'vue';
 
 // Exact public method of MarkdownTextEditor; no command or editor state is projected here.
-type PaletteOwner = Readonly<{ openCommandPalette: () => void; }>;
+type PaletteOwner = Readonly<{ openCommandPalette: () => void; closeCommandPalette?: () => void; }>;
 
 interface ArticleAuthorCommandPaletteOptions {
     readonly editor: Readonly<Ref<PaletteOwner | null>>;
@@ -16,6 +16,14 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
     const available = computed(() => active.value && options.enabled.value && options.editor.value !== null);
     // Scoped shortcut admission only; input transactions remain with the native editor owner.
     let composing = false;
+    // Remember only our delegated request, never infer a native opened-state receipt.
+    let requestedOwner: PaletteOwner | null = null;
+    const cancelRequest = (): void =>
+    {
+        const owner = requestedOwner;
+        requestedOwner = null;
+        owner?.closeCommandPalette?.();
+    };
     const beginComposition = (): void =>
     {
         composing = true;
@@ -34,6 +42,7 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
             return false;
         }
         editor.openCommandPalette();
+        requestedOwner = editor;
         return true;
     };
 
@@ -53,6 +62,13 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
         }
     };
 
+    const stopCancellation = watch([options.enabled, options.shortcutScope, options.editor], ([enabled, scope, editor], previous) =>
+    {
+        if (!enabled || scope === null || scope !== previous[1] || requestedOwner !== editor)
+        {
+            cancelRequest();
+        }
+    }, { flush: 'sync' });
     const stopWatching = watch([options.shortcutScope, options.editor], ([scope, editor], _previous, onCleanup) =>
     {
         composing = false;
@@ -74,6 +90,8 @@ export function useArticleAuthorCommandPalette(options: ArticleAuthorCommandPale
     onScopeDispose(() =>
     {
         active.value = false;
+        cancelRequest();
+        stopCancellation();
         stopWatching();
     });
 
