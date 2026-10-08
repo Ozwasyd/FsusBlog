@@ -608,6 +608,10 @@ function contextualRecordExpressionLines(codeLines)
     let parentheses = 0;
     return codeLines.map((line) =>
     {
+        if (line.trim().startsWith('#'))
+        {
+            return false;
+        }
         const expression = /^record\s+with\b/u.test(line.trim())
             && (parentheses > 0 || scopes.includes('expression') || /(?:=|=>|\breturn)\s*$/u.test(header));
         for (const character of line)
@@ -623,7 +627,10 @@ function contextualRecordExpressionLines(codeLines)
             if (character === '{')
             {
                 const declaration = /^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\s+[A-Za-z_]\w*\b/u.test(header.trim().replace(/^(?:\[[^\]]*\]\s*)+/u, ''));
-                scopes.push(declaration && !expression ? 'declaration' : 'expression');
+                const executable = scopes.includes('expression') || expression
+                    || /(?:\)|=>|=|\bwith|\b(?:else|try|finally|do))\s*$/u.test(header)
+                    || /\bnew\b/u.test(header);
+                scopes.push(declaration && !expression ? 'declaration' : executable ? 'expression' : 'unknown');
                 header = '';
             }
             else if (character === '}')

@@ -1271,7 +1271,7 @@ test('contextual record expressions do not exempt lowercase types named with', (
 {
     withFixture((fixtureRoot) =>
     {
-        for (const declaration of ['record with;', 'record with(int Value);', 'record class with;', 'class with', 'struct with', 'record lowerCase;', '[System.Obsolete]\npublic class Container\n{\n    record with;\n}'])
+        for (const declaration of ['record with;', 'record with(int Value);', 'record class with;', 'class with', 'struct with', 'record lowerCase;', '[System.Obsolete]\npublic class Container\n{\n    record with;\n}', '#nullable enable\npublic class Container(int Value)\n{\n    record with;\n}'])
         {
             writeFixture(fixtureRoot, 'src/sample/BadType.cs', `namespace Fixture;\n\n${declaration}${/[;}]$/u.test(declaration) ? '\n' : '\n{\n}\n'}`);
             const result = runChecker(fixtureRoot, ['--mode', 'full']);
