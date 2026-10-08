@@ -1,0 +1,157 @@
+{
+  "kind": "current minimal source outcome; not full stage/compiled/held audit acceptance",
+  "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "candidate": "32162e03eaa881451d1823674662cfa51aed661c",
+  "sourceTree": "bc5dd40d78e9cffa24823b76e80dc90aec7a616e",
+  "branch": "codex/mem-3463-minimal-source",
+  "fullChangedPathCount": 19,
+  "scopeBreakdown": {
+    "ownedCSharp": 10,
+    "originalSharedCSharp": 8,
+    "namingManifest": 1
+  },
+  "priorFull38PathCandidate": "a4e68aead16531c3522756bb59fd35018adff058",
+  "removedOldDeltas": {
+    "generatedDocs": 12,
+    "observationLocks": 5,
+    "rendererAndTest": 2
+  },
+  "priorSourceTestsAndSharedBlobsPreserved": true,
+  "newChecks": {
+    "original18CSharpStyle": "Passed",
+    "originalCommitRange": "Passed",
+    "gitDiffWhitespace": "Passed",
+    "positiveCommandAndImportInspection": "Completed before execution",
+    "remoteReachability": "Confirmed candidate branch"
+  },
+  "notRun": [
+    "fresh repository-wide BehaviorDoc SDK admission",
+    "locked restore",
+    "owning-project build",
+    "owning-project tests, including3 NotificationPayloadLease controls",
+    "dotnet formatter",
+    "Docker runtime tests",
+    "full matrix",
+    "native/platform/performance acceptance",
+    "held ProjectXML/semantic-adapter/cohort-pointer/Vault/TOCTOU audits"
+  ],
+  "oldEvidenceSeparation": "25 CSharp tests and1510 warnings/0 errors are delivery-agent results only on a4e68; same reviewer read raw evidence, did not independently rerun them. None is claimed on32162e03e.",
+  "remainingGate": "Original mandatory SDK admission calls deployment-authority observer and five host executions; original owning testhost retains Redis module initializer and deployment dependencies. No supported narrower exact allowlisted execution route supplied; no bypass/alternate harness introduced. See execution-boundaries.json.",
+  "sameReviewer": "01a11b7a-358b-75f9-be4e-d783c7ec7030",
+  "noNewReviewRequested": true,
+  "prOrContentApiWrites": "none",
+  "issueAcceptance": "All mandatory3463 stage criteria remain open; no closure/merge/activation claim.",
+  "artifactBranch": "codex/mem-3463-minimal-diagnostics",
+  "artifactBranchIsNotTestedSourceCandidate": true,
+  "bundle": {
+    "file": "source-inspection.tar.gz",
+    "sha256": "cbf6b9728700ffb547191ceef509b9b2c6363000eaba47981582dbf8aa5b033a",
+    "files": [
+      {
+        "path": "commit-range.log",
+        "sha256": "d4617d28daf43e461a7d1c6a80186b03e8ceada99e97961180bbdd372ac9797a",
+        "bytes": 81
+      },
+      {
+        "path": "dependency-proof.json",
+        "sha256": "b8cbda18472a78425dd98d24836e8725fb4b7f295bc34383522d0a69dc53b882",
+        "bytes": 16692
+      },
+      {
+        "path": "diff-check.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "path": "execution-boundaries.json",
+        "sha256": "cb34d1ab1427f064c6eae73112a065c17da18b305b34200b6bb8d1ab9034762a",
+        "bytes": 2789
+      },
+      {
+        "path": "full-candidate.patch",
+        "sha256": "9d69afd2e2a8892137be389cd1fb9ead0f7757f4c5909993e10a2b2fa7f50b33",
+        "bytes": 105874
+      },
+      {
+        "path": "inspected-source/src/backend/Infrastructure/NotificationStream/NotificationStreamConnectionManager.cs",
+        "sha256": "08499dc92ec840c94a37af7bf3c120147c3be65d2770b45f9a76660a6d8f8d02",
+        "bytes": 20289
+      },
+      {
+        "path": "inspected-source/tests/backend/FsusBlog.Server.Tests.csproj",
+        "sha256": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c",
+        "bytes": 2812
+      },
+      {
+        "path": "inspected-source/tests/backend/GlobalUsings.cs",
+        "sha256": "c87e4f17494a136f908d58c72a14e200e0d00b54ce39f93cbe90141277e18175",
+        "bytes": 912
+      },
+      {
+        "path": "inspected-source/tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs",
+        "sha256": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b",
+        "bytes": 8395
+      },
+      {
+        "path": "inspected-source/tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+        "sha256": "2040f32153b8c7a6610d0334cca881384129b7be5207d11c1883dd9c0e70f24d",
+        "bytes": 15433
+      },
+      {
+        "path": "inspected-source/tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "sha256": "061e979c766a3fbb6434bc9ad4445f4b17a73662bf2bbc1089463ecabe545a45",
+        "bytes": 27460
+      },
+      {
+        "path": "inspected-source/tools/docs/behavior-doc-static-admission.mjs",
+        "sha256": "ad4cc038a5ee1e273c8941d64131da513c63ca855c921213d65f82b156a81990",
+        "bytes": 19959
+      },
+      {
+        "path": "inspected-source/tools/governance/check-monolithic-distributed-architecture.mjs",
+        "sha256": "5d2caf9a77330028d94a5ff8b92c748e2d4a2af7ffba6c4b32197b6ac37a9ec3",
+        "bytes": 50805
+      },
+      {
+        "path": "outcome.json",
+        "sha256": "e74c47f99d1fb25b2b748b15c66c286bae21df9dd57f0fe244f10ddc667ce81e",
+        "bytes": 2106
+      },
+      {
+        "path": "positive-command-import-inspection.json",
+        "sha256": "56f7ed3cc9f6f37b42f6ece8be7a08ba9654608b52a8d6d16defece29ca5b045",
+        "bytes": 4558
+      },
+      {
+        "path": "project-reference-inspection.log",
+        "sha256": "e6a0f5b92da43dfacf14f408e20fb0f7086917169961901def41a7b9302d01cc",
+        "bytes": 9606
+      },
+      {
+        "path": "report-helper-outcome.json",
+        "sha256": "eb0e97aa0258237e693a786691f85978365670b479561459a5f5d6b5ff21c5dd",
+        "bytes": 333
+      },
+      {
+        "path": "source-closure.json",
+        "sha256": "d838ceaa799ca1db21907902e71fcc9ff0afce8be6bec8a6bf10e94b82fd3474",
+        "bytes": 5302
+      },
+      {
+        "path": "source-commit-provenance.log",
+        "sha256": "9048ee210c0fa611925adad57c2f5be35ca3dcaa0a768292a8916210b0772db9",
+        "bytes": 2286
+      },
+      {
+        "path": "source-csharp-command.json",
+        "sha256": "cd510117475eea226052c858d7782ff2e4463d330116cdac04a83a8632d7de10",
+        "bytes": 1674
+      },
+      {
+        "path": "source-csharp.log",
+        "sha256": "7cbcb04cccb38ad562b698f0f99fa6ac7a585a70fa41d74a40a0250a379931a7",
+        "bytes": 46
+      }
+    ]
+  }
+}
