@@ -814,7 +814,11 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
     {
         DocumentExportJobSnapshot snapshot = job.Snapshot;
         DocumentExportTask task = snapshot.Task;
+        DocumentExportProviderContract canonical = DocumentExportContractCatalog.RequireProvider(task.FormatId);
         if (snapshot.Schema != DocumentExportJobPolicy.SnapshotSchema || !Enum.IsDefined(task.Status)
+            || task.Schema != DocumentExportContractCatalog.TaskSchema || job.AdmissionTask.Schema != DocumentExportContractCatalog.TaskSchema
+            || task.ProviderId != canonical.ProviderId || task.ProviderVersion != canonical.ProviderVersion
+            || task.ReadingStyleAuthorityDigest != DocumentExportReadingStyleAuthority.AuthorityDigest
             || task.ContentDigest != DocumentExportContractValidator.Seal(task).ContentDigest
             || job.AdmissionTask.ContentDigest != DocumentExportContractValidator.Seal(job.AdmissionTask).ContentDigest
             || job.AdmissionTask.Status != DocumentExportTaskStatus.Queued || snapshot.Version <= 0
@@ -853,7 +857,11 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             throw new InvalidDataException("document_export_receipt_tampered");
         }
         if (job.Receipt is { } boundReceipt
-            && (boundReceipt.TaskDigest != job.ExecutionTask?.ContentDigest || boundReceipt.InputDigest != task.InputDigest
+            && (boundReceipt.Schema != DocumentExportContractCatalog.ResultSchema
+                || boundReceipt.TaskDigest != job.ExecutionTask?.ContentDigest || boundReceipt.InputDigest != task.InputDigest
+                || boundReceipt.ProviderId != canonical.ProviderId || boundReceipt.ProviderVersion != canonical.ProviderVersion
+                || boundReceipt.RendererId != canonical.RendererId || boundReceipt.RendererVersion != canonical.RendererVersion
+                || boundReceipt.RendererDigest != task.RendererDigest
                 || boundReceipt.Status != DocumentExportProviderResultStatus.Succeeded))
         {
             throw new InvalidDataException("document_export_receipt_tampered");
