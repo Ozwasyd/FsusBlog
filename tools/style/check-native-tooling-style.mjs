@@ -1042,6 +1042,16 @@ function CheckCpp(file, content, argumentsValue)
     for (let index = 0; index < lines.length; index += 1)
     {
         const line = lines[index].replace(/\/\/.*$/u, '');
+        if (/^\s*(?:#|template\s*<)/u.test(line))
+        {
+            // Preprocessing and template declarations can invalidate visible value evidence.
+            for (const scope of valueScopes)
+            {
+                scope.clear();
+            }
+            pendingParameters = [];
+            pendingTypes = [];
+        }
         const trimmed = line.trim();
         const externalDeclaration = /\bextern\s+"C"/u.test(line)
             || (externalBlockDepth !== null && braceDepth >= externalBlockDepth);
@@ -1060,7 +1070,10 @@ function CheckCpp(file, content, argumentsValue)
             ? null
             : line.match(/^\s*(?:(?:extern\s+"C"|static|inline|constexpr|consteval|constinit|const|unsigned|signed|void|bool|int|char|auto|std::[A-Za-z0-9_:<>]+|[A-Za-z_][A-Za-z0-9_:<>]*)\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*\(/u);
         const declarationLine = declarationLines[index];
-        const objectInitialization = IsCppObjectInitialization(declarationLine, functionMatch, valueScopes);
+        const objectInitialization = IsCppObjectInitialization(declarationLine, functionMatch, [
+            ...valueScopes,
+            new Map(pendingTypes.map(name => [name, false]))
+        ]);
         if (!generated
             && functionMatch
             && !objectInitialization
@@ -1079,6 +1092,7 @@ function CheckCpp(file, content, argumentsValue)
 
         const alias = declarationLine.match(/^\s*using\s+([A-Za-z_][A-Za-z0-9_]*)\s*=/u)
             ?? declarationLine.match(/^\s*typedef\s+.+\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/u)
+            ?? declarationLine.match(/^\s*typedef\b.*\(\s*[*&]\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/u)
             ?? declarationLine.match(/^\s*(?:class|struct|enum(?:\s+class)?)\s+([A-Za-z_][A-Za-z0-9_]*)/u);
         const valueDeclaration = declarationLine.match(
             /^\s*(?!(?:using|typedef|return|class|struct|enum)\b)(?:[A-Za-z_][A-Za-z0-9_:<>]*[*&]?\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*(?:[={;])/u
@@ -1104,6 +1118,10 @@ function CheckCpp(file, content, argumentsValue)
                 const named = parameter.match(/\s+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*(?:=.*)?$/u);
                 return named ? [named[1]] : [];
             }) ?? [];
+        }
+        else if (functionMatch)
+        {
+            pendingTypes = [];
         }
         for (const character of declarationLine)
         {
