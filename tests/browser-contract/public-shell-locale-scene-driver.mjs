@@ -146,7 +146,8 @@ export function readPublicShellLocaleDom()
         metadata: {
             title: document.title,
             description: document.querySelector('meta[name="description"]')?.content ?? null,
-            openGraphLocale: document.querySelector('meta[property="og:locale"]')?.content ?? null
+            openGraphLocale: document.querySelector('meta[property="og:locale"]')?.content ?? null,
+            viewportMetaCount: document.querySelectorAll('meta[name="viewport"]').length
         },
         copyNodes,
         selectors,
@@ -168,6 +169,7 @@ export function assertPublicShellLocaleDom({ observation, descriptor, copy, sele
     assert.equal(observation.language, descriptor.documentLanguage, 'observed document language');
     assert.equal(observation.direction, descriptor.direction, 'observed document direction');
     assert.equal(observation.metadata.openGraphLocale, descriptor.openGraphLocale, 'observed OG locale');
+    assert.equal(observation.metadata.viewportMetaCount, 1, 'observed viewport meta must be unique');
     assert.deepEqual(observation.viewport, viewport, 'observed viewport');
     const unobservedKeys = [];
     for (const [key, value] of Object.entries(copy))

@@ -67,8 +67,9 @@ export function assertPublicShellLocaleHydration({ scene, copy, snapshots, conso
         equal(snapshot.direction, scene.document.direction, `${stage} html direction`);
         equal(snapshot.mixedLanguage, false, `${stage} mixed language`);
         equal(snapshot.selectorHidden, false, `${stage} selector visibility`);
-        exactKeys(snapshot.metadata, ['title', 'description', 'openGraphLocale'], `${stage} metadata`);
+        exactKeys(snapshot.metadata, ['title', 'description', 'openGraphLocale', 'viewportMetaCount'], `${stage} metadata`);
         equal(snapshot.metadata.openGraphLocale, scene.document.openGraphLocale, `${stage} OG locale`);
+        equal(snapshot.metadata.viewportMetaCount, 1, `${stage} unique viewport meta`);
         assert.deepEqual(snapshot.metadata, snapshots['first-html'].metadata, `hydration ${stage} metadata changed`);
         exactKeys(snapshot.copy, Object.keys(copy), `${stage} typed copy`);
         for (const [key, value] of Object.entries(copy))

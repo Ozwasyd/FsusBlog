@@ -143,6 +143,25 @@ for (const [name, mutate] of [
     });
 }
 
+for (const [name, mutate] of [
+    ['missing count', metadata => delete metadata.viewportMetaCount],
+    ['negative count', metadata => metadata.viewportMetaCount = -1],
+    ['fractional count', metadata => metadata.viewportMetaCount = 1.5],
+    ['string count', metadata => metadata.viewportMetaCount = '1'],
+    ['unsafe count', metadata => metadata.viewportMetaCount = Number.MAX_SAFE_INTEGER + 1]
+])
+{
+    test(`scene original viewport grammar rejects ${name} (Node model only)`, async () =>
+    {
+        const { parsePublicShellLocaleSceneOriginalJson: parse } = await import(new URL('../../tools/test-matrix/verify-public-shell-locale.mjs', import.meta.url));
+        const value = originalWriterStageModel(2084);
+        value.documents[0].evidence.browser.recorder.frames = [{ observedAt: 1, dom: originalWriterDomModel() }];
+        mutate(value.documents[0].evidence.browser.recorder.frames[0].dom.metadata);
+        assert.throws(() => parse(Buffer.from(JSON.stringify(value.documents[0])), { kind: 'scene', matrix: value.matrix,
+            caller: value.caller, runtime: value.runtime }), /JSON/u);
+    });
+}
+
 for (const issue of [2084, 2085, 2086])
 {
     test(`scene original #2083 HTTP exception cannot exempt ${issue} recorder (Node model)`, () =>
@@ -571,7 +590,7 @@ test('scene original P2 parser accepts original scene and ledger shapes and esca
     const doc = JSON.parse(JSON.stringify(value.documents[0]));
     doc.evidence.browser.recorder.frames = [{ observedAt: 1, dom: {
         language: 'en-US', direction: 'ltr', hydrationKind: null, hydrated: false,
-        metadata: { title: 'braces }],{ and quote " / \\ and Unicode 日本語\n\ud800', description: null, openGraphLocale: null },
+        metadata: { title: 'braces }],{ and quote " / \\ and Unicode 日本語\n\ud800', description: null, openGraphLocale: null, viewportMetaCount: 1 },
         copyNodes: [], selectors: [], geometry: [], containment: [[0, 1]], viewport: { width: 10, height: 10 }, fonts: null
     } }];
     assert.deepEqual(parse(Buffer.from(JSON.stringify(doc)), { ...options, kind: 'scene' }), doc);
@@ -608,7 +627,7 @@ for (const [name, source] of [
     ['empty containment tuple', value =>
     {
         value.documents[0].evidence.browser.recorder.frames = [{ observedAt: 1, dom: { language: 'en', direction: 'ltr',
-            hydrationKind: null, hydrated: false, metadata: { title: '', description: null, openGraphLocale: null },
+            hydrationKind: null, hydrated: false, metadata: { title: '', description: null, openGraphLocale: null, viewportMetaCount: 1 },
             copyNodes: [], selectors: [], geometry: [], containment: [[]], viewport: { width: 10, height: 10 }, fonts: [] } }];
         return JSON.stringify(value.documents[0]);
     }],
@@ -805,7 +824,7 @@ test('scene original writer shape admits the canonical empty driverObservations 
 function originalWriterDomModel()
 {
     return { language: 'en-US', direction: 'ltr', hydrationKind: null, hydrated: false,
-        metadata: { title: 'Node writer model', description: null, openGraphLocale: null },
+        metadata: { title: 'Node writer model', description: null, openGraphLocale: null, viewportMetaCount: 1 },
         copyNodes: [], selectors: [], geometry: [], containment: [], viewport: { width: 390, height: 844 }, fonts: null };
 }
 

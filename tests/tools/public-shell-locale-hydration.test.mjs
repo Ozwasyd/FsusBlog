@@ -29,7 +29,8 @@ function snapshot(overrides = {}, caseScene = scene, caseCopy = copy)
         metadata: {
             title: caseCopy['layout.siteHeader.fallbackTitle'],
             description: caseCopy['layout.siteHeader.fallbackDescription'],
-            openGraphLocale: caseScene.document.openGraphLocale
+            openGraphLocale: caseScene.document.openGraphLocale,
+            viewportMetaCount: 1
         },
         selector: {
             active: caseScene.locale,
@@ -136,7 +137,8 @@ test('1440px header geometry stays stable and above the desktop hit-area floor',
         metadata: {
             title: wideCopy['layout.siteHeader.fallbackTitle'],
             description: wideCopy['layout.siteHeader.fallbackDescription'],
-            openGraphLocale: wide.document.openGraphLocale
+            openGraphLocale: wide.document.openGraphLocale,
+            viewportMetaCount: 1
         },
         selector: {
             active: wide.locale,
@@ -188,6 +190,19 @@ for (const [index, locale] of matrix.locales.entries())
         assert.equal(evidence.observed.locale, locale.code);
         assert.equal(evidence.qualificationEligible, false);
     });
+}
+
+for (const count of [0, 2])
+{
+    for (const stage of ['first-html', 'hydration-start', 'interactive-ready', 'selector-open'])
+    {
+        test(`hydration rejects viewport meta count ${count} at ${stage} (Node diagnostic)`, () =>
+        {
+            assert.throws(() => assertPublicShellLocaleHydration({ scene, copy,
+                snapshots: snapshots(stage, value => ({ ...value,
+                    metadata: { ...value.metadata, viewportMetaCount: count } })) }), /hydration/u);
+        });
+    }
 }
 
 for (const field of ['title', 'description'])

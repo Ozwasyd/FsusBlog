@@ -419,7 +419,8 @@ export function parsePublicShellLocaleSceneOriginalJson(bytes, { kind, matrix, c
     const domBoolean = scalar(undefined, value => typeof value === 'boolean');
     const domNullableText = nullable(scalar(undefined, value => typeof value === 'string'));
     const dom = object({ language: primitive, direction: primitive, hydrationKind: primitive, hydrated: primitive,
-        metadata: object({ title: primitive, description: primitive, openGraphLocale: primitive }),
+        metadata: object({ title: primitive, description: primitive, openGraphLocale: primitive,
+            viewportMetaCount: scalar(undefined, value => Number.isSafeInteger(value) && value >= 0) }),
         copyNodes: array(object({ key: primitive, text: primitive, visible: primitive }), originalBrowserRecordLimits.recordBytes),
         selectors: array(object({ active: primitive, pending: primitive, visible: primitive, expanded: primitive, disabled: domBoolean,
             items: array(object({ code: primitive, selected: primitive, visible: primitive, ariaLabelOrText: primitive,

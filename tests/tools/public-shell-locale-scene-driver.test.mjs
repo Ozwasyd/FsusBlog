@@ -32,7 +32,7 @@ function hydrationInput()
 {
     const snapshot = {
         language: descriptor.documentLanguage, direction: descriptor.direction,
-        copy, metadata: { title: 'configured site title', description: 'configured description', openGraphLocale: descriptor.openGraphLocale },
+        copy, metadata: { title: 'configured site title', description: 'configured description', openGraphLocale: descriptor.openGraphLocale, viewportMetaCount: 1 },
         selector: { active: descriptor.code, disabled: false,
             items: items.map((item) => ({ code: item.code, selected: item.selected, hidden: false,
                 nativeName: item.nativeName, englishName: item.englishName !== item.nativeName ? item.englishName : null,
@@ -120,7 +120,7 @@ async function enteredSwitchModel({ stage = 'commit', route = 'Home', captureRes
         const locale = matrix.locales.find((item) => item.code === selected.locale);
         return {
             language: locale.documentLanguage, direction: locale.direction,
-            metadata: { title: 'Node fixture title', description: 'Node fixture description', openGraphLocale: locale.openGraphLocale },
+            metadata: { title: 'Node fixture title', description: 'Node fixture description', openGraphLocale: locale.openGraphLocale, viewportMetaCount: 1 },
             viewport: scene.viewport,
             copyNodes: Object.entries(committed ? copies.target : copies.source).map(([key, value]) => ({ key, text: value, visible: true })),
             selectors: [{ active: locale.code, expanded: true, visible: true, disabled: false,
@@ -647,7 +647,7 @@ function domInput()
         descriptor, copy, selectorItems: items, viewport,
         observation: {
             language: descriptor.documentLanguage, direction: descriptor.direction,
-            metadata: { openGraphLocale: descriptor.openGraphLocale }, viewport,
+            metadata: { openGraphLocale: descriptor.openGraphLocale, viewportMetaCount: 1 }, viewport,
             copyNodes: [{ key: 'public.shell.login', text: copy['public.shell.login'], visible: true }],
             selectors: [{ active: descriptor.code, expanded: false, visible: true, disabled: false,
                 items: items.map((item) => ({ ...item, englishName: item.englishName !== item.nativeName ? item.englishName : null, disabled: false, visible: false })) }],
@@ -702,6 +702,7 @@ test('DOM reader records actual containment, hidden state, metadata and text wit
     const window = new Window();
     window.document.write(`<html lang="${descriptor.documentLanguage}" dir="${descriptor.direction}"><head>
         <title>real configured title</title><meta property="og:locale" content="${descriptor.openGraphLocale}">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
         </head><body><div id="fsus-aot-shell" data-public-auth-message-key="public.shell.login">
         <header data-public-shell-header><a data-public-nav="home">actual brand</a>
         <a data-public-nav="home">actual home</a><a data-public-nav="auth">actual auth</a>
@@ -717,6 +718,7 @@ test('DOM reader records actual containment, hidden state, metadata and text wit
     const before = window.document.documentElement.outerHTML;
     const observed = runInNewContext(`(${readPublicShellLocaleDom.toString()})()`, { window });
     assert.equal(observed.metadata.title, 'real configured title');
+    assert.equal(observed.metadata.viewportMetaCount, 1);
     assert.equal(observed.copyNodes.find((item) => item.key === 'public.shell.home').text, 'actual home');
     assert.equal(observed.selectors[0].items[0].visible, false);
     assert.equal(observed.selectors[0].items[0].nativeName, 'actual native');
@@ -730,8 +732,24 @@ test('DOM reader records actual containment, hidden state, metadata and text wit
     window.document.documentElement.removeAttribute('dir');
     const missingDirection = runInNewContext(`(${readPublicShellLocaleDom.toString()})()`, { window });
     assert.equal(missingDirection.direction, '');
+    window.document.head.appendChild(window.document.querySelector('meta[name="viewport"]').cloneNode());
+    const duplicateViewport = runInNewContext(`(${readPublicShellLocaleDom.toString()})()`, { window });
+    assert.equal(duplicateViewport.metadata.viewportMetaCount, 2);
+    window.document.querySelectorAll('meta[name="viewport"]').forEach(element => element.remove());
+    const missingViewport = runInNewContext(`(${readPublicShellLocaleDom.toString()})()`, { window });
+    assert.equal(missingViewport.metadata.viewportMetaCount, 0);
     window.happyDOM.abort();
 });
+
+for (const count of [0, 2])
+{
+    test(`DOM viewport meta count rejects actual ${count} metadata elements (Node diagnostic)`, () =>
+    {
+        const input = domInput();
+        input.observation.metadata.viewportMetaCount = count;
+        assert.throws(() => assertPublicShellLocaleDom(input), /viewport meta/u);
+    });
+}
 
 test('telemetry listener captures genuine bus events without calling or dispatching product hooks', () =>
 {
