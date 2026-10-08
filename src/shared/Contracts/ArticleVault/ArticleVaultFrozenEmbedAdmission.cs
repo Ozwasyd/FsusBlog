@@ -1,0 +1,176 @@
+using FsusBlog.Shared.Contracts.ArticleEmbeds;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
+
+namespace FsusBlog.Shared.Contracts.ArticleVault;
+
+/// <summary>
+/// Ephemeral three-way input for one already parsed embed occurrence. The canonical
+/// manifest and #1869 resolution remain the identity, permission and budget authorities.
+/// This is not a graph schema, resolver, writer or publication command.
+/// </summary>
+public sealed record ArticleVaultFrozenEmbedInput(
+    ArticleVaultArticleManifest Manifest,
+    ArticleEmbedProviderRequest Request,
+    ArticleEmbedAuthoritySnapshot Authority,
+    ArticleEmbedResolutionBudgetLimits Budgets,
+    ArticleEmbedAuthoringResolution Resolution,
+    ArticleEmbedDependencyCoordinate Base,
+    ArticleEmbedDependencyCoordinate Local,
+    ArticleEmbedDependencyCoordinate Server,
+    bool ExplicitDraftRefresh);
+
+/// <summary>
+/// Coordinate-only candidate. It deliberately carries no target source, title, HTML
+/// or cached projection. Rejected outcomes carry no target coordinate or input digest.
+/// A permitted candidate still needs the #2124 plan and #2128 expected-revision writer.
+/// </summary>
+public sealed record ArticleVaultFrozenEmbedCandidate(
+    bool Permitted,
+    string? ReasonCode,
+    ArticleEmbedDependencyCoordinate? Before,
+    ArticleEmbedDependencyCoordinate? After,
+    string? InputSha256,
+    string ContentSha256);
+
+/// <summary>
+/// Compares canonical frozen coordinates without parsing source or resolving latest.
+/// Public/current published host coordinates are immutable in this admission path.
+/// </summary>
+public static class ArticleVaultFrozenEmbedAdmission
+{
+    public static ArticleVaultFrozenEmbedCandidate Compare(ArticleVaultFrozenEmbedInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        if (!ArticleVaultManifestValidator.Validate(input.Manifest).IsValid
+            || !ArticleEmbedContractValidator.Validate(input.Request).IsValid
+            || !ArticleEmbedContractValidator.Validate(input.Base).IsValid
+            || !ArticleEmbedContractValidator.Validate(input.Local).IsValid
+            || !ArticleEmbedContractValidator.Validate(input.Server).IsValid)
+        {
+            return Reject("vault_embed_input_invalid");
+        }
+
+        ArticleVaultArticleManifest manifest = input.Manifest;
+        VaultArticleCoordinate server = manifest.Coordinates.Server;
+        if (!manifest.Coordinates.Base.Present
+            || !manifest.Coordinates.Local.Present
+            || !server.Present
+            || manifest.Coordinates.Base.Deleted
+            || manifest.Coordinates.Local.Deleted
+            || server.Deleted
+            || input.Request.HostPortableArticleIdentity != manifest.PortableArticleIdentity
+            || input.Request.Actor.SiteIdentity != manifest.SiteIdentity
+            || input.Request.SourceRevision != server.ServerRevision
+            || input.Request.ContentDigest != server.Source?.Sha256
+            || input.Base.Target != input.Request.Target
+            || input.Local.Target != input.Request.Target
+            || input.Server.Target != input.Request.Target)
+        {
+            return Reject("vault_embed_source_binding_mismatch");
+        }
+
+        ArticleEmbedAuthoringVerification verification = ArticleEmbedAuthoringVerifier.Verify(
+            [input.Request], input.Authority, input.Budgets, input.Resolution);
+        if (!verification.Valid
+            || input.Resolution.Status != ArticleEmbedAuthoringResolutionStatus.Completed
+            || input.Resolution.Results.Count != 1)
+        {
+            return Reject("vault_embed_authority_invalid");
+        }
+
+        ArticleEmbedAuthoringEmbedResult resolved = input.Resolution.Results[0];
+        if (resolved.Result.Status != ArticleEmbedProviderResultStatus.Resolved
+            || resolved.Result.Permission != ArticleEmbedPermissionStatus.Allowed
+            || resolved.Result.Visibility != ArticleEmbedVisibilityStatus.Public
+            || resolved.Result.Lifecycle != ArticleEmbedLifecycleStatus.Published
+            || resolved.Eligibility != ArticleEmbedPublicationEligibility.PublicationEligible)
+        {
+            return Reject("vault_embed_target_unavailable");
+        }
+
+        ArticleEmbedDependencyCoordinate selected;
+        if (server.Lifecycle == "published")
+        {
+            if (input.ExplicitDraftRefresh || input.Local != input.Base || input.Server != input.Base)
+            {
+                return Reject("vault_embed_published_coordinate_drift");
+            }
+            selected = input.Base;
+        }
+        else if (server.Lifecycle == "draft")
+        {
+            if (input.Local == input.Base)
+            {
+                selected = input.Server;
+            }
+            else if (input.Server == input.Base || input.Local == input.Server)
+            {
+                selected = input.Local;
+            }
+            else
+            {
+                return Reject("vault_embed_coordinate_overlap");
+            }
+            if (selected != input.Base && !input.ExplicitDraftRefresh)
+            {
+                return Reject("vault_embed_explicit_refresh_required");
+            }
+        }
+        else
+        {
+            return Reject("vault_embed_host_not_editable");
+        }
+
+        if (resolved.Result.Coordinate != selected)
+        {
+            return Reject("vault_embed_exact_coordinate_unavailable");
+        }
+
+        string inputSha256 = ComputeInputSha256(input);
+        var candidate = new ArticleVaultFrozenEmbedCandidate(
+            true, null, input.Base, selected, inputSha256, string.Empty);
+        return candidate with
+        {
+            ContentSha256 = ComputeCandidateSha256(candidate)
+        };
+    }
+
+    /// <summary>
+    /// Re-admits current authority and all three inputs before comparing every candidate
+    /// field. This local check supplements, rather than replaces, canonical syntax/graph verification.
+    /// </summary>
+    public static bool Verify(ArticleVaultFrozenEmbedInput input, ArticleVaultFrozenEmbedCandidate candidate)
+        => Compare(input) == candidate;
+
+    private static ArticleVaultFrozenEmbedCandidate Reject(string reasonCode)
+    {
+        var candidate = new ArticleVaultFrozenEmbedCandidate(false, reasonCode, null, null, null, string.Empty);
+        return candidate with
+        {
+            ContentSha256 = ComputeCandidateSha256(candidate)
+        };
+    }
+
+    private static string ComputeInputSha256(ArticleVaultFrozenEmbedInput input)
+        => ArticleEmbedContractDigest.Compute(writer =>
+        {
+            writer.Add(input.Manifest.ContentSha256);
+            writer.Add(input.Request.RequestDigest);
+            writer.Add(input.Authority.SnapshotDigest);
+            writer.Add(input.Resolution.ResolutionDigest);
+            writer.Add(input.Base.DependencyDigest);
+            writer.Add(input.Local.DependencyDigest);
+            writer.Add(input.Server.DependencyDigest);
+            writer.Add(input.ExplicitDraftRefresh);
+        });
+
+    private static string ComputeCandidateSha256(ArticleVaultFrozenEmbedCandidate candidate)
+        => ArticleEmbedContractDigest.Compute(writer =>
+        {
+            writer.Add(candidate.Permitted);
+            writer.Add(candidate.ReasonCode);
+            writer.Add(candidate.Before?.DependencyDigest);
+            writer.Add(candidate.After?.DependencyDigest);
+            writer.Add(candidate.InputSha256);
+        });
+}
