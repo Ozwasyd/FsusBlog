@@ -22,6 +22,32 @@ public sealed class DocumentExportHtmlProviderTests
     private const string SvgOpen = "<svg xmlns=\"http://www.w3.org/2000/svg\">";
 
     [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void PreservesSvgAccessibleTitlesAlongsideOwnedPageTitle(int diagramCount)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        string fragment = string.Concat(Enumerable.Range(0, diagramCount).Select(index =>
+            $"<svg xmlns=\"http://www.w3.org/2000/svg\" role=\"img\" aria-label=\"Diagram {index}\"><title>Diagram {index}</title><desc>Details {index}</desc><path d=\"M 0 0 L 1 1\" /></svg>"));
+        byte[] sanitized = DocumentExportHtmlSanitizer.Sanitize(fragment, [], 1_048_576);
+        byte[] document = SelfContainedHtmlDocumentExportProvider.ComposeDocument("Page title", input, sanitized, 16_777_216);
+
+        DocumentExportHtmlVerifier.Validate(document, input, 16_777_216);
+        using var parsed = new HtmlParser().ParseDocument(Encoding.UTF8.GetString(document));
+        Assert.Equal("Page title", parsed.Title);
+        Assert.Single(parsed.Head!.QuerySelectorAll("title"));
+        Assert.Equal(diagramCount, parsed.QuerySelectorAll("svg title").Length);
+        for (int index = 0; index < diagramCount; index++)
+        {
+            var svg = parsed.QuerySelectorAll("svg")[index];
+            Assert.Equal($"Diagram {index}", svg.GetAttribute("aria-label"));
+            Assert.Equal($"Diagram {index}", svg.QuerySelector("title")!.TextContent);
+            Assert.Equal("http://www.w3.org/2000/svg", svg.QuerySelector("title")!.NamespaceUri);
+            Assert.Equal($"Details {index}", svg.QuerySelector("desc")!.TextContent);
+        }
+    }
+
+    [Theory]
     [InlineData("em")]
     [InlineData("strong")]
     [InlineData("span")]
