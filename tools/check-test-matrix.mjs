@@ -353,6 +353,13 @@ function appendWorkflowNeed(workflowText, jobId, need)
 {
     return mutateWorkflowJob(workflowText, jobId, (source, job) =>
     {
+        const flowPattern = new RegExp(`^(\\s{${job.fieldIndent}}needs:\\s*\\[)([^\\]]*)(\\][^\\n]*)$`, 'mu');
+        const flowMatch = source.match(flowPattern);
+        if (flowMatch)
+        {
+            const separator = flowMatch[2].replace(/#[^\n]*/gu, '').trim() ? ', ' : '';
+            return source.replace(flowPattern, (_match, prefix, entries, suffix) => `${prefix}${need}${separator}${entries}${suffix}`);
+        }
         const lines = source.split('\n');
         const pattern = new RegExp(`^\\s{${job.fieldIndent}}needs:\\s*$`, 'u');
         const index = lines.findIndex((line) => pattern.test(line));
