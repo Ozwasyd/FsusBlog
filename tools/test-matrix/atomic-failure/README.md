@@ -60,6 +60,11 @@ need the original owner/grant and finalizer contracts. Raw validated state facts
 are returned for reuse by read-only terminal collection, not as a qualification
 receipt. Ordinary controls execute original source-fixture producers through this
 binding; they do not exercise product services or qualify Production runtime.
+The executable state-policy binder currently requires complete selection: the
+original executor lacks a selected-subgraph/not-selected terminal API. Pure CI
+projection keeps the planner's selection facts, but cannot grant partial execution.
+Multi-job dispatch also needs the original executor's job-scoped invocation and
+structured cross-job prerequisite handoff; this binder is not a CI job dispatcher.
 
 `collectCompiledAtomicTerminalMaterial` consumes that same verified compiled DAG,
 its original complete terminal vector and explicit expected-vector material. It

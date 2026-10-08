@@ -143,6 +143,8 @@ export async function createCompiledAtomicRuntimeCiBinding(input, hostLimits)
     const { verifyCompiledAtomicProducerDag } = await import(new URL('../atomic-producers/compiler.mjs', import.meta.url));
     const { readCanonicalSchedulerCheckpoint } = await import(new URL('../scheduler.mjs', import.meta.url));
     const compiled = verifyCompiledAtomicProducerDag(material.compiled, material.matrix, material.authorities);
+    sameFact(stableIds(material.selectedIds, 'runtime selected producers'), stableIds(compiled.steps.map((step) => step.id),
+        'compiled runtime producers'), 'canonical runtime executor selection capability');
     const commandRepositoryRoot = path.resolve(import.meta.dirname, '../../..');
     const steps = compiled.steps.map((step) => ({ id: step.id, dependsOn: step.dependsOn, resources: step.resources,
         command: (step.command ?? []).map((argument) =>

@@ -434,6 +434,7 @@ test('runtime state input remains DATA_ONLY and must preserve the original catal
 test('running canonical checkpoint source is required; disposable JSON cannot replace readback', async () =>
     withRuntimeInput(async (input) =>
     {
+        await assert.rejects(createCompiledAtomicRuntimeCiBinding({ ...input, selectedIds: [] }, hostLimits), /selection capability/u);
         const wrongSource = { ...input, worktreeFingerprint: `sha256:${'3'.repeat(64)}` };
         await assert.rejects(createCompiledAtomicRuntimeCiBinding(wrongSource, hostLimits), /worktree/u);
         const file = path.join(input.repositoryRoot, input.checkpointRef.path);
