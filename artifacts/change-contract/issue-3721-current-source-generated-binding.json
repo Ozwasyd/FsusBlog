@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/testing/release-final-execution-authority-index.json",
+        "tools/style/check-native-tooling-style.mjs",
+        "tools/style/command-wrapper-input-model.mjs",
+        "tools/style/command-wrapper-input-ast.mjs",
+        "tools/style/command-wrapper-compile-binding.mjs",
+        "tools/style/command-wrapper-caller-binding.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "eedaa367698a68a3ef8c0be7c5f0af1751ea74f6be85e75868713e055279cf2b"
+        }
+    ]
+}
