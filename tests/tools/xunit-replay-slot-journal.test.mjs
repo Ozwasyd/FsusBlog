@@ -115,6 +115,15 @@ test('original callback journal retains successful failed and skipped outcomes a
     assert.deepEqual(records.filter((record) => record.kind === 'test-started').map((record) => record.payload), receipt.starts);
     assert.deepEqual(records.filter((record) => record.kind === 'test-outcome').map((record) => record.payload), receipt.outcomes);
     assert.deepEqual(receipt.outcomes.map((entry) => entry.outcome), ['passed', 'failed', 'skipped']);
+    const failure = records.find((record) => record.kind === 'test-failure').payload;
+    const failedOutcome = receipt.outcomes.find((outcome) => outcome.outcome === 'failed');
+    assert.equal(failure.testCaseUniqueId, failedOutcome.testCaseUniqueId);
+    assert.equal(failure.testUniqueId, failedOutcome.testUniqueId);
+    assert.equal(failure.cause, 'Assertion');
+    assert.deepEqual(failure.exceptionTypes, ['Xunit.Sdk.EqualException']);
+    assert.deepEqual(failure.exceptionParentIndices, [-1]);
+    assert.equal(failure.messages.join('\n'), failedOutcome.detail);
+    assert.equal(failure.stackTraces.length, failure.exceptionTypes.length);
     assert.equal(records.at(-2).kind, 'assembly-finished');
     assert.deepEqual(records.at(-1).payload, { exitCode: 1 });
     assert.equal(records.at(-1).kind, 'runner-terminal');
@@ -151,6 +160,7 @@ test('real process kill preserves the flushed first failure and live incomplete 
         const records = events(probe.journal);
         callbackIdentity(probe, records);
         assert.deepEqual(records.filter((record) => record.kind === 'test-outcome').map((record) => record.payload.outcome), ['passed', 'failed']);
+        assert.equal(records.find((record) => record.kind === 'test-failure').payload.cause, 'Assertion');
         assert.equal(records.at(-1).kind, 'test-started');
         assert.equal(records.at(-1).payload.testCaseUniqueId, waiting.testCaseUniqueId);
         assert.equal(records.some((record) => record.kind === 'runner-terminal'), false);

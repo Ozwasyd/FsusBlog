@@ -173,7 +173,7 @@ internal static class Program
             }
         };
         sink.TestPassedEvent += message => AddOutcome(outcomes, gate, journal, message.Message, "passed", null);
-        sink.TestFailedEvent += message => AddOutcome(outcomes, gate, journal, message.Message, "failed", string.Join("\n", message.Message.Messages));
+        sink.TestFailedEvent += message => AddOutcome(outcomes, gate, journal, message.Message, "failed", string.Join("\n", message.Message.Messages), message.Message);
         sink.TestSkippedEvent += message => AddOutcome(outcomes, gate, journal, message.Message, "skipped", message.Message.Reason);
         sink.TestNotRunEvent += message => AddOutcome(outcomes, gate, journal, message.Message, "not-run", null);
         sink.TestAssemblyFinishedEvent += _ =>
@@ -242,7 +242,8 @@ internal static class Program
         SlotEventJournal journal,
         ITestResultMessage test,
         string outcome,
-        string? detail)
+        string? detail,
+        ITestFailed? failure = null)
     {
         lock (gate)
         {
@@ -255,6 +256,21 @@ internal static class Program
                 test.FinishTime,
                 detail));
             journal.Record("test-outcome", outcomes.Last());
+            if (failure is not null)
+            {
+                journal.Record("test-failure", new
+                {
+                    TestUniqueId = failure.TestUniqueID,
+                    TestCaseUniqueId = failure.TestCaseUniqueID,
+                    TestCollectionUniqueId = failure.TestCollectionUniqueID,
+                    failure.FinishTime,
+                    Cause = failure.Cause.ToString(),
+                    failure.ExceptionParentIndices,
+                    failure.ExceptionTypes,
+                    failure.Messages,
+                    failure.StackTraces
+                });
+            }
         }
     }
 

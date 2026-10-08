@@ -22,6 +22,7 @@ import { verifyExecutionReplay } from './execution-replay-verifier.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const runnerProject = path.join(root, 'tools/test/xunit-replay-runner/FsusBlog.XunitReplayRunner.csproj');
 const { readPrivateFile } = await import(new URL('../test-fixtures/receipt/private-io.mjs', import.meta.url));
+const { buildBackendNativeExecutionEvents } = await import(new URL('../test-matrix/outcomes/backend-native-execution-events.mjs', import.meta.url));
 const maximumOutputBytes = 16 * 1024 * 1024;
 const runnerDll = path.join(root, 'tools/test/xunit-replay-runner/bin/Release/net10.0/FsusBlog.XunitReplayRunner.dll');
 
@@ -388,10 +389,17 @@ export function spawnSlot({ manifest, slot, outputDirectory, inputReferences = [
     const stderr = outputCapture(`${outputPrefix}.stderr.log`, process.stderr);
     const command = ['dotnet', runnerDll, 'run-slot', '--assembly', manifest.assembly,
         '--queue', queueFile, '--output', receiptFile];
+    const childEnvironment = { ...process.env };
+    const attemptContext = childEnvironment.FSUSBLOG_RANDOM_EXECUTION_ATTEMPT === undefined ? null : {
+        source: 'random-child-execution-environment',
+        attemptId: childEnvironment.FSUSBLOG_RANDOM_EXECUTION_ATTEMPT,
+        runId: childEnvironment.FSUSBLOG_RANDOM_EXECUTION_RUN ?? null,
+        replayPlanDigest: childEnvironment.FSUSBLOG_REPLAY_PLAN_DIGEST ?? null
+    };
     const startedAt = new Date().toISOString();
     return new Promise((resolve, reject) =>
     {
-        const child = spawn(command[0], command.slice(1), { cwd: root, env: process.env,
+        const child = spawn(command[0], command.slice(1), { cwd: root, env: childEnvironment,
             stdio: ['ignore', 'pipe', 'pipe'] });
         const pid = child.pid ?? null;
         let spawnError = null;
@@ -402,7 +410,7 @@ export function spawnSlot({ manifest, slot, outputDirectory, inputReferences = [
             spawnError = error.message;
         });
         const processBase = { schema: 'fsusblog.xunit-replay-slot-process.v1', qualificationEligible: false,
-            planDigest: manifest.planDigest, slotId: slot.id, processId: pid, command, startedAt,
+            planDigest: manifest.planDigest, slotId: slot.id, processId: pid, command, startedAt, attemptContext,
             queueReference: rawReference(queueFile), ...references };
         child.once('close', (code, signal) =>
         {
@@ -450,6 +458,9 @@ export async function execute({ plan, manifest, outputDirectory, inputReferences
     const results = await Promise.all(manifest.slots.map((slot) => spawnSlot({ manifest, slot, outputDirectory, inputReferences, executionReferences })));
     const canonicalByCase = new Map(manifest.slots.flatMap((slot) => slot.collections.flatMap((collection) =>
         collection.tests.map((test) => [test.testCaseUniqueId, test.canonicalTestId]))));
+    atomicJson(path.join(outputDirectory, 'backend-execution-events.json'), buildBackendNativeExecutionEvents({
+        plan, manifest, results, inputReferences, executionReferences
+    }));
     atomicJson(path.join(outputDirectory, 'process-results.json'), {
         schema: 'fsusblog.xunit-replay-process-results.v1', qualificationEligible: false,
         planDigest: plan.planDigest, source: plan.source, producer: plan.producer, run: plan.run,

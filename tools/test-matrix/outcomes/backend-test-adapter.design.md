@@ -287,3 +287,81 @@ and final receipt IO failure. They record native exits 0/1/2 and signal SIGKILL
 without invoking candidate, semantic forgery or reviewer audit suites.
 Failed randomized assertion/shrink emission and actual runtime/temporal/envelope
 qualification remain separate missing original-owner capabilities.
+
+## Structured native failure callbacks
+
+The existing xUnit `TestFailedEvent` also supplies `ITestFailed.Cause`,
+`ExceptionParentIndices`, `ExceptionTypes`, `Messages` and `StackTraces`.
+The original reporter now records these actual arrays in a `test-failure`
+journal event immediately after its existing failed `test-outcome`, under the
+same synchronous callback lock. Native test/case/collection IDs and finish time
+are preserved. Existing final receipt fields and assertion/skip/exit behavior do
+not change. The original journal caps still apply; a stopped journal cannot claim
+missing structured observations. Native `Cause` is retained as a framework enum
+name, not mapped to a canonical failure class/kind or assertion ID.
+
+`backend-native-execution-events.mjs::buildBackendNativeExecutionEvents` consumes
+the existing parent's actual slot results and original manifest. The parent writes
+`backend-execution-events.json` before either the complete or partial result path.
+Its `fsusblog.backend-native-execution-events.v1` output is explicitly unqualified,
+retaining original plan source/producer/run, manifest digest and owner references.
+Each worker contains the observed native journal events, original raw journal
+path/digest/sequence references, queue-bound canonical case IDs and actual process
+terminal. Its `firstFailure` identifies the first failed outcome in that slot's
+original journal sequence and links matching structured failure material when
+present. There is no invented cross-slot total failure order.
+
+`incompleteStarts` lists starts with no observed matching terminal callback;
+`queuedCasesWithoutCallbacks` lists original queued cases with no retained callback.
+These remain observation gaps, not synthesized failed/blocked/not-run outcomes.
+The emitter creates no semantic candidate or canonical assertion membership.
+
+At actual spawn, the parent snapshots the existing child environment.
+If `FSUSBLOG_RANDOM_EXECUTION_ATTEMPT` exists, `attemptContext` retains that exact
+attempt ID and the originally supplied `FSUSBLOG_RANDOM_EXECUTION_RUN` and
+`FSUSBLOG_REPLAY_PLAN_DIGEST` values (nullable when absent). Otherwise the context
+is null. This diagnostic context is not an attempt receipt or verified identity
+join. The original `run-replay-qualification.mjs::runRandomizedProducer` already
+supplies these variables; no attempt number, policy, reference or authority is
+created by this increment. Ordinary controls use an explicitly unqualified label
+for their actual task invocation and retain a null plan context when none was
+supplied. The root plan reference still comes from the actual original CLI plan.
+
+## Exact remaining callback requests
+
+The owned native source can now publish real structured failure metadata and
+partial execution observations. The following inputs are still absent from its
+actual callback API; the held semantic adapter continues to refuse without them.
+
+- The original execution/assertion owner must supply explicit assertion IDs and
+  generated case bindings, original attempt number/content digest and held
+  replay/envelope/temporal references. `ITestFailed` exception metadata does not
+  identify an assertion site or establish #2020 canonical failure identity.
+  The existing test-only `ReporterMaterialTests.ObserveEqual` provides an explicit
+  assertion ID only for that isolated fixture, not for native product tests.
+- `tests/backend/Unit/BackendPropertyTests.cs::RecordCase` is currently called
+  only after all assertions for that sample pass. Its `PublishExecution` runs
+  only on success. The original property owner must emit a flushed generated-case
+  callback before those unchanged assertions, using its actual stream seed,
+  current index and original sample serialization/hash algorithm; then emit actual
+  per-assertion success/failure and first-failure records while preserving rethrow.
+  The record must retain original run/attempt/plan inputs from the child environment.
+  The parent can then join the retained prefix to its actual terminal without
+  reconstructing a failed input from messages or post-success case lists.
+- `tools/test/run-replay-qualification.mjs::runRandomizedProducer` currently
+  rejects nonzero/signal results before retaining its process result and
+  `parseProcessEvidence` admits passing random observations only. Its original
+  owner must expose the actual failure/cancel process terminal plus retained
+  property callback references before throwing. This shared owner source is not
+  changed here; the native parent is not substituted for its `dotnet test` lane.
+- No shrink execution callback exists in the actual backend generator: its three
+  configured streams have `shrinks=0`. `createFuzzCaseReceipt` accepts a supplied
+  `failure.shrinkSequence` but does not execute or observe shrinking. A real fuzz
+  owner must supply observed shrink/transition callbacks and retained minimal
+  sample bytes if applicable; an empty or fabricated transcript is not emitted.
+
+These are concrete producer/API gaps, not an OPEN-issue status dependency.
+Canonical catalog/profile APIs remain usable from the pinned provider; actual
+attempt/runtime authorities, canonical assertion emission and held partial
+semantic acceptance remain with their original owners. No held substitution,
+forgery, cross-candidate or tampering audits are run to bypass the existing hold.
